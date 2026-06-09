@@ -1,0 +1,364 @@
+# Palm Springs Lens Validation — 2026-06-09
+# Generated 2026-06-09T18:22:16.454Z
+#
+# TABLE 1 (lens preview, all active brand items):
+#   Total items: 178
+#   lens: 164   local_fallback: 8   no_config: 6
+#
+# TABLE 2 (most recent count: count_id=470fc2da-6fce-415b-bf9d-43b0db6bd51d status=completed count_date=2026-05-03 entered=167):
+#   Total entered: 167
+#   qty_match=false: 81
+#   value_match=false: 115
+#   BOTH false (priority investigation): 63
+#
+
+## TABLE 1 — Lens preview (simulated 1 case entry)
+brand_item_name,vendor_sku,pack_size,outer_qty,inner_qty,common_unit,count_units_per_case,cost_per_unit,cost_per_common_unit,simulated_qty_for_1_case,simulated_value_for_1_case,config_source,active_pack_config_id,location_pack_selection_exists,FLAG_NOT_LENS
+17oz Dough Ball,,,,,each,17,0.40823938306283813,0.02401408135663754,17,0.0000,local_fallback,,false,YES
+(NEW) Large Salad Bowls,pfg:796943,6/50CT,6,50,ea,300,34.94,0.1568,300,34.9400,lens,62dcc301-73ed-4d3c-8467-7bac3015781f,true,
+Porch Pounder Chardonnay Cans,heimark:59789,,6,4,ea,24,2.625,2.625,24,2.6250,lens,0d475574-5562-4eba-884b-79f5ad320d9c,false,
+Caesar Dressing,pfg:30296,4/1GA,4,1,gal,4,68.65,17.1625,4,68.6500,lens,ec4a14b0-0ee8-49e8-8cab-025a3f6f092e,true,
+Red Pepper Packets,pfg:231628,500/1 GM,500,1,g,500,13.77,0.02754,500,13.7700,lens,46dab69c-571e-499d-b00b-d37a4405ad8b,true,
+Restroom Cleaner w/Bleach (Bottle),pfg:243671,6/1QT,6,1,qt,6,37.14,6.201666666666667,6,37.1400,lens,ceeb0f54-a554-4e28-a4bb-31b17d96a0c3,true,
+Vegan Cheese,pfg:1014398,6/2.2LB,6,2,lb,12,55.59,4.6325,12,55.5900,lens,e4fe3c52-cb51-40e0-8773-574a77c278c3,true,
+(NEW) Plastic Spoons,pfg:1002342,1000/1CT,1,1000,ea,1000,27.25,0.026420000000000003,1000,27.2500,lens,1816d086-83e6-4cca-9525-f3a438720a76,true,
+Stella Artois 11.2oz Cans,heimark:37745,,24,11,oz,264,1.1938,0.10852272727272727,264,1.1938,lens,d63803d7-64fc-4d31-b02a-b2643a8b022d,false,
+Regular Paper Cups (24 oz),pfg:851423,1/1000 CT,25,40,ea,1000,74.06,0.07406,1000,74.0600,lens,29929db2-21df-4128-884c-30665ecbc7df,true,
+Chopped Romaine Hearts,,,,,each,1,,,1,0.0000,no_config,,false,YES
+"14"" Blaze Pizza Boxes (Large)",pfg:848486,1/100 CT,1,100,ea,100,39.53,0.4425,100,39.5300,lens,64303dd7-4669-40f7-8ef4-e1182c285b31,true,
+Diced Chicken,pfg:205416,6/5 LB,6,5,lb,30,98.15,3.271666666666667,30,98.1500,lens,125d159b-7160-4381-b703-d02b77faf241,true,
+Chocolate Chip Cookies,pfg:820246,48/2OZ,4,12,ea,48,25.47,0.5306,48,25.4700,lens,85c34d6a-066b-4814-8c3a-36df5a872186,true,
+Handle Replacement,pfg:312381,1/1 CT,1,1,ea,1,11.07,11.07,1,11.0700,lens,1a7a7860-1b79-4fed-bcd1-aedc455fc07f,true,
+6.8oz Dough Ball,,,,,each,7,0.16329575322513526,0.023327964746447893,7,0.0000,local_fallback,,false,YES
+Cup Carriers,pfg:419687,1/150 CT,1,150,ea,150,117.51,0.7834,150,117.5100,lens,6740973a-8361-4974-82df-a7f5dc30fb4d,true,
+Plastic Wrap,pfg:899594,1/2000 FT,,,cs,1,22.65,22.65,1,22.6500,local_fallback,,false,YES
+1/2 Pizza Boxes,pfg:848488,1/200 CT,1,200,ea,200,40.97,0.2207,200,40.9700,lens,8df315c1-b65f-4f11-88aa-4081dfc18225,true,
+Classic Red Sauce (Prepped),,,,,each,1,,,1,0.0000,no_config,,false,YES
+Meatball Bucket,pfg:851425,1/450 CT,1,450,ea,450,52.12,0.11582222222222222,450,52.1200,lens,ec868a91-54d6-427b-abd9-95ac1e025f72,true,
+White Sauce,pfg:1043126,8/4 LB,8,4,lb,32,74.74,2.335625,32,74.7400,lens,c411bbee-5b5c-4ac0-b016-90e85c1083d5,true,
+Bacon,pfg:446132,2/5 LB,2,5,lb,10,57.55,5.755,10,57.5500,lens,ffb6f6a8-7f21-47a0-a608-b73603e57f86,true,
+24 oz Coke Branded Cups,pfg:849681,25/40 CT,25,40,ea,1000,106.05,0.10605,1000,106.0500,lens,92d59b0c-75bf-4791-990b-dcb43dde87df,true,
+Brownies,pfg:645079,2/1CT,2,32,ea,64,35.05,0.5471875,64,35.0500,lens,2d1d1f21-d794-47bc-8160-8ffb729fc209,true,
+Coke Zero BIB 5g,pfg:883022,1/5GA,1,5,ga,5,115.95,23.19,5,115.9500,lens,8d8af141-543a-42c3-85b0-d07314894cb6,true,
+Chopped Garlic,pfg:461896,6/3LB,6,3,lb,18,58.91,3.408888888888889,18,58.9100,lens,f0529fb8-dbce-4ee8-811d-96ae4fa086e5,true,
+Medium Gloves,pfg:609025,10/100 CT,10,100,ea,1000,17.23,0.01751,1000,17.2300,lens,c879f522-471d-4b59-8fcc-5a9a1ba980ff,true,
+Cauliflower Crust,pfg:597098,24/6.9 OZ,24,,ea,24,63.45,2.64375,24,63.4500,lens,87ce4335-9577-4849-be81-e4149c8bf4b2,true,
+Blood Orange Puree,pfg:276111,6/30OZ,6,30,oz,180,89.05,0.49472222222222223,180,89.0500,lens,0a73aa7e-7922-45fd-98e9-fa27400b6f6d,true,
+Feta Cheese,pfg:361663,2/5LB,2,5,lb,10,26.64,2.664,10,26.6400,lens,885af466-d155-4b22-a3bf-4aac7d44a959,true,
+Vegan Chorizo,pfg:621183,2/5 LB,2,5,lb,10,44.59,4.4590000000000005,10,44.5900,lens,a38ffd38-c5f2-4062-911e-da660a28609e,true,
+Banana Peppers,pfg:718428,4/1GA,4,1,gal,4,33.4,8.35,4,33.4000,lens,2da59c4b-68a6-4716-a813-e6afe3ff9c1e,true,
+"1"" Deli ""Hot"" Label Roll",pfg:943842,1/1000 CT,,,cs,1000,16.64,0.016640000000000002,1000,16.6400,local_fallback,,false,YES
+Balsamic Glaze,pfg:422105,2/1GA,2,1,gal,2,45.05,22.525,2,45.0500,lens,e2df1305-0c0f-4865-8ccf-42218873ab61,true,
+Trash Can Liners 60 Gallon,pfg:279762,10/10 CT,10,10,ea,100,20.44,0.45549999999999996,100,20.4400,lens,a26e50e5-7736-48e5-a111-274fc67a49b3,true,
+Romaine Hearts,produce_alliance:5513,48 CT,48,,ea,48,40.22,0.8379166666666666,48,40.2200,lens,3c99cb2f-2bbd-435d-94b5-a0b36c727a27,true,
+Granulated Sugar Bulk,pfg:976705,1/50 LB,1,25,lb,25,40.77,1.0212,25,40.7700,lens,2ba7ae78-0707-4834-98a1-2e11a2277b02,true,
+Plastic Coke PROMO Cups,pfg:1066573,1/540 CT,1,540,ea,540,86.67,0.1605,540,86.6700,lens,ee1fff4d-fd42-4f7f-9f7f-b0afed545c23,true,
+Shaved Parmesan,pfg:620994,4/5 LB,4,5,lb,20,62.74,3.2015000000000002,20,62.7400,lens,48188c04-b145-48ce-a001-f180c24594d8,true,
+Roasted Broccoli,produce_alliance:10575,4/3 LB,4,3,lb,12,30.04,2.4716666666666667,12,30.0400,lens,776c7bc0-7722-4829-acfc-7a29bbb58afe,true,
+Water Cups,pfg:579979,20/50 CT,20,50,ea,1000,88.1,0.0881,1000,88.1000,lens,0e8300de-d8c6-49b7-9b35-2653c5ea0413,true,
+(NEW) Salad Bowl Lids,pfg:1019741,4/75CT,4,75,ea,300,49.47,0.1649,300,49.4700,lens,53132339-70de-475f-85fe-32daeae1c52f,true,
+Dr. Pepper BIB 5g,pfg:496455,1/5 GA,1,5,gal,5,115.95,23.19,5,115.9500,lens,e5b7e3a6-297c-457d-8cc2-49e1d3ea689a,true,
+Cherry Coke BIB 2.5g,pfg:960172,1/2.5GA,1,2.5,ga,2.5,60.5,22.98,2.5,60.5000,lens,59dcdfe2-9e08-44ce-a463-a365616a3c91,true,
+"11"" Blaze Pizza Boxes",pfg:848485,1/100 CT,1,100,ea,100,25.66,0.3062,100,25.6600,lens,8a866d9e-3a72-4abe-82e1-8cdc4fe75d5c,true,
+Pineapple Tidbits (Produce Alliance),produce_alliance:31363,6/10 LB,6,10,lb,60,56.82,0.9450000000000001,60,56.8200,lens,e48730a7-6c61-4bac-a36b-ddcacfc55733,true,
+Vitamin Water XXX BIB 2.5g,pfg:436444,1/2.5GA,1,2.5,gal,2.5,62.95,20.983333333333334,2.5,62.9500,lens,465219bc-ac67-4247-8e41-e7c9da30d403,true,
+Dessert Bags,pfg:330237,20/100 CT,20,100,ea,2000,2.2725,0.022725000000000002,2000,2.2725,lens,b9a416b5-0c8f-42b2-bf98-edd28e1fcd06,true,
+Michelob Ultra 12oz Cans,heimark:11408,,18,12,oz,216,0.9667,0.08055555555555555,216,0.9667,lens,332d6812-c892-45a4-bde8-23f98fae5512,false,
+Powdered Sugar Bulk,pfg:389430,1/25LB,24,1,lb,24,31.71,1.4066666666666665,24,31.7100,lens,d7c432ed-c336-4732-b34c-661efe3cbb99,true,
+Parmesan Packets,pfg:232186,200/3.5 GM,200,4,g,800,15.99,0.019987500000000002,800,15.9900,lens,63850819-6570-4158-90e0-a38459357435,true,
+Coke BIB 5g,pfg:26383,1/5GA,1,5,ga,5,115.95,23.19,5,115.9500,lens,583b8d00-4258-40d6-be2f-5101a4dc94db,true,
+Quintet Sanitizer (Dispenser),pfg:244417,2/1 GA,2,1,gal,2,55.97,28.05,2,55.9700,lens,cd8dffdd-51f3-40c3-b054-56e1df91d5ff,true,
+Mexican Coke 12oz,pfg:249358,24/12OZ,24,12,oz,288,42.89,0.1489236111111111,288,42.8900,lens,604e5749-e79f-4a9c-be16-7f81705c1409,true,
+Firestone 805 Blonde Ale Cans,heimark:70935,,2,12,ea,24,1.3458,1.3458333333333332,24,1.3458,lens,dcf6f8dd-70e1-4223-aef1-a70f092d9fd7,false,
+Fruit/Veggie Wash Test Strips,pfg:515275,1/100 CT,,,cs,100,20.37,0.20370000000000002,100,20.3700,local_fallback,,false,YES
+Receipt Paper Roll,pfg:1039457,1/50 CT,3,10,ea,30,45.66,2.7386666666666666,30,45.6600,lens,4275c1cb-c8e3-4be9-a7a8-30173a783009,true,
+(NEW) Cold Cup Lids,pfg:603923,10/100CT,10,100,ea,1000,24.68,0.02468,1000,24.6800,lens,46b11b5b-229c-43c3-b219-9a7227afeeb3,true,
+Coachella Valley Brewing CDMX Cans,heimark:41627,,24,1,ea,24,1.875,1.875,24,1.8750,lens,dac20b24-74ba-4917-aec0-d779bc2e7ee1,false,
+(NEW) Balsamic Caramelized Onion,,,,,each,1,,,1,0.0000,no_config,,false,YES
+Fanta Orange BIB 5g,pfg:964693,1/5 GA,1,5,ga,5,115.95,23.19,5,115.9500,lens,8e2a2b14-4405-48e4-bf7d-98a6f04bfc58,true,
+Dr Pepper BIB 2.5g,pfg:488067,1/2.5 GA,1,2.5,ga,2.5,60.5,24.2,2.5,60.5000,lens,12e41d3f-e6ec-4fc0-b248-2f2e9499f43c,true,
+(NEW) Small Salad Bowls,pfg:727122,6/50CT,6,50,ea,300,31.59,0.1191,300,31.5900,lens,828c5069-ce7a-4cd9-a6d9-9216d3862abb,true,
+Broom Head Replacement,pfg:569980,12/1 CT,12,1,ea,12,102.89,8.574166666666667,12,102.8900,lens,0de9ad9d-c783-4c86-8933-c357ef08083c,true,
+Hershey's Bars,pfg:336055,1/36 CT,1,36,ea,36,50.7,1.3230555555555557,36,50.7000,lens,fdff8672-f1a4-4d05-8a51-83ba1b1545a4,true,
+Sprite BIB 5g,pfg:2204,1/5 GA,1,5,gal,5,115.95,23.19,5,115.9500,lens,393ea638-2b2a-4bf6-be0c-20cb10e951ae,true,
+Honest Apple Juice 6oz,pfg:623806,50/6 OZ,50,6,oz,300,30.86,0.10286666666666666,300,30.8600,lens,72b26ab9-9d5d-465b-a8a5-f279ae0a436e,true,
+Marshmallows,pfg:535332,12/1LB,12,1,lb,12,32.9,2.7416666666666667,12,32.9000,lens,0d2486d3-dc96-42d7-92ea-70a7f9c3b7e2,true,
+Pizza Liners,pfg:963870,5/1000 CT,5,1000,ea,5000,78.05,0.015609999999999999,5000,78.0500,lens,b5f88ddd-3407-4d32-96fc-c75d393e1978,true,
+Sanitizer (Dispenser),pfg:244419,2/1GA,2,1,gal,2,80.44,39.71,2,80.4400,lens,7990ae0c-ed04-4dcb-98ed-72b5e8e0f877,true,
+Iced Tea Bags,pfg:278951,32/2.75 OZ,32,3,oz,96,46.04,0.5091666666666667,96,46.0400,lens,b806c827-0326-4491-8ea1-ee8bdad0c104,true,
+Fanta Orange BIB 2.5g,pfg:983742,1/2.5 GA,1,2.5,ga,2.5,60.5,24.2,2.5,60.5000,lens,cb6f2daa-459c-4f0e-8b2a-44ebd3388021,true,
+Floor Cleaner (Dispenser),pfg:243637,2/1 GA,2,1,gal,2,63.02,31.565,2,63.0200,lens,305515b5-62d9-4cb7-b1dc-06b6524e4856,true,
+Dish Soap (Dispenser),pfg:243641,2/1GA,2,1,gal,2,64.62,32.365,2,64.6200,lens,ab44428a-07fc-4749-bcff-0231e456c3ac,true,
+Barqs Rootbeer BIB 2.5g,pfg:662001,1/2.5 GA,1,2.5,ga,2.5,60.5,24.2,2.5,60.5000,lens,3c1c4bf4-1f33-4bc2-82f5-5a29c98c49af,true,
+2 oz Portion Cups,pfg:869787,10/250CT,10,250,ea,2500,35.36,0.014147999999999999,2500,35.3600,lens,88160f1b-a043-4437-8f00-6e4e10264b81,true,
+Chipotle Sauce,pfg:896859,2/64 OZ,,,cs,2,45.49,22.745,2,45.4900,local_fallback,,false,YES
+Sugar Packets,pfg:351199,2000/.1 OZ,,,cs,2000,21.53,0.010765,2000,21.5300,local_fallback,,false,YES
+Quick Dry Rinse Aid (Dispenser),pfg:243663,2/1 GA,2,1,gal,2,66.08,33.085,2,66.0800,lens,7ffdbd7d-4658-40c3-ba90-415f0dbfbe91,true,
+(NEW) Sliced Proscuitto,pfg:330211,6/1LB,6,1,lb,6,86.05,14.341666666666667,6,86.0500,lens,a4687cf8-4b76-40ac-97c4-33938495ba1b,true,
+Large Gloves,pfg:608998,10/100 CT,10,100,ea,1000,17.51,0.01751,1000,17.5100,lens,f8ff3358-3a88-4ea4-9fc7-1a7feb9d6700,true,
+Pineapple Tidbits (PFG),pfg:267823,6/#10 CN,6,104,oz,624,48,0.07692307692307693,624,48.0000,lens,03dfddcb-12c8-4823-92d5-60a12f6e36b0,true,
+"Orange ""Sealed Hot"" Labels",pfg:899097,12/500 RL,12,500,ea,6000,112.07,0.018643333333333335,6000,112.0700,lens,7116dea9-f1a3-4bb6-aaf1-602ef9bc0bc8,true,
+Green Bell Peppers,produce_alliance:12802,1/5 LB,1,5,lb,5,28.71,5.7,5,28.7100,lens,d124adb1-46cb-4c0e-aa5c-26bf70289e1c,true,
+Entree Salad Container,pfg:803773,2/75 CT,2,75,ea,150,15.93,0.211,150,15.9300,lens,8548d331-50cf-4c8b-b844-571eedd7b870,true,
+Lagunitas Poolside Blonde Cans,heimark:41242,,6,4,ea,24,1.9583,1.9583333333333333,24,1.9583,lens,c6f00ae7-d686-45a2-af10-c6c30447a361,false,
+To-Go Bags with Handle,pfg:360400,1/250 CT,1,250,ea,250,59.66,0.226,250,59.6600,lens,ff9eccf2-54b7-4198-8678-86a8ea874196,true,
+Lagunitas Heatwave IPA Cans,heimark:41261,,6,4,ea,24,2.125,2.125,24,2.1250,lens,48c980f5-0810-46eb-9ff4-47e54e1e572a,false,
+Butter Oil,pfg:566463,4/1 GA,4,1,gal,4,52.32,12.2275,4,52.3200,lens,0073b59c-0d2a-4c09-b7ac-a2dc2b092127,true,
+Canola Oil,pfg:239717,4/1GA,4,1,gal,4,68.41,15.7525,4,68.4100,lens,4ac67ab3-4cc9-43f5-a680-d5f4112b658f,true,
+Estrella Jalisco 12oz,heimark:13636,,24,12,oz,288,0.9563,0.0796875,288,0.9563,lens,8f1e93d5-a691-49cc-9fa0-1340a52fc2b1,false,
+New Pesto,pfg:1043068,8/4LB,8,4,lb,32,116.8,3.65,32,116.8000,lens,64b18a32-74ef-4c02-91a5-ff87cd2b33bb,true,
+Baby Spinach,produce_alliance:13605,4/2.5 LB,4,2.5,lb,10,18.81,1.5258333333333332,10,18.8100,lens,a3fbd3b5-7d16-41ac-a635-ac4dc6f5d96c,true,
+Dusting Flour,pfg:557845,1/25LB,1,25,lb,25,24.8,0.992,25,24.8000,lens,96e54cba-6168-45e8-aa38-412594e868db,true,
+Arugula,produce_alliance:16901,1/4 LB,1,4,lb,4,16.02,4.2875,4,16.0200,lens,bef97798-04bb-491f-9d6a-76fc059c52d3,true,
+Lemonade Base,pfg:565284,4/128OZ,4,128,oz,512,42.61,0.08322265625,512,42.6100,lens,4ce10e97-a5d8-4c47-bb67-3d1d13a405e3,true,
+Diet Coke Bottle 20oz,pfg:18705,24/20 OZ,24,20,oz,480,41.93,0.08735416666666666,480,41.9300,lens,4eef9ba3-9af0-4c18-a2f1-2fa87a59f54f,true,
+Spicy Red Sauce (Pouch),pfg:1047357,6/106OZ,6,106,oz,636,34.11,0.05172955974842767,636,34.1100,lens,247a83f0-ff86-4b69-b1eb-5f4c267025b8,true,
+Diet Coke BIB 5g,pfg:28969,1/5 GA,1,5,gal,5,115.95,22.03,5,115.9500,lens,0f4d6d77-65a8-4a2d-99d9-77b7ab078cb5,true,
+BBQ Sauce,pfg:447552,4/158 OZ,4,158,oz,632,55.81,0.08830696202531646,632,55.8100,lens,7675d31f-7ed1-44f7-bf26-a0c7e922255d,true,
+Red Bull 8.4oz,pfg:355368,24/8.4 OZ,24,8.4,oz,201.6,43.8,0.21622023809523813,201.60000000000002,43.8000,lens,18f1d43a-0d3a-470c-ad37-2e3388973163,true,
+Gluten Free Flour,pfg:390485,2/9.6 LB,2,9.6,lb,19.2,54.67,3.032,19.2,54.6700,lens,3a27638f-73b8-4c7f-9cfe-66f9d2bd2d17,true,
+Blood Orange Pellegrino 11.2oz,pfg:801626,24/330 ML,1,24,ea,24,24.89,1.037,24,24.8900,lens,b9f4fdae-ed42-4121-b659-62a029481723,true,
+Sliced Ham,pfg:937936,5/2 LB,5,2,lb,10,33.55,3.3549999999999995,10,33.5500,lens,35ae801c-b8bc-427e-b2b3-07db78503336,true,
+Straws (Individually Wrapped Style),pfg:1046834,4/500 CT,4,500,ea,2000,38.05,0.019025,2000,38.0500,lens,973abff1-920f-4288-9f56-42c1eb1283fd,true,
+Sliced Mushrooms,produce_alliance:21031,1/10 LB,2,5,lb,10,29.55,2.5,10,29.5500,lens,725ab5fa-b9dc-4901-8dfa-4e41086fdf89,true,
+Fresh Mozzarella Sliced,pfg:638061,6/1 LB,6,1,lb,6,22.25,3.7083333333333335,6,22.2500,lens,9e193793-3fa0-44f1-9e7f-59389f0d80a2,true,
+Ricotta,pfg:537827,4/5 LB,4,5,lb,20,36.35,1.8175000000000001,20,36.3500,lens,a7b3dbb7-53e2-404e-bd4b-e836ded83031,true,
+Jalapeno Peppers,pfg:718429,4/1GA,4,1,gal,4,33.27,8.3175,4,33.2700,lens,cb76b5e4-fc1f-4b3b-a8a0-95c637ced9f4,true,
+Pellegrino Glass Bottle 500ml,pfg:936710,24/500ML,24,500,ml,12000,34.58,0.0028816666666666665,12000,34.5800,lens,24d6f709-cffb-4c2c-a8e4-19278dd3a258,true,
+Pink Cleaning Towels,pfg:66140,1/200 CT,1,200,ea,200,21.55,0.1026,200,21.5500,lens,beb31a20-7354-4b32-b01f-ce27ee05fceb,true,
+Red Onions,produce_alliance:14364,4/5 LB,1,5,lb,5,48,3.218,5,48.0000,lens,f4f215ef-5014-4487-9649-e60e6dcbc3a3,true,
+Coke Bottle 20z,pfg:532033,24/20 OZ,24,20,ea,480,41.93,0.08341666666666667,480,41.9300,lens,da35887c-6791-4cab-91e1-a593e8c1b7c5,true,
+Artichokes,pfg:180950,6/2.5KG,6,1,ea,6,56.81,9.4683,6,56.8100,lens,ac597ebc-5bd9-43b2-ab4f-767e5ec545c1,true,
+Dish Machine Detergent (Dispenser),pfg:243538,2/1 GA,2,1,gal,2,97.49,48.8,2,97.4900,lens,566a510a-3aef-493d-9df4-dd631718cca0,true,
+Meatballs,pfg:214134,4/10LB,4,10,lb,40,148.72,3.668,40,148.7200,lens,b0c23830-1baf-4694-9ae5-0fab0c955245,true,
+Digestive Cookies,pfg:204867,12/14.1OZ,12,14,oz,168,36.93,0.22928571428571431,168,36.9300,lens,ff7ddddd-594f-4265-8303-a9cd1af8bca4,true,
+Kalamata Olives,pfg:686856,4/2KG,4,2,kg,8,66.61,8.3725,8,66.6100,lens,8a189711-bc8f-441b-8d89-1fe19338f807,true,
+Chit Paper Rolls,pfg:688796,1/1 RL,12,1,rl,12,12.23,12.253333333333332,12,12.2300,lens,244581a2-be64-41cb-bf40-2ba8fa3a57b3,true,
+Trash Can Liner 23 Gallon,pfg:320565,10/10CT,10,10,ea,100,17.39,0.2851,100,17.3900,lens,d2353d44-6dcb-44f9-83cf-00da0fbd8d26,true,
+Italian Sausage,pfg:454609,8/5LB,8,5,lb,40,98.65,2.46625,40,98.6500,lens,c21e1434-2343-47bf-be1d-ae9f23b4d878,true,
+Water,,,,,each,1,,,1,0.0000,no_config,,false,YES
+Spring Mix,produce_alliance:38923,1/3 LB,1,3,lb,3,13.7,4.566666666666666,3,13.7000,lens,7cddb542-b425-4c95-8394-3dea61a4a99a,true,
+Lemon Pellegrino 11.2oz,pfg:803282,24/330 ML,1,24,ea,24,24.89,1.037,24,24.8900,lens,09d9c41d-cc9d-4d27-a910-8c9778c27059,true,
+Salami,pfg:472548,2/5 LB,2,5,lb,10,48.85,5.65,10,48.8500,lens,384512f7-4bd4-41bd-bb23-efba59aa1623,true,
+Shredded Mozzarella,pfg:1005947,6/5 LB,6,5,lb,30,59.28,1.982,30,59.2800,lens,886c4ee5-0812-401b-be14-6be0eceb23c0,true,
+Oregano,pfg:261432,1/5 LB,1,5,lb,5,48.64,10.208,5,48.6400,lens,bb95da0e-1a18-431f-96df-c81e37e76447,true,
+Grated Parmesan,pfg:486538,4/5 LB,4,5,lb,20,53.82,2.7895,20,53.8200,lens,fd8137d3-5232-4ba9-8ca7-d3ed9ab51c23,true,
+Mexican Fanta 12oz,pfg:408440,24/355 ML,24,12,oz,288,42.89,0.1489236111111111,288,42.8900,lens,843a2ec2-06a4-4e2c-bb0d-a7a8d38eace8,true,
+Knives,pfg:707270,1/1000CT,1,1000,ea,1000,24.39,0.024390000000000002,1000,24.3900,lens,f905b757-d8ce-4186-8ade-7d2dcbb58f0e,true,
+Degreaser (Dispenser),pfg:243658,2/1 GA,2,1,gal,2,47.4,23.73,2,47.4000,lens,29a7fb52-a40f-46fb-9633-ec3c02f3b64f,true,
+Prepped Dough,,,,,each,668,13.528695803140097,0.020252538627455234,668,0.0000,local_fallback,,false,YES
+X-Large Gloves,pfg:609006,10/100 CT,10,100,ea,1000,17.23,0.01751,1000,17.2300,lens,e64a28a4-7ab6-4660-a8a5-428b35c4d8fc,true,
+Napkins,pfg:437345,12/500 CT,12,500,ea,6000,40.68,0.00678,6000,40.6800,lens,d99b78f2-a6c2-46bf-b6e2-31c237ed2a16,true,
+Bud Light 16oz Cans,heimark:10351,,24,,ea,24,1.2042,1.2041666667,24,1.2042,lens,9c1272fb-7b18-42fc-8db3-6eb69ae6f1d0,false,
+Side Salad Container,pfg:803786,4/75CT,4,75,ea,300,9.9325,0.13173333333333334,300,9.9325,lens,7abb09ba-f01c-4de9-bee2-2bd99dcd1423,true,
+Small Paper Cups (16 oz),pfg:851417,1/1000 CT,20,50,ea,1000,54.32,0.05432,1000,54.3200,lens,86ed269e-52c0-40ba-b4d4-bea81a9d3a8a,true,
+Powerade Mountain Blast Bottle 20oz,pfg:909514,24/20 OZ,24,20,oz,480,34.73,0.06991666666666667,480,34.7300,lens,066de004-810b-4631-8020-f3b815e43255,true,
+Goat Cheese,pfg:612307,2/2LB,2,2,lb,4,27.33,6.78,4,27.3300,lens,251302e5-441b-4e95-96c2-6ad781912472,true,
+Meatball Bucket Lid,pfg:218001,9/50 CT,9,50,ea,450,5.7156,0.1143111111111111,450,5.7156,lens,6999d174-5783-45ad-97dc-ab4ea4d83fa3,true,
+Monster Energy Drink 16oz,pfg:245725,24/16 OZ,24,16,oz,384,48.05,0.12458333333333334,384,48.0500,lens,603ad17e-5317-4e36-8438-8e8fc5a8062e,true,
+Grape Tomatoes,produce_alliance:15881,1/10 LB,1,10,lb,10,22.27,3.2090000000000005,10,22.2700,lens,89fdd74e-9ffc-4dfe-96e4-89cb25560682,true,
+Cherry Coke BIB 5g,pfg:26877,1/5GA,1,5,ga,5,115.95,23.19,5,115.9500,lens,1517e95d-e8d2-472b-8ef9-0f34fd0702f5,true,
+Budweiser 12oz Cans,heimark:10130,,1,30,ea,30,0.78,0.81,30,0.7800,lens,1aae2e6f-546d-4474-8031-f769a954f5c5,false,
+Croutons,pfg:321334,4/2.5LB,4,2.5,lb,10,28.6,2.3833333333333333,10,28.6000,lens,7ea10846-806d-4d2e-8e2b-3c29ee55f8fb,true,
+Garlic Cloves,pfg:283987,1/5LB,1,5,lb,5,19.24,4.544,5,19.2400,lens,7198a655-2586-4645-8935-b98cdd4c1dc1,true,
+Fruit/Veggie Wash (Dispenser),pfg:488267,2/1 GA,2,1,gal,2,84.68,41.79,2,84.6800,lens,ed76fbb8-7b28-46da-aad8-0235ac6acae5,true,
+Sprite Bottle 20oz,pfg:53034,24/20OZ,24,20,oz,480,41.93,0.08341666666666667,480,41.9300,lens,1d5f96f8-da77-4cae-b59a-6d657dfb6d77,true,
+Pepperoni,pfg:248716,6/5 LB,6,5,lb,30,110.8,3.631333333333333,30,110.8000,lens,f903ae16-575a-408a-8754-78eb6b573a62,true,
+Blaze Red Sauce Can,pfg:611957,6/#10 CN,6,104,oz,624,37.62,0.06352564102564102,624,37.6200,lens,9d976b9d-f169-4321-b581-ef9312e27ac6,true,
+Low Fat Chocolate Milk 8oz,pfg:682242,24/8 OZ,24,8,oz,192,20.81,0.12963541666666667,192,20.8100,lens,8992653a-29d0-4bb0-bb0f-4a045aee83ac,true,
+Frank's Red Hot Sauce,pfg:268060,4/1 GA,4,1,gal,4,48.13,12.0325,4,48.1300,lens,3d775a8d-41eb-4b57-bb7e-f863d6a825a4,true,
+Toilet Seat Covers,pfg:973972,20/250 CT,1,250,ea,250,72.05,0.02668,250,72.0500,lens,c94f995b-8975-4176-89e1-5e2ef203e918,true,
+Cinnamon,pfg:187292,1/1 LB,1,18,oz,18,12.31,0.9361111111111112,18,12.3100,lens,c32d9c23-d161-4904-a687-484210f6b9c0,true,
+Black Olives,pfg:189279,10/33OZ,10,33,oz,330,47.89,0.14512121212121212,330,47.8900,lens,8fe9969d-34d0-4f61-8b51-70f1102bda6e,true,
+Cilantro,produce_alliance:10986,,4,1,lb,4,6.14,4.2275,4,6.1400,lens,50e7c73d-638f-43b9-a3d5-5e41ae290efa,true,
+Yeast,pfg:860803,20/1 LB,20,1,lb,20,75.45,3.7725,20,75.4500,lens,5ed93e4b-9560-4733-9740-6c4cc6253412,true,
+Hand Soap,pfg:243636,4/1GA,4,1,gal,4,48.35,12.15,4,48.3500,lens,6e53706c-9f7e-456c-a4b9-e8d6fb5029b7,true,
+Dough Flour,pfg:374052,1/25LB,1,25,lb,25,10.5,0.45640000000000003,25,10.5000,lens,2b91062d-7fe2-4a9b-9c19-f6fd25d5679b,true,
+Forks,pfg:705219,1/1000CT,1,1000,ea,1000,23.47,0.023469999999999998,1000,23.4700,lens,5e0f7f29-5539-4108-ae07-5eeff5eb2aff,true,
+Sea Salt,pfg:104752,12/3 LB,12,3,lb,36,39.68,1.1022222222222222,36,39.6800,lens,30b3e14f-1bb8-4b5b-af84-d9a84969e958,true,
+Romaine Lettuce (Bag),produce_alliance:13380,24 CT,1,2,lb,2,39.43,2.9,2,39.4300,lens,24657cc1-3f2a-4817-b4d7-d364e4d40831,true,
+2 oz Portion Lids,pfg:870041,20/125CT,20,125,ea,2500,33.48,0.010431999999999999,2500,33.4800,lens,ba1ae0db-339c-41be-adc5-a859fff807bd,true,
+Strawberries,produce_alliance:13789,8/1 LB,4,1,lb,4,21.6,3.8725,4,21.6000,lens,7f29dfe2-bfe9-4285-8cee-0ada032e5f3b,true,
+3 oz Portion Cups,pfg:869934,,10,250,ea,2500,,0.02012,2500,50.3000,lens,5e2dd374-af48-4820-9dc1-a6ddb436d048,false,
+Fresh Basil,produce_alliance:10320,,,,case,1,8.02,8.02,1,8.0200,no_config,,false,YES
+Lemon Juice,produce_alliance:1477,,,,each,1,8.12,8.12,1,8.1200,no_config,,false,YES
+3 oz Portion Lids,pfg:870045,,20,125,ea,2500,,0.017436,2500,43.5900,lens,43383b12-9010-47c3-9298-4c06e095f82f,false,
+Blueberries,produce_alliance:10473,3 CT,12,6,oz,72,8.64,0.35736111111111113,72,8.6400,lens,d8b8354b-676b-406b-aec3-4ad7e88528e7,true,
+Roasted Red Peppers (Pouch),pfg:1019445,6/2.5KG,6,2.5,kg,15,42.05,2.336111111111111,15,42.0500,lens,54985b0d-28aa-45db-9541-01517f33efe3,true,
+Hot Honey,pfg:609447,1/192OZ,1,192,oz,192,68.26,0.35552083333333334,192,68.2600,lens,b077d02a-7f2e-4400-a70c-f3ecb9b63c9d,true,
+Ranch Dressing,pfg:54442,4/1GA,4,1,gal,4,49.49,12.3725,4,49.4900,lens,a21f665f-66df-49f8-9992-2569afd41f15,true,
+(NEW) Tiramisu,pfg:1066631,16/3.5OZ,16,1,ea,16,29.45,1.84,16,29.4500,lens,31759266-6547-4489-b6ad-43bc59c1ddd8,true,
+Gorgonzola,pfg:683850,4/5LB,4,5,lb,20,61.73,3.075,20,61.7300,lens,db8c16da-131f-4052-b641-7dae4ec11085,true,
+Extra Virgin Olive Oil,pfg:618386,1/5GA,1,5,gal,5,179.15,35.83,5,179.1500,lens,a9601c70-f057-49df-b153-c3fcd76e82e8,true,
+Goodie Bags,pfg:340770,18/36.8OZ,18,37,oz,666,45.71,0.0756006006006006,666,45.7100,lens,6008262b-c36e-4962-9a78-e71ec3cd6365,true,
+Water Bottle 16.9oz,pfg:916863,24/16.9 OZ,24,1,l,24,7.61,0.33083333333333337,24,7.6100,lens,6fe43c58-d4b2-4351-ba32-a55a887bc11c,true,
+
+## TABLE 2 — Actual vs lens for most recent count
+brand_item_name,entered_cases,entered_units,entered_inner_packs,stored_quantity,stored_cost_at_count,stored_pack_quantity_at_count,stored_inner_pack_quantity_at_count,stored_value,lens_recomputed_qty,lens_recomputed_value,qty_match,value_match,config_source,notes
+Baby Spinach,2,0,,8,18.31,10,2.5,36.6200,50,76.2917,false,false,lens,qty_mismatch; value_mismatch
+Extra Virgin Olive Oil,0.25,0,,0.25,179.15,1,5,44.7875,1.25,44.7875,false,true,lens,qty_mismatch
+Lagunitas Heatwave IPA Cans,0,15,,15,51,24,4,7.9688,15,31.8750,true,false,lens,value_mismatch
+Chocolate Chip Cookies,1,39,,87,25.47,48,12,27.1945,615,326.3190,false,false,lens,qty_mismatch; value_mismatch
+Small Paper Cups (16 oz),0.1,0,,100,54.32,1000,50,5.4320,5000,271.6000,false,false,lens,qty_mismatch; value_mismatch
+Brownies,0.5,0,,1,35.05,2,32,17.5250,32,17.5100,false,false,lens,qty_mismatch; value_mismatch
+To-Go Bags with Handle,0.5,0,,250,59.66,500,250,29.8300,62500,14125.0000,false,false,lens,qty_mismatch; value_mismatch
+Vegan Chorizo,1,1,,3,44.59,2,5,49.0490,11,49.0490,false,true,lens,qty_mismatch
+Vegan Cheese,0,0,,0.68,55.59,6,2,3.1501,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Vegan Cheese,1,3,,9,55.59,6,2,69.4875,15,69.4875,false,true,lens,qty_mismatch
+Budweiser 12oz Cans,0,20,,20,23.4,30,30,0.5200,20,16.2000,true,false,lens,value_mismatch
+Pepperoni,0,0,,0.5,105.5,6,5,1.7583,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Blood Orange Puree,0,1,,1,89.05,6,30,0.4947,1,0.4947,true,true,lens,
+Fruit/Veggie Wash (Dispenser),1,0,,2,84.68,2,1,84.6800,2,83.5800,true,false,lens,value_mismatch
+Black Olives,0,0,,2,47.89,10,33,0.2902,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Jalapeno Peppers,0,11,,11.5,33.27,4,1,95.6513,11,91.4925,false,false,lens,qty_mismatch; value_mismatch
+Ranch Dressing,0,3,,3,49.49,4,1,37.1175,3,37.1175,true,true,lens,
+Honest Apple Juice 6oz,0,15,,15,30.86,50,6,1.5430,15,1.5430,true,true,lens,
+Dessert Bags,1,0,,20,45.45,20,100,45.4500,2000,45.4500,false,true,lens,qty_mismatch
+Trash Can Liners 60 Gallon,1,0,,10,20.44,10,10,20.4400,100,45.5500,false,false,lens,qty_mismatch; value_mismatch
+Green Bell Peppers,0,1,,3.5,28.76,1,5,20.1320,1,5.7000,false,false,lens,qty_mismatch; value_mismatch
+Ricotta,0,0,,0.4,36.35,4,5,0.7270,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Ricotta,1,1,,5.4,36.35,4,5,38.1675,21,38.1675,false,true,lens,qty_mismatch
+Artichokes,0,0,,1.5,56.81,6,1,14.2025,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Butter Oil,0,3,,3,52.32,4,1,39.2400,3,36.6825,true,false,lens,value_mismatch
+Sliced Ham,2,2,,12.5,33.55,5,2,73.8100,22,73.8100,false,true,lens,qty_mismatch
+(NEW) Sliced Proscuitto,2,0,,12,86.05,6,1,172.1000,12,172.1000,true,true,lens,
+Diced Chicken,0,0,,0.5,98.15,6,5,1.6358,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Bud Light 16oz Cans,0,9,,9,28.9,24,,10.8375,9,10.8375,true,true,lens,
+Diced Chicken,0,0,,1.5,98.15,6,5,4.9075,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Sea Salt,1,0,,12,39.68,12,,39.6800,12,13.2267,true,false,lens,value_mismatch
+Blood Orange Pellegrino 11.2oz,0,1,,1,24.89,24,24,0.0432,1,1.0370,true,false,lens,value_mismatch
+Fanta Orange BIB 2.5g,1,0,,1,60.5,1,,60.5000,1,24.2000,true,false,lens,value_mismatch
+Goat Cheese,0,0,,0.25,27.33,2,2,1.7081,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Entree Salad Container,0,1,,1,31.86,2,,0.2124,1,0.2110,true,true,lens,
+Goat Cheese,0,0,,0.5,27.33,2,2,3.4162,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Cauliflower Crust,3,14,,86,63.45,24,,227.3625,86,227.3625,true,true,lens,
+Coke Bottle 20z,0,20,,20,41.93,24,,34.9417,20,1.6683,true,false,lens,value_mismatch
+Mexican Coke 12oz,1,1,,25,42.89,24,,44.6771,25,3.7231,true,false,lens,value_mismatch
+Mexican Coke 12oz,0,5,,5,42.89,24,,8.9354,5,0.7446,true,false,lens,value_mismatch
+Pellegrino Glass Bottle 500ml,0,8,,8,34.58,24,,11.5267,8,0.0231,true,false,lens,value_mismatch
+Plastic Wrap,1,0,,1,22.65,1,,22.6500,1,22.6500,true,true,local_fallback,source=local_fallback
+Fresh Basil,0,2,,2.5,8.2,16,,1.2813,2,1.0025,false,false,no_config,source=no_config; qty_mismatch; value_mismatch
+6.8oz Dough Ball,304,0,,2128,0.16329575322513526,7,,51.1020,2128,49.6419,true,false,local_fallback,source=local_fallback; value_mismatch
+Napkins,1,0,,12,40.68,12,500,40.6800,6000,40.6800,false,true,lens,qty_mismatch
+Salami,0,0,,1,48.85,2,,24.4250,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Salami,0,0,,0.5,48.85,2,,12.2125,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+(NEW) Tiramisu,2,0,,32,33.61,16,1,67.2200,32,58.8800,true,false,lens,value_mismatch
+2 oz Portion Lids,0,12,,12,33.48,20,125,0.1607,12,0.1252,true,false,lens,value_mismatch
+Canola Oil,0,5,,5,63.01,4,1,78.7625,5,78.7625,true,true,lens,
+Diet Coke Bottle 20oz,0,16,,16,41.93,24,,27.9533,16,1.3977,true,false,lens,value_mismatch
+Meatball Bucket,0.4,0,,2.4,52.12,6,,20.8480,2.4000000000000004,0.2780,true,false,lens,value_mismatch
+17oz Dough Ball,54,0,,918,0.40823938306283813,17,,22.0449,918,22.0449,true,true,local_fallback,source=local_fallback
+Gluten Free Flour,0,1,,1,54.67,2,9.6,2.8474,1,3.0320,true,false,lens,value_mismatch
+Forks,2,0,,2,23.47,1,,46.9400,2,0.0469,true,false,lens,value_mismatch
+Cup Carriers,1,0,,1,117.51,1,,117.5100,1,0.7834,true,false,lens,value_mismatch
+Knives,1,0,,1,24.39,1,,24.3900,1,0.0244,true,false,lens,value_mismatch
+Hershey's Bars,0,26,,26,50.7,36,36,1.0171,26,34.3994,true,false,lens,value_mismatch
+Digestive Cookies,0,6,,6,36.93,12,14,1.3189,6,1.3757,true,false,lens,value_mismatch
+Sprite Bottle 20oz,0,11,,11,41.93,24,,19.2179,11,0.9176,true,false,lens,value_mismatch
+Kalamata Olives,0,3,,3,66.61,4,,49.9575,3,25.1175,true,false,lens,value_mismatch
+Lemon Pellegrino 11.2oz,0,19,,19,24.89,24,24,0.8210,19,19.7030,true,false,lens,value_mismatch
+Lemon Pellegrino 11.2oz,0,20,,20,24.89,24,24,0.8642,20,20.7400,true,false,lens,value_mismatch
+Dusting Flour,1,0,,1,24.8,1,25,24.8000,25,24.8000,false,true,lens,qty_mismatch
+"14"" Blaze Pizza Boxes (Large)",2,0,,200,39.53,100,100,79.0600,20000,8850.0000,false,false,lens,qty_mismatch; value_mismatch
+Lagunitas Poolside Blonde Cans,0,41,,41,47,24,4,20.0729,41,80.2917,true,false,lens,value_mismatch
+Regular Paper Cups (24 oz),0.25,0,,250,74.06,1000,40,18.5150,10000,740.6000,false,false,lens,qty_mismatch; value_mismatch
+1/2 Pizza Boxes,1.25,0,,250,40.97,200,200,51.2125,50000,11035.0000,false,false,lens,qty_mismatch; value_mismatch
+Romaine Lettuce (Bag),4,0,,96,23.4,24,2,93.6000,192,556.8000,false,false,lens,qty_mismatch; value_mismatch
+New Pesto,0,2,,2,116.8,8,4.7,6.2128,2,7.3000,true,false,lens,value_mismatch
+New Pesto,0,4,,4,116.8,8,4.7,12.4255,4,14.6000,true,false,lens,value_mismatch
+Porch Pounder Chardonnay Cans,0,38,,38,63,24,4,24.9375,38,99.7500,true,false,lens,value_mismatch
+Roasted Broccoli,0,0,,1,35.96,4,3,2.9967,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Roasted Broccoli,0,1,,1,35.96,4,3,2.9967,1,2.4717,true,false,lens,value_mismatch
+Garlic Cloves,0,0,,0.5,19.24,1,5,1.9240,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Garlic Cloves,0,5,,5,19.24,1,5,19.2400,5,22.7200,true,false,lens,value_mismatch
+2 oz Portion Cups,0,11,,11,35.45,10,125,0.3120,11,0.1556,true,false,lens,value_mismatch
+Red Onions,0,0,,0.5,47.82,5,5,0.9564,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Croutons,1,0,,4,28.6,4,2.5,28.6000,10,23.8333,false,false,lens,qty_mismatch; value_mismatch
+Diced Chicken,1,5,,11,98.15,6,5,114.5083,35,114.5083,false,true,lens,qty_mismatch
+Yeast,0,11,,11,75.45,20,1,41.4975,11,41.4975,true,true,lens,
+Blood Orange Pellegrino 11.2oz,0,15,,15,24.89,24,24,0.6482,15,15.5550,true,false,lens,value_mismatch
+Granulated Sugar Bulk,0.75,0,,0.75,40.73,1,25,30.5475,18.75,19.1475,false,false,lens,qty_mismatch; value_mismatch
+Sliced Mushrooms,0,0,,0.25,29.37,1,10,0.7343,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Sliced Mushrooms,3,0,,3,29.37,1,10,88.1100,30,75.0000,false,false,lens,qty_mismatch; value_mismatch
+Mexican Fanta 12oz,0,7,,7,42.89,24,12,1.0425,7,1.0425,true,true,lens,
+Mexican Fanta 12oz,0,17,,17,42.89,24,12,2.5317,17,2.5317,true,true,lens,
+Artichokes,0,4,,4,56.81,6,1,37.8733,4,37.8732,true,true,lens,
+Sliced Ham,0,0,,1,33.55,5,2,3.3550,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Caesar Dressing,0,5,,5,68.65,4,1,85.8125,5,85.8125,true,true,lens,
+Quintet Sanitizer (Dispenser),0,2,,2,55.97,2,1,55.9700,2,56.1000,true,false,lens,value_mismatch
+Iced Tea Bags,0,15,,15,46.04,32,3,7.1938,15,7.6375,true,false,lens,value_mismatch
+Balsamic Glaze,0,0.25,,0.25,45.05,2,1,5.6312,0.25,5.6312,true,true,lens,
+Restroom Cleaner w/Bleach (Bottle),0,2,,2,37.14,6,1,12.3800,2,12.4033,true,false,lens,value_mismatch
+Shaved Parmesan,0,1,,1.26,62.74,4,5,3.9526,1,3.2015,false,false,lens,qty_mismatch; value_mismatch
+Dish Soap (Dispenser),0,2,,2,64.62,2,1,64.6200,2,64.7300,true,false,lens,value_mismatch
+(NEW) Small Salad Bowls,1,1,,7,41.49,6,50,41.6283,301,35.8491,false,false,lens,qty_mismatch; value_mismatch
+Lemonade Base,0,5,,5,42.61,4,128,0.4161,5,0.4161,true,true,lens,
+Pizza Liners,0,4,,4,78.05,5,1000,0.0624,4,0.0624,true,true,lens,
+Black Olives,1,9,,19,47.89,10,33,49.1961,339,49.1961,false,true,lens,qty_mismatch
+(NEW) Cold Cup Lids,1,0,,10,24.68,10,100,24.6800,1000,24.6800,false,true,lens,qty_mismatch
+White Sauce,0,0,,1,74.74,8,4,2.3356,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+White Sauce,0,2,,2,74.74,8,4,4.6712,2,4.6712,true,true,lens,
+Coachella Valley Brewing CDMX Cans,0,8,,8,45,24,1,15.0000,8,15.0000,true,true,lens,
+Plastic Coke PROMO Cups,1,0,,1,86.67,1,540,86.6700,540,86.6700,false,true,lens,qty_mismatch
+Vitamin Water XXX BIB 2.5g,2,0,,2,62.95,1,2.5,125.9000,5,104.9167,false,false,lens,qty_mismatch; value_mismatch
+Frank's Red Hot Sauce,0,3,,3,48.13,4,1,36.0975,3,36.0975,true,true,lens,
+Water Cups,0,1,,1,88.1,20,50,0.0881,1,0.0881,true,true,lens,
+Sanitizer (Dispenser),0,3,,3,80.44,2,1,120.6600,3,119.1300,true,false,lens,value_mismatch
+Meatballs,1,0,,4.5,148.72,4,10,148.7200,40,146.7200,false,false,lens,qty_mismatch; value_mismatch
+Bacon,0,0,,0.5,56.35,2,5,2.8175,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Bacon,2,0,,5,56.35,2,5,112.7000,20,115.1000,false,false,lens,qty_mismatch; value_mismatch
+Feta Cheese,1,1,,3,26.39,2,5,29.0290,11,29.3040,false,false,lens,qty_mismatch; value_mismatch
+Dish Machine Detergent (Dispenser),0,1,,1,97.49,2,1,48.7450,1,48.8000,true,false,lens,value_mismatch
+Pepperoni,2,0,,12,105.5,6,5,211.0000,60,217.8800,false,false,lens,qty_mismatch; value_mismatch
+Michelob Ultra 12oz Cans,0,8,,8,17.4,18,12,0.6444,8,0.6444,true,true,lens,
+BBQ Sauce,0,1,,1,55.81,4,158,0.0883,1,0.0883,true,true,lens,
+BBQ Sauce,0,1,,1,55.81,4,158,0.0883,1,0.0883,true,true,lens,
+(NEW) Large Salad Bowls,1,0,,6,47.04,6,50,47.0400,300,47.0400,false,true,lens,qty_mismatch
+Hand Soap,0,3,,3,48.35,4,1,36.2625,3,36.4500,true,false,lens,value_mismatch
+Dough Flour,0,8,,8,10.5,1,25,3.3600,8,3.6512,true,false,lens,value_mismatch
+Medium Gloves,5,0,,50,17.23,10,100,86.1500,5000,87.5500,false,false,lens,qty_mismatch; value_mismatch
+Roasted Red Peppers (Pouch),1,2,,8,42.05,6,2.5,47.6567,17,39.7139,false,false,lens,qty_mismatch; value_mismatch
+Degreaser (Dispenser),0,2,,2,47.4,2,1,47.4000,2,47.4600,true,false,lens,value_mismatch
+Hot Honey,1,0,,1,68.26,1,192,68.2600,192,68.2600,false,true,lens,qty_mismatch
+Stella Artois 11.2oz Cans,0,48,,48,28.65,24,11,5.2091,48,5.2091,true,true,lens,
+Floor Cleaner (Dispenser),0,2,,2,63.02,2,1,63.0200,2,63.1300,true,false,lens,value_mismatch
+Red Pepper Packets,1,0,,500,13.77,500,1,13.7700,500,13.7700,true,true,lens,
+X-Large Gloves,0,20,,20,17.23,10,100,0.3446,20,0.3502,true,true,lens,
+Chopped Garlic,0,0,,0.33,58.91,6,3,1.0800,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Chopped Garlic,0,5,,5,58.91,6,3,16.3639,5,17.0444,true,false,lens,value_mismatch
+Grape Tomatoes,0,0,,0.25,32.09,1,10,0.8023,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Grape Tomatoes,0,0,,1,32.09,1,10,3.2090,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Spicy Red Sauce (Pouch),1,3,,9,34.11,6,106,34.2709,639,33.0552,false,false,lens,qty_mismatch; value_mismatch
+Parmesan Packets,3,0,,600,15.99,200,4,47.9700,2400,47.9700,false,true,lens,qty_mismatch
+Arugula,2,0,,2,15.65,1,4,31.3000,8,34.3000,false,false,lens,qty_mismatch; value_mismatch
+Banana Peppers,0,9,,9,33.4,4,1,75.1500,9,75.1500,true,true,lens,
+Gorgonzola,0,0,,0.13,61.5,4,5,0.3997,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Shredded Mozzarella,0,2,,2,57.01,6,5,3.8007,2,3.9640,true,false,lens,value_mismatch
+Shredded Mozzarella,5,6,,36,57.01,6,5,296.4520,156,309.1920,false,false,lens,qty_mismatch; value_mismatch
+Fresh Mozzarella Sliced,0,0,,1,22.25,6,1,3.7083,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Fresh Mozzarella Sliced,6,0,,38,22.25,6,1,140.9167,36,133.5000,false,false,lens,qty_mismatch; value_mismatch
+Marshmallows,1,1,,13,32.9,12,1,35.6417,13,35.6417,true,true,lens,
+Trash Can Liner 23 Gallon,1,0,,10,17.39,10,10,17.3900,100,28.5100,false,false,lens,qty_mismatch; value_mismatch
+Blaze Red Sauce Can,0,17,,17,37.62,6,104,1.0249,17,1.0799,true,false,lens,value_mismatch
+Italian Sausage,0,0,,0.5,98.65,8,5,1.2331,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Italian Sausage,0,0,,1,98.65,8,5,2.4663,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Italian Sausage,1,0,,8,98.65,8,5,98.6500,40,98.6500,false,true,lens,qty_mismatch
+Estrella Jalisco 12oz,1,23,,47,22.95,24,12,24.7828,311,24.7828,false,true,lens,qty_mismatch
+Meatball Bucket Lid,0.4,0,,3.6,51.44,9,50,20.5760,180,20.5760,false,true,lens,qty_mismatch
+Grated Parmesan,0,0,,0.26,53.82,4,5,0.6997,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Grated Parmesan,1,0,,4,53.82,4,5,53.8200,20,55.7900,false,false,lens,qty_mismatch; value_mismatch
+Quick Dry Rinse Aid (Dispenser),0,2,,2,66.08,2,1,66.0800,2,66.1700,true,false,lens,value_mismatch
+Pineapple Tidbits (PFG),0,1,,1,48,6,104,0.0769,1,0.0769,true,true,lens,
+Pineapple Tidbits (PFG),0,8,,8,48,6,104,0.6154,8,0.6154,true,true,lens,
+Goodie Bags,1,4,,22,45.71,18,37,45.9845,670,50.6524,false,false,lens,qty_mismatch; value_mismatch
+Powdered Sugar Bulk,0.5,0,,0.5,31.67,1,1,15.8350,0.5,0.7033,true,false,lens,value_mismatch
+Straws (Individually Wrapped Style),0,3,,3,38.05,4,500,0.0571,3,0.0571,true,true,lens,
+Firestone 805 Blonde Ale Cans,0,107,,107,32.3,24,12,12.0003,107,144.0042,true,false,lens,value_mismatch
+Frank's Red Hot Sauce,0,0.25,,0.25,48.13,4,1,3.0081,0.25,3.0081,true,true,lens,
+Vegan Chorizo,0,0,,0.5,44.59,2,5,2.2295,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Cinnamon,0,2,,2,12.31,1,18,1.3678,2,1.8722,true,false,lens,value_mismatch
+Red Onions,2,0,,12,47.82,5,5,95.6400,50,160.9000,false,false,lens,qty_mismatch; value_mismatch
+"11"" Blaze Pizza Boxes",7,2,,702,25.66,100,100,179.6251,70002,21434.6124,false,false,lens,qty_mismatch; value_mismatch
+Baby Spinach,0,0,,0.25,18.31,10,2.5,0.1831,0,0.0000,false,false,lens,qty_mismatch; value_mismatch
+Receipt Paper Roll,0.5,0,,0.5,45.01,1,10,22.5050,5,13.6933,false,false,lens,qty_mismatch; value_mismatch
+Chit Paper Rolls,0,3,,3,12.23,1,1,36.6900,3,36.7600,true,false,lens,value_mismatch
