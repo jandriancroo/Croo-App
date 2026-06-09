@@ -847,11 +847,15 @@ Deno.serve(async (req) => {
       ok: true, dry_run: false, run_id: runId,
       inserted_proposals: inserted, skipped_proposals: skipped,
       legacy_sku_stamped: legacyStamped, legacy_sku_stamp_errors: legacyStampErrors,
+      approved_sku_short_circuited: approvedShortCircuited,
+      approved_cost_updated: approvedCostUpdated,
+      approved_cost_update_errors: approvedCostUpdateErrors,
       ledger_rows_upserted: ledgerUpserted,
       ledger_rows_failed: ledgerErrors,
       ledger_last_error: ledgerLastError,
       buckets,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   } catch (err) {
     console.error("pack-config-seeder error", err);
     return new Response(JSON.stringify({ ok: false, error: (err as Error).message }), {
