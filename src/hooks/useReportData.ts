@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { calculateCountItemValue } from '@/utils/countItemValue';
+import { fetchRecipeCosts } from '@/utils/recipeCostCalculation';
 
 export interface LocationReportData {
   inventory: {
@@ -203,18 +204,30 @@ async function fetchLocationData(
         .in('brand_item_id', brandIds as string[]);
       for (const c of convs || []) conversionMap.set((c as any).brand_item_id, c);
     }
+    // Recipe cost fallback (live batch cost) — count_items for recipes
+    // typically have cost_at_count=NULL and inventory_items.cost_per_unit=NULL
+    // because recipe cost is computed live from ingredients, not persisted.
+    // Without this fallback, recipes in COGS render at $0.
+    const hasAnyRecipe = (items || []).some((i: any) => i?.is_recipe === true);
+    const recipeCosts = hasAnyRecipe ? await fetchRecipeCosts(locationId) : null;
     return rows.reduce((s, ci) => {
       const item = itemMap.get(ci.item_id);
       const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+      const isRecipe = item?.is_recipe === true;
+      const liveRecipeCost = isRecipe ? recipeCosts?.get(item.id) : undefined;
+      const effectiveCostPerUnit =
+        isRecipe && (item?.cost_per_unit == null || item?.cost_per_unit === 0) && liveRecipeCost
+          ? liveRecipeCost
+          : item?.cost_per_unit;
       return s + calculateCountItemValue(
         ci,
         item ? {
           brand_item_id: item.brand_item_id,
-          cost_per_unit: item.cost_per_unit,
+          cost_per_unit: effectiveCostPerUnit,
           pack_quantity: item.pack_quantity,
           pack_quantity_override: item.pack_quantity_override,
           inner_pack_quantity: item.inner_pack_quantity,
-          is_recipe: item.is_recipe === true,
+          is_recipe: isRecipe,
           unit: item.unit,
           recipe_yield_qty: item.recipe_yield_qty,
           recipe_yield_unit: item.recipe_yield_unit,

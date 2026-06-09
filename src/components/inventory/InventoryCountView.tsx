@@ -13,6 +13,7 @@ import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useLegsValuation, buildLegsForValuation } from "@/hooks/useLegsValuation";
+import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import { SandboxFlagButton } from "./SandboxFlagButton";
 import { SandboxFlagsPanel } from "./SandboxFlagsPanel";
 
@@ -98,6 +99,19 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     legsConfigsByBrandItemId: legsConfigsMap,
     getItemValueWithLegs,
   } = useLegsValuation(countId, locationId);
+
+  // Recipe batch cost fallback — review/COGS need this when cost_at_count
+  // snapshot is null AND item.cost_per_unit is null (which is the case for
+  // most recipe items since recipe cost is computed live, not persisted).
+  // Without this, recipe rows render $0 in review even though the count
+  // screen shows the right value (because count screen does this lookup live).
+  const { data: recipeCosts } = useQuery({
+    queryKey: ["recipe-costs-for-count-view", locationId],
+    queryFn: () => fetchRecipeCosts(locationId),
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
 
 
   // Fetch storage locations in order
@@ -240,15 +254,23 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
+    // Recipe cost fallback: when snapshot AND item.cost_per_unit are both
+    // missing, use the live computed batch cost so recipes don't render $0.
+    const isRecipe = itm.is_recipe === true;
+    const liveRecipeCost = isRecipe ? recipeCosts?.get(item.item_id) : undefined;
+    const effectiveCostPerUnit =
+      isRecipe && (itm.cost_per_unit == null || itm.cost_per_unit === 0) && liveRecipeCost
+        ? liveRecipeCost
+        : itm.cost_per_unit;
     return getItemValueWithLegs(
       item as any,
       {
         brand_item_id: itm.brand_item_id,
-        cost_per_unit: itm.cost_per_unit,
+        cost_per_unit: effectiveCostPerUnit,
         pack_quantity: itm.pack_quantity,
         pack_quantity_override: itm.pack_quantity_override,
         inner_pack_quantity: itm.inner_pack_quantity,
-        is_recipe: itm.is_recipe === true,
+        is_recipe: isRecipe,
         unit: itm.unit,
         recipe_yield_qty: itm.recipe_yield_qty,
         recipe_yield_unit: itm.recipe_yield_unit,
@@ -257,6 +279,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
       { forceLiveData: false },
     );
   };
+
 
 
   // Build junction order map: "itemId|storLocId" -> display_order
