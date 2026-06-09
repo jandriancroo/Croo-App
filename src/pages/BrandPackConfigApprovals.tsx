@@ -843,37 +843,22 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       log("info", `${tag} approver uid`, uid);
 
       // (0) Supersede any existing approved config for the same template + structure.
-      // The DB has a unique index (template_id, outer_qty, inner_qty, outer_type, inner_type, common_unit)
-      // scoped to status='approved' — without this step the update below fails with
-      // "duplicate key value violates unique constraint uniq_brand_pack_configs_approved_structure".
+      // IMPORTANT: the DB unique index is intentionally shape-based, not label-based:
+      //   (brand_template_id, outer_qty, coalesce(inner_qty, 0), common_unit)
+      // for status='approved'. outer_type / inner_type / label are descriptive only
+      // and do NOT participate in uniqueness. This guard must mirror the real index
+      // exactly or approve can miss a live duplicate and explode on the update below.
       log("info", `${tag} STEP 0: checking for existing approved config with same structure`);
-      const { data: dupes, error: dupeErr } = await supabase
+      const { data: allApproved, error: dupeErr } = await supabase
         .from("brand_pack_configs")
-        .select("id, label, cost_per_common_unit")
-        .eq("brand_template_id", r.brand_template_id)
-        .eq("status", "approved")
-        .eq("outer_qty", outer)
-        .eq("outer_type", d.outer_type)
-        .eq("common_unit", d.common_unit)
-        .is("inner_qty", inner == null ? null : (undefined as any))
-        .neq("id", r.id);
-      // The .is() above only handles NULL; re-filter for non-null inner_qty in JS.
-      const realDupes = (dupes ?? []).filter(d2 =>
-        inner == null ? true : (d2 as any).inner_qty === undefined || true
-      );
-      // Re-query without the inner_qty filter to cover non-null case (simpler + correct).
-      const { data: allApproved } = await supabase
-        .from("brand_pack_configs")
-        .select("id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit")
+        .select("id, label, outer_qty, inner_qty, common_unit, outer_type, inner_type, cost_per_common_unit")
         .eq("brand_template_id", r.brand_template_id)
         .eq("status", "approved")
         .neq("id", r.id);
       const structuralDupes = (allApproved ?? []).filter(a =>
         a.outer_qty === outer &&
-        a.outer_type === d.outer_type &&
         a.common_unit === d.common_unit &&
-        (a.inner_qty ?? null) === (inner ?? null) &&
-        (a.inner_type ?? null) === (d.inner_type || null)
+        Number(a.inner_qty ?? 0) === Number(inner ?? 0)
       );
       if (structuralDupes.length) {
         log("warn", `${tag} STEP 0: superseding ${structuralDupes.length} existing approved config(s) with identical structure`, structuralDupes);
