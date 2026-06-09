@@ -79,7 +79,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     queryFn: async () => {
       const { data } = await supabase
         .from("inventory_counts")
-        .select("is_sandbox, sandbox_owner")
+        .select("is_sandbox, sandbox_owner, status")
         .eq("id", countId)
         .maybeSingle();
       return data;
@@ -87,6 +87,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
   const isSandboxCount = !!countMeta?.is_sandbox;
   const sandboxOwner = countMeta?.sandbox_owner ?? null;
+  const isInProgress = (countMeta as any)?.status === 'in_progress';
+
 
   // Step 3: legs-aware read path. All three queries + the leg→value math
   // live in the shared useLegsValuation hook — see src/hooks/useLegsValuation.ts.
