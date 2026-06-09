@@ -110,6 +110,35 @@ function candidateDedupKey(c: { brand_template_id: string; vendor: string; vendo
 function legacyDedupKey(c: { brand_template_id: string; count_units_per_case: number; common_unit: string }) {
   return `${c.brand_template_id}::${Number(c.count_units_per_case)}::${String(c.common_unit).toLowerCase()}`;
 }
+// SKU key — (template, vendor, sku). Used to short-circuit ANY new proposal
+// when an approved config already exists for the same vendor SKU on the same
+// template. Human-approved structure wins; only emit a fresh proposal when
+// the vendor reports a genuinely different pack structure.
+function approvedSkuKey(c: { brand_template_id: string; vendor: string; vendor_item_id: string }) {
+  return `${c.brand_template_id}::${c.vendor}::${c.vendor_item_id}`;
+}
+// Unit aliases — pack parser emits short codes (ga, gm) while older approved
+// rows used long forms (gal, g). Normalize before structure comparison so we
+// don't generate proposals over cosmetic unit-string differences.
+function normUnit(u: string | null | undefined): string {
+  const s = String(u ?? '').toLowerCase().trim();
+  if (s === 'ga' || s === 'gal' || s === 'gallon' || s === 'gallons') return 'gal';
+  if (s === 'g' || s === 'gm' || s === 'gram' || s === 'grams') return 'g';
+  if (s === 'kg' || s === 'kilo' || s === 'kilogram' || s === 'kilograms') return 'kg';
+  if (s === 'lb' || s === 'lbs' || s === 'pound' || s === 'pounds') return 'lb';
+  if (s === 'oz' || s === 'ounce' || s === 'ounces') return 'oz';
+  if (s === 'ea' || s === 'each' || s === 'ct' || s === 'count') return 'ea';
+  return s;
+}
+function structuresMatch(
+  a: { count_units_per_case: number | null; common_unit: string | null },
+  b: { count_units_per_case: number | null; common_unit: string | null },
+): boolean {
+  const ac = Number(a.count_units_per_case ?? 0);
+  const bc = Number(b.count_units_per_case ?? 0);
+  return Math.round(ac * 100) === Math.round(bc * 100) && normUnit(a.common_unit) === normUnit(b.common_unit);
+}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
