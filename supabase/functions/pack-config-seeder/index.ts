@@ -720,11 +720,48 @@ Deno.serve(async (req) => {
     }
 
 
-    // ── LIVE run: insert new proposals, stamp SKU onto legacy approved rows ──
+    // ── LIVE run: insert new proposals, stamp SKU onto legacy approved rows,
+    //              short-circuit when an approved config already exists for the same SKU. ──
     let inserted = 0, skipped = 0, legacyStamped = 0, legacyStampErrors = 0;
+    let approvedShortCircuited = 0, approvedCostUpdated = 0, approvedCostUpdateErrors = 0;
     for (const c of proposalByKey.values()) {
       const fullK = candidateDedupKey(c);
       if (existingByFullKey.has(fullK)) { skipped++; continue; }
+
+      // NEW: approved-SKU short-circuit — never emit a proposal when an
+      // approved config already exists for (template, vendor, sku).
+      // Same structure → update cost in place. Different structure → skip
+      // silently (human-approved structure wins).
+      const skuK = approvedSkuKey(c);
+      const approvedRow = approvedBySkuKey.get(skuK);
+      if (approvedRow) {
+        approvedShortCircuited++;
+        if (structuresMatch(approvedRow, c)) {
+          const oldCost = approvedRow.cost_per_common_unit == null ? null : Number(approvedRow.cost_per_common_unit);
+          const newCost = c.cost_per_common_unit == null ? null : Number(c.cost_per_common_unit);
+          if (newCost != null && Number.isFinite(newCost) && newCost > 0 && (oldCost == null || Math.abs(oldCost - newCost) > 0.0001)) {
+            const { error: costErr } = await supabase
+              .from("brand_pack_configs")
+              .update({
+                cost_per_common_unit: newCost,
+                source_evidence: {
+                  ...(approvedRow.source_evidence ?? {}),
+                  last_cost_refresh: {
+                    at: new Date().toISOString(),
+                    by: 'pack-config-seeder',
+                    old_cost: oldCost,
+                    new_cost: newCost,
+                    source: c.source,
+                  },
+                },
+              })
+              .eq("id", approvedRow.id);
+            if (costErr) { approvedCostUpdateErrors++; } else { approvedCostUpdated++; }
+          }
+        }
+        continue;
+      }
+
       const legacyK = legacyDedupKey(c);
       const legacyRow = existingByLegacyKey.get(legacyK);
       if (legacyRow) {
@@ -764,6 +801,7 @@ Deno.serve(async (req) => {
       if (insErr) { skipped++; continue; }
       inserted++;
     }
+
 
     // Ledger upsert — table schema uses single `vendor_source` column.
     // CHECK constraint restricts to: pfg_bid | pfg_order | pa_catalog |
