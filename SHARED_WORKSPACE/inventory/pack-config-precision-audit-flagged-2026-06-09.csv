@@ -1,0 +1,13 @@
+id,status,item,outer_qty,inner_qty,common_unit,pack_string,vendor,sku,cost_per_common_unit
+31759266-6547-4489-b6ad-43bc59c1ddd8,approved,(NEW) Tiramisu,16,1,ea,16/3.5OZ,pfg,1066631,1.84
+54143d9f-341e-40ca-bb81-a044cc74bbe0,approved,(NEW) Tiramisu,16,3.5,oz,16/3.5OZ,pfg,1066631,0.5928571428571429
+ac597ebc-5bd9-43b2-ab4f-767e5ec545c1,approved,Artichokes,6,1,ea,6/2.5KG,pfg,180950,9.4683
+ff7ddddd-594f-4265-8303-a9cd1af8bca4,approved,Digestive Cookies,12,14,oz,12/14.1OZ,pfg,204867,0.22928571428571431
+6008262b-c36e-4962-9a78-e71ec3cd6365,approved,Goodie Bags,18,37,oz,18/36.8OZ,pfg,340770,0.0756006006006006
+b806c827-0326-4491-8ea1-ee8bdad0c104,approved,Iced Tea Bags,32,3,oz,32/2.75OZ,pfg,278951,0.5091666666666667
+63850819-6570-4158-90e0-a38459357435,approved,Parmesan Packets,200,4,g,200/3.5GM,pfg,232186,0.019987500000000002
+ab27a0a6-a1a8-473e-b8a2-83d688a522ca,approved,Peroxide (Dispenser),2,1,gal,2/.8 GA,pfg,529191,59.43
+54985b0d-28aa-45db-9541-01517f33efe3,approved,Roasted Red Peppers (Pouch),6,2.5,kg,6/2.5KG,pfg,1019445,2.336111111111111
+e4fe3c52-cb51-40e0-8773-574a77c278c3,approved,Vegan Cheese,6,2,lb,6/2.2LB,pfg,1014398,4.6325
+6fe43c58-d4b2-4351-ba32-a55a887bc11c,approved,Water Bottle 16.9oz,24,1,l,24/.5 LT,pfg,289178,0.33083333333333337
+bba6879f-fa3d-4df5-b39c-8da71b955ee3,approved,Water Bottle 16.9oz,24,17,oz,24/16.9OZ,pfg,916863,0.01865
