@@ -493,6 +493,8 @@ Deno.serve(async (req) => {
 
           candidates.push({
             brand_template_id: templateId,
+            vendor: r.vendor,
+            vendor_item_id: r.vendor_item_id,
             outer_qty: final.outer_qty,
             outer_type: final.outer_type,
             inner_qty: final.inner_qty,
