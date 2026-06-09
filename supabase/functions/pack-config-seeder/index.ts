@@ -100,6 +100,16 @@ type ProposalCandidate = {
 function structureKey(p: { outer_qty: number; inner_qty: number; common_unit: string }) {
   return `${p.outer_qty}::${p.inner_qty ?? 0}::${p.common_unit}`;
 }
+// Pack-size suggestion label, e.g. "10/100 ea", "1/5 lb", "6 ea" (when no inner_qty).
+// MUST be a pack descriptor — never a product name. See backfill 2026-06-09.
+function formatPackLabel(p: { outer_qty: number; inner_qty: number | null | undefined; common_unit: string }): string {
+  const unit = String(p.common_unit || '').toLowerCase();
+  if (p.inner_qty != null && Number(p.inner_qty) > 0) {
+    return `${p.outer_qty}/${p.inner_qty} ${unit}`.trim();
+  }
+  return `${p.outer_qty} ${unit}`.trim();
+}
+
 // FULL dedup key — includes vendor + vendor_item_id so two genuinely-different
 // SKUs that happen to share total units/case do NOT collapse into one proposal.
 function candidateDedupKey(c: { brand_template_id: string; vendor: string; vendor_item_id: string; count_units_per_case: number; common_unit: string }) {
