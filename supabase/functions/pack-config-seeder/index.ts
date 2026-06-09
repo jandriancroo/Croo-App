@@ -402,7 +402,7 @@ Deno.serve(async (req) => {
               if (parsed) {
                 resolved.push({
                   source: 'pfg_order', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
-                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.price ?? null, raw_pack_string: ord.packSize,
                   observed_at: ord._order_date ?? null, label: ord.name ?? null,
                 });
@@ -417,7 +417,7 @@ Deno.serve(async (req) => {
               if (parsed) {
                 resolved.push({
                   source: 'pa_catalog', vendor: 'pa', vendor_item_id: m.vendor_item_id,
-                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: cat.unit_price ?? null, raw_pack_string: cat.pack_size,
                   observed_at: cat.last_seen_at ?? null, label: cat.description ?? null,
                 });
@@ -431,7 +431,7 @@ Deno.serve(async (req) => {
               if (parsed) {
                 resolved.push({
                   source: 'pa_order', vendor: 'pa', vendor_item_id: m.vendor_item_id,
-                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.unit_price ?? null, raw_pack_string: ord.pack_size,
                   observed_at: ord._order_date ?? null, label: ord.description ?? null,
                 });
