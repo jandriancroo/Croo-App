@@ -185,9 +185,26 @@ export function calculateCountItemValue(
     if (yieldQty > 0) {
       const yieldUnit = item?.recipe_yield_unit || null;
       const countUnit = item?.unit || null;
+      const normCount = countUnit ? normalizeUnit(countUnit) : '';
+      const normYield = yieldUnit ? normalizeUnit(yieldUnit) : '';
       let qtyInYield: number | null = qty;
-      if (countUnit && yieldUnit && normalizeUnit(countUnit) !== normalizeUnit(yieldUnit)) {
-        qtyInYield = convertUnits(qty, countUnit, yieldUnit);
+      if (normCount && normYield && normCount !== normYield) {
+        // 'ea' as a count unit means "1 batch / 1 container of the recipe",
+        // NOT 1 fluid/weight oz. convertUnits would bridge ea↔qt via TO_OZ
+        // (ea=1, qt=32) and value 1 each of a 22qt sauce as 1/32 of a batch,
+        // crushing the cost. When either side is 'ea', skip the oz bridge:
+        //  - countUnit='ea' → each counted unit = 1 full batch (yieldQty)
+        //  - yieldUnit='ea' → batch produces yieldQty discrete units
+        if (normCount === 'ea') {
+          qtyInYield = qty * yieldQty;
+        } else if (normYield === 'ea') {
+          qtyInYield = qty / yieldQty;
+          // Re-express: cost is per batch (yieldQty eaches), so $/ea = costPerCase/yieldQty.
+          // Returning qty * (costPerCase/yieldQty) directly is cleaner:
+          return qty * (costPerCase / yieldQty);
+        } else {
+          qtyInYield = convertUnits(qty, countUnit!, yieldUnit!);
+        }
       }
       if (qtyInYield != null && Number.isFinite(qtyInYield)) {
         return qtyInYield * (costPerCase / yieldQty);
