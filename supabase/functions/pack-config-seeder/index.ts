@@ -734,6 +734,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true, dry_run: false, run_id: runId,
       inserted_proposals: inserted, skipped_proposals: skipped,
+      legacy_sku_stamped: legacyStamped, legacy_sku_stamp_errors: legacyStampErrors,
       ledger_rows_upserted: ledgerUpserted,
       ledger_rows_failed: ledgerErrors,
       ledger_last_error: ledgerLastError,
