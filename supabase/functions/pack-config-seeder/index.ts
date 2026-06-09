@@ -646,11 +646,33 @@ Deno.serve(async (req) => {
     }
 
 
-    // ── LIVE run: insert proposals (skip duplicates), upsert ledger ──
-    let inserted = 0, skipped = 0;
+    // ── LIVE run: insert new proposals, stamp SKU onto legacy approved rows ──
+    let inserted = 0, skipped = 0, legacyStamped = 0, legacyStampErrors = 0;
     for (const c of proposalByKey.values()) {
-      const k = candidateDedupKey(c);
-      if (existingByKey.has(k)) { skipped++; continue; }
+      const fullK = candidateDedupKey(c);
+      if (existingByFullKey.has(fullK)) { skipped++; continue; }
+      const legacyK = legacyDedupKey(c);
+      const legacyRow = existingByLegacyKey.get(legacyK);
+      if (legacyRow) {
+        // Stamp candidate's SKU onto the existing approved row's source_evidence,
+        // preserving any prior fields. Does NOT change pack/cost/status.
+        const merged = {
+          ...(legacyRow.source_evidence ?? {}),
+          vendor: c.vendor,
+          vendor_item_id: c.vendor_item_id,
+          sku: c.vendor_item_id,
+          sku_stamped_at: new Date().toISOString(),
+          sku_stamped_by: 'pack-config-seeder',
+        };
+        const { error: upErr } = await supabase
+          .from("brand_pack_configs")
+          .update({ source_evidence: merged })
+          .eq("id", legacyRow.id);
+        if (upErr) { legacyStampErrors++; } else { legacyStamped++; }
+        // Prevent the same legacy row from being stamped twice in one run.
+        existingByLegacyKey.delete(legacyK);
+        continue;
+      }
       const { error: insErr } = await supabase.from("brand_pack_configs").insert({
         brand_template_id: c.brand_template_id,
         outer_qty: c.outer_qty,
