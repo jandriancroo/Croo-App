@@ -182,6 +182,15 @@ async function fetchLocationData(
   // so the math matches the inventory period panel exactly.
   const sumCount = async (id?: string) => {
     if (!id) return 0;
+    // Gate live recipe-cost fallback by status: completed counts MUST stay
+    // frozen at whatever snapshot they hold (even if NULL → $0). Only
+    // in-progress counts may pull live recipe batch cost as a fallback.
+    const { data: countRow } = await supabase
+      .from('inventory_counts')
+      .select('status')
+      .eq('id', id)
+      .maybeSingle();
+    const isInProgress = (countRow as any)?.status === 'in_progress';
     const { data: ciRows } = await supabase
       .from('inventory_count_items')
       .select('item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs')
@@ -204,12 +213,11 @@ async function fetchLocationData(
         .in('brand_item_id', brandIds as string[]);
       for (const c of convs || []) conversionMap.set((c as any).brand_item_id, c);
     }
-    // Recipe cost fallback (live batch cost) — count_items for recipes
-    // typically have cost_at_count=NULL and inventory_items.cost_per_unit=NULL
-    // because recipe cost is computed live from ingredients, not persisted.
-    // Without this fallback, recipes in COGS render at $0.
+    // Recipe cost fallback — ONLY for in-progress counts. Completed counts
+    // are frozen and must never recalculate, even if their snapshot is NULL.
     const hasAnyRecipe = (items || []).some((i: any) => i?.is_recipe === true);
-    const recipeCosts = hasAnyRecipe ? await fetchRecipeCosts(locationId) : null;
+    const recipeCosts = (isInProgress && hasAnyRecipe) ? await fetchRecipeCosts(locationId) : null;
+
     return rows.reduce((s, ci) => {
       const item = itemMap.get(ci.item_id);
       const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
