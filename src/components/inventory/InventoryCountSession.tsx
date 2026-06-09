@@ -2123,7 +2123,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         // Phase 3: third counting tier
         entered_inner_packs: innerVal,
         item_name_at_count: item.item_name,
-        cost_at_count: item.cost_per_unit,
+        // Recipes: snapshot live batch cost (see autosave path for rationale).
+        cost_at_count: ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null) ?? item.cost_per_unit,
         unit_at_count: item.unit,
         pack_quantity_at_count: resolveItemPackQty(item),
         // Phase 3: snapshot inner_pack_quantity at save time for historical immutability
