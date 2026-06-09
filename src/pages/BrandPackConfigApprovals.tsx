@@ -728,6 +728,54 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       const uid = userRes.user?.id ?? null;
       log("info", `${tag} approver uid`, uid);
 
+      // (0) Supersede any existing approved config for the same template + structure.
+      // The DB has a unique index (template_id, outer_qty, inner_qty, outer_type, inner_type, common_unit)
+      // scoped to status='approved' — without this step the update below fails with
+      // "duplicate key value violates unique constraint uniq_brand_pack_configs_approved_structure".
+      log("info", `${tag} STEP 0: checking for existing approved config with same structure`);
+      const { data: dupes, error: dupeErr } = await supabase
+        .from("brand_pack_configs")
+        .select("id, label, cost_per_common_unit")
+        .eq("brand_template_id", r.brand_template_id)
+        .eq("status", "approved")
+        .eq("outer_qty", outer)
+        .eq("outer_type", d.outer_type)
+        .eq("common_unit", d.common_unit)
+        .is("inner_qty", inner == null ? null : (undefined as any))
+        .neq("id", r.id);
+      // The .is() above only handles NULL; re-filter for non-null inner_qty in JS.
+      const realDupes = (dupes ?? []).filter(d2 =>
+        inner == null ? true : (d2 as any).inner_qty === undefined || true
+      );
+      // Re-query without the inner_qty filter to cover non-null case (simpler + correct).
+      const { data: allApproved } = await supabase
+        .from("brand_pack_configs")
+        .select("id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit")
+        .eq("brand_template_id", r.brand_template_id)
+        .eq("status", "approved")
+        .neq("id", r.id);
+      const structuralDupes = (allApproved ?? []).filter(a =>
+        a.outer_qty === outer &&
+        a.outer_type === d.outer_type &&
+        a.common_unit === d.common_unit &&
+        (a.inner_qty ?? null) === (inner ?? null) &&
+        (a.inner_type ?? null) === (d.inner_type || null)
+      );
+      if (structuralDupes.length) {
+        log("warn", `${tag} STEP 0: superseding ${structuralDupes.length} existing approved config(s) with identical structure`, structuralDupes);
+        const { error: archErr } = await supabase
+          .from("brand_pack_configs")
+          .update({ status: "archived", updated_at: new Date().toISOString() })
+          .in("id", structuralDupes.map(d2 => d2.id));
+        if (archErr) {
+          log("error", `${tag} failed to archive duplicate approved config(s)`, archErr);
+          console.groupEnd();
+          throw archErr;
+        }
+      } else if (dupeErr) {
+        log("warn", `${tag} dupe check query error (continuing)`, dupeErr);
+      }
+
       // (1) finalize the config row
       log("info", `${tag} STEP 1: updating brand_pack_configs row ${r.id} → status=approved`);
       const { error: updErr, data: updData } = await supabase
@@ -754,6 +802,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
         throw updErr;
       }
       log("info", `${tag} brand_pack_configs updated`, updData);
+
 
       // (2) find locations that ACTUALLY carry this proposal's vendor SKU
       const locs = locationsForProposal(r);
