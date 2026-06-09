@@ -464,7 +464,7 @@ Deno.serve(async (req) => {
                   source: 'pa_order', vendor: 'pa', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.unit_price ?? null, raw_pack_string: ord.pack_size,
-                  observed_at: ord._order_date ?? null, label: ord.description ?? null,
+                  observed_at: ord._order_date ?? null, label: formatPackLabel(parsed),
                 });
               }
             }
