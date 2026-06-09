@@ -575,16 +575,20 @@ Deno.serve(async (req) => {
     buckets.ledger_rows_emitted = ledgerRows.length;
 
     // ── Classify against existing brand_pack_configs (proposed + approved) ──
-    // Two indexes:
-    //   existingByFullKey  — keyed (template, vendor, vendor_item_id, cupc, common_unit)
-    //   existingByLegacyKey — keyed (template, cupc, common_unit). Only populated for
-    //                         rows whose source_evidence has NO vendor_item_id (legacy
-    //                         human-approved configs from before vendor sync existed).
+    // Three indexes:
+    //   existingByFullKey      — keyed (template, vendor, vendor_item_id, cupc, common_unit)
+    //                            for exact-match dedup against proposed+approved.
+    //   approvedBySkuKey       — keyed (template, vendor, vendor_item_id) → approved row.
+    //                            "Human-approved wins" short-circuit.
+    //   existingByLegacyKey    — keyed (template, cupc, common_unit). Only populated for
+    //                            rows whose source_evidence has NO vendor_item_id (legacy
+    //                            human-approved configs from before vendor sync existed).
     const { data: existing } = await supabase
       .from("brand_pack_configs")
-      .select("id, brand_template_id, outer_qty, inner_qty, common_unit, count_units_per_case, status, source_evidence");
+      .select("id, brand_template_id, outer_qty, inner_qty, common_unit, count_units_per_case, cost_per_common_unit, status, source_evidence");
     const existingByFullKey = new Map<string, any>();
     const existingByLegacyKey = new Map<string, any>();
+    const approvedBySkuKey = new Map<string, any>();
     for (const r of (existing || [])) {
       if (r.status === 'archived') continue;
       const ev = (r.source_evidence ?? {}) as any;
@@ -595,6 +599,13 @@ Deno.serve(async (req) => {
       if (sku && vendor) {
         const fullK = candidateDedupKey({ brand_template_id: r.brand_template_id, vendor: String(vendor), vendor_item_id: String(sku), count_units_per_case: cupc, common_unit: r.common_unit });
         existingByFullKey.set(fullK, r);
+        if (r.status === 'approved') {
+          const skuK = approvedSkuKey({ brand_template_id: r.brand_template_id, vendor: String(vendor), vendor_item_id: String(sku) });
+          // First-seen wins; if multiple approved rows exist for the same SKU
+          // (shouldn't happen — UNIQUE index prevents it — but defensive),
+          // we leave the first one in place.
+          if (!approvedBySkuKey.has(skuK)) approvedBySkuKey.set(skuK, r);
+        }
       } else {
         // legacy — no SKU stamp yet. Eligible for SKU-stamping fallback.
         if (!existingByLegacyKey.has(legacyK)) existingByLegacyKey.set(legacyK, r);
@@ -602,10 +613,35 @@ Deno.serve(async (req) => {
     }
 
     let bucketsNew = 0, bucketsMatched = 0, bucketsLegacyStamp = 0;
+    let bucketsApprovedSkipped = 0, bucketsApprovedDiffStructure = 0, bucketsCostUpdateOnApproved = 0;
     const legacyStampPlan: { existing_id: string; vendor: string; vendor_item_id: string; template_id: string; legacy_key: string }[] = [];
+    const costUpdatePlan: { approved_id: string; old_cost: number | null; new_cost: number | null; sku_key: string; template_id: string }[] = [];
     for (const c of proposalByKey.values()) {
       const fullK = candidateDedupKey(c);
       if (existingByFullKey.has(fullK)) { bucketsMatched++; continue; }
+
+      // NEW: approved-SKU short-circuit. If an approved config already exists
+      // for this (template, vendor, sku), do NOT emit a proposal — period.
+      // Same structure → update cost in place if vendor price differs.
+      // Different structure → still skip (human-approved structure wins;
+      // a real pack change requires manual re-approval).
+      const skuK = approvedSkuKey(c);
+      const approvedRow = approvedBySkuKey.get(skuK);
+      if (approvedRow) {
+        if (structuresMatch(approvedRow, c)) {
+          bucketsApprovedSkipped++;
+          const oldCost = approvedRow.cost_per_common_unit == null ? null : Number(approvedRow.cost_per_common_unit);
+          const newCost = c.cost_per_common_unit == null ? null : Number(c.cost_per_common_unit);
+          if (newCost != null && Number.isFinite(newCost) && newCost > 0 && (oldCost == null || Math.abs(oldCost - newCost) > 0.0001)) {
+            bucketsCostUpdateOnApproved++;
+            costUpdatePlan.push({ approved_id: approvedRow.id, old_cost: oldCost, new_cost: newCost, sku_key: skuK, template_id: c.brand_template_id });
+          }
+        } else {
+          bucketsApprovedDiffStructure++;
+        }
+        continue;
+      }
+
       const legacyK = legacyDedupKey(c);
       const legacyRow = existingByLegacyKey.get(legacyK);
       if (legacyRow) {
@@ -653,9 +689,18 @@ Deno.serve(async (req) => {
         checkpoint: "A",
         buckets: {
           ...buckets,
-          proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched, legacy_sku_stamp: bucketsLegacyStamp },
+          proposals_new_vs_existing: {
+            new: bucketsNew,
+            matched_existing: bucketsMatched,
+            legacy_sku_stamp: bucketsLegacyStamp,
+            approved_sku_short_circuit_same_structure: bucketsApprovedSkipped,
+            approved_sku_short_circuit_diff_structure: bucketsApprovedDiffStructure,
+            approved_cost_update_planned: bucketsCostUpdateOnApproved,
+          },
         },
         legacy_sku_stamp_plan: legacyStampPlan,
+        cost_update_plan: costUpdatePlan,
+
         reports: {
           needs_vendor_mapping_count: enrichedNeedsVendorMapping.length,
           needs_source_evidence_count: enrichedNeedsSourceEvidence.length,
