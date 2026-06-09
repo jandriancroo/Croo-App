@@ -254,15 +254,23 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
+    // Recipe cost fallback: when snapshot AND item.cost_per_unit are both
+    // missing, use the live computed batch cost so recipes don't render $0.
+    const isRecipe = itm.is_recipe === true;
+    const liveRecipeCost = isRecipe ? recipeCosts?.get(item.item_id) : undefined;
+    const effectiveCostPerUnit =
+      isRecipe && (itm.cost_per_unit == null || itm.cost_per_unit === 0) && liveRecipeCost
+        ? liveRecipeCost
+        : itm.cost_per_unit;
     return getItemValueWithLegs(
       item as any,
       {
         brand_item_id: itm.brand_item_id,
-        cost_per_unit: itm.cost_per_unit,
+        cost_per_unit: effectiveCostPerUnit,
         pack_quantity: itm.pack_quantity,
         pack_quantity_override: itm.pack_quantity_override,
         inner_pack_quantity: itm.inner_pack_quantity,
-        is_recipe: itm.is_recipe === true,
+        is_recipe: isRecipe,
         unit: itm.unit,
         recipe_yield_qty: itm.recipe_yield_qty,
         recipe_yield_unit: itm.recipe_yield_unit,
@@ -271,6 +279,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
       { forceLiveData: false },
     );
   };
+
 
 
   // Build junction order map: "itemId|storLocId" -> display_order
