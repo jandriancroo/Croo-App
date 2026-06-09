@@ -80,6 +80,8 @@ type ResolvedSource = {
 
 type ProposalCandidate = {
   brand_template_id: string;
+  vendor: string;
+  vendor_item_id: string;
   outer_qty: number;
   outer_type: string;
   inner_qty: number;
