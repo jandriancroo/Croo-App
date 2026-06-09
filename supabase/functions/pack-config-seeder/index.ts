@@ -100,6 +100,16 @@ type ProposalCandidate = {
 function structureKey(p: { outer_qty: number; inner_qty: number; common_unit: string }) {
   return `${p.outer_qty}::${p.inner_qty ?? 0}::${p.common_unit}`;
 }
+// Pack-size suggestion label, e.g. "10/100 ea", "1/5 lb", "6 ea" (when no inner_qty).
+// MUST be a pack descriptor — never a product name. See backfill 2026-06-09.
+function formatPackLabel(p: { outer_qty: number; inner_qty: number | null | undefined; common_unit: string }): string {
+  const unit = String(p.common_unit || '').toLowerCase();
+  if (p.inner_qty != null && Number(p.inner_qty) > 0) {
+    return `${p.outer_qty}/${p.inner_qty} ${unit}`.trim();
+  }
+  return `${p.outer_qty} ${unit}`.trim();
+}
+
 // FULL dedup key — includes vendor + vendor_item_id so two genuinely-different
 // SKUs that happen to share total units/case do NOT collapse into one proposal.
 function candidateDedupKey(c: { brand_template_id: string; vendor: string; vendor_item_id: string; count_units_per_case: number; common_unit: string }) {
@@ -420,7 +430,7 @@ Deno.serve(async (req) => {
                   source: 'pfg_bid', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: bid.unit_price ?? null, raw_pack_string: bid.pack_size,
-                  observed_at: bid.last_seen_at ?? null, label: bid.description ?? null,
+                  observed_at: bid.last_seen_at ?? null, label: formatPackLabel(parsed),
 
                 });
               } else {
@@ -435,7 +445,7 @@ Deno.serve(async (req) => {
                   source: 'pfg_order', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.price ?? null, raw_pack_string: ord.packSize,
-                  observed_at: ord._order_date ?? null, label: ord.name ?? null,
+                  observed_at: ord._order_date ?? null, label: formatPackLabel(parsed),
                 });
               } else {
                 reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pfg_order', pack_string: ord.packSize });
@@ -450,7 +460,7 @@ Deno.serve(async (req) => {
                   source: 'pa_catalog', vendor: 'pa', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: cat.unit_price ?? null, raw_pack_string: cat.pack_size,
-                  observed_at: cat.last_seen_at ?? null, label: cat.description ?? null,
+                  observed_at: cat.last_seen_at ?? null, label: formatPackLabel(parsed),
                 });
               } else {
                 reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
@@ -464,7 +474,7 @@ Deno.serve(async (req) => {
                   source: 'pa_order', vendor: 'pa', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.unit_price ?? null, raw_pack_string: ord.pack_size,
-                  observed_at: ord._order_date ?? null, label: ord.description ?? null,
+                  observed_at: ord._order_date ?? null, label: formatPackLabel(parsed),
                 });
               }
             }
