@@ -1478,7 +1478,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           entered_inner_packs: countState.innerPacks ?? 0,
           // Snapshot fields for historical integrity
           item_name_at_count: item.item_name,
-          cost_at_count: item.cost_per_unit,
+          // Recipes: snapshot the live batch cost so review/COGS don't render $0
+          // (recipe cost is computed live from ingredients, not persisted on the item).
+          cost_at_count: ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null) ?? item.cost_per_unit,
           unit_at_count: item.unit,
           pack_quantity_at_count: resolveItemPackQty(item),
           // Phase 3: snapshot the inner_pack_quantity at save time (mirrors pack_quantity_at_count)
