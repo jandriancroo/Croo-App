@@ -80,6 +80,8 @@ type ResolvedSource = {
 
 type ProposalCandidate = {
   brand_template_id: string;
+  vendor: string;
+  vendor_item_id: string;
   outer_qty: number;
   outer_type: string;
   inner_qty: number;
@@ -98,8 +100,15 @@ type ProposalCandidate = {
 function structureKey(p: { outer_qty: number; inner_qty: number; common_unit: string }) {
   return `${p.outer_qty}::${p.inner_qty ?? 0}::${p.common_unit}`;
 }
-function candidateDedupKey(c: { brand_template_id: string; outer_qty: number; inner_qty: number; common_unit: string }) {
-  return `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty ?? 0}::${c.common_unit}`;
+// FULL dedup key — includes vendor + vendor_item_id so two genuinely-different
+// SKUs that happen to share total units/case do NOT collapse into one proposal.
+function candidateDedupKey(c: { brand_template_id: string; vendor: string; vendor_item_id: string; count_units_per_case: number; common_unit: string }) {
+  return `${c.brand_template_id}::${c.vendor}::${c.vendor_item_id}::${Number(c.count_units_per_case)}::${String(c.common_unit).toLowerCase()}`;
+}
+// LEGACY dedup key — for matching pre-vendor_item_id approved rows. On match,
+// the seeder stamps the candidate's SKU back onto the approved row.
+function legacyDedupKey(c: { brand_template_id: string; count_units_per_case: number; common_unit: string }) {
+  return `${c.brand_template_id}::${Number(c.count_units_per_case)}::${String(c.common_unit).toLowerCase()}`;
 }
 
 Deno.serve(async (req) => {
@@ -380,7 +389,7 @@ Deno.serve(async (req) => {
               if (parsed) {
                 resolved.push({
                   source: 'pfg_bid', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
-                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: bid.unit_price ?? null, raw_pack_string: bid.pack_size,
                   observed_at: bid.last_seen_at ?? null, label: bid.description ?? null,
 
@@ -395,7 +404,7 @@ Deno.serve(async (req) => {
               if (parsed) {
                 resolved.push({
                   source: 'pfg_order', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
-                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.price ?? null, raw_pack_string: ord.packSize,
                   observed_at: ord._order_date ?? null, label: ord.name ?? null,
                 });
@@ -410,7 +419,7 @@ Deno.serve(async (req) => {
               if (parsed) {
                 resolved.push({
                   source: 'pa_catalog', vendor: 'pa', vendor_item_id: m.vendor_item_id,
-                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: cat.unit_price ?? null, raw_pack_string: cat.pack_size,
                   observed_at: cat.last_seen_at ?? null, label: cat.description ?? null,
                 });
@@ -424,7 +433,7 @@ Deno.serve(async (req) => {
               if (parsed) {
                 resolved.push({
                   source: 'pa_order', vendor: 'pa', vendor_item_id: m.vendor_item_id,
-                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.unit_price ?? null, raw_pack_string: ord.pack_size,
                   observed_at: ord._order_date ?? null, label: ord.description ?? null,
                 });
@@ -484,6 +493,8 @@ Deno.serve(async (req) => {
 
           candidates.push({
             brand_template_id: templateId,
+            vendor: r.vendor,
+            vendor_item_id: r.vendor_item_id,
             outer_qty: final.outer_qty,
             outer_type: final.outer_type,
             inner_qty: final.inner_qty,
@@ -502,6 +513,12 @@ Deno.serve(async (req) => {
               override_values: overrideApplied ? ov : null,
               final_pack: final,
               cost_basis: { cost_per_case: r.cost_per_case, raw_pack_string: r.raw_pack_string, observed_at: r.observed_at },
+              // Flat aliases — BrandPackConfigApprovals.tsx reads these legacy field names.
+              // Keep alongside the nested shape so both old UI and new audit consumers work.
+              sku: r.vendor_item_id,
+              packString: r.raw_pack_string,
+              costPerCase: r.cost_per_case,
+              territory: null,
             },
             location_id: locationId,
             pack_structure_key: sk,
@@ -519,7 +536,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Dedup proposal candidates by structural key ──
+    // ── Dedup proposal candidates by full key (template + vendor + SKU + cupc + common_unit) ──
     const proposalByKey = new Map<string, ProposalCandidate>();
     for (const c of candidates) {
       const k = candidateDedupKey(c);
@@ -529,24 +546,51 @@ Deno.serve(async (req) => {
     buckets.ledger_rows_emitted = ledgerRows.length;
 
     // ── Classify against existing brand_pack_configs (proposed + approved) ──
+    // Two indexes:
+    //   existingByFullKey  — keyed (template, vendor, vendor_item_id, cupc, common_unit)
+    //   existingByLegacyKey — keyed (template, cupc, common_unit). Only populated for
+    //                         rows whose source_evidence has NO vendor_item_id (legacy
+    //                         human-approved configs from before vendor sync existed).
     const { data: existing } = await supabase
       .from("brand_pack_configs")
-      .select("id, brand_template_id, outer_qty, inner_qty, common_unit, status")
-      .in("status", ["proposed", "approved"]);
-    const existingByKey = new Map<string, any>();
+      .select("id, brand_template_id, outer_qty, inner_qty, common_unit, count_units_per_case, status, source_evidence");
+    const existingByFullKey = new Map<string, any>();
+    const existingByLegacyKey = new Map<string, any>();
     for (const r of (existing || [])) {
-      const k = candidateDedupKey({
-        brand_template_id: r.brand_template_id,
-        outer_qty: r.outer_qty,
-        inner_qty: Number(r.inner_qty ?? 0),
-        common_unit: r.common_unit,
-      });
-      existingByKey.set(k, r);
+      if (r.status === 'archived') continue;
+      const ev = (r.source_evidence ?? {}) as any;
+      const sku = ev.vendor_item_id ?? ev.sku ?? null;
+      const vendor = ev.vendor ?? null;
+      const cupc = Number(r.count_units_per_case ?? (Number(r.outer_qty) * Number(r.inner_qty || 1)));
+      const legacyK = legacyDedupKey({ brand_template_id: r.brand_template_id, count_units_per_case: cupc, common_unit: r.common_unit });
+      if (sku && vendor) {
+        const fullK = candidateDedupKey({ brand_template_id: r.brand_template_id, vendor: String(vendor), vendor_item_id: String(sku), count_units_per_case: cupc, common_unit: r.common_unit });
+        existingByFullKey.set(fullK, r);
+      } else {
+        // legacy — no SKU stamp yet. Eligible for SKU-stamping fallback.
+        if (!existingByLegacyKey.has(legacyK)) existingByLegacyKey.set(legacyK, r);
+      }
     }
-    let bucketsNew = 0, bucketsMatched = 0;
-    for (const k of proposalByKey.keys()) {
-      if (existingByKey.has(k)) bucketsMatched++;
-      else bucketsNew++;
+
+    let bucketsNew = 0, bucketsMatched = 0, bucketsLegacyStamp = 0;
+    const legacyStampPlan: { existing_id: string; vendor: string; vendor_item_id: string; template_id: string; legacy_key: string }[] = [];
+    for (const c of proposalByKey.values()) {
+      const fullK = candidateDedupKey(c);
+      if (existingByFullKey.has(fullK)) { bucketsMatched++; continue; }
+      const legacyK = legacyDedupKey(c);
+      const legacyRow = existingByLegacyKey.get(legacyK);
+      if (legacyRow) {
+        bucketsLegacyStamp++;
+        legacyStampPlan.push({
+          existing_id: legacyRow.id,
+          vendor: c.vendor,
+          vendor_item_id: c.vendor_item_id,
+          template_id: c.brand_template_id,
+          legacy_key: legacyK,
+        });
+        continue;
+      }
+      bucketsNew++;
     }
 
     // ── Enrich deferred reports with most-recent invoice context ──
@@ -580,8 +624,9 @@ Deno.serve(async (req) => {
         checkpoint: "A",
         buckets: {
           ...buckets,
-          proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched },
+          proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched, legacy_sku_stamp: bucketsLegacyStamp },
         },
+        legacy_sku_stamp_plan: legacyStampPlan,
         reports: {
           needs_vendor_mapping_count: enrichedNeedsVendorMapping.length,
           needs_source_evidence_count: enrichedNeedsSourceEvidence.length,
@@ -601,11 +646,33 @@ Deno.serve(async (req) => {
     }
 
 
-    // ── LIVE run: insert proposals (skip duplicates), upsert ledger ──
-    let inserted = 0, skipped = 0;
+    // ── LIVE run: insert new proposals, stamp SKU onto legacy approved rows ──
+    let inserted = 0, skipped = 0, legacyStamped = 0, legacyStampErrors = 0;
     for (const c of proposalByKey.values()) {
-      const k = candidateDedupKey(c);
-      if (existingByKey.has(k)) { skipped++; continue; }
+      const fullK = candidateDedupKey(c);
+      if (existingByFullKey.has(fullK)) { skipped++; continue; }
+      const legacyK = legacyDedupKey(c);
+      const legacyRow = existingByLegacyKey.get(legacyK);
+      if (legacyRow) {
+        // Stamp candidate's SKU onto the existing approved row's source_evidence,
+        // preserving any prior fields. Does NOT change pack/cost/status.
+        const merged = {
+          ...(legacyRow.source_evidence ?? {}),
+          vendor: c.vendor,
+          vendor_item_id: c.vendor_item_id,
+          sku: c.vendor_item_id,
+          sku_stamped_at: new Date().toISOString(),
+          sku_stamped_by: 'pack-config-seeder',
+        };
+        const { error: upErr } = await supabase
+          .from("brand_pack_configs")
+          .update({ source_evidence: merged })
+          .eq("id", legacyRow.id);
+        if (upErr) { legacyStampErrors++; } else { legacyStamped++; }
+        // Prevent the same legacy row from being stamped twice in one run.
+        existingByLegacyKey.delete(legacyK);
+        continue;
+      }
       const { error: insErr } = await supabase.from("brand_pack_configs").insert({
         brand_template_id: c.brand_template_id,
         outer_qty: c.outer_qty,
@@ -667,6 +734,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true, dry_run: false, run_id: runId,
       inserted_proposals: inserted, skipped_proposals: skipped,
+      legacy_sku_stamped: legacyStamped, legacy_sku_stamp_errors: legacyStampErrors,
       ledger_rows_upserted: ledgerUpserted,
       ledger_rows_failed: ledgerErrors,
       ledger_last_error: ledgerLastError,
