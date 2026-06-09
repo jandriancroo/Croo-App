@@ -98,8 +98,15 @@ type ProposalCandidate = {
 function structureKey(p: { outer_qty: number; inner_qty: number; common_unit: string }) {
   return `${p.outer_qty}::${p.inner_qty ?? 0}::${p.common_unit}`;
 }
-function candidateDedupKey(c: { brand_template_id: string; outer_qty: number; inner_qty: number; common_unit: string }) {
-  return `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty ?? 0}::${c.common_unit}`;
+// FULL dedup key — includes vendor + vendor_item_id so two genuinely-different
+// SKUs that happen to share total units/case do NOT collapse into one proposal.
+function candidateDedupKey(c: { brand_template_id: string; vendor: string; vendor_item_id: string; count_units_per_case: number; common_unit: string }) {
+  return `${c.brand_template_id}::${c.vendor}::${c.vendor_item_id}::${Number(c.count_units_per_case)}::${String(c.common_unit).toLowerCase()}`;
+}
+// LEGACY dedup key — for matching pre-vendor_item_id approved rows. On match,
+// the seeder stamps the candidate's SKU back onto the approved row.
+function legacyDedupKey(c: { brand_template_id: string; count_units_per_case: number; common_unit: string }) {
+  return `${c.brand_template_id}::${Number(c.count_units_per_case)}::${String(c.common_unit).toLowerCase()}`;
 }
 
 Deno.serve(async (req) => {
