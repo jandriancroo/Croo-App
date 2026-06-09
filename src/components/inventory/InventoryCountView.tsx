@@ -256,14 +256,15 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
-    // Recipe cost fallback: when snapshot AND item.cost_per_unit are both
-    // missing, use the live computed batch cost so recipes don't render $0.
+    // Recipe cost fallback: ONLY for in-progress counts. Completed counts
+    // stay frozen at whatever snapshot they hold — never silently recalc.
     const isRecipe = itm.is_recipe === true;
-    const liveRecipeCost = isRecipe ? recipeCosts?.get(item.item_id) : undefined;
+    const liveRecipeCost = (isInProgress && isRecipe) ? recipeCosts?.get(item.item_id) : undefined;
     const effectiveCostPerUnit =
       isRecipe && (itm.cost_per_unit == null || itm.cost_per_unit === 0) && liveRecipeCost
         ? liveRecipeCost
         : itm.cost_per_unit;
+
     return getItemValueWithLegs(
       item as any,
       {
