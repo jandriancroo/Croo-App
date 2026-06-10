@@ -28,6 +28,7 @@ import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useLegsValuation } from "@/hooks/useLegsValuation";
 import { getEffectivePackQty, isLensValid } from "@/utils/getEffectivePackQty";
 import { computeCountLanes } from "@/utils/computeCountLanes";
+import { formatPackConfigDisplayLabel } from "@/utils/formatPackConfigDisplayLabel";
 import { resolveItemPackShape, atomicUnitToken, type ResolvedPackShape } from "@/utils/resolveItemPackShape";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
@@ -2906,7 +2907,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 : '—';
               return {
                 configId: cfg.pack_config_id,
-                label: cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`,
+                label: formatPackConfigDisplayLabel(cfg),
                 subtitle: `${cfg.count_units_per_case} ${cfg.common_unit}/cs · ${perCommon}`,
                 isDefault: !!cfg.is_default,
                 lanes: [

@@ -14,6 +14,7 @@ import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useLegsValuation, buildLegsForValuation } from "@/hooks/useLegsValuation";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
+import { formatPackConfigDisplayLabel } from "@/utils/formatPackConfigDisplayLabel";
 import { SandboxFlagButton } from "./SandboxFlagButton";
 import { SandboxFlagsPanel } from "./SandboxFlagsPanel";
 
@@ -531,10 +532,9 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                       });
                                       return ordered.map((leg) => {
                                         const cfg = cfgById.get(leg.pack_config_id);
-                                        const label = cfg?.label
-                                          || (cfg?.outer_qty != null && cfg?.inner_qty != null
-                                                ? `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit ?? ""}`.trim()
-                                                : (leg.pack_quantity_at_count != null ? `${leg.pack_quantity_at_count} ${cfg?.common_unit ?? ""}`.trim() : "leg"));
+                                        const label = cfg
+                                          ? formatPackConfigDisplayLabel(cfg)
+                                          : (leg.pack_quantity_at_count != null ? `${leg.pack_quantity_at_count} ${cfg?.common_unit ?? ""}`.trim() : "leg");
                                         const enrichedLeg = enrichedByCfg.get(leg.pack_config_id);
                                         const legValue = enrichedLeg
                                           ? calculateCountItemValue(
