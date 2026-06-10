@@ -1480,11 +1480,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_name_at_count: item.item_name,
           // Recipes: snapshot the live batch cost so review/COGS don't render $0
           // (recipe cost is computed live from ingredients, not persisted on the item).
-          cost_at_count: ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null) ?? item.cost_per_unit,
+          // Snapshot preservation: never overwrite an existing frozen snapshot.
+          // _costAtCount / _packQuantityAtCount / _innerPackQuantityAtCount are hydrated
+          // from the DB row on load (see items query mapping). Only fall back to live
+          // values when no snapshot exists yet (new/never-saved item).
+          cost_at_count: (item as any)._costAtCount
+            ?? ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null)
+            ?? item.cost_per_unit,
           unit_at_count: item.unit,
-          pack_quantity_at_count: resolveItemPackQty(item),
-          // Phase 3: snapshot the inner_pack_quantity at save time (mirrors pack_quantity_at_count)
-          inner_pack_quantity_at_count: innerPackQty,
+          pack_quantity_at_count: (item as any)._packQuantityAtCount ?? resolveItemPackQty(item),
+          inner_pack_quantity_at_count: (item as any)._innerPackQuantityAtCount ?? innerPackQty,
           pan_sizes_at_count: item.pan_sizes ?? null,
           // --- Audit log fields (Palm Springs forensic logging) ---
           _item_name: item.item_name,
@@ -2124,11 +2129,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         entered_inner_packs: innerVal,
         item_name_at_count: item.item_name,
         // Recipes: snapshot live batch cost (see autosave path for rationale).
-        cost_at_count: ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null) ?? item.cost_per_unit,
+        // Snapshot preservation: prefer the existing frozen snapshot over live values.
+        cost_at_count: (item as any)._costAtCount
+          ?? ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null)
+          ?? item.cost_per_unit,
         unit_at_count: item.unit,
-        pack_quantity_at_count: resolveItemPackQty(item),
-        // Phase 3: snapshot inner_pack_quantity at save time for historical immutability
-        inner_pack_quantity_at_count: innerPackQty,
+        pack_quantity_at_count: (item as any)._packQuantityAtCount ?? resolveItemPackQty(item),
+        inner_pack_quantity_at_count: (item as any)._innerPackQuantityAtCount ?? innerPackQty,
         pan_sizes_at_count: item.pan_sizes ?? null,
         // Audit log metadata (Palm Springs forensic logging)
         _item_name: item.item_name,
