@@ -1488,8 +1488,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             ?? ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null)
             ?? item.cost_per_unit,
           unit_at_count: item.unit,
-          pack_quantity_at_count: (item as any)._packQuantityAtCount ?? resolveItemPackQty(item),
-          inner_pack_quantity_at_count: (item as any)._innerPackQuantityAtCount ?? innerPackQty,
+          // Lens-ready guard: for brand-linked items, only write the pack snapshot
+          // when packLensMap has loaded. Otherwise leave NULL — a later save (once the
+          // lens query resolves) or a backfill will populate it with lens-merged values.
+          // Prevents race-on-mount from baking local-only pack values onto fresh rows.
+          pack_quantity_at_count: (!item.brand_item_id || (packLensMap !== undefined && packLensMap.size > 0))
+            ? ((item as any)._packQuantityAtCount ?? resolveItemPackQty(item))
+            : ((item as any)._packQuantityAtCount ?? null),
+          inner_pack_quantity_at_count: (!item.brand_item_id || (packLensMap !== undefined && packLensMap.size > 0))
+            ? ((item as any)._innerPackQuantityAtCount ?? innerPackQty)
+            : ((item as any)._innerPackQuantityAtCount ?? null),
           pan_sizes_at_count: item.pan_sizes ?? null,
           // --- Audit log fields (Palm Springs forensic logging) ---
           _item_name: item.item_name,
@@ -2134,8 +2142,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           ?? ((item as any).is_recipe === true ? recipeCosts?.get(item.item_id) : null)
           ?? item.cost_per_unit,
         unit_at_count: item.unit,
-        pack_quantity_at_count: (item as any)._packQuantityAtCount ?? resolveItemPackQty(item),
-        inner_pack_quantity_at_count: (item as any)._innerPackQuantityAtCount ?? innerPackQty,
+        // Lens-ready guard — see autosave path comment.
+        pack_quantity_at_count: (!item.brand_item_id || (packLensMap !== undefined && packLensMap.size > 0))
+          ? ((item as any)._packQuantityAtCount ?? resolveItemPackQty(item))
+          : ((item as any)._packQuantityAtCount ?? null),
+        inner_pack_quantity_at_count: (!item.brand_item_id || (packLensMap !== undefined && packLensMap.size > 0))
+          ? ((item as any)._innerPackQuantityAtCount ?? innerPackQty)
+          : ((item as any)._innerPackQuantityAtCount ?? null),
         pan_sizes_at_count: item.pan_sizes ?? null,
         // Audit log metadata (Palm Springs forensic logging)
         _item_name: item.item_name,
