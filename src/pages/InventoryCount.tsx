@@ -291,7 +291,14 @@ const InventoryCount = () => {
         />
 
         {/* Count Session, View, or Review */}
-        {isViewOnly ? (
+        {isViewOnly && !historicalAcknowledged ? (
+          <OpenHistoricalCountDialog
+            open={true}
+            countPeriod={formatPeriodLabel(countData)}
+            onConfirm={() => setHistoricalAcknowledged(true)}
+            onCancel={handleClose}
+          />
+        ) : isViewOnly ? (
           <>
             {/* Actions for completed counts */}
             <div className="flex justify-end gap-2">
