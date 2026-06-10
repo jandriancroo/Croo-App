@@ -13,6 +13,7 @@ import InventoryCountSession from "@/components/inventory/InventoryCountSession"
 import InventoryCountView from "@/components/inventory/InventoryCountView";
 import CountEditHistory from "@/components/inventory/CountEditHistory";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
+import OpenHistoricalCountDialog from "@/components/inventory/OpenHistoricalCountDialog";
 import DeliveryReconciliation from "@/components/inventory/DeliveryReconciliation";
 import CountExportDialog from "@/components/inventory/CountExportDialog";
 import { SandboxBanner } from "@/components/inventory/SandboxBanner";
