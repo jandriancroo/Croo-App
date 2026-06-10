@@ -53,26 +53,25 @@ const OpenHistoricalCountDialog = ({
     <AlertDialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
             <Lock className="h-5 w-5" />
-            Opening a Completed Count
+            Editing a Completed Count
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3">
               <p className="font-medium text-foreground">{countPeriod}</p>
-              <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
                 <div className="space-y-1">
                   <p className="font-medium text-foreground">
-                    This is a historical, frozen count.
+                    This count is frozen.
+                  </p>
+                  <p className="text-destructive">
+                    Editing it will change historical reports, AvT, and COGS for
+                    the period it belongs to. This cannot be undone.
                   </p>
                   <p>
-                    Values shown reflect the snapshot taken when this count was
-                    submitted. Editing it can change historical reports, AvT,
-                    and COGS for the period it belongs to.
-                  </p>
-                  <p>
-                    Only proceed if you intend to review or correct it.
+                    Only proceed if you intend to correct it.
                   </p>
                 </div>
               </div>
@@ -88,8 +87,9 @@ const OpenHistoricalCountDialog = ({
               if (canOpen) onConfirm();
             }}
             disabled={!canOpen}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {canOpen ? "Open Count" : `Open in ${remaining}s`}
+            {canOpen ? "Edit Count" : `Edit in ${remaining}s`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
