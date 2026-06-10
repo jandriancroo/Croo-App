@@ -262,7 +262,15 @@ const Inventory = () => {
         ];
         const salesRows = (salesRes.data as any[]) || [];
 
-        // Previous same-type completed count's totalCost = this count's beginning.
+        // Previous completed count's totalCost = this count's beginning.
+        // Prefer same period_type chain (weekly→weekly, monthly→monthly), but
+        // fall back to "most recent completed count of ANY type before this
+        // period's start" when no same-type prior exists. This handles the
+        // edge case where the only prior count is a different cadence — e.g.
+        // a location's first weekly after a month-end that doubled as the
+        // week-end (May 31 = Sat & month close). Without the fallback,
+        // beginValue=0 produces a nonsense negative COGS% in the list pill
+        // even though the expanded PeriodDetailPanel resolves it correctly.
         const sortedByType = (type: string) =>
           completedWithWindow
             .filter(x => x.c.period_type === type && x.c.status === "completed")
@@ -277,6 +285,12 @@ const Inventory = () => {
           }
         }
 
+        // Cross-type fallback: any completed count strictly before this
+        // period's start, most recent by period_end.
+        const allCompleted = completedWithWindow
+          .filter(x => x.c.status === "completed")
+          .sort((a, b) => (a.win.end > b.win.end ? 1 : -1));
+
         for (const { c, win } of completedWithWindow) {
           const purchasesTotal = allOrders.reduce((s, o) => {
             if (!o.delivery_date) return s;
@@ -288,7 +302,17 @@ const Inventory = () => {
             if (r.sale_date < win.start || r.sale_date > win.end) return s;
             return s + (Number(r.net_sales) || 0);
           }, 0);
-          const beginValue = prevEndingMap[c.id] ?? 0;
+          let beginValue = prevEndingMap[c.id];
+          if (beginValue === undefined) {
+            // No same-type prior — find most recent completed of any type
+            // whose period_end is strictly before this window's start.
+            let fallback: typeof allCompleted[number] | null = null;
+            for (const x of allCompleted) {
+              if (x.c.id === c.id) continue;
+              if (x.win.end < win.start) fallback = x; // sorted asc, keep latest match
+            }
+            beginValue = fallback ? (statsMap[fallback.c.id]?.totalCost ?? 0) : 0;
+          }
           const ending = statsMap[c.id]?.totalCost ?? 0;
           const cogsTotal = beginValue + purchasesTotal - ending;
           const cogsPct = netSales > 0 ? (cogsTotal / netSales) * 100 : null;
