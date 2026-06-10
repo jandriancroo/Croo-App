@@ -291,12 +291,12 @@ const InventoryCount = () => {
         />
 
         {/* Count Session, View, or Review */}
-        {isViewOnly && !historicalAcknowledged ? (
+        {isEditing && !historicalAcknowledged ? (
           <OpenHistoricalCountDialog
             open={true}
             countPeriod={formatPeriodLabel(countData)}
             onConfirm={() => setHistoricalAcknowledged(true)}
-            onCancel={handleClose}
+            onCancel={() => navigate(`/inventory/${locationId}/count/${countId}`)}
           />
         ) : isViewOnly ? (
           <>
