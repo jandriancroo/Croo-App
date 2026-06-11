@@ -2078,6 +2078,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
               locationId: integration.location_id,
               callerAction: 'sync_orders',
             });
+          })
         );
         for (let j = 0; j < results.length; j++) {
           const r = results[j];
