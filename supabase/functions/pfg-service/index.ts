@@ -902,13 +902,36 @@ async function fetchDeliveryDetail(
     const items = data?.ResultObject;
     if (!Array.isArray(items)) {
       console.warn('[PFG API] DeliveryDetail ResultObject is not an array');
+      if (auditCtx) {
+        auditCtx.supabase.from('pfg_refresh_audit').insert({
+          integration_id: auditCtx.integrationId,
+          location_id: auditCtx.locationId,
+          handler: 'fetchDeliveryDetail',
+          caller_action: auditCtx.callerAction,
+          outcome: 'detail_fetch_failed',
+          b2c_error_code: 'non_array_result',
+          b2c_error_message: `key=${deliveryKey} src=${keySource} orderKey=${orderKey}`,
+        }).then(() => {}, (e: any) => console.error('[PFG Audit] insert failed:', e));
+      }
       return [];
     }
 
     console.log(`[PFG API] Got ${items.length} line items for order ${orderKey} (key source: ${keySource})`);
     return items;
   } catch (err) {
-    console.warn(`[PFG API] DeliveryDetail failed for key (${keySource})`, deliveryKey, ':', (err as Error).message?.slice(0, 200));
+    const msg = (err as Error).message?.slice(0, 500);
+    console.warn(`[PFG API] DeliveryDetail failed for key (${keySource})`, deliveryKey, ':', msg);
+    if (auditCtx) {
+      auditCtx.supabase.from('pfg_refresh_audit').insert({
+        integration_id: auditCtx.integrationId,
+        location_id: auditCtx.locationId,
+        handler: 'fetchDeliveryDetail',
+        caller_action: auditCtx.callerAction,
+        outcome: 'detail_fetch_failed',
+        b2c_error_code: 'request_error',
+        b2c_error_message: `key=${deliveryKey} src=${keySource} orderKey=${orderKey} :: ${msg}`,
+      }).then(() => {}, (e: any) => console.error('[PFG Audit] insert failed:', e));
+    }
     return [];
   }
 }
