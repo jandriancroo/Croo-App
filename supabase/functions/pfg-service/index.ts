@@ -841,6 +841,12 @@ async function fetchDeliveryDetail(
   accessToken: string,
   order: any,
   customerId: string,
+  auditCtx?: {
+    supabase: any;
+    integrationId: string;
+    locationId: string | null;
+    callerAction: string;
+  },
 ): Promise<any[]> {
   // PFG returns a native DeliveryKey on the header — use it verbatim.
   // OpCo-specific formats vary (Hickory/770 returns a 3-part YYYYMMDD key;
