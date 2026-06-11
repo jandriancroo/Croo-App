@@ -841,6 +841,12 @@ async function fetchDeliveryDetail(
   accessToken: string,
   order: any,
   customerId: string,
+  auditCtx?: {
+    supabase: any;
+    integrationId: string;
+    locationId: string | null;
+    callerAction: string;
+  },
 ): Promise<any[]> {
   // PFG returns a native DeliveryKey on the header — use it verbatim.
   // OpCo-specific formats vary (Hickory/770 returns a 3-part YYYYMMDD key;
@@ -896,13 +902,36 @@ async function fetchDeliveryDetail(
     const items = data?.ResultObject;
     if (!Array.isArray(items)) {
       console.warn('[PFG API] DeliveryDetail ResultObject is not an array');
+      if (auditCtx) {
+        auditCtx.supabase.from('pfg_refresh_audit').insert({
+          integration_id: auditCtx.integrationId,
+          location_id: auditCtx.locationId,
+          handler: 'fetchDeliveryDetail',
+          caller_action: auditCtx.callerAction,
+          outcome: 'detail_fetch_failed',
+          b2c_error_code: 'non_array_result',
+          b2c_error_message: `key=${deliveryKey} src=${keySource} orderKey=${orderKey}`,
+        }).then(() => {}, (e: any) => console.error('[PFG Audit] insert failed:', e));
+      }
       return [];
     }
 
     console.log(`[PFG API] Got ${items.length} line items for order ${orderKey} (key source: ${keySource})`);
     return items;
   } catch (err) {
-    console.warn(`[PFG API] DeliveryDetail failed for key (${keySource})`, deliveryKey, ':', (err as Error).message?.slice(0, 200));
+    const msg = (err as Error).message?.slice(0, 500);
+    console.warn(`[PFG API] DeliveryDetail failed for key (${keySource})`, deliveryKey, ':', msg);
+    if (auditCtx) {
+      auditCtx.supabase.from('pfg_refresh_audit').insert({
+        integration_id: auditCtx.integrationId,
+        location_id: auditCtx.locationId,
+        handler: 'fetchDeliveryDetail',
+        caller_action: auditCtx.callerAction,
+        outcome: 'detail_fetch_failed',
+        b2c_error_code: 'request_error',
+        b2c_error_message: `key=${deliveryKey} src=${keySource} orderKey=${orderKey} :: ${msg}`,
+      }).then(() => {}, (e: any) => console.error('[PFG Audit] insert failed:', e));
+    }
     return [];
   }
 }
@@ -2043,7 +2072,12 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         const results = await Promise.allSettled(
           batch.map(p => {
             if (!p.customerIdForDetail) return Promise.resolve([]);
-            return fetchDeliveryDetail(accessToken, p.orderForDetail, p.customerIdForDetail);
+            return fetchDeliveryDetail(accessToken, p.orderForDetail, p.customerIdForDetail, {
+              supabase,
+              integrationId: integration.id,
+              locationId: integration.location_id,
+              callerAction: 'sync_orders',
+            });
           })
         );
         for (let j = 0; j < results.length; j++) {
@@ -2732,7 +2766,12 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
       };
 
       try {
-        const items = await fetchDeliveryDetail(accessToken, syntheticOrder, customerId);
+        const items = await fetchDeliveryDetail(accessToken, syntheticOrder, customerId, {
+          supabase,
+          integrationId: integration.id,
+          locationId: integration.location_id,
+          callerAction: 'backfill_items',
+        });
         if (items.length === 0) {
           rowReport.result = 'still_empty';
           rep.still_empty++;
