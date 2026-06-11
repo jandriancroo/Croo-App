@@ -2578,6 +2578,209 @@ async function handleCustomerInfo(supabase: any, body: any): Promise<Response> {
 }
 
 // ============================================================================
+// BACKFILL ITEMS — repair pfg_orders rows where items is NULL / [] by
+// re-calling GetDeliveryDetail using the native DeliveryKey persisted in
+// raw_data.DeliveryKey. Dry-run by default; pass { apply: true } to write.
+// ============================================================================
+
+async function handleBackfillItems(supabase: any, body: any): Promise<Response> {
+  const apply: boolean = body?.apply === true;
+  const locationId: string | null = body?.locationId || null;
+  const daysBack: number = Math.min(Math.max(Number(body?.daysBack) || 90, 1), 365);
+  const maxRows: number = Math.min(Math.max(Number(body?.maxRows) || 500, 1), 2000);
+
+  console.log(`[PFG Backfill] start apply=${apply} location=${locationId || 'ALL'} daysBack=${daysBack}`);
+
+  // 1. Pull candidate empty orders
+  let q = supabase
+    .from('pfg_orders')
+    .select('id, location_id, pfg_order_id, order_number, order_date, delivery_date, items, raw_data, source_delivery_key')
+    .gte('order_date', new Date(Date.now() - daysBack * 86400000).toISOString().slice(0, 10))
+    .or('items.is.null,items.eq.[]')
+    .limit(maxRows);
+  if (locationId) q = q.eq('location_id', locationId);
+
+  const { data: candidates, error } = await q;
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // 2. Bucket by location and classify
+  type Row = any;
+  const byLoc = new Map<string, Row[]>();
+  for (const r of candidates || []) {
+    if (!byLoc.has(r.location_id)) byLoc.set(r.location_id, []);
+    byLoc.get(r.location_id)!.push(r);
+  }
+
+  // Resolve location names
+  const locIds = [...byLoc.keys()];
+  const { data: locs } = await supabase.from('locations').select('id, name').in('id', locIds);
+  const locName = new Map<string, string>((locs || []).map((l: any) => [l.id, l.name]));
+
+  // 3. For each location, fetch a valid access token once and process rows
+  type RowReport = {
+    pfg_order_id: string;
+    order_date: string;
+    native_key: string | null;
+    classification: 'has_native_key' | 'no_native_key_skip';
+    result?: 'would_repair' | 'repaired' | 'still_empty' | 'fetch_failed';
+    line_count?: number;
+    error?: string;
+  };
+
+  const perLocation: Array<{
+    location_id: string;
+    location_name: string;
+    candidates: number;
+    has_native_key: number;
+    no_native_key_skip: number;
+    repaired: number;
+    would_repair: number;
+    still_empty: number;
+    fetch_failed: number;
+    rows: RowReport[];
+  }> = [];
+
+  for (const [locId, rows] of byLoc) {
+    // Get integration + token (only if we'll actually call PFG, i.e. apply mode
+    // OR we still want to verify in dry-run? For a true dry-run, we skip the
+    // network call and just classify by raw_data shape.)
+    const { data: integration } = await supabase
+      .from('location_integrations')
+      .select('id, credentials')
+      .eq('location_id', locId)
+      .eq('integration_type', 'pfg')
+      .eq('is_active', true)
+      .maybeSingle();
+
+    let accessToken: string | null = null;
+    if (apply) {
+      if (!integration) {
+        console.warn(`[PFG Backfill] no active integration for ${locId} — skipping repairs`);
+      } else {
+        try {
+          const tr = await getValidAccessToken(
+            supabase, integration.credentials, integration.id, locId, 'backfill_items',
+          );
+          accessToken = tr?.token || null;
+        } catch (err) {
+          console.warn(`[PFG Backfill] token resolve failed for ${locId}:`, (err as Error).message);
+        }
+      }
+    }
+
+    const rep = {
+      location_id: locId,
+      location_name: locName.get(locId) || locId,
+      candidates: rows.length,
+      has_native_key: 0,
+      no_native_key_skip: 0,
+      repaired: 0,
+      would_repair: 0,
+      still_empty: 0,
+      fetch_failed: 0,
+      rows: [] as RowReport[],
+    };
+
+    for (const r of rows) {
+      const raw = r.raw_data || {};
+      const nativeKey: string | null = raw.DeliveryKey || r.source_delivery_key || null;
+      const rowReport: RowReport = {
+        pfg_order_id: r.pfg_order_id,
+        order_date: r.order_date,
+        native_key: nativeKey,
+        classification: nativeKey ? 'has_native_key' : 'no_native_key_skip',
+      };
+
+      if (!nativeKey) {
+        rep.no_native_key_skip++;
+        rep.rows.push(rowReport);
+        continue;
+      }
+
+      rep.has_native_key++;
+
+      if (!apply) {
+        rowReport.result = 'would_repair';
+        rep.would_repair++;
+        rep.rows.push(rowReport);
+        continue;
+      }
+
+      if (!accessToken) {
+        rowReport.result = 'fetch_failed';
+        rowReport.error = 'no_access_token';
+        rep.fetch_failed++;
+        rep.rows.push(rowReport);
+        continue;
+      }
+
+      // Call fixed fetchDeliveryDetail with a synthetic order carrying the
+      // native DeliveryKey. Customer ID is read from credentials.
+      const customerId = (integration?.credentials?.customer_id as string) || '';
+      const syntheticOrder = {
+        DeliveryKey: nativeKey,
+        OrderOperationCompanyNumber: raw.OrderOperationCompanyNumber,
+        OrderBusinessUnitERPKey: raw.OrderBusinessUnitERPKey || 0,
+      };
+
+      try {
+        const items = await fetchDeliveryDetail(accessToken, syntheticOrder, customerId);
+        if (items.length === 0) {
+          rowReport.result = 'still_empty';
+          rep.still_empty++;
+        } else {
+          const { error: upErr } = await supabase
+            .from('pfg_orders')
+            .update({ items, source_delivery_key: nativeKey, updated_at: new Date().toISOString() })
+            .eq('id', r.id);
+          if (upErr) {
+            rowReport.result = 'fetch_failed';
+            rowReport.error = upErr.message;
+            rep.fetch_failed++;
+          } else {
+            rowReport.result = 'repaired';
+            rowReport.line_count = items.length;
+            rep.repaired++;
+          }
+        }
+      } catch (err) {
+        rowReport.result = 'fetch_failed';
+        rowReport.error = (err as Error).message?.slice(0, 200);
+        rep.fetch_failed++;
+      }
+
+      rep.rows.push(rowReport);
+    }
+
+    perLocation.push(rep);
+  }
+
+  const totals = perLocation.reduce((acc, l) => ({
+    candidates: acc.candidates + l.candidates,
+    has_native_key: acc.has_native_key + l.has_native_key,
+    no_native_key_skip: acc.no_native_key_skip + l.no_native_key_skip,
+    repaired: acc.repaired + l.repaired,
+    would_repair: acc.would_repair + l.would_repair,
+    still_empty: acc.still_empty + l.still_empty,
+    fetch_failed: acc.fetch_failed + l.fetch_failed,
+  }), { candidates: 0, has_native_key: 0, no_native_key_skip: 0, repaired: 0, would_repair: 0, still_empty: 0, fetch_failed: 0 });
+
+  return new Response(JSON.stringify({
+    success: true,
+    mode: apply ? 'apply' : 'dry_run',
+    params: { locationId, daysBack, maxRows },
+    totals,
+    by_location: perLocation,
+  }, null, 2), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -2759,6 +2962,9 @@ serve(async (req) => {
 
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
+
+      case 'backfill_items':
+        return await handleBackfillItems(supabase, body);
 
       
       case 'list_delivery_locations':
