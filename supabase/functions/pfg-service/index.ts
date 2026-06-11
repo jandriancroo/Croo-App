@@ -2718,13 +2718,17 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
         continue;
       }
 
-      // Call fixed fetchDeliveryDetail with a synthetic order carrying the
-      // native DeliveryKey. Customer ID is read from credentials.
-      const customerId = (integration?.credentials?.customer_id as string) || '';
+      // raw_data is the Delivery object from GetDeliveries (Delivery* fields),
+      // not the Order from GetSubmittedOrderHeaders. Pass through verbatim
+      // so fetchDeliveryDetail uses the native DeliveryKey. CustomerId is
+      // per-order on the raw payload, fall back to credentials.
+      const customerId = (raw.CustomerId as string)
+        || (integration?.credentials?.customer_id as string)
+        || '';
       const syntheticOrder = {
         DeliveryKey: nativeKey,
-        OrderOperationCompanyNumber: raw.OrderOperationCompanyNumber,
-        OrderBusinessUnitERPKey: raw.OrderBusinessUnitERPKey || 0,
+        OrderOperationCompanyNumber: raw.DeliveryOperationCompanyNumber || raw.OrderOperationCompanyNumber,
+        OrderBusinessUnitERPKey: raw.DeliveryBusinessUnitERPKey || raw.OrderBusinessUnitERPKey || 0,
       };
 
       try {
