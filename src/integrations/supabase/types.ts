@@ -7313,6 +7313,7 @@ export type Database = {
           order_number: string | null
           pfg_order_id: string
           raw_data: Json | null
+          source_delivery_key: string | null
           status: string | null
           total_amount: number | null
           updated_at: string
@@ -7328,6 +7329,7 @@ export type Database = {
           order_number?: string | null
           pfg_order_id: string
           raw_data?: Json | null
+          source_delivery_key?: string | null
           status?: string | null
           total_amount?: number | null
           updated_at?: string
@@ -7343,6 +7345,7 @@ export type Database = {
           order_number?: string | null
           pfg_order_id?: string
           raw_data?: Json | null
+          source_delivery_key?: string | null
           status?: string | null
           total_amount?: number | null
           updated_at?: string
