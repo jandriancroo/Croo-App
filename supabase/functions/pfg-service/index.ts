@@ -2072,8 +2072,12 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         const results = await Promise.allSettled(
           batch.map(p => {
             if (!p.customerIdForDetail) return Promise.resolve([]);
-            return fetchDeliveryDetail(accessToken, p.orderForDetail, p.customerIdForDetail);
-          })
+            return fetchDeliveryDetail(accessToken, p.orderForDetail, p.customerIdForDetail, {
+              supabase,
+              integrationId: integration.id,
+              locationId: integration.location_id,
+              callerAction: 'sync_orders',
+            });
         );
         for (let j = 0; j < results.length; j++) {
           const r = results[j];
