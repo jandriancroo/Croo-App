@@ -2665,7 +2665,7 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
           const tr = await getValidAccessToken(
             supabase, integration.credentials, integration.id, locId, 'backfill_items',
           );
-          accessToken = tr?.token || null;
+          accessToken = tr?.accessToken || null;
         } catch (err) {
           console.warn(`[PFG Backfill] token resolve failed for ${locId}:`, (err as Error).message);
         }
