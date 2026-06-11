@@ -2760,6 +2760,9 @@ serve(async (req) => {
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
 
+      case 'backfill_items':
+        return await handleBackfillItems(supabase, body);
+
       
       case 'list_delivery_locations':
         return await handleListDeliveryLocations(supabase, body);
