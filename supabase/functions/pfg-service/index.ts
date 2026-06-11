@@ -842,25 +842,37 @@ async function fetchDeliveryDetail(
   order: any,
   customerId: string,
 ): Promise<any[]> {
-  // Build DeliveryKey: {OpCoNumber}_{CustomerNumber}_{DeliveryDate YYYY-MM-DD}_{OrderKey}
+  // PFG returns a native DeliveryKey on the header — use it verbatim.
+  // OpCo-specific formats vary (Hickory/770 returns a 3-part YYYYMMDD key;
+  // others return a 4-part YYYY-MM-DD key). Reconstruction broke Hickory
+  // entirely, so trust the source of truth first and only rebuild as a
+  // last resort.
   const opCo = order.OrderOperationCompanyNumber || '428';
   const custNum = order.DeliverToCustomerNumber || '';
-  const deliveryDateRaw = order.DeliveryDate;
   const orderKey = order.OrderKey || order.OrderNumber;
 
-  if (!custNum || !deliveryDateRaw || !orderKey) {
-    console.warn('[PFG API] Cannot build DeliveryKey — missing fields');
-    return [];
+  let deliveryKey: string | null = order.DeliveryKey || null;
+  let keySource: 'native' | 'reconstructed' = 'native';
+
+  if (!deliveryKey) {
+    const deliveryDateRaw = order.DeliveryDate;
+    if (!custNum || !deliveryDateRaw || !orderKey) {
+      console.warn('[PFG API] No native DeliveryKey and cannot reconstruct — missing fields', {
+        opCo, hasCustNum: !!custNum, hasDeliveryDate: !!deliveryDateRaw, hasOrderKey: !!orderKey,
+      });
+      return [];
+    }
+    const deliveryDateFormatted = parsePfgDate(deliveryDateRaw);
+    if (!deliveryDateFormatted) {
+      console.warn('[PFG API] No native DeliveryKey and cannot parse delivery date:', deliveryDateRaw);
+      return [];
+    }
+    deliveryKey = `${opCo}_${custNum}_${deliveryDateFormatted}_${orderKey}`;
+    keySource = 'reconstructed';
+    console.warn('[PFG API] Falling back to reconstructed DeliveryKey (header had none):', deliveryKey);
   }
 
-  const deliveryDateFormatted = parsePfgDate(deliveryDateRaw);
-  if (!deliveryDateFormatted) {
-    console.warn('[PFG API] Cannot parse delivery date for DeliveryKey:', deliveryDateRaw);
-    return [];
-  }
-
-  const deliveryKey = `${opCo}_${custNum}_${deliveryDateFormatted}_${orderKey}`;
-  console.log('[PFG API] Fetching delivery detail, key:', deliveryKey);
+  console.log(`[PFG API] Fetching delivery detail (${keySource}), key:`, deliveryKey);
 
   try {
     const data = await fetchPfgJson(
@@ -887,10 +899,10 @@ async function fetchDeliveryDetail(
       return [];
     }
 
-    console.log(`[PFG API] Got ${items.length} line items for order ${orderKey}`);
+    console.log(`[PFG API] Got ${items.length} line items for order ${orderKey} (key source: ${keySource})`);
     return items;
   } catch (err) {
-    console.warn('[PFG API] DeliveryDetail failed for key', deliveryKey, ':', (err as Error).message?.slice(0, 200));
+    console.warn(`[PFG API] DeliveryDetail failed for key (${keySource})`, deliveryKey, ':', (err as Error).message?.slice(0, 200));
     return [];
   }
 }
