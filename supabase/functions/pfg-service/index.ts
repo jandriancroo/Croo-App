@@ -2766,7 +2766,12 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
       };
 
       try {
-        const items = await fetchDeliveryDetail(accessToken, syntheticOrder, customerId);
+        const items = await fetchDeliveryDetail(accessToken, syntheticOrder, customerId, {
+          supabase,
+          integrationId: integration.id,
+          locationId: integration.location_id,
+          callerAction: 'backfill_items',
+        });
         if (items.length === 0) {
           rowReport.result = 'still_empty';
           rep.still_empty++;
