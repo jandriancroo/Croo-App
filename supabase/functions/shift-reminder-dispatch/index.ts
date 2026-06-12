@@ -24,15 +24,9 @@ serve(async (req) => {
   );
 
   try {
-    // Find shifts whose start time (in their location's tz) lands ~30 min from now,
-    // excluding time-off rows and shifts that already received a reminder,
-    // and respecting the per-user `shift_reminders` toggle (default true).
-    const { data: candidates, error } = await supabase.rpc("exec_shift_reminder_query" as any).catch(() => ({ data: null, error: { message: "rpc_missing" } }));
-
-    // Fallback to inline query via PostgREST if the RPC isn't present (it isn't — we use REST below).
+    // Pull a small window of upcoming shifts (±1 day around today) and filter to the ~30-min mark in JS.
     let rows: any[] = [];
-    if (!candidates) {
-      // Pull a small window of upcoming shifts (next 2 hours, today/tomorrow) and filter in JS.
+    {
       const { data: shifts, error: sErr } = await supabase
         .from("scheduled_shifts")
         .select("id, user_id, shift_date, start_time, is_time_off, schedule_id, schedules!inner(location_id, locations!inner(name, id))")
