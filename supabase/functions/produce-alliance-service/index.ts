@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { isInventoryEnabled, filterEnabledLocations, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -583,6 +584,11 @@ async function fetchInvoiceDetail(session: PASession, inv: PAInvoiceSummary): Pr
 
 async function handleInvoices(supabase: any, body: any): Promise<Response> {
   const { locationId, startDate, endDate, maxInvoices = 50 } = body;
+  const invGate = await isInventoryEnabled(supabase, locationId);
+  if (!invGate.enabled) {
+    console.log(`[PA invoices] SKIPPED — inventory_enabled=false for ${locationId}`);
+    return inventoryDisabledResponse(invGate, corsHeaders);
+  }
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
   const session = await loginToPA(credentials);
@@ -1368,6 +1374,11 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
 
 async function handleOrders(supabase: any, body: any): Promise<Response> {
   const { locationId, startDate, endDate, fetchDetails = true, maxDetails = 10 } = body;
+  const ordGate = await isInventoryEnabled(supabase, locationId);
+  if (!ordGate.enabled) {
+    console.log(`[PA orders] SKIPPED — inventory_enabled=false for ${locationId}`);
+    return inventoryDisabledResponse(ordGate, corsHeaders);
+  }
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
 
@@ -1481,6 +1492,13 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
 
 async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   const { locationId, triggeredBy } = body;
+
+  const syncGate = await isInventoryEnabled(supabase, locationId);
+  if (!syncGate.enabled) {
+    console.log(`[PA sync_items] SKIPPED — inventory_enabled=false for ${locationId}`);
+    return inventoryDisabledResponse(syncGate, corsHeaders);
+  }
+
 
   const { data: syncLog } = await supabase
     .from('inventory_sync_logs')
@@ -1983,7 +2001,11 @@ async function handleNightlyInvoiceSync(supabase: any, _body: any): Promise<Resp
 
   if (error) return jsonResponse({ success: false, error: error.message }, 500);
 
-  const targets = (locs || []).filter((l: any) => (l.credentials as any)?.sync_mode === 'invoices');
+  const invoicesMode = (locs || []).filter((l: any) => (l.credentials as any)?.sync_mode === 'invoices');
+  const nightlyEnabledIds = await filterEnabledLocations(supabase, invoicesMode.map((l: any) => l.location_id));
+  const targets = invoicesMode.filter((l: any) => nightlyEnabledIds.has(l.location_id));
+  const nightlySkipped = invoicesMode.length - targets.length;
+  if (nightlySkipped > 0) console.log(`[PA Nightly] Skipped ${nightlySkipped} location(s) — inventory_enabled=false`);
   console.log(`[PA Nightly] ${targets.length} location(s) on invoices mode (of ${locs?.length || 0} total)`);
 
   // Last 3 days (overlap catches late portal posts)

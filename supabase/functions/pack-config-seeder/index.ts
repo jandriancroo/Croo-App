@@ -32,6 +32,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { parsePackString } from "../_shared/packParser.ts";
+import { filterEnabledLocations } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -233,6 +234,22 @@ Deno.serve(async (req) => {
       if (!set) { set = new Set(); locationsByTemplate.set(r.brand_item_id, set); }
       set.add(r.location_id);
     }
+
+    // Gate: prune disabled locations across all templates
+    const allLocIds = new Set<string>();
+    for (const s of locationsByTemplate.values()) for (const id of s) allLocIds.add(id);
+    const enabledLocIds = await filterEnabledLocations(supabase, [...allLocIds]);
+    let prunedLocCount = 0;
+    for (const [tplId, locs] of locationsByTemplate) {
+      const filtered = new Set<string>();
+      for (const id of locs) {
+        if (enabledLocIds.has(id)) filtered.add(id);
+        else prunedLocCount++;
+      }
+      locationsByTemplate.set(tplId, filtered);
+    }
+    if (prunedLocCount > 0) console.log(`[pack-config-seeder] Pruned ${prunedLocCount} template/location pairs — inventory_enabled=false`);
+
 
     // ── Preload source tables (in-memory indexes) ──
     const nowMs = Date.now();

@@ -26,6 +26,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { parsePackString, type ParsedPack } from "../_shared/packParser.ts";
+import { isInventoryEnabled, filterEnabledLocations, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,6 +82,15 @@ Deno.serve(async (req) => {
   const dryRun = body?.dryRun !== false && url.searchParams.get("dryRun") !== "false";
   const onlyLocationId: string | null = body?.locationId || url.searchParams.get("locationId") || null;
 
+  // Gate: short-circuit single-location call if disabled
+  if (onlyLocationId) {
+    const gate = await isInventoryEnabled(supabase, onlyLocationId);
+    if (!gate.enabled) {
+      console.log(`[pack-selection-backfill] SKIPPED — inventory_enabled=false for ${onlyLocationId}`);
+      return inventoryDisabledResponse(gate, corsHeaders);
+    }
+  }
+
   console.log(`[pack-selection-backfill] start dryRun=${dryRun} location=${onlyLocationId || "ALL"}`);
 
   // ── Step 1: find missing pairs ────────────────────────────────────────────
@@ -105,6 +115,18 @@ Deno.serve(async (req) => {
     if (data.length < PAGE) break;
   }
 
+
+  // Gate: when scanning ALL locations, drop rows for disabled ones
+  if (!onlyLocationId && itemRows.length > 0) {
+    const allLocs = [...new Set(itemRows.map((r: any) => r.location_id))];
+    const enabledSet = await filterEnabledLocations(supabase, allLocs);
+    const before = itemRows.length;
+    for (let i = itemRows.length - 1; i >= 0; i--) {
+      if (!enabledSet.has(itemRows[i].location_id)) itemRows.splice(i, 1);
+    }
+    const skipped = before - itemRows.length;
+    if (skipped > 0) console.log(`[pack-selection-backfill] Skipped ${skipped} item rows — inventory_enabled=false`);
+  }
 
   const candidateTplIds = [...new Set((itemRows || []).map((r: any) => r.brand_item_id))];
   const candidateLocIds = [...new Set((itemRows || []).map((r: any) => r.location_id))];

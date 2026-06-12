@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isInventoryEnabled, filterEnabledLocations, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1318,9 +1319,21 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
     query = query.eq('location_id', locationId);
   }
 
-  const { data: integrations, error } = await query;
+  const { data: integrationsRaw, error } = await query;
 
   if (error) throw new Error(`Failed to fetch PFG integrations: ${error.message}`);
+
+  // Gate: drop integrations whose location has inventory disabled
+  const enabledIds = await filterEnabledLocations(
+    supabase,
+    (integrationsRaw || []).map((i: any) => i.location_id),
+  );
+  const integrations = (integrationsRaw || []).filter((i: any) => enabledIds.has(i.location_id));
+  const keepAliveSkipped = (integrationsRaw?.length || 0) - integrations.length;
+  if (keepAliveSkipped > 0) {
+    console.log(`[PFG Keep-Alive] Skipped ${keepAliveSkipped} integration(s) — inventory_enabled=false`);
+  }
+
   if (!integrations || integrations.length === 0) {
     return new Response(JSON.stringify({ success: true, refreshed: 0, message: 'No active PFG integrations' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1927,10 +1940,21 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
     query = query.in('location_id', locationIds);
   }
 
-  const { data: integrations, error: intError } = await query;
+  const { data: integrationsRaw, error: intError } = await query;
 
   if (intError) {
     throw new Error(`Failed to fetch integrations: ${intError.message}`);
+  }
+
+  // Gate: drop integrations whose location has inventory disabled
+  const enabledIds = await filterEnabledLocations(
+    supabase,
+    (integrationsRaw || []).map((i: any) => i.location_id),
+  );
+  const integrations = (integrationsRaw || []).filter((i: any) => enabledIds.has(i.location_id));
+  const skippedCount = (integrationsRaw?.length || 0) - integrations.length;
+  if (skippedCount > 0) {
+    console.log(`[PFG sync_orders] Skipped ${skippedCount} integration(s) — inventory_enabled=false`);
   }
 
   if (!integrations || integrations.length === 0) {
@@ -2623,6 +2647,15 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
   const daysBack: number = Math.min(Math.max(Number(body?.daysBack) || 90, 1), 365);
   const maxRows: number = Math.min(Math.max(Number(body?.maxRows) || 500, 1), 2000);
 
+  // Gate: single-location call — short-circuit if disabled
+  if (locationId) {
+    const gate = await isInventoryEnabled(supabase, locationId);
+    if (!gate.enabled) {
+      console.log(`[PFG Backfill] SKIPPED — inventory_enabled=false for ${locationId}`);
+      return inventoryDisabledResponse(gate, corsHeaders);
+    }
+  }
+
   console.log(`[PFG Backfill] start apply=${apply} location=${locationId || 'ALL'} daysBack=${daysBack}`);
 
   // 1. Pull candidate empty orders
@@ -2653,6 +2686,15 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
   const locIds = [...byLoc.keys()];
   const { data: locs } = await supabase.from('locations').select('id, name').in('id', locIds);
   const locName = new Map<string, string>((locs || []).map((l: any) => [l.id, l.name]));
+
+  // Gate: drop disabled locations from multi-loc backfill
+  const enabledIds = await filterEnabledLocations(supabase, locIds);
+  for (const lid of locIds) {
+    if (!enabledIds.has(lid)) {
+      console.log(`[PFG Backfill] Skipping ${lid} — inventory_enabled=false`);
+      byLoc.delete(lid);
+    }
+  }
 
   // 3. For each location, fetch a valid access token once and process rows
   type RowReport = {
