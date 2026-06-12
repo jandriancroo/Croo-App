@@ -2647,6 +2647,15 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
   const daysBack: number = Math.min(Math.max(Number(body?.daysBack) || 90, 1), 365);
   const maxRows: number = Math.min(Math.max(Number(body?.maxRows) || 500, 1), 2000);
 
+  // Gate: single-location call — short-circuit if disabled
+  if (locationId) {
+    const gate = await isInventoryEnabled(supabase, locationId);
+    if (!gate.enabled) {
+      console.log(`[PFG Backfill] SKIPPED — inventory_enabled=false for ${locationId}`);
+      return inventoryDisabledResponse(gate, corsHeaders);
+    }
+  }
+
   console.log(`[PFG Backfill] start apply=${apply} location=${locationId || 'ALL'} daysBack=${daysBack}`);
 
   // 1. Pull candidate empty orders
