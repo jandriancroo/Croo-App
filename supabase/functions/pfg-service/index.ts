@@ -1319,9 +1319,21 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
     query = query.eq('location_id', locationId);
   }
 
-  const { data: integrations, error } = await query;
+  const { data: integrationsRaw, error } = await query;
 
   if (error) throw new Error(`Failed to fetch PFG integrations: ${error.message}`);
+
+  // Gate: drop integrations whose location has inventory disabled
+  const enabledIds = await filterEnabledLocations(
+    supabase,
+    (integrationsRaw || []).map((i: any) => i.location_id),
+  );
+  const integrations = (integrationsRaw || []).filter((i: any) => enabledIds.has(i.location_id));
+  const keepAliveSkipped = (integrationsRaw?.length || 0) - integrations.length;
+  if (keepAliveSkipped > 0) {
+    console.log(`[PFG Keep-Alive] Skipped ${keepAliveSkipped} integration(s) — inventory_enabled=false`);
+  }
+
   if (!integrations || integrations.length === 0) {
     return new Response(JSON.stringify({ success: true, refreshed: 0, message: 'No active PFG integrations' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
