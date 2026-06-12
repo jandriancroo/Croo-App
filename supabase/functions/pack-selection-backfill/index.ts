@@ -116,6 +116,18 @@ Deno.serve(async (req) => {
   }
 
 
+  // Gate: when scanning ALL locations, drop rows for disabled ones
+  if (!onlyLocationId && itemRows.length > 0) {
+    const allLocs = [...new Set(itemRows.map((r: any) => r.location_id))];
+    const enabledSet = await filterEnabledLocations(supabase, allLocs);
+    const before = itemRows.length;
+    for (let i = itemRows.length - 1; i >= 0; i--) {
+      if (!enabledSet.has(itemRows[i].location_id)) itemRows.splice(i, 1);
+    }
+    const skipped = before - itemRows.length;
+    if (skipped > 0) console.log(`[pack-selection-backfill] Skipped ${skipped} item rows — inventory_enabled=false`);
+  }
+
   const candidateTplIds = [...new Set((itemRows || []).map((r: any) => r.brand_item_id))];
   const candidateLocIds = [...new Set((itemRows || []).map((r: any) => r.location_id))];
 
