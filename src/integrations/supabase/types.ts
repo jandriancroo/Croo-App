@@ -6462,6 +6462,7 @@ export type Database = {
           overdue_checklists: boolean
           schedule_updates: boolean
           shift_approvals: boolean
+          shift_reminders: boolean
           support_tickets: boolean | null
           updated_at: string
           user_id: string
@@ -6477,6 +6478,7 @@ export type Database = {
           overdue_checklists?: boolean
           schedule_updates?: boolean
           shift_approvals?: boolean
+          shift_reminders?: boolean
           support_tickets?: boolean | null
           updated_at?: string
           user_id: string
@@ -6492,6 +6494,7 @@ export type Database = {
           overdue_checklists?: boolean
           schedule_updates?: boolean
           shift_approvals?: boolean
+          shift_reminders?: boolean
           support_tickets?: boolean | null
           updated_at?: string
           user_id?: string
@@ -9155,6 +9158,32 @@ export type Database = {
             foreignKeyName: "shift_offers_shift_id_fkey"
             columns: ["shift_id"]
             isOneToOne: false
+            referencedRelation: "scheduled_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_reminder_log: {
+        Row: {
+          sent_at: string
+          shift_id: string
+          user_id: string
+        }
+        Insert: {
+          sent_at?: string
+          shift_id: string
+          user_id: string
+        }
+        Update: {
+          sent_at?: string
+          shift_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_reminder_log_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: true
             referencedRelation: "scheduled_shifts"
             referencedColumns: ["id"]
           },

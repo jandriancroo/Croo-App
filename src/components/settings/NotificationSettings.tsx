@@ -26,6 +26,7 @@ interface NotificationPreferences {
   shift_approvals: boolean;
   certification_expiring: boolean;
   arcade_scores: boolean;
+  shift_reminders: boolean;
 }
 
 interface UserLocation {
@@ -66,6 +67,7 @@ export const NotificationSettings = () => {
     shift_approvals: true,
     certification_expiring: true,
     arcade_scores: false,
+    shift_reminders: true,
   });
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -124,6 +126,7 @@ export const NotificationSettings = () => {
             shift_approvals: data.shift_approvals ?? true,
             certification_expiring: data.certification_expiring ?? true,
             arcade_scores: data.arcade_scores ?? false,
+            shift_reminders: (data as any).shift_reminders ?? true,
           });
         }
 
@@ -440,6 +443,15 @@ export const NotificationSettings = () => {
                     id="schedule-updates"
                     checked={preferences.schedule_updates}
                     onCheckedChange={(checked) => updatePreference('schedule_updates', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="shift-reminders" className="text-sm font-normal">Shift Reminders (30 min before)</Label>
+                  <Switch
+                    id="shift-reminders"
+                    checked={preferences.shift_reminders}
+                    onCheckedChange={(checked) => updatePreference('shift_reminders', checked)}
                   />
                 </div>
 
