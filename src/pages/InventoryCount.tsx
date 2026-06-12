@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2, Package } from "lucide-react";
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
 import { toast } from "sonner";
 import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
