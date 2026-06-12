@@ -1928,10 +1928,21 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
     query = query.in('location_id', locationIds);
   }
 
-  const { data: integrations, error: intError } = await query;
+  const { data: integrationsRaw, error: intError } = await query;
 
   if (intError) {
     throw new Error(`Failed to fetch integrations: ${intError.message}`);
+  }
+
+  // Gate: drop integrations whose location has inventory disabled
+  const enabledIds = await filterEnabledLocations(
+    supabase,
+    (integrationsRaw || []).map((i: any) => i.location_id),
+  );
+  const integrations = (integrationsRaw || []).filter((i: any) => enabledIds.has(i.location_id));
+  const skippedCount = (integrationsRaw?.length || 0) - integrations.length;
+  if (skippedCount > 0) {
+    console.log(`[PFG sync_orders] Skipped ${skippedCount} integration(s) — inventory_enabled=false`);
   }
 
   if (!integrations || integrations.length === 0) {
