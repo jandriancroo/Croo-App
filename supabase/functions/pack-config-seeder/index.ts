@@ -32,6 +32,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { parsePackString } from "../_shared/packParser.ts";
+import { filterEnabledLocations } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
