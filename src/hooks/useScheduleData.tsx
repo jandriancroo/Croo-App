@@ -415,7 +415,7 @@ export function useScheduleData() {
             supabase.from("scheduled_shifts").select(`*, template:shift_templates(*)`).eq("schedule_id", schedule.id),
             supabase.from("schedule_events").select("*, event_categories(name, color)").eq("schedule_id", schedule.id),
             supabase.from("schedule_events").select("*, event_categories(name, color)").eq("is_recurring", true).is("schedule_id", null).eq("location_id", currentLocation.id),
-            supabase.from("availability_requests").select("*").eq("location_id", currentLocation.id).eq("request_type", "unpaid").in("status", ["pending", "approved"]).lte("start_date", format(weekEndDate, "yyyy-MM-dd")).gte("end_date", format(weekStart, "yyyy-MM-dd")),
+            supabase.from("availability_requests").select("*").eq("location_id", currentLocation.id).eq("request_type", "unpaid").in("status", ["pending", "approved"]).lte("start_date", format(weekEndDate, "yyyy-MM-dd")).or(`end_date.gte.${format(weekStart, "yyyy-MM-dd")},and(end_date.is.null,start_date.gte.${format(weekStart, "yyyy-MM-dd")})`),
           ]);
 
           const scheduleEvents = (eventsResult.data || []).map(event => ({
