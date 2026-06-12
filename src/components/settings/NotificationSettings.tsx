@@ -126,6 +126,7 @@ export const NotificationSettings = () => {
             shift_approvals: data.shift_approvals ?? true,
             certification_expiring: data.certification_expiring ?? true,
             arcade_scores: data.arcade_scores ?? false,
+            shift_reminders: (data as any).shift_reminders ?? true,
           });
         }
 
