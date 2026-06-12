@@ -82,6 +82,15 @@ Deno.serve(async (req) => {
   const dryRun = body?.dryRun !== false && url.searchParams.get("dryRun") !== "false";
   const onlyLocationId: string | null = body?.locationId || url.searchParams.get("locationId") || null;
 
+  // Gate: short-circuit single-location call if disabled
+  if (onlyLocationId) {
+    const gate = await isInventoryEnabled(supabase, onlyLocationId);
+    if (!gate.enabled) {
+      console.log(`[pack-selection-backfill] SKIPPED — inventory_enabled=false for ${onlyLocationId}`);
+      return inventoryDisabledResponse(gate, corsHeaders);
+    }
+  }
+
   console.log(`[pack-selection-backfill] start dryRun=${dryRun} location=${onlyLocationId || "ALL"}`);
 
   // ── Step 1: find missing pairs ────────────────────────────────────────────
