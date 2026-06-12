@@ -447,6 +447,15 @@ export const NotificationSettings = () => {
                 </div>
 
                 <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="shift-reminders" className="text-sm font-normal">Shift Reminders (30 min before)</Label>
+                  <Switch
+                    id="shift-reminders"
+                    checked={preferences.shift_reminders}
+                    onCheckedChange={(checked) => updatePreference('shift_reminders', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-1.5">
                   <Label htmlFor="shift-approvals" className="text-sm font-normal">Shift Approvals</Label>
                   <Switch
                     id="shift-approvals"
