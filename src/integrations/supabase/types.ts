@@ -5866,6 +5866,7 @@ export type Database = {
           fresh_kds_active: boolean
           fresh_kds_location_id: string | null
           id: string
+          inventory_enabled: boolean
           is_active: boolean
           last_deployed_at: string | null
           latitude: number | null
@@ -5888,6 +5889,7 @@ export type Database = {
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
+          inventory_enabled?: boolean
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
@@ -5910,6 +5912,7 @@ export type Database = {
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
+          inventory_enabled?: boolean
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
