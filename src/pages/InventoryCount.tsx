@@ -71,7 +71,7 @@ const InventoryCount = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("locations")
-        .select("id, name, store_number")
+        .select("id, name, store_number, inventory_enabled")
         .eq("id", locationId)
         .single();
       
