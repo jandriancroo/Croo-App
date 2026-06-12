@@ -245,6 +245,27 @@ const InventoryCount = () => {
     );
   }
 
+  // Gate: inventory disabled for this location — block edit/continue UI
+  if (location && (location as any).inventory_enabled === false) {
+    return (
+      <Layout>
+        <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <div className="rounded-lg border bg-muted/40 p-8 text-center space-y-3">
+            <Package className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Inventory not enabled</h2>
+            <p className="text-sm text-muted-foreground">
+              {location?.name ?? "This location"} hasn't been onboarded to inventory yet.
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-4 md:max-w-4xl md:mx-auto md:p-6">
