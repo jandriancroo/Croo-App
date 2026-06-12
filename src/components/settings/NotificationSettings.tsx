@@ -67,6 +67,7 @@ export const NotificationSettings = () => {
     shift_approvals: true,
     certification_expiring: true,
     arcade_scores: false,
+    shift_reminders: true,
   });
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
