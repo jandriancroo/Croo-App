@@ -584,6 +584,11 @@ async function fetchInvoiceDetail(session: PASession, inv: PAInvoiceSummary): Pr
 
 async function handleInvoices(supabase: any, body: any): Promise<Response> {
   const { locationId, startDate, endDate, maxInvoices = 50 } = body;
+  const invGate = await isInventoryEnabled(supabase, locationId);
+  if (!invGate.enabled) {
+    console.log(`[PA invoices] SKIPPED — inventory_enabled=false for ${locationId}`);
+    return inventoryDisabledResponse(invGate, corsHeaders);
+  }
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
   const session = await loginToPA(credentials);
