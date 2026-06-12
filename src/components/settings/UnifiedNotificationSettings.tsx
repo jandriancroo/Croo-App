@@ -25,6 +25,7 @@ const NOTIFICATION_TYPES = [
   { key: 'chat_messages', label: 'Chat Messages', description: 'New messages in location chats', category: 'general' },
   { key: 'announcements', label: 'Announcements', description: 'Team announcements', category: 'general' },
   { key: 'schedule_updates', label: 'Schedule Updates', description: 'Changes to your schedule', category: 'general' },
+  { key: 'shift_reminders', label: 'Shift Reminders', description: '30 minutes before your shift starts', category: 'general' },
   { key: 'shift_approvals', label: 'Shift Approvals', description: 'When your shifts are approved', category: 'general' },
   { key: 'overdue_checklists', label: 'Overdue Checklists', description: 'When checklists are past due', category: 'general' },
   { key: 'late_arrivals', label: 'Late Arrivals', description: 'When team members are late', category: 'general' },
