@@ -26,6 +26,7 @@ interface NotificationPreferences {
   shift_approvals: boolean;
   certification_expiring: boolean;
   arcade_scores: boolean;
+  shift_reminders: boolean;
 }
 
 interface UserLocation {
