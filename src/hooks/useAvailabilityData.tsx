@@ -237,7 +237,7 @@ export function useAvailabilityData() {
         request_type: editRequestType,
         time_scope: editTimeScope,
         start_date: editStartDate,
-        end_date: editTimeScope === "multi_day" ? (editEndDate || null) : null,
+        end_date: editTimeScope === "multi_day" ? (editEndDate || editStartDate) : editStartDate,
         start_time: editTimeScope === "partial_day" ? (editStartTime || null) : null,
         end_time: editTimeScope === "partial_day" ? (editEndTime || null) : null,
         hours_requested: parseFloat(editHours),
