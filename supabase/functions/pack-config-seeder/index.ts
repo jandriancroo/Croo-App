@@ -235,6 +235,22 @@ Deno.serve(async (req) => {
       set.add(r.location_id);
     }
 
+    // Gate: prune disabled locations across all templates
+    const allLocIds = new Set<string>();
+    for (const s of locationsByTemplate.values()) for (const id of s) allLocIds.add(id);
+    const enabledLocIds = await filterEnabledLocations(supabase, [...allLocIds]);
+    let prunedLocCount = 0;
+    for (const [tplId, locs] of locationsByTemplate) {
+      const filtered = new Set<string>();
+      for (const id of locs) {
+        if (enabledLocIds.has(id)) filtered.add(id);
+        else prunedLocCount++;
+      }
+      locationsByTemplate.set(tplId, filtered);
+    }
+    if (prunedLocCount > 0) console.log(`[pack-config-seeder] Pruned ${prunedLocCount} template/location pairs — inventory_enabled=false`);
+
+
     // ── Preload source tables (in-memory indexes) ──
     const nowMs = Date.now();
     const cutoffISO = (days: number) => new Date(nowMs - days * 86400_000).toISOString();
