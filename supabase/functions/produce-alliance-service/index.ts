@@ -1374,6 +1374,11 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
 
 async function handleOrders(supabase: any, body: any): Promise<Response> {
   const { locationId, startDate, endDate, fetchDetails = true, maxDetails = 10 } = body;
+  const ordGate = await isInventoryEnabled(supabase, locationId);
+  if (!ordGate.enabled) {
+    console.log(`[PA orders] SKIPPED — inventory_enabled=false for ${locationId}`);
+    return inventoryDisabledResponse(ordGate, corsHeaders);
+  }
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
 
