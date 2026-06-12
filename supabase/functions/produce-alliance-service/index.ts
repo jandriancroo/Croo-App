@@ -2001,7 +2001,11 @@ async function handleNightlyInvoiceSync(supabase: any, _body: any): Promise<Resp
 
   if (error) return jsonResponse({ success: false, error: error.message }, 500);
 
-  const targets = (locs || []).filter((l: any) => (l.credentials as any)?.sync_mode === 'invoices');
+  const invoicesMode = (locs || []).filter((l: any) => (l.credentials as any)?.sync_mode === 'invoices');
+  const nightlyEnabledIds = await filterEnabledLocations(supabase, invoicesMode.map((l: any) => l.location_id));
+  const targets = invoicesMode.filter((l: any) => nightlyEnabledIds.has(l.location_id));
+  const nightlySkipped = invoicesMode.length - targets.length;
+  if (nightlySkipped > 0) console.log(`[PA Nightly] Skipped ${nightlySkipped} location(s) — inventory_enabled=false`);
   console.log(`[PA Nightly] ${targets.length} location(s) on invoices mode (of ${locs?.length || 0} total)`);
 
   // Last 3 days (overlap catches late portal posts)
