@@ -158,7 +158,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
         request_type: requestType,
         time_scope: timeScope,
         start_date: startDate,
-        end_date: timeScope === "multi_day" ? (endDate || null) : null,
+        end_date: timeScope === "multi_day" ? (endDate || startDate) : startDate,
         start_time: timeScope === "partial_day" ? startTime : null,
         end_time: timeScope === "partial_day" ? endTime : null,
         hours_requested: hours,
