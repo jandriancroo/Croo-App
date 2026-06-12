@@ -2687,6 +2687,15 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
   const { data: locs } = await supabase.from('locations').select('id, name').in('id', locIds);
   const locName = new Map<string, string>((locs || []).map((l: any) => [l.id, l.name]));
 
+  // Gate: drop disabled locations from multi-loc backfill
+  const enabledIds = await filterEnabledLocations(supabase, locIds);
+  for (const lid of locIds) {
+    if (!enabledIds.has(lid)) {
+      console.log(`[PFG Backfill] Skipping ${lid} — inventory_enabled=false`);
+      byLoc.delete(lid);
+    }
+  }
+
   // 3. For each location, fetch a valid access token once and process rows
   type RowReport = {
     pfg_order_id: string;
