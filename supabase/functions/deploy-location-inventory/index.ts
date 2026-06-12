@@ -32,6 +32,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Gate: skip if target location has inventory disabled
+    const gate = await isInventoryEnabled(supabase, locationId);
+    if (!gate.enabled) {
+      console.log(`[deploy-location-inventory] SKIPPED — inventory_enabled=false for ${locationId}`);
+      return inventoryDisabledResponse(gate, CORS);
+    }
+
     // 1. Fetch live brand templates (optionally scoped to a single template)
     let tmplQuery = supabase
       .from("brand_inventory_templates")
