@@ -1493,6 +1493,13 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
 async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   const { locationId, triggeredBy } = body;
 
+  const syncGate = await isInventoryEnabled(supabase, locationId);
+  if (!syncGate.enabled) {
+    console.log(`[PA sync_items] SKIPPED — inventory_enabled=false for ${locationId}`);
+    return inventoryDisabledResponse(syncGate, corsHeaders);
+  }
+
+
   const { data: syncLog } = await supabase
     .from('inventory_sync_logs')
     .insert({
