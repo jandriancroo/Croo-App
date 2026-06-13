@@ -6,7 +6,26 @@ Newest entries at top. Never delete — strike-through or mark SUPERSEDED.
 
 # Cascade SKU Pollution
 
-**STATUS: OPEN**
+**STATUS: RESOLVED** (2026-06-13)
+
+## Resolution [2026-06-13 · Lovable]
+
+**Root cause:** `trg_auto_deploy_brand_template` on `brand_inventory_templates` fired on status→`live` transitions and iterated **every active location in the brand's org** via `net.http_post` to `deploy-location-inventory` — with **no `inventory_enabled` filter**. Disabled stores (Akers Mill, Anaheim, IUPUI, Niles, Reno S. Meadows, Sparks) received auto-deploys whenever any `(NEW)` template was promoted, stamping phantom rows into `inventory_items` + `brand_inventory_deployments` + `location_pack_selections`.
+
+**Fix applied (Session 3):**
+1. **Entry-point gate** — added `isInventoryEnabled()` helper (`supabase/functions/_shared/inventoryGate.ts`) and wired into `deploy-location-inventory`, `pfg-service`, `produce-alliance-service`, `pack-config-seeder`, `pack-selection-backfill`. Migration: `20260612234902_f0ce9025-ced2-4751-9f95-a8260bee2a3e.sql` + `20260612234935_58855673-00f7-4322-bb3b-5660d665a22e.sql`.
+2. **Cleanup** — deleted 3 polluted rows from `location_pack_selections`, ~126 from `brand_inventory_deployments`, ~144 from `inventory_items` across the 6 disabled stores. Re-run matrix confirmed all-zero.
+3. **Root-cause trigger fix** — `auto_deploy_brand_template` rewritten with `AND l.inventory_enabled = true` in Case 1's location loop. Case 2 (recipe ingredient cascade) preserved verbatim (UPDATE-only, cannot create pollution). Migration: `20260613015706_2dc5f875-8cd6-4966-a4e7-7c05cb37ce27.sql`.
+
+**Note on `net.http_post`:** async/non-blocking (queues into `net.http_request_queue`), so template promotion latency is unaffected by location count.
+
+**Verification:** `pg_get_functiondef('auto_deploy_brand_template')` confirms `AND l.inventory_enabled = true` is inside the `FOR v_loc IN` loop. Trigger only fires on transitions TO `live` (or INSERT with `status='live'`); draft promotions are no-ops by definition of the WHEN clause.
+
+---
+
+**STATUS: OPEN** (historical — superseded by resolution above)
+
+
 
 ## Summary
 
