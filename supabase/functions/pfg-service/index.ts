@@ -1007,22 +1007,33 @@ async function fetchInvoiceDetail(
 // names because the GetInvoiceDetails envelope is still being locked down
 // against a live payload (smoke test on Hemet 4514533).
 function normalizeInvoiceLineItem(item: any) {
-  const uom = item.InvoiceDetailUnitOfMeasures?.[0]
+  // Live GetInvoiceDetails payload puts UoM rows under `UnitOfMeasures` (verified
+  // against Invoice 4514533 capture). Older drafts used `InvoiceDetailUnitOfMeasures`
+  // / `DeliveryDetailUnitOfMeasures` — kept as fallbacks for safety.
+  const uom = item.UnitOfMeasures?.[0]
+    ?? item.InvoiceDetailUnitOfMeasures?.[0]
     ?? item.DeliveryDetailUnitOfMeasures?.[0]
     ?? {};
-  const total = item.ExtendedPrice ?? item.LineTotal ?? 0;
+  const total = uom.ExtendedPrice ?? item.ExtendedPrice ?? item.LineTotal ?? 0;
   return {
     productId: item.ProductKey || item.InvoiceDetailProductKey || item.DeliveryDetailProductKey,
     itemNumber: uom.ProductNumber || item.ProductKey,
     name: item.ProductDescription || 'Unknown',
     brand: item.ProductBrand || null,
+    category: item.ProductCategory || null,
+    manufacturer: item.ManufacturerName || null,
+    manufacturerProductNumber: item.ManufacturerProductNumber || null,
+    gtin: item.GTIN || null,
+    vendorNumber: item.VendorNumber || null,
+    lineNumber: item.InvoiceDetailLineNumber ?? null,
     quantity: uom.QuantityOrdered ?? 0,
     quantityShipped: uom.QuantityShipped ?? 0,
     unit: 'CS',
     packSize: uom.ProductPackSize || null,
     price: uom.UnitPrice ?? 0,
+    netPrice: uom.NetPrice ?? null,
     total,
-    weight: item.CatchWeight ?? item.ActualWeight ?? item.ShippedWeight ?? null,
+    weight: uom.CatchWeightDisplay || item.CatchWeight || item.ActualWeight || item.ShippedWeight || null,
     isCatchWeight: uom.IsCatchWeight || false,
     isShorted: item.IsProductShorted || false,
     isCredit: total < 0,
