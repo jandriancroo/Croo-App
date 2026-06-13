@@ -1275,6 +1275,114 @@ async function handleSyncInvoices(supabase: any, body: any): Promise<Response> {
   });
 }
 
+// ============================================================================
+// PROBE: try multiple endpoint/body shapes for invoice detail discovery.
+// Body: { locationId, invoiceNumber }
+// ============================================================================
+async function handleProbeInvoiceDetail(supabase: any, body: any): Promise<Response> {
+  const locationId = body?.locationId;
+  const invoiceNumber = String(body?.invoiceNumber ?? '');
+  if (!locationId || !invoiceNumber) {
+    return new Response(JSON.stringify({ error: 'locationId and invoiceNumber required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: integration } = await supabase
+    .from('location_integrations')
+    .select('id, location_id, credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!integration) {
+    return new Response(JSON.stringify({ error: 'no pfg integration' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Pull the matching order row so we have every header field PFG returned.
+  const { data: orderRow } = await supabase
+    .from('pfg_orders')
+    .select('raw_data')
+    .eq('location_id', locationId)
+    .filter('raw_data->Invoices->0->>InvoiceNumber', 'eq', invoiceNumber)
+    .maybeSingle();
+  const raw = (orderRow as any)?.raw_data ?? {};
+  const inv = Array.isArray(raw.Invoices) ? raw.Invoices[0] : {};
+
+  const credentials = integration.credentials as unknown as PFGCredentials;
+  const tr = await getValidAccessToken(supabase, credentials, integration.id, locationId, 'probe_invoice_detail');
+  if (!tr) {
+    return new Response(JSON.stringify({ error: 'no token' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const token = tr.accessToken;
+  const customerId = String(raw.CustomerId ?? credentials.customer_id ?? '');
+  const opCo = String(inv.InvoiceHeaderOperationCompanyNumber ?? raw.OrderOperationCompanyNumber ?? raw.DeliveryOperationCompanyNumber ?? '428');
+  const custNum = String(raw.DeliverToCustomerNumber ?? raw.CustomerNumber ?? '');
+  const invHeaderKey = String(inv.InvoiceHeaderKey ?? invoiceNumber);
+  const buERPKey = Number(inv.InvoiceHeaderBusinessUnitERPKey ?? 0);
+
+  const probes: { label: string; method: string; path: string; body?: any }[] = [
+    // Path variants
+    { label: 'POST /Invoice/V1/GetInvoiceDetails (header-shaped)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetails',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoiceDetail (singular)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetail',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoice', method: 'POST', path: '/Invoice/V1/GetInvoice',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoiceDetails (number-shaped)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetails',
+      body: { InvoiceNumber: invoiceNumber, OperationCompanyNumber: opCo, CustomerNumber: custNum, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoiceDetails (url-triplet)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetails',
+      body: { InvoiceNumber: invoiceNumber, BusinessUnitERPKey: buERPKey, OperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'GET /Invoice/V1/GetInvoiceDetails?…', method: 'GET',
+      path: `/Invoice/V1/GetInvoiceDetails?InvoiceNumber=${invoiceNumber}&OperationCompanyNumber=${opCo}&BusinessUnitERPKey=${buERPKey}&CustomerId=${encodeURIComponent(customerId)}` },
+    { label: 'POST /Delivery/V1/GetInvoiceDetails', method: 'POST', path: '/Delivery/V1/GetInvoiceDetails',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+  ];
+
+  const results: any[] = [];
+  for (const p of probes) {
+    try {
+      const data = await fetchPfgJson(
+        p.path,
+        {
+          method: p.method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          ...(p.body ? { body: JSON.stringify(p.body) } : {}),
+        },
+      );
+      const ro = data?.ResultObject;
+      const summary = {
+        topKeys: data && typeof data === 'object' ? Object.keys(data) : null,
+        resultObjectType: Array.isArray(ro) ? `array(${ro.length})` : typeof ro,
+        resultObjectKeys: ro && !Array.isArray(ro) && typeof ro === 'object' ? Object.keys(ro) : null,
+        firstElemKeys: Array.isArray(ro) && ro[0] && typeof ro[0] === 'object' ? Object.keys(ro[0]) : null,
+        errorMessages: data?.ErrorMessages ?? null,
+        isSuccess: data?.IsSuccess ?? null,
+      };
+      results.push({ ...p, ok: true, summary, sample: ro });
+    } catch (err) {
+      results.push({ ...p, ok: false, error: (err as Error).message?.slice(0, 300) });
+    }
+  }
+
+  return new Response(JSON.stringify({
+    invoiceNumber,
+    inputs: { customerId, opCo, custNum, invHeaderKey, buERPKey },
+    invoicePayloadFromOrder: inv,
+    probes: results,
+  }, null, 2), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // Parse date from PFG format
 function parsePfgDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
