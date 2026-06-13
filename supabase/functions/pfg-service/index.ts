@@ -1146,9 +1146,11 @@ async function syncRecentInvoices(
           {
             invoiceNumber: b.invoiceNumber,
             invoiceHeaderKey: b.invoiceHeaderKey,
+            invoiceHeaderBusinessUnitERPKey: b.invoiceHeaderBusinessUnitERPKey,
+            invoiceHeaderOperationCompanyNumber: b.invoiceHeaderOperationCompanyNumber,
             operationCompanyNumber: b.opCo,
             customerNumber: b.custNum,
-            customerId,
+            customerId: b.customerIdHint || customerId,
           },
           auditCtx,
         ),
