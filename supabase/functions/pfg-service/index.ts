@@ -954,18 +954,19 @@ async function fetchInvoiceDetail(
   },
   auditCtx?: { supabase: any; integrationId: string; locationId: string | null; callerAction: string },
 ): Promise<any | null> {
-  // Body mirrors GetDeliveryDetail (uses InvoiceHeader* fields from pfg_orders.raw_data.Invoices[]),
-  // and also passes the URL-style triplet (InvoiceNumber/BusinessUnitERPKey/OpCo) seen in the
-  // portal path /invoice-details/{InvoiceNumber}/{BusinessUnitERPKey}/{OpCo}. PFG's middleware
-  // accepts the union — extra fields are ignored, the right ones drive the lookup.
+  // Verified body shape (captured from PFG portal network trace on Invoice 4514533):
+  //   { Invoices: [{ BusinessUnitERPKey, InvoiceHeaderKey, OperationCompanyNumber, CustomerId }] }
+  // The endpoint accepts a batch; we send one invoice per call so the per-invoice
+  // error handling / audit logging downstream stays meaningful.
   const body = {
-    InvoiceHeaderBusinessUnitERPKey: args.invoiceHeaderBusinessUnitERPKey ?? 0,
-    InvoiceHeaderKey: args.invoiceHeaderKey ?? args.invoiceNumber,
-    InvoiceHeaderOperationCompanyNumber: args.invoiceHeaderOperationCompanyNumber ?? args.operationCompanyNumber,
-    InvoiceNumber: args.invoiceNumber,
-    OperationCompanyNumber: args.operationCompanyNumber,
-    CustomerNumber: args.customerNumber,
-    CustomerId: args.customerId,
+    Invoices: [
+      {
+        BusinessUnitERPKey: args.invoiceHeaderBusinessUnitERPKey ?? 0,
+        InvoiceHeaderKey: args.invoiceHeaderKey ?? args.invoiceNumber,
+        OperationCompanyNumber: args.invoiceHeaderOperationCompanyNumber ?? args.operationCompanyNumber,
+        CustomerId: args.customerId,
+      },
+    ],
   };
   try {
     const data = await fetchPfgJson(
