@@ -7,12 +7,13 @@
 // touching the database.
 //
 // Resolution hierarchy (first hit wins):
-//   1. pfg_bid_items     last_seen_at >= now() - 30 days
-//   2. pa_catalog_items  last_seen_at >= now() - 30 days
-//   3. pfg_orders.items  order_date   >= now() - 90 days (most recent line)
-//   4. pa_orders.items   order_date   >= now() - 90 days (most recent line)
-//   5. Deferred — no vendor presence at this location
-//   6. Deferred — vendor presence found, but no matching approved brand_pack_config
+//   1. pfg_bid_items      last_seen_at >= now() - 30 days
+//   2. pa_catalog_items   last_seen_at >= now() - 30 days
+//   3. pfg_invoices.items invoice_date >= now() - 90 days (most recent invoice)
+//   4. pfg_orders.items   order_date   >= now() - 90 days (most recent order)
+//   5. pa_orders.items    order_date   >= now() - 90 days (most recent line)
+//   6. Deferred — no vendor presence at this location
+//   7. Deferred — vendor presence found, but no matching approved brand_pack_config
 //
 // Multi-match (one parsed vendor pack matches >1 approved configs):
 //   - If one match is already someone else's default at the same location for
