@@ -15,6 +15,7 @@ import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
+import { InventoryAccessCard } from "./InventoryAccessCard";
 
 interface QuBeyondCredentials {
   username: string;
@@ -693,6 +694,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     <>
       {/* Card Grid */}
       <div className="space-y-2">
+        <InventoryAccessCard locationId={locationId} />
         <IntegrationCard
           title="QuBeyond POS"
           description="Sales & labor data"
