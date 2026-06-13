@@ -15,6 +15,7 @@ import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
+import { InventoryAccessCard } from "./InventoryAccessCard";
 
 interface QuBeyondCredentials {
   username: string;
