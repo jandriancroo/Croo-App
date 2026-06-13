@@ -3389,6 +3389,9 @@ serve(async (req) => {
       case 'sync_invoices':
         return await handleSyncInvoices(supabase, body);
 
+      case 'probe_invoice_detail':
+        return await handleProbeInvoiceDetail(supabase, body);
+
       case 'backfill_items':
         return await handleBackfillItems(supabase, body);
 
