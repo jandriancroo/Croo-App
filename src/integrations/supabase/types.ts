@@ -7307,6 +7307,93 @@ export type Database = {
           },
         ]
       }
+      pfg_invoices: {
+        Row: {
+          created_at: string
+          customer_number: string | null
+          delivery_date: string | null
+          due_date: string | null
+          freight: number | null
+          has_novel_skus: boolean
+          id: string
+          invoice_date: string | null
+          invoice_header_key: string | null
+          invoice_number: string
+          items: Json
+          location_id: string
+          novel_sku_count: number
+          operation_company_number: string | null
+          pfg_delivery_id: string | null
+          raw_data: Json | null
+          status: string | null
+          subtotal: number | null
+          tax: number | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_number?: string | null
+          delivery_date?: string | null
+          due_date?: string | null
+          freight?: number | null
+          has_novel_skus?: boolean
+          id?: string
+          invoice_date?: string | null
+          invoice_header_key?: string | null
+          invoice_number: string
+          items?: Json
+          location_id: string
+          novel_sku_count?: number
+          operation_company_number?: string | null
+          pfg_delivery_id?: string | null
+          raw_data?: Json | null
+          status?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_number?: string | null
+          delivery_date?: string | null
+          due_date?: string | null
+          freight?: number | null
+          has_novel_skus?: boolean
+          id?: string
+          invoice_date?: string | null
+          invoice_header_key?: string | null
+          invoice_number?: string
+          items?: Json
+          location_id?: string
+          novel_sku_count?: number
+          operation_company_number?: string | null
+          pfg_delivery_id?: string | null
+          raw_data?: Json | null
+          status?: string | null
+          subtotal?: number | null
+          tax?: number | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pfg_invoices_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pfg_invoices_pfg_delivery_id_fkey"
+            columns: ["pfg_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "pfg_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pfg_orders: {
         Row: {
           bound_to_count_id: string | null
