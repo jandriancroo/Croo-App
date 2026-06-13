@@ -443,7 +443,7 @@ Deno.serve(async (req) => {
 
   // ── Step 4: aggregate ─────────────────────────────────────────────────────
   const buckets: Record<Bucket, number> = {
-    pfg_bid: 0, pa_catalog: 0, pfg_order: 0, pa_order: 0,
+    pfg_bid: 0, pa_catalog: 0, pfg_invoice: 0, pfg_order: 0, pa_order: 0,
     deferred_no_vendor: 0, deferred_no_config: 0,
   };
   for (const r of resolutions) buckets[r.bucket]++;
