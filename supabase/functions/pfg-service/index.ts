@@ -3355,6 +3355,9 @@ serve(async (req) => {
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
 
+      case 'sync_invoices':
+        return await handleSyncInvoices(supabase, body);
+
       case 'backfill_items':
         return await handleBackfillItems(supabase, body);
 
