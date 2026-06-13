@@ -402,6 +402,7 @@ Deno.serve(async (req) => {
     const bucketName: Bucket =
       chosen.source === "pfg_bid" ? "pfg_bid"
       : chosen.source === "pa_catalog" ? "pa_catalog"
+      : chosen.source === "pfg_invoice" ? "pfg_invoice"
       : chosen.source === "pfg_order" ? "pfg_order"
       : "pa_order";
 
