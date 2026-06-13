@@ -1179,15 +1179,20 @@ async function syncRecentInvoices(
         continue;
       }
       const detail = r.value;
-      const header = Array.isArray(detail) ? (detail[0]?.Header ?? {}) : (detail.Header ?? detail);
+      // GetInvoiceDetails returns a FLAT array of line items under ResultObject —
+      // no Header block, no invoice-level dates/totals (verified against live 4514533
+      // capture). We derive subtotal from sum(ExtendedPrice) and default invoice_date
+      // to the parent pfg_order's delivery_date until/unless we wire a header endpoint.
       const rawItems: any[] = Array.isArray(detail)
         ? detail
-        : (detail.Items ?? detail.InvoiceDetails ?? detail.InvoiceLines ?? []);
+        : (detail.ResultObject ?? detail.Items ?? detail.InvoiceDetails ?? detail.InvoiceLines ?? []);
       const items = rawItems.map(normalizeInvoiceLineItem);
 
       const novelItems = items.filter((it) => it.itemNumber && !knownSkus.has(String(it.itemNumber)));
       const hasNovel = novelItems.length > 0;
       if (hasNovel) novelInvoices++;
+
+      const subtotal = items.reduce((s, it) => s + (Number(it.total) || 0), 0);
 
       rows.push({
         location_id: integration.location_id,
@@ -1196,14 +1201,14 @@ async function syncRecentInvoices(
         operation_company_number: ref.opCo,
         customer_number: ref.custNum,
         pfg_delivery_id: ref.pfgDeliveryId,
-        invoice_date: parsePfgDate(header.InvoiceDate ?? header.InvoiceCreateDate),
-        delivery_date: parsePfgDate(header.DeliveryDate),
-        due_date: parsePfgDate(header.DueDate),
-        subtotal: header.SubTotal ?? header.Subtotal ?? null,
-        tax: header.TaxAmount ?? header.Tax ?? null,
-        freight: header.FreightAmount ?? header.Freight ?? null,
-        total_amount: header.InvoiceTotal ?? header.TotalAmount ?? header.GrandTotal ?? null,
-        status: String(header.InvoiceStatus ?? header.Status ?? ''),
+        invoice_date: ref.parentDeliveryDate,
+        delivery_date: ref.parentDeliveryDate,
+        due_date: null,
+        subtotal,
+        tax: null,
+        freight: null,
+        total_amount: subtotal,
+        status: '',
         items,
         raw_data: detail,
         has_novel_skus: hasNovel,
