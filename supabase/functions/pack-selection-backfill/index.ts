@@ -491,6 +491,7 @@ Deno.serve(async (req) => {
     samples: {
       pfg_bid: sampleByBucket("pfg_bid", 5),
       pa_catalog: sampleByBucket("pa_catalog", 5),
+      pfg_invoice: sampleByBucket("pfg_invoice", 5),
       pfg_order: sampleByBucket("pfg_order", 5),
       pa_order: sampleByBucket("pa_order", 5),
       deferred_no_vendor_sample: sampleByBucket("deferred_no_vendor", 5),
