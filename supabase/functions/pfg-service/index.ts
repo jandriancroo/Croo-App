@@ -1056,8 +1056,11 @@ async function syncRecentInvoices(
     pfgDeliveryId: string;
     invoiceNumber: string;
     invoiceHeaderKey?: string;
+    invoiceHeaderBusinessUnitERPKey?: number;
+    invoiceHeaderOperationCompanyNumber?: string;
     opCo: string;
     custNum: string;
+    customerIdHint?: string;
   };
   const refs = new Map<string, InvRef>();
   for (const o of orders ?? []) {
@@ -1065,6 +1068,7 @@ async function syncRecentInvoices(
     const invoices: any[] = Array.isArray(raw.Invoices) ? raw.Invoices : [];
     const opCo = String(raw.OrderOperationCompanyNumber ?? raw.DeliveryOperationCompanyNumber ?? '428');
     const custNum = String(raw.DeliverToCustomerNumber ?? raw.CustomerNumber ?? '');
+    const customerIdHint = raw.CustomerId ? String(raw.CustomerId) : undefined;
     for (const inv of invoices) {
       const invNum = String(inv.InvoiceNumber ?? '').trim();
       if (!invNum) continue;
@@ -1073,8 +1077,15 @@ async function syncRecentInvoices(
           pfgDeliveryId: (o as any).id,
           invoiceNumber: invNum,
           invoiceHeaderKey: inv.InvoiceHeaderKey ? String(inv.InvoiceHeaderKey) : undefined,
+          invoiceHeaderBusinessUnitERPKey: typeof inv.InvoiceHeaderBusinessUnitERPKey === 'number'
+            ? inv.InvoiceHeaderBusinessUnitERPKey
+            : (inv.InvoiceHeaderBusinessUnitERPKey != null ? Number(inv.InvoiceHeaderBusinessUnitERPKey) : 0),
+          invoiceHeaderOperationCompanyNumber: inv.InvoiceHeaderOperationCompanyNumber
+            ? String(inv.InvoiceHeaderOperationCompanyNumber)
+            : undefined,
           opCo,
           custNum,
+          customerIdHint,
         });
       }
     }
