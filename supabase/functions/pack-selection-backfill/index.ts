@@ -362,6 +362,10 @@ Deno.serve(async (req) => {
         if (hit) { chosen = { source: "pa_catalog", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.last_seen_at }; break; }
       }
       if (!chosen) for (const id of tv.pfg) {
+        const hit = pfgInvoiceIdx.get(`${pair.location_id}::${id}`);
+        if (hit) { chosen = { source: "pfg_invoice", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.invoice_date }; break; }
+      }
+      if (!chosen) for (const id of tv.pfg) {
         const hit = pfgOrderIdx.get(`${pair.location_id}::${id}`);
         if (hit) { chosen = { source: "pfg_order", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.order_date }; break; }
       }
