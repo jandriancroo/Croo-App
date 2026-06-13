@@ -1007,22 +1007,33 @@ async function fetchInvoiceDetail(
 // names because the GetInvoiceDetails envelope is still being locked down
 // against a live payload (smoke test on Hemet 4514533).
 function normalizeInvoiceLineItem(item: any) {
-  const uom = item.InvoiceDetailUnitOfMeasures?.[0]
+  // Live GetInvoiceDetails payload puts UoM rows under `UnitOfMeasures` (verified
+  // against Invoice 4514533 capture). Older drafts used `InvoiceDetailUnitOfMeasures`
+  // / `DeliveryDetailUnitOfMeasures` — kept as fallbacks for safety.
+  const uom = item.UnitOfMeasures?.[0]
+    ?? item.InvoiceDetailUnitOfMeasures?.[0]
     ?? item.DeliveryDetailUnitOfMeasures?.[0]
     ?? {};
-  const total = item.ExtendedPrice ?? item.LineTotal ?? 0;
+  const total = uom.ExtendedPrice ?? item.ExtendedPrice ?? item.LineTotal ?? 0;
   return {
     productId: item.ProductKey || item.InvoiceDetailProductKey || item.DeliveryDetailProductKey,
     itemNumber: uom.ProductNumber || item.ProductKey,
     name: item.ProductDescription || 'Unknown',
     brand: item.ProductBrand || null,
+    category: item.ProductCategory || null,
+    manufacturer: item.ManufacturerName || null,
+    manufacturerProductNumber: item.ManufacturerProductNumber || null,
+    gtin: item.GTIN || null,
+    vendorNumber: item.VendorNumber || null,
+    lineNumber: item.InvoiceDetailLineNumber ?? null,
     quantity: uom.QuantityOrdered ?? 0,
     quantityShipped: uom.QuantityShipped ?? 0,
     unit: 'CS',
     packSize: uom.ProductPackSize || null,
     price: uom.UnitPrice ?? 0,
+    netPrice: uom.NetPrice ?? null,
     total,
-    weight: item.CatchWeight ?? item.ActualWeight ?? item.ShippedWeight ?? null,
+    weight: uom.CatchWeightDisplay || item.CatchWeight || item.ActualWeight || item.ShippedWeight || null,
     isCatchWeight: uom.IsCatchWeight || false,
     isShorted: item.IsProductShorted || false,
     isCredit: total < 0,
@@ -1054,6 +1065,7 @@ async function syncRecentInvoices(
 
   type InvRef = {
     pfgDeliveryId: string;
+    parentDeliveryDate: string | null;
     invoiceNumber: string;
     invoiceHeaderKey?: string;
     invoiceHeaderBusinessUnitERPKey?: number;
@@ -1075,6 +1087,7 @@ async function syncRecentInvoices(
       if (!refs.has(invNum)) {
         refs.set(invNum, {
           pfgDeliveryId: (o as any).id,
+          parentDeliveryDate: (o as any).delivery_date ?? null,
           invoiceNumber: invNum,
           invoiceHeaderKey: inv.InvoiceHeaderKey ? String(inv.InvoiceHeaderKey) : undefined,
           invoiceHeaderBusinessUnitERPKey: typeof inv.InvoiceHeaderBusinessUnitERPKey === 'number'
@@ -1166,15 +1179,20 @@ async function syncRecentInvoices(
         continue;
       }
       const detail = r.value;
-      const header = Array.isArray(detail) ? (detail[0]?.Header ?? {}) : (detail.Header ?? detail);
+      // GetInvoiceDetails returns a FLAT array of line items under ResultObject —
+      // no Header block, no invoice-level dates/totals (verified against live 4514533
+      // capture). We derive subtotal from sum(ExtendedPrice) and default invoice_date
+      // to the parent pfg_order's delivery_date until/unless we wire a header endpoint.
       const rawItems: any[] = Array.isArray(detail)
         ? detail
-        : (detail.Items ?? detail.InvoiceDetails ?? detail.InvoiceLines ?? []);
+        : (detail.ResultObject ?? detail.Items ?? detail.InvoiceDetails ?? detail.InvoiceLines ?? []);
       const items = rawItems.map(normalizeInvoiceLineItem);
 
       const novelItems = items.filter((it) => it.itemNumber && !knownSkus.has(String(it.itemNumber)));
       const hasNovel = novelItems.length > 0;
       if (hasNovel) novelInvoices++;
+
+      const subtotal = items.reduce((s, it) => s + (Number(it.total) || 0), 0);
 
       rows.push({
         location_id: integration.location_id,
@@ -1183,14 +1201,14 @@ async function syncRecentInvoices(
         operation_company_number: ref.opCo,
         customer_number: ref.custNum,
         pfg_delivery_id: ref.pfgDeliveryId,
-        invoice_date: parsePfgDate(header.InvoiceDate ?? header.InvoiceCreateDate),
-        delivery_date: parsePfgDate(header.DeliveryDate),
-        due_date: parsePfgDate(header.DueDate),
-        subtotal: header.SubTotal ?? header.Subtotal ?? null,
-        tax: header.TaxAmount ?? header.Tax ?? null,
-        freight: header.FreightAmount ?? header.Freight ?? null,
-        total_amount: header.InvoiceTotal ?? header.TotalAmount ?? header.GrandTotal ?? null,
-        status: String(header.InvoiceStatus ?? header.Status ?? ''),
+        invoice_date: ref.parentDeliveryDate,
+        delivery_date: ref.parentDeliveryDate,
+        due_date: null,
+        subtotal,
+        tax: null,
+        freight: null,
+        total_amount: subtotal,
+        status: '',
         items,
         raw_data: detail,
         has_novel_skus: hasNovel,
