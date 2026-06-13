@@ -7,12 +7,13 @@
 // touching the database.
 //
 // Resolution hierarchy (first hit wins):
-//   1. pfg_bid_items     last_seen_at >= now() - 30 days
-//   2. pa_catalog_items  last_seen_at >= now() - 30 days
-//   3. pfg_orders.items  order_date   >= now() - 90 days (most recent line)
-//   4. pa_orders.items   order_date   >= now() - 90 days (most recent line)
-//   5. Deferred — no vendor presence at this location
-//   6. Deferred — vendor presence found, but no matching approved brand_pack_config
+//   1. pfg_bid_items      last_seen_at >= now() - 30 days
+//   2. pa_catalog_items   last_seen_at >= now() - 30 days
+//   3. pfg_invoices.items invoice_date >= now() - 90 days (most recent invoice)
+//   4. pfg_orders.items   order_date   >= now() - 90 days (most recent order)
+//   5. pa_orders.items    order_date   >= now() - 90 days (most recent line)
+//   6. Deferred — no vendor presence at this location
+//   7. Deferred — vendor presence found, but no matching approved brand_pack_config
 //
 // Multi-match (one parsed vendor pack matches >1 approved configs):
 //   - If one match is already someone else's default at the same location for
@@ -39,6 +40,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 type Bucket =
   | "pfg_bid"
   | "pa_catalog"
+  | "pfg_invoice"
   | "pfg_order"
   | "pa_order"
   | "deferred_no_vendor"
@@ -248,8 +250,35 @@ Deno.serve(async (req) => {
     catIdx.set(`${r.location_id}::${r.pa_item_id}`, { pack_size: r.pack_size, last_seen_at: r.last_seen_at });
   }
 
-  // PFG orders (last 90d). items jsonb → flatten to (location, itemNumber) -> most recent {packSize, order_date}
+  // 90-day cutoff shared by pfg_invoices, pfg_orders, and pa_orders indexes.
   const cutoff90 = new Date(Date.now() - 90 * 86400 * 1000).toISOString();
+
+  // PFG invoices (last 90d). items jsonb → (location, itemNumber) -> most recent {packSize, invoice_date}.
+  // Invoices reflect what was actually shipped/billed → more precise than orders, so we
+  // consult them BEFORE pfg_orders. Bid guide still wins overall (contractual pack).
+  const { data: pfgInvoiceRows } = await supabase
+    .from("pfg_invoices")
+    .select("location_id, invoice_date, items")
+    .in("location_id", locationIds)
+    .gte("invoice_date", cutoff90);
+  const pfgInvoiceIdx = new Map<string, { pack_size: string | null; invoice_date: string }>();
+  for (const inv of pfgInvoiceRows || []) {
+    const items = Array.isArray(inv.items) ? inv.items : [];
+    for (const it of items) {
+      const num = it?.itemNumber ? String(it.itemNumber)
+                : it?.productId   ? String(it.productId)
+                : null;
+      const pack = it?.packSize || it?.pack_size || null;
+      if (!num) continue;
+      const k = `${inv.location_id}::${num}`;
+      const existing = pfgInvoiceIdx.get(k);
+      if (!existing || existing.invoice_date < inv.invoice_date) {
+        pfgInvoiceIdx.set(k, { pack_size: pack, invoice_date: inv.invoice_date });
+      }
+    }
+  }
+
+  // PFG orders (last 90d). items jsonb → flatten to (location, itemNumber) -> most recent {packSize, order_date}
   const { data: pfgOrderRows } = await supabase
     .from("pfg_orders")
     .select("location_id, order_date, items")
@@ -333,6 +362,10 @@ Deno.serve(async (req) => {
         if (hit) { chosen = { source: "pa_catalog", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.last_seen_at }; break; }
       }
       if (!chosen) for (const id of tv.pfg) {
+        const hit = pfgInvoiceIdx.get(`${pair.location_id}::${id}`);
+        if (hit) { chosen = { source: "pfg_invoice", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.invoice_date }; break; }
+      }
+      if (!chosen) for (const id of tv.pfg) {
         const hit = pfgOrderIdx.get(`${pair.location_id}::${id}`);
         if (hit) { chosen = { source: "pfg_order", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.order_date }; break; }
       }
@@ -369,6 +402,7 @@ Deno.serve(async (req) => {
     const bucketName: Bucket =
       chosen.source === "pfg_bid" ? "pfg_bid"
       : chosen.source === "pa_catalog" ? "pa_catalog"
+      : chosen.source === "pfg_invoice" ? "pfg_invoice"
       : chosen.source === "pfg_order" ? "pfg_order"
       : "pa_order";
 
@@ -409,7 +443,7 @@ Deno.serve(async (req) => {
 
   // ── Step 4: aggregate ─────────────────────────────────────────────────────
   const buckets: Record<Bucket, number> = {
-    pfg_bid: 0, pa_catalog: 0, pfg_order: 0, pa_order: 0,
+    pfg_bid: 0, pa_catalog: 0, pfg_invoice: 0, pfg_order: 0, pa_order: 0,
     deferred_no_vendor: 0, deferred_no_config: 0,
   };
   for (const r of resolutions) buckets[r.bucket]++;
@@ -457,6 +491,7 @@ Deno.serve(async (req) => {
     samples: {
       pfg_bid: sampleByBucket("pfg_bid", 5),
       pa_catalog: sampleByBucket("pa_catalog", 5),
+      pfg_invoice: sampleByBucket("pfg_invoice", 5),
       pfg_order: sampleByBucket("pfg_order", 5),
       pa_order: sampleByBucket("pa_order", 5),
       deferred_no_vendor_sample: sampleByBucket("deferred_no_vendor", 5),
