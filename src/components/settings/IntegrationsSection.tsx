@@ -694,6 +694,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     <>
       {/* Card Grid */}
       <div className="space-y-2">
+        <InventoryAccessCard locationId={locationId} />
         <IntegrationCard
           title="QuBeyond POS"
           description="Sales & labor data"
