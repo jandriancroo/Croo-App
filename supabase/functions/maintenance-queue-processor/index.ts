@@ -254,10 +254,10 @@ async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, 
 // inventory_items inside the vendor-gap-detection block (pfg-service:~2689).
 // ============================================================================
 async function processSyncPfgOrders(supabaseUrl: string, supabaseKey: string, task: any) {
-  const response = await fetch(`${supabaseUrl}/functions/v1/pfg-service`, {
+  const response = await fetch(`${supabaseUrl}/functions/v1/pfg-service?action=sync_orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
-    body: JSON.stringify({ action: "sync_orders", locationId: task.location_id, daysBack: 14 }),
+    body: JSON.stringify({ locationId: task.location_id, daysBack: 14 }),
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}`);
