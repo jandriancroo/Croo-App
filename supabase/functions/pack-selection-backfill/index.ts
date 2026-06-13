@@ -40,6 +40,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 type Bucket =
   | "pfg_bid"
   | "pa_catalog"
+  | "pfg_invoice"
   | "pfg_order"
   | "pa_order"
   | "deferred_no_vendor"
