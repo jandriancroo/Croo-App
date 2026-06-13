@@ -250,8 +250,35 @@ Deno.serve(async (req) => {
     catIdx.set(`${r.location_id}::${r.pa_item_id}`, { pack_size: r.pack_size, last_seen_at: r.last_seen_at });
   }
 
-  // PFG orders (last 90d). items jsonb → flatten to (location, itemNumber) -> most recent {packSize, order_date}
+  // 90-day cutoff shared by pfg_invoices, pfg_orders, and pa_orders indexes.
   const cutoff90 = new Date(Date.now() - 90 * 86400 * 1000).toISOString();
+
+  // PFG invoices (last 90d). items jsonb → (location, itemNumber) -> most recent {packSize, invoice_date}.
+  // Invoices reflect what was actually shipped/billed → more precise than orders, so we
+  // consult them BEFORE pfg_orders. Bid guide still wins overall (contractual pack).
+  const { data: pfgInvoiceRows } = await supabase
+    .from("pfg_invoices")
+    .select("location_id, invoice_date, items")
+    .in("location_id", locationIds)
+    .gte("invoice_date", cutoff90);
+  const pfgInvoiceIdx = new Map<string, { pack_size: string | null; invoice_date: string }>();
+  for (const inv of pfgInvoiceRows || []) {
+    const items = Array.isArray(inv.items) ? inv.items : [];
+    for (const it of items) {
+      const num = it?.itemNumber ? String(it.itemNumber)
+                : it?.productId   ? String(it.productId)
+                : null;
+      const pack = it?.packSize || it?.pack_size || null;
+      if (!num) continue;
+      const k = `${inv.location_id}::${num}`;
+      const existing = pfgInvoiceIdx.get(k);
+      if (!existing || existing.invoice_date < inv.invoice_date) {
+        pfgInvoiceIdx.set(k, { pack_size: pack, invoice_date: inv.invoice_date });
+      }
+    }
+  }
+
+  // PFG orders (last 90d). items jsonb → flatten to (location, itemNumber) -> most recent {packSize, order_date}
   const { data: pfgOrderRows } = await supabase
     .from("pfg_orders")
     .select("location_id, order_date, items")
