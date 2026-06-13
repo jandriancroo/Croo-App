@@ -937,6 +937,313 @@ async function fetchDeliveryDetail(
   }
 }
 
+// ============================================================================
+// INVOICE DETAIL FETCH — POST /Invoice/V1/GetInvoiceDetails
+// Reads existing pfg_orders rows; only new API calls are per-invoice details.
+// ============================================================================
+async function fetchInvoiceDetail(
+  accessToken: string,
+  args: { invoiceNumber: string; invoiceHeaderKey?: string | null; operationCompanyNumber: string; customerNumber: string; customerId: string },
+  auditCtx?: { supabase: any; integrationId: string; locationId: string | null; callerAction: string },
+): Promise<any | null> {
+  try {
+    const data = await fetchPfgJson(
+      '/Invoice/V1/GetInvoiceDetails',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          InvoiceNumber: args.invoiceNumber,
+          InvoiceHeaderKey: args.invoiceHeaderKey ?? null,
+          OperationCompanyNumber: args.operationCompanyNumber,
+          CustomerNumber: args.customerNumber,
+          CustomerId: args.customerId,
+        }),
+      },
+    );
+    return data?.ResultObject ?? data ?? null;
+  } catch (err) {
+    const msg = (err as Error).message?.slice(0, 500);
+    console.warn(`[PFG Invoice] GetInvoiceDetails failed for ${args.invoiceNumber}:`, msg);
+    if (auditCtx) {
+      auditCtx.supabase.from('pfg_refresh_audit').insert({
+        integration_id: auditCtx.integrationId,
+        location_id: auditCtx.locationId,
+        handler: 'fetchInvoiceDetail',
+        caller_action: auditCtx.callerAction,
+        outcome: 'detail_fetch_failed',
+        b2c_error_code: 'request_error',
+        b2c_error_message: `invoice=${args.invoiceNumber} :: ${msg}`,
+      }).then(() => {}, (e: any) => console.error('[PFG Audit] insert failed:', e));
+    }
+    return null;
+  }
+}
+
+// Mirror of the line-item normalizer used by syncOrders (see ~L2121), plus
+// invoice-only fields (weight, isCredit/creditAmount). Defensive on field
+// names because the GetInvoiceDetails envelope is still being locked down
+// against a live payload (smoke test on Hemet 4514533).
+function normalizeInvoiceLineItem(item: any) {
+  const uom = item.InvoiceDetailUnitOfMeasures?.[0]
+    ?? item.DeliveryDetailUnitOfMeasures?.[0]
+    ?? {};
+  const total = item.ExtendedPrice ?? item.LineTotal ?? 0;
+  return {
+    productId: item.ProductKey || item.InvoiceDetailProductKey || item.DeliveryDetailProductKey,
+    itemNumber: uom.ProductNumber || item.ProductKey,
+    name: item.ProductDescription || 'Unknown',
+    brand: item.ProductBrand || null,
+    quantity: uom.QuantityOrdered ?? 0,
+    quantityShipped: uom.QuantityShipped ?? 0,
+    unit: 'CS',
+    packSize: uom.ProductPackSize || null,
+    price: uom.UnitPrice ?? 0,
+    total,
+    weight: item.CatchWeight ?? item.ActualWeight ?? item.ShippedWeight ?? null,
+    isCatchWeight: uom.IsCatchWeight || false,
+    isShorted: item.IsProductShorted || false,
+    isCredit: total < 0,
+    creditAmount: total < 0 ? Math.abs(total) : null,
+  };
+}
+
+// syncRecentInvoices — reads existing pfg_orders rows (no GetDeliveries call),
+// dedupes Invoices[] across last `days` days, fires GetInvoiceDetails per
+// invoice, normalizes line items, computes novelty diff against last 90d of
+// pfg_orders.items SKUs at this location, and upserts into pfg_invoices.
+async function syncRecentInvoices(
+  supabase: any,
+  integration: { id: string; location_id: string; credentials: PFGCredentials },
+  days = 3,
+): Promise<{ invoicesProcessed: number; invoicesUpserted: number; failed: number; novelInvoices: number }> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const { data: orders, error } = await supabase
+    .from('pfg_orders')
+    .select('id, raw_data, delivery_date')
+    .eq('location_id', integration.location_id)
+    .gte('delivery_date', since);
+
+  if (error) {
+    console.warn('[PFG Invoice Sync] pfg_orders read failed:', error.message);
+    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0 };
+  }
+
+  type InvRef = {
+    pfgDeliveryId: string;
+    invoiceNumber: string;
+    invoiceHeaderKey?: string;
+    opCo: string;
+    custNum: string;
+  };
+  const refs = new Map<string, InvRef>();
+  for (const o of orders ?? []) {
+    const raw = (o as any).raw_data ?? {};
+    const invoices: any[] = Array.isArray(raw.Invoices) ? raw.Invoices : [];
+    const opCo = String(raw.OrderOperationCompanyNumber ?? raw.DeliveryOperationCompanyNumber ?? '428');
+    const custNum = String(raw.DeliverToCustomerNumber ?? raw.CustomerNumber ?? '');
+    for (const inv of invoices) {
+      const invNum = String(inv.InvoiceNumber ?? '').trim();
+      if (!invNum) continue;
+      if (!refs.has(invNum)) {
+        refs.set(invNum, {
+          pfgDeliveryId: (o as any).id,
+          invoiceNumber: invNum,
+          invoiceHeaderKey: inv.InvoiceHeaderKey ? String(inv.InvoiceHeaderKey) : undefined,
+          opCo,
+          custNum,
+        });
+      }
+    }
+  }
+
+  console.log(`[PFG Invoice Sync] location=${integration.location_id} orders=${(orders ?? []).length} unique_invoices=${refs.size}`);
+
+  if (refs.size === 0) {
+    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0 };
+  }
+
+  const tokenResult = await getValidAccessToken(
+    supabase,
+    integration.credentials,
+    integration.id,
+    integration.location_id,
+    'sync_invoices',
+  );
+  if (!tokenResult) {
+    console.warn('[PFG Invoice Sync] no token — skipping');
+    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: refs.size, novelInvoices: 0 };
+  }
+  const accessToken = tokenResult.accessToken;
+  const customerId = integration.credentials.customer_id || '';
+
+  // 90-day novelty baseline at this location.
+  const ninety = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { data: baselineRows } = await supabase
+    .from('pfg_orders')
+    .select('items')
+    .eq('location_id', integration.location_id)
+    .gte('delivery_date', ninety);
+  const knownSkus = new Set<string>();
+  for (const r of baselineRows ?? []) {
+    for (const it of ((r as any).items as any[] | null) ?? []) {
+      const sku = String(it?.itemNumber ?? '').trim();
+      if (sku) knownSkus.add(sku);
+    }
+  }
+
+  const list = [...refs.values()];
+  let upserted = 0;
+  let failed = 0;
+  let novelInvoices = 0;
+  const auditCtx = {
+    supabase,
+    integrationId: integration.id,
+    locationId: integration.location_id,
+    callerAction: 'sync_invoices',
+  };
+
+  for (let i = 0; i < list.length; i += 5) {
+    const batch = list.slice(i, i + 5);
+    const results = await Promise.allSettled(
+      batch.map((b) =>
+        fetchInvoiceDetail(
+          accessToken,
+          {
+            invoiceNumber: b.invoiceNumber,
+            invoiceHeaderKey: b.invoiceHeaderKey,
+            operationCompanyNumber: b.opCo,
+            customerNumber: b.custNum,
+            customerId,
+          },
+          auditCtx,
+        ),
+      ),
+    );
+
+    const rows: any[] = [];
+    for (let j = 0; j < results.length; j++) {
+      const ref = batch[j];
+      const r = results[j];
+      if (r.status !== 'fulfilled' || !r.value) {
+        failed++;
+        continue;
+      }
+      const detail = r.value;
+      const header = Array.isArray(detail) ? (detail[0]?.Header ?? {}) : (detail.Header ?? detail);
+      const rawItems: any[] = Array.isArray(detail)
+        ? detail
+        : (detail.Items ?? detail.InvoiceDetails ?? detail.InvoiceLines ?? []);
+      const items = rawItems.map(normalizeInvoiceLineItem);
+
+      const novelItems = items.filter((it) => it.itemNumber && !knownSkus.has(String(it.itemNumber)));
+      const hasNovel = novelItems.length > 0;
+      if (hasNovel) novelInvoices++;
+
+      rows.push({
+        location_id: integration.location_id,
+        invoice_number: ref.invoiceNumber,
+        invoice_header_key: ref.invoiceHeaderKey ?? null,
+        operation_company_number: ref.opCo,
+        customer_number: ref.custNum,
+        pfg_delivery_id: ref.pfgDeliveryId,
+        invoice_date: parsePfgDate(header.InvoiceDate ?? header.InvoiceCreateDate),
+        delivery_date: parsePfgDate(header.DeliveryDate),
+        due_date: parsePfgDate(header.DueDate),
+        subtotal: header.SubTotal ?? header.Subtotal ?? null,
+        tax: header.TaxAmount ?? header.Tax ?? null,
+        freight: header.FreightAmount ?? header.Freight ?? null,
+        total_amount: header.InvoiceTotal ?? header.TotalAmount ?? header.GrandTotal ?? null,
+        status: String(header.InvoiceStatus ?? header.Status ?? ''),
+        items,
+        raw_data: detail,
+        has_novel_skus: hasNovel,
+        novel_sku_count: novelItems.length,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (rows.length) {
+      const { error: upErr } = await supabase
+        .from('pfg_invoices')
+        .upsert(rows, { onConflict: 'location_id,invoice_number' });
+      if (upErr) {
+        console.warn('[PFG Invoice Sync] upsert error:', upErr.message);
+        failed += rows.length;
+      } else {
+        upserted += rows.length;
+      }
+    }
+  }
+
+  console.log(`[PFG Invoice Sync] location=${integration.location_id} upserted=${upserted} failed=${failed} novel=${novelInvoices}`);
+  return { invoicesProcessed: list.length, invoicesUpserted: upserted, failed, novelInvoices };
+}
+
+// ============================================================================
+// HANDLER: action=sync_invoices
+// Body: { locationId?: string }  — if omitted, runs all active PFG integrations.
+// ============================================================================
+async function handleSyncInvoices(supabase: any, body: any): Promise<Response> {
+  const locationIds: string[] = body?.locationId ? [body.locationId] : [];
+  let query = supabase
+    .from('location_integrations')
+    .select('id, location_id, credentials')
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true);
+  if (locationIds.length > 0) query = query.in('location_id', locationIds);
+
+  const { data: integrationsRaw, error: intError } = await query;
+  if (intError) throw new Error(`Failed to fetch integrations: ${intError.message}`);
+
+  const enabledIds = await filterEnabledLocations(
+    supabase,
+    (integrationsRaw || []).map((i: any) => i.location_id),
+  );
+  const integrations = (integrationsRaw || []).filter((i: any) => enabledIds.has(i.location_id));
+
+  if (integrations.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: 'No active PFG integrations', results: [] }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const days = typeof body?.days === 'number' && body.days > 0 ? body.days : 3;
+  const results: any[] = [];
+
+  for (const integration of integrations) {
+    const credentials = integration.credentials as unknown as PFGCredentials;
+    if (!credentials?.refresh_token) {
+      results.push({ locationId: integration.location_id, success: false, error: 'No credentials stored' });
+      continue;
+    }
+    try {
+      const summary = await syncRecentInvoices(
+        supabase,
+        { id: integration.id, location_id: integration.location_id, credentials },
+        days,
+      );
+      results.push({ locationId: integration.location_id, success: true, ...summary });
+    } catch (err) {
+      console.error('[PFG Invoice Sync] location failure:', integration.location_id, err);
+      results.push({
+        locationId: integration.location_id,
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, days, results }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // Parse date from PFG format
 function parsePfgDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
