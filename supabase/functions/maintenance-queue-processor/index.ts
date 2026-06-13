@@ -111,6 +111,10 @@ async function processTask(
       return await processWeeklySummary(supabaseUrl, supabaseKey, task);
     case "refresh_pfg_token":
       return await processRefreshPfgToken(supabaseUrl, supabaseKey, task);
+    case "sync_pfg_orders":
+      return await processSyncPfgOrders(supabaseUrl, supabaseKey, task);
+    case "sync_pfg_invoices":
+      return await processSyncPfgInvoices(supabaseUrl, supabaseKey, task);
     case "labor_intelligence":
       return await processLaborIntelligence(supabaseUrl, supabaseKey, task);
     case "backfill_sales":
@@ -241,6 +245,55 @@ async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, 
   console.log(`[QUEUE] PFG refresh OK for location ${task.location_id}:`, 
     result.grantIssued ? `grant issued=${result.grantIssued}, expires=${result.grantExpiration}` : 'token refreshed');
 
+  return result;
+}
+
+// ============================================================================
+// SYNC PFG ORDERS — calls pfg-service action=sync_orders for one location.
+// Same handler the manual sync button uses; writes cost_per_unit back to
+// inventory_items inside the vendor-gap-detection block (pfg-service:~2689).
+// ============================================================================
+async function processSyncPfgOrders(supabaseUrl: string, supabaseKey: string, task: any) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/pfg-service?action=sync_orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({ locationId: task.location_id, daysBack: 14 }),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}`);
+  let result;
+  try { result = JSON.parse(text); } catch { throw new Error(`Invalid JSON: ${text.slice(0, 200)}`); }
+  const locResult = (result.results ?? []).find((r: any) => r.locationId === task.location_id);
+  if (locResult && locResult.success === false) {
+    throw new Error(`sync_orders failed: ${locResult.error || 'unknown'}`);
+  }
+  console.log(`[QUEUE] PFG sync_orders OK for ${task.location_id}: imported=${locResult?.ordersImported ?? 0}`);
+  return result;
+}
+
+// ============================================================================
+// SYNC PFG INVOICES — calls pfg-service action=sync_invoices for one location.
+// Reads pfg_orders.raw_data.Invoices[] (no GetDeliveries call), fetches
+// GetInvoiceDetails per invoice, upserts pfg_invoices with novelty diff.
+// Depends on sync_pfg_orders having run first (FIFO via created_at offset).
+// ============================================================================
+async function processSyncPfgInvoices(supabaseUrl: string, supabaseKey: string, task: any) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/pfg-service?action=sync_invoices`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({ locationId: task.location_id, days: 3 }),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}`);
+  let result;
+  try { result = JSON.parse(text); } catch { throw new Error(`Invalid JSON: ${text.slice(0, 200)}`); }
+  const locResult = (result.results ?? []).find((r: any) => r.locationId === task.location_id);
+  if (locResult && locResult.success === false) {
+    throw new Error(`sync_invoices failed: ${locResult.error || 'unknown'}`);
+  }
+  console.log(
+    `[QUEUE] PFG sync_invoices OK for ${task.location_id}: processed=${locResult?.invoicesProcessed ?? 0}, upserted=${locResult?.invoicesUpserted ?? 0}, novel=${locResult?.novelInvoices ?? 0}`,
+  );
   return result;
 }
 

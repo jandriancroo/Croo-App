@@ -943,9 +943,30 @@ async function fetchDeliveryDetail(
 // ============================================================================
 async function fetchInvoiceDetail(
   accessToken: string,
-  args: { invoiceNumber: string; invoiceHeaderKey?: string | null; operationCompanyNumber: string; customerNumber: string; customerId: string },
+  args: {
+    invoiceNumber: string;
+    invoiceHeaderKey?: string | null;
+    invoiceHeaderBusinessUnitERPKey?: number | null;
+    invoiceHeaderOperationCompanyNumber?: string | null;
+    operationCompanyNumber: string;
+    customerNumber: string;
+    customerId: string;
+  },
   auditCtx?: { supabase: any; integrationId: string; locationId: string | null; callerAction: string },
 ): Promise<any | null> {
+  // Body mirrors GetDeliveryDetail (uses InvoiceHeader* fields from pfg_orders.raw_data.Invoices[]),
+  // and also passes the URL-style triplet (InvoiceNumber/BusinessUnitERPKey/OpCo) seen in the
+  // portal path /invoice-details/{InvoiceNumber}/{BusinessUnitERPKey}/{OpCo}. PFG's middleware
+  // accepts the union — extra fields are ignored, the right ones drive the lookup.
+  const body = {
+    InvoiceHeaderBusinessUnitERPKey: args.invoiceHeaderBusinessUnitERPKey ?? 0,
+    InvoiceHeaderKey: args.invoiceHeaderKey ?? args.invoiceNumber,
+    InvoiceHeaderOperationCompanyNumber: args.invoiceHeaderOperationCompanyNumber ?? args.operationCompanyNumber,
+    InvoiceNumber: args.invoiceNumber,
+    OperationCompanyNumber: args.operationCompanyNumber,
+    CustomerNumber: args.customerNumber,
+    CustomerId: args.customerId,
+  };
   try {
     const data = await fetchPfgJson(
       '/Invoice/V1/GetInvoiceDetails',
@@ -956,16 +977,13 @@ async function fetchInvoiceDetail(
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          InvoiceNumber: args.invoiceNumber,
-          InvoiceHeaderKey: args.invoiceHeaderKey ?? null,
-          OperationCompanyNumber: args.operationCompanyNumber,
-          CustomerNumber: args.customerNumber,
-          CustomerId: args.customerId,
-        }),
+        body: JSON.stringify(body),
       },
     );
-    return data?.ResultObject ?? data ?? null;
+    const result = data?.ResultObject ?? data ?? null;
+    const len = Array.isArray(result) ? result.length : (result ? 'object' : 'null');
+    console.log(`[PFG Invoice] ${args.invoiceNumber} → result length: ${len}`);
+    return result;
   } catch (err) {
     const msg = (err as Error).message?.slice(0, 500);
     console.warn(`[PFG Invoice] GetInvoiceDetails failed for ${args.invoiceNumber}:`, msg);
@@ -1038,8 +1056,11 @@ async function syncRecentInvoices(
     pfgDeliveryId: string;
     invoiceNumber: string;
     invoiceHeaderKey?: string;
+    invoiceHeaderBusinessUnitERPKey?: number;
+    invoiceHeaderOperationCompanyNumber?: string;
     opCo: string;
     custNum: string;
+    customerIdHint?: string;
   };
   const refs = new Map<string, InvRef>();
   for (const o of orders ?? []) {
@@ -1047,6 +1068,7 @@ async function syncRecentInvoices(
     const invoices: any[] = Array.isArray(raw.Invoices) ? raw.Invoices : [];
     const opCo = String(raw.OrderOperationCompanyNumber ?? raw.DeliveryOperationCompanyNumber ?? '428');
     const custNum = String(raw.DeliverToCustomerNumber ?? raw.CustomerNumber ?? '');
+    const customerIdHint = raw.CustomerId ? String(raw.CustomerId) : undefined;
     for (const inv of invoices) {
       const invNum = String(inv.InvoiceNumber ?? '').trim();
       if (!invNum) continue;
@@ -1055,8 +1077,15 @@ async function syncRecentInvoices(
           pfgDeliveryId: (o as any).id,
           invoiceNumber: invNum,
           invoiceHeaderKey: inv.InvoiceHeaderKey ? String(inv.InvoiceHeaderKey) : undefined,
+          invoiceHeaderBusinessUnitERPKey: typeof inv.InvoiceHeaderBusinessUnitERPKey === 'number'
+            ? inv.InvoiceHeaderBusinessUnitERPKey
+            : (inv.InvoiceHeaderBusinessUnitERPKey != null ? Number(inv.InvoiceHeaderBusinessUnitERPKey) : 0),
+          invoiceHeaderOperationCompanyNumber: inv.InvoiceHeaderOperationCompanyNumber
+            ? String(inv.InvoiceHeaderOperationCompanyNumber)
+            : undefined,
           opCo,
           custNum,
+          customerIdHint,
         });
       }
     }
@@ -1117,9 +1146,11 @@ async function syncRecentInvoices(
           {
             invoiceNumber: b.invoiceNumber,
             invoiceHeaderKey: b.invoiceHeaderKey,
+            invoiceHeaderBusinessUnitERPKey: b.invoiceHeaderBusinessUnitERPKey,
+            invoiceHeaderOperationCompanyNumber: b.invoiceHeaderOperationCompanyNumber,
             operationCompanyNumber: b.opCo,
             customerNumber: b.custNum,
-            customerId,
+            customerId: b.customerIdHint || customerId,
           },
           auditCtx,
         ),
@@ -1240,6 +1271,114 @@ async function handleSyncInvoices(supabase: any, body: any): Promise<Response> {
   }
 
   return new Response(JSON.stringify({ success: true, days, results }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// ============================================================================
+// PROBE: try multiple endpoint/body shapes for invoice detail discovery.
+// Body: { locationId, invoiceNumber }
+// ============================================================================
+async function handleProbeInvoiceDetail(supabase: any, body: any): Promise<Response> {
+  const locationId = body?.locationId;
+  const invoiceNumber = String(body?.invoiceNumber ?? '');
+  if (!locationId || !invoiceNumber) {
+    return new Response(JSON.stringify({ error: 'locationId and invoiceNumber required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: integration } = await supabase
+    .from('location_integrations')
+    .select('id, location_id, credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!integration) {
+    return new Response(JSON.stringify({ error: 'no pfg integration' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Pull the matching order row so we have every header field PFG returned.
+  const { data: orderRow } = await supabase
+    .from('pfg_orders')
+    .select('raw_data')
+    .eq('location_id', locationId)
+    .filter('raw_data->Invoices->0->>InvoiceNumber', 'eq', invoiceNumber)
+    .maybeSingle();
+  const raw = (orderRow as any)?.raw_data ?? {};
+  const inv = Array.isArray(raw.Invoices) ? raw.Invoices[0] : {};
+
+  const credentials = integration.credentials as unknown as PFGCredentials;
+  const tr = await getValidAccessToken(supabase, credentials, integration.id, locationId, 'probe_invoice_detail');
+  if (!tr) {
+    return new Response(JSON.stringify({ error: 'no token' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const token = tr.accessToken;
+  const customerId = String(raw.CustomerId ?? credentials.customer_id ?? '');
+  const opCo = String(inv.InvoiceHeaderOperationCompanyNumber ?? raw.OrderOperationCompanyNumber ?? raw.DeliveryOperationCompanyNumber ?? '428');
+  const custNum = String(raw.DeliverToCustomerNumber ?? raw.CustomerNumber ?? '');
+  const invHeaderKey = String(inv.InvoiceHeaderKey ?? invoiceNumber);
+  const buERPKey = Number(inv.InvoiceHeaderBusinessUnitERPKey ?? 0);
+
+  const probes: { label: string; method: string; path: string; body?: any }[] = [
+    // Path variants
+    { label: 'POST /Invoice/V1/GetInvoiceDetails (header-shaped)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetails',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoiceDetail (singular)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetail',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoice', method: 'POST', path: '/Invoice/V1/GetInvoice',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoiceDetails (number-shaped)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetails',
+      body: { InvoiceNumber: invoiceNumber, OperationCompanyNumber: opCo, CustomerNumber: custNum, CustomerId: customerId } },
+    { label: 'POST /Invoice/V1/GetInvoiceDetails (url-triplet)', method: 'POST', path: '/Invoice/V1/GetInvoiceDetails',
+      body: { InvoiceNumber: invoiceNumber, BusinessUnitERPKey: buERPKey, OperationCompanyNumber: opCo, CustomerId: customerId } },
+    { label: 'GET /Invoice/V1/GetInvoiceDetails?…', method: 'GET',
+      path: `/Invoice/V1/GetInvoiceDetails?InvoiceNumber=${invoiceNumber}&OperationCompanyNumber=${opCo}&BusinessUnitERPKey=${buERPKey}&CustomerId=${encodeURIComponent(customerId)}` },
+    { label: 'POST /Delivery/V1/GetInvoiceDetails', method: 'POST', path: '/Delivery/V1/GetInvoiceDetails',
+      body: { InvoiceHeaderBusinessUnitERPKey: buERPKey, InvoiceHeaderKey: invHeaderKey, InvoiceHeaderOperationCompanyNumber: opCo, CustomerId: customerId } },
+  ];
+
+  const results: any[] = [];
+  for (const p of probes) {
+    try {
+      const data = await fetchPfgJson(
+        p.path,
+        {
+          method: p.method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          ...(p.body ? { body: JSON.stringify(p.body) } : {}),
+        },
+      );
+      const ro = data?.ResultObject;
+      const summary = {
+        topKeys: data && typeof data === 'object' ? Object.keys(data) : null,
+        resultObjectType: Array.isArray(ro) ? `array(${ro.length})` : typeof ro,
+        resultObjectKeys: ro && !Array.isArray(ro) && typeof ro === 'object' ? Object.keys(ro) : null,
+        firstElemKeys: Array.isArray(ro) && ro[0] && typeof ro[0] === 'object' ? Object.keys(ro[0]) : null,
+        errorMessages: data?.ErrorMessages ?? null,
+        isSuccess: data?.IsSuccess ?? null,
+      };
+      results.push({ ...p, ok: true, summary, sample: ro });
+    } catch (err) {
+      results.push({ ...p, ok: false, error: (err as Error).message?.slice(0, 300) });
+    }
+  }
+
+  return new Response(JSON.stringify({
+    invoiceNumber,
+    inputs: { customerId, opCo, custNum, invHeaderKey, buERPKey },
+    invoicePayloadFromOrder: inv,
+    probes: results,
+  }, null, 2), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -3357,6 +3496,9 @@ serve(async (req) => {
 
       case 'sync_invoices':
         return await handleSyncInvoices(supabase, body);
+
+      case 'probe_invoice_detail':
+        return await handleProbeInvoiceDetail(supabase, body);
 
       case 'backfill_items':
         return await handleBackfillItems(supabase, body);
