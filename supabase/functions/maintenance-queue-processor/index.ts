@@ -278,10 +278,10 @@ async function processSyncPfgOrders(supabaseUrl: string, supabaseKey: string, ta
 // Depends on sync_pfg_orders having run first (FIFO via created_at offset).
 // ============================================================================
 async function processSyncPfgInvoices(supabaseUrl: string, supabaseKey: string, task: any) {
-  const response = await fetch(`${supabaseUrl}/functions/v1/pfg-service`, {
+  const response = await fetch(`${supabaseUrl}/functions/v1/pfg-service?action=sync_invoices`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
-    body: JSON.stringify({ action: "sync_invoices", locationId: task.location_id, days: 3 }),
+    body: JSON.stringify({ locationId: task.location_id, days: 3 }),
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}`);
