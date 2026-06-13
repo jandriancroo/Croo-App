@@ -111,6 +111,10 @@ async function processTask(
       return await processWeeklySummary(supabaseUrl, supabaseKey, task);
     case "refresh_pfg_token":
       return await processRefreshPfgToken(supabaseUrl, supabaseKey, task);
+    case "sync_pfg_orders":
+      return await processSyncPfgOrders(supabaseUrl, supabaseKey, task);
+    case "sync_pfg_invoices":
+      return await processSyncPfgInvoices(supabaseUrl, supabaseKey, task);
     case "labor_intelligence":
       return await processLaborIntelligence(supabaseUrl, supabaseKey, task);
     case "backfill_sales":
