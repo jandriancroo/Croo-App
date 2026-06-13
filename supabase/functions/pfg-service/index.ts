@@ -943,9 +943,30 @@ async function fetchDeliveryDetail(
 // ============================================================================
 async function fetchInvoiceDetail(
   accessToken: string,
-  args: { invoiceNumber: string; invoiceHeaderKey?: string | null; operationCompanyNumber: string; customerNumber: string; customerId: string },
+  args: {
+    invoiceNumber: string;
+    invoiceHeaderKey?: string | null;
+    invoiceHeaderBusinessUnitERPKey?: number | null;
+    invoiceHeaderOperationCompanyNumber?: string | null;
+    operationCompanyNumber: string;
+    customerNumber: string;
+    customerId: string;
+  },
   auditCtx?: { supabase: any; integrationId: string; locationId: string | null; callerAction: string },
 ): Promise<any | null> {
+  // Body mirrors GetDeliveryDetail (uses InvoiceHeader* fields from pfg_orders.raw_data.Invoices[]),
+  // and also passes the URL-style triplet (InvoiceNumber/BusinessUnitERPKey/OpCo) seen in the
+  // portal path /invoice-details/{InvoiceNumber}/{BusinessUnitERPKey}/{OpCo}. PFG's middleware
+  // accepts the union — extra fields are ignored, the right ones drive the lookup.
+  const body = {
+    InvoiceHeaderBusinessUnitERPKey: args.invoiceHeaderBusinessUnitERPKey ?? 0,
+    InvoiceHeaderKey: args.invoiceHeaderKey ?? args.invoiceNumber,
+    InvoiceHeaderOperationCompanyNumber: args.invoiceHeaderOperationCompanyNumber ?? args.operationCompanyNumber,
+    InvoiceNumber: args.invoiceNumber,
+    OperationCompanyNumber: args.operationCompanyNumber,
+    CustomerNumber: args.customerNumber,
+    CustomerId: args.customerId,
+  };
   try {
     const data = await fetchPfgJson(
       '/Invoice/V1/GetInvoiceDetails',
@@ -956,16 +977,13 @@ async function fetchInvoiceDetail(
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          InvoiceNumber: args.invoiceNumber,
-          InvoiceHeaderKey: args.invoiceHeaderKey ?? null,
-          OperationCompanyNumber: args.operationCompanyNumber,
-          CustomerNumber: args.customerNumber,
-          CustomerId: args.customerId,
-        }),
+        body: JSON.stringify(body),
       },
     );
-    return data?.ResultObject ?? data ?? null;
+    const result = data?.ResultObject ?? data ?? null;
+    const len = Array.isArray(result) ? result.length : (result ? 'object' : 'null');
+    console.log(`[PFG Invoice] ${args.invoiceNumber} → result length: ${len}`);
+    return result;
   } catch (err) {
     const msg = (err as Error).message?.slice(0, 500);
     console.warn(`[PFG Invoice] GetInvoiceDetails failed for ${args.invoiceNumber}:`, msg);
