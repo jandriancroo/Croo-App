@@ -1065,6 +1065,7 @@ async function syncRecentInvoices(
 
   type InvRef = {
     pfgDeliveryId: string;
+    parentDeliveryDate: string | null;
     invoiceNumber: string;
     invoiceHeaderKey?: string;
     invoiceHeaderBusinessUnitERPKey?: number;
@@ -1086,6 +1087,7 @@ async function syncRecentInvoices(
       if (!refs.has(invNum)) {
         refs.set(invNum, {
           pfgDeliveryId: (o as any).id,
+          parentDeliveryDate: (o as any).delivery_date ?? null,
           invoiceNumber: invNum,
           invoiceHeaderKey: inv.InvoiceHeaderKey ? String(inv.InvoiceHeaderKey) : undefined,
           invoiceHeaderBusinessUnitERPKey: typeof inv.InvoiceHeaderBusinessUnitERPKey === 'number'
