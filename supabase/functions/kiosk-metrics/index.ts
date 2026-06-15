@@ -91,8 +91,8 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const token = await authenticateV4();
-    if (!token) {
+    const quToken = await authenticateV4();
+    if (!quToken) {
       return new Response(JSON.stringify({ error: "QU auth failed" }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -107,7 +107,7 @@ serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${quToken}`,
           "x-integration": Deno.env.get("QU_INTEGRATION_USER_ID") || "",
         },
         body: JSON.stringify({
