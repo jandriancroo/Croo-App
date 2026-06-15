@@ -92,7 +92,7 @@ serve(async (req) => {
     }
 
     const quToken = await authenticateV4();
-    if (!token) {
+    if (!quToken) {
       return new Response(JSON.stringify({ error: "QU auth failed" }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
