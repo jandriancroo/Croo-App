@@ -107,7 +107,7 @@ serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${quToken}`,
           "x-integration": Deno.env.get("QU_INTEGRATION_USER_ID") || "",
         },
         body: JSON.stringify({
