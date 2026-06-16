@@ -330,6 +330,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           chatTitle={chatDetails.title || ''}
           groupImageUrl={chatDetails.group_image_url}
           onUpdate={onChatUpdated}
+          canDelete={isAdmin && chatDetails.title !== "Shift Marketplace"}
+          onRequestDelete={() => {
+            setSettingsOpen(false);
+            setDeleteDialogOpen(true);
+          }}
         />
       )}
 
