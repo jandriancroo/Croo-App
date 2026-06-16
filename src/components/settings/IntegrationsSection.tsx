@@ -902,7 +902,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
               <Switch checked={credentials.pull_labor || false} onCheckedChange={(checked) => setCredentials(prev => ({ ...prev, pull_labor: checked }))} />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={testConnection} disabled={isTesting || !credentials.username || !credentials.password}>
+              <Button variant="outline" size="sm" onClick={testConnection} disabled={isTesting || !(credentials.location_id || (integration?.credentials as any)?.location_id)}>
                 {isTesting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : testResult === 'success' ? <Check className="h-4 w-4 mr-1.5 text-green-500" /> : testResult === 'error' ? <X className="h-4 w-4 mr-1.5 text-red-500" /> : <TestTube className="h-4 w-4 mr-1.5" />}
                 Test
               </Button>
