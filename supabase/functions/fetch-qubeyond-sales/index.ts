@@ -2324,11 +2324,50 @@ serve(async (req) => {
     console.log('V4 Authentication successful');
 
     if (testCredentials) {
-      return new Response(JSON.stringify({ 
+      // Probe the actual operationalUnit on QU's side so we can detect stores
+      // that authenticate fine but are NOT on the API client's allow-list
+      // (QU returns 403 "No operational units allowed for the current user").
+      let authorized = true;
+      let authorizationError: string | null = null;
+      if (qbLocationId) {
+        try {
+          const probeBody = {
+            fields: [{ fieldName: 'checkNumber' }],
+            filters: {
+              date: { from: null, to: null, values: [new Date().toISOString().slice(0, 10)], type: 'custom' },
+              singleLocation: parseInt(qbLocationId),
+              location: { operationalUnits: [parseInt(qbLocationId)] },
+            },
+            params: { sectionId: 'main', pageNumber: 1, pageSize: 1, totalRecords: null, sort: null, showTotals: false },
+          };
+          const probeRes = await fetch(
+            'https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main',
+            { method: 'POST', headers: getV4Headers(v4Token), body: JSON.stringify(probeBody) }
+          );
+          if (probeRes.status === 403) {
+            const txt = await probeRes.text().catch(() => '');
+            authorized = false;
+            authorizationError = txt.includes('No operational units')
+              ? 'STORE_NOT_PROVISIONED'
+              : `QU 403: ${txt.slice(0, 200)}`;
+          } else if (!probeRes.ok) {
+            const txt = await probeRes.text().catch(() => '');
+            authorized = false;
+            authorizationError = `QU ${probeRes.status}: ${txt.slice(0, 200)}`;
+          }
+        } catch (e) {
+          authorized = false;
+          authorizationError = `Probe failed: ${e instanceof Error ? e.message : 'unknown'}`;
+        }
+      }
+
+      return new Response(JSON.stringify({
         authenticated: true,
+        authorized,
+        authorizationError,
         authMethod: 'V4 OAuth2',
         discoveredLocationId: qbLocationId,
-        companyId
+        companyId,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
