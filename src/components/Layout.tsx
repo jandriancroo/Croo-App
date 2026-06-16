@@ -333,7 +333,10 @@ export const Layout = ({
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
-  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
+  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo, locations: allUserLocations } = useAppLocation();
+  const hasMultipleBrands = new Set(
+    (allUserLocations || []).map(l => l.brand_name).filter(Boolean)
+  ).size > 1;
   
   
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
@@ -962,8 +965,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   onClick={() => setLocationDialogOpen(true)}
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span className="max-w-[120px] truncate text-sm">
-                    {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
+                  <span className="max-w-[160px] truncate text-sm flex flex-col items-start leading-tight">
+                    <span className="truncate">{isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}</span>
+                    {!isOnOrgDash && currentLocation?.brand_name && hasMultipleBrands && (
+                      <span className="truncate text-[10px] opacity-70">{currentLocation.brand_name}</span>
+                    )}
                   </span>
                 </button>
               )}
@@ -1090,7 +1096,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       )}
                     >
                       <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate max-w-[140px]">{locationLabel}</span>
+                      <span className="flex flex-col items-start leading-tight">
+                        <span className="truncate max-w-[160px]">{locationLabel}</span>
+                        {!isOnOrgDash && currentLocation?.brand_name && hasMultipleBrands && (
+                          <span className="truncate max-w-[160px] text-[10px] opacity-70 font-normal">{currentLocation.brand_name}</span>
+                        )}
+                      </span>
                       <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
                     </button>
                   )}

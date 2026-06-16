@@ -10,6 +10,7 @@ interface Location {
   location_type: string;
   store_number?: string | null;
   organization_id?: string;
+  brand_name?: string | null;
 }
 
 interface LocationContextType {
@@ -70,7 +71,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           .single(),
         supabase
           .from('user_locations')
-          .select('user_id, location_id, locations(id, name, location_type, store_number, organization_id)')
+          .select('user_id, location_id, locations(id, name, location_type, store_number, organization_id, organizations(brand_name, brands(name)))')
           .eq('user_id', user.id),
       ]);
 
@@ -88,11 +89,14 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           setOrganizationId(orgId);
           const { data: orgLocations, error: orgError } = await supabase
             .from('locations')
-            .select('id, name, location_type, store_number, organization_id')
+            .select('id, name, location_type, store_number, organization_id, organizations(brand_name, brands(name))')
             .eq('organization_id', orgId);
 
           if (orgError) throw orgError;
-          locs = (orgLocations || []) as Location[];
+          locs = (orgLocations || []).map((l: any) => ({
+            ...l,
+            brand_name: l.organizations?.brand_name || l.organizations?.brands?.name || null,
+          })) as Location[];
         } else {
           const { data: allLocs, error: allError } = await supabase
             .from('locations')
@@ -104,7 +108,14 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       } else {
         // Standard behavior: use already-fetched user_locations
         locs = (userLocData || [])
-          .map((ul: any) => ul.locations)
+          .map((ul: any) => {
+            const l = ul.locations;
+            if (!l) return null;
+            return {
+              ...l,
+              brand_name: l.organizations?.brand_name || l.organizations?.brands?.name || null,
+            };
+          })
           .filter(Boolean) as Location[];
         
         if (locs.length > 0 && locs[0].organization_id) {
@@ -169,9 +180,13 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     // Enrich with organization_id from the locations roster if the caller
     // didn't include it (LocationSelector/LocationPickerDialog often omit it).
     // Without this, the org pill in Settings stays stuck on the previous org.
-    const enriched: Location = location.organization_id
-      ? location
-      : { ...location, organization_id: locations.find(l => l.id === location.id)?.organization_id };
+    // Enrich with organization_id + brand_name from roster when caller omits them
+    const rosterMatch = locations.find(l => l.id === location.id);
+    const enriched: Location = {
+      ...location,
+      organization_id: location.organization_id ?? rosterMatch?.organization_id,
+      brand_name: location.brand_name ?? rosterMatch?.brand_name ?? null,
+    };
 
     // Show the overlay immediately
     setSwitchingTo(enriched);
