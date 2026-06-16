@@ -33,6 +33,7 @@ function IntegrationCard({
   title,
   description,
   connected,
+  status,
   logo,
   onEdit,
   isLoading,
@@ -40,10 +41,23 @@ function IntegrationCard({
   title: string;
   description: string;
   connected: boolean;
+  status?: 'ok' | 'warning' | 'off';
   logo?: string;
   onEdit: () => void;
   isLoading?: boolean;
 }) {
+  const state = status || (connected ? 'ok' : 'off');
+  const trackClass = {
+    ok: 'bg-green-500/20 justify-end',
+    warning: 'bg-amber-500/20 justify-end',
+    off: 'bg-muted justify-start',
+  }[state];
+  const knobClass = {
+    ok: 'bg-green-500',
+    warning: 'bg-amber-500',
+    off: 'bg-muted-foreground/30',
+  }[state];
+
   return (
     <button
       onClick={onEdit}
@@ -63,8 +77,8 @@ function IntegrationCard({
       {isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
       ) : (
-        <div className={`w-8 h-[18px] rounded-full flex items-center px-[3px] transition-colors shrink-0 ${connected ? 'bg-green-500/20 justify-end' : 'bg-muted justify-start'}`}>
-          <div className={`w-3 h-3 rounded-full transition-colors ${connected ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+        <div className={`w-8 h-[18px] rounded-full flex items-center px-[3px] transition-colors shrink-0 ${trackClass}`}>
+          <div className={`w-3 h-3 rounded-full transition-colors ${knobClass}`} />
         </div>
       )}
     </button>
