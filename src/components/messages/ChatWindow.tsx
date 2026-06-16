@@ -120,7 +120,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             </div>
             <div className="flex gap-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 title="Mark all as read"
                 onClick={async () => {
@@ -139,7 +139,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                   }
                 }}
               >
-                <CheckCheck className="h-4 w-4" />
+                <CheckCheck className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Mark all as read</span>
+                <span className="sm:hidden">Mark read</span>
               </Button>
               {chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
                 <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
