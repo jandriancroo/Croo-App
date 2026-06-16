@@ -1103,6 +1103,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         )}
                       </span>
                       <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+                    </button>
                   )}
                   {showOvation && showLocation && (
                     <span aria-hidden className="h-5 w-px bg-white/20" />
