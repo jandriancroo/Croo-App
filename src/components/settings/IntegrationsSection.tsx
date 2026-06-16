@@ -758,6 +758,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     : null;
 
   const qbConnected = !!integration;
+  const qbStatus = integration?.is_active
+    ? (authStatus?.authorized === false ? 'warning' : 'ok')
+    : 'off';
   const pfgConnected = !!pfgHasToken;
   const paConnected = !!paIntegration;
   const kdsConnected = !!locationKdsData?.fresh_kds_location_id && ((locationKdsData as any)?.fresh_kds_active ?? true);
@@ -771,6 +774,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           title="QuBeyond POS"
           description="Sales & labor data"
           connected={qbConnected}
+          status={qbStatus as 'ok' | 'warning' | 'off'}
           isLoading={isLoading}
           onEdit={() => setEditingIntegration('qubeyond')}
         />
