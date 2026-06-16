@@ -778,7 +778,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           description="Sales & labor data"
           connected={qbConnected}
           status={qbStatus as 'ok' | 'warning' | 'off'}
-          isLoading={isLoading}
+          isLoading={isLoading || isProbingAuth}
           onEdit={() => setEditingIntegration('qubeyond')}
         />
         <IntegrationCard
