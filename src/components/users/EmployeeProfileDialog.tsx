@@ -693,7 +693,15 @@ export function EmployeeProfileDialog({
 
                   {!allLocationsEnabled && (
                     <div className="border border-border rounded-lg p-3 space-y-2 bg-background">
-                      {availableLocations.map((location) => (
+                      {(() => {
+                        const nameCounts = availableLocations.reduce<Record<string, number>>((acc, l) => {
+                          acc[l.name] = (acc[l.name] || 0) + 1;
+                          return acc;
+                        }, {});
+                        return availableLocations.map((location) => {
+                          const isDupe = (nameCounts[location.name] || 0) > 1;
+                          const subtitle = location.brand_name || location.org_name;
+                          return (
                         <div key={location.id} className="flex items-center justify-between gap-2">
                           <div className="flex items-center space-x-2">
                             <Checkbox
@@ -711,6 +719,9 @@ export function EmployeeProfileDialog({
                             />
                             <label htmlFor={`loc-${location.id}`} className="text-sm text-foreground cursor-pointer">
                               {location.name}
+                              {isDupe && subtitle && (
+                                <span className="ml-2 text-xs text-muted-foreground">· {subtitle}</span>
+                              )}
                             </label>
                           </div>
                           {userLocations.includes(location.id) && (
@@ -727,7 +738,9 @@ export function EmployeeProfileDialog({
                             </div>
                           )}
                         </div>
-                      ))}
+                          );
+                        });
+                      })()}
                     </div>
                   )}
                 </div>
