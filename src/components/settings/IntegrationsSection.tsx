@@ -589,8 +589,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           }
         }
       }, 2000);
-      supabase.functions.invoke('sales-service', { body: { locationId, daysBack: 365 }, headers: { 'X-Action': 'backfill' } }).then(({ error }) => {
-        if (error) { clearInterval(pollInterval); setIsSyncing(false); toast.error("Sync failed: " + error.message); }
+      supabase.functions.invoke('sales-service', { body: { locationId, daysBack: 365 }, headers: { 'X-Action': 'backfill' } }).then(({ data, error }) => {
+        if (error) { clearInterval(pollInterval); setIsSyncing(false); toast.error("Sync failed: " + error.message); return; }
+        if (data?.status === 'unprovisioned' || data?.error === 'STORE_NOT_PROVISIONED') {
+          clearInterval(pollInterval); setIsSyncing(false); setSyncProgress(0);
+          setSyncStatus("Store not authorized on QuBeyond's API");
+          setAuthStatus({ authorized: false, error: 'STORE_NOT_PROVISIONED' });
+          toast.error("QU has not authorized this store on the API client. Contact QuBeyond support.", { duration: 8000 });
+        }
       });
       toast.info("Syncing 365 days of sales data...", { duration: 5000 });
     } catch (error) { console.error('[BACKFILL] Failed to trigger:', error); setIsSyncing(false); }
