@@ -191,23 +191,29 @@ export const useUserManagementData = () => {
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     queryFn: async () => {
+      const select = '*, organizations(name, brand_name, brands(name))';
+      const shape = (rows: any[]) => (rows || []).map((l: any) => ({
+        ...l,
+        org_name: l.organizations?.name || null,
+        brand_name: l.organizations?.brand_name || l.organizations?.brands?.name || null,
+      }));
       if (isSuperAdmin) {
-        const { data, error } = await supabase.from('locations').select('*').order('name', { ascending: true });
+        const { data, error } = await supabase.from('locations').select(select).order('name', { ascending: true });
         if (error) throw error;
-        return data || [];
+        return shape(data || []);
       }
       const { data: orgMembership } = await supabase.from('organization_members').select('organization_id').eq('user_id', user?.id).single();
       if (orgMembership?.organization_id) {
-        const { data, error } = await supabase.from('locations').select('*').eq('organization_id', orgMembership.organization_id).order('name', { ascending: true });
+        const { data, error } = await supabase.from('locations').select(select).eq('organization_id', orgMembership.organization_id).order('name', { ascending: true });
         if (error) throw error;
-        return data || [];
+        return shape(data || []);
       }
       const { data: userLocationIds } = await supabase.from('user_locations').select('location_id').eq('user_id', user?.id);
       if (userLocationIds && userLocationIds.length > 0) {
         const locationIds = userLocationIds.map(ul => ul.location_id);
-        const { data, error } = await supabase.from('locations').select('*').in('id', locationIds).order('name', { ascending: true });
+        const { data, error } = await supabase.from('locations').select(select).in('id', locationIds).order('name', { ascending: true });
         if (error) throw error;
-        return data || [];
+        return shape(data || []);
       }
       return [];
     },
