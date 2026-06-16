@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ImageIcon, X } from 'lucide-react';
+import { ImageIcon, X, Trash2 } from 'lucide-react';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { getDisplayName } from '@/utils/displayName';
 
