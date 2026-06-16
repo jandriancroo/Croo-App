@@ -869,11 +869,24 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 Save
               </Button>
               {integration && (
-                <Button size="sm" variant="outline" onClick={() => triggerBackfill(integration.id)} disabled={isSyncing}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (authStatus && !authStatus.authorized) {
+                      toast.error("Cannot sync — store is not authorized on QuBeyond's API. Contact QU support to add this Operational Unit.");
+                      return;
+                    }
+                    triggerBackfill(integration.id);
+                  }}
+                  disabled={isSyncing || (authStatus ? !authStatus.authorized : false)}
+                  title={authStatus && !authStatus.authorized ? 'Blocked: QU has not authorized this store' : undefined}
+                >
                   {isSyncing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
                   Sync Sales
                 </Button>
               )}
+
             </div>
             {isSyncing && (
               <div className="space-y-2">
