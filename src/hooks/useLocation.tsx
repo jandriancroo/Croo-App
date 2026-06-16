@@ -89,11 +89,14 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           setOrganizationId(orgId);
           const { data: orgLocations, error: orgError } = await supabase
             .from('locations')
-            .select('id, name, location_type, store_number, organization_id')
+            .select('id, name, location_type, store_number, organization_id, organizations(brand_name, brands(name))')
             .eq('organization_id', orgId);
 
           if (orgError) throw orgError;
-          locs = (orgLocations || []) as Location[];
+          locs = (orgLocations || []).map((l: any) => ({
+            ...l,
+            brand_name: l.organizations?.brand_name || l.organizations?.brands?.name || null,
+          })) as Location[];
         } else {
           const { data: allLocs, error: allError } = await supabase
             .from('locations')
@@ -105,7 +108,14 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       } else {
         // Standard behavior: use already-fetched user_locations
         locs = (userLocData || [])
-          .map((ul: any) => ul.locations)
+          .map((ul: any) => {
+            const l = ul.locations;
+            if (!l) return null;
+            return {
+              ...l,
+              brand_name: l.organizations?.brand_name || l.organizations?.brands?.name || null,
+            };
+          })
           .filter(Boolean) as Location[];
         
         if (locs.length > 0 && locs[0].organization_id) {
