@@ -10,6 +10,7 @@ interface Location {
   location_type: string;
   store_number?: string | null;
   organization_id?: string;
+  brand_name?: string | null;
 }
 
 interface LocationContextType {
