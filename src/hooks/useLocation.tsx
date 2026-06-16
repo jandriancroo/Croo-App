@@ -71,7 +71,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           .single(),
         supabase
           .from('user_locations')
-          .select('user_id, location_id, locations(id, name, location_type, store_number, organization_id)')
+          .select('user_id, location_id, locations(id, name, location_type, store_number, organization_id, organizations(brand_name, brands(name)))')
           .eq('user_id', user.id),
       ]);
 
