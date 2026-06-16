@@ -681,6 +681,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     const storeId = creds.location_id;
     if (!storeId) return;
     let cancelled = false;
+    setIsProbingAuth(true);
     (async () => {
       try {
         const { data } = await supabase.functions.invoke('fetch-qubeyond-sales', {
@@ -696,6 +697,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         if (cancelled || !data?.authenticated) return;
         setAuthStatus({ authorized: data.authorized !== false, error: data.authorizationError || null });
       } catch { /* silent — leave previous status or null */ }
+      finally { if (!cancelled) setIsProbingAuth(false); }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
