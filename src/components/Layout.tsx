@@ -333,7 +333,10 @@ export const Layout = ({
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
-  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
+  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo, locations: allUserLocations } = useAppLocation();
+  const hasMultipleBrands = new Set(
+    (allUserLocations || []).map(l => l.brand_name).filter(Boolean)
+  ).size > 1;
   
   
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
