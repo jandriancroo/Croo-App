@@ -642,6 +642,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   });
 
   const [authStatus, setAuthStatus] = useState<{ authorized: boolean; error: string | null } | null>(null);
+  const [isProbingAuth, setIsProbingAuth] = useState(false);
 
   const testConnection = async () => {
     if (!credentials.username || !credentials.password) { toast.error("Please enter username and password"); return; }
