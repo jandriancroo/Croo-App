@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ImageIcon, X } from 'lucide-react';
+import { ImageIcon, X, Trash2 } from 'lucide-react';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { getDisplayName } from '@/utils/displayName';
 
@@ -30,6 +30,8 @@ interface GroupSettingsDialogProps {
   chatTitle: string;
   groupImageUrl: string | null;
   onUpdate: () => void;
+  canDelete?: boolean;
+  onRequestDelete?: () => void;
 }
 
 export function GroupSettingsDialog({
@@ -38,7 +40,9 @@ export function GroupSettingsDialog({
   chatId,
   chatTitle,
   groupImageUrl,
-  onUpdate
+  onUpdate,
+  canDelete,
+  onRequestDelete,
 }: GroupSettingsDialogProps) {
   const [title, setTitle] = useState(chatTitle);
   const [members, setMembers] = useState<Member[]>([]);
@@ -324,13 +328,26 @@ export function GroupSettingsDialog({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
+          <div className="flex items-center justify-between gap-2 pt-2 border-t">
+            {canDelete && onRequestDelete ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRequestDelete}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Chat
+              </Button>
+            ) : <div />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -1,7 +1,8 @@
 import { forwardRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
+import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown, CheckCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { isSameDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Virtuoso } from 'react-virtuoso';
@@ -118,12 +119,34 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Mark all as read"
+                onClick={async () => {
+                  scrollToBottom();
+                  if (currentUserId && chatId) {
+                    const { error } = await supabase
+                      .from('chat_members')
+                      .update({ last_read_at: new Date().toISOString() })
+                      .eq('chat_id', chatId)
+                      .eq('user_id', currentUserId);
+                    if (error) {
+                      toast.error('Could not mark as read');
+                    } else {
+                      toast.success('Marked as read');
+                    }
+                  }
+                }}
+              >
+                <CheckCheck className="h-4 w-4" />
+              </Button>
               {chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
                 <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
                   <Settings className="h-4 w-4" />
                 </Button>
               )}
-              {isAdmin && chatDetails.title !== "Shift Marketplace" && (
+              {!chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
                 <Button variant="ghost" size="sm" onClick={() => setDeleteDialogOpen(true)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -307,6 +330,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           chatTitle={chatDetails.title || ''}
           groupImageUrl={chatDetails.group_image_url}
           onUpdate={onChatUpdated}
+          canDelete={isAdmin && chatDetails.title !== "Shift Marketplace"}
+          onRequestDelete={() => {
+            setSettingsOpen(false);
+            setDeleteDialogOpen(true);
+          }}
         />
       )}
 
