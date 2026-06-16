@@ -43,7 +43,8 @@ self.addEventListener('notificationclick', function(event) {
   const chatId = data.chat_id || data.chatId;
   const checklistId = data.checklist_id || data.checklistId;
   
-  if ((data.type === 'chat' || data.type === 'announcement' || data.type === 'chat_message') && chatId) {
+  if (chatId) {
+    // Any chat-related notification (message, announcement, mention, etc.)
     url = `/messages?chat=${chatId}`;
   } else if ((data.type === 'checklist' || data.type === 'overdue_checklist') && checklistId) {
     url = `/complete/${checklistId}`;
