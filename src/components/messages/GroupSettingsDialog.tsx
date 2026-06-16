@@ -30,6 +30,8 @@ interface GroupSettingsDialogProps {
   chatTitle: string;
   groupImageUrl: string | null;
   onUpdate: () => void;
+  canDelete?: boolean;
+  onRequestDelete?: () => void;
 }
 
 export function GroupSettingsDialog({
@@ -38,7 +40,9 @@ export function GroupSettingsDialog({
   chatId,
   chatTitle,
   groupImageUrl,
-  onUpdate
+  onUpdate,
+  canDelete,
+  onRequestDelete,
 }: GroupSettingsDialogProps) {
   const [title, setTitle] = useState(chatTitle);
   const [members, setMembers] = useState<Member[]>([]);
