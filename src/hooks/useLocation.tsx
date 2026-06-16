@@ -180,9 +180,13 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     // Enrich with organization_id from the locations roster if the caller
     // didn't include it (LocationSelector/LocationPickerDialog often omit it).
     // Without this, the org pill in Settings stays stuck on the previous org.
-    const enriched: Location = location.organization_id
-      ? location
-      : { ...location, organization_id: locations.find(l => l.id === location.id)?.organization_id };
+    // Enrich with organization_id + brand_name from roster when caller omits them
+    const rosterMatch = locations.find(l => l.id === location.id);
+    const enriched: Location = {
+      ...location,
+      organization_id: location.organization_id ?? rosterMatch?.organization_id,
+      brand_name: location.brand_name ?? rosterMatch?.brand_name ?? null,
+    };
 
     // Show the overlay immediately
     setSwitchingTo(enriched);
