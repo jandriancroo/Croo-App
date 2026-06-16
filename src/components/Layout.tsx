@@ -1096,9 +1096,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       )}
                     >
                       <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate max-w-[140px]">{locationLabel}</span>
+                      <span className="flex flex-col items-start leading-tight">
+                        <span className="truncate max-w-[160px]">{locationLabel}</span>
+                        {!isOnOrgDash && currentLocation?.brand_name && hasMultipleBrands && (
+                          <span className="truncate max-w-[160px] text-[10px] opacity-70 font-normal">{currentLocation.brand_name}</span>
+                        )}
+                      </span>
                       <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-                    </button>
                   )}
                   {showOvation && showLocation && (
                     <span aria-hidden className="h-5 w-px bg-white/20" />
