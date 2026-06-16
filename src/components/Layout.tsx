@@ -962,8 +962,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   onClick={() => setLocationDialogOpen(true)}
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span className="max-w-[120px] truncate text-sm">
-                    {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
+                  <span className="max-w-[160px] truncate text-sm flex flex-col items-start leading-tight">
+                    <span className="truncate">{isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}</span>
+                    {!isOnOrgDash && currentLocation?.brand_name && hasMultipleBrands && (
+                      <span className="truncate text-[10px] opacity-70">{currentLocation.brand_name}</span>
+                    )}
                   </span>
                 </button>
               )}
