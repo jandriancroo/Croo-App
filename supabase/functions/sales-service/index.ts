@@ -755,7 +755,25 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   for (const dateStr of dates) {
     totalAttempted++;
-    const salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
+    let salesData;
+    try {
+      salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
+    } catch (err: any) {
+      if (err?.message === 'UNPROVISIONED_STORE') {
+        console.log(`[sales-service] backfill: ${locationId} unprovisioned in QU — aborting backfill`);
+        return new Response(
+          JSON.stringify({
+            status: 'unprovisioned',
+            error: 'STORE_NOT_PROVISIONED',
+            message: 'QuBeyond has not authorized this store ID on the API client. Contact QuBeyond support.',
+            locationId,
+            qbLocationId,
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      throw err;
+    }
 
     if (salesData.netSales <= 0) continue;
 

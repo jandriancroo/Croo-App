@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, RefreshCw, Settings2, ChevronDown } from "lucide-react";
+import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, RefreshCw, Settings2, ChevronDown, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -589,8 +589,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           }
         }
       }, 2000);
-      supabase.functions.invoke('sales-service', { body: { locationId, daysBack: 365 }, headers: { 'X-Action': 'backfill' } }).then(({ error }) => {
-        if (error) { clearInterval(pollInterval); setIsSyncing(false); toast.error("Sync failed: " + error.message); }
+      supabase.functions.invoke('sales-service', { body: { locationId, daysBack: 365 }, headers: { 'X-Action': 'backfill' } }).then(({ data, error }) => {
+        if (error) { clearInterval(pollInterval); setIsSyncing(false); toast.error("Sync failed: " + error.message); return; }
+        if (data?.status === 'unprovisioned' || data?.error === 'STORE_NOT_PROVISIONED') {
+          clearInterval(pollInterval); setIsSyncing(false); setSyncProgress(0);
+          setSyncStatus("Store not authorized on QuBeyond's API");
+          setAuthStatus({ authorized: false, error: 'STORE_NOT_PROVISIONED' });
+          toast.error("QU has not authorized this store on the API client. Contact QuBeyond support.", { duration: 8000 });
+        }
       });
       toast.info("Syncing 365 days of sales data...", { duration: 5000 });
     } catch (error) { console.error('[BACKFILL] Failed to trigger:', error); setIsSyncing(false); }
@@ -621,17 +627,67 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     onError: (error) => { toast.error("Failed to save: " + (error instanceof Error ? error.message : "Unknown error")); }
   });
 
+  const [authStatus, setAuthStatus] = useState<{ authorized: boolean; error: string | null } | null>(null);
+
   const testConnection = async () => {
     if (!credentials.username || !credentials.password) { toast.error("Please enter username and password"); return; }
-    setIsTesting(true); setTestResult(null);
+    setIsTesting(true); setTestResult(null); setAuthStatus(null);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId, testCredentials: credentials } });
       if (error) throw error;
-      if (data?.authenticated) { setTestResult('success'); toast.success("Connection successful!"); }
+      if (data?.authenticated) {
+        if (data?.authorized === false) {
+          setTestResult('error');
+          setAuthStatus({ authorized: false, error: data.authorizationError || 'STORE_NOT_PROVISIONED' });
+          toast.error(
+            data.authorizationError === 'STORE_NOT_PROVISIONED'
+              ? `Auth OK, but QU has NOT authorized store ${credentials.location_id || ''} on the API client.`
+              : `Auth OK, but store probe failed: ${data.authorizationError}`,
+            { duration: 8000 }
+          );
+        } else {
+          setTestResult('success');
+          setAuthStatus({ authorized: true, error: null });
+          toast.success("Connection successful — store authorized on QU side!");
+        }
+      }
       else { setTestResult('error'); toast.error("Authentication failed: " + (data?.error || "Invalid credentials")); }
     } catch (error) { setTestResult('error'); toast.error("Test failed: " + (error instanceof Error ? error.message : "Unknown error")); }
     finally { setIsTesting(false); }
   };
+
+  // Auto-probe QU authorization whenever the QuBeyond dialog opens for an existing integration.
+  // This catches stores that authenticate fine but are NOT on the QU API client's
+  // operationalUnits allow-list (QU returns 403 "No operational units allowed").
+  useEffect(() => {
+    if (editingIntegration !== 'qubeyond' || !integration) return;
+    const creds = (integration.credentials as any) || {};
+    const storeId = creds.location_id || credentials.location_id;
+    if (!storeId) return;
+    let cancelled = false;
+    setAuthStatus(null);
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+          body: {
+            locationId,
+            testCredentials: {
+              username: creds.username,
+              password: creds.password,
+              location_id: storeId,
+            },
+          },
+        });
+        if (cancelled || !data?.authenticated) return;
+        setAuthStatus({ authorized: data.authorized !== false, error: data.authorizationError || null });
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingIntegration, integration?.id]);
+
+
+
 
   const testPfgConnection = async () => {
     setPfgIsTesting(true); setPfgTestResult(null);
@@ -755,10 +811,34 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Configure QuBeyond POS credentials for sales data</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {authStatus && !authStatus.authorized && (
+              <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-3 flex gap-2.5">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">
+                    {authStatus.error === 'STORE_NOT_PROVISIONED'
+                      ? `Store ${credentials.location_id || ''} is NOT authorized on QuBeyond's API.`
+                      : 'QuBeyond rejected the store probe.'}
+                  </p>
+                  <p className="text-amber-800 dark:text-amber-300">
+                    {authStatus.error === 'STORE_NOT_PROVISIONED'
+                      ? 'Credentials work, but QU returned 403 "No operational units allowed for the current user". Sync cannot complete until QuBeyond adds this Operational Unit to the API client. Email QU support with the store ID above to enable it.'
+                      : authStatus.error}
+                  </p>
+                </div>
+              </div>
+            )}
+            {authStatus && authStatus.authorized && (
+              <div className="rounded-md border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+                <Check className="h-4 w-4 shrink-0" />
+                Store {credentials.location_id || ''} is authorized on QuBeyond's API.
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <Label>Active</Label>
               <Switch checked={isActive} onCheckedChange={setIsActive} />
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="qb-username" className="text-sm">Username</Label>
@@ -795,11 +875,24 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 Save
               </Button>
               {integration && (
-                <Button size="sm" variant="outline" onClick={() => triggerBackfill(integration.id)} disabled={isSyncing}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (authStatus && !authStatus.authorized) {
+                      toast.error("Cannot sync — store is not authorized on QuBeyond's API. Contact QU support to add this Operational Unit.");
+                      return;
+                    }
+                    triggerBackfill(integration.id);
+                  }}
+                  disabled={isSyncing || (authStatus ? !authStatus.authorized : false)}
+                  title={authStatus && !authStatus.authorized ? 'Blocked: QU has not authorized this store' : undefined}
+                >
                   {isSyncing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
                   Sync Sales
                 </Button>
               )}
+
             </div>
             {isSyncing && (
               <div className="space-y-2">
