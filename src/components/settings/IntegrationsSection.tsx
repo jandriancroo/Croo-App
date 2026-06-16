@@ -645,10 +645,23 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [isProbingAuth, setIsProbingAuth] = useState(false);
 
   const testConnection = async () => {
-    if (!credentials.username || !credentials.password) { toast.error("Please enter username and password"); return; }
+    const storeId = credentials.location_id || ((integration?.credentials as any)?.location_id ?? '');
+    if (!storeId) { toast.error("Enter a Store ID first"); return; }
     setIsTesting(true); setTestResult(null); setAuthStatus(null);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId, testCredentials: credentials } });
+      // Auth uses server-side env vars (QU_USERNAME/QU_PASSWORD); we only need the store ID
+      // for the operational-unit probe. Pass any form-entered creds as overrides if present.
+      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: {
+          locationId,
+          testCredentials: {
+            username: credentials.username || undefined,
+            password: credentials.password || undefined,
+            location_id: storeId,
+            pull_labor: credentials.pull_labor,
+          },
+        },
+      });
       if (error) throw error;
       if (data?.authenticated) {
         if (data?.authorized === false) {
@@ -889,7 +902,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
               <Switch checked={credentials.pull_labor || false} onCheckedChange={(checked) => setCredentials(prev => ({ ...prev, pull_labor: checked }))} />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={testConnection} disabled={isTesting || !credentials.username || !credentials.password}>
+              <Button variant="outline" size="sm" onClick={testConnection} disabled={isTesting || !(credentials.location_id || (integration?.credentials as any)?.location_id)}>
                 {isTesting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : testResult === 'success' ? <Check className="h-4 w-4 mr-1.5 text-green-500" /> : testResult === 'error' ? <X className="h-4 w-4 mr-1.5 text-red-500" /> : <TestTube className="h-4 w-4 mr-1.5" />}
                 Test
               </Button>
