@@ -60,7 +60,10 @@ export function LocationPickerDialog({
   
   const hasMultiLocationAccess = role === 'super_admin' || role === 'brand_admin' || role === 'org_admin';
   const isSuperAdmin = role === 'super_admin';
-  const canSeeAllOrgs = role === 'admin' || role === 'super_admin';
+  // Only super_admin should see every org in the system. A plain `admin` is a
+  // location-level admin and must fall through to the standard user_locations
+  // branch so they only see the locations they're actually assigned to.
+  const canSeeAllOrgs = role === 'super_admin';
   const isOrgLevel = role === 'manager' || role === 'org_admin';
 
   const [search, setSearch] = useState('');
