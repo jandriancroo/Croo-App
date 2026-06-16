@@ -10581,6 +10581,48 @@ export type Database = {
           },
         ]
       }
+      visual_alert_queue: {
+        Row: {
+          alert_type: Database["public"]["Enums"]["visual_alert_type"]
+          body: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          location_id: string | null
+          notification_id: string
+          ref_id: string
+          seen_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          alert_type: Database["public"]["Enums"]["visual_alert_type"]
+          body?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          location_id?: string | null
+          notification_id: string
+          ref_id: string
+          seen_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          alert_type?: Database["public"]["Enums"]["visual_alert_type"]
+          body?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          location_id?: string | null
+          notification_id?: string
+          ref_id?: string
+          seen_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wage_history: {
         Row: {
           created_at: string | null
@@ -11188,6 +11230,7 @@ export type Database = {
         Args: { days_to_keep?: number }
         Returns: number
       }
+      prune_visual_alert_queue: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
       read_email_batch: {
@@ -11300,6 +11343,7 @@ export type Database = {
         | "other"
       support_ticket_status: "open" | "in_progress" | "resolved"
       vendor_sku_status: "active" | "stale" | "discontinued"
+      visual_alert_type: "quick_task" | "overdue_checklist"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -11465,6 +11509,7 @@ export const Constants = {
       ],
       support_ticket_status: ["open", "in_progress", "resolved"],
       vendor_sku_status: ["active", "stale", "discontinued"],
+      visual_alert_type: ["quick_task", "overdue_checklist"],
     },
   },
 } as const
