@@ -650,6 +650,38 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     finally { setIsTesting(false); }
   };
 
+  // Auto-probe QU authorization whenever the QuBeyond dialog opens for an existing integration.
+  // This catches stores that authenticate fine but are NOT on the QU API client's
+  // operationalUnits allow-list (QU returns 403 "No operational units allowed").
+  useEffect(() => {
+    if (editingIntegration !== 'qubeyond' || !integration) return;
+    const creds = (integration.credentials as any) || {};
+    const storeId = creds.location_id || credentials.location_id;
+    if (!storeId) return;
+    let cancelled = false;
+    setAuthStatus(null);
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+          body: {
+            locationId,
+            testCredentials: {
+              username: creds.username,
+              password: creds.password,
+              location_id: storeId,
+            },
+          },
+        });
+        if (cancelled || !data?.authenticated) return;
+        setAuthStatus({ authorized: data.authorized !== false, error: data.authorizationError || null });
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingIntegration, integration?.id]);
+
+
+
 
   const testPfgConnection = async () => {
     setPfgIsTesting(true); setPfgTestResult(null);
