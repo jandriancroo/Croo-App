@@ -621,17 +621,35 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     onError: (error) => { toast.error("Failed to save: " + (error instanceof Error ? error.message : "Unknown error")); }
   });
 
+  const [authStatus, setAuthStatus] = useState<{ authorized: boolean; error: string | null } | null>(null);
+
   const testConnection = async () => {
     if (!credentials.username || !credentials.password) { toast.error("Please enter username and password"); return; }
-    setIsTesting(true); setTestResult(null);
+    setIsTesting(true); setTestResult(null); setAuthStatus(null);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId, testCredentials: credentials } });
       if (error) throw error;
-      if (data?.authenticated) { setTestResult('success'); toast.success("Connection successful!"); }
+      if (data?.authenticated) {
+        if (data?.authorized === false) {
+          setTestResult('error');
+          setAuthStatus({ authorized: false, error: data.authorizationError || 'STORE_NOT_PROVISIONED' });
+          toast.error(
+            data.authorizationError === 'STORE_NOT_PROVISIONED'
+              ? `Auth OK, but QU has NOT authorized store ${credentials.location_id || ''} on the API client.`
+              : `Auth OK, but store probe failed: ${data.authorizationError}`,
+            { duration: 8000 }
+          );
+        } else {
+          setTestResult('success');
+          setAuthStatus({ authorized: true, error: null });
+          toast.success("Connection successful — store authorized on QU side!");
+        }
+      }
       else { setTestResult('error'); toast.error("Authentication failed: " + (data?.error || "Invalid credentials")); }
     } catch (error) { setTestResult('error'); toast.error("Test failed: " + (error instanceof Error ? error.message : "Unknown error")); }
     finally { setIsTesting(false); }
   };
+
 
   const testPfgConnection = async () => {
     setPfgIsTesting(true); setPfgTestResult(null);
