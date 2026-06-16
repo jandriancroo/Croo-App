@@ -633,6 +633,58 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // ============ Visual Alert Queue ============
+    // For Quick Tasks (alarm_task / quick_task) and Overdue Checklists,
+    // queue a row per user so the in-app dialog stack can greet them
+    // even if they don't tap the push.
+    let visualAlertNotificationId: string | undefined;
+    try {
+      const isQuickTask =
+        notification_type === 'alarm_task' ||
+        notification_type === 'quick_task' ||
+        data?.type === 'alarm_task' ||
+        data?.type === 'quick_task';
+      const isOverdueChecklist =
+        notification_type === 'overdue_checklists' && !!data?.checklist_id;
+      const refId = isQuickTask
+        ? (data?.task_id || data?.ref_id)
+        : (data?.checklist_id);
+
+      if ((isQuickTask || isOverdueChecklist) && refId) {
+        visualAlertNotificationId =
+          data?.notification_id ||
+          `${isQuickTask ? 'task' : 'checklist'}:${refId}:${data?.interval_key || new Date().toISOString().slice(0, 10)}`;
+
+        const rows = finalUserIds.map(uid => ({
+          user_id: uid,
+          alert_type: isQuickTask ? 'quick_task' : 'overdue_checklist',
+          ref_id: refId,
+          notification_id: visualAlertNotificationId,
+          title: title,
+          body: body,
+          location_id: location_id || null,
+        }));
+
+        const { error: vaErr } = await supabaseClient
+          .from('visual_alert_queue')
+          .upsert(rows, { onConflict: 'user_id,notification_id', ignoreDuplicates: true });
+
+        if (vaErr) {
+          console.error('[visual-alert-queue] insert failed:', vaErr);
+        } else {
+          console.log(`[visual-alert-queue] queued ${rows.length} alerts (${visualAlertNotificationId})`);
+        }
+      }
+    } catch (vaCatch) {
+      console.error('[visual-alert-queue] unexpected error:', vaCatch);
+    }
+
+    // Augment payload data with notification_id so SW can deep-link to the right card
+    const payloadData = {
+      ...(data || {}),
+      ...(visualAlertNotificationId ? { notification_id: visualAlertNotificationId } : {}),
+    };
+
     // Get push tokens WITH user info for detailed logging
     const { data: tokens, error: tokensError } = await supabaseClient
       .from('push_notification_tokens')
