@@ -33,6 +33,7 @@ function IntegrationCard({
   title,
   description,
   connected,
+  status,
   logo,
   onEdit,
   isLoading,
@@ -40,10 +41,23 @@ function IntegrationCard({
   title: string;
   description: string;
   connected: boolean;
+  status?: 'ok' | 'warning' | 'off';
   logo?: string;
   onEdit: () => void;
   isLoading?: boolean;
 }) {
+  const state = status || (connected ? 'ok' : 'off');
+  const trackClass = {
+    ok: 'bg-green-500/20 justify-end',
+    warning: 'bg-amber-500/20 justify-end',
+    off: 'bg-muted justify-start',
+  }[state];
+  const knobClass = {
+    ok: 'bg-green-500',
+    warning: 'bg-amber-500',
+    off: 'bg-muted-foreground/30',
+  }[state];
+
   return (
     <button
       onClick={onEdit}
@@ -63,8 +77,8 @@ function IntegrationCard({
       {isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
       ) : (
-        <div className={`w-8 h-[18px] rounded-full flex items-center px-[3px] transition-colors shrink-0 ${connected ? 'bg-green-500/20 justify-end' : 'bg-muted justify-start'}`}>
-          <div className={`w-3 h-3 rounded-full transition-colors ${connected ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+        <div className={`w-8 h-[18px] rounded-full flex items-center px-[3px] transition-colors shrink-0 ${trackClass}`}>
+          <div className={`w-3 h-3 rounded-full transition-colors ${knobClass}`} />
         </div>
       )}
     </button>
@@ -628,6 +642,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   });
 
   const [authStatus, setAuthStatus] = useState<{ authorized: boolean; error: string | null } | null>(null);
+  const [isProbingAuth, setIsProbingAuth] = useState(false);
 
   const testConnection = async () => {
     if (!credentials.username || !credentials.password) { toast.error("Please enter username and password"); return; }
@@ -656,16 +671,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     finally { setIsTesting(false); }
   };
 
-  // Auto-probe QU authorization whenever the QuBeyond dialog opens for an existing integration.
+  // Auto-probe QU authorization whenever a QuBeyond integration exists.
   // This catches stores that authenticate fine but are NOT on the QU API client's
-  // operationalUnits allow-list (QU returns 403 "No operational units allowed").
+  // operationalUnits allow-list (QU returns 403 "No operational units allowed"),
+  // so the integration card can reflect the real status without opening the dialog.
   useEffect(() => {
-    if (editingIntegration !== 'qubeyond' || !integration) return;
+    if (!integration) return;
     const creds = (integration.credentials as any) || {};
-    const storeId = creds.location_id || credentials.location_id;
+    const storeId = creds.location_id;
     if (!storeId) return;
     let cancelled = false;
-    setAuthStatus(null);
+    setIsProbingAuth(true);
     (async () => {
       try {
         const { data } = await supabase.functions.invoke('fetch-qubeyond-sales', {
@@ -680,11 +696,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         });
         if (cancelled || !data?.authenticated) return;
         setAuthStatus({ authorized: data.authorized !== false, error: data.authorizationError || null });
-      } catch { /* silent */ }
+      } catch { /* silent — leave previous status or null */ }
+      finally { if (!cancelled) setIsProbingAuth(false); }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingIntegration, integration?.id]);
+  }, [integration?.id]);
+
+
 
 
 
@@ -742,6 +761,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     : null;
 
   const qbConnected = !!integration;
+  const qbStatus = integration?.is_active
+    ? (authStatus?.authorized === false ? 'warning' : 'ok')
+    : 'off';
   const pfgConnected = !!pfgHasToken;
   const paConnected = !!paIntegration;
   const kdsConnected = !!locationKdsData?.fresh_kds_location_id && ((locationKdsData as any)?.fresh_kds_active ?? true);
@@ -755,7 +777,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           title="QuBeyond POS"
           description="Sales & labor data"
           connected={qbConnected}
-          isLoading={isLoading}
+          status={qbStatus as 'ok' | 'warning' | 'off'}
+          isLoading={isLoading || isProbingAuth}
           onEdit={() => setEditingIntegration('qubeyond')}
         />
         <IntegrationCard
