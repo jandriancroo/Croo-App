@@ -42,13 +42,20 @@ self.addEventListener('notificationclick', function(event) {
   // Route based on notification type
   const chatId = data.chat_id || data.chatId;
   const checklistId = data.checklist_id || data.checklistId;
-  
-  if (chatId) {
+  const visualAlertId = data.visual_alert_id || data.notification_id;
+  const alertType = data.type || data.notification_type;
+
+  // Visual Alerts: quick tasks and overdue checklists open as a deep-linked
+  // dialog stack on the Dashboard. The stack reads ?alert=<notification_id>
+  // and pops the matching card to the top.
+  if (visualAlertId && (alertType === 'alarm_task' || alertType === 'quick_task' || alertType === 'overdue_checklists' || alertType === 'overdue_checklist')) {
+    url = `/?alert=${visualAlertId}`;
+  } else if (chatId) {
     // Any chat-related notification (message, announcement, mention, etc.)
     url = `/messages?chat=${chatId}`;
-  } else if ((data.type === 'checklist' || data.type === 'overdue_checklist') && checklistId) {
+  } else if ((alertType === 'checklist' || alertType === 'overdue_checklist') && checklistId) {
     url = `/complete/${checklistId}`;
-  } else if (data.type === 'alert' || data.type === 'late_arrival') {
+  } else if (alertType === 'alert' || alertType === 'late_arrival') {
     url = '/alerts';
   }
   
