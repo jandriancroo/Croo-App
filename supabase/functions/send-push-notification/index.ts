@@ -738,7 +738,7 @@ const handler = async (req: Request): Promise<Response> => {
         const webPayload = JSON.stringify({
           title: formattedContent.title,
           body: formattedContent.body,
-          data: data || {},
+          data: payloadData,
           icon: '/favicon.png',
         });
 
@@ -815,8 +815,8 @@ const handler = async (req: Request): Promise<Response> => {
                       title: formattedContent.title,
                       body: formattedContent.body,
                     },
-                    data: Object.keys(data || {}).reduce((acc, key) => {
-                      acc[key] = String((data || {})[key]);
+                    data: Object.keys(payloadData).reduce((acc, key) => {
+                      acc[key] = String(payloadData[key]);
                       return acc;
                     }, {} as Record<string, string>),
                     apns: {
