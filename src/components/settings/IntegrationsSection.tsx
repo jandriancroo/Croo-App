@@ -805,10 +805,34 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Configure QuBeyond POS credentials for sales data</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {authStatus && !authStatus.authorized && (
+              <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-3 flex gap-2.5">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">
+                    {authStatus.error === 'STORE_NOT_PROVISIONED'
+                      ? `Store ${credentials.location_id || ''} is NOT authorized on QuBeyond's API.`
+                      : 'QuBeyond rejected the store probe.'}
+                  </p>
+                  <p className="text-amber-800 dark:text-amber-300">
+                    {authStatus.error === 'STORE_NOT_PROVISIONED'
+                      ? 'Credentials work, but QU returned 403 "No operational units allowed for the current user". Sync cannot complete until QuBeyond adds this Operational Unit to the API client. Email QU support with the store ID above to enable it.'
+                      : authStatus.error}
+                  </p>
+                </div>
+              </div>
+            )}
+            {authStatus && authStatus.authorized && (
+              <div className="rounded-md border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+                <Check className="h-4 w-4 shrink-0" />
+                Store {credentials.location_id || ''} is authorized on QuBeyond's API.
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <Label>Active</Label>
               <Switch checked={isActive} onCheckedChange={setIsActive} />
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="qb-username" className="text-sm">Username</Label>
