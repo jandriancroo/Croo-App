@@ -57,7 +57,7 @@ interface EmployeeProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: UserProfile | null;
-  availableLocations: { id: string; name: string }[];
+  availableLocations: { id: string; name: string; org_name?: string | null; brand_name?: string | null }[];
   currentLocationId?: string;
   onUserUpdated: () => void;
   onResetPassword: (userId: string, userName: string) => void;
