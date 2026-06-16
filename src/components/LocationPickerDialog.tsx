@@ -90,141 +90,146 @@ export function LocationPickerDialog({
   const effectiveDefaultId = defaultLocationId ?? profileData?.default_location_id ?? null;
 
   // Cache all location picker data
+  // Unified, role-agnostic fetch: build a union of location IDs from every
+  // source the user has access to (direct assignments, org membership,
+  // brand membership, super_admin). One single SELECT renders them all,
+  // grouped naturally by brand → org → location. No more branchy "first org
+  // wins" or "admin sees every org in the system" bugs.
   const { data: pickerData, isLoading: loading } = useQuery({
     queryKey: ['location-picker-data', user?.id, role, allLocationsEnabled],
     queryFn: async () => {
-      const orgs: Organization[] = [];
-      const locs: Location[] = [];
-      let brandsList: BrandInfo[] = [];
+      if (!user?.id) return { organizations: [], locations: [], brands: [] };
 
-      if (canSeeAllOrgs) {
-        const [orgsResult, locsResult, brandsResult] = await Promise.all([
-          supabase.from('organizations').select('id, name, brand_name, logo_url, brand_id, brands(name, logo_url)').eq('is_active', true).order('name'),
-          supabase.from('locations').select('*, organizations(name, brand_name, brands(name))').order('name'),
-          isSuperAdmin 
-            ? supabase.from('brands').select('id, name, logo_url').eq('is_active', true).order('name')
-            : Promise.resolve({ data: [] }),
-        ]);
+      // 1. Gather all location IDs the user can see
+      const locationIdSet = new Set<string>();
+      const orgIdSet = new Set<string>();
+      const brandIdSet = new Set<string>();
 
-        const mappedOrgs = (orgsResult.data || []).map((org: any) => {
-          const brand = org.brands;
-          return {
-            ...org,
-            brand_name: org.brand_name || brand?.name || null,
-            logo_url: org.logo_url || brand?.logo_url || null,
-            brand_id: org.brand_id || null,
-          };
-        });
-        orgs.push(...mappedOrgs);
-        brandsList = (brandsResult.data || []) as BrandInfo[];
-        locs.push(
-          ...(locsResult.data || []).map((loc: any) => ({
-            ...loc,
-            org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
-            org_raw_name: loc.organizations?.name,
-          }))
-        );
-      } else if (isOrgLevel) {
-        const { data: orgMemberships } = await supabase
-          .from('organization_members')
-          .select('organization_id, organizations(id, name, brand_name, logo_url, brand_id, brands(name, logo_url))')
-          .eq('user_id', user!.id)
-          .eq('org_role', 'admin');
+      // (a) Direct user_locations assignments — applies to everyone
+      const userLocsPromise = supabase
+        .from('user_locations')
+        .select('location_id, locations(organization_id, organizations(brand_id))')
+        .eq('user_id', user.id);
 
-        const orgIds = orgMemberships?.map((m: any) => m.organization_id) || [];
-        const mappedOrgs = orgMemberships?.map((m: any) => {
-          const org = m.organizations;
-          if (org) {
-            return { 
-              ...org, 
-              brand_name: org.brand_name || org.brands?.name || null,
-              logo_url: org.logo_url || org.brands?.logo_url || null,
-              brand_id: org.brand_id || null,
-            };
-          }
-          return null;
-        }).filter(Boolean) || [];
-        orgs.push(...mappedOrgs);
+      // (b) Organization memberships
+      //   - all_locations_enabled OR org-level role → every location in those orgs
+      //   - otherwise the membership is informational only (location list stays
+      //     restricted to user_locations)
+      const orgMemsPromise = supabase
+        .from('organization_members')
+        .select('organization_id, org_role')
+        .eq('user_id', user.id);
 
-        if (orgIds.length > 0) {
-          const { data: orgLocs } = await supabase
-            .from('locations')
-            .select('*, organizations(name, brand_name, brands(name))')
-            .in('organization_id', orgIds)
-            .order('name');
-          locs.push(
-            ...(orgLocs || []).map((loc: any) => ({
-              ...loc,
-              org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
-              org_raw_name: loc.organizations?.name,
-            }))
-          );
-        }
-      } else if (allLocationsEnabled) {
-        const { data: userLocs } = await supabase
-          .from('user_locations')
-          .select('locations(organization_id, organizations(id, name, brand_name, logo_url, brand_id, brands(name, logo_url)))')
-          .eq('user_id', user!.id)
-          .limit(1);
+      // (c) Brand-level memberships → every location under those brands
+      const brandMemsPromise = supabase
+        .from('brand_members')
+        .select('brand_id')
+        .eq('user_id', user.id);
 
-        const rawOrgData = userLocs?.[0]?.locations?.organizations;
-        const orgId = userLocs?.[0]?.locations?.organization_id;
+      const [userLocsRes, orgMemsRes, brandMemsRes] = await Promise.all([
+        userLocsPromise,
+        orgMemsPromise,
+        brandMemsPromise,
+      ]);
 
-        if (orgId && rawOrgData) {
-          const orgData = { 
-            ...rawOrgData, 
-            brand_name: rawOrgData.brand_name || rawOrgData.brands?.name || null,
-            logo_url: rawOrgData.logo_url || rawOrgData.brands?.logo_url || null,
-            brand_id: (rawOrgData as any).brand_id || null,
-          };
-          orgs.push(orgData as Organization);
-          
-          const { data: orgLocs } = await supabase
-            .from('locations')
-            .select('*, organizations(name, brand_name, brands(name))')
-            .eq('organization_id', orgId)
-            .order('name');
-          locs.push(
-            ...(orgLocs || []).map((loc: any) => ({
-              ...loc,
-              org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
-              org_raw_name: loc.organizations?.name,
-            }))
-          );
-        }
-      } else {
-        const { data: userLocs } = await supabase
-          .from('user_locations')
-          .select('location_id, locations(*, organizations(name, brand_name, brands(name)))')
-          .eq('user_id', user!.id);
+      (userLocsRes.data || []).forEach((ul: any) => {
+        if (ul.location_id) locationIdSet.add(ul.location_id);
+      });
 
-        const mappedLocs = userLocs?.map((ul: any) => ul.locations).filter(Boolean) || [];
-        const orgIds = [...new Set(mappedLocs.map((l: any) => l.organization_id).filter(Boolean))];
-        
-        if (orgIds.length > 0) {
-          const { data: orgsData } = await supabase
-            .from('organizations')
-            .select('id, name, brand_name, logo_url, brand_id, brands(name, logo_url)')
-            .in('id', orgIds);
-          const mappedOrgs = (orgsData || []).map((org: any) => ({
-            ...org,
-            brand_name: org.brand_name || org.brands?.name || null,
-            logo_url: org.logo_url || org.brands?.logo_url || null,
-            brand_id: org.brand_id || null,
-          }));
-          orgs.push(...mappedOrgs);
-        }
+      const orgMems = orgMemsRes.data || [];
+      const orgGrantsAll = (m: any) =>
+        allLocationsEnabled || m.org_role === 'admin' || isOrgLevel;
+      orgMems.forEach((m: any) => {
+        if (orgGrantsAll(m)) orgIdSet.add(m.organization_id);
+      });
 
-        locs.push(
-          ...mappedLocs.map((loc: any) => ({
-            ...loc,
-            org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
-            org_raw_name: loc.organizations?.name,
-          }))
-        );
+      (brandMemsRes.data || []).forEach((m: any) => {
+        if (m.brand_id) brandIdSet.add(m.brand_id);
+      });
+
+      // 2. Expand org access → location IDs
+      if (orgIdSet.size > 0) {
+        const { data } = await supabase
+          .from('locations')
+          .select('id')
+          .in('organization_id', [...orgIdSet]);
+        (data || []).forEach((l: any) => locationIdSet.add(l.id));
       }
 
-      return { organizations: orgs, locations: locs, brands: brandsList };
+      // 3. Expand brand access → org IDs → location IDs
+      if (brandIdSet.size > 0) {
+        const { data: brandOrgs } = await supabase
+          .from('organizations')
+          .select('id')
+          .in('brand_id', [...brandIdSet]);
+        const brandOrgIds = (brandOrgs || []).map((o: any) => o.id);
+        if (brandOrgIds.length > 0) {
+          brandOrgIds.forEach(id => orgIdSet.add(id));
+          const { data } = await supabase
+            .from('locations')
+            .select('id')
+            .in('organization_id', brandOrgIds);
+          (data || []).forEach((l: any) => locationIdSet.add(l.id));
+        }
+      }
+
+      // 4. Super admin: bypass everything, see all locations / orgs / brands
+      let brandsList: BrandInfo[] = [];
+      if (isSuperAdmin) {
+        const [allLocsRes, allBrandsRes] = await Promise.all([
+          supabase.from('locations').select('id'),
+          supabase.from('brands').select('id, name, logo_url').eq('is_active', true).order('name'),
+        ]);
+        (allLocsRes.data || []).forEach((l: any) => locationIdSet.add(l.id));
+        brandsList = (allBrandsRes.data || []) as BrandInfo[];
+      }
+
+      const locationIds = [...locationIdSet];
+      if (locationIds.length === 0) {
+        return { organizations: [], locations: [], brands: brandsList };
+      }
+
+      // 5. One final fetch with full hierarchy for rendering
+      const { data: fullLocs } = await supabase
+        .from('locations')
+        .select('*, organizations(id, name, brand_name, logo_url, brand_id, brands(id, name, logo_url))')
+        .in('id', locationIds)
+        .order('name');
+
+      const locs: Location[] = (fullLocs || []).map((loc: any) => ({
+        ...loc,
+        org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
+        org_raw_name: loc.organizations?.name,
+      }));
+
+      // 6. Derive orgs + brands from the loaded locations (deduped)
+      const orgMap = new Map<string, Organization>();
+      const brandMap = new Map<string, BrandInfo>();
+      (fullLocs || []).forEach((loc: any) => {
+        const o = loc.organizations;
+        if (o && !orgMap.has(o.id)) {
+          orgMap.set(o.id, {
+            id: o.id,
+            name: o.name,
+            brand_name: o.brand_name || o.brands?.name || null,
+            logo_url: o.logo_url || o.brands?.logo_url || null,
+            brand_id: o.brand_id || null,
+          });
+        }
+        const b = o?.brands;
+        if (b && !brandMap.has(b.id)) {
+          brandMap.set(b.id, { id: b.id, name: b.name, logo_url: b.logo_url });
+        }
+      });
+
+      // Merge super_admin's full brand catalog on top of derived brands
+      brandsList.forEach(b => { if (!brandMap.has(b.id)) brandMap.set(b.id, b); });
+
+      return {
+        organizations: [...orgMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+        locations: locs,
+        brands: [...brandMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      };
     },
     enabled: !!user?.id && !!role,
     staleTime: 10 * 60 * 1000,
