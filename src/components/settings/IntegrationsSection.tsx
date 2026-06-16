@@ -645,10 +645,23 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [isProbingAuth, setIsProbingAuth] = useState(false);
 
   const testConnection = async () => {
-    if (!credentials.username || !credentials.password) { toast.error("Please enter username and password"); return; }
+    const storeId = credentials.location_id || ((integration?.credentials as any)?.location_id ?? '');
+    if (!storeId) { toast.error("Enter a Store ID first"); return; }
     setIsTesting(true); setTestResult(null); setAuthStatus(null);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId, testCredentials: credentials } });
+      // Auth uses server-side env vars (QU_USERNAME/QU_PASSWORD); we only need the store ID
+      // for the operational-unit probe. Pass any form-entered creds as overrides if present.
+      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: {
+          locationId,
+          testCredentials: {
+            username: credentials.username || undefined,
+            password: credentials.password || undefined,
+            location_id: storeId,
+            pull_labor: credentials.pull_labor,
+          },
+        },
+      });
       if (error) throw error;
       if (data?.authenticated) {
         if (data?.authorized === false) {
