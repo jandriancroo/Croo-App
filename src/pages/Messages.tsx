@@ -95,6 +95,21 @@ export default function Messages() {
     fetchChats, handleSearch, handleViewModeChange, handleTogglePin,
   } = data;
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Deep link from push notification: /messages?chat=<id>
+  useEffect(() => {
+    const chatParam = searchParams.get('chat');
+    if (!chatParam || loading) return;
+    const exists = chats.some(c => c.id === chatParam);
+    if (exists) {
+      setSelectedChatId(chatParam);
+      // Clear the param so it doesn't re-fire on navigation
+      const next = new URLSearchParams(searchParams);
+      next.delete('chat');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, chats, loading, setSelectedChatId, setSearchParams]);
 
 
   const filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }> = [
