@@ -119,12 +119,34 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Mark all as read"
+                onClick={async () => {
+                  scrollToBottom();
+                  if (currentUserId && chatId) {
+                    const { error } = await supabase
+                      .from('chat_members')
+                      .update({ last_read_at: new Date().toISOString() })
+                      .eq('chat_id', chatId)
+                      .eq('user_id', currentUserId);
+                    if (error) {
+                      toast.error('Could not mark as read');
+                    } else {
+                      toast.success('Marked as read');
+                    }
+                  }
+                }}
+              >
+                <CheckCheck className="h-4 w-4" />
+              </Button>
               {chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
                 <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
                   <Settings className="h-4 w-4" />
                 </Button>
               )}
-              {isAdmin && chatDetails.title !== "Shift Marketplace" && (
+              {!chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
                 <Button variant="ghost" size="sm" onClick={() => setDeleteDialogOpen(true)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
