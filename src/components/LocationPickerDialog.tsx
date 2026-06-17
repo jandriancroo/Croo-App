@@ -581,24 +581,6 @@ export function LocationPickerDialog({
             />
           </div>
 
-          {/* Brand Dash link for super admins */}
-          {isSuperAdmin && activeBrandId && (() => {
-            const brand = brands.find(b => b.id === activeBrandId);
-            return (
-              <button
-                onClick={() => {
-                  navigate(`/org-dash?brand=${activeBrandId}`);
-                  onOpenChange(false);
-                }}
-                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg py-2 transition-colors"
-              >
-                {brand?.logo_url && (
-                  <img src={brand.logo_url} alt="" className="h-4 w-4 rounded object-contain" />
-                )}
-                {brand?.name ? `${brand.name} Dashboard` : 'Dashboard'}
-              </button>
-            );
-          })()}
 
           {/* Org Dashboard link for org_admins (single org, no brand tabs) */}
           {hasMultiLocationAccess && !isSuperAdmin && organizations.length === 1 && !activeBrandId && (() => {
