@@ -471,25 +471,43 @@ export function LocationPickerDialog({
               : null;
             const isActive = tab.id === activeTab;
             return (
-              <button
+              <div
                 key={tab.id}
-                onClick={() => selectBrandTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left ${
+                className={`w-full flex items-center rounded-xl border transition-all ${
                   isActive
                     ? 'border-primary bg-primary/10'
                     : 'border-border hover:bg-muted/50'
                 }`}
               >
-                {brand?.logo_url ? (
-                  <img src={brand.logo_url} alt="" className="h-9 w-9 rounded-lg object-contain bg-background" />
-                ) : (
-                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                <button
+                  onClick={() => selectBrandTab(tab.id)}
+                  className="flex-1 flex items-center gap-3 px-3 py-3 text-left min-w-0"
+                >
+                  {brand?.logo_url ? (
+                    <img src={brand.logo_url} alt="" className="h-9 w-9 rounded-lg object-contain bg-background" />
+                  ) : (
+                    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  <span className="flex-1 text-sm font-medium text-foreground truncate">{tab.label}</span>
+                </button>
+                {brand && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/org-dash?brand=${brand.id}`);
+                      onOpenChange(false);
+                    }}
+                    className="h-9 w-9 mr-1 flex items-center justify-center rounded-lg text-primary hover:bg-primary/15 transition-colors flex-shrink-0"
+                    aria-label={`${brand.name} Dashboard`}
+                    title="Brand Dashboard"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                  </button>
                 )}
-                <span className="flex-1 text-sm font-medium text-foreground truncate">{tab.label}</span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
+                <ChevronRight className="h-4 w-4 text-muted-foreground mr-3 flex-shrink-0" />
+              </div>
             );
           })}
         </div>
