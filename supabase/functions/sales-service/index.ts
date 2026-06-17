@@ -1488,7 +1488,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'sync-live';
+    // Accept action via ?action= query param OR X-Action header (UI uses header)
+    const action =
+      url.searchParams.get('action') ||
+      req.headers.get('x-action') ||
+      req.headers.get('X-Action') ||
+      'sync-live';
 
     console.log(`[sales-service] Action: ${action}`);
 
