@@ -407,7 +407,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
