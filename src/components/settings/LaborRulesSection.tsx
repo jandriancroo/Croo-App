@@ -407,7 +407,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
@@ -982,7 +982,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 text-sm [&>div]:min-w-0 [&>div]:break-words">
                   <div>
                     <span className="text-muted-foreground">Pay Period:</span> {
                       rule.pay_period_type === 'weekly' ? 'Weekly' :
