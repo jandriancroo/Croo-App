@@ -1,4 +1,5 @@
 import { ReactNode, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { registerMenuControl, unregisterMenuControl } from '@/components/onboarding/tourMenuBridge';
