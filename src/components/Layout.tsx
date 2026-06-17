@@ -1,4 +1,5 @@
 import { ReactNode, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { registerMenuControl, unregisterMenuControl } from '@/components/onboarding/tourMenuBridge';
@@ -1435,7 +1436,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      {!roleLoading && (
+      {!roleLoading && typeof document !== 'undefined' && createPortal(
         <nav className={`mobile-dock-container ${isMobile ? '' : 'hidden'}`}>
           {/* Dash/Org Bubble Popup - swaps based on current route */}
           {showOrgBubble && hasMultiLocationAccess && (
@@ -1474,8 +1475,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             canViewSalesAndLabor={canViewSalesAndLabor}
             onOpenLocationPicker={(path) => { setPendingNavPath(path || null); setLocationDialogOpen(true); }}
           />
-        </nav>
+        </nav>,
+        document.body
       )}
+
 
       {/* Compact Dashboard - Swipe Up from Dock (shift_manager+ only) */}
       {isMobile && canViewSalesAndLabor && (
