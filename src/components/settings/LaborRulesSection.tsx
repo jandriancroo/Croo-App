@@ -409,10 +409,10 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
             <CardTitle className="flex items-center gap-2">
-              <Scale className="h-5 w-5" />
+              <Scale className="h-5 w-5 shrink-0" />
               Labor Rules
             </CardTitle>
             <CardDescription>
@@ -422,7 +422,8 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
               ⚠️ Labor rules are customized by the user and should be confirmed with local jurisdiction before applying.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
+
             {isSuperAdmin && (
               <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
                 <DialogTrigger asChild>
