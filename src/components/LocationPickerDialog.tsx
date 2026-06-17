@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { Building2, MapPin, ChevronRight, ChevronLeft, ChevronDown, Star, Search } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, ChevronLeft, ChevronDown, Star, Search, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
@@ -531,6 +531,20 @@ export function LocationPickerDialog({
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
+                <button
+                  onClick={() => {
+                    if (activeBrandId) {
+                      navigate(`/org-dash?brand=${activeBrandId}`);
+                      onOpenChange(false);
+                    }
+                  }}
+                  disabled={!activeBrandId}
+                  className="h-10 w-10 flex items-center justify-center rounded-lg text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
+                  aria-label="Brand Dashboard"
+                  title="Brand Dashboard"
+                >
+                  <BarChart3 className="h-5 w-5" />
+                </button>
               </div>
             );
           })()}
@@ -567,24 +581,6 @@ export function LocationPickerDialog({
             />
           </div>
 
-          {/* Brand Dash link for super admins */}
-          {isSuperAdmin && activeBrandId && (() => {
-            const brand = brands.find(b => b.id === activeBrandId);
-            return (
-              <button
-                onClick={() => {
-                  navigate(`/org-dash?brand=${activeBrandId}`);
-                  onOpenChange(false);
-                }}
-                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg py-2 transition-colors"
-              >
-                {brand?.logo_url && (
-                  <img src={brand.logo_url} alt="" className="h-4 w-4 rounded object-contain" />
-                )}
-                {brand?.name ? `${brand.name} Dashboard` : 'Dashboard'}
-              </button>
-            );
-          })()}
 
           {/* Org Dashboard link for org_admins (single org, no brand tabs) */}
           {hasMultiLocationAccess && !isSuperAdmin && organizations.length === 1 && !activeBrandId && (() => {
