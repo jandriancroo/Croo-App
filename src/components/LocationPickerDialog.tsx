@@ -549,20 +549,6 @@ export function LocationPickerDialog({
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => {
-                    if (activeBrandId) {
-                      navigate(`/org-dash?brand=${activeBrandId}`);
-                      onOpenChange(false);
-                    }
-                  }}
-                  disabled={!activeBrandId}
-                  className="h-10 w-10 flex items-center justify-center rounded-lg text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
-                  aria-label="Brand Dashboard"
-                  title="Brand Dashboard"
-                >
-                  <BarChart3 className="h-5 w-5" />
-                </button>
               </div>
             );
           })()}
