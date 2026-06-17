@@ -460,10 +460,83 @@ export function LocationPickerDialog({
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : view === 'brands' && useBrandHeader ? (
+        <div className="p-3 space-y-2">
+          <div className="px-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Choose a brand
+          </div>
+          {brandTabs.map(tab => {
+            const brand = tab.id.startsWith('brand:')
+              ? brands.find(b => `brand:${b.id}` === tab.id)
+              : null;
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => selectBrandTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left ${
+                  isActive
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:bg-muted/50'
+                }`}
+              >
+                {brand?.logo_url ? (
+                  <img src={brand.logo_url} alt="" className="h-9 w-9 rounded-lg object-contain bg-background" />
+                ) : (
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
+                <span className="flex-1 text-sm font-medium text-foreground truncate">{tab.label}</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <div className="p-3 space-y-3">
-          {/* Brand / Org tabs */}
-          {hasTabs && (
+          {/* Brand header (swipeable) — replaces the cramped tab strip */}
+          {useBrandHeader && (() => {
+            const brand = activeBrandId ? brands.find(b => b.id === activeBrandId) : null;
+            const currentTab = brandTabs.find(t => t.id === activeTab);
+            return (
+              <div
+                className="flex items-center gap-1"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
+                <button
+                  onClick={() => cycleBrand(-1)}
+                  className="h-10 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                  aria-label="Previous brand"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setView('brands')}
+                  className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-primary/10 hover:bg-primary/15 transition-colors px-3"
+                >
+                  {brand?.logo_url && (
+                    <img src={brand.logo_url} alt="" className="h-5 w-5 rounded object-contain" />
+                  )}
+                  <span className="text-sm font-semibold text-foreground truncate">
+                    {currentTab?.label || 'Select brand'}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                </button>
+                <button
+                  onClick={() => cycleBrand(1)}
+                  className="h-10 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                  aria-label="Next brand"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* Org tabs (only when there are no brand tabs but multiple orgs) */}
+          {!useBrandHeader && hasTabs && (
             <div className="flex bg-muted/50 rounded-lg p-1 gap-0.5 overflow-x-auto">
               {tabs.map(tab => (
                 <button
@@ -475,7 +548,6 @@ export function LocationPickerDialog({
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  
                   <span className="truncate">{tab.label}</span>
                 </button>
               ))}
