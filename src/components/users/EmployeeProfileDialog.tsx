@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { EmployeeRecordsSection } from '@/components/users/EmployeeRecordsSection';
+import { EmployeeNewPinField } from '@/components/users/EmployeeNewPinField';
 import { I9DocumentsSection } from '@/components/users/I9DocumentsSection';
 import { I9RequestDialog } from '@/components/users/I9RequestDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -594,6 +595,9 @@ export function EmployeeProfileDialog({
                   />
                   <p className="text-xs text-muted-foreground">4-digit PIN for punch clock</p>
                 </div>
+
+                <EmployeeNewPinField userId={user.id} />
+
 
                 {(isAdmin || currentUser?.id === user.id) && (
                   <div className="space-y-2">
