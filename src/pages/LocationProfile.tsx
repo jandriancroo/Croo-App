@@ -376,7 +376,7 @@ export default function LocationProfile() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-3xl mx-auto px-3 sm:px-4 overflow-x-hidden">
+      <div className="space-y-6 w-full overflow-x-hidden">
         {/* Header */}
         <div className="flex items-start gap-3">
           <Button 
@@ -535,18 +535,19 @@ export default function LocationProfile() {
                                   type="time"
                                   value={dayHours?.open_time || "11:00"}
                                   onChange={(e) => updateDayHours(day.value, 'open_time', e.target.value)}
-                                  className="flex-1 min-w-0 h-8 text-sm"
+                                  className="flex-1 min-w-0 h-8 text-xs px-1.5"
                                 />
                                 <span className="text-muted-foreground text-xs shrink-0">-</span>
                                 <Input
                                   type="time"
                                   value={dayHours?.close_time || "22:00"}
                                   onChange={(e) => updateDayHours(day.value, 'close_time', e.target.value)}
-                                  className="flex-1 min-w-0 h-8 text-sm"
+                                  className="flex-1 min-w-0 h-8 text-xs px-1.5"
                                 />
                               </div>
                             )}
                           </div>
+
                         );
                       })}
                     </div>
