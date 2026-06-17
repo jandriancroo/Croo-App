@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { Building2, MapPin, ChevronRight, Star, Search } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, ChevronLeft, ChevronDown, Star, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
@@ -68,6 +68,9 @@ export function LocationPickerDialog({
 
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<string>('');
+  const [view, setView] = useState<'locations' | 'brands'>('locations');
+  const touchStartX = useRef<number | null>(null);
+  const LAST_BRAND_KEY = 'location-picker:last-brand-tab';
 
   // Cache user profile data (default location, all_locations flag)
   const { data: profileData } = useQuery({
@@ -261,23 +264,71 @@ export function LocationPickerDialog({
     return t;
   }, [brands, organizations, locations]);
 
-  // Set default active tab when data loads
-  useEffect(() => {
-    if (tabs.length > 0 && !activeTab) {
-      setActiveTab(tabs[0].id);
-    }
-  }, [tabs]);
+  // Brand tabs only (for the brand-header UI)
+  const brandTabs = useMemo(() => tabs.filter(t => t.id.startsWith('brand:') || t.id === '__other__'), [tabs]);
+  const useBrandHeader = brandTabs.length > 1;
 
-  // Reset search when dialog opens
+  // Set default active tab when data loads — prefer last-used brand from localStorage
+  useEffect(() => {
+    if (tabs.length === 0 || activeTab) return;
+    let initial = tabs[0].id;
+    if (useBrandHeader) {
+      try {
+        const stored = localStorage.getItem(LAST_BRAND_KEY);
+        if (stored && brandTabs.some(t => t.id === stored)) initial = stored;
+      } catch { /* ignore */ }
+    }
+    setActiveTab(initial);
+  }, [tabs, brandTabs, useBrandHeader, activeTab]);
+
+  // Reset search + decide initial view when dialog opens
   useEffect(() => {
     if (open) {
       setSearch('');
+      // If multi-brand and no remembered brand, show the brand picker first.
+      // Otherwise jump straight to locations.
+      if (useBrandHeader) {
+        try {
+          const stored = localStorage.getItem(LAST_BRAND_KEY);
+          setView(stored && brandTabs.some(t => t.id === stored) ? 'locations' : 'brands');
+        } catch {
+          setView('brands');
+        }
+      } else {
+        setView('locations');
+      }
       // Focus search on desktop
       if (!isMobile) {
         setTimeout(() => searchRef.current?.focus(), 100);
       }
     }
-  }, [open, isMobile]);
+  }, [open, isMobile, useBrandHeader, brandTabs]);
+
+  const selectBrandTab = (id: string) => {
+    setActiveTab(id);
+    setSearch('');
+    setView('locations');
+    try { localStorage.setItem(LAST_BRAND_KEY, id); } catch { /* ignore */ }
+  };
+
+  const cycleBrand = (dir: 1 | -1) => {
+    if (!useBrandHeader) return;
+    const idx = brandTabs.findIndex(t => t.id === activeTab);
+    if (idx < 0) return;
+    const next = brandTabs[(idx + dir + brandTabs.length) % brandTabs.length];
+    selectBrandTab(next.id);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 50) return;
+    cycleBrand(dx < 0 ? 1 : -1);
+  };
 
   // Get the active brand id for Brand Dash link
   const activeBrandId = activeTab.startsWith('brand:') ? activeTab.replace('brand:', '') : null;
@@ -409,10 +460,83 @@ export function LocationPickerDialog({
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : view === 'brands' && useBrandHeader ? (
+        <div className="p-3 space-y-2">
+          <div className="px-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Choose a brand
+          </div>
+          {brandTabs.map(tab => {
+            const brand = tab.id.startsWith('brand:')
+              ? brands.find(b => `brand:${b.id}` === tab.id)
+              : null;
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => selectBrandTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left ${
+                  isActive
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:bg-muted/50'
+                }`}
+              >
+                {brand?.logo_url ? (
+                  <img src={brand.logo_url} alt="" className="h-9 w-9 rounded-lg object-contain bg-background" />
+                ) : (
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
+                <span className="flex-1 text-sm font-medium text-foreground truncate">{tab.label}</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <div className="p-3 space-y-3">
-          {/* Brand / Org tabs */}
-          {hasTabs && (
+          {/* Brand header (swipeable) — replaces the cramped tab strip */}
+          {useBrandHeader && (() => {
+            const brand = activeBrandId ? brands.find(b => b.id === activeBrandId) : null;
+            const currentTab = brandTabs.find(t => t.id === activeTab);
+            return (
+              <div
+                className="flex items-center gap-1"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
+                <button
+                  onClick={() => cycleBrand(-1)}
+                  className="h-10 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                  aria-label="Previous brand"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setView('brands')}
+                  className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-primary/10 hover:bg-primary/15 transition-colors px-3"
+                >
+                  {brand?.logo_url && (
+                    <img src={brand.logo_url} alt="" className="h-5 w-5 rounded object-contain" />
+                  )}
+                  <span className="text-sm font-semibold text-foreground truncate">
+                    {currentTab?.label || 'Select brand'}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                </button>
+                <button
+                  onClick={() => cycleBrand(1)}
+                  className="h-10 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                  aria-label="Next brand"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* Org tabs (only when there are no brand tabs but multiple orgs) */}
+          {!useBrandHeader && hasTabs && (
             <div className="flex bg-muted/50 rounded-lg p-1 gap-0.5 overflow-x-auto">
               {tabs.map(tab => (
                 <button
@@ -424,7 +548,6 @@ export function LocationPickerDialog({
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  
                   <span className="truncate">{tab.label}</span>
                 </button>
               ))}
