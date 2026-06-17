@@ -13,6 +13,7 @@ import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import { DockToastProvider } from "@/contexts/DockToastContext";
 import { DiagnosticMode } from "@/components/DiagnosticMode";
 import BreakOverlay from "@/components/BreakOverlay";
+import PinMigrationOverlay from "@/components/PinMigrationOverlay";
 import { VisualAlertStack } from "@/components/visual-alerts/VisualAlertStack";
 import { useForceReload } from "@/hooks/useForceReload";
 import { AppSplashScreen } from "@/components/AppSplashScreen";
@@ -255,6 +256,7 @@ const App = () => (
                   <BreakOverlay />
                   <VisualAlertStack />
                   <AppWithSplash />
+                  <PinMigrationOverlay />
                 </DockToastProvider>
               </CrooCashAnimationProvider>
             </LocationProvider>
