@@ -68,6 +68,9 @@ export function LocationPickerDialog({
 
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<string>('');
+  const [view, setView] = useState<'locations' | 'brands'>('locations');
+  const touchStartX = useRef<number | null>(null);
+  const LAST_BRAND_KEY = 'location-picker:last-brand-tab';
 
   // Cache user profile data (default location, all_locations flag)
   const { data: profileData } = useQuery({
