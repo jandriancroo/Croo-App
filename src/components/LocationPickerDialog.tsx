@@ -264,23 +264,71 @@ export function LocationPickerDialog({
     return t;
   }, [brands, organizations, locations]);
 
-  // Set default active tab when data loads
-  useEffect(() => {
-    if (tabs.length > 0 && !activeTab) {
-      setActiveTab(tabs[0].id);
-    }
-  }, [tabs]);
+  // Brand tabs only (for the brand-header UI)
+  const brandTabs = useMemo(() => tabs.filter(t => t.id.startsWith('brand:') || t.id === '__other__'), [tabs]);
+  const useBrandHeader = brandTabs.length > 1;
 
-  // Reset search when dialog opens
+  // Set default active tab when data loads — prefer last-used brand from localStorage
+  useEffect(() => {
+    if (tabs.length === 0 || activeTab) return;
+    let initial = tabs[0].id;
+    if (useBrandHeader) {
+      try {
+        const stored = localStorage.getItem(LAST_BRAND_KEY);
+        if (stored && brandTabs.some(t => t.id === stored)) initial = stored;
+      } catch { /* ignore */ }
+    }
+    setActiveTab(initial);
+  }, [tabs, brandTabs, useBrandHeader, activeTab]);
+
+  // Reset search + decide initial view when dialog opens
   useEffect(() => {
     if (open) {
       setSearch('');
+      // If multi-brand and no remembered brand, show the brand picker first.
+      // Otherwise jump straight to locations.
+      if (useBrandHeader) {
+        try {
+          const stored = localStorage.getItem(LAST_BRAND_KEY);
+          setView(stored && brandTabs.some(t => t.id === stored) ? 'locations' : 'brands');
+        } catch {
+          setView('brands');
+        }
+      } else {
+        setView('locations');
+      }
       // Focus search on desktop
       if (!isMobile) {
         setTimeout(() => searchRef.current?.focus(), 100);
       }
     }
-  }, [open, isMobile]);
+  }, [open, isMobile, useBrandHeader, brandTabs]);
+
+  const selectBrandTab = (id: string) => {
+    setActiveTab(id);
+    setSearch('');
+    setView('locations');
+    try { localStorage.setItem(LAST_BRAND_KEY, id); } catch { /* ignore */ }
+  };
+
+  const cycleBrand = (dir: 1 | -1) => {
+    if (!useBrandHeader) return;
+    const idx = brandTabs.findIndex(t => t.id === activeTab);
+    if (idx < 0) return;
+    const next = brandTabs[(idx + dir + brandTabs.length) % brandTabs.length];
+    selectBrandTab(next.id);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 50) return;
+    cycleBrand(dx < 0 ? 1 : -1);
+  };
 
   // Get the active brand id for Brand Dash link
   const activeBrandId = activeTab.startsWith('brand:') ? activeTab.replace('brand:', '') : null;
