@@ -194,6 +194,7 @@ export function LocationPickerDialog({
         .from('locations')
         .select('*, organizations(id, name, brand_name, logo_url, brand_id, brands(id, name, logo_url))')
         .in('id', locationIds)
+        .neq('is_active', false)
         .order('name');
 
       const locs: Location[] = (fullLocs || []).map((loc: any) => ({
