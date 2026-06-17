@@ -410,7 +410,7 @@ export default function LocationProfile() {
           </div>
         )}
 
-        <div className="grid gap-6">
+        <div className="grid gap-6 min-w-0">
           {/* Unified Location Settings Card */}
           <Card>
             <CardHeader>
