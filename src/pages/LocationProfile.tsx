@@ -376,7 +376,7 @@ export default function LocationProfile() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-3xl mx-auto px-3 sm:px-4 overflow-x-hidden">
+      <div className="space-y-6 w-full overflow-x-hidden">
         {/* Header */}
         <div className="flex items-start gap-3">
           <Button 
