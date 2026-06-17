@@ -731,14 +731,18 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
 
-  const tokenGw = await authenticateV4();
-  if (!tokenGw) {
-    return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
-      status: 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  // Mark started + reset progress so UI shows movement from 0
+  await supabase
+    .from('location_integrations')
+    .update({
+      backfill_status: 'in_progress',
+      backfill_days_completed: 0,
+      backfill_error: null,
+      backfill_started_at: new Date().toISOString(),
+    })
+    .eq('id', integration.id);
 
+  // Build date list (yesterday backwards)
   const dates: string[] = [];
   const today = new Date();
   for (let i = 1; i <= daysBack; i++) {
@@ -750,47 +754,98 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
     dates.push(`${year}-${month}-${day}`);
   }
 
-  let successCount = 0;
-  let totalAttempted = 0;
-
-  for (const dateStr of dates) {
-    totalAttempted++;
-    let salesData;
+  // Background worker — survives the HTTP response via EdgeRuntime.waitUntil
+  const runBackfill = async () => {
     try {
-      salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
-    } catch (err: any) {
-      if (err?.message === 'UNPROVISIONED_STORE') {
-        console.log(`[sales-service] backfill: ${locationId} unprovisioned in QU — aborting backfill`);
-        return new Response(
-          JSON.stringify({
-            status: 'unprovisioned',
-            error: 'STORE_NOT_PROVISIONED',
-            message: 'QuBeyond has not authorized this store ID on the API client. Contact QuBeyond support.',
-            locationId,
-            qbLocationId,
-          }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
+      const tokenGw = await authenticateV4();
+      if (!tokenGw) {
+        await supabase
+          .from('location_integrations')
+          .update({ backfill_status: 'failed', backfill_error: 'QuBeyond authentication failed' })
+          .eq('id', integration.id);
+        return;
       }
-      throw err;
+
+      let processed = 0;
+      let successCount = 0;
+      let unprovisioned = false;
+
+      for (const dateStr of dates) {
+        let salesData;
+        try {
+          salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
+        } catch (err: any) {
+          if (err?.message === 'UNPROVISIONED_STORE') {
+            unprovisioned = true;
+            break;
+          }
+          console.error(`[sales-service] backfill error ${dateStr}:`, err?.message || err);
+          processed++;
+          if (processed % 10 === 0) {
+            await supabase
+              .from('location_integrations')
+              .update({ backfill_days_completed: processed })
+              .eq('id', integration.id);
+          }
+          continue;
+        }
+
+        if (salesData.netSales > 0) {
+          const payload = buildUpsertPayload(locationId, dateStr, salesData);
+          const { error: upsertError } = await supabase
+            .from('sales_cache')
+            .upsert(payload, { onConflict: 'location_id,sale_date' });
+          if (!upsertError) successCount++;
+        }
+
+        processed++;
+        // Flush progress every 10 days so the UI bar moves
+        if (processed % 10 === 0) {
+          await supabase
+            .from('location_integrations')
+            .update({ backfill_days_completed: processed })
+            .eq('id', integration.id);
+        }
+      }
+
+      if (unprovisioned) {
+        await supabase
+          .from('location_integrations')
+          .update({
+            backfill_status: 'failed',
+            backfill_days_completed: processed,
+            backfill_error: 'QuBeyond has not authorized this store on the API client. Contact QuBeyond support.',
+          })
+          .eq('id', integration.id);
+      } else {
+        await supabase
+          .from('location_integrations')
+          .update({
+            backfill_status: 'completed',
+            backfill_days_completed: dates.length,
+            backfill_error: null,
+          })
+          .eq('id', integration.id);
+        console.log(`[sales-service] backfill OK: ${locationId} ${successCount}/${dates.length} days`);
+      }
+    } catch (err: any) {
+      console.error(`[sales-service] backfill fatal:`, err);
+      await supabase
+        .from('location_integrations')
+        .update({
+          backfill_status: 'failed',
+          backfill_error: (err?.message || 'Unknown error').slice(0, 500),
+        })
+        .eq('id', integration.id);
     }
+  };
 
-    if (salesData.netSales <= 0) continue;
-
-    const payload = buildUpsertPayload(locationId, dateStr, salesData);
-
-    const { error: upsertError } = await supabase
-      .from('sales_cache')
-      .upsert(payload, { onConflict: 'location_id,sale_date' });
-
-    if (!upsertError) successCount++;
-  }
-
-  console.log(`[sales-service] backfill OK: ${locationId} ${successCount}/${totalAttempted} days`);
+  // @ts-ignore EdgeRuntime is available in Supabase Edge Functions
+  EdgeRuntime.waitUntil(runBackfill());
 
   return new Response(
-    JSON.stringify({ status: 'completed', locationId, successCount, totalAttempted }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    JSON.stringify({ status: 'started', locationId, totalDays: dates.length }),
+    { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
 }
 
