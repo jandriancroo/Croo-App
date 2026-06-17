@@ -982,7 +982,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm [&>div]:min-w-0 [&>div]:break-words">
                   <div>
                     <span className="text-muted-foreground">Pay Period:</span> {
                       rule.pay_period_type === 'weekly' ? 'Weekly' :
