@@ -573,15 +573,15 @@ export function LocationPickerDialog({
           )}
 
           {/* Search */}
-          <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-primary/30 transition-all">
-            <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-1.5 px-2 py-1 border-b border-border/60 focus-within:border-primary/40 transition-colors">
+            <Search className="h-3.5 w-3.5 text-muted-foreground/60 flex-shrink-0" />
             <input
               ref={searchRef}
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, store #, or org..."
-              className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full"
+              placeholder="Search..."
+              className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 outline-none w-full"
             />
           </div>
 
