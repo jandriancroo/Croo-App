@@ -3019,6 +3019,11 @@ async function handleDumpWeeklyPricesHtml(supabase: any, body: any): Promise<Res
     `${PA_BASE_URL}/api/reports/weekly-prices?restaurantId=${session.restaurantId}`,
   ];
 
+  const downloadBodies = [
+    { reportConfigName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId), params: { restaurantId: parseInt(session.restaurantId) } },
+    { configName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId) },
+  ];
+
   const attempts: any[] = [];
   for (const url of urls) {
     try {
