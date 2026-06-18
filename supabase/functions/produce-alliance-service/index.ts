@@ -3005,6 +3005,115 @@ function parseOrderSortHtml(html: string): Array<{
   return items;
 }
 
+async function handleDumpWeeklyPricesHtml(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA not configured' });
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const urls = [
+    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/reports/restaurant-weekly-produce-prices?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/reports/weekly-prices?restaurantId=${session.restaurantId}`,
+  ];
+
+  const downloadBodies = [
+    { reportConfigName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId), params: { restaurantId: parseInt(session.restaurantId) } },
+    { configName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId) },
+  ];
+
+  const attempts: any[] = [];
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(session),
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Referer': `${PA_BASE_URL}/ng/`,
+        },
+        redirect: 'follow',
+      });
+      const text = await resp.text();
+      const isRedirectStub = text.includes('localStorage.setItem') && text.length < 1000;
+
+      // Extract header row (first <tr> containing <th>)
+      const headerMatch = text.match(/<tr[^>]*>[\s\S]*?<th[\s\S]*?<\/tr>/i);
+      // Extract first 2 data rows (<tr> with <td>, after header)
+      const dataRows: string[] = [];
+      const trRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+      let m;
+      let sawHeader = false;
+      while ((m = trRe.exec(text)) !== null && dataRows.length < 3) {
+        if (m[0].includes('<th')) { sawHeader = true; continue; }
+        if (!sawHeader) continue;
+        if (m[0].includes('<input') || m[0].includes('<select')) continue;
+        if (!/<td/i.test(m[0])) continue;
+        dataRows.push(m[0]);
+      }
+
+      attempts.push({
+        url: url.replace(PA_BASE_URL, ''),
+        status: resp.status,
+        contentType: resp.headers.get('content-type'),
+        length: text.length,
+        isRedirectStub,
+        headerRowVerbatim: headerMatch ? headerMatch[0] : null,
+        firstDataRows: dataRows,
+        rawPreview: text.substring(0, 2000),
+      });
+    } catch (e) {
+      attempts.push({ url: url.replace(PA_BASE_URL, ''), error: String(e) });
+    }
+  }
+
+  const authHeaders = getAuthHeaders(session, true);
+  for (const postBody of downloadBodies) {
+    try {
+      const resp = await fetch(`${PA_BASE_URL}/api/common/download-sheet`, {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json', 'Accept': '*/*' },
+        body: JSON.stringify(postBody),
+      });
+      const ct = resp.headers.get('content-type') || '';
+      const isBinary = /spreadsheet|excel|octet-stream|xlsx/i.test(ct);
+      let preview = '';
+      let firstKeys: string[] = [];
+      let firstRowSample: any = null;
+      if (isBinary) {
+        const buf = await resp.arrayBuffer();
+        preview = `[binary ${buf.byteLength} bytes, content-type=${ct}]`;
+      } else {
+        const text = await resp.text();
+        preview = text.substring(0, 3000);
+        try {
+          const json = JSON.parse(text);
+          const arr = Array.isArray(json) ? json : json.data || json.items || json.dataList || json.rows || [];
+          if (Array.isArray(arr) && arr.length > 0) {
+            firstKeys = Object.keys(arr[0]);
+            firstRowSample = arr[0];
+          }
+        } catch { /* not json */ }
+      }
+      attempts.push({
+        url: '/api/common/download-sheet',
+        body: postBody,
+        status: resp.status,
+        contentType: ct,
+        firstKeys,
+        firstRowSample,
+        preview,
+      });
+    } catch (e) {
+      attempts.push({ url: '/api/common/download-sheet', body: postBody, error: String(e) });
+    }
+  }
+
+  return jsonResponse({ success: true, restaurantId: session.restaurantId, attempts });
+}
+
 async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Response> {
   const { locationId } = body;
   if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
@@ -3398,6 +3507,7 @@ serve(async (req) => {
       case 'invoices': return await handleInvoices(supabase, body);
       case 'set_sync_mode': return await handleSetSyncMode(supabase, body);
       case 'nightly_invoice_sync': return await handleNightlyInvoiceSync(supabase, body);
+      case 'dump_weekly_prices_html': return await handleDumpWeeklyPricesHtml(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
