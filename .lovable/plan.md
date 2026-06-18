@@ -1,65 +1,118 @@
-# Visual Alerts (deep-linked dialog system)
+## Goal
 
-A reusable "playing-card stack" dialog that greets users with actionable push notifications they haven't seen yet. v1 covers **quick tasks** and **overdue checklists**.
+Stop overloading `pa_catalog_items.pa_item_id` with three different PA identifier systems. Add explicit columns for `pa_product_id`, `master_product_code`, `master_product_id`, backfill from the freshest source for each, then re-run the stale-mapping classification against all three columns. After that, standardize `brand_vendor_mappings.vendor_item_id` (for vendor='produce_alliance') on `pa_product_id` going forward.
 
-## How it behaves
+Nothing destructive runs in this phase. You'll see the schema diff and the backfill SQL, approve them, then we execute and re-classify.
 
-- A push notification is sent → a row is written to `visual_alert_queue` for that user.
-- User taps the push → app opens, the matching alert is pulled from the queue and shown immediately as the top card.
-- User opens the app organically (no tap) → on Dashboard mount, any unseen queued alerts for that user render as a fanned stack of cards.
-- Each card has a big **Complete Task / Complete Checklist** primary button and a small faded **Exit** ghost button.
-- **Complete** → for quick tasks with subtasks: opens the subtask dialog inline. For tasks without subtasks: marks complete. For checklists: navigates to `/complete/<id>`.
-- **Exit** → dismisses just that card (marks it `seen`), reveals the next card behind it. Item stays in Tasks/Dashboard until actually completed.
-- Each notification = one impression. Once `seen_at` is set, that card never reappears (even on reinstall).
+---
 
-## Visual treatment
+## Phase 1 — Schema diff (migration, requires approval)
 
-- Card stack pinned to viewport center, fanned ~3–5° per layer, top card fully readable, tabs of cards behind it visible (max 3 tabs, "+N more" badge if larger).
-- Swipe up / tap Exit → top card animates out, next card snaps forward.
-- Domain icon + title + 1-line description per card.
-- Reusable shell: `<VisualAlertStack />` mounted once at the app root.
+```sql
+ALTER TABLE public.pa_catalog_items
+  ADD COLUMN IF NOT EXISTS pa_product_id        text,
+  ADD COLUMN IF NOT EXISTS master_product_code  text,
+  ADD COLUMN IF NOT EXISTS master_product_id    text;
 
-## Backend
+CREATE INDEX IF NOT EXISTS idx_pa_catalog_pa_product_id
+  ON public.pa_catalog_items (pa_product_id);
+CREATE INDEX IF NOT EXISTS idx_pa_catalog_master_product_code
+  ON public.pa_catalog_items (master_product_code);
+CREATE INDEX IF NOT EXISTS idx_pa_catalog_master_product_id
+  ON public.pa_catalog_items (master_product_id);
 
-**New table: `visual_alert_queue`**
-- `id`, `user_id`, `alert_type` ('quick_task' | 'overdue_checklist'), `ref_id` (task/checklist id), `notification_id` (unique key per push event), `title`, `body`, `location_id`, `created_at`, `seen_at` (nullable), `expires_at`
-- Unique on `(user_id, notification_id)` so re-fires don't double-queue.
-- RLS: user can SELECT/UPDATE own rows; service_role full access.
-- Auto-expire after 7 days (cron prune).
+COMMENT ON COLUMN public.pa_catalog_items.pa_product_id IS
+  'PA "Product ID" — the value PA prints on pricing sheets, order confirmations, and invoices. Backfilled from pa_orders.items. AUTHORITATIVE resolution key.';
+COMMENT ON COLUMN public.pa_catalog_items.master_product_code IS
+  'PA masterProductCode — guide ID returned by current-prices API. Supporting reference only.';
+COMMENT ON COLUMN public.pa_catalog_items.master_product_id IS
+  'PA masterProductId — internal DB primary key. Supporting reference only.';
+COMMENT ON COLUMN public.pa_catalog_items.pa_item_id IS
+  'LEGACY — currently holds masterProductCode. Kept for backward compatibility; do not use as resolution key.';
+```
 
-**Write path:**
-- In `send-push-notification` (and `alert-push-sender` for alarm tasks), when the notification type is `quick_task` / `overdue_checklist`, also insert into `visual_alert_queue` for each recipient. Same `notification_id` goes into the push payload's `data` so the deep link can highlight that exact card.
+No RLS / GRANT changes (table already exists with policies). `pa_item_id` is left untouched — preserves any existing references during transition.
 
-## Frontend
+---
 
-**New hook: `useVisualAlerts()`**
-- Subscribes to `visual_alert_queue` where `user_id = me AND seen_at IS NULL`.
-- Returns ordered array of unseen alerts.
-- Exposes `markSeen(id)` (UPDATE seen_at = now()).
+## Phase 2 — Resync code patch
 
-**New component: `src/components/visual-alerts/VisualAlertStack.tsx`**
-- Mounted in `App.tsx` once, above route content.
-- Renders nothing if no unseen alerts.
-- Renders fanned card stack otherwise.
-- Auto-opens to the alert matching `?alert=<notification_id>` URL param (set by the service worker deep link).
+In `supabase/functions/produce-alliance-service/index.ts`, `fetchCurrentPricesCatalog` (line 1099-1118) writes the two fields it already has from the current-prices API:
 
-**Service worker update (`public/sw-push.js`)**
-- For `data.type === 'quick_task'` → deep-link to `/?alert=<notification_id>` (lands on Dashboard with the card already on top).
-- For `data.type === 'overdue_checklist'` → same: `/?alert=<notification_id>`.
+```ts
+allItems.push({
+  pa_item_id: guideId || internalId,       // unchanged (legacy)
+  pa_internal_id: internalId || null,      // unchanged (legacy)
+  master_product_code: guideId || null,    // NEW
+  master_product_id: internalId || null,   // NEW
+  description: name,
+  pack_size: parsedPack.packSize,
+  category: 'Produce',
+  unit_price: item.pricePerCase != null ? Number(item.pricePerCase) : null,
+});
+```
 
-## Files touched
+And in both `handleSaveCatalog` (line 2647) and `handleScrapeCatalogLive` upsert (line 3286), add the two new fields to the upsert payload. `pa_product_id` is **not** set by the resync — it comes from Phase 3.
 
-- `supabase/migrations/<new>.sql` — `visual_alert_queue` table + RLS + grants + prune function.
-- `supabase/functions/send-push-notification/index.ts` — queue insert hook for the two alert types.
-- `supabase/functions/alert-push-sender/index.ts` — queue insert for overdue checklist alerts.
-- `public/sw-push.js` — `?alert=` deep link routing for the two types.
-- `src/components/visual-alerts/VisualAlertStack.tsx` — new.
-- `src/components/visual-alerts/VisualAlertCard.tsx` — new.
-- `src/hooks/useVisualAlerts.tsx` — new.
-- `src/App.tsx` — mount `<VisualAlertStack />`.
+---
 
-## Not in v1 (easy to add later)
+## Phase 3 — Backfill `pa_product_id` from `pa_orders`
 
-- Announcements, read-and-sign, shift swaps, alarm tasks as visual alerts.
-- "Snooze 15 min" option on Exit.
-- Sound/haptic on stack appearance.
+Most-recent-order-per-(location, master_product_code) wins. Order lines carry both `master_product_code` and `pa_product_id` together, so this is a clean join.
+
+```sql
+WITH ranked AS (
+  SELECT
+    po.location_id,
+    (it->>'master_product_code') AS mpc,
+    (it->>'pa_product_id')       AS ppid,
+    po.order_date,
+    ROW_NUMBER() OVER (
+      PARTITION BY po.location_id, (it->>'master_product_code')
+      ORDER BY po.order_date DESC
+    ) AS rn
+  FROM pa_orders po,
+       jsonb_array_elements(po.items) it
+  WHERE it->>'master_product_code' IS NOT NULL
+    AND it->>'pa_product_id'       IS NOT NULL
+)
+UPDATE pa_catalog_items pc
+SET pa_product_id       = r.ppid,
+    master_product_code = COALESCE(pc.master_product_code, pc.pa_item_id),
+    master_product_id   = COALESCE(pc.master_product_id, pc.pa_internal_id)
+FROM ranked r
+WHERE r.rn = 1
+  AND pc.location_id = r.location_id
+  AND pc.pa_item_id  = r.mpc;     -- pa_item_id currently == masterProductCode
+```
+
+Also seeds `master_product_code` / `master_product_id` for any existing rows that pre-date the resync patch.
+
+---
+
+## Phase 4 — Re-run stale classification (dry-run)
+
+A PA mapping is now "stale" only when its `vendor_item_id` matches **none** of these for the freshest catalog row of its template:
+
+- `pa_catalog_items.pa_product_id`
+- `pa_catalog_items.master_product_code`
+- `pa_catalog_items.master_product_id`
+
+I'll show the new DELETE / KEEP buckets and the per-template breakdown. No writes.
+
+---
+
+## Phase 5 — Going-forward standard
+
+- `brand_vendor_mappings.vendor_item_id` for `vendor='produce_alliance'` = `pa_product_id` (PA Product ID), period.
+- `master_product_code` / `master_product_id` are supporting reference columns; never the resolution key.
+- `autoSeedPaVendorMappings` updated in a later pass to insert the `pa_product_id` (not the masterProductCode) when seeding new mappings.
+
+---
+
+## Approval checkpoints
+
+1. Approve the migration in Phase 1.
+2. After it runs, approve the resync code patch (Phase 2) and the backfill UPDATE (Phase 3).
+3. Review Phase 4 dry-run before any DELETE.
+4. Phase 5 code change happens in a follow-up turn.
