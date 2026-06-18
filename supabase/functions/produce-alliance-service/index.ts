@@ -1031,25 +1031,28 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
 
 async function fetchCurrentPricesCatalog(session: PASession): Promise<Array<{
   pa_item_id: string;
+  pa_internal_id: string | null;
+  master_product_code: string | null;
+  master_product_id: string | null;
   description: string;
   pack_size: string | null;
   category: string | null;
   unit_price: number | null;
-  master_product_code: string | null;
-  distributor_product_id: string | null;
 }>> {
   console.log('[PA CurrentPrices] Fetching full catalog via current-prices API, restaurant:', session.restaurantId);
 
   const authHeaders = getAuthHeaders(session, true);
   const allItems: Array<{
     pa_item_id: string;
+    pa_internal_id: string | null;
+    master_product_code: string | null;
+    master_product_id: string | null;
     description: string;
     pack_size: string | null;
     category: string | null;
     unit_price: number | null;
-    master_product_code: string | null;
-    distributor_product_id: string | null;
   }> = [];
+
 
   // Tomorrow's date for deliveryDate param (matches browser behavior — order page uses next delivery date)
   const tomorrow = new Date();
