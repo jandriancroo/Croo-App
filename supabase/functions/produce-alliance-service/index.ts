@@ -3069,6 +3069,48 @@ async function handleDumpWeeklyPricesHtml(supabase: any, body: any): Promise<Res
     }
   }
 
+  const authHeaders = getAuthHeaders(session, true);
+  for (const postBody of downloadBodies) {
+    try {
+      const resp = await fetch(`${PA_BASE_URL}/api/common/download-sheet`, {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json', 'Accept': '*/*' },
+        body: JSON.stringify(postBody),
+      });
+      const ct = resp.headers.get('content-type') || '';
+      const isBinary = /spreadsheet|excel|octet-stream|xlsx/i.test(ct);
+      let preview = '';
+      let firstKeys: string[] = [];
+      let firstRowSample: any = null;
+      if (isBinary) {
+        const buf = await resp.arrayBuffer();
+        preview = `[binary ${buf.byteLength} bytes, content-type=${ct}]`;
+      } else {
+        const text = await resp.text();
+        preview = text.substring(0, 3000);
+        try {
+          const json = JSON.parse(text);
+          const arr = Array.isArray(json) ? json : json.data || json.items || json.dataList || json.rows || [];
+          if (Array.isArray(arr) && arr.length > 0) {
+            firstKeys = Object.keys(arr[0]);
+            firstRowSample = arr[0];
+          }
+        } catch { /* not json */ }
+      }
+      attempts.push({
+        url: '/api/common/download-sheet',
+        body: postBody,
+        status: resp.status,
+        contentType: ct,
+        firstKeys,
+        firstRowSample,
+        preview,
+      });
+    } catch (e) {
+      attempts.push({ url: '/api/common/download-sheet', body: postBody, error: String(e) });
+    }
+  }
+
   return jsonResponse({ success: true, restaurantId: session.restaurantId, attempts });
 }
 
