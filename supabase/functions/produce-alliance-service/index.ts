@@ -2946,6 +2946,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     const jspHtml = await jspResp.text();
     const isRedirectStub = jspHtml.includes('localStorage.setItem') && jspHtml.length < 1500;
     console.log(`[PA Weekly XLSX] JSP ${jspResp.status}, ${jspHtml.length} chars, stub=${isRedirectStub}`);
+    console.log(`[PA Weekly XLSX] body preview: ${jspHtml.substring(0, 600).replace(/\s+/g, ' ')}`);
     if (!isRedirectStub) lastPreview = jspHtml.substring(0, 400);
     const m = jspHtml.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
     if (m) { xlsxMatch = m; break; }
