@@ -2927,9 +2927,12 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   // by visiting a landing page and scraping it from the menu links.
   let fcuid: string | null = null;
   const fcuidProbeUrls = [
+    `${PA_BASE_URL}/restaurantBackOffice.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/restaurantBackOffice.jsp`,
+    `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReportSetup.jsp?restaurantId=${session.restaurantId}`,
     `${PA_BASE_URL}/ProduceAlliance.jsp`,
     `${PA_BASE_URL}/index.jsp`,
-    `${PA_BASE_URL}/ng/`,
   ];
   for (const u of fcuidProbeUrls) {
     try {
