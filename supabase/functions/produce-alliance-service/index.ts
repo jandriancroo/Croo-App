@@ -2923,14 +2923,18 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Step 1a: prime the server session by visiting /ProduceAlliance.jsp.
-  // The default /reports/...jsp endpoint returns a client-side localStorage
-  // redirect stub unless this designation has been set on the JSESSIONID.
-  const primeUrls = [
+  // Step 1a: discover the FCUID (per-location session key, e.g. "Blaze-1341")
+  // by visiting a landing page and scraping it from the menu links.
+  let fcuid: string | null = null;
+  const fcuidProbeUrls = [
+    `${PA_BASE_URL}/restaurantBackOffice.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/restaurantBackOffice.jsp`,
+    `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReportSetup.jsp?restaurantId=${session.restaurantId}`,
     `${PA_BASE_URL}/ProduceAlliance.jsp`,
-    `${PA_BASE_URL}/index.jsp?urlDesignation=PA`,
+    `${PA_BASE_URL}/index.jsp`,
   ];
-  for (const u of primeUrls) {
+  for (const u of fcuidProbeUrls) {
     try {
       const r = await fetch(u, {
         method: 'GET',
@@ -2939,25 +2943,41 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       });
       const extra = extractCookies(r.headers);
       if (extra) session.cookies = mergeCookies(session.cookies, extra);
-      console.log(`[PA Weekly XLSX] Prime ${u.replace(PA_BASE_URL, '')} -> ${r.status}`);
+      const html = await r.text();
+      const m = html.match(/FCUID=([A-Za-z0-9_\-]+)/);
+      console.log(`[PA Weekly XLSX] FCUID probe ${u.replace(PA_BASE_URL, '')} -> ${r.status} ${html.length}ch fcuid=${m?.[1] ?? 'none'}`);
+      if (m) { fcuid = m[1]; break; }
     } catch (e) {
-      console.warn('[PA Weekly XLSX] Prime error:', e);
+      console.warn('[PA Weekly XLSX] FCUID probe error:', e);
     }
   }
+  if (!fcuid) {
+    return jsonResponse({ success: false, error: 'Could not discover FCUID from PA landing pages' });
+  }
 
-  // Step 1b: try multiple candidate URLs for the weekly prices report page.
-  // Different PA tenants serve it from slightly different paths.
-  const reportCandidates = [
-    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/ProduceAlliance/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?FCUID=${session.restaurantId}`,
-    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}&urlDesignation=PA`,
-  ];
+  // Step 1b: route through /clearSession.jsp?FCUID=...&dest=... so PA stamps
+  // the session designation onto the JSESSIONID. This is what makes the
+  // /reports/...jsp endpoint return real HTML instead of the localStorage stub.
+  const clearSessionUrl = `${PA_BASE_URL}/clearSession.jsp?FCUID=${encodeURIComponent(fcuid)}&dest=${encodeURIComponent('/reports/restaurantWeeklyProducePricesReport.jsp')}`;
+  console.log(`[PA Weekly XLSX] clearSession ${clearSessionUrl}`);
+  const csResp = await fetch(clearSessionUrl, {
+    method: 'GET',
+    headers: { ...getAuthHeaders(session), 'Accept': 'text/html,*/*' },
+    redirect: 'follow',
+  });
+  const csExtra = extractCookies(csResp.headers);
+  if (csExtra) session.cookies = mergeCookies(session.cookies, csExtra);
+  const csHtml = await csResp.text();
+  console.log(`[PA Weekly XLSX] clearSession -> ${csResp.status}, ${csHtml.length} chars`);
 
-  let xlsxMatch: RegExpMatchArray | null = null;
-  let lastPreview = '';
-  for (const jspUrl of reportCandidates) {
-    console.log(`[PA Weekly XLSX] GET ${jspUrl}`);
+  let xlsxMatch = csHtml.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
+  let lastPreview = csHtml.substring(0, 800);
+
+  // Fallback: if the clearSession follow didn't land on the report page,
+  // request it directly now that the designation cookie is set.
+  if (!xlsxMatch) {
+    const jspUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp`;
+    console.log(`[PA Weekly XLSX] GET ${jspUrl} (post-clearSession)`);
     const jspResp = await fetch(jspUrl, {
       method: 'GET',
       headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/xhtml+xml,*/*' },
@@ -2967,8 +2987,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     const isRedirectStub = jspHtml.includes('localStorage.setItem') && jspHtml.length < 1500;
     console.log(`[PA Weekly XLSX] JSP ${jspResp.status}, ${jspHtml.length} chars, stub=${isRedirectStub}`);
     if (!isRedirectStub) lastPreview = jspHtml.substring(0, 800);
-    const m = jspHtml.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
-    if (m) { xlsxMatch = m; break; }
+    xlsxMatch = jspHtml.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
   }
 
   if (!xlsxMatch) {
