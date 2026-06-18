@@ -2923,12 +2923,14 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Prime the server-side urlDesignation=PA session attribute by visiting
-  // /ProduceAlliance.jsp. Without this, all report JSPs return the
-  // localStorage redirect stub even with a valid JSESSIONID.
+  // Prime the server-side urlDesignation=PA session attribute. The PA portal
+  // sets this only when /clearSession.jsp?FCUID=<username>&dest=... runs.
+  // FCUID is the PA username itself (e.g. "Blaze-1341"), already stored.
+  const fcuid = credentials.username;
   console.log(`[PA Weekly XLSX] pre-prime cookies: ${session.cookies.substring(0, 200)}...`);
   try {
-    const primeResp = await fetch(`${PA_BASE_URL}/ProduceAlliance.jsp`, {
+    const primeUrl = `${PA_BASE_URL}/clearSession.jsp?FCUID=${encodeURIComponent(fcuid)}&dest=${encodeURIComponent('/ProduceAlliance.jsp')}`;
+    const primeResp = await fetch(primeUrl, {
       method: 'GET',
       headers: { ...getAuthHeaders(session), 'Accept': 'text/html,*/*' },
       redirect: 'follow',
@@ -2936,7 +2938,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     const primeExtra = extractCookies(primeResp.headers);
     if (primeExtra) session.cookies = mergeCookies(session.cookies, primeExtra);
     await primeResp.text().catch(() => '');
-    console.log(`[PA Weekly XLSX] /ProduceAlliance.jsp -> ${primeResp.status}, added cookies: ${primeExtra || 'none'}`);
+    console.log(`[PA Weekly XLSX] clearSession.jsp?FCUID=${fcuid} -> ${primeResp.status}, added cookies: ${primeExtra || 'none'}`);
   } catch (e) {
     console.warn('[PA Weekly XLSX] prime error:', e);
   }
