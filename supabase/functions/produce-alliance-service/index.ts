@@ -3005,6 +3005,68 @@ function parseOrderSortHtml(html: string): Array<{
   return items;
 }
 
+async function handleDumpWeeklyPricesHtml(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA not configured' });
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const urls = [
+    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/reports/restaurant-weekly-produce-prices?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/reports/weekly-prices?restaurantId=${session.restaurantId}`,
+  ];
+
+  const attempts: any[] = [];
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(session),
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Referer': `${PA_BASE_URL}/ng/`,
+        },
+        redirect: 'follow',
+      });
+      const text = await resp.text();
+      const isRedirectStub = text.includes('localStorage.setItem') && text.length < 1000;
+
+      // Extract header row (first <tr> containing <th>)
+      const headerMatch = text.match(/<tr[^>]*>[\s\S]*?<th[\s\S]*?<\/tr>/i);
+      // Extract first 2 data rows (<tr> with <td>, after header)
+      const dataRows: string[] = [];
+      const trRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+      let m;
+      let sawHeader = false;
+      while ((m = trRe.exec(text)) !== null && dataRows.length < 3) {
+        if (m[0].includes('<th')) { sawHeader = true; continue; }
+        if (!sawHeader) continue;
+        if (m[0].includes('<input') || m[0].includes('<select')) continue;
+        if (!/<td/i.test(m[0])) continue;
+        dataRows.push(m[0]);
+      }
+
+      attempts.push({
+        url: url.replace(PA_BASE_URL, ''),
+        status: resp.status,
+        contentType: resp.headers.get('content-type'),
+        length: text.length,
+        isRedirectStub,
+        headerRowVerbatim: headerMatch ? headerMatch[0] : null,
+        firstDataRows: dataRows,
+        rawPreview: text.substring(0, 2000),
+      });
+    } catch (e) {
+      attempts.push({ url: url.replace(PA_BASE_URL, ''), error: String(e) });
+    }
+  }
+
+  return jsonResponse({ success: true, restaurantId: session.restaurantId, attempts });
+}
+
 async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Response> {
   const { locationId } = body;
   if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
