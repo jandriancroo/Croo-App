@@ -2923,50 +2923,45 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Prime the server-side urlDesignation=PA session attribute. The PA portal
-  // sets this only when /clearSession.jsp?FCUID=<username>&dest=... runs.
-  // FCUID is the PA username itself (e.g. "Blaze-1341"), already stored.
-  const fcuid = credentials.username;
-  console.log(`[PA Weekly XLSX] pre-prime cookies: ${session.cookies.substring(0, 200)}...`);
-  try {
-    const primeUrl = `${PA_BASE_URL}/clearSession.jsp?FCUID=${encodeURIComponent(fcuid)}&dest=${encodeURIComponent('/ProduceAlliance.jsp')}`;
-    const primeResp = await fetch(primeUrl, {
-      method: 'GET',
-      headers: { ...getAuthHeaders(session), 'Accept': 'text/html,*/*' },
-      redirect: 'follow',
-    });
-    const primeExtra = extractCookies(primeResp.headers);
-    if (primeExtra) session.cookies = mergeCookies(session.cookies, primeExtra);
-    await primeResp.text().catch(() => '');
-    console.log(`[PA Weekly XLSX] clearSession.jsp?FCUID=${fcuid} -> ${primeResp.status}, added cookies: ${primeExtra || 'none'}`);
-  } catch (e) {
-    console.warn('[PA Weekly XLSX] prime error:', e);
-  }
-  console.log(`[PA Weekly XLSX] post-prime cookies: ${session.cookies.substring(0, 300)}...`);
+  // Replicate the exact browser flow captured from a working session:
+  //   1) GET /reports/restaurantWeeklyProducePricesReport.jsp  (referer /ng/)
+  //   2) GET /reports/restaurantExcelDownloadHistory.jsp       (referer = step 1)
+  // The JSPs key off JSESSIONID + tokenStore cookies (already on session).
+  // Use the iOS Safari UA + browser-shaped headers that the working cURL used.
+  const browserHeaders = (referer: string): Record<string, string> => ({
+    'Cookie': session.cookies,
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'max-age=0',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-User': '?1',
+    'Referer': referer,
+  });
 
-  const reportCandidates = [
-    `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp`,
-    `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp`,
-  ];
+  const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp`;
+  const historyUrl = `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp`;
 
   let xlsxMatch: RegExpMatchArray | null = null;
   let lastPreview = '';
-  for (const jspUrl of reportCandidates) {
-    console.log(`[PA Weekly XLSX] GET ${jspUrl}`);
-    const jspResp = await fetch(jspUrl, {
-      method: 'GET',
-      headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/xhtml+xml,*/*' },
-      redirect: 'follow',
-    });
-    const extra = extractCookies(jspResp.headers);
+
+  for (const [label, url, referer] of [
+    ['weekly', weeklyUrl, `${PA_BASE_URL}/ng/`],
+    ['history', historyUrl, weeklyUrl],
+  ] as const) {
+    console.log(`[PA Weekly XLSX] GET ${url} (referer=${referer})`);
+    const resp = await fetch(url, { method: 'GET', headers: browserHeaders(referer), redirect: 'follow' });
+    const extra = extractCookies(resp.headers);
     if (extra) session.cookies = mergeCookies(session.cookies, extra);
-    const jspHtml = await jspResp.text();
-    const isRedirectStub = jspHtml.includes('localStorage.setItem') && jspHtml.length < 1500;
-    console.log(`[PA Weekly XLSX] JSP ${jspResp.status}, ${jspHtml.length} chars, stub=${isRedirectStub}`);
-    console.log(`[PA Weekly XLSX] body preview: ${jspHtml.substring(0, 600).replace(/\s+/g, ' ')}`);
-    if (!isRedirectStub) lastPreview = jspHtml.substring(0, 400);
-    const m = jspHtml.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
+    const html = await resp.text();
+    const isRedirectStub = html.includes('localStorage.setItem') && html.length < 1500;
+    console.log(`[PA Weekly XLSX] ${label} -> ${resp.status}, ${html.length} chars, stub=${isRedirectStub}`);
+    console.log(`[PA Weekly XLSX] ${label} preview: ${html.substring(0, 400).replace(/\s+/g, ' ')}`);
+    if (!isRedirectStub) lastPreview = html.substring(0, 600);
+    const m = html.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
     if (m) { xlsxMatch = m; break; }
   }
 
