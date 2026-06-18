@@ -2654,12 +2654,15 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
       location_id: locationId,
       pa_item_id: String(item.pa_item_id || '').trim(),
       pa_internal_id: item.pa_internal_id ? String(item.pa_internal_id).trim() : null,
+      master_product_code: item.master_product_code ? String(item.master_product_code).trim() : (item.pa_item_id ? String(item.pa_item_id).trim() : null),
+      master_product_id: item.master_product_id ? String(item.master_product_id).trim() : (item.pa_internal_id ? String(item.pa_internal_id).trim() : null),
       description: String(item.description || '').trim(),
       pack_size: item.pack_size || null,
       category: item.category || null,
       unit_price: item.unit_price || null,
       last_seen_at: now,
     })).filter((item: any) => item.pa_item_id);
+
 
     const { error } = await supabase
       .from('pa_catalog_items')
