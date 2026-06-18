@@ -1111,13 +1111,16 @@ async function fetchCurrentPricesCatalog(session: PASession): Promise<Array<{
         const internalId = item.masterProductId ? String(item.masterProductId) : '';
 
         allItems.push({
-          pa_item_id: guideId || internalId,
-          pa_internal_id: internalId || null,
+          pa_item_id: guideId || internalId,           // LEGACY — masterProductCode
+          pa_internal_id: internalId || null,          // LEGACY — masterProductId
+          master_product_code: guideId || null,        // NEW — explicit
+          master_product_id: internalId || null,       // NEW — explicit
           description: name,
           pack_size: parsedPack.packSize,
           category: 'Produce',
           unit_price: item.pricePerCase != null ? Number(item.pricePerCase) : null,
         });
+
       }
 
       offset += dataList.length;
