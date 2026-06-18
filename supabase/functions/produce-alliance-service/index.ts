@@ -2923,9 +2923,25 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Step 1: hit the Excel download history page directly. PA's "Download Weekly
-  // Pricing" button lands here after clearSession, and the response HTML
-  // contains <a href="/spreadsheets/RestaurantWeeklyPricesReport_<distId>_<restId>.xlsx">.
+  // Prime the server-side urlDesignation=PA session attribute by visiting
+  // /ProduceAlliance.jsp. Without this, all report JSPs return the
+  // localStorage redirect stub even with a valid JSESSIONID.
+  console.log(`[PA Weekly XLSX] pre-prime cookies: ${session.cookies.substring(0, 200)}...`);
+  try {
+    const primeResp = await fetch(`${PA_BASE_URL}/ProduceAlliance.jsp`, {
+      method: 'GET',
+      headers: { ...getAuthHeaders(session), 'Accept': 'text/html,*/*' },
+      redirect: 'follow',
+    });
+    const primeExtra = extractCookies(primeResp.headers);
+    if (primeExtra) session.cookies = mergeCookies(session.cookies, primeExtra);
+    await primeResp.text().catch(() => '');
+    console.log(`[PA Weekly XLSX] /ProduceAlliance.jsp -> ${primeResp.status}, added cookies: ${primeExtra || 'none'}`);
+  } catch (e) {
+    console.warn('[PA Weekly XLSX] prime error:', e);
+  }
+  console.log(`[PA Weekly XLSX] post-prime cookies: ${session.cookies.substring(0, 300)}...`);
+
   const reportCandidates = [
     `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp`,
     `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${session.restaurantId}`,
@@ -2946,6 +2962,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     const jspHtml = await jspResp.text();
     const isRedirectStub = jspHtml.includes('localStorage.setItem') && jspHtml.length < 1500;
     console.log(`[PA Weekly XLSX] JSP ${jspResp.status}, ${jspHtml.length} chars, stub=${isRedirectStub}`);
+    console.log(`[PA Weekly XLSX] body preview: ${jspHtml.substring(0, 600).replace(/\s+/g, ' ')}`);
     if (!isRedirectStub) lastPreview = jspHtml.substring(0, 400);
     const m = jspHtml.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
     if (m) { xlsxMatch = m; break; }
