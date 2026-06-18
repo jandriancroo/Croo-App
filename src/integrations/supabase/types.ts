@@ -6859,8 +6859,11 @@ export type Database = {
           id: string
           last_seen_at: string
           location_id: string
+          master_product_code: string | null
+          master_product_id: string | null
           pa_internal_id: string | null
           pa_item_id: string
+          pa_product_id: string | null
           pack_size: string | null
           unit_price: number | null
         }
@@ -6871,8 +6874,11 @@ export type Database = {
           id?: string
           last_seen_at?: string
           location_id: string
+          master_product_code?: string | null
+          master_product_id?: string | null
           pa_internal_id?: string | null
           pa_item_id: string
+          pa_product_id?: string | null
           pack_size?: string | null
           unit_price?: number | null
         }
@@ -6883,8 +6889,11 @@ export type Database = {
           id?: string
           last_seen_at?: string
           location_id?: string
+          master_product_code?: string | null
+          master_product_id?: string | null
           pa_internal_id?: string | null
           pa_item_id?: string
+          pa_product_id?: string | null
           pack_size?: string | null
           unit_price?: number | null
         }
