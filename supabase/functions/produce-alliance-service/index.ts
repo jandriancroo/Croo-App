@@ -3296,12 +3296,15 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       location_id: locationId,
       pa_item_id: item.pa_item_id,
       pa_internal_id: (item as any).pa_internal_id || null,
+      master_product_code: (item as any).master_product_code || (item.pa_item_id || null),
+      master_product_id: (item as any).master_product_id || ((item as any).pa_internal_id || null),
       description: item.description,
       pack_size: item.pack_size,
       category: item.category,
       unit_price: item.unit_price,
       last_seen_at: now,
     }));
+
 
     const { error } = await supabase
       .from('pa_catalog_items')
