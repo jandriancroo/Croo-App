@@ -422,6 +422,65 @@ export const UnifiedNotificationSettings = () => {
               })}
             </div>
 
+            {/* Sales Pulse section - only for managers and above */}
+            {isManagerOrAbove && (
+              <>
+                <Separator className="my-4" />
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-muted-foreground">Sales Pulse</div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">AM cutoff</label>
+                    <input
+                      type="time"
+                      value={amCutoff}
+                      onChange={(e) => saveAmCutoff(e.target.value)}
+                      className="text-xs bg-background border border-input rounded px-2 py-1 h-7"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {NOTIFICATION_TYPES.filter(nt => nt.category === 'pulse').map(nt => {
+                    const setting = getSetting(nt.key, selectedLocationId);
+                    return (
+                      <div
+                        key={nt.key}
+                        className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                      >
+                        <div>
+                          <span className="text-sm">{nt.label}</span>
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.alert_enabled ?? true}
+                            onCheckedChange={(checked) =>
+                              updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
+                            }
+                          />
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.push_enabled ?? true}
+                            onCheckedChange={(checked) =>
+                              updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
+                            }
+                            disabled={needsPermission}
+                          />
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.email_enabled ?? false}
+                            onCheckedChange={(checked) =>
+                              updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
+                            }
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
             {/* Cash Handling section - only for managers and above */}
             {isManagerOrAbove && (
               <>
