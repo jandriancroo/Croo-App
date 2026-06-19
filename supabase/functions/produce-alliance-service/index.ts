@@ -2977,6 +2977,28 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   }> = [];
   const distIdsUsed: string[] = [];
 
+  // Trigger server-side regeneration of the weekly XLSX files. PA writes them
+  // to /spreadsheets/ only after a successful render of these JSPs; without
+  // this, the .xlsx returns a 492-byte error stub for stale/never-built files.
+  const triggerHeaders = {
+    'Cookie': session.cookies,
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Referer': `${PA_BASE_URL}/ng/`,
+  };
+  for (const triggerUrl of [
+    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`,
+    `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${restId}`,
+  ]) {
+    try {
+      const r = await fetch(triggerUrl, { method: 'GET', headers: triggerHeaders, redirect: 'follow' });
+      const t = await r.text();
+      console.log(`[PA Weekly XLSX] trigger ${triggerUrl.replace(PA_BASE_URL, '')} → ${r.status}, ${t.length}B`);
+    } catch (e) {
+      console.warn(`[PA Weekly XLSX] trigger error:`, e);
+    }
+  }
+
   for (const { distId, clientId } of distPairs) {
     const xlsxPath = `/spreadsheets/RestaurantWeeklyPricesReport_${distId}_${clientId}.xlsx`;
     const xlsxUrl = `${PA_BASE_URL}${xlsxPath}`;
