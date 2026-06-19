@@ -3164,7 +3164,19 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
 // ── Scrape all PA locations' catalogs (called by GitHub Action) ──
 async function handleScrapeAllCatalogs(supabase: any, _body: any): Promise<Response> {
-  const { data: integrations } = await supabase
+  // ⚠️ HEADLESS-ONLY — see handleScrapeCatalogLive. Disabled to prevent accidental
+  // auto-triggers (e.g. from cron, retries, or upstream callers). Use the
+  // GitHub Action / Playwright scraper instead.
+  return jsonResponse({
+    success: false,
+    disabled: true,
+    error: 'scrape_all_catalogs is disabled. Use pa-headless-scraper.mjs (Playwright) → save_catalog instead.',
+  }, 410);
+}
+
+// (Original loop kept below for reference inside the headless workflow if ever re-enabled.)
+async function _handleScrapeAllCatalogs_disabled(supabase: any, _body: any): Promise<Response> {
+
     .from('location_integrations')
     .select('location_id, credentials')
     .eq('integration_type', 'produce_alliance')
