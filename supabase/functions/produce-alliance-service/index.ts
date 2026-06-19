@@ -3191,6 +3191,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       distributor_pairs: distPairs,
       restaurant_id: restId,
       sample,
+      bakeDebug: (body as any).__bakeDebug || null,
     });
   }
 
