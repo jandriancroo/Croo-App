@@ -2987,11 +2987,18 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     'Referer': `${PA_BASE_URL}/ng/`,
   };
   for (const triggerUrl of [
+    `${PA_BASE_URL}/ProduceAlliance.jsp`,
     `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`,
     `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${restId}`,
   ]) {
     try {
       const r = await fetch(triggerUrl, { method: 'GET', headers: triggerHeaders, redirect: 'follow' });
+      const extra = extractCookies(r.headers);
+      if (extra) {
+        session.cookies = mergeCookies(session.cookies, extra);
+        triggerHeaders['Cookie'] = session.cookies;
+  }
+  xlsxHeaders['Cookie'] = session.cookies;
       const t = await r.text();
       console.log(`[PA Weekly XLSX] trigger ${triggerUrl.replace(PA_BASE_URL, '')} → ${r.status}, ${t.length}B`);
     } catch (e) {
@@ -2999,26 +3006,66 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     }
   }
 
+  // Helper: visit the JSP shell (which sets server-side urlDesignation=PA on
+  // the session) so the .xlsx fetch is served the real file instead of the
+  // 492-byte localStorage redirect stub.
+  const primeUrlDesignation = async () => {
+    try {
+      const r = await fetch(`${PA_BASE_URL}/ProduceAlliance.jsp`, {
+        method: 'GET',
+        headers: { ...triggerHeaders, Referer: `${PA_BASE_URL}/ng/` },
+        redirect: 'follow',
+      });
+      const extra = extractCookies(r.headers);
+      if (extra) {
+        session.cookies = mergeCookies(session.cookies, extra);
+        xlsxHeaders['Cookie'] = session.cookies;
+        triggerHeaders['Cookie'] = session.cookies;
+      }
+      console.log(`[PA Weekly XLSX] prime /ProduceAlliance.jsp → ${r.status}`);
+    } catch (e) {
+      console.warn('[PA Weekly XLSX] prime error:', e);
+    }
+  };
+
   for (const { distId, clientId } of distPairs) {
     const xlsxPath = `/spreadsheets/RestaurantWeeklyPricesReport_${distId}_${clientId}.xlsx`;
     const xlsxUrl = `${PA_BASE_URL}${xlsxPath}`;
-    console.log(`[PA Weekly XLSX] Fetching ${xlsxPath}`);
-    let xlsxResp: Response;
-    try {
-      xlsxResp = await fetch(xlsxUrl, { method: 'GET', headers: xlsxHeaders, redirect: 'follow' });
-    } catch (e) {
-      console.warn(`[PA Weekly XLSX] dist ${distId} fetch error:`, e);
-      continue;
+
+    let xlsxBytes: Uint8Array | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) {
+        console.log(`[PA Weekly XLSX] dist ${distId} retry ${attempt}: priming + re-triggering`);
+        await primeUrlDesignation();
+        for (const tu of [
+          `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`,
+          `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${restId}`,
+        ]) {
+          try { await fetch(tu, { method: 'GET', headers: triggerHeaders, redirect: 'follow' }); } catch {}
+        }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
+      console.log(`[PA Weekly XLSX] Fetching ${xlsxPath} (attempt ${attempt})`);
+      let xlsxResp: Response;
+      try {
+        xlsxResp = await fetch(xlsxUrl, { method: 'GET', headers: xlsxHeaders, redirect: 'follow' });
+      } catch (e) {
+        console.warn(`[PA Weekly XLSX] dist ${distId} fetch error:`, e);
+        continue;
+      }
+      if (xlsxResp.status !== 200) {
+        console.warn(`[PA Weekly XLSX] dist ${distId} returned ${xlsxResp.status}`);
+        continue;
+      }
+      const bytes = new Uint8Array(await xlsxResp.arrayBuffer());
+      console.log(`[PA Weekly XLSX] dist ${distId} attempt ${attempt}: ${bytes.byteLength} bytes`);
+      if (bytes.byteLength >= 1000) { xlsxBytes = bytes; break; }
+      const stubText = new TextDecoder().decode(bytes).substring(0, 200).replace(/\s+/g, ' ');
+      console.warn(`[PA Weekly XLSX] dist ${distId} stub (${bytes.byteLength}B): ${stubText}`);
     }
-    if (xlsxResp.status !== 200) {
-      console.warn(`[PA Weekly XLSX] dist ${distId} returned ${xlsxResp.status} — skipping`);
-      continue;
-    }
-    const xlsxBytes = new Uint8Array(await xlsxResp.arrayBuffer());
-    console.log(`[PA Weekly XLSX] dist ${distId}: ${xlsxBytes.byteLength} bytes`);
-    if (xlsxBytes.byteLength < 1000) {
-      const stubText = new TextDecoder().decode(xlsxBytes).substring(0, 600);
-      console.warn(`[PA Weekly XLSX] dist ${distId} too small (${xlsxBytes.byteLength}B). Body: ${stubText}`);
+    if (!xlsxBytes) {
+      console.warn(`[PA Weekly XLSX] dist ${distId} giving up after retries`);
       continue;
     }
 
@@ -3082,8 +3129,36 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     return jsonResponse({ success: false, message: 'XLSX downloads returned no item rows', saved: 0, distributor_pairs: distPairs, restaurant_id: restId });
   }
 
-  // Step 4: upsert keyed on (location_id, pa_product_id) — the authoritative key
+  // Dry-run path: report what would be written without touching the table.
+  if (body?.dryRun) {
+    const sample = items.slice(0, 3).map(it => ({ pa_product_id: it.pa_product_id, master_product_code: it.master_product_code, description: it.description, unit_price: it.unit_price }));
+    return jsonResponse({
+      success: true,
+      dryRun: true,
+      total: items.length,
+      distributor_pairs: distPairs,
+      restaurant_id: restId,
+      sample,
+    });
+  }
+
+
+  // Step 4: full refresh — delete this location's catalog and reinsert from XLSX.
+  // The weekly XLSX is the authoritative PA source; legacy rows from the old
+  // current-prices API used master_product_code as pa_item_id, which conflicts
+  // with the new authoritative pa_product_id on the (location_id, pa_product_id)
+  // partial unique index. Wipe-and-reload sidesteps the duplicate-key problem
+  // and guarantees the table mirrors the live PA catalog.
   const now = new Date().toISOString();
+  const { error: deleteErr } = await supabase
+    .from('pa_catalog_items')
+    .delete()
+    .eq('location_id', locationId);
+  if (deleteErr) {
+    console.error('[PA Weekly XLSX] Delete-before-insert error:', deleteErr);
+    return jsonResponse({ success: false, error: `Failed to clear existing catalog: ${deleteErr.message}` });
+  }
+
   let saved = 0;
   for (let i = 0; i < items.length; i += 100) {
     const chunk = items.slice(i, i + 100).map(item => ({
@@ -3101,9 +3176,9 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     }));
     const { error } = await supabase
       .from('pa_catalog_items')
-      .upsert(chunk, { onConflict: 'location_id,pa_item_id' });
+      .insert(chunk);
     if (error) {
-      console.error('[PA Weekly XLSX] Upsert error:', error);
+      console.error('[PA Weekly XLSX] Insert error:', error);
     } else {
       saved += chunk.length;
     }
