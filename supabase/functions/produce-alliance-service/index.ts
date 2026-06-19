@@ -3079,7 +3079,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     }));
     const { error } = await supabase
       .from('pa_catalog_items')
-      .upsert(chunk, { onConflict: 'location_id,pa_product_id' });
+      .upsert(chunk, { onConflict: 'location_id,pa_item_id' });
     if (error) {
       console.error('[PA Weekly XLSX] Upsert error:', error);
     } else {
