@@ -2958,6 +2958,46 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     return jsonResponse({ success: false, error: 'No distributor/client IDs found for this restaurant (no recent invoices).' });
   }
 
+  // ── BAKE: server-side regenerate xlsx for every distributor in one shot ──
+  // PA's "Download Weekly" button POSTs to RestaurantWeeklyPricesSpreadsheetHistory
+  // with FCUID + clientId_1..N. This forces fresh xlsx files for this client
+  // across all distributors before we download them. Without this we get stale
+  // (or 492-byte stub) files for distributors that weren't recently touched.
+  try {
+    const clientId = distPairs[0].clientId;
+    const fcuid = `Blaze-${session.restaurantId}`;
+    const formParts: string[] = [
+      `FCUID=${encodeURIComponent(fcuid)}`,
+      'clientAndMasterProductDescription=false',
+      'clientProductDescription=false',
+      'blendProductDesc=false',
+      'buildSpreadsheet=',
+    ];
+    for (let i = 1; i <= 17; i++) formParts.push(`clientId_${i}=${encodeURIComponent(clientId)}`);
+    const bakeBody = formParts.join('&');
+    const bakeResp = await fetch(`${PA_BASE_URL}/reports/RestaurantWeeklyPricesSpreadsheetHistory`, {
+      method: 'POST',
+      headers: {
+        'Cookie': session.cookies,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Referer': `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${session.restaurantId}`,
+        'Origin': PA_BASE_URL,
+      },
+      body: bakeBody,
+      redirect: 'follow',
+    });
+    const extra = extractCookies(bakeResp.headers);
+    if (extra) session.cookies = mergeCookies(session.cookies, extra);
+    const bakeText = await bakeResp.text();
+    console.log(`[PA Weekly XLSX] BAKE POST → ${bakeResp.status}, ${bakeText.length}B (clientId=${clientId}, FCUID=${fcuid})`);
+    // Give PA a moment to finish writing files to /spreadsheets/
+    await new Promise(r => setTimeout(r, 3000));
+  } catch (e) {
+    console.warn('[PA Weekly XLSX] BAKE POST failed (continuing anyway):', e);
+  }
+
   const xlsxHeaders = {
     'Cookie': session.cookies,
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
