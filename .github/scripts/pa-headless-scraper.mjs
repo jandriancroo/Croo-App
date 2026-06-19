@@ -619,7 +619,10 @@ async function main() {
   console.log('\n📦 Phase 1: Full catalog scrape');
   console.log('─'.repeat(30));
   try {
-    const catalogLocations = await fetchAllPALocations();
+    let catalogLocations = await fetchAllPALocations();
+    if (locationFilter) {
+      catalogLocations = catalogLocations.filter(l => l.locationId === locationFilter);
+    }
     if (catalogLocations.length > 0) {
       console.log(`Found ${catalogLocations.length} PA location(s) for catalog scrape`);
       for (const loc of catalogLocations) {
