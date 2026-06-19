@@ -14,11 +14,16 @@ import { chromium } from 'playwright';
 
 const PA_BASE_URL = 'https://producealliance.info';
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, LOCATION_FILTER } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY');
   process.exit(1);
+}
+
+const locationFilter = (LOCATION_FILTER || '').trim();
+if (locationFilter) {
+  console.log(`🎯 LOCATION_FILTER active → only processing location_id=${locationFilter}`);
 }
 
 // ── Fetch active PA integrations + orders missing line items ─────
