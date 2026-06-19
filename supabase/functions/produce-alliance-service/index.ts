@@ -3215,7 +3215,16 @@ async function handleProbeDesignation(supabase: any, body: any): Promise<Respons
     { label: 'GET /api/common/session', method: 'GET', url: `/api/common/session` },
   ];
 
-  const results: any[] = [{ step: 'baseline (login only)', ...baseline }];
+  // HYPOTHESIS TEST: inject urlDesignation=PA as a cookie and re-fetch BEFORE running the candidate loop.
+  session.cookies = mergeCookies(session.cookies, 'urlDesignation=PA');
+  const afterCookieInject = await fetchReport();
+  const baselineWithCookie = { step: 'cookie injection: urlDesignation=PA', ...afterCookieInject };
+  if (afterCookieInject.hasTable && !afterCookieInject.isStub) {
+    return jsonResponse({ success: true, found: 'COOKIE: urlDesignation=PA', restaurant_id: restId, results: [baseline, baselineWithCookie].map((r,i)=>({...r,step: i===0?'baseline':r.step})) });
+  }
+
+  const results: any[] = [{ step: 'baseline (login only)', ...baseline }, baselineWithCookie];
+
 
   for (const c of candidates) {
     try {
