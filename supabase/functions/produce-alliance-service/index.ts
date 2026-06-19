@@ -2965,7 +2965,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   // (or 492-byte stub) files for distributors that weren't recently touched.
   try {
     const clientId = distPairs[0].clientId;
-    const fcuid = `Blaze-${session.restaurantId}`;
+    const fcuid = 'Blaze-1402'; // Franchise Concept ID — brand-wide, not per-restaurant
     const formParts: string[] = [
       `FCUID=${encodeURIComponent(fcuid)}`,
       'clientAndMasterProductDescription=false',
