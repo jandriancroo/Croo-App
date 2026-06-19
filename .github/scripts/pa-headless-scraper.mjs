@@ -446,9 +446,10 @@ async function scrapeCatalog(page, { restaurantId }) {
         }
         
         let unitPrice = null;
-        if (priceIdx >= 0 && cells[priceIdx]) {
-          const parsed = parseFloat(cells[priceIdx].replace(/[$,]/g, ''));
-          if (!isNaN(parsed) && parsed > 0) unitPrice = parsed;
+        for (const idx of priceIdxList) {
+          const raw = (cells[idx] || '').replace(/[^0-9.]/g, '');
+          const parsed = parseFloat(raw);
+          if (!isNaN(parsed) && parsed > 0) { unitPrice = parsed; break; }
         }
 
         results.push({
