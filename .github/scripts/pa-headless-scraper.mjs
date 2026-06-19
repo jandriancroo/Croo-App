@@ -360,10 +360,18 @@ async function scrapeCatalog(page, { restaurantId }) {
 
 
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+  await page.waitForTimeout(1500);
+  const debugInfo = await page.evaluate(() => ({
+    url: location.href,
+    len: document.documentElement.outerHTML.length,
+    hasCostDetailTable: !!document.querySelector('#costDetailTable'),
+    tableCount: document.querySelectorAll('table').length,
+  }));
+  console.log(`   🔍 page: ${debugInfo.url} | len=${debugInfo.len} | tables=${debugInfo.tableCount} | costDetailTable=${debugInfo.hasCostDetailTable}`);
 
   // Wait for the table to render
   try {
-    await page.waitForSelector('table td', { timeout: 10000 });
+    await page.waitForSelector('#costDetailTable td, table td', { timeout: 10000 });
   } catch {
     console.log(`   ⚠️ No table rendered on weekly prices page, trying fallback...`);
     const content = await page.content();
@@ -375,6 +383,7 @@ async function scrapeCatalog(page, { restaurantId }) {
 
   // Brief pause for any late-rendering cells
   await page.waitForTimeout(500);
+
 
   const items = await page.evaluate(() => {
     const results = [];
