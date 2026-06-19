@@ -3052,11 +3052,11 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     distIdsUsed.push(distId);
   }
 
-  const distId = distIdsUsed.join(',') || distIds.join(',');
+  const distId = distIdsUsed.join(',') || distPairs.map(p => p.distId).join(',');
   console.log(`[PA Weekly XLSX] Parsed ${items.length} total catalog rows across ${distIdsUsed.length} distributors`);
 
   if (items.length === 0) {
-    return jsonResponse({ success: false, message: 'XLSX downloads returned no item rows', saved: 0, distributor_ids: distIds, restaurant_id: restId });
+    return jsonResponse({ success: false, message: 'XLSX downloads returned no item rows', saved: 0, distributor_pairs: distPairs, restaurant_id: restId });
   }
 
   // Step 4: upsert keyed on (location_id, pa_product_id) — the authoritative key
