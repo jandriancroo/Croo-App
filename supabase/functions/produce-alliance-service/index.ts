@@ -3129,6 +3129,20 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     return jsonResponse({ success: false, message: 'XLSX downloads returned no item rows', saved: 0, distributor_pairs: distPairs, restaurant_id: restId });
   }
 
+  // Dry-run path: report what would be written without touching the table.
+  if (body?.dryRun) {
+    const sample = items.slice(0, 3).map(it => ({ pa_product_id: it.pa_product_id, master_product_code: it.master_product_code, description: it.description, unit_price: it.unit_price }));
+    return jsonResponse({
+      success: true,
+      dryRun: true,
+      total: items.length,
+      distributor_pairs: distPairs,
+      restaurant_id: restId,
+      sample,
+    });
+  }
+
+
   // Step 4: full refresh — delete this location's catalog and reinsert from XLSX.
   // The weekly XLSX is the authoritative PA source; legacy rows from the old
   // current-prices API used master_product_code as pa_item_id, which conflicts
