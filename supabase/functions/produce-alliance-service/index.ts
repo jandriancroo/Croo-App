@@ -2999,26 +2999,66 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     }
   }
 
+  // Helper: visit the JSP shell (which sets server-side urlDesignation=PA on
+  // the session) so the .xlsx fetch is served the real file instead of the
+  // 492-byte localStorage redirect stub.
+  const primeUrlDesignation = async () => {
+    try {
+      const r = await fetch(`${PA_BASE_URL}/ProduceAlliance.jsp`, {
+        method: 'GET',
+        headers: { ...triggerHeaders, Referer: `${PA_BASE_URL}/ng/` },
+        redirect: 'follow',
+      });
+      const extra = extractCookies(r.headers);
+      if (extra) {
+        session.cookies = mergeCookies(session.cookies, extra);
+        xlsxHeaders['Cookie'] = session.cookies;
+        triggerHeaders['Cookie'] = session.cookies;
+      }
+      console.log(`[PA Weekly XLSX] prime /ProduceAlliance.jsp → ${r.status}`);
+    } catch (e) {
+      console.warn('[PA Weekly XLSX] prime error:', e);
+    }
+  };
+
   for (const { distId, clientId } of distPairs) {
     const xlsxPath = `/spreadsheets/RestaurantWeeklyPricesReport_${distId}_${clientId}.xlsx`;
     const xlsxUrl = `${PA_BASE_URL}${xlsxPath}`;
-    console.log(`[PA Weekly XLSX] Fetching ${xlsxPath}`);
-    let xlsxResp: Response;
-    try {
-      xlsxResp = await fetch(xlsxUrl, { method: 'GET', headers: xlsxHeaders, redirect: 'follow' });
-    } catch (e) {
-      console.warn(`[PA Weekly XLSX] dist ${distId} fetch error:`, e);
-      continue;
+
+    let xlsxBytes: Uint8Array | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) {
+        console.log(`[PA Weekly XLSX] dist ${distId} retry ${attempt}: priming + re-triggering`);
+        await primeUrlDesignation();
+        for (const tu of [
+          `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`,
+          `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${restId}`,
+        ]) {
+          try { await fetch(tu, { method: 'GET', headers: triggerHeaders, redirect: 'follow' }); } catch {}
+        }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
+      console.log(`[PA Weekly XLSX] Fetching ${xlsxPath} (attempt ${attempt})`);
+      let xlsxResp: Response;
+      try {
+        xlsxResp = await fetch(xlsxUrl, { method: 'GET', headers: xlsxHeaders, redirect: 'follow' });
+      } catch (e) {
+        console.warn(`[PA Weekly XLSX] dist ${distId} fetch error:`, e);
+        continue;
+      }
+      if (xlsxResp.status !== 200) {
+        console.warn(`[PA Weekly XLSX] dist ${distId} returned ${xlsxResp.status}`);
+        continue;
+      }
+      const bytes = new Uint8Array(await xlsxResp.arrayBuffer());
+      console.log(`[PA Weekly XLSX] dist ${distId} attempt ${attempt}: ${bytes.byteLength} bytes`);
+      if (bytes.byteLength >= 1000) { xlsxBytes = bytes; break; }
+      const stubText = new TextDecoder().decode(bytes).substring(0, 200).replace(/\s+/g, ' ');
+      console.warn(`[PA Weekly XLSX] dist ${distId} stub (${bytes.byteLength}B): ${stubText}`);
     }
-    if (xlsxResp.status !== 200) {
-      console.warn(`[PA Weekly XLSX] dist ${distId} returned ${xlsxResp.status} — skipping`);
-      continue;
-    }
-    const xlsxBytes = new Uint8Array(await xlsxResp.arrayBuffer());
-    console.log(`[PA Weekly XLSX] dist ${distId}: ${xlsxBytes.byteLength} bytes`);
-    if (xlsxBytes.byteLength < 1000) {
-      const stubText = new TextDecoder().decode(xlsxBytes).substring(0, 600);
-      console.warn(`[PA Weekly XLSX] dist ${distId} too small (${xlsxBytes.byteLength}B). Body: ${stubText}`);
+    if (!xlsxBytes) {
+      console.warn(`[PA Weekly XLSX] dist ${distId} giving up after retries`);
       continue;
     }
 
