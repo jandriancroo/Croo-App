@@ -414,9 +414,11 @@ async function scrapeCatalog(page, { restaurantId }) {
         const cells = Array.from(rows[i].querySelectorAll('td')).map(td => td.textContent.trim());
         if (cells.length < 2) continue;
         
-        // Skip filter/input rows
-        const hasInput = rows[i].querySelector('input');
-        if (hasInput) continue;
+        // Skip filter/input rows — but ignore type="hidden" inputs (every data
+        // row has a hidden clientId_N input that we must not treat as a filter).
+        const visibleInputs = rows[i].querySelectorAll('input:not([type="hidden"]), select');
+        if (visibleInputs.length > 0) continue;
+
         
         const description = nameIdx >= 0 ? (cells[nameIdx] || '') : '';
         const paItemId = paIdIdx >= 0 ? (cells[paIdIdx] || '') : '';
