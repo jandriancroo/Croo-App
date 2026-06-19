@@ -3217,6 +3217,7 @@ serve(async (req) => {
       case 'set_sync_mode': return await handleSetSyncMode(supabase, body);
       case 'nightly_invoice_sync': return await handleNightlyInvoiceSync(supabase, body);
       case 'dump_weekly_prices_html': return await handleDumpWeeklyPricesHtml(supabase, body);
+      case 'probe_designation': return await handleProbeDesignation(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
