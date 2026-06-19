@@ -479,7 +479,7 @@ async function scrapeCatalog(page, { restaurantId }) {
           for (let ci = 0; ci < cells.length; ci++) {
             if (ci === nameIdx || ci === paIdIdx || ci === codeIdx) continue;
             const v = (cells[ci] || '').replace(/,/g, '');
-            if (/^\$?\s*\d+(\.\d{1,2})?$/.test(v)) {
+            if (/^\$\s*\d+(\.\d{1,2})?$|^\d+\.\d{1,2}$/.test(v)) {
               const parsed = parseFloat(v.replace(/[^0-9.]/g, ''));
               if (!isNaN(parsed) && parsed > 0) { unitPrice = parsed; priceSource = 'rowscan:' + ci; break; }
             }
