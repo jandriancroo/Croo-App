@@ -81,6 +81,7 @@ async function scrapeOrder(page, { webOrderId, restaurantId, startDate, endDate 
   // Extract line items from the rendered table
   const orderData = await page.evaluate(() => {
     const lineItems = [];
+    const debugRows = [];
     let deliveryDate = null;
     let totalCases = null;
     let totalAmount = null;
@@ -101,6 +102,11 @@ async function scrapeOrder(page, { webOrderId, restaurantId, startDate, endDate 
     const totalMatch = body.match(/Total[:\s]*\$([\d,.]+)/i);
     if (totalMatch) totalAmount = parseFloat(totalMatch[1].replace(/,/g, ''));
     
+    // Item code accepts pure-digit codes (03132) AND alphanumeric distributor SKUs
+    // like 8021-CASE, 2077-EACH, 8002B-CASE (Blaze-1284 format). Must start with a
+    // digit and be ≥3 chars; optional trailing -WORD suffix.
+    const itemCodeRe = /^\d[\w]{2,}(-[A-Z]+)?$/i;
+    
     // Find all tables and look for the one with item data
     const tables = document.querySelectorAll('table');
     for (const table of tables) {
@@ -119,7 +125,13 @@ async function scrapeOrder(page, { webOrderId, restaurantId, startDate, endDate 
         const offset = hasSpacerCol ? 1 : 0;
         
         const itemCode = cells[offset];
-        if (!itemCode || !/^\d{3,}$/.test(itemCode)) continue;
+        
+        // Capture first few candidate rows for debug regardless of match
+        if (debugRows.length < 3 && cells.length >= 5 && itemCode) {
+          debugRows.push({ cells: cells.slice(0, 8), offset, matched: itemCodeRe.test(itemCode) });
+        }
+        
+        if (!itemCode || !itemCodeRe.test(itemCode)) continue;
         
         const description = cells[offset + 1] || '';
         const paProductId = cells[offset + 2] || '';
@@ -143,9 +155,12 @@ async function scrapeOrder(page, { webOrderId, restaurantId, startDate, endDate 
       if (foundItems) break; // Found the right table
     }
     
-    return { lineItems, deliveryDate, totalCases, totalAmount };
+    return { lineItems, deliveryDate, totalCases, totalAmount, debugRows };
   });
   
+  if (orderData.lineItems.length === 0 && orderData.debugRows?.length) {
+    console.log(`   🔎 ORDER_DBG ${webOrderId} sample rows: ${JSON.stringify(orderData.debugRows)}`);
+  }
   console.log(`   ${orderData.lineItems.length > 0 ? '✅' : '⚠️'} Order ${webOrderId}: ${orderData.lineItems.length} line items`);
   return orderData;
 }
