@@ -29,7 +29,10 @@ const NOTIFICATION_TYPES = [
   { key: 'shift_approvals', label: 'Shift Approvals', description: 'When your shifts are approved', category: 'general' },
   { key: 'overdue_checklists', label: 'Overdue Checklists', description: 'When checklists are past due', category: 'general' },
   { key: 'late_arrivals', label: 'Late Arrivals', description: 'When team members are late', category: 'general' },
+  { key: 'shift_overstay', label: 'Shift Overstay', description: '>5 min past scheduled shift end', category: 'general' },
   { key: 'certification_expiring', label: 'Cert Expiring', description: 'Expiring certifications', category: 'general' },
+  { key: 'hourly_sales_pulse', label: 'Hourly Pulse', description: 'Hourly sales + labor pace', category: 'pulse', managerOnly: true },
+  { key: 'day_part_pulse', label: 'Day Part Pulse', description: 'AM at cutoff, PM at close', category: 'pulse', managerOnly: true },
   { key: 'cash_drawer_count', label: 'Drawer Counts', description: 'Drawer count submissions', category: 'cash', managerOnly: true },
   { key: 'cash_safe_count', label: 'Safe Counts', description: 'Safe count submissions', category: 'cash', managerOnly: true },
   { key: 'cash_bank_deposit', label: 'Bank Deposits', description: 'Bank deposit submissions', category: 'cash', managerOnly: true },
@@ -44,6 +47,7 @@ export const UnifiedNotificationSettings = () => {
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
+  const [amCutoff, setAmCutoff] = useState<string>('16:00');
 
   const isManagerOrAbove = isShiftManager || isManager || isGeneralManager || isAdmin;
   const isNative = Capacitor.isNativePlatform();
@@ -77,6 +81,16 @@ export const UnifiedNotificationSettings = () => {
         .eq('user_id', user.id)
         .eq('location_id', selectedLocationId);
 
+      // Fetch AM cutoff for this location
+      const { data: locSettings } = await (supabase as any)
+        .from('location_settings')
+        .select('day_part_am_cutoff')
+        .eq('location_id', selectedLocationId)
+        .maybeSingle();
+      if (locSettings?.day_part_am_cutoff) {
+        setAmCutoff(String(locSettings.day_part_am_cutoff).slice(0, 5));
+      }
+
       // Build settings with defaults for this location
       const allSettings: NotificationSetting[] = NOTIFICATION_TYPES.map(nt => {
         const existing = existingSettings?.find(s => s.notification_type === nt.key);
@@ -96,6 +110,18 @@ export const UnifiedNotificationSettings = () => {
       console.error('Error fetching notification settings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveAmCutoff = async (next: string) => {
+    if (!selectedLocationId) return;
+    setAmCutoff(next);
+    const { error } = await (supabase as any)
+      .from('location_settings')
+      .update({ day_part_am_cutoff: `${next}:00` })
+      .eq('location_id', selectedLocationId);
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to update AM cutoff', variant: 'destructive' });
     }
   };
 
@@ -395,6 +421,65 @@ export const UnifiedNotificationSettings = () => {
                 );
               })}
             </div>
+
+            {/* Sales Pulse section - only for managers and above */}
+            {isManagerOrAbove && (
+              <>
+                <Separator className="my-4" />
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-muted-foreground">Sales Pulse</div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">AM cutoff</label>
+                    <input
+                      type="time"
+                      value={amCutoff}
+                      onChange={(e) => saveAmCutoff(e.target.value)}
+                      className="text-xs bg-background border border-input rounded px-2 py-1 h-7"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {NOTIFICATION_TYPES.filter(nt => nt.category === 'pulse').map(nt => {
+                    const setting = getSetting(nt.key, selectedLocationId);
+                    return (
+                      <div
+                        key={nt.key}
+                        className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                      >
+                        <div>
+                          <span className="text-sm">{nt.label}</span>
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.alert_enabled ?? true}
+                            onCheckedChange={(checked) =>
+                              updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
+                            }
+                          />
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.push_enabled ?? true}
+                            onCheckedChange={(checked) =>
+                              updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
+                            }
+                            disabled={needsPermission}
+                          />
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.email_enabled ?? false}
+                            onCheckedChange={(checked) =>
+                              updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
+                            }
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             {/* Cash Handling section - only for managers and above */}
             {isManagerOrAbove && (
