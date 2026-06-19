@@ -2995,7 +2995,8 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     const xlsxBytes = new Uint8Array(await xlsxResp.arrayBuffer());
     console.log(`[PA Weekly XLSX] dist ${distId}: ${xlsxBytes.byteLength} bytes`);
     if (xlsxBytes.byteLength < 1000) {
-      console.warn(`[PA Weekly XLSX] dist ${distId} too small, likely an error stub`);
+      const stubText = new TextDecoder().decode(xlsxBytes).substring(0, 600);
+      console.warn(`[PA Weekly XLSX] dist ${distId} too small (${xlsxBytes.byteLength}B). Body: ${stubText}`);
       continue;
     }
 
