@@ -160,20 +160,27 @@ async function loginToPA(page, { username, password }) {
     await page.fill('input[name="username"]', username);
     await page.fill('input[name="password"]', password);
     await Promise.all([
-      page.waitForLoadState('networkidle', { timeout: 30000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null),
       page.click('input[name="login"], button[name="login"], button[type="submit"]'),
     ]);
+    // Give the post-login redirect a moment to settle
+    await page.waitForTimeout(1500);
   } catch (e) {
     console.log(`   ❌ Form login error: ${e.message}`);
     return false;
   }
 
-  // Verify login succeeded — should NOT still be at login.jsp
+  // Verify login by checking the page is no longer the login form
   const url = page.url();
-  if (url.includes('login.jsp') || url.includes('Login')) {
-    console.log(`   ❌ Login failed — still at ${url}`);
-    return false;
+  const stillOnLogin = url.endsWith('/login.jsp') || url.includes('/login.jsp?');
+  if (stillOnLogin) {
+    const html = await page.content();
+    if (html.includes('name="username"') && html.includes('name="password"')) {
+      console.log(`   ❌ Login failed — still on login form at ${url}`);
+      return false;
+    }
   }
+
 
   // Also mint an OAuth token + store it in localStorage so any subsequent
   // /api/* calls the Angular code paths might make also work.
