@@ -406,8 +406,19 @@ async function scrapeCatalog(page, { restaurantId }) {
       const nameIdx = headers.findIndex(h => h.includes('master product name') || h.includes('product name'));
       const paIdIdx = headers.findIndex(h => h.includes('pa product id') || h.includes('product id'));
       const codeIdx = headers.findIndex(h => h.includes('master product code') || h.includes('product code'));
-      // Look for price columns
-      const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('cost'));
+      // Look for price columns — collect ALL candidates and prioritize the
+      // most specific (unit / current / this week / new) since the Weekly
+      // Prices Report has multiple price-ish columns (suggested, last week, etc.).
+      const priceCandidates = headers
+        .map((h, i) => ({ h, i }))
+        .filter(({ h }) => /price|cost|\$/.test(h));
+      const preferred = priceCandidates.find(({ h }) => /unit|current|this\s*week|new/.test(h));
+      const priceIdxList = preferred
+        ? [preferred.i, ...priceCandidates.filter(c => c.i !== preferred.i).map(c => c.i)]
+        : priceCandidates.map(c => c.i);
+      console.log(`   🔎 headers: ${JSON.stringify(headers)}`);
+      console.log(`   🔎 priceIdxList: ${JSON.stringify(priceIdxList)} (preferred=${preferred ? preferred.h : 'none'})`);
+      
       
       const rows = table.querySelectorAll('tr');
       for (let i = 1; i < rows.length; i++) { // Skip header
@@ -435,9 +446,10 @@ async function scrapeCatalog(page, { restaurantId }) {
         }
         
         let unitPrice = null;
-        if (priceIdx >= 0 && cells[priceIdx]) {
-          const parsed = parseFloat(cells[priceIdx].replace(/[$,]/g, ''));
-          if (!isNaN(parsed) && parsed > 0) unitPrice = parsed;
+        for (const idx of priceIdxList) {
+          const raw = (cells[idx] || '').replace(/[^0-9.]/g, '');
+          const parsed = parseFloat(raw);
+          if (!isNaN(parsed) && parsed > 0) { unitPrice = parsed; break; }
         }
 
         results.push({
