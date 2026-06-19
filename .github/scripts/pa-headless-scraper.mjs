@@ -148,110 +148,72 @@ async function scrapeOrder(page, { webOrderId, restaurantId, startDate, endDate 
 // ── Login to PA portal ──────────────────────────────────────────
 async function loginToPA(page, { username, password }) {
   console.log(`   🔑 Logging in as ${username}...`);
-  
-  // Navigate to the Angular app login
-  await page.goto(`${PA_BASE_URL}/ng/`, { waitUntil: 'networkidle', timeout: 30000 });
-  
-  // The Angular app uses OAuth2 — we need to find the login form
-  // First check if we're already on a login page or need to find one
-  const content = await page.content();
-  
-  if (content.includes('Sign in') || content.includes('j_security_check') || content.includes('login')) {
-    // Try to find and fill login form
-    const usernameSelector = await Promise.race([
-      page.waitForSelector('#username', { timeout: 5000 }).then(() => '#username'),
-      page.waitForSelector('#signInName', { timeout: 5000 }).then(() => '#signInName'),
-      page.waitForSelector('input[name="username"]', { timeout: 5000 }).then(() => 'input[name="username"]'),
-      page.waitForSelector('input[name="j_username"]', { timeout: 5000 }).then(() => 'input[name="j_username"]'),
-      page.waitForSelector('input[type="text"]', { timeout: 5000 }).then(() => 'input[type="text"]'),
-    ]).catch(() => null);
-    
-    if (usernameSelector) {
-      await page.fill(usernameSelector, username);
-      
-      const passwordSelector = await Promise.race([
-        page.waitForSelector('#password', { timeout: 3000 }).then(() => '#password'),
-        page.waitForSelector('input[type="password"]', { timeout: 3000 }).then(() => 'input[type="password"]'),
-        page.waitForSelector('input[name="j_password"]', { timeout: 3000 }).then(() => 'input[name="j_password"]'),
-      ]).catch(() => null);
-      
-      if (passwordSelector) {
-        await page.fill(passwordSelector, password);
-        
-        const submitSelector = await Promise.race([
-          page.waitForSelector('button[type="submit"]', { timeout: 3000 }).then(() => 'button[type="submit"]'),
-          page.waitForSelector('input[type="submit"]', { timeout: 3000 }).then(() => 'input[type="submit"]'),
-          page.waitForSelector('#loginButton', { timeout: 3000 }).then(() => '#loginButton'),
-        ]).catch(() => null);
-        
-        if (submitSelector) {
-          await page.click(submitSelector);
-          await page.waitForLoadState('networkidle', { timeout: 15000 });
-        }
-      }
+
+  // The PA portal uses a classic J2EE form login at POST /Login (capital L).
+  // The OAuth2 token endpoint only mints API tokens — it does NOT initialize
+  // the JSP session, so reports like restaurantWeeklyProducePricesReport.jsp
+  // return a 555-byte stub. The form login at /login.jsp → POST /Login is the
+  // only path that unlocks server-side JSP rendering.
+  await page.goto(`${PA_BASE_URL}/login.jsp`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  try {
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null),
+      page.click('input[name="login"], button[name="login"], button[type="submit"]'),
+    ]);
+    // Give the post-login redirect a moment to settle
+    await page.waitForTimeout(1500);
+  } catch (e) {
+    console.log(`   ❌ Form login error: ${e.message}`);
+    return false;
+  }
+
+  // Verify login by checking the page is no longer the login form
+  const url = page.url();
+  const stillOnLogin = url.endsWith('/login.jsp') || url.includes('/login.jsp?');
+  if (stillOnLogin) {
+    const html = await page.content();
+    if (html.includes('name="username"') && html.includes('name="password"')) {
+      console.log(`   ❌ Login failed — still on login form at ${url}`);
+      return false;
     }
   }
-  
-  // Also try OAuth2 login via API (set tokenStore in localStorage like the Angular app does)
-  const tokenResult = await page.evaluate(async ({ username, password, baseUrl }) => {
+
+
+  // Also mint an OAuth token + store it in localStorage so any subsequent
+  // /api/* calls the Angular code paths might make also work.
+  await page.evaluate(async ({ username, password, baseUrl }) => {
     try {
-      const clientId = 'fc-client-2.0';
-      const clientSecret = 'fc-client-secret';
-      const basicAuth = btoa(`${clientId}:${clientSecret}`);
+      const basicAuth = btoa('fc-client-2.0:fc-client-secret');
       const deviceId = crypto.randomUUID();
-      
       const resp = await fetch(`${baseUrl}/api/oauth/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           'Authorization': `Basic ${basicAuth}`,
-          'Accept': 'application/json',
         },
-        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&grant_type=password&device_id=${deviceId}&client_id=${clientId}`,
+        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&grant_type=password&device_id=${deviceId}&client_id=fc-client-2.0`,
       });
-      
       if (resp.ok) {
         const data = await resp.json();
         if (data.access_token) {
-          // Store in localStorage like the Angular app does
           localStorage.setItem('tokenStore', JSON.stringify({
             access_token: data.access_token,
             refresh_token: data.refresh_token || '',
             expires_by: String(Date.now() + (data.expires_in || 1800) * 1000),
           }));
-          return { success: true, token: data.access_token };
         }
       }
-      return { success: false };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
+      localStorage.setItem('urlDesignation', 'PA');
+    } catch {}
   }, { username, password, baseUrl: PA_BASE_URL });
-  
-  if (tokenResult.success) {
-    console.log(`   ✅ OAuth2 login successful, token stored in localStorage`);
-    return true;
-  }
-  
-  // Check if we're logged in by looking for logged-in indicators
-  const isLoggedIn = await page.evaluate(() => {
-    const token = localStorage.getItem('tokenStore');
-    if (token) {
-      try {
-        const parsed = JSON.parse(token);
-        return !!parsed.access_token;
-      } catch { return false; }
-    }
-    return false;
-  });
-  
-  if (!isLoggedIn) {
-    console.log(`   ❌ Login failed for ${username}`);
-    return false;
-  }
-  
+
+  console.log(`   ✅ Form login successful (J2EE /Login)`);
   return true;
 }
+
 
 // ── Process a single location ───────────────────────────────────
 async function processLocation(browser, location) {
@@ -387,15 +349,29 @@ async function fetchAllPALocations() {
 
 // ── Scrape full product catalog from restaurantWeeklyProducePricesReport.jsp ───
 async function scrapeCatalog(page, { restaurantId }) {
+  // CRITICAL: the JSP stub script checks localStorage.urlDesignation —
+  // if it's not 'PA', the page redirects to /index.jsp instead of rendering the table.
+  // OAuth login only sets tokenStore; the Angular portal-selector normally sets this.
+  await page.evaluate(() => { try { localStorage.setItem('urlDesignation', 'PA'); } catch {} });
+
   // Primary: Weekly Prices Report has ALL items with Master Product Name, PA Product ID, prices
   const url = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restaurantId}`;
   console.log(`   📦 Loading weekly prices report...`);
 
+
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+  await page.waitForTimeout(1500);
+  const debugInfo = await page.evaluate(() => ({
+    url: location.href,
+    len: document.documentElement.outerHTML.length,
+    hasCostDetailTable: !!document.querySelector('#costDetailTable'),
+    tableCount: document.querySelectorAll('table').length,
+  }));
+  console.log(`   🔍 page: ${debugInfo.url} | len=${debugInfo.len} | tables=${debugInfo.tableCount} | costDetailTable=${debugInfo.hasCostDetailTable}`);
 
   // Wait for the table to render
   try {
-    await page.waitForSelector('table td', { timeout: 10000 });
+    await page.waitForSelector('#costDetailTable td, table td', { timeout: 10000 });
   } catch {
     console.log(`   ⚠️ No table rendered on weekly prices page, trying fallback...`);
     const content = await page.content();
@@ -407,6 +383,7 @@ async function scrapeCatalog(page, { restaurantId }) {
 
   // Brief pause for any late-rendering cells
   await page.waitForTimeout(500);
+
 
   const items = await page.evaluate(() => {
     const results = [];
@@ -437,9 +414,11 @@ async function scrapeCatalog(page, { restaurantId }) {
         const cells = Array.from(rows[i].querySelectorAll('td')).map(td => td.textContent.trim());
         if (cells.length < 2) continue;
         
-        // Skip filter/input rows
-        const hasInput = rows[i].querySelector('input');
-        if (hasInput) continue;
+        // Skip filter/input rows — but ignore type="hidden" inputs (every data
+        // row has a hidden clientId_N input that we must not treat as a filter).
+        const visibleInputs = rows[i].querySelectorAll('input:not([type="hidden"]), select');
+        if (visibleInputs.length > 0) continue;
+
         
         const description = nameIdx >= 0 ? (cells[nameIdx] || '') : '';
         const paItemId = paIdIdx >= 0 ? (cells[paIdIdx] || '') : '';
