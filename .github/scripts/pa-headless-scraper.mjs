@@ -397,11 +397,12 @@ async function scrapeCatalog(page, { restaurantId }) {
     if (t.startsWith('PA_DBG')) console.log(`   ${t}`);
   });
 
-  const items = await page.evaluate(() => {
-    const results = [];
+  const evalResult = await page.evaluate(() => {
+    const out = { results: [], debug: { tablesSeen: 0, picked: null, sampleRows: [] } };
     const tables = document.querySelectorAll('table');
 
     for (const table of tables) {
+      out.debug.tablesSeen++;
       const headerRow = table.querySelector('tr');
       if (!headerRow) continue;
 
@@ -410,14 +411,12 @@ async function scrapeCatalog(page, { restaurantId }) {
 
       const hasProductName = headers.some(h => h.includes('master product name') || h.includes('product name'));
       const hasPaId = headers.some(h => h.includes('pa product id') || h.includes('product id'));
-
       if (!hasProductName && !hasPaId) continue;
 
       const nameIdx = headers.findIndex(h => h.includes('master product name') || h.includes('product name'));
       const paIdIdx = headers.findIndex(h => h.includes('pa product id') || h.includes('product id'));
       const codeIdx = headers.findIndex(h => h.includes('master product code') || h.includes('product code'));
 
-      // Sample the first data row to discover where numeric/money cells actually live
       const rowsAll = table.querySelectorAll('tr');
       let sampleCells = [];
       for (let i = 1; i < rowsAll.length; i++) {
@@ -427,8 +426,6 @@ async function scrapeCatalog(page, { restaurantId }) {
         if (c.length >= 2) { sampleCells = c; break; }
       }
 
-      // Price-column detection: header-based first, then fall back to any
-      // column whose sample cell looks like money (has $ or pure decimal).
       const headerPriceCandidates = headers
         .map((h, i) => ({ h, i }))
         .filter(({ h }) => /price|cost|amount|rate|\$|per\s*case|per\s*unit/.test(h));
@@ -437,24 +434,22 @@ async function scrapeCatalog(page, { restaurantId }) {
         ? [preferred.i, ...headerPriceCandidates.filter(c => c.i !== preferred.i).map(c => c.i)]
         : headerPriceCandidates.map(c => c.i);
 
-      // Fallback: scan sample row for money-shaped cells
       const moneyShaped = sampleCells
         .map((v, i) => ({ v, i }))
-        .filter(({ v, i }) => i !== paIdIdx && i !== codeIdx && /^\$?\s*\d+(\.\d{1,2})?$/.test(v.replace(/,/g, '')));
+        .filter(({ v, i }) =>
+          i !== paIdIdx && i !== codeIdx && i !== nameIdx &&
+          /^\$?\s*\d+(\.\d{1,2})?$/.test(v.replace(/,/g, ''))
+        );
       if (priceIdxList.length === 0) {
         priceIdxList = moneyShaped.map(c => c.i);
       }
 
-      console.log('PA_DBG headers=' + JSON.stringify(headers));
-      console.log('PA_DBG sampleCells=' + JSON.stringify(sampleCells));
-      console.log('PA_DBG priceIdxList=' + JSON.stringify(priceIdxList) + ' preferred=' + (preferred ? preferred.h : 'none'));
-      console.log('PA_DBG moneyShaped=' + JSON.stringify(moneyShaped));
+      out.debug.picked = { headers, sampleCells, nameIdx, paIdIdx, codeIdx, priceIdxList, preferred: preferred ? preferred.h : null, moneyShaped };
 
       const rows = table.querySelectorAll('tr');
       for (let i = 1; i < rows.length; i++) {
         const cells = Array.from(rows[i].querySelectorAll('td')).map(td => td.textContent.trim());
         if (cells.length < 2) continue;
-
         const visibleInputs = rows[i].querySelectorAll('input:not([type="hidden"]), select');
         if (visibleInputs.length > 0) continue;
 
@@ -469,14 +464,31 @@ async function scrapeCatalog(page, { restaurantId }) {
         const descParts = description.split(',');
         if (descParts.length > 1) packSize = descParts[descParts.length - 1].trim();
 
+        // Table-level priceIdxList first
         let unitPrice = null;
+        let priceSource = null;
         for (const idx of priceIdxList) {
           const raw = (cells[idx] || '').replace(/[^0-9.]/g, '');
           const parsed = parseFloat(raw);
-          if (!isNaN(parsed) && parsed > 0) { unitPrice = parsed; break; }
+          if (!isNaN(parsed) && parsed > 0) { unitPrice = parsed; priceSource = 'header:' + idx; break; }
+        }
+        // Per-row rescue: any money-shaped cell that isn't name/paId/code
+        if (unitPrice === null) {
+          for (let ci = 0; ci < cells.length; ci++) {
+            if (ci === nameIdx || ci === paIdIdx || ci === codeIdx) continue;
+            const v = (cells[ci] || '').replace(/,/g, '');
+            if (/^\$?\s*\d+(\.\d{1,2})?$/.test(v)) {
+              const parsed = parseFloat(v.replace(/[^0-9.]/g, ''));
+              if (!isNaN(parsed) && parsed > 0) { unitPrice = parsed; priceSource = 'rowscan:' + ci; break; }
+            }
+          }
         }
 
-        results.push({
+        if (out.debug.sampleRows.length < 5) {
+          out.debug.sampleRows.push({ desc: description, cells, unitPrice, priceSource });
+        }
+
+        out.results.push({
           pa_item_id: paItemId,
           pa_product_id: paItemId,
           master_product_code: productCode || null,
@@ -488,13 +500,17 @@ async function scrapeCatalog(page, { restaurantId }) {
         });
       }
 
-      if (results.length > 0) break;
+      if (out.results.length > 0) break;
     }
 
-    return results;
+    return out;
   });
 
-  console.log(`   ${items.length > 0 ? '✅' : '⚠️'} Weekly Prices Report: ${items.length} items found`);
+  const items = evalResult.results;
+  console.log(`   🔎 PA_DBG picked=${JSON.stringify(evalResult.debug.picked)}`);
+  console.log(`   🔎 PA_DBG sampleRows=${JSON.stringify(evalResult.debug.sampleRows)}`);
+  const priced = items.filter(i => i.unit_price != null).length;
+  console.log(`   ${items.length > 0 ? '✅' : '⚠️'} Weekly Prices Report: ${items.length} items found (${priced} with price)`);
   
   // If weekly prices page yielded nothing, try fallback
   if (items.length === 0) {
