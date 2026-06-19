@@ -3082,8 +3082,22 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     return jsonResponse({ success: false, message: 'XLSX downloads returned no item rows', saved: 0, distributor_pairs: distPairs, restaurant_id: restId });
   }
 
-  // Step 4: upsert keyed on (location_id, pa_product_id) — the authoritative key
+  // Step 4: full refresh — delete this location's catalog and reinsert from XLSX.
+  // The weekly XLSX is the authoritative PA source; legacy rows from the old
+  // current-prices API used master_product_code as pa_item_id, which conflicts
+  // with the new authoritative pa_product_id on the (location_id, pa_product_id)
+  // partial unique index. Wipe-and-reload sidesteps the duplicate-key problem
+  // and guarantees the table mirrors the live PA catalog.
   const now = new Date().toISOString();
+  const { error: deleteErr } = await supabase
+    .from('pa_catalog_items')
+    .delete()
+    .eq('location_id', locationId);
+  if (deleteErr) {
+    console.error('[PA Weekly XLSX] Delete-before-insert error:', deleteErr);
+    return jsonResponse({ success: false, error: `Failed to clear existing catalog: ${deleteErr.message}` });
+  }
+
   let saved = 0;
   for (let i = 0; i < items.length; i += 100) {
     const chunk = items.slice(i, i + 100).map(item => ({
@@ -3101,9 +3115,9 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     }));
     const { error } = await supabase
       .from('pa_catalog_items')
-      .upsert(chunk, { onConflict: 'location_id,pa_item_id' });
+      .insert(chunk);
     if (error) {
-      console.error('[PA Weekly XLSX] Upsert error:', error);
+      console.error('[PA Weekly XLSX] Insert error:', error);
     } else {
       saved += chunk.length;
     }
