@@ -2977,8 +2977,8 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   }> = [];
   const distIdsUsed: string[] = [];
 
-  for (const distId of distIds) {
-    const xlsxPath = `/spreadsheets/RestaurantWeeklyPricesReport_${distId}_${restId}.xlsx`;
+  for (const { distId, clientId } of distPairs) {
+    const xlsxPath = `/spreadsheets/RestaurantWeeklyPricesReport_${distId}_${clientId}.xlsx`;
     const xlsxUrl = `${PA_BASE_URL}${xlsxPath}`;
     console.log(`[PA Weekly XLSX] Fetching ${xlsxPath}`);
     let xlsxResp: Response;
