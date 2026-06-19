@@ -462,7 +462,9 @@ async function scrapeCatalog(page, { restaurantId }) {
         }
 
         results.push({
-          pa_item_id: paItemId,
+          pa_item_id: paItemId,            // legacy field (= PA Product ID)
+          pa_product_id: paItemId,         // NEW authoritative key (JSP "PA Product ID")
+          master_product_code: productCode || null,
           description,
           pack_size: packSize,
           category: 'Produce',
