@@ -428,18 +428,20 @@ async function scrapeCatalog(page, { restaurantId }) {
 
       const headerPriceCandidates = headers
         .map((h, i) => ({ h, i }))
-        .filter(({ h }) => /price|cost|amount|rate|\$|per\s*case|per\s*unit/.test(h));
-      const preferred = headerPriceCandidates.find(({ h }) => /unit|current|this\s*week|new/.test(h));
+        .filter(({ h }) => /price|cost|amount|rate|\$|per\s*case|per\s*unit|sell|each|extended/.test(h));
+      const preferred = headerPriceCandidates.find(({ h }) => /unit|current|this\s*week|new|case\s*sell|sell/.test(h));
       let priceIdxList = preferred
         ? [preferred.i, ...headerPriceCandidates.filter(c => c.i !== preferred.i).map(c => c.i)]
         : headerPriceCandidates.map(c => c.i);
 
+      // Money-shape: require $ prefix OR a decimal point (rejects padded numeric IDs like "03132")
       const moneyShaped = sampleCells
         .map((v, i) => ({ v, i }))
         .filter(({ v, i }) =>
           i !== paIdIdx && i !== codeIdx && i !== nameIdx &&
-          /^\$?\s*\d+(\.\d{1,2})?$/.test(v.replace(/,/g, ''))
+          /^\$\s*\d+(\.\d{1,2})?$|^\d+\.\d{1,2}$/.test(v.replace(/,/g, ''))
         );
+
       if (priceIdxList.length === 0) {
         priceIdxList = moneyShaped.map(c => c.i);
       }
@@ -477,7 +479,7 @@ async function scrapeCatalog(page, { restaurantId }) {
           for (let ci = 0; ci < cells.length; ci++) {
             if (ci === nameIdx || ci === paIdIdx || ci === codeIdx) continue;
             const v = (cells[ci] || '').replace(/,/g, '');
-            if (/^\$?\s*\d+(\.\d{1,2})?$/.test(v)) {
+            if (/^\$\s*\d+(\.\d{1,2})?$|^\d+\.\d{1,2}$/.test(v)) {
               const parsed = parseFloat(v.replace(/[^0-9.]/g, ''));
               if (!isNaN(parsed) && parsed > 0) { unitPrice = parsed; priceSource = 'rowscan:' + ci; break; }
             }
