@@ -2650,18 +2650,22 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
 
   // Batch upsert in chunks of 50
   for (let i = 0; i < items.length; i += 50) {
-    const chunk = items.slice(i, i + 50).map((item: any) => ({
-      location_id: locationId,
-      pa_item_id: String(item.pa_item_id || '').trim(),
-      pa_internal_id: item.pa_internal_id ? String(item.pa_internal_id).trim() : null,
-      master_product_code: item.master_product_code ? String(item.master_product_code).trim() : (item.pa_item_id ? String(item.pa_item_id).trim() : null),
-      master_product_id: item.master_product_id ? String(item.master_product_id).trim() : (item.pa_internal_id ? String(item.pa_internal_id).trim() : null),
-      description: String(item.description || '').trim(),
-      pack_size: item.pack_size || null,
-      category: item.category || null,
-      unit_price: item.unit_price || null,
-      last_seen_at: now,
-    })).filter((item: any) => item.pa_item_id);
+    const chunk = items.slice(i, i + 50).map((item: any) => {
+      const paProductId = String(item.pa_product_id || item.pa_item_id || '').trim();
+      return {
+        location_id: locationId,
+        pa_item_id: paProductId,                                                  // legacy column mirrors PA Product ID
+        pa_product_id: paProductId || null,                                       // NEW authoritative column
+        pa_internal_id: item.pa_internal_id ? String(item.pa_internal_id).trim() : null,
+        master_product_code: item.master_product_code ? String(item.master_product_code).trim() : null,
+        master_product_id: item.master_product_id ? String(item.master_product_id).trim() : (item.pa_internal_id ? String(item.pa_internal_id).trim() : null),
+        description: String(item.description || '').trim(),
+        pack_size: item.pack_size || null,
+        category: item.category || null,
+        unit_price: item.unit_price || null,
+        last_seen_at: now,
+      };
+    }).filter((item: any) => item.pa_item_id);
 
 
     const { error } = await supabase
