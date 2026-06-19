@@ -465,18 +465,18 @@ export const UnifiedNotificationSettings = () => {
                           </div>
                         </div>
                         {nt.key === 'day_part_pulse' && (
-                          <div className="ml-1 pl-4 py-2 border-l-2 border-muted space-y-2">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium">Day Part Cutoff</span>
+                          <div className="ml-1 pl-3 py-1 border-l-2 border-muted space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium">Day Part Cutoff</span>
                               <input
                                 type="time"
                                 value={amCutoff}
                                 onChange={(e) => saveAmCutoff(e.target.value)}
-                                className="text-xs bg-background border border-input rounded px-2 py-1 h-7"
+                                className="text-xs bg-background border border-input rounded px-1.5 py-0.5 h-6"
                               />
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              AM Shift Pulse fires at this time; PM Shift Pulse fires at closing time.
+                            <p className="text-[11px] text-muted-foreground leading-tight">
+                              AM fires at this time; PM fires at closing.
                             </p>
                           </div>
                         )}
