@@ -82,7 +82,7 @@ export const UnifiedNotificationSettings = () => {
         .eq('location_id', selectedLocationId);
 
       // Fetch AM cutoff for this location
-      const { data: locSettings } = await supabase
+      const { data: locSettings } = await (supabase as any)
         .from('location_settings')
         .select('day_part_am_cutoff')
         .eq('location_id', selectedLocationId)
