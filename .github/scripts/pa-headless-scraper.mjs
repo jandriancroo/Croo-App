@@ -644,7 +644,10 @@ async function main() {
   const allResults = [];
 
   try {
-    const locations = await fetchPendingOrders();
+    let locations = await fetchPendingOrders();
+    if (locationFilter && locations) {
+      locations = locations.filter(l => l.locationId === locationFilter);
+    }
     if (locations && locations.length > 0) {
       totalOrders = locations.reduce((sum, l) => sum + (l.pendingOrders?.length || 0), 0);
       console.log(`Found ${locations.length} location(s) with ${totalOrders} pending order(s)`);
