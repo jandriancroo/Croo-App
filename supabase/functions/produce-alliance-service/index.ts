@@ -2915,8 +2915,23 @@ async function handleDumpWeeklyPricesHtml(supabase: any, body: any): Promise<Res
 // ────────────────────────────────────────────────────────────────────────────
 
 async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Response> {
+  // ⚠️ HEADLESS-ONLY — DO NOT AUTO-TRIGGER.
+  // The Weekly Pricing JSP returns a 555-byte client-side redirect stub when
+  // fetched server-side (the urlDesignation flag lives in browser localStorage
+  // and is set by the Angular bundle). Only `.github/scripts/pa-headless-scraper.mjs`
+  // can scrape the real table. Edge-function callers must pass _headless: true
+  // to acknowledge they understand this and have already obtained the HTML elsewhere.
+  if (!body?._headless) {
+    return jsonResponse({
+      success: false,
+      disabled: true,
+      error: 'JSP scrape from edge function is disabled. Use pa-headless-scraper.mjs (Playwright) → save_catalog instead.',
+    }, 410);
+  }
   const { locationId } = body;
   if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
+
+
 
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA not configured for this location' });
