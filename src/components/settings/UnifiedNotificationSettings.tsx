@@ -116,7 +116,7 @@ export const UnifiedNotificationSettings = () => {
   const saveAmCutoff = async (next: string) => {
     if (!selectedLocationId) return;
     setAmCutoff(next);
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('location_settings')
       .update({ day_part_am_cutoff: `${next}:00` })
       .eq('location_id', selectedLocationId);
