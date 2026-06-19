@@ -2993,6 +2993,11 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   ]) {
     try {
       const r = await fetch(triggerUrl, { method: 'GET', headers: triggerHeaders, redirect: 'follow' });
+      const extra = extractCookies(r.headers);
+      if (extra) {
+        session.cookies = mergeCookies(session.cookies, extra);
+        triggerHeaders['Cookie'] = session.cookies;
+      }
       const t = await r.text();
       console.log(`[PA Weekly XLSX] trigger ${triggerUrl.replace(PA_BASE_URL, '')} → ${r.status}, ${t.length}B`);
     } catch (e) {
