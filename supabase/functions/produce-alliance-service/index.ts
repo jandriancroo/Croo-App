@@ -3142,6 +3142,128 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
 
 
+// ────────────────────────────────────────────────────────────────────────────
+// PROBE: find the call that sets urlDesignation=PA on the server session,
+// so the Weekly Pricing JSP returns real HTML instead of the redirect stub.
+// No writes. Logs in once, then tries each candidate as a session warmup
+// and re-fetches the JSP after it. Reports which (if any) flipped the result.
+// ────────────────────────────────────────────────────────────────────────────
+async function handleProbeDesignation(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
+
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const restId = String(session.restaurantId);
+  const reportUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`;
+
+  const baseHeaders = {
+    'User-Agent': UA,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': `${PA_BASE_URL}/ng/`,
+  };
+
+  // Snapshot baseline (cookies as-is from login)
+  async function fetchReport(): Promise<{ status: number; len: number; isStub: boolean; hasTable: boolean }> {
+    const r = await fetch(reportUrl, {
+      method: 'GET',
+      headers: { ...baseHeaders, 'Cookie': session.cookies, 'Referer': reportUrl },
+      redirect: 'follow',
+    });
+    const extra = extractCookies(r.headers);
+    if (extra) session.cookies = mergeCookies(session.cookies, extra);
+    const t = await r.text();
+    return {
+      status: r.status,
+      len: t.length,
+      isStub: t.includes('localStorage.setItem') && t.length < 1500,
+      hasTable: /id="costDetailTable"/i.test(t),
+    };
+  }
+
+  const baseline = await fetchReport();
+
+  // Candidate warmups — each is tried with the session cookies, and any
+  // new cookies it returns are merged in before we re-fetch the JSP.
+  const candidates: Array<{ label: string; method: 'GET' | 'POST'; url: string; body?: string; contentType?: string }> = [
+    // Plain JSP variants with explicit designation params
+    { label: 'GET /ProduceAlliance.jsp?urlDesignation=PA', method: 'GET', url: `/ProduceAlliance.jsp?urlDesignation=PA` },
+    { label: 'GET /ProduceAlliance.jsp?designation=PA', method: 'GET', url: `/ProduceAlliance.jsp?designation=PA` },
+    { label: 'GET /PA.jsp', method: 'GET', url: `/PA.jsp` },
+    { label: 'GET /restaurantHome.jsp?restaurantId=R', method: 'GET', url: `/restaurantHome.jsp?restaurantId=${restId}` },
+    { label: 'GET /index.jsp?urlDesignation=PA', method: 'GET', url: `/index.jsp?urlDesignation=PA` },
+    { label: 'GET /home.jsp?urlDesignation=PA', method: 'GET', url: `/home.jsp?urlDesignation=PA` },
+    { label: 'GET /selectClient.jsp?clientId=R', method: 'GET', url: `/selectClient.jsp?clientId=${restId}` },
+    { label: 'GET /restaurantLoginAction.jsp', method: 'GET', url: `/restaurantLoginAction.jsp` },
+    // Common JSON API guesses
+    { label: 'GET /api/common/set-designation?designation=PA', method: 'GET', url: `/api/common/set-designation?designation=PA` },
+    { label: 'POST /api/common/set-designation', method: 'POST', url: `/api/common/set-designation`, body: JSON.stringify({ designation: 'PA' }), contentType: 'application/json' },
+    { label: 'GET /api/common/url-designation?value=PA', method: 'GET', url: `/api/common/url-designation?value=PA` },
+    { label: 'POST /api/common/url-designation', method: 'POST', url: `/api/common/url-designation`, body: JSON.stringify({ urlDesignation: 'PA' }), contentType: 'application/json' },
+    { label: 'POST /api/common/designation', method: 'POST', url: `/api/common/designation`, body: JSON.stringify({ designation: 'PA' }), contentType: 'application/json' },
+    { label: 'GET /api/common/switch-portal/PA', method: 'GET', url: `/api/common/switch-portal/PA` },
+    { label: 'GET /api/common/select-portal?portal=PA', method: 'GET', url: `/api/common/select-portal?portal=PA` },
+    { label: 'POST /api/user/switch-context PA', method: 'POST', url: `/api/user/switch-context`, body: JSON.stringify({ context: 'PA' }), contentType: 'application/json' },
+    // Calls the Angular app is known to make right after login
+    { label: 'GET /api/common/linked-users', method: 'GET', url: `/api/common/linked-users` },
+    { label: 'GET /api/restaurant-dashboard/get-restaurant-info?restaurantId=R', method: 'GET', url: `/api/restaurant-dashboard/get-restaurant-info?restaurantId=${restId}` },
+    { label: 'GET /api/common/session', method: 'GET', url: `/api/common/session` },
+  ];
+
+  // HYPOTHESIS TEST: inject urlDesignation=PA as a cookie and re-fetch BEFORE running the candidate loop.
+  session.cookies = mergeCookies(session.cookies, 'urlDesignation=PA');
+  const afterCookieInject = await fetchReport();
+  const baselineWithCookie = { step: 'cookie injection: urlDesignation=PA', ...afterCookieInject };
+  if (afterCookieInject.hasTable && !afterCookieInject.isStub) {
+    return jsonResponse({ success: true, found: 'COOKIE: urlDesignation=PA', restaurant_id: restId, results: [baseline, baselineWithCookie].map((r,i)=>({...r,step: i===0?'baseline':r.step})) });
+  }
+
+  const results: any[] = [{ step: 'baseline (login only)', ...baseline }, baselineWithCookie];
+
+
+  for (const c of candidates) {
+    try {
+      const headers: Record<string, string> = {
+        ...getAuthHeaders(session, c.method === 'POST'),
+        'Cookie': session.cookies,
+      };
+      if (c.contentType) headers['Content-Type'] = c.contentType;
+      // For HTML/JSP warmups, swap the Accept header
+      if (c.url.endsWith('.jsp') || c.url.includes('.jsp?')) {
+        headers['Accept'] = 'text/html,application/xhtml+xml,*/*';
+      }
+      const wResp = await fetch(`${PA_BASE_URL}${c.url}`, {
+        method: c.method,
+        headers,
+        body: c.body,
+        redirect: 'follow',
+      });
+      const wExtra = extractCookies(wResp.headers);
+      if (wExtra) session.cookies = mergeCookies(session.cookies, wExtra);
+      const wText = await wResp.text();
+      const after = await fetchReport();
+      results.push({
+        step: c.label,
+        warmup_status: wResp.status,
+        warmup_len: wText.length,
+        warmup_preview: wText.substring(0, 200),
+        ...after,
+      });
+      if (after.hasTable && !after.isStub) {
+        return jsonResponse({ success: true, found: c.label, restaurant_id: restId, results });
+      }
+    } catch (e) {
+      results.push({ step: c.label, error: String(e) });
+    }
+  }
+
+  return jsonResponse({ success: false, found: null, restaurant_id: restId, results });
+}
 
 // ── Scrape all PA locations' catalogs (called by GitHub Action) ──
 async function handleScrapeAllCatalogs(supabase: any, _body: any): Promise<Response> {
@@ -3217,6 +3339,7 @@ serve(async (req) => {
       case 'set_sync_mode': return await handleSetSyncMode(supabase, body);
       case 'nightly_invoice_sync': return await handleNightlyInvoiceSync(supabase, body);
       case 'dump_weekly_prices_html': return await handleDumpWeeklyPricesHtml(supabase, body);
+      case 'probe_designation': return await handleProbeDesignation(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
