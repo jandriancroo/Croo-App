@@ -81,6 +81,16 @@ export const UnifiedNotificationSettings = () => {
         .eq('user_id', user.id)
         .eq('location_id', selectedLocationId);
 
+      // Fetch AM cutoff for this location
+      const { data: locSettings } = await supabase
+        .from('location_settings')
+        .select('day_part_am_cutoff')
+        .eq('location_id', selectedLocationId)
+        .maybeSingle();
+      if (locSettings?.day_part_am_cutoff) {
+        setAmCutoff(String(locSettings.day_part_am_cutoff).slice(0, 5));
+      }
+
       // Build settings with defaults for this location
       const allSettings: NotificationSetting[] = NOTIFICATION_TYPES.map(nt => {
         const existing = existingSettings?.find(s => s.notification_type === nt.key);
@@ -100,6 +110,18 @@ export const UnifiedNotificationSettings = () => {
       console.error('Error fetching notification settings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveAmCutoff = async (next: string) => {
+    if (!selectedLocationId) return;
+    setAmCutoff(next);
+    const { error } = await supabase
+      .from('location_settings')
+      .update({ day_part_am_cutoff: `${next}:00` })
+      .eq('location_id', selectedLocationId);
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to update AM cutoff', variant: 'destructive' });
     }
   };
 
