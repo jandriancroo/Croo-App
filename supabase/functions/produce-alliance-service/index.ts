@@ -2954,6 +2954,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   let distIds: string[] = [];
   try {
     const invoices = await fetchInvoiceList(session, fmt(start), fmt(today));
+    if (invoices.length) console.log(`[PA Probe] invoice[0] full =`, JSON.stringify(invoices[0]));
     distIds = Array.from(new Set(invoices.map(i => i.distributorId).filter(Boolean)));
     console.log(`[PA Weekly XLSX] Discovered ${distIds.length} distributor IDs from invoices:`, distIds);
   } catch (e) {
