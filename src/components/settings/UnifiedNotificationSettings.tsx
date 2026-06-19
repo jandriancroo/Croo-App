@@ -47,6 +47,7 @@ export const UnifiedNotificationSettings = () => {
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
+  const [amCutoff, setAmCutoff] = useState<string>('16:00');
 
   const isManagerOrAbove = isShiftManager || isManager || isGeneralManager || isAdmin;
   const isNative = Capacitor.isNativePlatform();
