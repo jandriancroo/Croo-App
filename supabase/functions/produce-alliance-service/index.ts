@@ -2931,39 +2931,31 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   // distributor and merge.
   const restId = String(session.restaurantId);
 
-  // DEBUG: probe endpoints to find the "file restId" that PA uses in the XLSX
-  // path (e.g. 1876 ≠ session.restaurantId=50723).
-  for (const probeUrl of [
-    `${PA_BASE_URL}/api/common/session`,
-    `${PA_BASE_URL}/api/restaurant-dashboard/get-restaurant-info?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/api/restaurant-dashboard/get-restaurant-info`,
-    `${PA_BASE_URL}/api/common/linked-users`,
-  ]) {
-    try {
-      const r = await fetch(probeUrl, { method: 'GET', headers: { ...getAuthHeaders(session), 'Accept': 'application/json', 'Referer': `${PA_BASE_URL}/ng/` } });
-      const t = await r.text();
-      console.log(`[PA Probe] ${probeUrl.replace(PA_BASE_URL, '')} → ${r.status} | ${t.substring(0, 1500)}`);
-    } catch (e) { console.log(`[PA Probe] ${probeUrl} err`, e); }
-  }
-
-
-  // Discover distributor IDs from the last 180 days of invoices.
+  // The XLSX filename uses (distributorId, clientId), NOT (distributorId, restaurantId).
+  // clientId is a per-(restaurant, distributor) join row PA assigns internally.
+  // Both are exposed on every invoice record from fetch-invoices-for-restaurant.
   const today = new Date();
   const start = new Date(today); start.setDate(today.getDate() - 180);
   const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  let distIds: string[] = [];
+  const distPairs: Array<{ distId: string; clientId: string }> = [];
   try {
     const invoices = await fetchInvoiceList(session, fmt(start), fmt(today));
-    if (invoices.length) console.log(`[PA Probe] invoice[0] full =`, JSON.stringify(invoices[0]));
-    distIds = Array.from(new Set(invoices.map(i => i.distributorId).filter(Boolean)));
-    console.log(`[PA Weekly XLSX] Discovered ${distIds.length} distributor IDs from invoices:`, distIds);
+    const seen = new Set<string>();
+    for (const inv of invoices) {
+      if (!inv.distributorId || !inv.clientId) continue;
+      const key = `${inv.distributorId}::${inv.clientId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      distPairs.push({ distId: inv.distributorId, clientId: inv.clientId });
+    }
+    console.log(`[PA Weekly XLSX] Discovered ${distPairs.length} (distId,clientId) pairs:`, JSON.stringify(distPairs));
   } catch (e) {
     console.warn('[PA Weekly XLSX] Invoice-based discovery failed:', e);
   }
 
-  if (distIds.length === 0) {
-    console.error('[PA Weekly XLSX] No distributor IDs discovered — cannot build XLSX URL.');
-    return jsonResponse({ success: false, error: 'No distributor IDs found for this restaurant (no recent invoices).' });
+  if (distPairs.length === 0) {
+    console.error('[PA Weekly XLSX] No (distributorId,clientId) pairs discovered — cannot build XLSX URL.');
+    return jsonResponse({ success: false, error: 'No distributor/client IDs found for this restaurant (no recent invoices).' });
   }
 
   const xlsxHeaders = {
