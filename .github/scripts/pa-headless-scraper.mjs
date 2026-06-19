@@ -387,9 +387,15 @@ async function fetchAllPALocations() {
 
 // ── Scrape full product catalog from restaurantWeeklyProducePricesReport.jsp ───
 async function scrapeCatalog(page, { restaurantId }) {
+  // CRITICAL: the JSP stub script checks localStorage.urlDesignation —
+  // if it's not 'PA', the page redirects to /index.jsp instead of rendering the table.
+  // OAuth login only sets tokenStore; the Angular portal-selector normally sets this.
+  await page.evaluate(() => { try { localStorage.setItem('urlDesignation', 'PA'); } catch {} });
+
   // Primary: Weekly Prices Report has ALL items with Master Product Name, PA Product ID, prices
   const url = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restaurantId}`;
   console.log(`   📦 Loading weekly prices report...`);
+
 
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
