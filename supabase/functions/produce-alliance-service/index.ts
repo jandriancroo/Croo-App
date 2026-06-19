@@ -2992,8 +2992,20 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     if (extra) session.cookies = mergeCookies(session.cookies, extra);
     const bakeText = await bakeResp.text();
     console.log(`[PA Weekly XLSX] BAKE POST → ${bakeResp.status}, ${bakeText.length}B (clientId=${clientId}, FCUID=${fcuid})`);
+    if (body?.debugBake) {
+      (body as any).__bakeDebug = {
+        status: bakeResp.status,
+        bytes: bakeText.length,
+        clientId,
+        fcuid,
+        restaurantId: session.restaurantId,
+        bodySent: bakeBody,
+        responsePreview: bakeText.slice(0, 4000),
+      };
+    }
     // Give PA a moment to finish writing files to /spreadsheets/
-    await new Promise(r => setTimeout(r, 3000));
+    const bakeWaitMs = Number(body?.bakeWaitMs) > 0 ? Number(body.bakeWaitMs) : 3000;
+    await new Promise(r => setTimeout(r, bakeWaitMs));
   } catch (e) {
     console.warn('[PA Weekly XLSX] BAKE POST failed (continuing anyway):', e);
   }
