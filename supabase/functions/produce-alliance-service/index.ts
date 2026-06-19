@@ -2923,99 +2923,49 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Replicate the exact browser flow captured from a working session:
-  //   1) GET /reports/restaurantWeeklyProducePricesReport.jsp  (referer /ng/)
-  //   2) GET /reports/restaurantExcelDownloadHistory.jsp       (referer = step 1)
-  // The JSPs key off JSESSIONID + tokenStore cookies (already on session).
-  // Use the iOS Safari UA + browser-shaped headers that the working cURL used.
-  const browserHeaders = (referer: string): Record<string, string> => ({
+  // Direct XLSX path — bypass the JSP entirely. The JSP returns a localStorage
+  // redirect stub for headless clients, but the actual file is served at:
+  //   /spreadsheets/RestaurantWeeklyPricesReport_<distId>_<restId>.xlsx
+  // restId = session.restaurantId. distId = PA vendor number(s). We discover
+  // active distributor IDs from recent invoices, then pull one XLSX per
+  // distributor and merge.
+  const restId = String(session.restaurantId);
+
+  // The XLSX filename uses (distributorId, clientId), NOT (distributorId, restaurantId).
+  // clientId is a per-(restaurant, distributor) join row PA assigns internally.
+  // Both are exposed on every invoice record from fetch-invoices-for-restaurant.
+  const today = new Date();
+  const start = new Date(today); start.setDate(today.getDate() - 180);
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const distPairs: Array<{ distId: string; clientId: string }> = [];
+  try {
+    const invoices = await fetchInvoiceList(session, fmt(start), fmt(today));
+    const seen = new Set<string>();
+    for (const inv of invoices) {
+      if (!inv.distributorId || !inv.clientId) continue;
+      const key = `${inv.distributorId}::${inv.clientId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      distPairs.push({ distId: inv.distributorId, clientId: inv.clientId });
+    }
+    console.log(`[PA Weekly XLSX] Discovered ${distPairs.length} (distId,clientId) pairs:`, JSON.stringify(distPairs));
+  } catch (e) {
+    console.warn('[PA Weekly XLSX] Invoice-based discovery failed:', e);
+  }
+
+  if (distPairs.length === 0) {
+    console.error('[PA Weekly XLSX] No (distributorId,clientId) pairs discovered — cannot build XLSX URL.');
+    return jsonResponse({ success: false, error: 'No distributor/client IDs found for this restaurant (no recent invoices).' });
+  }
+
+  const xlsxHeaders = {
     'Cookie': session.cookies,
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Cache-Control': 'max-age=0',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-User': '?1',
-    'Referer': referer,
-  });
+    'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*',
+    'Referer': `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp`,
+  };
 
-  const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp`;
-  const historyUrl = `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp`;
-
-  let xlsxMatch: RegExpMatchArray | null = null;
-  let lastPreview = '';
-
-  for (const [label, url, referer] of [
-    ['weekly', weeklyUrl, `${PA_BASE_URL}/ng/`],
-    ['history', historyUrl, weeklyUrl],
-  ] as const) {
-    console.log(`[PA Weekly XLSX] GET ${url} (referer=${referer})`);
-    const resp = await fetch(url, { method: 'GET', headers: browserHeaders(referer), redirect: 'follow' });
-    const extra = extractCookies(resp.headers);
-    if (extra) session.cookies = mergeCookies(session.cookies, extra);
-    const html = await resp.text();
-    const isRedirectStub = html.includes('localStorage.setItem') && html.length < 1500;
-    console.log(`[PA Weekly XLSX] ${label} -> ${resp.status}, ${html.length} chars, stub=${isRedirectStub}`);
-    console.log(`[PA Weekly XLSX] ${label} preview: ${html.substring(0, 400).replace(/\s+/g, ' ')}`);
-    if (!isRedirectStub) lastPreview = html.substring(0, 600);
-    const m = html.match(/\/spreadsheets\/RestaurantWeeklyPricesReport_(\d+)_(\d+)\.xlsx/i);
-    if (m) { xlsxMatch = m; break; }
-  }
-
-  if (!xlsxMatch) {
-    console.error('[PA Weekly XLSX] No XLSX link found. Last non-stub preview:', lastPreview);
-    return jsonResponse({ success: false, error: 'XLSX link not found on weekly prices report page' });
-  }
-  const [xlsxPath, distId, restId] = xlsxMatch;
-  console.log(`[PA Weekly XLSX] Found XLSX path: ${xlsxPath} (distId=${distId}, restId=${restId})`);
-
-  // Step 2: download the XLSX
-  const xlsxUrl = `${PA_BASE_URL}${xlsxPath}`;
-  const xlsxResp = await fetch(xlsxUrl, {
-    method: 'GET',
-    headers: { ...getAuthHeaders(session), 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*' },
-    redirect: 'follow',
-  });
-  if (xlsxResp.status !== 200) {
-    const errBody = await xlsxResp.text().catch(() => '');
-    console.error(`[PA Weekly XLSX] XLSX fetch failed: ${xlsxResp.status} ${errBody.substring(0, 200)}`);
-    return jsonResponse({ success: false, error: `XLSX download failed: ${xlsxResp.status}` });
-  }
-  const xlsxBytes = new Uint8Array(await xlsxResp.arrayBuffer());
-  console.log(`[PA Weekly XLSX] Downloaded ${xlsxBytes.byteLength} bytes`);
-
-  // Step 3: parse the XLSX
   const XLSX = await import('https://esm.sh/xlsx@0.18.5');
-  const wb = XLSX.read(xlsxBytes, { type: 'array' });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, blankrows: false, defval: null });
-  console.log(`[PA Weekly XLSX] Sheet "${wb.SheetNames[0]}" has ${rows.length} rows`);
-
-  // Find the header row (locate the row that contains "PA PRODUCT ID")
-  let headerIdx = -1;
-  for (let i = 0; i < Math.min(rows.length, 20); i++) {
-    const row = (rows[i] || []).map((c: any) => String(c ?? '').trim().toUpperCase());
-    if (row.includes('PA PRODUCT ID') && row.includes('MASTER PRODUCT CODE')) {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx === -1) {
-    console.error('[PA Weekly XLSX] No header row found. First 5 rows:', JSON.stringify(rows.slice(0, 5)));
-    return jsonResponse({ success: false, error: 'XLSX header row not found' });
-  }
-  const headers = (rows[headerIdx] || []).map((c: any) => String(c ?? '').trim().toUpperCase());
-  const colName  = headers.indexOf('MASTER PRODUCT NAME');
-  const colMpc   = headers.indexOf('MASTER PRODUCT CODE');
-  const colPpid  = headers.indexOf('PA PRODUCT ID');
-  const colDist  = headers.indexOf('DISTRIBUTOR PRODUCT ID');
-  const colPrice = headers.indexOf('CASE SELL');
-  const colPack  = headers.findIndex(h => h === 'PACK SIZE' || h === 'PACK' || h === 'PACK/SIZE');
-  console.log(`[PA Weekly XLSX] cols: name=${colName} mpc=${colMpc} ppid=${colPpid} dist=${colDist} price=${colPrice} pack=${colPack}`);
-
   const items: Array<{
     pa_product_id: string;
     master_product_code: string | null;
@@ -3025,31 +2975,111 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     unit_price: number | null;
     distributor_item_id: string | null;
   }> = [];
+  const distIdsUsed: string[] = [];
 
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i] || [];
-    const ppid = colPpid >= 0 ? String(row[colPpid] ?? '').trim() : '';
-    const name = colName >= 0 ? String(row[colName] ?? '').trim() : '';
-    if (!ppid || !name) continue;
-    if (!/^\d+$/.test(ppid)) continue; // skip total/footer rows
-    const mpc = colMpc >= 0 ? String(row[colMpc] ?? '').trim() : '';
-    const distItem = colDist >= 0 ? String(row[colDist] ?? '').trim() : '';
-    const priceRaw = colPrice >= 0 ? row[colPrice] : null;
-    const price = priceRaw != null && priceRaw !== '' ? Number(String(priceRaw).replace(/[^0-9.\-]/g, '')) : null;
-    items.push({
-      pa_product_id: ppid,
-      master_product_code: mpc || null,
-      description: name,
-      pack_size: colPack >= 0 && row[colPack] != null ? String(row[colPack]).trim() : null,
-      category: 'Produce',
-      unit_price: price != null && !Number.isNaN(price) ? price : null,
-      distributor_item_id: distItem || null,
-    });
+  // Trigger server-side regeneration of the weekly XLSX files. PA writes them
+  // to /spreadsheets/ only after a successful render of these JSPs; without
+  // this, the .xlsx returns a 492-byte error stub for stale/never-built files.
+  const triggerHeaders = {
+    'Cookie': session.cookies,
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Referer': `${PA_BASE_URL}/ng/`,
+  };
+  for (const triggerUrl of [
+    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`,
+    `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${restId}`,
+  ]) {
+    try {
+      const r = await fetch(triggerUrl, { method: 'GET', headers: triggerHeaders, redirect: 'follow' });
+      const t = await r.text();
+      console.log(`[PA Weekly XLSX] trigger ${triggerUrl.replace(PA_BASE_URL, '')} → ${r.status}, ${t.length}B`);
+    } catch (e) {
+      console.warn(`[PA Weekly XLSX] trigger error:`, e);
+    }
   }
-  console.log(`[PA Weekly XLSX] Parsed ${items.length} catalog rows`);
+
+  for (const { distId, clientId } of distPairs) {
+    const xlsxPath = `/spreadsheets/RestaurantWeeklyPricesReport_${distId}_${clientId}.xlsx`;
+    const xlsxUrl = `${PA_BASE_URL}${xlsxPath}`;
+    console.log(`[PA Weekly XLSX] Fetching ${xlsxPath}`);
+    let xlsxResp: Response;
+    try {
+      xlsxResp = await fetch(xlsxUrl, { method: 'GET', headers: xlsxHeaders, redirect: 'follow' });
+    } catch (e) {
+      console.warn(`[PA Weekly XLSX] dist ${distId} fetch error:`, e);
+      continue;
+    }
+    if (xlsxResp.status !== 200) {
+      console.warn(`[PA Weekly XLSX] dist ${distId} returned ${xlsxResp.status} — skipping`);
+      continue;
+    }
+    const xlsxBytes = new Uint8Array(await xlsxResp.arrayBuffer());
+    console.log(`[PA Weekly XLSX] dist ${distId}: ${xlsxBytes.byteLength} bytes`);
+    if (xlsxBytes.byteLength < 1000) {
+      const stubText = new TextDecoder().decode(xlsxBytes).substring(0, 600);
+      console.warn(`[PA Weekly XLSX] dist ${distId} too small (${xlsxBytes.byteLength}B). Body: ${stubText}`);
+      continue;
+    }
+
+    let wb: any;
+    try {
+      wb = XLSX.read(xlsxBytes, { type: 'array' });
+    } catch (e) {
+      console.warn(`[PA Weekly XLSX] dist ${distId} parse failed:`, e);
+      continue;
+    }
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, blankrows: false, defval: null });
+
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 20); i++) {
+      const row = (rows[i] || []).map((c: any) => String(c ?? '').trim().toUpperCase());
+      if (row.includes('PA PRODUCT ID') && row.includes('MASTER PRODUCT CODE')) { headerIdx = i; break; }
+    }
+    if (headerIdx === -1) {
+      console.warn(`[PA Weekly XLSX] dist ${distId} no header row found, skipping`);
+      continue;
+    }
+    const headers = (rows[headerIdx] || []).map((c: any) => String(c ?? '').trim().toUpperCase());
+    const colName  = headers.indexOf('MASTER PRODUCT NAME');
+    const colMpc   = headers.indexOf('MASTER PRODUCT CODE');
+    const colPpid  = headers.indexOf('PA PRODUCT ID');
+    const colDist  = headers.indexOf('DISTRIBUTOR PRODUCT ID');
+    const colPrice = headers.indexOf('CASE SELL');
+    const colPack  = headers.findIndex((h: string) => h === 'PACK SIZE' || h === 'PACK' || h === 'PACK/SIZE');
+
+    let added = 0;
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i] || [];
+      const ppid = colPpid >= 0 ? String(row[colPpid] ?? '').trim() : '';
+      const name = colName >= 0 ? String(row[colName] ?? '').trim() : '';
+      if (!ppid || !name) continue;
+      if (!/^\d+$/.test(ppid)) continue;
+      const mpc = colMpc >= 0 ? String(row[colMpc] ?? '').trim() : '';
+      const distItem = colDist >= 0 ? String(row[colDist] ?? '').trim() : '';
+      const priceRaw = colPrice >= 0 ? row[colPrice] : null;
+      const price = priceRaw != null && priceRaw !== '' ? Number(String(priceRaw).replace(/[^0-9.\-]/g, '')) : null;
+      items.push({
+        pa_product_id: ppid,
+        master_product_code: mpc || null,
+        description: name,
+        pack_size: colPack >= 0 && row[colPack] != null ? String(row[colPack]).trim() : null,
+        category: 'Produce',
+        unit_price: price != null && !Number.isNaN(price) ? price : null,
+        distributor_item_id: distItem || null,
+      });
+      added++;
+    }
+    console.log(`[PA Weekly XLSX] dist ${distId} contributed ${added} rows`);
+    distIdsUsed.push(distId);
+  }
+
+  const distId = distIdsUsed.join(',') || distPairs.map(p => p.distId).join(',');
+  console.log(`[PA Weekly XLSX] Parsed ${items.length} total catalog rows across ${distIdsUsed.length} distributors`);
 
   if (items.length === 0) {
-    return jsonResponse({ success: true, message: 'XLSX parsed but no item rows found', saved: 0, distributor_id: distId, restaurant_id: restId });
+    return jsonResponse({ success: false, message: 'XLSX downloads returned no item rows', saved: 0, distributor_pairs: distPairs, restaurant_id: restId });
   }
 
   // Step 4: upsert keyed on (location_id, pa_product_id) — the authoritative key
@@ -3071,7 +3101,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     }));
     const { error } = await supabase
       .from('pa_catalog_items')
-      .upsert(chunk, { onConflict: 'location_id,pa_product_id' });
+      .upsert(chunk, { onConflict: 'location_id,pa_item_id' });
     if (error) {
       console.error('[PA Weekly XLSX] Upsert error:', error);
     } else {
