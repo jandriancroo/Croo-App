@@ -633,6 +633,12 @@ async function processCatalogLocation(browser, location) {
 
       const saveResult = await saveResp.json();
       console.log(`   💾 Saved: ${saveResult.saved || 0} catalog items`);
+      const pricedCount = items.filter(i => i.unit_price != null).length;
+      const pick = (needle) => {
+        const m = items.find(i => (i.description || '').toLowerCase().includes(needle));
+        return m ? `${m.description}=${m.unit_price != null ? '$' + m.unit_price : 'null'}` : `${needle}=none`;
+      };
+      console.log(`   📊 LOC_SUMMARY location_id=${locationId} rows=${items.length} withPrice=${pricedCount} | ${pick('arugula')} | ${pick('basil')}`);
       return { locationId, success: true, items: items.length, saved: saveResult.saved || 0 };
     }
 
