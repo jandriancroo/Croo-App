@@ -2931,6 +2931,22 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   // distributor and merge.
   const restId = String(session.restaurantId);
 
+  // DEBUG: probe endpoints to find the "file restId" that PA uses in the XLSX
+  // path (e.g. 1876 ≠ session.restaurantId=50723).
+  for (const probeUrl of [
+    `${PA_BASE_URL}/api/common/session`,
+    `${PA_BASE_URL}/api/restaurant-dashboard/get-restaurant-info?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/restaurant-dashboard/get-restaurant-info`,
+    `${PA_BASE_URL}/api/common/linked-users`,
+  ]) {
+    try {
+      const r = await fetch(probeUrl, { method: 'GET', headers: { ...getAuthHeaders(session), 'Accept': 'application/json', 'Referer': `${PA_BASE_URL}/ng/` } });
+      const t = await r.text();
+      console.log(`[PA Probe] ${probeUrl.replace(PA_BASE_URL, '')} → ${r.status} | ${t.substring(0, 1500)}`);
+    } catch (e) { console.log(`[PA Probe] ${probeUrl} err`, e); }
+  }
+
+
   // Discover distributor IDs from the last 180 days of invoices.
   const today = new Date();
   const start = new Date(today); start.setDate(today.getDate() - 180);
