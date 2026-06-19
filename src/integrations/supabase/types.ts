@@ -5772,6 +5772,7 @@ export type Database = {
           birthday_events_enabled: boolean | null
           blackout_dates: string[] | null
           created_at: string
+          day_part_am_cutoff: string
           drawer_bank: number
           drawer_count_notifications_enabled: boolean
           hours_close: string | null
@@ -5799,6 +5800,7 @@ export type Database = {
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
+          day_part_am_cutoff?: string
           drawer_bank?: number
           drawer_count_notifications_enabled?: boolean
           hours_close?: string | null
@@ -5826,6 +5828,7 @@ export type Database = {
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
+          day_part_am_cutoff?: string
           drawer_bank?: number
           drawer_count_notifications_enabled?: boolean
           hours_close?: string | null
@@ -11273,7 +11276,9 @@ export type Database = {
           topic: string
         }[]
       }
+      send_day_part_pulse: { Args: never; Returns: undefined }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
+      send_shift_overstay_alerts: { Args: never; Returns: undefined }
       set_pending_punch_pin: { Args: { p_pin: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
