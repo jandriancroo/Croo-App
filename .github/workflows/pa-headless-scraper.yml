@@ -1,0 +1,37 @@
+name: PA Headless Scraper (Catalog + Orders)
+
+on:
+  schedule:
+    # Daily at 09:00 UTC (~02:00 PT)
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      location_filter:
+        description: 'Optional: scope to a single location_id (UUID). Leave blank for all.'
+        required: false
+        default: ''
+
+jobs:
+  scrape-pa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run PA Headless Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          LOCATION_FILTER: ${{ github.event.inputs.location_filter }}
+        run: node .github/scripts/pa-headless-scraper.mjs

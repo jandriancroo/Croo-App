@@ -14,11 +14,16 @@ import { chromium } from 'playwright';
 
 const PA_BASE_URL = 'https://producealliance.info';
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, LOCATION_FILTER } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY');
   process.exit(1);
+}
+
+const locationFilter = (LOCATION_FILTER || '').trim();
+if (locationFilter) {
+  console.log(`🎯 LOCATION_FILTER active → only processing location_id=${locationFilter}`);
 }
 
 // ── Fetch active PA integrations + orders missing line items ─────
@@ -614,7 +619,10 @@ async function main() {
   console.log('\n📦 Phase 1: Full catalog scrape');
   console.log('─'.repeat(30));
   try {
-    const catalogLocations = await fetchAllPALocations();
+    let catalogLocations = await fetchAllPALocations();
+    if (locationFilter) {
+      catalogLocations = catalogLocations.filter(l => l.locationId === locationFilter);
+    }
     if (catalogLocations.length > 0) {
       console.log(`Found ${catalogLocations.length} PA location(s) for catalog scrape`);
       for (const loc of catalogLocations) {
@@ -636,7 +644,10 @@ async function main() {
   const allResults = [];
 
   try {
-    const locations = await fetchPendingOrders();
+    let locations = await fetchPendingOrders();
+    if (locationFilter && locations) {
+      locations = locations.filter(l => l.locationId === locationFilter);
+    }
     if (locations && locations.length > 0) {
       totalOrders = locations.reduce((sum, l) => sum + (l.pendingOrders?.length || 0), 0);
       console.log(`Found ${locations.length} location(s) with ${totalOrders} pending order(s)`);
