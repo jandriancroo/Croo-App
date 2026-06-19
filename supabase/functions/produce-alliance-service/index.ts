@@ -2997,7 +2997,8 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       if (extra) {
         session.cookies = mergeCookies(session.cookies, extra);
         triggerHeaders['Cookie'] = session.cookies;
-      }
+  }
+  xlsxHeaders['Cookie'] = session.cookies;
       const t = await r.text();
       console.log(`[PA Weekly XLSX] trigger ${triggerUrl.replace(PA_BASE_URL, '')} → ${r.status}, ${t.length}B`);
     } catch (e) {
