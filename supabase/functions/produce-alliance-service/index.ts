@@ -2987,6 +2987,14 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     'Referer': `${PA_BASE_URL}/ng/`,
   };
   for (const triggerUrl of [
+    `${PA_BASE_URL}/ProduceAlliance.jsp`,
+    `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`,
+    `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${restId}`,
+  ].filter((u, i, a) => a.indexOf(u) === i).slice(0, 3) as any) {
+    // (kept as full list above; replacing original 2-URL trigger loop)
+  }
+  for (const triggerUrl of [
+    `${PA_BASE_URL}/ProduceAlliance.jsp`,
     `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restId}`,
     `${PA_BASE_URL}/reports/restaurantExcelDownloadHistory.jsp?restaurantId=${restId}`,
   ]) {
