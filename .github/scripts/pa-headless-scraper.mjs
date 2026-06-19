@@ -390,6 +390,13 @@ async function scrapeCatalog(page, { restaurantId }) {
   await page.waitForTimeout(500);
 
 
+  // Pipe browser-side console.log into the Node/Actions log
+  page.removeAllListeners('console');
+  page.on('console', (msg) => {
+    const t = msg.text();
+    if (t.startsWith('PA_DBG')) console.log(`   ${t}`);
+  });
+
   const items = await page.evaluate(() => {
     const results = [];
     const tables = document.querySelectorAll('table');
@@ -397,59 +404,71 @@ async function scrapeCatalog(page, { restaurantId }) {
     for (const table of tables) {
       const headerRow = table.querySelector('tr');
       if (!headerRow) continue;
-      
+
       const headers = Array.from(headerRow.querySelectorAll('th, td'))
         .map(cell => cell.textContent.trim().toLowerCase());
-      
-      // Look for the table with "master product name" or "pa product id" headers
+
       const hasProductName = headers.some(h => h.includes('master product name') || h.includes('product name'));
       const hasPaId = headers.some(h => h.includes('pa product id') || h.includes('product id'));
-      
+
       if (!hasProductName && !hasPaId) continue;
-      
-      // Find column indices
+
       const nameIdx = headers.findIndex(h => h.includes('master product name') || h.includes('product name'));
       const paIdIdx = headers.findIndex(h => h.includes('pa product id') || h.includes('product id'));
       const codeIdx = headers.findIndex(h => h.includes('master product code') || h.includes('product code'));
-      // Look for price columns — collect ALL candidates and prioritize the
-      // most specific (unit / current / this week / new) since the Weekly
-      // Prices Report has multiple price-ish columns (suggested, last week, etc.).
-      const priceCandidates = headers
+
+      // Sample the first data row to discover where numeric/money cells actually live
+      const rowsAll = table.querySelectorAll('tr');
+      let sampleCells = [];
+      for (let i = 1; i < rowsAll.length; i++) {
+        const visibleInputs = rowsAll[i].querySelectorAll('input:not([type="hidden"]), select');
+        if (visibleInputs.length > 0) continue;
+        const c = Array.from(rowsAll[i].querySelectorAll('td')).map(td => td.textContent.trim());
+        if (c.length >= 2) { sampleCells = c; break; }
+      }
+
+      // Price-column detection: header-based first, then fall back to any
+      // column whose sample cell looks like money (has $ or pure decimal).
+      const headerPriceCandidates = headers
         .map((h, i) => ({ h, i }))
-        .filter(({ h }) => /price|cost|\$/.test(h));
-      const preferred = priceCandidates.find(({ h }) => /unit|current|this\s*week|new/.test(h));
-      const priceIdxList = preferred
-        ? [preferred.i, ...priceCandidates.filter(c => c.i !== preferred.i).map(c => c.i)]
-        : priceCandidates.map(c => c.i);
-      console.log(`   🔎 headers: ${JSON.stringify(headers)}`);
-      console.log(`   🔎 priceIdxList: ${JSON.stringify(priceIdxList)} (preferred=${preferred ? preferred.h : 'none'})`);
-      
-      
+        .filter(({ h }) => /price|cost|amount|rate|\$|per\s*case|per\s*unit/.test(h));
+      const preferred = headerPriceCandidates.find(({ h }) => /unit|current|this\s*week|new/.test(h));
+      let priceIdxList = preferred
+        ? [preferred.i, ...headerPriceCandidates.filter(c => c.i !== preferred.i).map(c => c.i)]
+        : headerPriceCandidates.map(c => c.i);
+
+      // Fallback: scan sample row for money-shaped cells
+      const moneyShaped = sampleCells
+        .map((v, i) => ({ v, i }))
+        .filter(({ v, i }) => i !== paIdIdx && i !== codeIdx && /^\$?\s*\d+(\.\d{1,2})?$/.test(v.replace(/,/g, '')));
+      if (priceIdxList.length === 0) {
+        priceIdxList = moneyShaped.map(c => c.i);
+      }
+
+      console.log('PA_DBG headers=' + JSON.stringify(headers));
+      console.log('PA_DBG sampleCells=' + JSON.stringify(sampleCells));
+      console.log('PA_DBG priceIdxList=' + JSON.stringify(priceIdxList) + ' preferred=' + (preferred ? preferred.h : 'none'));
+      console.log('PA_DBG moneyShaped=' + JSON.stringify(moneyShaped));
+
       const rows = table.querySelectorAll('tr');
-      for (let i = 1; i < rows.length; i++) { // Skip header
+      for (let i = 1; i < rows.length; i++) {
         const cells = Array.from(rows[i].querySelectorAll('td')).map(td => td.textContent.trim());
         if (cells.length < 2) continue;
-        
-        // Skip filter/input rows — but ignore type="hidden" inputs (every data
-        // row has a hidden clientId_N input that we must not treat as a filter).
+
         const visibleInputs = rows[i].querySelectorAll('input:not([type="hidden"]), select');
         if (visibleInputs.length > 0) continue;
 
-        
         const description = nameIdx >= 0 ? (cells[nameIdx] || '') : '';
         const paItemId = paIdIdx >= 0 ? (cells[paIdIdx] || '') : '';
         const productCode = codeIdx >= 0 ? (cells[codeIdx] || '') : '';
-        
+
         if (!description && !paItemId) continue;
         if (!paItemId || !/^\d+$/.test(paItemId)) continue;
-        
-        // Extract pack size from the description (e.g., "Strawberries, lb." or "Tomatoes, Grape, 10 lb.")
+
         let packSize = '';
         const descParts = description.split(',');
-        if (descParts.length > 1) {
-          packSize = descParts[descParts.length - 1].trim();
-        }
-        
+        if (descParts.length > 1) packSize = descParts[descParts.length - 1].trim();
+
         let unitPrice = null;
         for (const idx of priceIdxList) {
           const raw = (cells[idx] || '').replace(/[^0-9.]/g, '');
@@ -458,8 +477,8 @@ async function scrapeCatalog(page, { restaurantId }) {
         }
 
         results.push({
-          pa_item_id: paItemId,            // legacy field (= PA Product ID)
-          pa_product_id: paItemId,         // NEW authoritative key (JSP "PA Product ID")
+          pa_item_id: paItemId,
+          pa_product_id: paItemId,
           master_product_code: productCode || null,
           description,
           pack_size: packSize,
@@ -469,7 +488,7 @@ async function scrapeCatalog(page, { restaurantId }) {
         });
       }
 
-      if (results.length > 0) break; // Found the right table
+      if (results.length > 0) break;
     }
 
     return results;
