@@ -447,7 +447,7 @@ export function MobileShiftDialog({
                         value={`offer-${offer.id}`}
                         className="font-semibold text-primary bg-primary/10 border-l-4 border-primary max-w-full"
                       >
-                        <div className="flex flex-col gap-0.5 py-0.5 max-w-full pl-6">
+                        <div className="flex flex-col gap-0.5 py-0.5 max-w-full">
                           <span className="font-semibold leading-tight flex items-center gap-1">
                             <ArrowUp className="h-3 w-3 animate-pulse" />
                             {displayName}
