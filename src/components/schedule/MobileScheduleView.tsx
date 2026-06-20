@@ -770,18 +770,7 @@ export function MobileScheduleView({
                 variant="ghost" 
                 size="icon" 
                 className="h-7 w-7"
-                onClick={() => {
-                  setSelectedShift({
-                    id: '',
-                    user_id: null,
-                    day_of_week: selectedDayOfWeek,
-                    start_time: '09:00',
-                    end_time: '17:00',
-                    shift_date: format(selectedDate, 'yyyy-MM-dd'),
-                  });
-                  setIsCreatingShift(true);
-                  setShiftDialogOpen(true);
-                }}
+                onClick={() => setAddSheetOpen(true)}
               >
                 <UserPlus className="h-4 w-4" />
               </Button>
