@@ -67,6 +67,50 @@ export function QuickPunchDialog({
     }
   }, [open, selectedDate]);
 
+  // Fetch scheduled shifts for the punch date (location-scoped via profile list)
+  useEffect(() => {
+    if (!open || !punchDate || profiles.length === 0) {
+      setScheduledShifts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const userIds = profiles.map(p => p.id);
+      const { data } = await supabase
+        .from('scheduled_shifts')
+        .select('id, user_id, start_time, end_time')
+        .eq('shift_date', punchDate)
+        .in('user_id', userIds)
+        .eq('is_phantom', false);
+      if (cancelled) return;
+      setScheduledShifts(((data || []) as any[])
+        .filter(s => s.user_id && s.start_time && s.end_time)
+        .map(s => ({ id: s.id, user_id: s.user_id, start_time: s.start_time, end_time: s.end_time })));
+    })();
+    return () => { cancelled = true; };
+  }, [open, punchDate, profiles]);
+
+  // "Remainder of day" = today + shift end is still in the future
+  const isToday = punchDate === getTodayInTimezone();
+  const nowHM = formatInTimeZone(new Date(), timezone, 'HH:mm');
+  const toHM = (t: string) => t.slice(0, 5);
+  const remainderShifts = isToday
+    ? scheduledShifts
+        .filter(s => toHM(s.end_time) > nowHM)
+        .sort((a, b) => toHM(a.start_time).localeCompare(toHM(b.start_time)))
+    : [];
+
+  const applyShift = (shift: { user_id: string; start_time: string; end_time: string }) => {
+    setSelectedUserId(shift.user_id);
+    const startHM = toHM(shift.start_time);
+    // If the scheduled start has already passed, clock in at now
+    setStartTime(isToday && startHM < nowHM ? nowHM : startHM);
+    setShowClockOut(true);
+    setEndTime(toHM(shift.end_time));
+  };
+
+  void 0;
+
   // Check if a time is in the future (using location timezone, not device time)
   const isTimeInFuture = (time: string): boolean => {
     if (!time || punchDate !== getTodayInTimezone()) return false;
