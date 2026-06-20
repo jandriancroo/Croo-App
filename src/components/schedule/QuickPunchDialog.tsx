@@ -136,17 +136,21 @@ export function QuickPunchDialog({
   const isToday = punchDate === getTodayInTimezone();
   const nowHM = formatInTimeZone(new Date(), timezone, 'HH:mm');
   const toHM = (t: string) => t.slice(0, 5);
+  const formatAmPm = (hm: string) => {
+    const [h, m] = hm.split(':').map(Number);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
+  };
   const remainderShifts = isToday
     ? scheduledShifts
-        .filter(s => toHM(s.end_time) > nowHM)
+        .filter(s => toHM(s.end_time) > nowHM && !activePunchUserIds.has(s.user_id))
         .sort((a, b) => toHM(a.start_time).localeCompare(toHM(b.start_time)))
     : [];
 
   const applyShift = (shift: { user_id: string; start_time: string; end_time: string }) => {
     setSelectedUserId(shift.user_id);
-    const startHM = toHM(shift.start_time);
-    // If the scheduled start has already passed, clock in at now
-    setStartTime(isToday && startHM < nowHM ? nowHM : startHM);
+    setStartTime(toHM(shift.start_time));
     setShowClockOut(true);
     setEndTime(toHM(shift.end_time));
   };
