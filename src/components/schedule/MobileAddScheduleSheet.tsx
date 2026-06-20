@@ -84,10 +84,12 @@ export function MobileAddScheduleSheet({
   shifts,
   defaultDate,
   defaultEmployeeId,
+  locationSettings,
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'shift' | 'employee'>('shift');
+  const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
 
   // Week anchored to Monday
   const mondayStart = useMemo(() => startOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
