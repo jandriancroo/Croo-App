@@ -440,10 +440,18 @@ export function MobileAddScheduleSheet({
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
-                    <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => scheduleId && setDayPreviewOpen(true)}
+                      disabled={!scheduleId}
+                      className="text-center flex flex-col items-center gap-0.5 px-3 py-1 rounded-md hover:bg-muted/50 active:bg-muted transition disabled:opacity-100 disabled:cursor-default"
+                    >
                       <p className="text-xs uppercase tracking-wide text-muted-foreground">{format(currentDay, 'EEEE')}</p>
-                      <p className="text-sm font-semibold">{format(currentDay, 'MMM d')}</p>
-                    </div>
+                      <p className="text-sm font-semibold flex items-center gap-1.5">
+                        {format(currentDay, 'MMM d')}
+                        {scheduleId && <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
+                      </p>
+                    </button>
                     <Button
                       variant="ghost" size="icon"
                       onClick={() => setDayCursor(c => (c + 1) % 7)}
