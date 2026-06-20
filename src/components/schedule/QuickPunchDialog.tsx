@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format, subDays } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
@@ -48,6 +48,7 @@ export function QuickPunchDialog({
   const [breakType, setBreakType] = useState<'paid' | 'unpaid'>('unpaid');
   const [saving, setSaving] = useState(false);
   const [scheduledShifts, setScheduledShifts] = useState<Array<{ id: string; user_id: string; start_time: string; end_time: string }>>([]);
+  const [activePunchUserIds, setActivePunchUserIds] = useState<Set<string>>(new Set());
 
   // Reset and set defaults when dialog opens
   useEffect(() => {
