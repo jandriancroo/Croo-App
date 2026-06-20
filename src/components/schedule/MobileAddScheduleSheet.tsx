@@ -197,21 +197,43 @@ export function MobileAddScheduleSheet({
     setSelectedDayIdxs(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i].sort());
   };
 
+  const ensureSchedule = async (): Promise<string | null> => {
+    if (scheduleId) return scheduleId;
+    if (!locationId) return null;
+    const weekStartStr = format(mondayStart, 'yyyy-MM-dd');
+    const weekEndStr = format(addDays(mondayStart, 6), 'yyyy-MM-dd');
+    const { data: existing } = await supabase
+      .from('schedules')
+      .select('id')
+      .eq('week_start_date', weekStartStr)
+      .eq('location_id', locationId)
+      .maybeSingle();
+    if (existing?.id) return existing.id;
+    const { data: created, error } = await supabase
+      .from('schedules')
+      .insert({ week_start_date: weekStartStr, week_end_date: weekEndStr, location_id: locationId })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return created.id;
+  };
+
   const handleSaveShift = async () => {
-    if (!scheduleId) {
-      toast.error('No schedule available');
-      return;
-    }
     if (selectedDayIdxs.length === 0) {
       toast.error('Select at least one day');
       return;
     }
     setSavingShift(true);
     try {
+      const sid = await ensureSchedule();
+      if (!sid) {
+        toast.error('No location selected');
+        return;
+      }
       const rows = selectedDayIdxs.map(i => {
         const d = weekDays[i];
         return {
-          schedule_id: scheduleId,
+          schedule_id: sid,
           start_time: shiftStart,
           end_time: shiftEnd,
           user_id: shiftUserId === 'unassigned' ? null : shiftUserId,
