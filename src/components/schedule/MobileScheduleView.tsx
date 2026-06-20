@@ -11,6 +11,7 @@ import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 const MobileShiftDialog = lazyWithRetry(() => import('./MobileShiftDialog').then(m => ({ default: m.MobileShiftDialog })));
+const MobileAddScheduleSheet = lazyWithRetry(() => import('./MobileAddScheduleSheet').then(m => ({ default: m.MobileAddScheduleSheet })));
 import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
@@ -142,6 +143,7 @@ export function MobileScheduleView({
   const [shiftDialogOpen, setShiftDialogOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
@@ -768,18 +770,7 @@ export function MobileScheduleView({
                 variant="ghost" 
                 size="icon" 
                 className="h-7 w-7"
-                onClick={() => {
-                  setSelectedShift({
-                    id: '',
-                    user_id: null,
-                    day_of_week: selectedDayOfWeek,
-                    start_time: '09:00',
-                    end_time: '17:00',
-                    shift_date: format(selectedDate, 'yyyy-MM-dd'),
-                  });
-                  setIsCreatingShift(true);
-                  setShiftDialogOpen(true);
-                }}
+                onClick={() => setAddSheetOpen(true)}
               >
                 <UserPlus className="h-4 w-4" />
               </Button>
@@ -1001,18 +992,7 @@ export function MobileScheduleView({
                           <div className="w-px bg-primary-foreground/15 my-1" />
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedShift({
-                                id: '',
-                                user_id: null,
-                                day_of_week: selectedDayOfWeek,
-                                start_time: '09:00',
-                                end_time: '17:00',
-                                shift_date: format(selectedDate, 'yyyy-MM-dd'),
-                              });
-                              setIsCreatingShift(true);
-                              setShiftDialogOpen(true);
-                            }}
+                            onClick={() => setAddSheetOpen(true)}
                             className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
                           >
                             <CalendarPlus className="h-3.5 w-3.5" />
@@ -1429,6 +1409,23 @@ export function MobileScheduleView({
               setShiftDialogOpen(false);
               setIsCreatingShift(false);
             }}
+          />
+        </Suspense>
+      )}
+
+      {addSheetOpen && (
+        <Suspense fallback={null}>
+          <MobileAddScheduleSheet
+            open={addSheetOpen}
+            onOpenChange={setAddSheetOpen}
+            weekStart={currentWeekStart}
+            profiles={profiles}
+            templates={templates}
+            scheduleId={scheduleId ?? null}
+            locationId={currentLocation?.id}
+            shifts={shifts}
+            defaultDate={selectedDate}
+            onCreated={() => onUpdate?.()}
           />
         </Suspense>
       )}
