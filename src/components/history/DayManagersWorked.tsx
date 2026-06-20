@@ -80,9 +80,9 @@ export function DayManagersWorked({ dateStr, locationId, timezone, businessDayRa
       // 4. Names
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, preferred_name')
+        .select('id, full_name, nickname')
         .in('id', userIds);
-      const nameMap = new Map((profiles || []).map((p: any) => [p.id, getDisplayName(p)]));
+      const nameMap = new Map((profiles || []).map((p: any) => [p.id, getDisplayName(p.full_name, p.nickname)]));
 
       return userIds
         .map(uid => ({
