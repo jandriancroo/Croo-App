@@ -257,7 +257,7 @@ export function MobileAddScheduleSheet({
   };
 
   const handleApplyWeek = async () => {
-    if (!scheduleId || !empUserId) {
+    if (!empUserId) {
       toast.error('Pick a team member first');
       return;
     }
@@ -268,11 +268,16 @@ export function MobileAddScheduleSheet({
     }
     setSavingWeek(true);
     try {
+      const sid = await ensureSchedule();
+      if (!sid) {
+        toast.error('No location selected');
+        return;
+      }
       const rows = entries.map(([idxStr, v]) => {
         const i = parseInt(idxStr);
         const d = weekDays[i];
         return {
-          schedule_id: scheduleId,
+          schedule_id: sid,
           start_time: v.start,
           end_time: v.end,
           user_id: empUserId,
