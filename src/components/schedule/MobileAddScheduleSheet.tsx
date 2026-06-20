@@ -52,6 +52,7 @@ interface Props {
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  availabilityRequests?: AvailabilityRequest[];
   onCreated?: () => void;
 }
 
