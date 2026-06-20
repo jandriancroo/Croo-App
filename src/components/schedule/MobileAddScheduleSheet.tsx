@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight, Trash2, Check, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { DayBreakdownDialog } from './DayBreakdownDialog';
+import { MobileDayPreviewSheet } from './MobileDayPreviewSheet';
 
 interface Profile {
   id: string;
@@ -608,7 +608,7 @@ export function MobileAddScheduleSheet({
 
       {/* ============ DAY PREVIEW (reuses desktop breakdown) ============ */}
       {scheduleId && (
-        <DayBreakdownDialog
+        <MobileDayPreviewSheet
           open={dayPreviewOpen}
           onOpenChange={setDayPreviewOpen}
           date={currentDay}
