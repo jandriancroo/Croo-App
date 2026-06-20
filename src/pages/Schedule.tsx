@@ -215,6 +215,7 @@ export default function Schedule() {
           hasPendingChanges={hasPendingChanges}
           isLoading={loading}
           locationSettings={locationSettings}
+          availabilityRequests={availabilityRequests}
         />
       ) : (
         <div className="pb-56">
