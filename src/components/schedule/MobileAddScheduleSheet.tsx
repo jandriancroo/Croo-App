@@ -457,13 +457,15 @@ export function MobileAddScheduleSheet({
                     {currentDayAvailability.length > 0 && (
                       <div className="space-y-1.5">
                         {currentDayAvailability.map(req => (
-                          <div
+                          <button
                             key={req.id}
+                            type="button"
+                            onClick={() => setAvailPreviewRequest(req)}
                             className={cn(
-                              "flex items-center gap-2 rounded-md border px-3 py-2",
+                              "w-full flex items-center gap-2 rounded-md border px-3 py-2 text-left cursor-pointer transition active:scale-95",
                               req.status === 'pending'
-                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
-                                : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100"
+                                : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100"
                             )}
                           >
                             <CalendarOff className={cn(
@@ -488,7 +490,7 @@ export function MobileAddScheduleSheet({
                                     : 'All day'}
                               </p>
                             </div>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}
