@@ -950,15 +950,6 @@ export function MobileScheduleView({
                           <div className="w-px bg-primary-foreground/15 my-1" />
                           <button
                             type="button"
-                            onClick={() => setEventDialogOpen(true)}
-                            className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                          >
-                            <CalendarPlus className="h-3.5 w-3.5" />
-                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
-                          </button>
-                          <div className="w-px bg-primary-foreground/15 my-1" />
-                          <button
-                            type="button"
                             onClick={() => {
                               setSelectedShift({
                                 id: '',
@@ -973,8 +964,17 @@ export function MobileScheduleView({
                             }}
                             className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
                           >
-                            <CalendarCheck className="h-3.5 w-3.5" />
+                            <CalendarPlus className="h-3.5 w-3.5" />
                             <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
+                          </button>
+                          <div className="w-px bg-primary-foreground/15 my-1" />
+                          <button
+                            type="button"
+                            onClick={() => setEventDialogOpen(true)}
+                            className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
                           </button>
                         </>
                       )}
