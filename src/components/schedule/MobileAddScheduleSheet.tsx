@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek } from 'date-fns';
+import { DateTime } from 'luxon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff, Clock, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -109,6 +110,7 @@ export function MobileAddScheduleSheet({
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'shift' | 'employee'>('shift');
   const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
+  const [availPreviewRequest, setAvailPreviewRequest] = useState<AvailabilityRequest | null>(null);
 
   // Week anchored to Monday
   const mondayStart = useMemo(() => startOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
@@ -455,13 +457,15 @@ export function MobileAddScheduleSheet({
                     {currentDayAvailability.length > 0 && (
                       <div className="space-y-1.5">
                         {currentDayAvailability.map(req => (
-                          <div
+                          <button
                             key={req.id}
+                            type="button"
+                            onClick={() => setAvailPreviewRequest(req)}
                             className={cn(
-                              "flex items-center gap-2 rounded-md border px-3 py-2",
+                              "w-full flex items-center gap-2 rounded-md border px-3 py-2 text-left cursor-pointer transition active:scale-95",
                               req.status === 'pending'
-                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
-                                : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100"
+                                : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100"
                             )}
                           >
                             <CalendarOff className={cn(
@@ -486,7 +490,7 @@ export function MobileAddScheduleSheet({
                                     : 'All day'}
                               </p>
                             </div>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -682,14 +686,16 @@ export function MobileAddScheduleSheet({
                   </div>
 
                   {hasAvail && topReq && (
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => setAvailPreviewRequest(topReq)}
                       className={cn(
-                        "flex items-center gap-1 rounded-md border px-1.5 py-1 shrink-0",
+                        "flex items-center gap-1 rounded-md border px-1.5 py-1 shrink-0 cursor-pointer transition active:scale-95",
                         topReq.status === 'pending'
-                          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
-                          : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100"
+                          : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100"
                       )}
-                      title={`${topReq.request_type === 'time_off' ? 'Time Off' : 'Unavailable'} (${topReq.status})`}
+                      title="Tap to view request details"
                     >
                       <CalendarOff className={cn(
                         "h-3 w-3 shrink-0",
@@ -701,7 +707,7 @@ export function MobileAddScheduleSheet({
                       )}>
                         {topReq.status === 'pending' ? 'Pending' : 'Approved'}
                       </span>
-                    </div>
+                    </button>
                   )}
 
                   {draft && <Check className="h-4 w-4 text-primary shrink-0" />}
@@ -748,6 +754,92 @@ export function MobileAddScheduleSheet({
           }
         />
       )}
+
+      {/* ============ AVAILABILITY REQUEST PREVIEW ============ */}
+      <Dialog open={!!availPreviewRequest} onOpenChange={(o) => !o && setAvailPreviewRequest(null)}>
+        <DialogContent className="max-w-md p-0 gap-0 max-h-[85vh] flex flex-col">
+          <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
+            <DialogTitle className="text-base pr-6">
+              {availPreviewRequest?.request_type === 'time_off' ? 'Time Off Request' : 'Availability Request'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {availPreviewRequest && (
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+              {/* Status badge */}
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-full",
+                    availPreviewRequest.status === 'pending'
+                      ? "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                  )}
+                >
+                  {availPreviewRequest.status === 'pending' ? 'Pending Approval' : 'Approved'}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {availPreviewRequest.request_type === 'time_off' ? 'Time off' : 'Availability'}
+                </span>
+              </div>
+
+              {/* When */}
+              <div className="space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <CalendarOff className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Dates</p>
+                    <p className="text-sm text-muted-foreground">
+                      {availPreviewRequest.time_scope === 'multi_day' && availPreviewRequest.end_date
+                        ? `${DateTime.fromISO(availPreviewRequest.start_date, { zone: 'America/Los_Angeles' }).toFormat('EEE, MMM d')} – ${DateTime.fromISO(availPreviewRequest.end_date, { zone: 'America/Los_Angeles' }).toFormat('EEE, MMM d')}`
+                        : DateTime.fromISO(availPreviewRequest.start_date, { zone: 'America/Los_Angeles' }).toFormat('EEE, MMM d')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Time</p>
+                    <p className="text-sm text-muted-foreground">
+                      {availPreviewRequest.time_scope === 'partial_day' && availPreviewRequest.start_time && availPreviewRequest.end_time
+                        ? `${fmt12(availPreviewRequest.start_time)} – ${fmt12(availPreviewRequest.end_time)}`
+                        : 'All day'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conflict warning */}
+              {(() => {
+                const previewDayStr = availPreviewRequest.start_date;
+                const previewDayIdx = weekDays.findIndex(d => format(d, 'yyyy-MM-dd') === previewDayStr);
+                const draftOnDay = previewDayIdx >= 0 ? weekDraft[previewDayIdx] : null;
+                const existingOnDay = empUserId ? empExistingByDay[previewDayStr] : null;
+                if (!draftOnDay && !existingOnDay) return null;
+                return (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/50 px-3 py-3 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Potential conflict</p>
+                      <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
+                        A shift is scheduled for this employee on {DateTime.fromISO(previewDayStr, { zone: 'America/Los_Angeles' }).toFormat('EEE, MMM d')}. Review before applying.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          <div className="px-4 py-3 border-t shrink-0">
+            <DialogFooter>
+              <Button onClick={() => setAvailPreviewRequest(null)} className="w-full">Close</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
