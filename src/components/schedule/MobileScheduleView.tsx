@@ -143,6 +143,7 @@ export function MobileScheduleView({
   const [shiftDialogOpen, setShiftDialogOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
