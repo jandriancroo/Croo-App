@@ -58,6 +58,7 @@ export function MobileDayPreviewSheet({
   shifts,
   profiles,
   locationSettings,
+  pendingDraft,
 }: Props) {
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
