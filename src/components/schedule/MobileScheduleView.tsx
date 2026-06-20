@@ -935,62 +935,92 @@ export function MobileScheduleView({
 
                 return (
                   <>
-                    {(activePunches.length > 0 || onBreakPunches.length > 0) && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
-                          <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                          <span className="text-green-600">Now</span>
-                          <span className="text-muted-foreground mx-0.5">·</span>
-                          <span className="text-green-600">{activePunches.length} Active</span>
-                          {onBreakPunches.length > 0 && (
-                            <>
-                              <span className="text-muted-foreground mx-0.5">·</span>
-                              <span className="text-amber-600">{onBreakPunches.length} Break</span>
-                            </>
-                          )}
-                          <span className="text-muted-foreground mx-0.5">·</span>
-                          <span className="text-muted-foreground">{totalScheduled} Total</span>
+                    {/* NOW header — always rendered so LIVE status has a home */}
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                        <Circle className={`h-2 w-2 ${activePunches.length > 0 ? 'fill-green-500 text-green-500' : 'fill-muted-foreground text-muted-foreground'}`} />
+                        <span className={activePunches.length > 0 ? 'text-green-600' : 'text-muted-foreground'}>Now</span>
+                        {(activePunches.length > 0 || onBreakPunches.length > 0) ? (
+                          <>
+                            <span className="text-muted-foreground mx-0.5">·</span>
+                            <span className="text-green-600">{activePunches.length} Active</span>
+                            {onBreakPunches.length > 0 && (
+                              <>
+                                <span className="text-muted-foreground mx-0.5">·</span>
+                                <span className="text-amber-600">{onBreakPunches.length} Break</span>
+                              </>
+                            )}
+                            <span className="text-muted-foreground mx-0.5">·</span>
+                            <span className="text-muted-foreground">{totalScheduled} Total</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground font-normal normal-case tracking-normal">— no one clocked in</span>
+                        )}
+                        {(isAdmin || isManager) && scheduleId && (
                           <div className="ml-auto">
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
-                              <UserPlus className="h-3.5 w-3.5" />
-                            </Button>
+                            {!isPublished ? (
+                              <Button size="sm" className="h-6 px-2.5 text-[10px]" onClick={onGoLive} disabled={isPublishing}>
+                                {isPublishing ? '...' : 'Go Live'}
+                              </Button>
+                            ) : hasPendingChanges ? (
+                              <button
+                                type="button"
+                                onClick={onSendUpdate}
+                                disabled={isPublishing}
+                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500 active:scale-95 transition"
+                              >
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                                <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Update</span>
+                              </button>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-destructive/10 border border-destructive">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive shadow-[0_0_6px_rgba(239,68,68,0.9)]"></span>
+                                </span>
+                                <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
+                              </div>
+                            )}
                           </div>
-                        </h4>
-                        {[...activePunches, ...onBreakPunches].map(punch => (
-                          <MobileShiftCard
-                            key={punch.id}
-                            name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
-                            avatarUrl={punch.profile.profile_photo_url}
-                            startTime={punch.scheduledShift?.start_time || '00:00'}
-                            endTime={punch.scheduledShift?.end_time || '00:00'}
-                            statusIndicator={punch.isOnBreak ? 'break' : 'active'}
-                            scheduledStart={punch.scheduledShift?.start_time}
-                            scheduledEnd={punch.scheduledShift?.end_time}
-                            isPhantom={punch.scheduledShift?.is_phantom}
-                            clockInTime={punch.clockInTime}
-                            clockOutTime={punch.clockOutTime}
-                            breakStartTime={punch.breakStartTime}
-                            breakEndTime={punch.breakEndTime}
-                            hoursWorked={punch.hoursWorked}
-                            createdByName={punch.createdByName}
-                            timezone={timezone}
-                            formatTimeDisplay={formatTimeDisplay}
-                            showBreakIndicator={false}
-                            onClick={() => {
-                              const today = getTodayInTimezone(timezone);
-                              setSelectedPunch({
-                                userId: punch.user_id,
-                                userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                                userPhoto: punch.profile.profile_photo_url,
-                                punchDate: today,
-                                clockInId: punch.id,
-                              });
-                              setEditPunchOpen(true);
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
+                        )}
+                      </h4>
+                      {[...activePunches, ...onBreakPunches].map(punch => (
+                        <MobileShiftCard
+                          key={punch.id}
+                          name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                          avatarUrl={punch.profile.profile_photo_url}
+                          startTime={punch.scheduledShift?.start_time || '00:00'}
+                          endTime={punch.scheduledShift?.end_time || '00:00'}
+                          statusIndicator={punch.isOnBreak ? 'break' : 'active'}
+                          scheduledStart={punch.scheduledShift?.start_time}
+                          scheduledEnd={punch.scheduledShift?.end_time}
+                          isPhantom={punch.scheduledShift?.is_phantom}
+                          clockInTime={punch.clockInTime}
+                          clockOutTime={punch.clockOutTime}
+                          breakStartTime={punch.breakStartTime}
+                          breakEndTime={punch.breakEndTime}
+                          hoursWorked={punch.hoursWorked}
+                          createdByName={punch.createdByName}
+                          timezone={timezone}
+                          formatTimeDisplay={formatTimeDisplay}
+                          showBreakIndicator={false}
+                          onClick={() => {
+                            const today = getTodayInTimezone(timezone);
+                            setSelectedPunch({
+                              userId: punch.user_id,
+                              userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                              userPhoto: punch.profile.profile_photo_url,
+                              punchDate: today,
+                              clockInId: punch.id,
+                            });
+                            setEditPunchOpen(true);
+                          }}
+                        />
+                      ))}
+                    </div>
 
                     {/* LATER section — upcoming scheduled shifts not yet punched in */}
                     {(() => {
