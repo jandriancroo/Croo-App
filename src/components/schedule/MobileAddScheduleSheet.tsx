@@ -646,12 +646,12 @@ export function MobileAddScheduleSheet({
 
       {/* ============ REVIEW DIALOG ============ */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Week for {empName}</DialogTitle>
+        <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col">
+          <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
+            <DialogTitle className="text-base truncate pr-6">Confirm Week — {empName}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-2">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {weekDays.map((d, i) => {
               const draft = weekDraft[i];
               const existing = empExistingByDay[format(d, 'yyyy-MM-dd')];
@@ -659,80 +659,69 @@ export function MobileAddScheduleSheet({
               const dayAvailability = empUserId
                 ? availabilityForDay(availabilityRequests, empUserId, format(d, 'yyyy-MM-dd'))
                 : [];
+              const hasAvail = dayAvailability.length > 0;
+              const topReq = dayAvailability[0];
               return (
-                <div key={i} className="flex items-start justify-between rounded-lg border px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{dateStr}</p>
-                    {dayAvailability.length > 0 && (
-                      <div className="mt-1.5 space-y-1">
-                        {dayAvailability.map(req => (
-                          <div
-                            key={req.id}
-                            className={cn(
-                              "flex items-center gap-1.5 rounded-md border px-2 py-1",
-                              req.status === 'pending'
-                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
-                                : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
-                            )}
-                          >
-                            <CalendarOff className={cn(
-                              "h-3 w-3 shrink-0",
-                              req.status === 'pending' ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
-                            )} />
-                            <div className="flex-1 min-w-0">
-                              <p className={cn(
-                                "text-[10px] font-medium leading-tight",
-                                req.status === 'pending' ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"
-                              )}>
-                                {req.request_type === 'time_off' ? 'Time Off' : 'Unavailable'} {req.status === 'pending' ? 'Pending' : 'Approved'}
-                              </p>
-                              <p className={cn(
-                                "text-[9px] truncate leading-tight",
-                                req.status === 'pending' ? "text-amber-700/80 dark:text-amber-400/80" : "text-emerald-700/80 dark:text-emerald-400/80"
-                              )}>
-                                {req.time_scope === 'partial_day' && req.start_time && req.end_time
-                                  ? `${fmt12(req.start_time)} – ${fmt12(req.end_time)}`
-                                  : req.time_scope === 'multi_day' && req.end_date
-                                    ? `${format(new Date(req.start_date + 'T12:00:00'), 'MMM d')} – ${format(new Date(req.end_date + 'T12:00:00'), 'MMM d')}`
-                                    : 'All day'}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                <div key={i} className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-tight">{dateStr}</p>
                     {draft ? (
                       <p className={cn(
-                        "text-xs font-semibold",
-                        dayAvailability.length > 0 ? "text-amber-600" : "text-primary"
+                        "text-xs font-semibold mt-0.5 truncate",
+                        hasAvail ? "text-amber-600" : "text-primary"
                       )}>
                         NEW: {fmt12(draft.start)} – {fmt12(draft.end)} ({hoursBetween(draft.start, draft.end).toFixed(1)}h)
                       </p>
                     ) : existing ? (
-                      <p className="text-xs text-muted-foreground">
-                        {fmt12(existing.start_time)} – {fmt12(existing.end_time)} (existing)
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {fmt12(existing.start_time)} – {fmt12(existing.end_time)}
                       </p>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Off</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Off</p>
                     )}
                   </div>
-                  {draft && <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />}
+
+                  {hasAvail && topReq && (
+                    <div
+                      className={cn(
+                        "flex items-center gap-1 rounded-md border px-1.5 py-1 shrink-0",
+                        topReq.status === 'pending'
+                          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
+                          : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                      )}
+                      title={`${topReq.request_type === 'time_off' ? 'Time Off' : 'Unavailable'} (${topReq.status})`}
+                    >
+                      <CalendarOff className={cn(
+                        "h-3 w-3 shrink-0",
+                        topReq.status === 'pending' ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
+                      )} />
+                      <span className={cn(
+                        "text-[10px] font-medium leading-none",
+                        topReq.status === 'pending' ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"
+                      )}>
+                        {topReq.status === 'pending' ? 'Pending' : 'Approved'}
+                      </span>
+                    </div>
+                  )}
+
+                  {draft && <Check className="h-4 w-4 text-primary shrink-0" />}
                 </div>
               );
             })}
           </div>
 
-          <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 px-4 py-3">
-            <span className="text-sm font-medium">Total week hours</span>
-            <Badge className="text-base px-3 py-1">{totalWeekHours.toFixed(1)}h</Badge>
+          <div className="px-4 py-3 border-t shrink-0 space-y-3">
+            <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 px-4 py-2.5">
+              <span className="text-sm font-medium">Total week hours</span>
+              <Badge className="text-base px-3 py-1">{totalWeekHours.toFixed(1)}h</Badge>
+            </div>
+            <DialogFooter className="gap-2 flex-row">
+              <Button variant="outline" onClick={() => setReviewOpen(false)} className="flex-1">Back</Button>
+              <Button onClick={handleApplyWeek} disabled={savingWeek} className="flex-1">
+                {savingWeek ? 'Applying...' : 'Apply'}
+              </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setReviewOpen(false)}>Back</Button>
-            <Button onClick={handleApplyWeek} disabled={savingWeek}>
-              {savingWeek ? 'Applying...' : 'Apply Schedule'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
