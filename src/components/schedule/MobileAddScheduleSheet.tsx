@@ -313,6 +313,19 @@ export function MobileAddScheduleSheet({
   const currentDraft = weekDraft[dayCursor];
   const currentExisting = empUserId ? empExistingByDay[format(currentDay, 'yyyy-MM-dd')] : null;
 
+  const currentDayAvailability = useMemo(() => {
+    if (!empUserId || !currentDay) return [];
+    const dateStr = format(currentDay, 'yyyy-MM-dd');
+    return availabilityRequests.filter(r => {
+      if (r.user_id !== empUserId) return false;
+      if (r.status !== 'pending' && r.status !== 'approved') return false;
+      if (r.time_scope === 'multi_day' && r.end_date) {
+        return dateStr >= r.start_date && dateStr <= r.end_date;
+      }
+      return r.start_date === dateStr;
+    });
+  }, [empUserId, currentDay, availabilityRequests]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
