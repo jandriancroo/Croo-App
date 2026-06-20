@@ -367,7 +367,6 @@ export function QuickPunchDialog({
                   if (!prof) return null;
                   const startHM = toHM(shift.start_time);
                   const endHM = toHM(shift.end_time);
-                  const inProgress = isToday && startHM <= nowHM;
                   const isSelected = selectedUserId === shift.user_id;
                   return (
                     <button
@@ -387,12 +386,7 @@ export function QuickPunchDialog({
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{prof.full_name}</div>
                         <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                          {startHM} – {endHM}
-                          {inProgress && (
-                            <span className={`ml-1.5 ${isSelected ? '' : 'text-primary font-medium'}`}>
-                              · in progress
-                            </span>
-                          )}
+                          {formatAmPm(startHM)} – {formatAmPm(endHM)}
                         </div>
                       </div>
                     </button>
