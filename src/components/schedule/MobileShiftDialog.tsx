@@ -464,10 +464,25 @@ export function MobileShiftDialog({
                       const displayHour = hour % 12 || 12;
                       return `${displayHour}:${minutes} ${ampm}`;
                     };
-                    
+                    const color = t.color || '#ef4444';
                     return (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.template_name} ({formatTime(t.start_time)} - {formatTime(t.end_time)})
+                      <SelectItem
+                        key={t.id}
+                        value={t.id}
+                        className="my-1 rounded-md border-2 focus:bg-transparent"
+                        style={{
+                          backgroundColor: `${color}15`,
+                          borderColor: `${color}55`,
+                        }}
+                      >
+                        <div className="flex flex-col gap-0.5 py-0.5 whitespace-normal">
+                          <span className="font-semibold leading-tight" style={{ color }}>
+                            {t.template_name}
+                          </span>
+                          <span className="text-xs text-muted-foreground leading-tight">
+                            {formatTime(t.start_time)} – {formatTime(t.end_time)}
+                          </span>
+                        </div>
                       </SelectItem>
                     );
                   })}
