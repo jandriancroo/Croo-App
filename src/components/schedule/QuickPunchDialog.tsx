@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -136,24 +137,11 @@ export function QuickPunchDialog({
   const isToday = punchDate === getTodayInTimezone();
   const nowHM = formatInTimeZone(new Date(), timezone, 'HH:mm');
   const toHM = (t: string) => t.slice(0, 5);
-  const formatAmPm = (hm: string) => {
-    const [h, m] = hm.split(':').map(Number);
-    const suffix = h >= 12 ? 'PM' : 'AM';
-    const hour = h % 12 || 12;
-    return `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
-  };
   const remainderShifts = isToday
     ? scheduledShifts
         .filter(s => toHM(s.end_time) > nowHM && !activePunchUserIds.has(s.user_id))
         .sort((a, b) => toHM(a.start_time).localeCompare(toHM(b.start_time)))
     : [];
-
-  const applyShift = (shift: { user_id: string; start_time: string; end_time: string }) => {
-    setSelectedUserId(shift.user_id);
-    setStartTime(toHM(shift.start_time));
-    setShowClockOut(true);
-    setEndTime(toHM(shift.end_time));
-  };
 
   void 0;
 
@@ -352,69 +340,52 @@ export function QuickPunchDialog({
             </div>
           </div>
 
-          {/* Smart fill — scheduled shifts remaining today */}
-          {remainderShifts.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <Zap className="h-3.5 w-3.5 text-primary" />
-                <Label className="text-xs uppercase tracking-wide text-primary">
-                  Quick Fill · Remainder of Day
-                </Label>
-              </div>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {remainderShifts.map(shift => {
-                  const prof = profiles.find(p => p.id === shift.user_id);
-                  if (!prof) return null;
-                  const startHM = toHM(shift.start_time);
-                  const endHM = toHM(shift.end_time);
-                  const isSelected = selectedUserId === shift.user_id;
-                  return (
-                    <button
-                      key={shift.id}
-                      type="button"
-                      onClick={() => applyShift(shift)}
-                      className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition-colors ${
-                        isSelected
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-primary/10 border-primary/30 hover:bg-primary/20'
-                      }`}
-                    >
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage src={prof.profile_photo_url || undefined} />
-                        <AvatarFallback className="text-xs">{prof.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{prof.full_name}</div>
-                        <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                          {formatAmPm(startHM)} – {formatAmPm(endHM)}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Employee Selection */}
           <div className="space-y-2">
-            <Label>Employee</Label>
+            <div className="flex items-center justify-between">
+              <Label>Employee</Label>
+              {remainderShifts.length > 0 && (
+                <span className="text-xs text-primary flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  Quick Fill on top
+                </span>
+              )}
+            </div>
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select employee" />
               </SelectTrigger>
               <SelectContent>
-                {profiles.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={p.profile_photo_url || undefined} />
-                        <AvatarFallback className="text-xs">{p.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {p.full_name}
-                    </div>
-                  </SelectItem>
-                ))}
+                {profiles
+                  .map(p => ({
+                    ...p,
+                    remainderShift: remainderShifts.find(s => s.user_id === p.id)
+                  }))
+                  .sort((a, b) => {
+                    if (a.remainderShift && !b.remainderShift) return -1;
+                    if (!a.remainderShift && b.remainderShift) return 1;
+                    if (a.remainderShift && b.remainderShift) {
+                      return toHM(a.remainderShift.start_time).localeCompare(toHM(b.remainderShift.start_time));
+                    }
+                    return a.full_name.localeCompare(b.full_name);
+                  })
+                  .map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex items-center gap-2 w-full">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={p.profile_photo_url || undefined} />
+                          <AvatarFallback className="text-xs">{p.full_name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1 truncate">{p.full_name}</span>
+                        {p.remainderShift && (
+                          <Badge variant="secondary" className="text-xs ml-auto shrink-0">
+                            Quick Fill
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
