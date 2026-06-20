@@ -26,6 +26,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { AvailabilityRequest } from '@/hooks/useScheduleData';
 
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone, getBusinessDateForTimestamp } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
