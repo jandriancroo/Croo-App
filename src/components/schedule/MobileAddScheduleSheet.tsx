@@ -605,6 +605,19 @@ export function MobileAddScheduleSheet({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ============ DAY PREVIEW (reuses desktop breakdown) ============ */}
+      {scheduleId && (
+        <DayBreakdownDialog
+          open={dayPreviewOpen}
+          onOpenChange={setDayPreviewOpen}
+          date={currentDay}
+          scheduleId={scheduleId}
+          shifts={shifts}
+          profiles={profiles as any}
+          locationSettings={locationSettings}
+        />
+      )}
     </>
   );
 }
