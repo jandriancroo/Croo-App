@@ -48,6 +48,7 @@ export function QuickPunchDialog({
   const [breakType, setBreakType] = useState<'paid' | 'unpaid'>('unpaid');
   const [saving, setSaving] = useState(false);
   const [scheduledShifts, setScheduledShifts] = useState<Array<{ id: string; user_id: string; start_time: string; end_time: string }>>([]);
+  const [activePunchUserIds, setActivePunchUserIds] = useState<Set<string>>(new Set());
 
   // Reset and set defaults when dialog opens
   useEffect(() => {
@@ -90,21 +91,66 @@ export function QuickPunchDialog({
     return () => { cancelled = true; };
   }, [open, punchDate, profiles]);
 
-  // "Remainder of day" = today + shift end is still in the future
+  // Fetch active punches for the selected date so we can hide already-clocked-in employees
+  useEffect(() => {
+    if (!open || !punchDate || !currentLocation) {
+      setActivePunchUserIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const start = new Date(punchDate + 'T00:00:00').toISOString();
+      const end = new Date(punchDate + 'T23:59:59.999').toISOString();
+
+      const { data: clockIns } = await supabase
+        .from('time_punches')
+        .select('user_id, punch_time')
+        .eq('location_id', currentLocation.id)
+        .eq('punch_type', 'clock_in')
+        .gte('punch_time', start)
+        .lte('punch_time', end);
+
+      const { data: clockOuts } = await supabase
+        .from('time_punches')
+        .select('user_id, punch_time')
+        .eq('location_id', currentLocation.id)
+        .eq('punch_type', 'clock_out')
+        .gte('punch_time', start)
+        .lte('punch_time', end);
+
+      if (cancelled) return;
+      const active = new Set<string>();
+      clockIns?.forEach(punch => {
+        const hasClockOut = clockOuts?.some(co =>
+          co.user_id === punch.user_id &&
+          new Date(co.punch_time) > new Date(punch.punch_time)
+        );
+        if (!hasClockOut) active.add(punch.user_id);
+      });
+      setActivePunchUserIds(active);
+    })();
+    return () => { cancelled = true; };
+  }, [open, punchDate, currentLocation]);
+
+  // Quick Fill = today's scheduled shifts that haven't ended and aren't already punched in
   const isToday = punchDate === getTodayInTimezone();
   const nowHM = formatInTimeZone(new Date(), timezone, 'HH:mm');
   const toHM = (t: string) => t.slice(0, 5);
+  const formatAmPm = (hm: string) => {
+    const [h, m] = hm.split(':').map(Number);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
+  };
   const remainderShifts = isToday
     ? scheduledShifts
-        .filter(s => toHM(s.end_time) > nowHM)
+        .filter(s => toHM(s.end_time) > nowHM && !activePunchUserIds.has(s.user_id))
         .sort((a, b) => toHM(a.start_time).localeCompare(toHM(b.start_time)))
     : [];
 
   const applyShift = (shift: { user_id: string; start_time: string; end_time: string }) => {
     setSelectedUserId(shift.user_id);
-    const startHM = toHM(shift.start_time);
-    // If the scheduled start has already passed, clock in at now
-    setStartTime(isToday && startHM < nowHM ? nowHM : startHM);
+    setStartTime(toHM(shift.start_time));
     setShowClockOut(true);
     setEndTime(toHM(shift.end_time));
   };
@@ -321,7 +367,6 @@ export function QuickPunchDialog({
                   if (!prof) return null;
                   const startHM = toHM(shift.start_time);
                   const endHM = toHM(shift.end_time);
-                  const inProgress = isToday && startHM <= nowHM;
                   const isSelected = selectedUserId === shift.user_id;
                   return (
                     <button
@@ -341,12 +386,7 @@ export function QuickPunchDialog({
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{prof.full_name}</div>
                         <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                          {startHM} – {endHM}
-                          {inProgress && (
-                            <span className={`ml-1.5 ${isSelected ? '' : 'text-primary font-medium'}`}>
-                              · in progress
-                            </span>
-                          )}
+                          {formatAmPm(startHM)} – {formatAmPm(endHM)}
                         </div>
                       </div>
                     </button>
