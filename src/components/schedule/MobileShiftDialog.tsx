@@ -430,7 +430,9 @@ export function MobileShiftDialog({
                   {offeredShifts.length > 0 && offeredShifts.map((offer) => {
                     const shiftData = offer.scheduled_shifts;
                     const offeredBy = offer.profiles?.full_name || 'Unknown';
-                    const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
+                    const rawTemplateName = shiftData?.shift_templates?.template_name;
+                    const position = shiftData?.shift_templates?.position;
+                    const displayName = position || (rawTemplateName ? rawTemplateName.split(/\d{1,2}:\d{2}/)[0].trim() : 'Shift');
                     const formatTime = (time: string) => {
                       const [hours, minutes] = time.split(':');
                       const hour = parseInt(hours);
@@ -443,12 +445,15 @@ export function MobileShiftDialog({
                       <SelectItem 
                         key={offer.id} 
                         value={`offer-${offer.id}`}
-                        className="font-semibold text-primary bg-primary/10 border-l-4 border-primary"
+                        className="font-semibold text-primary bg-primary/10 border-l-4 border-primary max-w-full"
                       >
-                        <div className="flex items-center gap-2">
-                          <ArrowUp className="h-4 w-4 animate-pulse" />
-                          <span className="italic">
-                            {templateName} ({formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)}) - Offered by {offeredBy}
+                        <div className="flex flex-col gap-0.5 py-0.5 max-w-full pl-6">
+                          <span className="font-semibold leading-tight flex items-center gap-1">
+                            <ArrowUp className="h-3 w-3 animate-pulse" />
+                            {displayName}
+                          </span>
+                          <span className="text-xs text-muted-foreground leading-tight">
+                            {formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)} • Offered by {offeredBy}
                           </span>
                         </div>
                       </SelectItem>
