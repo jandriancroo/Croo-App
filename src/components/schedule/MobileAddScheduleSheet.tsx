@@ -608,7 +608,7 @@ export function MobileAddScheduleSheet({
 
       {/* ============ DAY PREVIEW (reuses desktop breakdown) ============ */}
       {scheduleId && (
-        <DayBreakdownDialog
+        <MobileDayPreviewSheet
           open={dayPreviewOpen}
           onOpenChange={setDayPreviewOpen}
           date={currentDay}
