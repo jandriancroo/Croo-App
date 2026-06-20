@@ -11,6 +11,7 @@ import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 const MobileShiftDialog = lazyWithRetry(() => import('./MobileShiftDialog').then(m => ({ default: m.MobileShiftDialog })));
+const MobileAddScheduleSheet = lazyWithRetry(() => import('./MobileAddScheduleSheet').then(m => ({ default: m.MobileAddScheduleSheet })));
 import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
