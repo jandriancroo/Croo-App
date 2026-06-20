@@ -1433,6 +1433,7 @@ export function MobileScheduleView({
             shifts={shifts}
             defaultDate={selectedDate}
             locationSettings={locationSettings}
+            availabilityRequests={availabilityRequests}
             onCreated={() => onUpdate?.()}
           />
         </Suspense>
