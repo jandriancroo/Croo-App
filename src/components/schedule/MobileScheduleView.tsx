@@ -123,6 +123,7 @@ export function MobileScheduleView({
   shifts,
   events,
   profiles,
+  availabilityRequests = [],
   onShiftClick,
   onWeekChange,
   onUpdate,
