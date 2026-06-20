@@ -90,6 +90,7 @@ interface MobileScheduleViewProps {
   isPublishing?: boolean;
   hasPendingChanges?: boolean;
   isLoading?: boolean; // Show skeleton cards while loading
+  locationSettings?: { hours_open?: string; hours_close?: string } | null;
 }
 
 interface DayPunch {
