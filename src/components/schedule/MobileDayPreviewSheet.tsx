@@ -12,6 +12,14 @@ import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
 import { Button } from "@/components/ui/button";
 
+interface PendingDraft {
+  employeeId: string;
+  employeeName: string;
+  employeePhoto?: string | null;
+  start: string;
+  end: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -20,6 +28,7 @@ interface Props {
   shifts: any[];
   profiles: { id: string; full_name?: string | null; nickname?: string | null; hourly_wage?: number | null; profile_photo_url?: string | null }[];
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  pendingDraft?: PendingDraft | null;
 }
 
 function calcWorkedHours(start: string, end: string): number {
