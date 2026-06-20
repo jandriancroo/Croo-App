@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Switch } from '@/components/ui/switch';
