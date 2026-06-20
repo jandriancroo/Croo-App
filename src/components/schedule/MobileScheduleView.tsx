@@ -992,18 +992,7 @@ export function MobileScheduleView({
                           <div className="w-px bg-primary-foreground/15 my-1" />
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedShift({
-                                id: '',
-                                user_id: null,
-                                day_of_week: selectedDayOfWeek,
-                                start_time: '09:00',
-                                end_time: '17:00',
-                                shift_date: format(selectedDate, 'yyyy-MM-dd'),
-                              });
-                              setIsCreatingShift(true);
-                              setShiftDialogOpen(true);
-                            }}
+                            onClick={() => setAddSheetOpen(true)}
                             className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
                           >
                             <CalendarPlus className="h-3.5 w-3.5" />
