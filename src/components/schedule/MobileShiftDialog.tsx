@@ -50,7 +50,6 @@ interface MobileShiftDialogProps {
   templates?: Array<{
     id: string;
     template_name: string;
-    role: string;
     start_time: string;
     end_time: string;
     color: string | null;
