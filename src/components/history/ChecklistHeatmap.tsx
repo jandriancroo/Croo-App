@@ -451,12 +451,14 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
                   </div>
               </div>
               {currentLocation?.id && timezone && (
-                <DayManagersWorked
-                  dateStr={selectedDate}
-                  locationId={currentLocation.id}
-                  timezone={timezone}
-                  businessDayRange={getBusinessDayRangeInTimezone(selectedDate)}
-                />
+                <div className="col-span-3">
+                  <DayManagersWorked
+                    dateStr={selectedDate}
+                    locationId={currentLocation.id}
+                    timezone={timezone}
+                    businessDayRange={getBusinessDayRangeInTimezone(selectedDate)}
+                  />
+                </div>
               )}
             </div>
             </div>
