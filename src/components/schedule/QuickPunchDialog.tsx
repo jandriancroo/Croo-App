@@ -343,23 +343,49 @@ export function QuickPunchDialog({
 
           {/* Employee Selection */}
           <div className="space-y-2">
-            <Label>Employee</Label>
+            <div className="flex items-center justify-between">
+              <Label>Employee</Label>
+              {remainderShifts.length > 0 && (
+                <span className="text-xs text-primary flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  Quick Fill on top
+                </span>
+              )}
+            </div>
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select employee" />
               </SelectTrigger>
               <SelectContent>
-                {profiles.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={p.profile_photo_url || undefined} />
-                        <AvatarFallback className="text-xs">{p.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {p.full_name}
-                    </div>
-                  </SelectItem>
-                ))}
+                {profiles
+                  .map(p => ({
+                    ...p,
+                    remainderShift: remainderShifts.find(s => s.user_id === p.id)
+                  }))
+                  .sort((a, b) => {
+                    if (a.remainderShift && !b.remainderShift) return -1;
+                    if (!a.remainderShift && b.remainderShift) return 1;
+                    if (a.remainderShift && b.remainderShift) {
+                      return toHM(a.remainderShift.start_time).localeCompare(toHM(b.remainderShift.start_time));
+                    }
+                    return a.full_name.localeCompare(b.full_name);
+                  })
+                  .map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex items-center gap-2 w-full">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={p.profile_photo_url || undefined} />
+                          <AvatarFallback className="text-xs">{p.full_name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1 truncate">{p.full_name}</span>
+                        {p.remainderShift && (
+                          <Badge variant="secondary" className="text-xs ml-auto shrink-0">
+                            Quick Fill
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
