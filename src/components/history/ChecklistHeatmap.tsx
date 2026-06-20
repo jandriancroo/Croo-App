@@ -449,8 +449,16 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
                   <div className="text-[10px] text-muted-foreground mt-0.5">
                     {sl && sl.laborHours > 0 ? `${sl.laborHours.toFixed(1)} hrs` : 'No labor data'}
                   </div>
-                </div>
               </div>
+              {currentLocation?.id && timezone && (
+                <DayManagersWorked
+                  dateStr={selectedDate}
+                  locationId={currentLocation.id}
+                  timezone={timezone}
+                  businessDayRange={getBusinessDayRangeInTimezone(selectedDate)}
+                />
+              )}
+            </div>
             </div>
           );
         })()}
