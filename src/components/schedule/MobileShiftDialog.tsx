@@ -424,7 +424,7 @@ export function MobileShiftDialog({
               <SelectTrigger>
                   <SelectValue placeholder="Select quick fill option" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-[calc(100vw-2rem)]">
                   <SelectItem value="none">None</SelectItem>
                   
                   {/* Offered Shifts Section */}
