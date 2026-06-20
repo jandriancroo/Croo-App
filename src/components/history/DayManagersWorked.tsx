@@ -108,13 +108,13 @@ export function DayManagersWorked({ dateStr, locationId, timezone, businessDayRa
       <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
         <Shield className="w-3 h-3" /> Managers on duty
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 w-full">
         {formatted.map(m => (
           <div
             key={m.userId}
-            className="flex items-center justify-between gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-2"
+            className="w-full flex items-center justify-between gap-3 rounded-xl bg-primary/10 border border-primary/20 px-3 py-2"
           >
-            <span className="font-medium text-foreground text-[12px] truncate">
+            <span className="min-w-0 font-medium text-foreground text-[12px] truncate">
               {m.name}
             </span>
             <span className="text-muted-foreground text-[11px] shrink-0">
