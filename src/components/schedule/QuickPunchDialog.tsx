@@ -306,6 +306,56 @@ export function QuickPunchDialog({
             </div>
           </div>
 
+          {/* Smart fill — scheduled shifts remaining today */}
+          {remainderShifts.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-primary" />
+                <Label className="text-xs uppercase tracking-wide text-primary">
+                  Quick Fill · Remainder of Day
+                </Label>
+              </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {remainderShifts.map(shift => {
+                  const prof = profiles.find(p => p.id === shift.user_id);
+                  if (!prof) return null;
+                  const startHM = toHM(shift.start_time);
+                  const endHM = toHM(shift.end_time);
+                  const inProgress = isToday && startHM <= nowHM;
+                  const isSelected = selectedUserId === shift.user_id;
+                  return (
+                    <button
+                      key={shift.id}
+                      type="button"
+                      onClick={() => applyShift(shift)}
+                      className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-primary/10 border-primary/30 hover:bg-primary/20'
+                      }`}
+                    >
+                      <Avatar className="h-7 w-7">
+                        <AvatarImage src={prof.profile_photo_url || undefined} />
+                        <AvatarFallback className="text-xs">{prof.full_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{prof.full_name}</div>
+                        <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          {startHM} – {endHM}
+                          {inProgress && (
+                            <span className={`ml-1.5 ${isSelected ? '' : 'text-primary font-medium'}`}>
+                              · in progress
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Employee Selection */}
           <div className="space-y-2">
             <Label>Employee</Label>
