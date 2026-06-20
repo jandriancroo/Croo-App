@@ -75,6 +75,22 @@ function fmt12(t: string): string {
   return `${hour % 12 || 12}:${m} ${ampm}`;
 }
 
+function availabilityForDay(
+  requests: AvailabilityRequest[],
+  userId: string,
+  dateStr: string
+): AvailabilityRequest[] {
+  return requests.filter(r => {
+    if (r.user_id !== userId) return false;
+    if (r.status !== 'pending' && r.status !== 'approved') return false;
+    if (r.time_scope === 'multi_day' && r.end_date) {
+      return dateStr >= r.start_date && dateStr <= r.end_date;
+    }
+    return r.start_date === dateStr;
+  });
+}
+
+
 export function MobileAddScheduleSheet({
   open,
   onOpenChange,
