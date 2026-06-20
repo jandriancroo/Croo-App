@@ -91,7 +91,48 @@ export function QuickPunchDialog({
     return () => { cancelled = true; };
   }, [open, punchDate, profiles]);
 
-  // "Remainder of day" = today + shift end is still in the future
+  // Fetch active punches for the selected date so we can hide already-clocked-in employees
+  useEffect(() => {
+    if (!open || !punchDate || !currentLocation) {
+      setActivePunchUserIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const start = new Date(punchDate + 'T00:00:00').toISOString();
+      const end = new Date(punchDate + 'T23:59:59.999').toISOString();
+
+      const { data: clockIns } = await supabase
+        .from('time_punches')
+        .select('user_id, punch_time')
+        .eq('location_id', currentLocation.id)
+        .eq('punch_type', 'clock_in')
+        .gte('punch_time', start)
+        .lte('punch_time', end);
+
+      const { data: clockOuts } = await supabase
+        .from('time_punches')
+        .select('user_id, punch_time')
+        .eq('location_id', currentLocation.id)
+        .eq('punch_type', 'clock_out')
+        .gte('punch_time', start)
+        .lte('punch_time', end);
+
+      if (cancelled) return;
+      const active = new Set<string>();
+      clockIns?.forEach(punch => {
+        const hasClockOut = clockOuts?.some(co =>
+          co.user_id === punch.user_id &&
+          new Date(co.punch_time) > new Date(punch.punch_time)
+        );
+        if (!hasClockOut) active.add(punch.user_id);
+      });
+      setActivePunchUserIds(active);
+    })();
+    return () => { cancelled = true; };
+  }, [open, punchDate, currentLocation]);
+
+  // Quick Fill = today's scheduled shifts that haven't ended and aren't already punched in
   const isToday = punchDate === getTodayInTimezone();
   const nowHM = formatInTimeZone(new Date(), timezone, 'HH:mm');
   const toHM = (t: string) => t.slice(0, 5);
