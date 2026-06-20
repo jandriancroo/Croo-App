@@ -1116,50 +1116,6 @@ export function MobileScheduleView({
                       </div>
                     )}
 
-                    {/* Quick Action Bar — above Day Insights */}
-                    <div className="mt-3 flex items-stretch gap-1 rounded-xl bg-foreground p-1 text-background shadow-md">
-                      <button
-                        type="button"
-                        onClick={() => setQuickPunchOpen(true)}
-                        className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg active:bg-background/10 transition"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                        <span className="text-[10px] font-semibold uppercase tracking-wide">Quick Punch</span>
-                      </button>
-                      {(isAdmin || isManager) && scheduleId && (
-                        <>
-                          <div className="w-px bg-background/15 my-1.5" />
-                          <button
-                            type="button"
-                            onClick={() => setEventDialogOpen(true)}
-                            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg active:bg-background/10 transition"
-                          >
-                            <CalendarPlus className="h-4 w-4" />
-                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
-                          </button>
-                          <div className="w-px bg-background/15 my-1.5" />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedShift({
-                                id: '',
-                                user_id: null,
-                                day_of_week: selectedDayOfWeek,
-                                start_time: '09:00',
-                                end_time: '17:00',
-                                shift_date: format(selectedDate, 'yyyy-MM-dd'),
-                              });
-                              setIsCreatingShift(true);
-                              setShiftDialogOpen(true);
-                            }}
-                            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg active:bg-background/10 transition"
-                          >
-                            <CalendarCheck className="h-4 w-4" />
-                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
-                          </button>
-                        </>
-                      )}
-                    </div>
 
                     {/* Day Insights — bottom of page */}
                     <Card className="overflow-hidden p-0 mt-2">
