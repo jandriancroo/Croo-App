@@ -495,23 +495,44 @@ export function MobileAddScheduleSheet({
                   {/* Apply template */}
                   <div className="space-y-2">
                     <Label>Apply Template</Label>
-                    <Select
-                      value={currentDraft?.templateId || 'none'}
-                      onValueChange={(v) => v === 'none' ? clearDayDraft() : applyTemplateToDayDraft(v)}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Choose template" /></SelectTrigger>
-                      <SelectContent className="max-w-[calc(100vw-2rem)]">
-                        <SelectItem value="none">Skip this day</SelectItem>
-                        {templates.map(t => (
-                          <SelectItem key={t.id} value={t.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}</span>
-                              <span className="text-xs text-muted-foreground">{fmt12(t.start_time)} – {fmt12(t.end_time)}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {(() => {
+                      const selectedTpl = templates.find(t => t.id === currentDraft?.templateId);
+                      return (
+                        <Select
+                          value={currentDraft?.templateId || 'none'}
+                          onValueChange={(v) => v === 'none' ? clearDayDraft() : applyTemplateToDayDraft(v)}
+                        >
+                          <SelectTrigger className={cn(
+                            "h-auto min-h-[3rem] py-2",
+                            selectedTpl && "border-primary/40 bg-primary/5"
+                          )}>
+                            {selectedTpl ? (
+                              <div className="flex flex-col items-start text-left flex-1 min-w-0">
+                                <span className="font-semibold text-sm leading-tight truncate w-full">
+                                  {selectedTpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
+                                </span>
+                                <span className="text-xs text-muted-foreground mt-0.5">
+                                  {fmt12(selectedTpl.start_time)} – {fmt12(selectedTpl.end_time)}
+                                </span>
+                              </div>
+                            ) : (
+                              <SelectValue placeholder="Choose template" />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent className="max-w-[calc(100vw-2rem)]">
+                            <SelectItem value="none">Skip this day</SelectItem>
+                            {templates.map(t => (
+                              <SelectItem key={t.id} value={t.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}</span>
+                                  <span className="text-xs text-muted-foreground">{fmt12(t.start_time)} – {fmt12(t.end_time)}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      );
+                    })()}
                   </div>
 
                   {/* Custom times */}
