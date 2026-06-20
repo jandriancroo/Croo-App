@@ -465,6 +465,7 @@ export function MobileShiftDialog({
                       const displayHour = hour % 12 || 12;
                       return `${displayHour}:${minutes} ${ampm}`;
                     };
+                    const displayName = t.template_name.split(/\d{1,2}:\d{2}/)[0].trim();
                     const color = t.color || '#ef4444';
                     return (
                       <SelectItem
@@ -478,7 +479,7 @@ export function MobileShiftDialog({
                       >
                         <div className="flex flex-col gap-0.5 py-0.5 max-w-full">
                           <span className="font-semibold leading-tight break-words" style={{ color }}>
-                            {t.role || t.template_name}
+                            {displayName}
                           </span>
                           <span className="text-xs text-muted-foreground leading-tight">
                             {formatTime(t.start_time)} – {formatTime(t.end_time)}
