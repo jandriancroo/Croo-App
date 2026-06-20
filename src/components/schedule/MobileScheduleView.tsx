@@ -453,24 +453,72 @@ export function MobileScheduleView({
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
-  // Day Insights — uses the SAME source of truth as the Dashboard SalesSummary
-  // and ManagerDashboardOverlay: fetch-qubeyond-sales returns live labor
-  // calculated from open punches. labor_cache is history-only (excludes today)
-  // so querying it here returned $0. Shared query key dedupes with dashboard.
+  // Day Insights — references the same SOT as the Dashboard SalesSummary.
+  // For TODAY: prefers the in-memory enriched cache (written by SalesSummary)
+  //   → falls back to the shared localStorage live-sales cache (also written
+  //     by SalesSummary on the dashboard) → finally falls back to sales_cache
+  //     + labor_cache so a fresh visit to /schedule still shows real numbers.
+  // For PAST days: reads sales_cache + labor_cache directly (same tables the
+  // dashboard reads for historical days via checkDatabaseCache).
   const { data: dayInsightsData } = useQuery({
-    queryKey: ['dashboard-sales-enriched', currentLocation?.id],
-    queryFn: () => {
-      const cached: any = queryClient.getQueryData(['dashboard-sales-enriched', currentLocation?.id]) ?? null;
-      if (!cached) return null;
-      const sales = cached?.daily || 0;
-      const laborCost = cached?.labor?.laborCost || 0;
-      const laborHours = cached?.labor?.hoursWorked || 0;
-      return { sales, laborCost, laborHours };
+    queryKey: ['day-insights', currentLocation?.id, punchDateStr],
+    queryFn: async () => {
+      if (!currentLocation?.id || !punchDateStr) return null;
+      const isToday = punchDateStr === todayStr;
+
+      // 1. In-memory enriched cache from SalesSummary (master writer)
+      const enriched: any = queryClient.getQueryData(['dashboard-sales-enriched', currentLocation.id]);
+      if (isToday && enriched) {
+        return {
+          sales: enriched?.daily || 0,
+          laborCost: enriched?.labor?.laborCost || 0,
+          laborHours: enriched?.labor?.hoursWorked || 0,
+        };
+      }
+
+      // 2. localStorage live-sales cache (shared with SalesSummary)
+      if (isToday) {
+        try {
+          const { getCachedLiveSales } = await import('@/utils/salesCache');
+          const live = getCachedLiveSales(currentLocation.id);
+          if (live?.data) {
+            return {
+              sales: live.data?.daily || 0,
+              laborCost: live.data?.labor?.laborCost || 0,
+              laborHours: live.data?.labor?.hoursWorked || 0,
+            };
+          }
+        } catch {}
+      }
+
+      // 3. Direct DB read (sales_cache + labor_cache)
+      const [salesRes, laborRes] = await Promise.all([
+        supabase
+          .from('sales_cache')
+          .select('net_sales')
+          .eq('location_id', currentLocation.id)
+          .eq('sale_date', punchDateStr)
+          .maybeSingle(),
+        supabase
+          .from('labor_cache')
+          .select('labor_cost, labor_hours, source')
+          .eq('location_id', currentLocation.id)
+          .eq('labor_date', punchDateStr),
+      ]);
+
+      const sales = Number(salesRes.data?.net_sales) || 0;
+      const laborRows = laborRes.data || [];
+      // Prefer punch_clock over qubeyond (matches SalesSummary logic)
+      const preferred = laborRows.find((r: any) => r.source === 'punch_clock') || laborRows[0];
+      return {
+        sales,
+        laborCost: Number(preferred?.labor_cost) || 0,
+        laborHours: Number(preferred?.labor_hours) || 0,
+      };
     },
-    enabled: !!currentLocation?.id,
-    staleTime: Infinity,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    enabled: !!currentLocation?.id && !!punchDateStr,
+    staleTime: punchDateStr === todayStr ? 60 * 1000 : 5 * 60 * 1000,
+    refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
 
