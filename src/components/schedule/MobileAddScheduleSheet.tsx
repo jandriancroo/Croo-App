@@ -87,6 +87,7 @@ export function MobileAddScheduleSheet({
   defaultDate,
   defaultEmployeeId,
   locationSettings,
+  availabilityRequests = [],
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
