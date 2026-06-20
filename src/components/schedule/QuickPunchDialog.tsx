@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Switch } from '@/components/ui/switch';
@@ -47,6 +47,7 @@ export function QuickPunchDialog({
   const [breakEndTime, setBreakEndTime] = useState('');
   const [breakType, setBreakType] = useState<'paid' | 'unpaid'>('unpaid');
   const [saving, setSaving] = useState(false);
+  const [scheduledShifts, setScheduledShifts] = useState<Array<{ id: string; user_id: string; start_time: string; end_time: string }>>([]);
 
   // Reset and set defaults when dialog opens
   useEffect(() => {
@@ -65,6 +66,50 @@ export function QuickPunchDialog({
       setPunchDate(format(selectedDate, 'yyyy-MM-dd'));
     }
   }, [open, selectedDate]);
+
+  // Fetch scheduled shifts for the punch date (location-scoped via profile list)
+  useEffect(() => {
+    if (!open || !punchDate || profiles.length === 0) {
+      setScheduledShifts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const userIds = profiles.map(p => p.id);
+      const { data } = await supabase
+        .from('scheduled_shifts')
+        .select('id, user_id, start_time, end_time')
+        .eq('shift_date', punchDate)
+        .in('user_id', userIds)
+        .eq('is_phantom', false);
+      if (cancelled) return;
+      setScheduledShifts(((data || []) as any[])
+        .filter(s => s.user_id && s.start_time && s.end_time)
+        .map(s => ({ id: s.id, user_id: s.user_id, start_time: s.start_time, end_time: s.end_time })));
+    })();
+    return () => { cancelled = true; };
+  }, [open, punchDate, profiles]);
+
+  // "Remainder of day" = today + shift end is still in the future
+  const isToday = punchDate === getTodayInTimezone();
+  const nowHM = formatInTimeZone(new Date(), timezone, 'HH:mm');
+  const toHM = (t: string) => t.slice(0, 5);
+  const remainderShifts = isToday
+    ? scheduledShifts
+        .filter(s => toHM(s.end_time) > nowHM)
+        .sort((a, b) => toHM(a.start_time).localeCompare(toHM(b.start_time)))
+    : [];
+
+  const applyShift = (shift: { user_id: string; start_time: string; end_time: string }) => {
+    setSelectedUserId(shift.user_id);
+    const startHM = toHM(shift.start_time);
+    // If the scheduled start has already passed, clock in at now
+    setStartTime(isToday && startHM < nowHM ? nowHM : startHM);
+    setShowClockOut(true);
+    setEndTime(toHM(shift.end_time));
+  };
+
+  void 0;
 
   // Check if a time is in the future (using location timezone, not device time)
   const isTimeInFuture = (time: string): boolean => {
@@ -260,6 +305,56 @@ export function QuickPunchDialog({
               </Button>
             </div>
           </div>
+
+          {/* Smart fill — scheduled shifts remaining today */}
+          {remainderShifts.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-primary" />
+                <Label className="text-xs uppercase tracking-wide text-primary">
+                  Quick Fill · Remainder of Day
+                </Label>
+              </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {remainderShifts.map(shift => {
+                  const prof = profiles.find(p => p.id === shift.user_id);
+                  if (!prof) return null;
+                  const startHM = toHM(shift.start_time);
+                  const endHM = toHM(shift.end_time);
+                  const inProgress = isToday && startHM <= nowHM;
+                  const isSelected = selectedUserId === shift.user_id;
+                  return (
+                    <button
+                      key={shift.id}
+                      type="button"
+                      onClick={() => applyShift(shift)}
+                      className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-primary/10 border-primary/30 hover:bg-primary/20'
+                      }`}
+                    >
+                      <Avatar className="h-7 w-7">
+                        <AvatarImage src={prof.profile_photo_url || undefined} />
+                        <AvatarFallback className="text-xs">{prof.full_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{prof.full_name}</div>
+                        <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          {startHM} – {endHM}
+                          {inProgress && (
+                            <span className={`ml-1.5 ${isSelected ? '' : 'text-primary font-medium'}`}>
+                              · in progress
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Employee Selection */}
           <div className="space-y-2">
