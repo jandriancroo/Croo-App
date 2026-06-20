@@ -73,6 +73,7 @@ interface MobileScheduleViewProps {
   shifts: Shift[];
   events: Event[];
   profiles: Profile[];
+  availabilityRequests?: AvailabilityRequest[];
   onShiftClick?: (shift: Shift) => void;
   onWeekChange?: (weekStart: Date) => void;
   onUpdate?: () => void;
