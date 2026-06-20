@@ -10,6 +10,7 @@ import { getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, X } from 'lucide-react';
+import { DayManagersWorked } from './DayManagersWorked';
 
 interface Props {
   anchorDate: Date;
@@ -448,8 +449,16 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
                   <div className="text-[10px] text-muted-foreground mt-0.5">
                     {sl && sl.laborHours > 0 ? `${sl.laborHours.toFixed(1)} hrs` : 'No labor data'}
                   </div>
-                </div>
               </div>
+              {currentLocation?.id && timezone && (
+                <DayManagersWorked
+                  dateStr={selectedDate}
+                  locationId={currentLocation.id}
+                  timezone={timezone}
+                  businessDayRange={getBusinessDayRangeInTimezone(selectedDate)}
+                />
+              )}
+            </div>
             </div>
           );
         })()}
