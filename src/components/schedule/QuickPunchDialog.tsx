@@ -47,6 +47,7 @@ export function QuickPunchDialog({
   const [breakEndTime, setBreakEndTime] = useState('');
   const [breakType, setBreakType] = useState<'paid' | 'unpaid'>('unpaid');
   const [saving, setSaving] = useState(false);
+  const [scheduledShifts, setScheduledShifts] = useState<Array<{ id: string; user_id: string; start_time: string; end_time: string }>>([]);
 
   // Reset and set defaults when dialog opens
   useEffect(() => {
