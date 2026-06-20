@@ -75,6 +75,22 @@ function fmt12(t: string): string {
   return `${hour % 12 || 12}:${m} ${ampm}`;
 }
 
+function availabilityForDay(
+  requests: AvailabilityRequest[],
+  userId: string,
+  dateStr: string
+): AvailabilityRequest[] {
+  return requests.filter(r => {
+    if (r.user_id !== userId) return false;
+    if (r.status !== 'pending' && r.status !== 'approved') return false;
+    if (r.time_scope === 'multi_day' && r.end_date) {
+      return dateStr >= r.start_date && dateStr <= r.end_date;
+    }
+    return r.start_date === dateStr;
+  });
+}
+
+
 export function MobileAddScheduleSheet({
   open,
   onOpenChange,
@@ -315,15 +331,7 @@ export function MobileAddScheduleSheet({
 
   const currentDayAvailability = useMemo(() => {
     if (!empUserId || !currentDay) return [];
-    const dateStr = format(currentDay, 'yyyy-MM-dd');
-    return availabilityRequests.filter(r => {
-      if (r.user_id !== empUserId) return false;
-      if (r.status !== 'pending' && r.status !== 'approved') return false;
-      if (r.time_scope === 'multi_day' && r.end_date) {
-        return dateStr >= r.start_date && dateStr <= r.end_date;
-      }
-      return r.start_date === dateStr;
-    });
+    return availabilityForDay(availabilityRequests, empUserId, format(currentDay, 'yyyy-MM-dd'));
   }, [empUserId, currentDay, availabilityRequests]);
 
   return (
@@ -648,12 +656,56 @@ export function MobileAddScheduleSheet({
               const draft = weekDraft[i];
               const existing = empExistingByDay[format(d, 'yyyy-MM-dd')];
               const dateStr = format(d, 'EEE, MMM d');
+              const dayAvailability = empUserId
+                ? availabilityForDay(availabilityRequests, empUserId, format(d, 'yyyy-MM-dd'))
+                : [];
               return (
-                <div key={i} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                <div key={i} className="flex items-start justify-between rounded-lg border px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{dateStr}</p>
+                    {dayAvailability.length > 0 && (
+                      <div className="mt-1.5 space-y-1">
+                        {dayAvailability.map(req => (
+                          <div
+                            key={req.id}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-md border px-2 py-1",
+                              req.status === 'pending'
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
+                                : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                            )}
+                          >
+                            <CalendarOff className={cn(
+                              "h-3 w-3 shrink-0",
+                              req.status === 'pending' ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
+                            )} />
+                            <div className="flex-1 min-w-0">
+                              <p className={cn(
+                                "text-[10px] font-medium leading-tight",
+                                req.status === 'pending' ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"
+                              )}>
+                                {req.request_type === 'time_off' ? 'Time Off' : 'Unavailable'} {req.status === 'pending' ? 'Pending' : 'Approved'}
+                              </p>
+                              <p className={cn(
+                                "text-[9px] truncate leading-tight",
+                                req.status === 'pending' ? "text-amber-700/80 dark:text-amber-400/80" : "text-emerald-700/80 dark:text-emerald-400/80"
+                              )}>
+                                {req.time_scope === 'partial_day' && req.start_time && req.end_time
+                                  ? `${fmt12(req.start_time)} – ${fmt12(req.end_time)}`
+                                  : req.time_scope === 'multi_day' && req.end_date
+                                    ? `${format(new Date(req.start_date + 'T12:00:00'), 'MMM d')} – ${format(new Date(req.end_date + 'T12:00:00'), 'MMM d')}`
+                                    : 'All day'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {draft ? (
-                      <p className="text-xs text-primary font-semibold">
+                      <p className={cn(
+                        "text-xs font-semibold",
+                        dayAvailability.length > 0 ? "text-amber-600" : "text-primary"
+                      )}>
                         NEW: {fmt12(draft.start)} – {fmt12(draft.end)} ({hoursBetween(draft.start, draft.end).toFixed(1)}h)
                       </p>
                     ) : existing ? (
@@ -664,7 +716,7 @@ export function MobileAddScheduleSheet({
                       <p className="text-xs text-muted-foreground">Off</p>
                     )}
                   </div>
-                  {draft && <Check className="h-4 w-4 text-primary shrink-0" />}
+                  {draft && <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />}
                 </div>
               );
             })}
