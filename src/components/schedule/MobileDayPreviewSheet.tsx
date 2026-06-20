@@ -242,7 +242,7 @@ export function MobileDayPreviewSheet({
 
           {/* 3 stat tiles */}
           <div className="grid grid-cols-3 gap-2">
-            <StatTile icon={<Users className="h-4 w-4" />} label="Shifts" value={dayShifts.length.toString()} />
+            <StatTile icon={<Users className="h-4 w-4" />} label="Shifts" value={(dayShifts.length + (pendingDraft ? 1 : 0)).toString()} />
             <StatTile icon={<Clock className="h-4 w-4" />} label="Hours" value={totalHours.toFixed(1)} />
             <StatTile icon={<DollarSign className="h-4 w-4" />} label="Labor" value={formatCurrency(totalCost)} />
           </div>
@@ -251,14 +251,38 @@ export function MobileDayPreviewSheet({
           <div className="rounded-2xl border overflow-hidden">
             <div className="px-3 py-2 bg-muted/40 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide">Scheduled Shifts</span>
-              <span className="text-xs text-muted-foreground">{dayShifts.length}</span>
+              <span className="text-xs text-muted-foreground">{dayShifts.length + (pendingDraft ? 1 : 0)}</span>
             </div>
-            {sorted.length === 0 ? (
+            {sorted.length === 0 && !pendingDraft ? (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No shifts scheduled
               </div>
             ) : (
               <div className="divide-y">
+                {/* Pending draft row (highlighted) */}
+                {pendingDraft && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 bg-primary/5 border-l-2 border-primary">
+                    <Avatar className="h-9 w-9 shrink-0 ring-2 ring-primary/40">
+                      <AvatarImage src={pendingDraft.employeePhoto || undefined} />
+                      <AvatarFallback className="text-xs">{pendingDraft.employeeName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold truncate">{pendingDraft.employeeName}</p>
+                        <Badge className="h-4 px-1.5 text-[9px] font-bold uppercase tracking-wide shrink-0">
+                          Pending
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-primary font-medium truncate">
+                        {formatTime12Hour(pendingDraft.start)} – {formatTime12Hour(pendingDraft.end)}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold tabular-nums text-primary">{pendingHours.toFixed(1)}h</p>
+                      <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(pendingCost)}</p>
+                    </div>
+                  </div>
+                )}
                 {sorted.map((shift) => {
                   const p = profileFor(shift.user_id);
                   const name = p ? (p.nickname || p.full_name || "Hidden") : (shift.user_id ? "Hidden" : "Unassigned");
