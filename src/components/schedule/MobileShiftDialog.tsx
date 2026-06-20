@@ -470,15 +470,15 @@ export function MobileShiftDialog({
                       <SelectItem
                         key={t.id}
                         value={t.id}
-                        className="my-1 rounded-md border-2 focus:bg-transparent"
+                        className="my-1 rounded-md border-2 focus:bg-transparent max-w-full"
                         style={{
                           backgroundColor: `${color}15`,
                           borderColor: `${color}55`,
                         }}
                       >
-                        <div className="flex flex-col gap-0.5 py-0.5 whitespace-normal">
-                          <span className="font-semibold leading-tight" style={{ color }}>
-                            {t.template_name}
+                        <div className="flex flex-col gap-0.5 py-0.5 max-w-full">
+                          <span className="font-semibold leading-tight break-words" style={{ color }}>
+                            {t.role || t.template_name}
                           </span>
                           <span className="text-xs text-muted-foreground leading-tight">
                             {formatTime(t.start_time)} – {formatTime(t.end_time)}
