@@ -142,34 +142,40 @@ export function MobileDayPreviewSheet({
 
   const profileFor = (id: string | null) => profiles.find((p) => p.id === id) || null;
 
-  const totalHours = dayShifts.reduce((s, sh) => s + calcWorkedHours(sh.start_time, sh.end_time), 0);
+  // Pending draft hours/cost
+  const pendingHours = pendingDraft ? calcWorkedHours(pendingDraft.start, pendingDraft.end) : 0;
+  const pendingWage = pendingDraft ? (profileFor(pendingDraft.employeeId)?.hourly_wage ?? 15) : 15;
+  const pendingCost = pendingHours * pendingWage;
+
+  const totalHours = dayShifts.reduce((s, sh) => s + calcWorkedHours(sh.start_time, sh.end_time), 0) + pendingHours;
   const totalCost = dayShifts.reduce((s, sh) => {
     const p = profileFor(sh.user_id);
     return s + calcWorkedHours(sh.start_time, sh.end_time) * (p?.hourly_wage ?? 15);
-  }, 0);
+  }, 0) + pendingCost;
   const laborPct = salesData?.daily ? (totalCost / salesData.daily) * 100 : 0;
 
   // hourly breakdown
   const earliest = locationSettings?.hours_open ? parseInt(locationSettings.hours_open.split(":")[0]) : 8;
   const latest = locationSettings?.hours_close ? parseInt(locationSettings.hours_close.split(":")[0]) : 22;
   let lo = earliest, hi = latest;
-  dayShifts.forEach((s) => {
-    const [sh] = s.start_time.split(":").map(Number);
-    const [eh] = s.end_time.split(":").map(Number);
+  const extendBounds = (start: string, end: string) => {
+    const [sh] = start.split(":").map(Number);
+    const [eh] = end.split(":").map(Number);
     const effEnd = eh < sh ? 24 : eh;
     lo = Math.min(lo, sh);
     hi = Math.max(hi, effEnd);
-  });
+  };
+  dayShifts.forEach((s) => extendBounds(s.start_time, s.end_time));
+  if (pendingDraft) extendBounds(pendingDraft.start, pendingDraft.end);
   const hours = Array.from({ length: Math.max(0, hi - lo) }, (_, i) => lo + i);
 
   const hourly: Record<number, { hours: number; cost: number; count: number }> = {};
-  dayShifts.forEach((shift) => {
-    const [sh, sm] = shift.start_time.split(":").map(Number);
-    const [eh, em] = shift.end_time.split(":").map(Number);
+  const accumulateHourly = (start: string, end: string, wage: number) => {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
     let st = sh + sm / 60;
     let et = eh + em / 60;
     if (et < st) et += 24;
-    const wage = profileFor(shift.user_id)?.hourly_wage ?? 15;
     for (let h = Math.floor(st); h < Math.ceil(et); h++) {
       const slot = Math.min(h + 1, et) - Math.max(h, st);
       if (!hourly[h]) hourly[h] = { hours: 0, cost: 0, count: 0 };
@@ -177,7 +183,11 @@ export function MobileDayPreviewSheet({
       hourly[h].cost += slot * wage;
       hourly[h].count += 1;
     }
+  };
+  dayShifts.forEach((shift) => {
+    accumulateHourly(shift.start_time, shift.end_time, profileFor(shift.user_id)?.hourly_wage ?? 15);
   });
+  if (pendingDraft) accumulateHourly(pendingDraft.start, pendingDraft.end, pendingWage);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
