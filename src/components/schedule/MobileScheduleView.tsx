@@ -1413,6 +1413,23 @@ export function MobileScheduleView({
         </Suspense>
       )}
 
+      {addSheetOpen && (
+        <Suspense fallback={null}>
+          <MobileAddScheduleSheet
+            open={addSheetOpen}
+            onOpenChange={setAddSheetOpen}
+            weekStart={currentWeekStart}
+            profiles={profiles}
+            templates={templates}
+            scheduleId={scheduleId ?? null}
+            locationId={currentLocation?.id}
+            shifts={shifts}
+            defaultDate={selectedDate}
+            onCreated={() => onUpdate?.()}
+          />
+        </Suspense>
+      )}
+
       <QuickPunchDialog
         open={quickPunchOpen}
         onOpenChange={setQuickPunchOpen}
