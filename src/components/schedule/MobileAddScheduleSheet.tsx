@@ -627,7 +627,7 @@ export function MobileAddScheduleSheet({
         </DialogContent>
       </Dialog>
 
-      {/* ============ DAY PREVIEW (reuses desktop breakdown) ============ */}
+      {/* ============ DAY PREVIEW (mobile, with pending draft) ============ */}
       {scheduleId && (
         <MobileDayPreviewSheet
           open={dayPreviewOpen}
@@ -637,6 +637,17 @@ export function MobileAddScheduleSheet({
           shifts={shifts}
           profiles={profiles as any}
           locationSettings={locationSettings}
+          pendingDraft={
+            currentDraft && empProfile
+              ? {
+                  employeeId: empProfile.id,
+                  employeeName: empName,
+                  employeePhoto: empProfile.profile_photo_url,
+                  start: currentDraft.start,
+                  end: currentDraft.end,
+                }
+              : null
+          }
         />
       )}
     </>
