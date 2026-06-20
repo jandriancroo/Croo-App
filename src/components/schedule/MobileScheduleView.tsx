@@ -508,12 +508,15 @@ export function MobileScheduleView({
 
       const sales = Number(salesRes.data?.net_sales) || 0;
       const laborRows = laborRes.data || [];
-      // Prefer punch_clock over qubeyond (matches SalesSummary logic)
-      const preferred = laborRows.find((r: any) => r.source === 'punch_clock') || laborRows[0];
+      // Match SalesSummary: prefer punch_clock only when it has real data, else qubeyond
+      const punchClockRow = laborRows.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
+      const qubeyondRow = laborRows.find((r: any) => r.source === 'qubeyond');
+      const costRow = (Number(punchClockRow?.labor_cost) || 0) > 0 ? punchClockRow : (qubeyondRow || punchClockRow);
+      const hoursRow = punchClockRow || qubeyondRow;
       return {
         sales,
-        laborCost: Number(preferred?.labor_cost) || 0,
-        laborHours: Number(preferred?.labor_hours) || 0,
+        laborCost: Number(costRow?.labor_cost) || 0,
+        laborHours: Number(hoursRow?.labor_hours) || 0,
       };
     },
     enabled: !!currentLocation?.id && !!punchDateStr,
