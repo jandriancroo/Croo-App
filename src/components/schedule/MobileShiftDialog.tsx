@@ -423,14 +423,16 @@ export function MobileShiftDialog({
               <SelectTrigger>
                   <SelectValue placeholder="Select quick fill option" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-[calc(100vw-2rem)]">
                   <SelectItem value="none">None</SelectItem>
                   
                   {/* Offered Shifts Section */}
                   {offeredShifts.length > 0 && offeredShifts.map((offer) => {
                     const shiftData = offer.scheduled_shifts;
                     const offeredBy = offer.profiles?.full_name || 'Unknown';
-                    const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
+                    const rawTemplateName = shiftData?.shift_templates?.template_name;
+                    const position = shiftData?.shift_templates?.position;
+                    const displayName = position || (rawTemplateName ? rawTemplateName.split(/\d{1,2}:\d{2}/)[0].trim() : 'Shift');
                     const formatTime = (time: string) => {
                       const [hours, minutes] = time.split(':');
                       const hour = parseInt(hours);
@@ -443,12 +445,15 @@ export function MobileShiftDialog({
                       <SelectItem 
                         key={offer.id} 
                         value={`offer-${offer.id}`}
-                        className="font-semibold text-primary bg-primary/10 border-l-4 border-primary"
+                        className="font-semibold text-primary bg-primary/10 border-l-4 border-primary max-w-full"
                       >
-                        <div className="flex items-center gap-2">
-                          <ArrowUp className="h-4 w-4 animate-pulse" />
-                          <span className="italic">
-                            {templateName} ({formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)}) - Offered by {offeredBy}
+                        <div className="flex flex-col gap-0.5 py-0.5 max-w-full">
+                          <span className="font-semibold leading-tight flex items-center gap-1">
+                            <ArrowUp className="h-3 w-3 animate-pulse" />
+                            {displayName}
+                          </span>
+                          <span className="text-xs text-muted-foreground leading-tight">
+                            {formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)} • Offered by {offeredBy}
                           </span>
                         </div>
                       </SelectItem>
@@ -464,20 +469,21 @@ export function MobileShiftDialog({
                       const displayHour = hour % 12 || 12;
                       return `${displayHour}:${minutes} ${ampm}`;
                     };
+                    const displayName = t.template_name.split(/\d{1,2}:\d{2}/)[0].trim();
                     const color = t.color || '#ef4444';
                     return (
                       <SelectItem
                         key={t.id}
                         value={t.id}
-                        className="my-1 rounded-md border-2 focus:bg-transparent"
+                        className="my-1 rounded-md border-2 focus:bg-transparent max-w-full"
                         style={{
                           backgroundColor: `${color}15`,
                           borderColor: `${color}55`,
                         }}
                       >
-                        <div className="flex flex-col gap-0.5 py-0.5 whitespace-normal">
-                          <span className="font-semibold leading-tight" style={{ color }}>
-                            {t.template_name}
+                        <div className="flex flex-col gap-0.5 py-0.5 max-w-full">
+                          <span className="font-semibold leading-tight break-words" style={{ color }}>
+                            {displayName}
                           </span>
                           <span className="text-xs text-muted-foreground leading-tight">
                             {formatTime(t.start_time)} – {formatTime(t.end_time)}
