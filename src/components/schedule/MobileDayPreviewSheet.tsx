@@ -12,6 +12,14 @@ import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
 import { Button } from "@/components/ui/button";
 
+interface PendingDraft {
+  employeeId: string;
+  employeeName: string;
+  employeePhoto?: string | null;
+  start: string;
+  end: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -20,6 +28,7 @@ interface Props {
   shifts: any[];
   profiles: { id: string; full_name?: string | null; nickname?: string | null; hourly_wage?: number | null; profile_photo_url?: string | null }[];
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  pendingDraft?: PendingDraft | null;
 }
 
 function calcWorkedHours(start: string, end: string): number {
@@ -49,6 +58,7 @@ export function MobileDayPreviewSheet({
   shifts,
   profiles,
   locationSettings,
+  pendingDraft,
 }: Props) {
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
@@ -132,34 +142,40 @@ export function MobileDayPreviewSheet({
 
   const profileFor = (id: string | null) => profiles.find((p) => p.id === id) || null;
 
-  const totalHours = dayShifts.reduce((s, sh) => s + calcWorkedHours(sh.start_time, sh.end_time), 0);
+  // Pending draft hours/cost
+  const pendingHours = pendingDraft ? calcWorkedHours(pendingDraft.start, pendingDraft.end) : 0;
+  const pendingWage = pendingDraft ? (profileFor(pendingDraft.employeeId)?.hourly_wage ?? 15) : 15;
+  const pendingCost = pendingHours * pendingWage;
+
+  const totalHours = dayShifts.reduce((s, sh) => s + calcWorkedHours(sh.start_time, sh.end_time), 0) + pendingHours;
   const totalCost = dayShifts.reduce((s, sh) => {
     const p = profileFor(sh.user_id);
     return s + calcWorkedHours(sh.start_time, sh.end_time) * (p?.hourly_wage ?? 15);
-  }, 0);
+  }, 0) + pendingCost;
   const laborPct = salesData?.daily ? (totalCost / salesData.daily) * 100 : 0;
 
   // hourly breakdown
   const earliest = locationSettings?.hours_open ? parseInt(locationSettings.hours_open.split(":")[0]) : 8;
   const latest = locationSettings?.hours_close ? parseInt(locationSettings.hours_close.split(":")[0]) : 22;
   let lo = earliest, hi = latest;
-  dayShifts.forEach((s) => {
-    const [sh] = s.start_time.split(":").map(Number);
-    const [eh] = s.end_time.split(":").map(Number);
+  const extendBounds = (start: string, end: string) => {
+    const [sh] = start.split(":").map(Number);
+    const [eh] = end.split(":").map(Number);
     const effEnd = eh < sh ? 24 : eh;
     lo = Math.min(lo, sh);
     hi = Math.max(hi, effEnd);
-  });
+  };
+  dayShifts.forEach((s) => extendBounds(s.start_time, s.end_time));
+  if (pendingDraft) extendBounds(pendingDraft.start, pendingDraft.end);
   const hours = Array.from({ length: Math.max(0, hi - lo) }, (_, i) => lo + i);
 
   const hourly: Record<number, { hours: number; cost: number; count: number }> = {};
-  dayShifts.forEach((shift) => {
-    const [sh, sm] = shift.start_time.split(":").map(Number);
-    const [eh, em] = shift.end_time.split(":").map(Number);
+  const accumulateHourly = (start: string, end: string, wage: number) => {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
     let st = sh + sm / 60;
     let et = eh + em / 60;
     if (et < st) et += 24;
-    const wage = profileFor(shift.user_id)?.hourly_wage ?? 15;
     for (let h = Math.floor(st); h < Math.ceil(et); h++) {
       const slot = Math.min(h + 1, et) - Math.max(h, st);
       if (!hourly[h]) hourly[h] = { hours: 0, cost: 0, count: 0 };
@@ -167,7 +183,11 @@ export function MobileDayPreviewSheet({
       hourly[h].cost += slot * wage;
       hourly[h].count += 1;
     }
+  };
+  dayShifts.forEach((shift) => {
+    accumulateHourly(shift.start_time, shift.end_time, profileFor(shift.user_id)?.hourly_wage ?? 15);
   });
+  if (pendingDraft) accumulateHourly(pendingDraft.start, pendingDraft.end, pendingWage);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -222,7 +242,7 @@ export function MobileDayPreviewSheet({
 
           {/* 3 stat tiles */}
           <div className="grid grid-cols-3 gap-2">
-            <StatTile icon={<Users className="h-4 w-4" />} label="Shifts" value={dayShifts.length.toString()} />
+            <StatTile icon={<Users className="h-4 w-4" />} label="Shifts" value={(dayShifts.length + (pendingDraft ? 1 : 0)).toString()} />
             <StatTile icon={<Clock className="h-4 w-4" />} label="Hours" value={totalHours.toFixed(1)} />
             <StatTile icon={<DollarSign className="h-4 w-4" />} label="Labor" value={formatCurrency(totalCost)} />
           </div>
@@ -231,14 +251,38 @@ export function MobileDayPreviewSheet({
           <div className="rounded-2xl border overflow-hidden">
             <div className="px-3 py-2 bg-muted/40 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide">Scheduled Shifts</span>
-              <span className="text-xs text-muted-foreground">{dayShifts.length}</span>
+              <span className="text-xs text-muted-foreground">{dayShifts.length + (pendingDraft ? 1 : 0)}</span>
             </div>
-            {sorted.length === 0 ? (
+            {sorted.length === 0 && !pendingDraft ? (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No shifts scheduled
               </div>
             ) : (
               <div className="divide-y">
+                {/* Pending draft row (highlighted) */}
+                {pendingDraft && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 bg-primary/5 border-l-2 border-primary">
+                    <Avatar className="h-9 w-9 shrink-0 ring-2 ring-primary/40">
+                      <AvatarImage src={pendingDraft.employeePhoto || undefined} />
+                      <AvatarFallback className="text-xs">{pendingDraft.employeeName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold truncate">{pendingDraft.employeeName}</p>
+                        <Badge className="h-4 px-1.5 text-[9px] font-bold uppercase tracking-wide shrink-0">
+                          Pending
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-primary font-medium truncate">
+                        {formatTime12Hour(pendingDraft.start)} – {formatTime12Hour(pendingDraft.end)}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold tabular-nums text-primary">{pendingHours.toFixed(1)}h</p>
+                      <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(pendingCost)}</p>
+                    </div>
+                  </div>
+                )}
                 {sorted.map((shift) => {
                   const p = profileFor(shift.user_id);
                   const name = p ? (p.nickname || p.full_name || "Hidden") : (shift.user_id ? "Hidden" : "Unassigned");
