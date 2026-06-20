@@ -968,6 +968,42 @@ export function MobileScheduleView({
                 <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={false} compact={true} />
               </div>
 
+              {/* Quick Action Bar — always visible */}
+              <div className="mb-2 flex items-stretch gap-1 rounded-lg bg-primary p-0.5 text-primary-foreground shadow-sm">
+                <button
+                  type="button"
+                  onClick={isSelectedDateToday ? () => setQuickPunchOpen(true) : undefined}
+                  disabled={!isSelectedDateToday}
+                  title={isSelectedDateToday ? undefined : 'Quick Punch is only available for today'}
+                  className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wide">Quick Punch</span>
+                </button>
+                {(isAdmin || isManager) && scheduleId && (
+                  <>
+                    <div className="w-px bg-primary-foreground/15 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => setAddSheetOpen(true)}
+                      className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
+                    >
+                      <CalendarPlus className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
+                    </button>
+                    <div className="w-px bg-primary-foreground/15 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => setEventDialogOpen(true)}
+                      className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
+                    </button>
+                  </>
+                )}
+              </div>
+
               {/* 5. TODAY: NOW + LATER sections with punch tracking */}
               {isSelectedDateToday ? ((() => {
                 const activePunches = dayPunches.filter(p => p.isActive && !p.isOnBreak);
@@ -977,39 +1013,6 @@ export function MobileScheduleView({
 
                 return (
                   <>
-                    {/* Quick Action Bar — above NOW */}
-                    <div className="mb-2 flex items-stretch gap-1 rounded-lg bg-primary p-0.5 text-primary-foreground shadow-sm">
-                      <button
-                        type="button"
-                        onClick={() => setQuickPunchOpen(true)}
-                        className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" />
-                        <span className="text-[10px] font-semibold uppercase tracking-wide">Quick Punch</span>
-                      </button>
-                      {(isAdmin || isManager) && scheduleId && (
-                        <>
-                          <div className="w-px bg-primary-foreground/15 my-1" />
-                          <button
-                            type="button"
-                            onClick={() => setAddSheetOpen(true)}
-                            className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                          >
-                            <CalendarPlus className="h-3.5 w-3.5" />
-                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
-                          </button>
-                          <div className="w-px bg-primary-foreground/15 my-1" />
-                          <button
-                            type="button"
-                            onClick={() => setEventDialogOpen(true)}
-                            className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
-                          </button>
-                        </>
-                      )}
-                    </div>
 
                     {/* NOW header — always rendered so LIVE status has a home */}
                     <div className="space-y-1.5">
