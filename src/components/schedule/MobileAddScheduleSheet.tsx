@@ -813,18 +813,34 @@ export function MobileAddScheduleSheet({
 
               {/* Conflict warning */}
               {(() => {
-                const previewDayStr = availPreviewRequest.start_date;
-                const previewDayIdx = weekDays.findIndex(d => format(d, 'yyyy-MM-dd') === previewDayStr);
-                const draftOnDay = previewDayIdx >= 0 ? weekDraft[previewDayIdx] : null;
-                const existingOnDay = empUserId ? empExistingByDay[previewDayStr] : null;
-                if (!draftOnDay && !existingOnDay) return null;
+                // Gather all days covered by this request
+                const days: string[] = [];
+                if (availPreviewRequest.time_scope === 'multi_day' && availPreviewRequest.end_date) {
+                  let cursor = DateTime.fromISO(availPreviewRequest.start_date, { zone: 'America/Los_Angeles' });
+                  const end = DateTime.fromISO(availPreviewRequest.end_date, { zone: 'America/Los_Angeles' });
+                  while (cursor <= end) {
+                    days.push(cursor.toFormat('yyyy-MM-dd'));
+                    cursor = cursor.plus({ days: 1 });
+                  }
+                } else {
+                  days.push(availPreviewRequest.start_date);
+                }
+                const conflicts = days.filter(dateStr => {
+                  const dayIdx = weekDays.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
+                  const draftOnDay = dayIdx >= 0 ? weekDraft[dayIdx] : null;
+                  const existingOnDay = empUserId ? empExistingByDay[dateStr] : null;
+                  return !!draftOnDay || !!existingOnDay;
+                });
+                if (conflicts.length === 0) return null;
+                const firstConflict = conflicts[0];
                 return (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/50 px-3 py-3 flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Potential conflict</p>
                       <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
-                        A shift is scheduled for this employee on {DateTime.fromISO(previewDayStr, { zone: 'America/Los_Angeles' }).toFormat('EEE, MMM d')}. Review before applying.
+                        A shift is scheduled for this employee on {DateTime.fromISO(firstConflict, { zone: 'America/Los_Angeles' }).toFormat('EEE, MMM d')}
+                        {conflicts.length > 1 && ` and ${conflicts.length - 1} other day${conflicts.length > 2 ? 's' : ''}`}. Review before applying.
                       </p>
                     </div>
                   </div>
