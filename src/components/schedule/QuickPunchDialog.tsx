@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Clock, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Switch } from '@/components/ui/switch';
@@ -137,6 +136,12 @@ export function QuickPunchDialog({
   const isToday = punchDate === getTodayInTimezone();
   const nowHM = formatInTimeZone(new Date(), timezone, 'HH:mm');
   const toHM = (t: string) => t.slice(0, 5);
+  const formatAmPm = (hm: string) => {
+    const [h, m] = hm.split(':').map(Number);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
+  };
   const remainderShifts = isToday
     ? scheduledShifts
         .filter(s => toHM(s.end_time) > nowHM && !activePunchUserIds.has(s.user_id))
@@ -343,15 +348,7 @@ export function QuickPunchDialog({
 
           {/* Employee Selection */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Employee</Label>
-              {remainderShifts.length > 0 && (
-                <span className="text-xs text-primary flex items-center gap-1">
-                  <Zap className="h-3 w-3" />
-                  Quick Fill on top
-                </span>
-              )}
-            </div>
+            <Label>Employee</Label>
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select employee" />
@@ -377,11 +374,13 @@ export function QuickPunchDialog({
                           <AvatarImage src={p.profile_photo_url || undefined} />
                           <AvatarFallback className="text-xs">{p.full_name.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        <span className="flex-1 truncate">{p.full_name}</span>
+                        <span className={`flex-1 truncate ${p.remainderShift ? 'font-medium text-primary' : ''}`}>
+                          {p.full_name}
+                        </span>
                         {p.remainderShift && (
-                          <Badge variant="secondary" className="text-xs ml-auto shrink-0">
-                            Quick Fill
-                          </Badge>
+                          <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                            today @ {formatAmPm(toHM(p.remainderShift.start_time))}
+                          </span>
                         )}
                       </div>
                     </SelectItem>
