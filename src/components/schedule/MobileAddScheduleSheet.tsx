@@ -684,14 +684,16 @@ export function MobileAddScheduleSheet({
                   </div>
 
                   {hasAvail && topReq && (
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => setAvailPreviewRequest(topReq)}
                       className={cn(
-                        "flex items-center gap-1 rounded-md border px-1.5 py-1 shrink-0",
+                        "flex items-center gap-1 rounded-md border px-1.5 py-1 shrink-0 cursor-pointer transition active:scale-95",
                         topReq.status === 'pending'
-                          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
-                          : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100"
+                          : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100"
                       )}
-                      title={`${topReq.request_type === 'time_off' ? 'Time Off' : 'Unavailable'} (${topReq.status})`}
+                      title="Tap to view request details"
                     >
                       <CalendarOff className={cn(
                         "h-3 w-3 shrink-0",
@@ -703,7 +705,7 @@ export function MobileAddScheduleSheet({
                       )}>
                         {topReq.status === 'pending' ? 'Pending' : 'Approved'}
                       </span>
-                    </div>
+                    </button>
                   )}
 
                   {draft && <Check className="h-4 w-4 text-primary shrink-0" />}
