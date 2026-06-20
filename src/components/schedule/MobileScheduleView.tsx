@@ -935,62 +935,92 @@ export function MobileScheduleView({
 
                 return (
                   <>
-                    {(activePunches.length > 0 || onBreakPunches.length > 0) && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
-                          <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                          <span className="text-green-600">Now</span>
-                          <span className="text-muted-foreground mx-0.5">·</span>
-                          <span className="text-green-600">{activePunches.length} Active</span>
-                          {onBreakPunches.length > 0 && (
-                            <>
-                              <span className="text-muted-foreground mx-0.5">·</span>
-                              <span className="text-amber-600">{onBreakPunches.length} Break</span>
-                            </>
-                          )}
-                          <span className="text-muted-foreground mx-0.5">·</span>
-                          <span className="text-muted-foreground">{totalScheduled} Total</span>
+                    {/* NOW header — always rendered so LIVE status has a home */}
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                        <Circle className={`h-2 w-2 ${activePunches.length > 0 ? 'fill-green-500 text-green-500' : 'fill-muted-foreground text-muted-foreground'}`} />
+                        <span className={activePunches.length > 0 ? 'text-green-600' : 'text-muted-foreground'}>Now</span>
+                        {(activePunches.length > 0 || onBreakPunches.length > 0) ? (
+                          <>
+                            <span className="text-muted-foreground mx-0.5">·</span>
+                            <span className="text-green-600">{activePunches.length} Active</span>
+                            {onBreakPunches.length > 0 && (
+                              <>
+                                <span className="text-muted-foreground mx-0.5">·</span>
+                                <span className="text-amber-600">{onBreakPunches.length} Break</span>
+                              </>
+                            )}
+                            <span className="text-muted-foreground mx-0.5">·</span>
+                            <span className="text-muted-foreground">{totalScheduled} Total</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground font-normal normal-case tracking-normal">— no one clocked in</span>
+                        )}
+                        {(isAdmin || isManager) && scheduleId && (
                           <div className="ml-auto">
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
-                              <UserPlus className="h-3.5 w-3.5" />
-                            </Button>
+                            {!isPublished ? (
+                              <Button size="sm" className="h-6 px-2.5 text-[10px]" onClick={onGoLive} disabled={isPublishing}>
+                                {isPublishing ? '...' : 'Go Live'}
+                              </Button>
+                            ) : hasPendingChanges ? (
+                              <button
+                                type="button"
+                                onClick={onSendUpdate}
+                                disabled={isPublishing}
+                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500 active:scale-95 transition"
+                              >
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                                <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Update</span>
+                              </button>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-destructive/10 border border-destructive">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive shadow-[0_0_6px_rgba(239,68,68,0.9)]"></span>
+                                </span>
+                                <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
+                              </div>
+                            )}
                           </div>
-                        </h4>
-                        {[...activePunches, ...onBreakPunches].map(punch => (
-                          <MobileShiftCard
-                            key={punch.id}
-                            name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
-                            avatarUrl={punch.profile.profile_photo_url}
-                            startTime={punch.scheduledShift?.start_time || '00:00'}
-                            endTime={punch.scheduledShift?.end_time || '00:00'}
-                            statusIndicator={punch.isOnBreak ? 'break' : 'active'}
-                            scheduledStart={punch.scheduledShift?.start_time}
-                            scheduledEnd={punch.scheduledShift?.end_time}
-                            isPhantom={punch.scheduledShift?.is_phantom}
-                            clockInTime={punch.clockInTime}
-                            clockOutTime={punch.clockOutTime}
-                            breakStartTime={punch.breakStartTime}
-                            breakEndTime={punch.breakEndTime}
-                            hoursWorked={punch.hoursWorked}
-                            createdByName={punch.createdByName}
-                            timezone={timezone}
-                            formatTimeDisplay={formatTimeDisplay}
-                            showBreakIndicator={false}
-                            onClick={() => {
-                              const today = getTodayInTimezone(timezone);
-                              setSelectedPunch({
-                                userId: punch.user_id,
-                                userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                                userPhoto: punch.profile.profile_photo_url,
-                                punchDate: today,
-                                clockInId: punch.id,
-                              });
-                              setEditPunchOpen(true);
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
+                        )}
+                      </h4>
+                      {[...activePunches, ...onBreakPunches].map(punch => (
+                        <MobileShiftCard
+                          key={punch.id}
+                          name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                          avatarUrl={punch.profile.profile_photo_url}
+                          startTime={punch.scheduledShift?.start_time || '00:00'}
+                          endTime={punch.scheduledShift?.end_time || '00:00'}
+                          statusIndicator={punch.isOnBreak ? 'break' : 'active'}
+                          scheduledStart={punch.scheduledShift?.start_time}
+                          scheduledEnd={punch.scheduledShift?.end_time}
+                          isPhantom={punch.scheduledShift?.is_phantom}
+                          clockInTime={punch.clockInTime}
+                          clockOutTime={punch.clockOutTime}
+                          breakStartTime={punch.breakStartTime}
+                          breakEndTime={punch.breakEndTime}
+                          hoursWorked={punch.hoursWorked}
+                          createdByName={punch.createdByName}
+                          timezone={timezone}
+                          formatTimeDisplay={formatTimeDisplay}
+                          showBreakIndicator={false}
+                          onClick={() => {
+                            const today = getTodayInTimezone(timezone);
+                            setSelectedPunch({
+                              userId: punch.user_id,
+                              userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                              userPhoto: punch.profile.profile_photo_url,
+                              punchDate: today,
+                              clockInId: punch.id,
+                            });
+                            setEditPunchOpen(true);
+                          }}
+                        />
+                      ))}
+                    </div>
 
                     {/* LATER section — upcoming scheduled shifts not yet punched in */}
                     {(() => {
@@ -1008,50 +1038,8 @@ export function MobileScheduleView({
                         <div className="space-y-1.5">
                           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                             Later
-                            <div className="flex items-center gap-1 ml-auto">
-                              {(activePunches.length === 0 && onBreakPunches.length === 0) && (
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
-                                  <UserPlus className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                              {(isAdmin || isManager) && scheduleId && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
-                                    <CalendarPlus className="h-4 w-4" />
-                                  </Button>
-                                  {!isPublished ? (
-                                    <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
-                                      {isPublishing ? 'Publishing...' : 'Go Live'}
-                                    </Button>
-                                  ) : hasPendingChanges ? (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
-                                      onClick={onSendUpdate}
-                                      disabled={isPublishing}
-                                    >
-                                      {isPublishing ? (
-                                        <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Updating...</>
-                                      ) : (
-                                        <><RefreshCw className="h-3 w-3 mr-1" />Update</>
-                                      )}
-                                    </Button>
-                                  ) : (
-                                    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
-                                      <span className="relative flex items-end gap-[1px] h-3">
-                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
-                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
-                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
-                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
-                                      </span>
-                                      <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
                           </h4>
+
 
                           {loadingActive ? (
                             <div className="text-center py-8 text-muted-foreground">Loading...</div>
@@ -1090,55 +1078,8 @@ export function MobileScheduleView({
                       <div className="space-y-1.5">
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                           {`Completed (${completedPunches.length})`}
-                          {(() => {
-                            const laterCount = dayShifts.filter(s => getProfileForShift(s) && !dayPunches.some(p => p.user_id === s.user_id)).length;
-                            return laterCount === 0 ? (
-                              <div className="flex items-center gap-1 ml-auto">
-                                {(activePunches.length === 0 && onBreakPunches.length === 0) && (
-                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
-                                    <UserPlus className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
-                                {(isAdmin || isManager) && scheduleId && (
-                                  <>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
-                                      <CalendarPlus className="h-4 w-4" />
-                                    </Button>
-                                    {!isPublished ? (
-                                      <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
-                                        {isPublishing ? 'Publishing...' : 'Go Live'}
-                                      </Button>
-                                    ) : hasPendingChanges ? (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
-                                        onClick={onSendUpdate}
-                                        disabled={isPublishing}
-                                      >
-                                        {isPublishing ? (
-                                          <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Updating...</>
-                                        ) : (
-                                          <><RefreshCw className="h-3 w-3 mr-1" />Update</>
-                                        )}
-                                      </Button>
-                                    ) : (
-                                      <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
-                                        <span className="relative flex items-end gap-[1px] h-3">
-                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
-                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
-                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
-                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
-                                        </span>
-                                        <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
-                                      </div>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            ) : null;
-                          })()}
                         </h4>
+
                         {completedPunches.map(punch => (
                           <MobileShiftCard
                             key={punch.id}
@@ -1175,8 +1116,53 @@ export function MobileScheduleView({
                       </div>
                     )}
 
+                    {/* Quick Action Bar — above Day Insights */}
+                    <div className="mt-3 flex items-stretch gap-1 rounded-xl bg-foreground p-1 text-background shadow-md">
+                      <button
+                        type="button"
+                        onClick={() => setQuickPunchOpen(true)}
+                        className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg active:bg-background/10 transition"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wide">Quick Punch</span>
+                      </button>
+                      {(isAdmin || isManager) && scheduleId && (
+                        <>
+                          <div className="w-px bg-background/15 my-1.5" />
+                          <button
+                            type="button"
+                            onClick={() => setEventDialogOpen(true)}
+                            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg active:bg-background/10 transition"
+                          >
+                            <CalendarPlus className="h-4 w-4" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
+                          </button>
+                          <div className="w-px bg-background/15 my-1.5" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedShift({
+                                id: '',
+                                user_id: null,
+                                day_of_week: selectedDayOfWeek,
+                                start_time: '09:00',
+                                end_time: '17:00',
+                                shift_date: format(selectedDate, 'yyyy-MM-dd'),
+                              });
+                              setIsCreatingShift(true);
+                              setShiftDialogOpen(true);
+                            }}
+                            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg active:bg-background/10 transition"
+                          >
+                            <CalendarCheck className="h-4 w-4" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+
                     {/* Day Insights — bottom of page */}
-                    <Card className="overflow-hidden p-0 mt-3">
+                    <Card className="overflow-hidden p-0 mt-2">
                       <button
                         onClick={() => setInsightsExpanded(!insightsExpanded)}
                         className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 text-xs font-medium"
