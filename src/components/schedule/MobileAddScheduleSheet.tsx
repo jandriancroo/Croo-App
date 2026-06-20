@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Trash2, Check, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { MobileDayPreviewSheet } from './MobileDayPreviewSheet';
+import { AvailabilityRequest } from '@/hooks/useScheduleData';
 
 interface Profile {
   id: string;
@@ -51,6 +52,7 @@ interface Props {
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  availabilityRequests?: AvailabilityRequest[];
   onCreated?: () => void;
 }
 
@@ -85,6 +87,7 @@ export function MobileAddScheduleSheet({
   defaultDate,
   defaultEmployeeId,
   locationSettings,
+  availabilityRequests = [],
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
@@ -310,6 +313,19 @@ export function MobileAddScheduleSheet({
   const currentDraft = weekDraft[dayCursor];
   const currentExisting = empUserId ? empExistingByDay[format(currentDay, 'yyyy-MM-dd')] : null;
 
+  const currentDayAvailability = useMemo(() => {
+    if (!empUserId || !currentDay) return [];
+    const dateStr = format(currentDay, 'yyyy-MM-dd');
+    return availabilityRequests.filter(r => {
+      if (r.user_id !== empUserId) return false;
+      if (r.status !== 'pending' && r.status !== 'approved') return false;
+      if (r.time_scope === 'multi_day' && r.end_date) {
+        return dateStr >= r.start_date && dateStr <= r.end_date;
+      }
+      return r.start_date === dateStr;
+    });
+  }, [empUserId, currentDay, availabilityRequests]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -416,15 +432,56 @@ export function MobileAddScheduleSheet({
                   </SelectContent>
                 </Select>
                 {empProfile && (
-                  <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={empProfile.profile_photo_url || undefined} />
-                      <AvatarFallback>{empName.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{empName}</p>
-                      <p className="text-xs text-muted-foreground">{totalWeekHours.toFixed(1)}h this week</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={empProfile.profile_photo_url || undefined} />
+                        <AvatarFallback>{empName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{empName}</p>
+                        <p className="text-xs text-muted-foreground">{totalWeekHours.toFixed(1)}h this week</p>
+                      </div>
                     </div>
+
+                    {currentDayAvailability.length > 0 && (
+                      <div className="space-y-1.5">
+                        {currentDayAvailability.map(req => (
+                          <div
+                            key={req.id}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md border px-3 py-2",
+                              req.status === 'pending'
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
+                                : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                            )}
+                          >
+                            <CalendarOff className={cn(
+                              "h-3.5 w-3.5 shrink-0",
+                              req.status === 'pending' ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
+                            )} />
+                            <div className="flex-1 min-w-0">
+                              <p className={cn(
+                                "text-xs font-medium",
+                                req.status === 'pending' ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"
+                              )}>
+                                {req.request_type === 'time_off' ? 'Time Off' : 'Availability'} {req.status === 'pending' ? 'Pending' : 'Approved'}
+                              </p>
+                              <p className={cn(
+                                "text-[10px] truncate",
+                                req.status === 'pending' ? "text-amber-700/80 dark:text-amber-400/80" : "text-emerald-700/80 dark:text-emerald-400/80"
+                              )}>
+                                {req.time_scope === 'partial_day' && req.start_time && req.end_time
+                                  ? `${fmt12(req.start_time)} – ${fmt12(req.end_time)}`
+                                  : req.time_scope === 'multi_day' && req.end_date
+                                    ? `${format(new Date(req.start_date + 'T12:00:00'), 'MMM d')} – ${format(new Date(req.end_date + 'T12:00:00'), 'MMM d')}`
+                                    : 'All day'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

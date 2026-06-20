@@ -26,6 +26,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { AvailabilityRequest } from '@/hooks/useScheduleData';
 
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone, getBusinessDateForTimestamp } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
@@ -72,6 +73,7 @@ interface MobileScheduleViewProps {
   shifts: Shift[];
   events: Event[];
   profiles: Profile[];
+  availabilityRequests?: AvailabilityRequest[];
   onShiftClick?: (shift: Shift) => void;
   onWeekChange?: (weekStart: Date) => void;
   onUpdate?: () => void;
@@ -121,6 +123,7 @@ export function MobileScheduleView({
   shifts,
   events,
   profiles,
+  availabilityRequests = [],
   onShiftClick,
   onWeekChange,
   onUpdate,
@@ -1431,6 +1434,7 @@ export function MobileScheduleView({
             shifts={shifts}
             defaultDate={selectedDate}
             locationSettings={locationSettings}
+            availabilityRequests={availabilityRequests}
             onCreated={() => onUpdate?.()}
           />
         </Suspense>
