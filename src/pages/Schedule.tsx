@@ -214,6 +214,7 @@ export default function Schedule() {
           isPublishing={isPublishing}
           hasPendingChanges={hasPendingChanges}
           isLoading={loading}
+          locationSettings={locationSettings}
         />
       ) : (
         <div className="pb-56">

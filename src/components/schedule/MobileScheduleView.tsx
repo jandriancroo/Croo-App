@@ -90,6 +90,7 @@ interface MobileScheduleViewProps {
   isPublishing?: boolean;
   hasPendingChanges?: boolean;
   isLoading?: boolean; // Show skeleton cards while loading
+  locationSettings?: { hours_open?: string; hours_close?: string } | null;
 }
 
 interface DayPunch {
@@ -131,7 +132,8 @@ export function MobileScheduleView({
   onSendUpdate,
   isPublishing = false,
   hasPendingChanges = false,
-  isLoading = false
+  isLoading = false,
+  locationSettings = null,
 }: MobileScheduleViewProps) {
   const [activeTab, setActiveTab] = useState<'today' | 'schedule'>(() => {
     const saved = sessionStorage.getItem('mobileScheduleTab');
@@ -1428,6 +1430,7 @@ export function MobileScheduleView({
             locationId={currentLocation?.id}
             shifts={shifts}
             defaultDate={selectedDate}
+            locationSettings={locationSettings}
             onCreated={() => onUpdate?.()}
           />
         </Suspense>

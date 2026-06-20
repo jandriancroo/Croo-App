@@ -9,10 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Trash2, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Check, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { DayBreakdownDialog } from './DayBreakdownDialog';
 
 interface Profile {
   id: string;
@@ -49,6 +50,7 @@ interface Props {
   shifts: ExistingShift[];
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
+  locationSettings?: { hours_open?: string; hours_close?: string } | null;
   onCreated?: () => void;
 }
 
@@ -82,10 +84,12 @@ export function MobileAddScheduleSheet({
   shifts,
   defaultDate,
   defaultEmployeeId,
+  locationSettings,
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'shift' | 'employee'>('shift');
+  const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
 
   // Week anchored to Monday
   const mondayStart = useMemo(() => startOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
@@ -436,10 +440,18 @@ export function MobileAddScheduleSheet({
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
-                    <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => scheduleId && setDayPreviewOpen(true)}
+                      disabled={!scheduleId}
+                      className="text-center flex flex-col items-center gap-0.5 px-3 py-1 rounded-md hover:bg-muted/50 active:bg-muted transition disabled:opacity-100 disabled:cursor-default"
+                    >
                       <p className="text-xs uppercase tracking-wide text-muted-foreground">{format(currentDay, 'EEEE')}</p>
-                      <p className="text-sm font-semibold">{format(currentDay, 'MMM d')}</p>
-                    </div>
+                      <p className="text-sm font-semibold flex items-center gap-1.5">
+                        {format(currentDay, 'MMM d')}
+                        {scheduleId && <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
+                      </p>
+                    </button>
                     <Button
                       variant="ghost" size="icon"
                       onClick={() => setDayCursor(c => (c + 1) % 7)}
@@ -593,6 +605,19 @@ export function MobileAddScheduleSheet({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ============ DAY PREVIEW (reuses desktop breakdown) ============ */}
+      {scheduleId && (
+        <DayBreakdownDialog
+          open={dayPreviewOpen}
+          onOpenChange={setDayPreviewOpen}
+          date={currentDay}
+          scheduleId={scheduleId}
+          shifts={shifts}
+          profiles={profiles as any}
+          locationSettings={locationSettings}
+        />
+      )}
     </>
   );
 }
