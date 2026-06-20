@@ -1430,6 +1430,7 @@ export function MobileScheduleView({
             locationId={currentLocation?.id}
             shifts={shifts}
             defaultDate={selectedDate}
+            locationSettings={locationSettings}
             onCreated={() => onUpdate?.()}
           />
         </Suspense>
