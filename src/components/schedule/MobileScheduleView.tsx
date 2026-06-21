@@ -763,24 +763,37 @@ export function MobileScheduleView({
             <Users className="h-3.5 w-3.5" />
             {uniqueEmployeesScheduled} Scheduled
           </h4>
-          {(isAdmin || isManager) && scheduleId && (
+          {(isAdmin || isManager) && (
             <div className="flex gap-1 items-center">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-7 w-7"
-                onClick={() => setEventDialogOpen(true)}
+                onClick={() => setBuildWizardOpen(true)}
+                title="Build Schedule"
               >
-                <CalendarPlus className="h-4 w-4" />
+                <LayoutGrid className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7"
-                onClick={() => setAddSheetOpen(true)}
-              >
-                <UserPlus className="h-4 w-4" />
-              </Button>
+              {scheduleId && (
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7"
+                    onClick={() => setEventDialogOpen(true)}
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7"
+                    onClick={() => setAddSheetOpen(true)}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
               {/* Publish/Update Button - styled like desktop */}
               {!isPublished ? (
                 <Button 
