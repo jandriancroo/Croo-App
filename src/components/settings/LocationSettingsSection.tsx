@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { CalendarIcon, X } from "lucide-react";
-import { format } from "date-fns";
+import { format } from 'date-fns';
+import { getCutoffExample } from '@/utils/timeOffCutoff';
 
 const TIMEZONES = [
   { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
@@ -353,7 +354,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
             <div className="space-y-1">
               <Label>Time-Off Request Cutoff</Label>
               <p className="text-sm text-muted-foreground">
-                Auto-deny time-off requests submitted fewer than X days before the start of the requested week (Monday). Managers can still approve denied requests in Availability.
+                Auto-deny time-off requests submitted too close to the start of the requested week (Monday). Managers can still approve denied requests in Availability.
               </p>
             </div>
             <Switch checked={cutoffEnabled} onCheckedChange={setCutoffEnabled} />
@@ -375,6 +376,9 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
                 <Label className="text-xs">Cutoff Time</Label>
                 <Input type="time" value={cutoffTime} onChange={(e) => setCutoffTime(e.target.value)} />
               </div>
+              <p className="col-span-2 text-xs text-muted-foreground">
+                {getCutoffExample(cutoffDaysBefore, cutoffTime, timezone)}
+              </p>
             </div>
           )}
         </div>

@@ -19,6 +19,8 @@ import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { format } from 'date-fns';
+import { getCutoffExample } from '@/utils/timeOffCutoff';
+
 
 const TIMEZONES = [
   { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
@@ -611,7 +613,7 @@ export default function LocationProfile() {
                       <div className="space-y-1">
                         <Label className="text-base font-semibold">Time-Off Request Cutoff</Label>
                         <p className="text-sm text-muted-foreground">
-                          Auto-deny time-off requests submitted fewer than X days before the start of the requested week (Monday). Managers can still approve denied requests in Availability.
+                          Auto-deny time-off requests submitted too close to the start of the requested week (Monday). Managers can still approve denied requests in Availability.
                         </p>
                       </div>
                       <Switch checked={cutoffEnabled} onCheckedChange={setCutoffEnabled} />
@@ -633,6 +635,9 @@ export default function LocationProfile() {
                           <Label className="text-xs">Cutoff Time</Label>
                           <Input type="time" value={cutoffTime} onChange={(e) => setCutoffTime(e.target.value)} />
                         </div>
+                        <p className="col-span-2 text-xs text-muted-foreground">
+                          {getCutoffExample(cutoffDaysBefore, cutoffTime, timezone)}
+                        </p>
                       </div>
                     )}
                   </div>
