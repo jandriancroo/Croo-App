@@ -635,6 +635,9 @@ export default function LocationProfile() {
                           <Label className="text-xs">Cutoff Time</Label>
                           <Input type="time" value={cutoffTime} onChange={(e) => setCutoffTime(e.target.value)} />
                         </div>
+                        <p className="col-span-2 text-xs text-muted-foreground">
+                          {getCutoffExample(cutoffDaysBefore, cutoffTime, timezone)}
+                        </p>
                       </div>
                     )}
                   </div>
