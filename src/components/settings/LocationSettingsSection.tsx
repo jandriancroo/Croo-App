@@ -347,6 +347,41 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
           )}
         </div>
 
+        {/* Time-Off Request Cutoff */}
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label>Time-Off Request Cutoff</Label>
+              <p className="text-sm text-muted-foreground">
+                Auto-deny time-off requests submitted after this day/time. Applies to the week BEFORE the requested week. Managers can still approve denied requests in Availability.
+              </p>
+            </div>
+            <Switch checked={cutoffEnabled} onCheckedChange={setCutoffEnabled} />
+          </div>
+
+          {cutoffEnabled && (
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="space-y-1">
+                <Label className="text-xs">Cutoff Day (of prior week)</Label>
+                <Select value={String(cutoffDay)} onValueChange={(v) => setCutoffDay(parseInt(v, 10))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DAYS_OF_WEEK.map(d => (
+                      <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cutoff Time</Label>
+                <Input type="time" value={cutoffTime} onChange={(e) => setCutoffTime(e.target.value)} />
+              </div>
+            </div>
+          )}
+        </div>
+
+
+
 
         <Button onClick={handleSave} disabled={loading}>
           {loading ? "Saving..." : "Save Settings"}
