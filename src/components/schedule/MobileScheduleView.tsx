@@ -834,7 +834,6 @@ export function MobileScheduleView({
                   </span>
                   <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
                 </div>
-                </div>
               ))}
             </div>
           )}
