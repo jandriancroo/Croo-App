@@ -715,6 +715,15 @@ export default function Schedule() {
       )}
 
       <ChangeTrackingDialog open={changeTrackingOpen} onOpenChange={setChangeTrackingOpen} scheduleId={scheduleId} weekStartDate={currentWeekStart} isPublished={isPublished} />
+      <UpdatePreviewSheet
+        open={updatePreviewOpen}
+        onOpenChange={setUpdatePreviewOpen}
+        publishedSnapshot={publishedSnapshot || []}
+        currentShifts={shifts || []}
+        profiles={profiles || []}
+        onConfirm={confirmUpdate}
+        isSending={isPublishing}
+      />
     </Layout>
   );
 }
