@@ -320,6 +320,7 @@ export function MobileBuildScheduleWizard({
 
       onWeekChange?.(targetWeek);
       onCompleted?.();
+      onOpenWeekEditor?.(targetWeek);
       toast.success(`Copied ${newRows.length} shifts from week of ${format(sourceWeekStart, 'MMM d')} as drafts.`);
       onOpenChange(false);
     } catch (e: any) {
