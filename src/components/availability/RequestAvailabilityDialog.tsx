@@ -37,7 +37,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
 
   // Time-off cutoff settings
   const [cutoffEnabled, setCutoffEnabled] = useState(false);
-  const [cutoffDay, setCutoffDay] = useState(3); // 0=Sun..6=Sat (default Wed)
+  const [cutoffDaysBefore, setCutoffDaysBefore] = useState(7);
   const [cutoffTime, setCutoffTime] = useState("17:00");
 
   useEffect(() => {
@@ -56,15 +56,15 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     try {
       const { data, error } = await supabase
         .from("location_settings")
-        .select("blackout_dates, time_off_cutoff_enabled, time_off_cutoff_day, time_off_cutoff_time")
+        .select("blackout_dates, time_off_cutoff_enabled, time_off_cutoff_days_before, time_off_cutoff_time")
         .eq("location_id", currentLocation.id)
         .maybeSingle();
 
       if (error) throw error;
       setBlackoutDates(data?.blackout_dates || []);
-      setCutoffEnabled(!!data?.time_off_cutoff_enabled);
-      if (typeof data?.time_off_cutoff_day === "number") setCutoffDay(data.time_off_cutoff_day);
-      if (data?.time_off_cutoff_time) setCutoffTime(String(data.time_off_cutoff_time).slice(0, 5));
+      setCutoffEnabled(!!(data as any)?.time_off_cutoff_enabled);
+      if (typeof (data as any)?.time_off_cutoff_days_before === "number") setCutoffDaysBefore((data as any).time_off_cutoff_days_before);
+      if ((data as any)?.time_off_cutoff_time) setCutoffTime(String((data as any).time_off_cutoff_time).slice(0, 5));
     } catch (error) {
       console.error("Error fetching location settings:", error);
     }
@@ -144,9 +144,9 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
   const cutoffInfo = (() => {
     if (!cutoffEnabled || !startDate || requestType !== "unpaid") return null;
     try {
-      const cutoffMoment = getTimeOffCutoffMoment(startDate, cutoffDay, cutoffTime, timezone);
+      const cutoffMoment = getTimeOffCutoffMoment(startDate, cutoffDaysBefore, cutoffTime, timezone);
       const isPast = new Date() > cutoffMoment;
-      return { cutoffMoment, isPast, label: formatCutoffLabel(cutoffDay, cutoffTime) };
+      return { cutoffMoment, isPast, label: formatCutoffLabel(cutoffDaysBefore, cutoffTime) };
     } catch {
       return null;
     }

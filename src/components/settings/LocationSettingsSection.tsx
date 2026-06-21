@@ -51,7 +51,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
   const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
   const [cutoffEnabled, setCutoffEnabled] = useState(false);
-  const [cutoffDay, setCutoffDay] = useState(3); // 0=Sun..6=Sat
+  const [cutoffDaysBefore, setCutoffDaysBefore] = useState(7);
   const [cutoffTime, setCutoffTime] = useState("17:00");
 
   
@@ -90,14 +90,14 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
         setCutoffEnabled(!!(data as any).time_off_cutoff_enabled);
-        if (typeof (data as any).time_off_cutoff_day === "number") setCutoffDay((data as any).time_off_cutoff_day);
+        if (typeof (data as any).time_off_cutoff_days_before === "number") setCutoffDaysBefore((data as any).time_off_cutoff_days_before);
         if ((data as any).time_off_cutoff_time) setCutoffTime(String((data as any).time_off_cutoff_time).slice(0, 5));
       } else {
         setSettingsId(null);
         setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
         setCutoffEnabled(false);
-        setCutoffDay(3);
+        setCutoffDaysBefore(7);
         setCutoffTime("17:00");
       }
     } catch (error) {
@@ -168,7 +168,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         timezone: timezone,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
         time_off_cutoff_enabled: cutoffEnabled,
-        time_off_cutoff_day: cutoffDay,
+        time_off_cutoff_days_before: cutoffDaysBefore,
         time_off_cutoff_time: cutoffTime,
       };
 
@@ -353,7 +353,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
             <div className="space-y-1">
               <Label>Time-Off Request Cutoff</Label>
               <p className="text-sm text-muted-foreground">
-                Auto-deny time-off requests submitted after this day/time. Applies to the week BEFORE the requested week. Managers can still approve denied requests in Availability.
+                Auto-deny time-off requests submitted fewer than X days before the start of the requested week (Monday). Managers can still approve denied requests in Availability.
               </p>
             </div>
             <Switch checked={cutoffEnabled} onCheckedChange={setCutoffEnabled} />
@@ -362,15 +362,14 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
           {cutoffEnabled && (
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div className="space-y-1">
-                <Label className="text-xs">Cutoff Day (of prior week)</Label>
-                <Select value={String(cutoffDay)} onValueChange={(v) => setCutoffDay(parseInt(v, 10))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DAYS_OF_WEEK.map(d => (
-                      <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Days Before Week Start</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={cutoffDaysBefore}
+                  onChange={(e) => setCutoffDaysBefore(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Cutoff Time</Label>

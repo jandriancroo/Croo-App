@@ -1,0 +1,1 @@
+ALTER TABLE public.location_settings ADD COLUMN IF NOT EXISTS time_off_cutoff_days_before integer NOT NULL DEFAULT 7;
