@@ -481,26 +481,6 @@ export default function LocationProfile() {
                   </div>
                 )}
                 
-                {isNew && (
-                  <div className="space-y-2">
-                    <Label htmlFor="location-type">Location Type</Label>
-                    <Select 
-                      value={location?.location_type || 'standard'} 
-                      onValueChange={(value) => setLocation({...location, location_type: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="standard">Standard (Full Features)</SelectItem>
-                        <SelectItem value="checklist_only">Checklist Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Checklist Only locations have simplified navigation and features
-                    </p>
-                  </div>
-                )}
               </div>
 
               {/* Timezone - only for existing locations */}
@@ -644,47 +624,6 @@ export default function LocationProfile() {
                 </>
               )}
 
-              {/* Super Admin Only: Location Type Toggle for existing locations */}
-              {!isNew && isSuperAdmin && (
-                <div className="border-t pt-6 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-primary" />
-                    <Label className="text-sm font-medium">Full Features Mode</Label>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-sm text-muted-foreground">
-                        {location?.location_type === 'standard' 
-                          ? 'This location has access to all features'
-                          : 'This location is limited to checklists only'}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={location?.location_type === 'standard'}
-                      onCheckedChange={async (checked) => {
-                        const newType = checked ? 'standard' : 'checklist_only';
-                        try {
-                          const { error } = await supabase
-                            .from('locations')
-                            .update({ location_type: newType })
-                            .eq('id', locationId);
-                          
-                          if (error) throw error;
-                          
-                          setLocation({ ...location, location_type: newType });
-                          toast.success(`Location ${checked ? 'upgraded to full features' : 'set to checklist only'}`);
-                        } catch (error: any) {
-                          console.error('Error updating location type:', error);
-                          toast.error('Failed to update location type');
-                        }
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Super admin only setting
-                  </p>
-                </div>
-              )}
               
 
               {/* Unified Save Button */}
@@ -697,8 +636,8 @@ export default function LocationProfile() {
             </CardContent>
           </Card>
 
-          {/* Labor Rules - only for existing standard locations */}
-          {!isNew && location?.location_type !== 'checklist_only' && (
+          {/* Labor Rules */}
+          {!isNew && (
             <LaborRulesSection locationId={locationId} />
           )}
 
