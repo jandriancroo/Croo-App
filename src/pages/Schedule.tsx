@@ -69,6 +69,12 @@ export default function Schedule() {
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
   const [changeTrackingOpen, setChangeTrackingOpen] = useState(false);
+  const [updatePreviewOpen, setUpdatePreviewOpen] = useState(false);
+  const requestUpdate = () => setUpdatePreviewOpen(true);
+  const confirmUpdate = async () => {
+    await handleUpdate();
+    setUpdatePreviewOpen(false);
+  };
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<{ userId: string; userName: string; newRole: string } | null>(null);
   const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
