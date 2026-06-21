@@ -1462,6 +1462,7 @@ export function MobileScheduleView({
               if (!o) {
                 setAddSheetWeekOverride(null);
                 setAddSheetTab('shift');
+                setAddSheetLockTab(false);
               }
             }}
             weekStart={addSheetWeekOverride ?? currentWeekStart}
@@ -1472,6 +1473,7 @@ export function MobileScheduleView({
             shifts={shifts}
             defaultDate={selectedDate}
             defaultTab={addSheetTab}
+            lockTab={addSheetLockTab}
             locationSettings={locationSettings}
             availabilityRequests={availabilityRequests}
             onCreated={() => onUpdate?.()}
@@ -1492,6 +1494,7 @@ export function MobileScheduleView({
             onOpenWeekEditor={(ws) => {
               setAddSheetWeekOverride(ws);
               setAddSheetTab('employee');
+              setAddSheetLockTab(false);
               setAddSheetOpen(true);
             }}
           />
