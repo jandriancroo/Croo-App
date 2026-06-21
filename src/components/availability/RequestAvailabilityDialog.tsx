@@ -34,9 +34,14 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
   const [hasBlackoutWarning, setHasBlackoutWarning] = useState(false);
 
+  // Time-off cutoff settings
+  const [cutoffEnabled, setCutoffEnabled] = useState(false);
+  const [cutoffDay, setCutoffDay] = useState(3); // 0=Sun..6=Sat (default Wed)
+  const [cutoffTime, setCutoffTime] = useState("17:00");
+
   useEffect(() => {
     if (currentLocation && open) {
-      fetchBlackoutDates();
+      fetchLocationSettings();
     }
   }, [currentLocation, open]);
 
@@ -44,20 +49,23 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     checkBlackoutDates();
   }, [startDate, endDate, blackoutDates, timeScope]);
 
-  const fetchBlackoutDates = async () => {
+  const fetchLocationSettings = async () => {
     if (!currentLocation) return;
 
     try {
       const { data, error } = await supabase
         .from("location_settings")
-        .select("blackout_dates")
+        .select("blackout_dates, time_off_cutoff_enabled, time_off_cutoff_day, time_off_cutoff_time")
         .eq("location_id", currentLocation.id)
         .maybeSingle();
 
       if (error) throw error;
       setBlackoutDates(data?.blackout_dates || []);
+      setCutoffEnabled(!!data?.time_off_cutoff_enabled);
+      if (typeof data?.time_off_cutoff_day === "number") setCutoffDay(data.time_off_cutoff_day);
+      if (data?.time_off_cutoff_time) setCutoffTime(String(data.time_off_cutoff_time).slice(0, 5));
     } catch (error) {
-      console.error("Error fetching blackout dates:", error);
+      console.error("Error fetching location settings:", error);
     }
   };
 
