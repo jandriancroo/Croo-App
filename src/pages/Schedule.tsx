@@ -317,7 +317,7 @@ export default function Schedule() {
                       isPublishing={isPublishing}
                       hasPendingChanges={hasPendingChanges}
                       onGoLive={handleGoLive}
-                      onUpdate={handleUpdate}
+                      onUpdate={requestUpdate}
                       lastStatusChangedAt={lastStatusChangedAt}
                       lastStatusChangedByName={lastStatusChangedByName}
                       lastStatusAction={lastStatusAction}
