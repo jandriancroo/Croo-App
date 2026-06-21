@@ -5792,6 +5792,7 @@ export type Database = {
           safe_target: number
           team_member_sales_view_enabled: boolean
           time_off_cutoff_day: number
+          time_off_cutoff_days_before: number
           time_off_cutoff_enabled: boolean
           time_off_cutoff_time: string
           timezone: string
@@ -5823,6 +5824,7 @@ export type Database = {
           safe_target?: number
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
+          time_off_cutoff_days_before?: number
           time_off_cutoff_enabled?: boolean
           time_off_cutoff_time?: string
           timezone?: string
@@ -5854,6 +5856,7 @@ export type Database = {
           safe_target?: number
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
+          time_off_cutoff_days_before?: number
           time_off_cutoff_enabled?: boolean
           time_off_cutoff_time?: string
           timezone?: string
