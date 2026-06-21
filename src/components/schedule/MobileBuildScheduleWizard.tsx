@@ -73,6 +73,36 @@ export function MobileBuildScheduleWizard({
     });
   }, [thisMonday]);
 
+  // Lightweight lookup of publish status for the 4 week options
+  const [weekStatuses, setWeekStatuses] = useState<Record<string, { isPublished: boolean; draftCount: number }>>({});
+  useEffect(() => {
+    if (!open || !locationId) return;
+    let cancelled = false;
+    (async () => {
+      const keys = weekOptions.map(o => fmtDate(o.ws));
+      const { data: scheds } = await supabase
+        .from('schedules')
+        .select('id, week_start_date, is_published')
+        .eq('location_id', locationId)
+        .in('week_start_date', keys);
+      if (cancelled || !scheds) return;
+      const result: Record<string, { isPublished: boolean; draftCount: number }> = {};
+      for (const s of scheds) {
+        let draftCount = 0;
+        if (!s.is_published) {
+          const { count } = await supabase
+            .from('scheduled_shifts')
+            .select('id', { count: 'exact', head: true })
+            .eq('schedule_id', s.id);
+          draftCount = count ?? 0;
+        }
+        result[s.week_start_date as string] = { isPublished: !!s.is_published, draftCount };
+      }
+      if (!cancelled) setWeekStatuses(result);
+    })();
+    return () => { cancelled = true; };
+  }, [open, locationId, weekOptions]);
+
   const [step, setStep] = useState<Step>('pick-week');
   const [targetWeek, setTargetWeek] = useState<Date | null>(null);
   const [draftSummary, setDraftSummary] = useState<DraftSummary | null>(null);
