@@ -61,7 +61,7 @@ export function LiveStatusBadge({
             </TooltipContent>
           </Tooltip>
           <Button onClick={onGoLive} disabled={isPublishing}>
-            {isPublishing ? 'Publishing...' : 'Go Live'}
+            {isPublishing ? 'Posting...' : 'Post'}
           </Button>
         </div>
       );
@@ -69,7 +69,7 @@ export function LiveStatusBadge({
     
     return (
       <Button onClick={onGoLive} disabled={isPublishing}>
-        {isPublishing ? 'Publishing...' : 'Go Live'}
+        {isPublishing ? 'Posting...' : 'Post'}
       </Button>
     );
   }
@@ -104,7 +104,7 @@ export function LiveStatusBadge({
           ) : (
             <>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Update
+              Update{pendingCount > 0 ? ` · ${pendingCount}` : ''}
             </>
           )}
         </Button>
