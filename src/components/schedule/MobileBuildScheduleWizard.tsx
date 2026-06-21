@@ -150,6 +150,7 @@ export function MobileBuildScheduleWizard({
     if (!targetWeek) return;
     onWeekChange?.(targetWeek);
     onCompleted?.();
+    onOpenWeekEditor?.(targetWeek);
     onOpenChange(false);
   };
 
