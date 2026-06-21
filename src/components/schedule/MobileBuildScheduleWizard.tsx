@@ -603,7 +603,7 @@ export function MobileBuildScheduleWizard({
             Preparing your draft week…
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
