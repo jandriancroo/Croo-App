@@ -379,18 +379,21 @@ export function MobileBuildScheduleWizard({
 
   // ---------- render ----------
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-2xl max-h-[92vh] overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+      >
+        <SheetHeader className="text-left">
+          <SheetTitle className="flex items-center gap-2 text-base">
             <LayoutGrid className="h-5 w-5 text-primary" />
             {step === 'pick-week' && 'Build Schedule'}
             {step === 'drafts' && 'In-Progress Drafts'}
             {step === 'review' && 'Review Per Person'}
             {step === 'source' && 'Starting Point'}
             {step === 'applying' && 'Setting Up…'}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription className="text-xs">
             {step === 'pick-week' && 'Pick the week you want to build. Past weeks are locked.'}
             {step === 'drafts' && targetWeek && (
               <>This week has <b>{draftSummary?.totalDrafts}</b> draft shift{draftSummary?.totalDrafts === 1 ? '' : 's'} in progress.</>
@@ -398,8 +401,8 @@ export function MobileBuildScheduleWizard({
             {step === 'review' && 'Keep or clear each person’s drafts, then continue.'}
             {step === 'source' && 'How would you like to start?'}
             {step === 'applying' && 'Preparing your draft week…'}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {/* STEP 1: Pick week */}
         {step === 'pick-week' && (
