@@ -19,6 +19,8 @@ import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { format } from 'date-fns';
+import { getCutoffExample } from '@/utils/timeOffCutoff';
+
 
 const TIMEZONES = [
   { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
