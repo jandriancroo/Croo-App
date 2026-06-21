@@ -795,7 +795,7 @@ export function MobileScheduleView({
                 </>
               )}
               {/* Publish/Update Button - styled like desktop */}
-              {!isPublished ? (
+              {scheduleId && (!isPublished ? (
                 <Button 
                   size="sm"
                   className="h-7 px-3 text-xs"
