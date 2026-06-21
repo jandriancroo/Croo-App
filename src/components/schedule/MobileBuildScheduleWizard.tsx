@@ -57,6 +57,7 @@ export function MobileBuildScheduleWizard({
   profiles,
   onWeekChange,
   onCompleted,
+  onOpenWeekEditor,
 }: Props) {
   const thisMonday = useMemo(
     () => startOfWeek(new Date(), { weekStartsOn: 1 }),
