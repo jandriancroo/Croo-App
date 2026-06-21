@@ -7,6 +7,7 @@ interface LiveStatusBadgeProps {
   isPublished: boolean;
   isPublishing: boolean;
   hasPendingChanges: boolean;
+  pendingCount?: number;
   onGoLive: () => void;
   onUpdate: () => void;
   lastStatusChangedAt?: string | null;
@@ -18,6 +19,7 @@ export function LiveStatusBadge({
   isPublished, 
   isPublishing, 
   hasPendingChanges,
+  pendingCount = 0,
   onGoLive,
   onUpdate,
   lastStatusChangedAt,
@@ -59,7 +61,7 @@ export function LiveStatusBadge({
             </TooltipContent>
           </Tooltip>
           <Button onClick={onGoLive} disabled={isPublishing}>
-            {isPublishing ? 'Publishing...' : 'Go Live'}
+            {isPublishing ? 'Posting...' : 'Post'}
           </Button>
         </div>
       );
@@ -67,7 +69,7 @@ export function LiveStatusBadge({
     
     return (
       <Button onClick={onGoLive} disabled={isPublishing}>
-        {isPublishing ? 'Publishing...' : 'Go Live'}
+        {isPublishing ? 'Posting...' : 'Post'}
       </Button>
     );
   }
@@ -102,7 +104,7 @@ export function LiveStatusBadge({
           ) : (
             <>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Update
+              Update{pendingCount > 0 ? ` · ${pendingCount}` : ''}
             </>
           )}
         </Button>

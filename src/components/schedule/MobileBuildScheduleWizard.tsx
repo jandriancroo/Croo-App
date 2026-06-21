@@ -74,7 +74,7 @@ export function MobileBuildScheduleWizard({
   }, [thisMonday]);
 
   // Lightweight lookup of publish status for the 4 week options
-  const [weekStatuses, setWeekStatuses] = useState<Record<string, { isPublished: boolean; draftCount: number }>>({});
+  const [weekStatuses, setWeekStatuses] = useState<Record<string, { isPublished: boolean; draftCount: number; pendingCount: number }>>({});
   useEffect(() => {
     if (!open || !locationId) return;
     let cancelled = false;
@@ -82,21 +82,31 @@ export function MobileBuildScheduleWizard({
       const keys = weekOptions.map(o => fmtDate(o.ws));
       const { data: scheds } = await supabase
         .from('schedules')
-        .select('id, week_start_date, is_published')
+        .select('id, week_start_date, is_published, published_shifts_snapshot')
         .eq('location_id', locationId)
         .in('week_start_date', keys);
       if (cancelled || !scheds) return;
-      const result: Record<string, { isPublished: boolean; draftCount: number }> = {};
+      const result: Record<string, { isPublished: boolean; draftCount: number; pendingCount: number }> = {};
       for (const s of scheds) {
         let draftCount = 0;
+        let pendingCount = 0;
         if (!s.is_published) {
           const { count } = await supabase
             .from('scheduled_shifts')
             .select('id', { count: 'exact', head: true })
             .eq('schedule_id', s.id);
           draftCount = count ?? 0;
+        } else {
+          // Live week — diff current shifts vs published snapshot for pending count.
+          const snapshot = Array.isArray(s.published_shifts_snapshot) ? s.published_shifts_snapshot as any[] : [];
+          const { data: current } = await supabase
+            .from('scheduled_shifts')
+            .select('id, user_id, start_time, end_time, shift_date, day_of_week')
+            .eq('schedule_id', s.id);
+          const { countPendingChanges } = await import('@/lib/scheduleDiff');
+          pendingCount = countPendingChanges(snapshot as any, (current || []) as any);
         }
-        result[s.week_start_date as string] = { isPublished: !!s.is_published, draftCount };
+        result[s.week_start_date as string] = { isPublished: !!s.is_published, draftCount, pendingCount };
       }
       if (!cancelled) setWeekStatuses(result);
     })();
@@ -411,6 +421,8 @@ export function MobileBuildScheduleWizard({
               const status = weekStatuses[fmtDate(opt.ws)];
               const isLive = !!status?.isPublished;
               const draftCount = status?.draftCount ?? 0;
+              const pendingCount = status?.pendingCount ?? 0;
+              const isEmpty = !isLive && draftCount === 0;
               return (
                 <button
                   key={opt.offset}
@@ -427,22 +439,31 @@ export function MobileBuildScheduleWizard({
                       <Calendar className={cn('h-4 w-4', isLive ? 'text-destructive' : 'text-primary')} />
                     </div>
                     <div className="min-w-0">
-                      <div className="font-semibold text-sm flex items-center gap-2">
+                      <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
                         {opt.label}
-                        {isLive && (
+                        {isLive ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-destructive/10 border border-destructive/30 text-[9px] font-semibold uppercase tracking-wide text-destructive">
                             Live
                           </span>
-                        )}
-                        {!isLive && draftCount > 0 && (
+                        ) : isEmpty ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted border border-border text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Empty
+                          </span>
+                        ) : (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                            {draftCount} draft{draftCount === 1 ? '' : 's'}
+                            Draft · {draftCount}
+                          </span>
+                        )}
+                        {isLive && pendingCount > 0 && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                            {pendingCount} pending
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
                         {format(opt.ws, 'MMM d')} – {format(opt.we, 'MMM d')}
-                        {isLive && ' · already published — opens for edits'}
+                        {isLive && pendingCount > 0 && ' · opens for edits — Update to push'}
+                        {isLive && pendingCount === 0 && ' · posted — opens for edits'}
                       </div>
                     </div>
                   </div>

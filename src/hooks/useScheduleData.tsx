@@ -641,19 +641,21 @@ export function useScheduleData() {
   }, [currentWeekStart, currentLocation?.id, queryClient]);
 
   // Pending changes detection
-  const hasPendingChanges = useMemo(() => {
-    if (!isPublished) return false;
-    if (!publishedSnapshot || publishedSnapshot.length === 0) return false;
+  const pendingChangesCount = useMemo(() => {
+    if (!isPublished) return 0;
+    if (!publishedSnapshot || publishedSnapshot.length === 0) return 0;
     const snapshotMap = new Map(publishedSnapshot.map((s: any) => [s.id, s]));
     const currentMap = new Map(shifts.map(s => [s.id, s]));
-    for (const [id] of snapshotMap) { if (!currentMap.has(id)) return true; }
+    let n = 0;
+    for (const [id] of snapshotMap) { if (!currentMap.has(id)) n++; }
     for (const [id, shift] of currentMap) {
-      const snapshotShift = snapshotMap.get(id);
-      if (!snapshotShift) return true;
-      if (snapshotShift.user_id !== shift.user_id || snapshotShift.start_time !== shift.start_time || snapshotShift.end_time !== shift.end_time || snapshotShift.shift_date !== shift.shift_date || snapshotShift.day_of_week !== shift.day_of_week) return true;
+      const snapshotShift = snapshotMap.get(id) as any;
+      if (!snapshotShift) { n++; continue; }
+      if (snapshotShift.user_id !== shift.user_id || snapshotShift.start_time !== shift.start_time || snapshotShift.end_time !== shift.end_time || snapshotShift.shift_date !== shift.shift_date || snapshotShift.day_of_week !== shift.day_of_week) n++;
     }
-    return false;
+    return n;
   }, [isPublished, publishedSnapshot, shifts]);
+  const hasPendingChanges = pendingChangesCount > 0;
 
   // Detect schedule changes helper
   const detectScheduleChanges = useCallback((oldShifts: any[], newShifts: any[]) => {
@@ -922,6 +924,7 @@ export function useScheduleData() {
 
     // Derived
     hasPendingChanges,
+    pendingChangesCount,
     canViewAllWages,
     isAdmin,
     isManager,
