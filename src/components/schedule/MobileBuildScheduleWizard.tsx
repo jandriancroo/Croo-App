@@ -24,6 +24,7 @@ interface Props {
   profiles: Profile[];
   onWeekChange?: (weekStart: Date) => void;
   onCompleted?: () => void;
+  onOpenWeekEditor?: (weekStart: Date) => void;
 }
 
 type Step = 'pick-week' | 'drafts' | 'review' | 'source' | 'applying';
@@ -56,6 +57,7 @@ export function MobileBuildScheduleWizard({
   profiles,
   onWeekChange,
   onCompleted,
+  onOpenWeekEditor,
 }: Props) {
   const thisMonday = useMemo(
     () => startOfWeek(new Date(), { weekStartsOn: 1 }),
@@ -148,6 +150,7 @@ export function MobileBuildScheduleWizard({
     if (!targetWeek) return;
     onWeekChange?.(targetWeek);
     onCompleted?.();
+    onOpenWeekEditor?.(targetWeek);
     onOpenChange(false);
   };
 
@@ -209,7 +212,10 @@ export function MobileBuildScheduleWizard({
       }
     }
     // After review, drop into the editor for that week with kept drafts intact
-    if (targetWeek) onWeekChange?.(targetWeek);
+    if (targetWeek) {
+      onWeekChange?.(targetWeek);
+      onOpenWeekEditor?.(targetWeek);
+    }
     onCompleted?.();
     onOpenChange(false);
   };
@@ -247,6 +253,7 @@ export function MobileBuildScheduleWizard({
       await ensureSchedule(targetWeek);
       onWeekChange?.(targetWeek);
       onCompleted?.();
+      onOpenWeekEditor?.(targetWeek);
       toast.success('Empty week ready — start adding shifts.');
       onOpenChange(false);
     } catch (e: any) {
@@ -313,6 +320,7 @@ export function MobileBuildScheduleWizard({
 
       onWeekChange?.(targetWeek);
       onCompleted?.();
+      onOpenWeekEditor?.(targetWeek);
       toast.success(`Copied ${newRows.length} shifts from week of ${format(sourceWeekStart, 'MMM d')} as drafts.`);
       onOpenChange(false);
     } catch (e: any) {

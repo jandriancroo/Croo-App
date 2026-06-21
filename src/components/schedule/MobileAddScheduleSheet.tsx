@@ -52,6 +52,7 @@ interface Props {
   shifts: ExistingShift[];
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
+  defaultTab?: 'shift' | 'employee';
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
   availabilityRequests?: AvailabilityRequest[];
   onCreated?: () => void;
@@ -103,12 +104,14 @@ export function MobileAddScheduleSheet({
   shifts,
   defaultDate,
   defaultEmployeeId,
+  defaultTab = 'shift',
   locationSettings,
   availabilityRequests = [],
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'shift' | 'employee'>('shift');
+  const [tab, setTab] = useState<'shift' | 'employee'>(defaultTab);
+  useEffect(() => { if (open) setTab(defaultTab); }, [open, defaultTab]);
   const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
   const [availPreviewRequest, setAvailPreviewRequest] = useState<AvailabilityRequest | null>(null);
 
