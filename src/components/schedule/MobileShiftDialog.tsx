@@ -89,14 +89,14 @@ export function MobileShiftDialog({
     if (shift) {
       setStartTime(shift.start_time);
       setEndTime(shift.end_time);
-      setSelectedUserId(shift.user_id || 'unassigned');
+      setSelectedUserId(shift.user_id || '');
       setSelectedTemplateId(shift.template_id || '');
       setShiftDate(shift.shift_date);
     } else if (isCreating && templates.length > 0) {
       // Set defaults for new shift
       setStartTime('09:00');
       setEndTime('17:00');
-      setSelectedUserId('unassigned');
+      setSelectedUserId('');
       setSelectedTemplateId('');
       setShiftDate(shift?.shift_date || getTodayInPST());
     }
@@ -160,6 +160,10 @@ export function MobileShiftDialog({
 
   const handleSave = async () => {
     if (!isAdmin) return;
+    if (!selectedUserId || selectedUserId === 'unassigned') {
+      toast.error("Pick an employee — shifts can't be left unassigned.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -506,7 +510,6 @@ export function MobileShiftDialog({
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {profiles.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.full_name}
