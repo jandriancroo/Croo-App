@@ -924,6 +924,7 @@ export function useScheduleData() {
 
     // Derived
     hasPendingChanges,
+    pendingChangesCount,
     canViewAllWages,
     isAdmin,
     isManager,

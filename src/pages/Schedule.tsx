@@ -42,7 +42,7 @@ export default function Schedule() {
     currentWeekStart, setCurrentWeekStart, weekDays, holidays, blackoutDates, locationSettings,
     isPublishing, currentUserId, scheduleId, isPublished, publishedSnapshot, shifts, lastWeekShifts,
     events, profiles, templates, availabilityRequests, lastStatusChangedByName, lastStatusAction,
-    loading, hasPendingChanges, canViewAllWages, isAdmin, isManager, currentLocation,
+    loading, hasPendingChanges, pendingChangesCount, canViewAllWages, isAdmin, isManager, currentLocation,
     fetchScheduleData, checkForConflicts, executeShiftOperation, handleClearSchedule,
     handleCopySchedule, handlePreviousWeek, handleNextWeek, handleGoLive, handleUpdate,
     handleWithdrawSchedule, handleRoleChange, handleDragReorder, handleSmartTap,
@@ -316,6 +316,7 @@ export default function Schedule() {
                       isPublished={isPublished}
                       isPublishing={isPublishing}
                       hasPendingChanges={hasPendingChanges}
+                      pendingCount={pendingChangesCount}
                       onGoLive={handleGoLive}
                       onUpdate={requestUpdate}
                       lastStatusChangedAt={lastStatusChangedAt}
