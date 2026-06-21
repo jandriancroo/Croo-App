@@ -12,6 +12,7 @@ import { differenceInHours, parseISO, format } from "date-fns";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
+import { getTimeOffCutoffMoment, formatCutoffLabel } from "@/utils/timeOffCutoff";
 
 
 interface RequestAvailabilityDialogProps {
@@ -34,9 +35,14 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
   const [hasBlackoutWarning, setHasBlackoutWarning] = useState(false);
 
+  // Time-off cutoff settings
+  const [cutoffEnabled, setCutoffEnabled] = useState(false);
+  const [cutoffDay, setCutoffDay] = useState(3); // 0=Sun..6=Sat (default Wed)
+  const [cutoffTime, setCutoffTime] = useState("17:00");
+
   useEffect(() => {
     if (currentLocation && open) {
-      fetchBlackoutDates();
+      fetchLocationSettings();
     }
   }, [currentLocation, open]);
 
@@ -44,20 +50,23 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     checkBlackoutDates();
   }, [startDate, endDate, blackoutDates, timeScope]);
 
-  const fetchBlackoutDates = async () => {
+  const fetchLocationSettings = async () => {
     if (!currentLocation) return;
 
     try {
       const { data, error } = await supabase
         .from("location_settings")
-        .select("blackout_dates")
+        .select("blackout_dates, time_off_cutoff_enabled, time_off_cutoff_day, time_off_cutoff_time")
         .eq("location_id", currentLocation.id)
         .maybeSingle();
 
       if (error) throw error;
       setBlackoutDates(data?.blackout_dates || []);
+      setCutoffEnabled(!!data?.time_off_cutoff_enabled);
+      if (typeof data?.time_off_cutoff_day === "number") setCutoffDay(data.time_off_cutoff_day);
+      if (data?.time_off_cutoff_time) setCutoffTime(String(data.time_off_cutoff_time).slice(0, 5));
     } catch (error) {
-      console.error("Error fetching blackout dates:", error);
+      console.error("Error fetching location settings:", error);
     }
   };
 
@@ -131,6 +140,19 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     return 0;
   };
 
+  // Past-cutoff detection (only for future-dated unpaid requests)
+  const cutoffInfo = (() => {
+    if (!cutoffEnabled || !startDate || requestType !== "unpaid") return null;
+    try {
+      const cutoffMoment = getTimeOffCutoffMoment(startDate, cutoffDay, cutoffTime, timezone);
+      const isPast = new Date() > cutoffMoment;
+      return { cutoffMoment, isPast, label: formatCutoffLabel(cutoffDay, cutoffTime) };
+    } catch {
+      return null;
+    }
+  })();
+  const isPastCutoff = !!cutoffInfo?.isPast;
+
   const handleSubmit = async () => {
     if (!startDate) {
       toast.error("Please select a start date");
@@ -152,6 +174,11 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
 
       const hours = calculateHours({ startDate, endDate });
 
+      const autoDeny = isPastCutoff;
+      const denialReason = autoDeny
+        ? `Auto-denied: submitted after the ${cutoffInfo?.label} cutoff for the week of ${format(parseDateStringInTimezone(startDate, timezone), "MMM d")}. A manager can still approve in Availability.`
+        : null;
+
       const { error } = await supabase.from("availability_requests").insert({
         user_id: user.id,
         location_id: currentLocation?.id,
@@ -163,11 +190,18 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
         end_time: timeScope === "partial_day" ? endTime : null,
         hours_requested: hours,
         notes: notes || null,
+        status: autoDeny ? "denied" : "pending",
+        denial_reason: denialReason,
+        reviewed_at: autoDeny ? new Date().toISOString() : null,
       });
 
       if (error) throw error;
 
-      toast.success("Availability request submitted");
+      toast.success(
+        autoDeny
+          ? "Submitted — flagged past cutoff, manager will review"
+          : "Availability request submitted"
+      );
       onSuccess();
       onOpenChange(false);
       resetForm();
@@ -211,6 +245,15 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
               </AlertDescription>
             </Alert>
           )}
+
+          {isPastCutoff && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Heads up: the cutoff for next week's time-off requests was <strong>{cutoffInfo?.label}</strong>. You can still submit, but it will be auto-denied and routed to a manager for manual review.
+              </AlertDescription>
+            </Alert>
+          )}
+
           
           <div className="space-y-2">
             <Label htmlFor="request-type">Request Type</Label>
