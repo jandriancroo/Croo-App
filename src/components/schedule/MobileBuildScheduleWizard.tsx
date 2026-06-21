@@ -24,6 +24,7 @@ interface Props {
   profiles: Profile[];
   onWeekChange?: (weekStart: Date) => void;
   onCompleted?: () => void;
+  onOpenWeekEditor?: (weekStart: Date) => void;
 }
 
 type Step = 'pick-week' | 'drafts' | 'review' | 'source' | 'applying';
