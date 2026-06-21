@@ -97,7 +97,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
         setCutoffEnabled(false);
-        setCutoffDay(3);
+        setCutoffDaysBefore(7);
         setCutoffTime("17:00");
       }
     } catch (error) {
