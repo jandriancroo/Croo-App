@@ -1455,6 +1455,22 @@ export function MobileScheduleView({
         </Suspense>
       )}
 
+      {buildWizardOpen && (
+        <Suspense fallback={null}>
+          <MobileBuildScheduleWizard
+            open={buildWizardOpen}
+            onOpenChange={setBuildWizardOpen}
+            currentWeekStart={currentWeekStart}
+            locationId={currentLocation?.id}
+            profiles={profiles}
+            onWeekChange={(ws) => onWeekChange?.(ws)}
+            onCompleted={() => onUpdate?.()}
+          />
+        </Suspense>
+      )}
+
+
+
       <QuickPunchDialog
         open={quickPunchOpen}
         onOpenChange={setQuickPunchOpen}
