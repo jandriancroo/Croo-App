@@ -53,6 +53,8 @@ interface Props {
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
   defaultTab?: 'shift' | 'employee';
+  /** When true, hide the tab switcher and lock to defaultTab (used by the New Shift entry). */
+  lockTab?: boolean;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
   availabilityRequests?: AvailabilityRequest[];
   onCreated?: () => void;
@@ -105,6 +107,7 @@ export function MobileAddScheduleSheet({
   defaultDate,
   defaultEmployeeId,
   defaultTab = 'shift',
+  lockTab = false,
   locationSettings,
   availabilityRequests = [],
   onCreated,
@@ -344,14 +347,16 @@ export function MobileAddScheduleSheet({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Add to Schedule</DialogTitle>
+            <DialogTitle>{lockTab && defaultTab === 'shift' ? 'New Shift' : 'Add to Schedule'}</DialogTitle>
           </DialogHeader>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="shift">Add Shift</TabsTrigger>
-              <TabsTrigger value="employee">Employee Schedule</TabsTrigger>
-            </TabsList>
+            {!lockTab && (
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="shift">Add Shift</TabsTrigger>
+                <TabsTrigger value="employee">Employee Schedule</TabsTrigger>
+              </TabsList>
+            )}
 
             {/* ============ ADD SHIFT TAB ============ */}
             <TabsContent value="shift" className="space-y-4 pt-3">

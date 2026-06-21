@@ -151,6 +151,7 @@ export function MobileScheduleView({
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addSheetTab, setAddSheetTab] = useState<'shift' | 'employee'>('shift');
+  const [addSheetLockTab, setAddSheetLockTab] = useState(false);
   const [addSheetWeekOverride, setAddSheetWeekOverride] = useState<Date | null>(null);
   const [buildWizardOpen, setBuildWizardOpen] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
@@ -1004,6 +1005,24 @@ export function MobileScheduleView({
                 </button>
                 {(isAdmin || isManager) && (
                   <>
+                    {scheduleId && (
+                      <>
+                        <div className="w-px bg-primary-foreground/15 my-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddSheetTab('shift');
+                            setAddSheetLockTab(true);
+                            setAddSheetWeekOverride(null);
+                            setAddSheetOpen(true);
+                          }}
+                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
+                        </button>
+                      </>
+                    )}
                     <div className="w-px bg-primary-foreground/15 my-1" />
                     <button
                       type="button"
@@ -1015,19 +1034,6 @@ export function MobileScheduleView({
                     </button>
                     {scheduleId && (
                       <>
-                        <div className="w-px bg-primary-foreground/15 my-1" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAddSheetTab('shift');
-                            setAddSheetWeekOverride(null);
-                            setAddSheetOpen(true);
-                          }}
-                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                        >
-                          <CalendarPlus className="h-3.5 w-3.5" />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
-                        </button>
                         <div className="w-px bg-primary-foreground/15 my-1" />
                         <button
                           type="button"
@@ -1456,6 +1462,7 @@ export function MobileScheduleView({
               if (!o) {
                 setAddSheetWeekOverride(null);
                 setAddSheetTab('shift');
+                setAddSheetLockTab(false);
               }
             }}
             weekStart={addSheetWeekOverride ?? currentWeekStart}
@@ -1466,6 +1473,7 @@ export function MobileScheduleView({
             shifts={shifts}
             defaultDate={selectedDate}
             defaultTab={addSheetTab}
+            lockTab={addSheetLockTab}
             locationSettings={locationSettings}
             availabilityRequests={availabilityRequests}
             onCreated={() => onUpdate?.()}
@@ -1486,6 +1494,7 @@ export function MobileScheduleView({
             onOpenWeekEditor={(ws) => {
               setAddSheetWeekOverride(ws);
               setAddSheetTab('employee');
+              setAddSheetLockTab(false);
               setAddSheetOpen(true);
             }}
           />
