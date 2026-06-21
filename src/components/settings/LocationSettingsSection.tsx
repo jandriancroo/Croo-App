@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { CalendarIcon, X } from "lucide-react";
-import { format } from "date-fns";
+import { format } from 'date-fns';
+import { getCutoffExample } from '@/utils/timeOffCutoff';
 
 const TIMEZONES = [
   { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
