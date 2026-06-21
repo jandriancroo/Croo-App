@@ -31,6 +31,7 @@ import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
 import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog";
+import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 
 export default function Schedule() {
   const navigate = useNavigate();
@@ -68,6 +69,12 @@ export default function Schedule() {
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
   const [changeTrackingOpen, setChangeTrackingOpen] = useState(false);
+  const [updatePreviewOpen, setUpdatePreviewOpen] = useState(false);
+  const requestUpdate = () => setUpdatePreviewOpen(true);
+  const confirmUpdate = async () => {
+    await handleUpdate();
+    setUpdatePreviewOpen(false);
+  };
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<{ userId: string; userName: string; newRole: string } | null>(null);
   const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
@@ -210,7 +217,7 @@ export default function Schedule() {
           scheduleId={scheduleId}
           templates={templates}
           onGoLive={handleGoLive}
-          onSendUpdate={handleUpdate}
+          onSendUpdate={requestUpdate}
           isPublishing={isPublishing}
           hasPendingChanges={hasPendingChanges}
           isLoading={loading}
@@ -310,7 +317,7 @@ export default function Schedule() {
                       isPublishing={isPublishing}
                       hasPendingChanges={hasPendingChanges}
                       onGoLive={handleGoLive}
-                      onUpdate={handleUpdate}
+                      onUpdate={requestUpdate}
                       lastStatusChangedAt={lastStatusChangedAt}
                       lastStatusChangedByName={lastStatusChangedByName}
                       lastStatusAction={lastStatusAction}
@@ -708,6 +715,15 @@ export default function Schedule() {
       )}
 
       <ChangeTrackingDialog open={changeTrackingOpen} onOpenChange={setChangeTrackingOpen} scheduleId={scheduleId} weekStartDate={currentWeekStart} isPublished={isPublished} />
+      <UpdatePreviewSheet
+        open={updatePreviewOpen}
+        onOpenChange={setUpdatePreviewOpen}
+        publishedSnapshot={publishedSnapshot || []}
+        currentShifts={shifts || []}
+        profiles={profiles || []}
+        onConfirm={confirmUpdate}
+        isSending={isPublishing}
+      />
     </Layout>
   );
 }
