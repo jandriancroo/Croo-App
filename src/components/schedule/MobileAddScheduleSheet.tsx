@@ -52,6 +52,7 @@ interface Props {
   shifts: ExistingShift[];
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
+  defaultTab?: 'shift' | 'employee';
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
   availabilityRequests?: AvailabilityRequest[];
   onCreated?: () => void;
