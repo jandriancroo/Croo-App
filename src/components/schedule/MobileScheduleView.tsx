@@ -1022,6 +1022,19 @@ export function MobileScheduleView({
                     </button>
                   </>
                 )}
+                {(isAdmin || isManager) && (
+                  <>
+                    <div className="w-px bg-primary-foreground/15 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => setBuildWizardOpen(true)}
+                      className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wide">Build Week</span>
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* 5. TODAY: NOW + LATER sections with punch tracking */}
