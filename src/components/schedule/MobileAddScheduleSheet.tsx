@@ -126,7 +126,7 @@ export function MobileAddScheduleSheet({
   );
 
   // ============ ADD SHIFT TAB STATE ============
-  const [shiftUserId, setShiftUserId] = useState<string>('unassigned');
+  const [shiftUserId, setShiftUserId] = useState<string>('');
   const [shiftTemplateId, setShiftTemplateId] = useState<string>('');
   const [shiftStart, setShiftStart] = useState('09:00');
   const [shiftEnd, setShiftEnd] = useState('17:00');
@@ -146,7 +146,7 @@ export function MobileAddScheduleSheet({
   useEffect(() => {
     if (!open) return;
     setTab('shift');
-    setShiftUserId('unassigned');
+    setShiftUserId('');
     setShiftTemplateId('');
     setShiftStart('09:00');
     setShiftEnd('17:00');
@@ -250,6 +250,10 @@ export function MobileAddScheduleSheet({
   };
 
   const handleSaveShift = async () => {
+    if (!shiftUserId) {
+      toast.error("Pick an employee — shifts can't be left unassigned.");
+      return;
+    }
     if (selectedDayIdxs.length === 0) {
       toast.error('Select at least one day');
       return;
@@ -267,7 +271,7 @@ export function MobileAddScheduleSheet({
           schedule_id: sid,
           start_time: shiftStart,
           end_time: shiftEnd,
-          user_id: shiftUserId === 'unassigned' ? null : shiftUserId,
+          user_id: shiftUserId,
           template_id: shiftTemplateId || null,
           day_of_week: d.getDay(),
           shift_date: format(d, 'yyyy-MM-dd'),
@@ -391,11 +395,10 @@ export function MobileAddScheduleSheet({
               </div>
 
               <div className="space-y-2">
-                <Label>Assign To</Label>
+                <Label>Assign To <span className="text-destructive">*</span></Label>
                 <Select value={shiftUserId} onValueChange={setShiftUserId}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Pick an employee" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {profiles.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.nickname || p.full_name}</SelectItem>
                     ))}

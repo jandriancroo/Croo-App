@@ -159,12 +159,13 @@ export function EditShiftDialog({
 
 
   const handleSave = async (skipConflictCheck = false) => {
+    if (!selectedUserId || selectedUserId === "unassigned") {
+      toast.error("Pick an employee — shifts can't be left unassigned.");
+      return;
+    }
     // Check for conflicts if not already confirmed
     if (!skipConflictCheck) {
-      const detectedConflicts = checkForConflicts(
-        selectedUserId === "unassigned" ? "unassigned" : selectedUserId,
-        selectedDays
-      );
+      const detectedConflicts = checkForConflicts(selectedUserId, selectedDays);
 
       if (detectedConflicts.length > 0) {
         setConflictDetails(detectedConflicts);
@@ -425,7 +426,6 @@ export function EditShiftDialog({
                 <SelectValue placeholder="Select employee" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {profiles.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
                     {profile.full_name}
