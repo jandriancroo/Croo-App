@@ -1018,6 +1018,19 @@ export function MobileScheduleView({
                         <div className="w-px bg-primary-foreground/15 my-1" />
                         <button
                           type="button"
+                          onClick={() => {
+                            setAddSheetTab('shift');
+                            setAddSheetWeekOverride(null);
+                            setAddSheetOpen(true);
+                          }}
+                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
+                        </button>
+                        <div className="w-px bg-primary-foreground/15 my-1" />
+                        <button
+                          type="button"
                           onClick={() => setEventDialogOpen(true)}
                           className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
                         >
@@ -1277,11 +1290,6 @@ export function MobileScheduleView({
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     {`Completed (${dayPunches.length})`}
                     <div className="flex items-center gap-1 ml-auto">
-                      {(isAdmin || isManager) && scheduleId && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
-                          <CalendarPlus className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   </h4>
                   {dayPunches.map(punch => (
@@ -1326,9 +1334,6 @@ export function MobileScheduleView({
                     <div className="flex items-center gap-1 ml-auto">
                       {(isAdmin || isManager) && scheduleId && (
                         <>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
-                            <CalendarPlus className="h-4 w-4" />
-                          </Button>
                           {!isPublished ? (
                             <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
                               {isPublishing ? 'Publishing...' : 'Go Live'}
