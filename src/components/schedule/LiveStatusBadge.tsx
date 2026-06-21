@@ -7,6 +7,7 @@ interface LiveStatusBadgeProps {
   isPublished: boolean;
   isPublishing: boolean;
   hasPendingChanges: boolean;
+  pendingCount?: number;
   onGoLive: () => void;
   onUpdate: () => void;
   lastStatusChangedAt?: string | null;
@@ -18,6 +19,7 @@ export function LiveStatusBadge({
   isPublished, 
   isPublishing, 
   hasPendingChanges,
+  pendingCount = 0,
   onGoLive,
   onUpdate,
   lastStatusChangedAt,
