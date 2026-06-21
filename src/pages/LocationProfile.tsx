@@ -613,7 +613,7 @@ export default function LocationProfile() {
                       <div className="space-y-1">
                         <Label className="text-base font-semibold">Time-Off Request Cutoff</Label>
                         <p className="text-sm text-muted-foreground">
-                          Auto-deny time-off requests submitted fewer than X days before the start of the requested week (Monday). Managers can still approve denied requests in Availability.
+                          Auto-deny time-off requests submitted too close to the start of the requested week (Monday). Managers can still approve denied requests in Availability.
                         </p>
                       </div>
                       <Switch checked={cutoffEnabled} onCheckedChange={setCutoffEnabled} />
