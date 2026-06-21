@@ -150,6 +150,8 @@ export function MobileScheduleView({
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [addSheetTab, setAddSheetTab] = useState<'shift' | 'employee'>('shift');
+  const [addSheetWeekOverride, setAddSheetWeekOverride] = useState<Date | null>(null);
   const [buildWizardOpen, setBuildWizardOpen] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
