@@ -162,6 +162,14 @@ export function MobileBuildScheduleWizard({
     try {
       const summary = await fetchScheduleAndDrafts(weekStart);
       setDraftSummary(summary);
+      if (summary.isPublished) {
+        // Already live — don't run the build flow. Just open the week for edits.
+        onWeekChange?.(weekStart);
+        onCompleted?.();
+        onOpenWeekEditor?.(weekStart);
+        onOpenChange(false);
+        return;
+      }
       if (summary.totalDrafts > 0) {
         setStep('drafts');
       } else {
