@@ -107,6 +107,7 @@ export function MobileAddScheduleSheet({
   defaultDate,
   defaultEmployeeId,
   defaultTab = 'shift',
+  lockTab = false,
   locationSettings,
   availabilityRequests = [],
   onCreated,
