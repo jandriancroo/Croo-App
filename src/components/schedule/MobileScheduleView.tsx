@@ -1446,14 +1446,21 @@ export function MobileScheduleView({
         <Suspense fallback={null}>
           <MobileAddScheduleSheet
             open={addSheetOpen}
-            onOpenChange={setAddSheetOpen}
-            weekStart={currentWeekStart}
+            onOpenChange={(o) => {
+              setAddSheetOpen(o);
+              if (!o) {
+                setAddSheetWeekOverride(null);
+                setAddSheetTab('shift');
+              }
+            }}
+            weekStart={addSheetWeekOverride ?? currentWeekStart}
             profiles={profiles}
             templates={templates}
             scheduleId={scheduleId ?? null}
             locationId={currentLocation?.id}
             shifts={shifts}
             defaultDate={selectedDate}
+            defaultTab={addSheetTab}
             locationSettings={locationSettings}
             availabilityRequests={availabilityRequests}
             onCreated={() => onUpdate?.()}
@@ -1471,6 +1478,11 @@ export function MobileScheduleView({
             profiles={profiles}
             onWeekChange={(ws) => onWeekChange?.(ws)}
             onCompleted={() => onUpdate?.()}
+            onOpenWeekEditor={(ws) => {
+              setAddSheetWeekOverride(ws);
+              setAddSheetTab('employee');
+              setAddSheetOpen(true);
+            }}
           />
         </Suspense>
       )}
