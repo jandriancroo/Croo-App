@@ -217,7 +217,7 @@ export default function Schedule() {
           scheduleId={scheduleId}
           templates={templates}
           onGoLive={handleGoLive}
-          onSendUpdate={handleUpdate}
+          onSendUpdate={requestUpdate}
           isPublishing={isPublishing}
           hasPendingChanges={hasPendingChanges}
           isLoading={loading}
