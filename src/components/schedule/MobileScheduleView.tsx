@@ -1334,9 +1334,6 @@ export function MobileScheduleView({
                     <div className="flex items-center gap-1 ml-auto">
                       {(isAdmin || isManager) && scheduleId && (
                         <>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
-                            <CalendarPlus className="h-4 w-4" />
-                          </Button>
                           {!isPublished ? (
                             <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
                               {isPublishing ? 'Publishing...' : 'Go Live'}
