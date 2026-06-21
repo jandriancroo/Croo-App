@@ -53,6 +53,8 @@ interface Props {
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
   defaultTab?: 'shift' | 'employee';
+  /** When true, hide the tab switcher and lock to defaultTab (used by the New Shift entry). */
+  lockTab?: boolean;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
   availabilityRequests?: AvailabilityRequest[];
   onCreated?: () => void;
