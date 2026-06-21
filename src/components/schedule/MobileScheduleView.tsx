@@ -6,12 +6,13 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 const MobileShiftDialog = lazyWithRetry(() => import('./MobileShiftDialog').then(m => ({ default: m.MobileShiftDialog })));
 const MobileAddScheduleSheet = lazyWithRetry(() => import('./MobileAddScheduleSheet').then(m => ({ default: m.MobileAddScheduleSheet })));
+const MobileBuildScheduleWizard = lazyWithRetry(() => import('./MobileBuildScheduleWizard').then(m => ({ default: m.MobileBuildScheduleWizard })));
 import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
@@ -149,6 +150,7 @@ export function MobileScheduleView({
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [buildWizardOpen, setBuildWizardOpen] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
@@ -761,26 +763,39 @@ export function MobileScheduleView({
             <Users className="h-3.5 w-3.5" />
             {uniqueEmployeesScheduled} Scheduled
           </h4>
-          {(isAdmin || isManager) && scheduleId && (
+          {(isAdmin || isManager) && (
             <div className="flex gap-1 items-center">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-7 w-7"
-                onClick={() => setEventDialogOpen(true)}
+                onClick={() => setBuildWizardOpen(true)}
+                title="Build Schedule"
               >
-                <CalendarPlus className="h-4 w-4" />
+                <LayoutGrid className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7"
-                onClick={() => setAddSheetOpen(true)}
-              >
-                <UserPlus className="h-4 w-4" />
-              </Button>
+              {scheduleId && (
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7"
+                    onClick={() => setEventDialogOpen(true)}
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7"
+                    onClick={() => setAddSheetOpen(true)}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
               {/* Publish/Update Button - styled like desktop */}
-              {!isPublished ? (
+              {scheduleId && (!isPublished ? (
                 <Button 
                   size="sm"
                   className="h-7 px-3 text-xs"
@@ -819,7 +834,7 @@ export function MobileScheduleView({
                   </span>
                   <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>
@@ -1439,6 +1454,22 @@ export function MobileScheduleView({
           />
         </Suspense>
       )}
+
+      {buildWizardOpen && (
+        <Suspense fallback={null}>
+          <MobileBuildScheduleWizard
+            open={buildWizardOpen}
+            onOpenChange={setBuildWizardOpen}
+            currentWeekStart={currentWeekStart}
+            locationId={currentLocation?.id}
+            profiles={profiles}
+            onWeekChange={(ws) => onWeekChange?.(ws)}
+            onCompleted={() => onUpdate?.()}
+          />
+        </Suspense>
+      )}
+
+
 
       <QuickPunchDialog
         open={quickPunchOpen}
