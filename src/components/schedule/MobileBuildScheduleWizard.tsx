@@ -212,7 +212,10 @@ export function MobileBuildScheduleWizard({
       }
     }
     // After review, drop into the editor for that week with kept drafts intact
-    if (targetWeek) onWeekChange?.(targetWeek);
+    if (targetWeek) {
+      onWeekChange?.(targetWeek);
+      onOpenWeekEditor?.(targetWeek);
+    }
     onCompleted?.();
     onOpenChange(false);
   };
