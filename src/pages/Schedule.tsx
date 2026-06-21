@@ -31,6 +31,7 @@ import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
 import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog";
+import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 
 export default function Schedule() {
   const navigate = useNavigate();
