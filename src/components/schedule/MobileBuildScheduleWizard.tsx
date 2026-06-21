@@ -253,6 +253,7 @@ export function MobileBuildScheduleWizard({
       await ensureSchedule(targetWeek);
       onWeekChange?.(targetWeek);
       onCompleted?.();
+      onOpenWeekEditor?.(targetWeek);
       toast.success('Empty week ready — start adding shifts.');
       onOpenChange(false);
     } catch (e: any) {
