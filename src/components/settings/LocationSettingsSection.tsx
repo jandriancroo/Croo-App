@@ -50,6 +50,10 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
   const { toast } = useToast();
   const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
+  const [cutoffEnabled, setCutoffEnabled] = useState(false);
+  const [cutoffDay, setCutoffDay] = useState(3); // 0=Sun..6=Sat
+  const [cutoffTime, setCutoffTime] = useState("17:00");
+
   
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,10 +89,16 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         setBlackoutDates(
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
+        setCutoffEnabled(!!(data as any).time_off_cutoff_enabled);
+        if (typeof (data as any).time_off_cutoff_day === "number") setCutoffDay((data as any).time_off_cutoff_day);
+        if ((data as any).time_off_cutoff_time) setCutoffTime(String((data as any).time_off_cutoff_time).slice(0, 5));
       } else {
         setSettingsId(null);
         setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
+        setCutoffEnabled(false);
+        setCutoffDay(3);
+        setCutoffTime("17:00");
       }
     } catch (error) {
       console.error("Error fetching location settings:", error);
@@ -157,6 +167,9 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
       const settingsData = {
         timezone: timezone,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
+        time_off_cutoff_enabled: cutoffEnabled,
+        time_off_cutoff_day: cutoffDay,
+        time_off_cutoff_time: cutoffTime,
       };
 
       if (settingsId) {
