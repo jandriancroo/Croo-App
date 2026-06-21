@@ -404,32 +404,51 @@ export function MobileBuildScheduleWizard({
         {/* STEP 1: Pick week */}
         {step === 'pick-week' && (
           <div className="space-y-2 pt-1">
-            {weekOptions.map(opt => (
-              <button
-                key={opt.offset}
-                disabled={loadingDrafts}
-                onClick={() => handlePickWeek(opt.ws)}
-                className={cn(
-                  'w-full flex items-center justify-between gap-3 p-4 rounded-xl border border-border/50 bg-card hover:border-primary/60 hover:bg-primary/5 transition-colors text-left',
-                  loadingDrafts && 'opacity-50 pointer-events-none'
-                )}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                    <Calendar className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm">{opt.label}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {format(opt.ws, 'MMM d')} – {format(opt.we, 'MMM d')}
+            {weekOptions.map(opt => {
+              const status = weekStatuses[fmtDate(opt.ws)];
+              const isLive = !!status?.isPublished;
+              const draftCount = status?.draftCount ?? 0;
+              return (
+                <button
+                  key={opt.offset}
+                  disabled={loadingDrafts}
+                  onClick={() => handlePickWeek(opt.ws)}
+                  className={cn(
+                    'w-full flex items-center justify-between gap-3 p-4 rounded-xl border bg-card hover:bg-primary/5 transition-colors text-left',
+                    isLive ? 'border-destructive/40 hover:border-destructive/60' : 'border-border/50 hover:border-primary/60',
+                    loadingDrafts && 'opacity-50 pointer-events-none'
+                  )}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={cn('p-2 rounded-lg shrink-0', isLive ? 'bg-destructive/10' : 'bg-primary/10')}>
+                      <Calendar className={cn('h-4 w-4', isLive ? 'text-destructive' : 'text-primary')} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm flex items-center gap-2">
+                        {opt.label}
+                        {isLive && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-destructive/10 border border-destructive/30 text-[9px] font-semibold uppercase tracking-wide text-destructive">
+                            Live
+                          </span>
+                        )}
+                        {!isLive && draftCount > 0 && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                            {draftCount} draft{draftCount === 1 ? '' : 's'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {format(opt.ws, 'MMM d')} – {format(opt.we, 'MMM d')}
+                        {isLive && ' · already published — opens for edits'}
+                      </div>
                     </div>
                   </div>
-                </div>
-                {loadingDrafts && targetWeek && fmtDate(targetWeek) === fmtDate(opt.ws) && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-              </button>
-            ))}
+                  {loadingDrafts && targetWeek && fmtDate(targetWeek) === fmtDate(opt.ws) && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
