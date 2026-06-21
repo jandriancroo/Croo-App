@@ -351,10 +351,12 @@ export function MobileAddScheduleSheet({
           </DialogHeader>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="shift">Add Shift</TabsTrigger>
-              <TabsTrigger value="employee">Employee Schedule</TabsTrigger>
-            </TabsList>
+            {!lockTab && (
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="shift">Add Shift</TabsTrigger>
+                <TabsTrigger value="employee">Employee Schedule</TabsTrigger>
+              </TabsList>
+            )}
 
             {/* ============ ADD SHIFT TAB ============ */}
             <TabsContent value="shift" className="space-y-4 pt-3">
