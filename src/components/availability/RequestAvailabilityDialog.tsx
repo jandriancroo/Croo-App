@@ -140,6 +140,19 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     return 0;
   };
 
+  // Past-cutoff detection (only for future-dated unpaid requests)
+  const cutoffInfo = (() => {
+    if (!cutoffEnabled || !startDate || requestType !== "unpaid") return null;
+    try {
+      const cutoffMoment = getTimeOffCutoffMoment(startDate, cutoffDay, cutoffTime, timezone);
+      const isPast = new Date() > cutoffMoment;
+      return { cutoffMoment, isPast, label: formatCutoffLabel(cutoffDay, cutoffTime) };
+    } catch {
+      return null;
+    }
+  })();
+  const isPastCutoff = !!cutoffInfo?.isPast;
+
   const handleSubmit = async () => {
     if (!startDate) {
       toast.error("Please select a start date");
@@ -161,6 +174,11 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
 
       const hours = calculateHours({ startDate, endDate });
 
+      const autoDeny = isPastCutoff;
+      const denialReason = autoDeny
+        ? `Auto-denied: submitted after the ${cutoffInfo?.label} cutoff for the week of ${format(parseDateStringInTimezone(startDate, timezone), "MMM d")}. A manager can still approve in Availability.`
+        : null;
+
       const { error } = await supabase.from("availability_requests").insert({
         user_id: user.id,
         location_id: currentLocation?.id,
@@ -172,11 +190,18 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
         end_time: timeScope === "partial_day" ? endTime : null,
         hours_requested: hours,
         notes: notes || null,
+        status: autoDeny ? "denied" : "pending",
+        denial_reason: denialReason,
+        reviewed_at: autoDeny ? new Date().toISOString() : null,
       });
 
       if (error) throw error;
 
-      toast.success("Availability request submitted");
+      toast.success(
+        autoDeny
+          ? "Submitted — flagged past cutoff, manager will review"
+          : "Availability request submitted"
+      );
       onSuccess();
       onOpenChange(false);
       resetForm();
@@ -220,6 +245,15 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
               </AlertDescription>
             </Alert>
           )}
+
+          {isPastCutoff && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Heads up: the cutoff for next week's time-off requests was <strong>{cutoffInfo?.label}</strong>. You can still submit, but it will be auto-denied and routed to a manager for manual review.
+              </AlertDescription>
+            </Alert>
+          )}
+
           
           <div className="space-y-2">
             <Label htmlFor="request-type">Request Type</Label>
