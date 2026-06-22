@@ -220,12 +220,26 @@ Deno.serve(async (req) => {
     }
 
     // ── Query C: active inventory_items per (template, location) ──
-    const { data: invItems, error: iErr } = await supabase
-      .from("inventory_items")
-      .select("brand_item_id, location_id, is_active")
-      .eq("is_active", true)
-      .not("brand_item_id", "is", null);
-    if (iErr) throw iErr;
+    // Paginated — count exceeds the PostgREST default 1000-row cap.
+    const invItems: { brand_item_id: string; location_id: string; is_active: boolean }[] = [];
+    {
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory_items")
+          .select("brand_item_id, location_id, is_active")
+          .eq("is_active", true)
+          .not("brand_item_id", "is", null)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        invItems.push(...batch as any);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+    }
+
 
     const locationsByTemplate = new Map<string, Set<string>>();
     for (const r of (invItems || [])) {
@@ -540,7 +554,7 @@ Deno.serve(async (req) => {
             outer_type: ov.outer_type ?? r.parsed.outer_type,
             inner_qty: ov.inner_qty ?? r.parsed.inner_qty,
             inner_type: ov.inner_type ?? r.parsed.inner_type,
-            common_unit: r.parsed.common_unit, // common_unit not overridable; tracks inner_type semantics
+            common_unit: ov.inner_type ?? r.parsed.common_unit, // override inner_type also drives common_unit (semantic re-anchor)
           };
           // count_units_per_case MUST match CHECK constraint: outer_qty * COALESCE(inner_qty, 1)
           const cupc = final.outer_qty * (final.inner_qty || 1);
@@ -742,7 +756,7 @@ Deno.serve(async (req) => {
           parse_failures: reports.parse_failures.sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? '')),
         },
 
-        sample_proposals: Array.from(proposalByKey.values()).slice(0, 10),
+        sample_proposals: Array.from(proposalByKey.values()),
         sample_ledger_rows: ledgerRows.slice(0, 10),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
