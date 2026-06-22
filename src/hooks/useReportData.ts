@@ -262,8 +262,10 @@ async function fetchLocationData(
   };
 
 
-  let startingCount = await sumCount(startingCountRow?.id);
-  let endingCount = await sumCount(endingCountRow?.id);
+  const startingResult = await sumCount(startingCountRow?.id);
+  const endingResult = await sumCount(endingCountRow?.id);
+  const startingCount = startingResult.total;
+  const endingCount = endingResult.total;
 
   // === Purchases: mirror PeriodDetailPanel exactly ===
   // For monthly/yearly counts, aggregate this count's own assignments PLUS all
@@ -271,6 +273,7 @@ async function fetchLocationData(
   // anything locked to a different same-type count).
   let totalPurchases = 0;
   let vendors: { name: string; amount: number }[] = [];
+  const purchasesByCategory = new Map<string, number>();
   if (endingCountRow?.id) {
     const periodType = endingCountRow.period_type as 'weekly' | 'monthly' | 'yearly';
     const isAggregating = periodType === 'monthly' || periodType === 'yearly';
@@ -338,10 +341,11 @@ async function fetchLocationData(
     const pfgIds = Array.from(targetIds.pfg);
     const paIds = Array.from(targetIds.pa);
     const invIds = Array.from(targetIds.invoice);
-    const [pfgR, paR, invR] = await Promise.all([
-      pfgIds.length ? supabase.from('pfg_orders').select('total_amount').in('id', pfgIds) : Promise.resolve({ data: [] as any[] }),
-      paIds.length ? supabase.from('pa_orders').select('total_amount').in('id', paIds) : Promise.resolve({ data: [] as any[] }),
-      invIds.length ? supabase.from('vendor_invoices').select('vendor_name, total_amount').in('id', invIds) : Promise.resolve({ data: [] as any[] }),
+    const [pfgR, paR, invR, invItemsR] = await Promise.all([
+      pfgIds.length ? supabase.from('pfg_orders').select('total_amount, items').in('id', pfgIds) : Promise.resolve({ data: [] as any[] }),
+      paIds.length ? supabase.from('pa_orders').select('total_amount, items').in('id', paIds) : Promise.resolve({ data: [] as any[] }),
+      invIds.length ? supabase.from('vendor_invoices').select('id, vendor_name, total_amount').in('id', invIds) : Promise.resolve({ data: [] as any[] }),
+      invIds.length ? supabase.from('vendor_invoice_items').select('invoice_id, total_price, matched_item_id').in('invoice_id', invIds) : Promise.resolve({ data: [] as any[] }),
     ]);
     const vendorMap = new Map<string, number>();
     (pfgR.data || []).forEach((o: any) => vendorMap.set('PFG', (vendorMap.get('PFG') || 0) + (Number(o.total_amount) || 0)));
@@ -352,11 +356,133 @@ async function fetchLocationData(
     });
     vendors = Array.from(vendorMap.entries()).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount);
     totalPurchases = vendors.reduce((s, v) => s + v.amount, 0);
+
+    // === Per-category purchase allocation ===
+    // Build inventory_items lookup for category attribution by matching
+    // line-level identifiers (item_number for PFG, pa_item_id for PA,
+    // matched_item_id for vendor invoices). Lines that can't be matched
+    // are bucketed into "Uncategorized".
+    const { data: locItems } = await supabase
+      .from('inventory_items')
+      .select('id, category, item_number, pa_item_id, brand_item_id')
+      .eq('location_id', locationId)
+      .eq('is_active', true);
+    const itemById = new Map<string, any>();
+    const itemByItemNumber = new Map<string, any>();
+    const itemByPaId = new Map<string, any>();
+    for (const it of (locItems || []) as any[]) {
+      itemById.set(it.id, it);
+      if (it.item_number) itemByItemNumber.set(String(it.item_number), it);
+      if (it.pa_item_id) itemByPaId.set(String(it.pa_item_id), it);
+    }
+    // Optional: brand vendor mappings for sharper PFG/PA → template → local item
+    const brandIds = Array.from(new Set((locItems || []).map((i: any) => i.brand_item_id).filter(Boolean)));
+    const vendorMapped = new Map<string, any>(); // key `${vendor}:${vendor_item_id}` → item
+    if (brandIds.length) {
+      const { data: vms } = await supabase
+        .from('brand_vendor_mappings')
+        .select('vendor, vendor_item_id, brand_template_id')
+        .in('brand_template_id', brandIds as string[]);
+      const tplToItem = new Map<string, any>();
+      for (const it of (locItems || []) as any[]) {
+        if (it.brand_item_id) tplToItem.set(it.brand_item_id, it);
+      }
+      for (const m of (vms || []) as any[]) {
+        const it = tplToItem.get(m.brand_template_id);
+        if (it) vendorMapped.set(`${m.vendor}:${m.vendor_item_id}`, it);
+      }
+    }
+    const catOf = (it: any) => {
+      const raw = (it?.category as string | undefined)?.trim();
+      return !raw || raw === 'MI' ? 'Uncategorized' : raw;
+    };
+    const bump = (cat: string, amt: number) => {
+      if (!amt) return;
+      purchasesByCategory.set(cat, (purchasesByCategory.get(cat) || 0) + amt);
+    };
+
+    // PFG order lines
+    for (const o of (pfgR.data || []) as any[]) {
+      const lines = typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : (o.items || []);
+      let attributed = 0;
+      for (const li of lines as any[]) {
+        const amt = Number(li?.total ?? li?.totalPrice ?? li?.extPrice ?? 0) || 0;
+        if (!amt) continue;
+        const vendorItemId = String(li?.itemNumber ?? li?.productId ?? li?.item_number ?? '');
+        const matched = (vendorItemId && (vendorMapped.get(`pfg:${vendorItemId}`) || itemByItemNumber.get(vendorItemId))) || null;
+        bump(matched ? catOf(matched) : 'Uncategorized', amt);
+        attributed += amt;
+      }
+      // If JSON line totals don't reconcile to order total, dump the gap into Uncategorized
+      const orderTotal = Number(o.total_amount) || 0;
+      const gap = orderTotal - attributed;
+      if (Math.abs(gap) > 0.01) bump('Uncategorized', gap);
+    }
+    // PA order lines
+    for (const o of (paR.data || []) as any[]) {
+      const lines = typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : (o.items || []);
+      let attributed = 0;
+      for (const li of lines as any[]) {
+        const amt = Number(li?.total ?? li?.totalPrice ?? li?.extPrice ?? 0) || 0;
+        if (!amt) continue;
+        const paId = String(li?.pa_product_id ?? li?.item_code ?? li?.pa_item_id ?? '');
+        const matched = (paId && (vendorMapped.get(`produce_alliance:${paId}`) || itemByPaId.get(paId))) || null;
+        bump(matched ? catOf(matched) : 'Uncategorized', amt);
+        attributed += amt;
+      }
+      const orderTotal = Number(o.total_amount) || 0;
+      const gap = orderTotal - attributed;
+      if (Math.abs(gap) > 0.01) bump('Uncategorized', gap);
+    }
+    // Vendor invoice line items (matched_item_id → category)
+    const invoiceTotalById = new Map<string, number>();
+    for (const inv of (invR.data || []) as any[]) invoiceTotalById.set(inv.id, Number(inv.total_amount) || 0);
+    const attributedByInvoice = new Map<string, number>();
+    for (const li of (invItemsR.data || []) as any[]) {
+      const amt = Number(li.total_price) || 0;
+      if (!amt) continue;
+      const matched = li.matched_item_id ? itemById.get(li.matched_item_id) : null;
+      bump(matched ? catOf(matched) : 'Uncategorized', amt);
+      attributedByInvoice.set(li.invoice_id, (attributedByInvoice.get(li.invoice_id) || 0) + amt);
+    }
+    for (const [invId, total] of invoiceTotalById.entries()) {
+      const gap = total - (attributedByInvoice.get(invId) || 0);
+      if (Math.abs(gap) > 0.01) bump('Uncategorized', gap);
+    }
   }
 
   const aligned = !!endingCountRow;
   const cogs = startingCount + totalPurchases - endingCount;
   const cogsPct = salesNet > 0 ? (cogs / salesNet) * 100 : 0;
+
+  // === Per-category COGS rows ===
+  const allCats = new Set<string>([
+    ...startingResult.byCategory.keys(),
+    ...endingResult.byCategory.keys(),
+    ...purchasesByCategory.keys(),
+  ]);
+  const cogsByCategory: CogsCategoryRow[] = Array.from(allCats).map((cat) => {
+    const s = startingResult.byCategory.get(cat) || 0;
+    const e = endingResult.byCategory.get(cat) || 0;
+    const p = purchasesByCategory.get(cat) || 0;
+    const c = s + p - e;
+    return {
+      category: cat,
+      starting: s,
+      purchases: p,
+      ending: e,
+      cogs: c,
+      cogsPct: salesNet > 0 ? Math.round((c / salesNet) * 1000) / 10 : 0,
+      pctOfTotal: 0,
+    };
+  });
+  const totalCogsAbs = cogsByCategory.reduce((s, r) => s + Math.max(0, r.cogs), 0);
+  cogsByCategory.forEach(r => {
+    r.pctOfTotal = totalCogsAbs > 0 ? Math.round((Math.max(0, r.cogs) / totalCogsAbs) * 1000) / 10 : 0;
+  });
+  cogsByCategory.sort((a, b) => b.cogs - a.cogs);
+
+
 
   // === Cash drawer === parse value_text JSON from logbook entries
   const drawerRows = drawerR.data || [];
