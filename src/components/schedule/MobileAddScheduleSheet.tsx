@@ -414,10 +414,11 @@ export function MobileAddScheduleSheet({
                   <SelectContent>
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
-                        <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">{g.label}</SelectLabel>
+                        <RoleGroupLabel group={g} />
                         {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
                       </SelectGroup>
                     ))}
+
                   </SelectContent>
                 </Select>
               </div>
