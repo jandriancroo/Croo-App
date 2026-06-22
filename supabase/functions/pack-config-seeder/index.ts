@@ -220,12 +220,26 @@ Deno.serve(async (req) => {
     }
 
     // ── Query C: active inventory_items per (template, location) ──
-    const { data: invItems, error: iErr } = await supabase
-      .from("inventory_items")
-      .select("brand_item_id, location_id, is_active")
-      .eq("is_active", true)
-      .not("brand_item_id", "is", null);
-    if (iErr) throw iErr;
+    // Paginated — count exceeds the PostgREST default 1000-row cap.
+    const invItems: { brand_item_id: string; location_id: string; is_active: boolean }[] = [];
+    {
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory_items")
+          .select("brand_item_id, location_id, is_active")
+          .eq("is_active", true)
+          .not("brand_item_id", "is", null)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        invItems.push(...batch as any);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+    }
+
 
     const locationsByTemplate = new Map<string, Set<string>>();
     for (const r of (invItems || [])) {
