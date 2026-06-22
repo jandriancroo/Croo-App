@@ -41,10 +41,11 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
 import { useMultiLocationReportData, type LocationReportData } from '@/hooks/useReportData';
+import { useCategorySegments, SEGMENT_ORDER, type CogsSegment } from '@/hooks/useCategorySegments';
 
 // ============ TYPES ============
 type Orientation = 'portrait' | 'landscape';
-type BlockType = 'inventory' | 'labor' | 'cash' | 'sales' | 'header' | 'spacer' | 'text' | 'cogs_by_category';
+type BlockType = 'inventory' | 'labor' | 'cash' | 'sales' | 'header' | 'spacer' | 'text' | 'cogs_by_category' | 'cogs_by_segment';
 
 interface ReportBlock {
   id: string;
