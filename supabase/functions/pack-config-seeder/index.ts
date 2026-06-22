@@ -1,4 +1,5 @@
 // Pack-config seeder — refactored per item-lifecycle-spec.md piece #6.
+// Redeploy trigger: 2026-06-22 parser fix A (trailing-period + unit-only).
 //
 // Walks every (brand_template, location) pair where an active inventory_items
 // row exists, resolves pack + cost from the mapped vendor's sources at that

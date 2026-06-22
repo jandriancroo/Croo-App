@@ -27,7 +27,10 @@ const NUM = String.raw`(?:\d*\.\d+|\d+(?:\.\d+)?)`;
 
 export function parsePackString(packString: string | null | undefined): ParsedPack | null {
   if (!packString) return null;
-  const trimmed = packString.trim();
+  // Strip surrounding whitespace AND trailing periods so PA catalog shapes like
+  // "lb.", "qt.", "48 ct." normalize to "lb", "qt", "48 ct" before parsing.
+  const trimmed = packString.trim().replace(/\.+$/, '').trim();
+  if (!trimmed) return null;
 
   // Format: "6/#10 CN" or "4/#5 CN" — PFG #N-can prefix
   // Outer count / #N can-size, optionally followed by a unit token (CN, CAN, EA).
@@ -69,6 +72,14 @@ export function parsePackString(packString: string | null | undefined): ParsedPa
     if (!Number.isFinite(inner_qty) || inner_qty <= 0) return null;
     const { inner_type, common_unit } = normalizeUnit(rawUnit);
     return { outer_qty: 1, inner_qty, inner_type, common_unit };
+  }
+
+  // Format: "lb", "qt", "ga", "ea" (unit-only — implicit 1×1 UNIT).
+  // PA catalog ships these for loose/bulk items sold by the unit.
+  const unitOnlyMatch = trimmed.match(/^[A-Za-z]+$/);
+  if (unitOnlyMatch) {
+    const { inner_type, common_unit } = normalizeUnit(trimmed.toLowerCase());
+    return { outer_qty: 1, inner_qty: 1, inner_type, common_unit };
   }
 
   return null;
