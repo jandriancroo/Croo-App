@@ -146,7 +146,7 @@ export function MobileAddScheduleSheet({
   // Init defaults on open
   useEffect(() => {
     if (!open) return;
-    setTab('shift');
+    setTab(initialTab);
     setShiftUserId('');
     setShiftTemplateId('');
     setShiftStart('09:00');
