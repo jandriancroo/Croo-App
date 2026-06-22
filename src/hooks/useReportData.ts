@@ -4,6 +4,16 @@ import { format } from 'date-fns';
 import { calculateCountItemValue } from '@/utils/countItemValue';
 import { fetchRecipeCosts } from '@/utils/recipeCostCalculation';
 
+export interface CogsCategoryRow {
+  category: string;
+  starting: number;
+  purchases: number;
+  ending: number;
+  cogs: number;
+  cogsPct: number;       // cogs as % of sales
+  pctOfTotal: number;    // share of total COGS $
+}
+
 export interface LocationReportData {
   inventory: {
     startingCount: number;
@@ -16,6 +26,7 @@ export interface LocationReportData {
     periodLabel?: string;
     startLabel?: string;
     endLabel?: string;
+    cogsByCategory: CogsCategoryRow[];
   };
   labor: {
     totalHours: number;
@@ -34,7 +45,7 @@ export interface LocationReportData {
 }
 
 const EMPTY_DATA: LocationReportData = {
-  inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false },
+  inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false, cogsByCategory: [] },
   labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
   cash: { days: [], total: 0, totalVariance: 0 },
   sales: { net: 0, guests: 0 },
@@ -179,12 +190,11 @@ async function fetchLocationData(
 
   // Sum a count's value using the canonical calculator (same as PeriodDetailPanel).
   // Pulls inventory_items and item_conversions to honor pack overrides + brand mapping
-  // so the math matches the inventory period panel exactly.
-  const sumCount = async (id?: string) => {
-    if (!id) return 0;
-    // Gate live recipe-cost fallback by status: completed counts MUST stay
-    // frozen at whatever snapshot they hold (even if NULL → $0). Only
-    // in-progress counts may pull live recipe batch cost as a fallback.
+  // so the math matches the inventory period panel exactly. Returns both the
+  // grand total AND a per-category breakdown (category from inventory_items.category).
+  const sumCount = async (id?: string): Promise<{ total: number; byCategory: Map<string, number> }> => {
+    const empty = { total: 0, byCategory: new Map<string, number>() };
+    if (!id) return empty;
     const { data: countRow } = await supabase
       .from('inventory_counts')
       .select('status')
@@ -196,11 +206,11 @@ async function fetchLocationData(
       .select('item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs')
       .eq('count_id', id);
     const rows = (ciRows || []) as any[];
-    if (!rows.length) return 0;
+    if (!rows.length) return empty;
     const itemIds = Array.from(new Set(rows.map(r => r.item_id)));
     const { data: items } = await supabase
       .from('inventory_items')
-      .select('id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit')
+      .select('id, category, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit')
       .in('id', itemIds);
     const itemMap = new Map<string, any>();
     for (const it of items || []) itemMap.set(it.id, it);
@@ -213,12 +223,12 @@ async function fetchLocationData(
         .in('brand_item_id', brandIds as string[]);
       for (const c of convs || []) conversionMap.set((c as any).brand_item_id, c);
     }
-    // Recipe cost fallback — ONLY for in-progress counts. Completed counts
-    // are frozen and must never recalculate, even if their snapshot is NULL.
     const hasAnyRecipe = (items || []).some((i: any) => i?.is_recipe === true);
     const recipeCosts = (isInProgress && hasAnyRecipe) ? await fetchRecipeCosts(locationId) : null;
 
-    return rows.reduce((s, ci) => {
+    let total = 0;
+    const byCategory = new Map<string, number>();
+    for (const ci of rows) {
       const item = itemMap.get(ci.item_id);
       const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
       const isRecipe = item?.is_recipe === true;
@@ -227,7 +237,7 @@ async function fetchLocationData(
         isRecipe && (item?.cost_per_unit == null || item?.cost_per_unit === 0) && liveRecipeCost
           ? liveRecipeCost
           : item?.cost_per_unit;
-      return s + calculateCountItemValue(
+      const value = calculateCountItemValue(
         ci,
         item ? {
           brand_item_id: item.brand_item_id,
@@ -243,11 +253,19 @@ async function fetchLocationData(
         conversion || null,
         false
       );
-    }, 0);
+      total += value;
+      const rawCat = (item?.category as string | undefined)?.trim();
+      const cat = !rawCat || rawCat === 'MI' ? 'Uncategorized' : rawCat;
+      byCategory.set(cat, (byCategory.get(cat) || 0) + value);
+    }
+    return { total, byCategory };
   };
 
-  let startingCount = await sumCount(startingCountRow?.id);
-  let endingCount = await sumCount(endingCountRow?.id);
+
+  const startingResult = await sumCount(startingCountRow?.id);
+  const endingResult = await sumCount(endingCountRow?.id);
+  const startingCount = startingResult.total;
+  const endingCount = endingResult.total;
 
   // === Purchases: mirror PeriodDetailPanel exactly ===
   // For monthly/yearly counts, aggregate this count's own assignments PLUS all
@@ -255,6 +273,7 @@ async function fetchLocationData(
   // anything locked to a different same-type count).
   let totalPurchases = 0;
   let vendors: { name: string; amount: number }[] = [];
+  const purchasesByCategory = new Map<string, number>();
   if (endingCountRow?.id) {
     const periodType = endingCountRow.period_type as 'weekly' | 'monthly' | 'yearly';
     const isAggregating = periodType === 'monthly' || periodType === 'yearly';
@@ -322,10 +341,11 @@ async function fetchLocationData(
     const pfgIds = Array.from(targetIds.pfg);
     const paIds = Array.from(targetIds.pa);
     const invIds = Array.from(targetIds.invoice);
-    const [pfgR, paR, invR] = await Promise.all([
-      pfgIds.length ? supabase.from('pfg_orders').select('total_amount').in('id', pfgIds) : Promise.resolve({ data: [] as any[] }),
-      paIds.length ? supabase.from('pa_orders').select('total_amount').in('id', paIds) : Promise.resolve({ data: [] as any[] }),
-      invIds.length ? supabase.from('vendor_invoices').select('vendor_name, total_amount').in('id', invIds) : Promise.resolve({ data: [] as any[] }),
+    const [pfgR, paR, invR, invItemsR] = await Promise.all([
+      pfgIds.length ? supabase.from('pfg_orders').select('total_amount, items').in('id', pfgIds) : Promise.resolve({ data: [] as any[] }),
+      paIds.length ? supabase.from('pa_orders').select('total_amount, items').in('id', paIds) : Promise.resolve({ data: [] as any[] }),
+      invIds.length ? supabase.from('vendor_invoices').select('id, vendor_name, total_amount').in('id', invIds) : Promise.resolve({ data: [] as any[] }),
+      invIds.length ? supabase.from('vendor_invoice_items').select('invoice_id, total_price, matched_item_id').in('invoice_id', invIds) : Promise.resolve({ data: [] as any[] }),
     ]);
     const vendorMap = new Map<string, number>();
     (pfgR.data || []).forEach((o: any) => vendorMap.set('PFG', (vendorMap.get('PFG') || 0) + (Number(o.total_amount) || 0)));
@@ -336,11 +356,133 @@ async function fetchLocationData(
     });
     vendors = Array.from(vendorMap.entries()).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount);
     totalPurchases = vendors.reduce((s, v) => s + v.amount, 0);
+
+    // === Per-category purchase allocation ===
+    // Build inventory_items lookup for category attribution by matching
+    // line-level identifiers (item_number for PFG, pa_item_id for PA,
+    // matched_item_id for vendor invoices). Lines that can't be matched
+    // are bucketed into "Uncategorized".
+    const { data: locItems } = await supabase
+      .from('inventory_items')
+      .select('id, category, item_number, pa_item_id, brand_item_id')
+      .eq('location_id', locationId)
+      .eq('is_active', true);
+    const itemById = new Map<string, any>();
+    const itemByItemNumber = new Map<string, any>();
+    const itemByPaId = new Map<string, any>();
+    for (const it of (locItems || []) as any[]) {
+      itemById.set(it.id, it);
+      if (it.item_number) itemByItemNumber.set(String(it.item_number), it);
+      if (it.pa_item_id) itemByPaId.set(String(it.pa_item_id), it);
+    }
+    // Optional: brand vendor mappings for sharper PFG/PA → template → local item
+    const brandIds = Array.from(new Set((locItems || []).map((i: any) => i.brand_item_id).filter(Boolean)));
+    const vendorMapped = new Map<string, any>(); // key `${vendor}:${vendor_item_id}` → item
+    if (brandIds.length) {
+      const { data: vms } = await supabase
+        .from('brand_vendor_mappings')
+        .select('vendor, vendor_item_id, brand_template_id')
+        .in('brand_template_id', brandIds as string[]);
+      const tplToItem = new Map<string, any>();
+      for (const it of (locItems || []) as any[]) {
+        if (it.brand_item_id) tplToItem.set(it.brand_item_id, it);
+      }
+      for (const m of (vms || []) as any[]) {
+        const it = tplToItem.get(m.brand_template_id);
+        if (it) vendorMapped.set(`${m.vendor}:${m.vendor_item_id}`, it);
+      }
+    }
+    const catOf = (it: any) => {
+      const raw = (it?.category as string | undefined)?.trim();
+      return !raw || raw === 'MI' ? 'Uncategorized' : raw;
+    };
+    const bump = (cat: string, amt: number) => {
+      if (!amt) return;
+      purchasesByCategory.set(cat, (purchasesByCategory.get(cat) || 0) + amt);
+    };
+
+    // PFG order lines
+    for (const o of (pfgR.data || []) as any[]) {
+      const lines = typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : (o.items || []);
+      let attributed = 0;
+      for (const li of lines as any[]) {
+        const amt = Number(li?.total ?? li?.totalPrice ?? li?.extPrice ?? 0) || 0;
+        if (!amt) continue;
+        const vendorItemId = String(li?.itemNumber ?? li?.productId ?? li?.item_number ?? '');
+        const matched = (vendorItemId && (vendorMapped.get(`pfg:${vendorItemId}`) || itemByItemNumber.get(vendorItemId))) || null;
+        bump(matched ? catOf(matched) : 'Uncategorized', amt);
+        attributed += amt;
+      }
+      // If JSON line totals don't reconcile to order total, dump the gap into Uncategorized
+      const orderTotal = Number(o.total_amount) || 0;
+      const gap = orderTotal - attributed;
+      if (Math.abs(gap) > 0.01) bump('Uncategorized', gap);
+    }
+    // PA order lines
+    for (const o of (paR.data || []) as any[]) {
+      const lines = typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : (o.items || []);
+      let attributed = 0;
+      for (const li of lines as any[]) {
+        const amt = Number(li?.total ?? li?.totalPrice ?? li?.extPrice ?? 0) || 0;
+        if (!amt) continue;
+        const paId = String(li?.pa_product_id ?? li?.item_code ?? li?.pa_item_id ?? '');
+        const matched = (paId && (vendorMapped.get(`produce_alliance:${paId}`) || itemByPaId.get(paId))) || null;
+        bump(matched ? catOf(matched) : 'Uncategorized', amt);
+        attributed += amt;
+      }
+      const orderTotal = Number(o.total_amount) || 0;
+      const gap = orderTotal - attributed;
+      if (Math.abs(gap) > 0.01) bump('Uncategorized', gap);
+    }
+    // Vendor invoice line items (matched_item_id → category)
+    const invoiceTotalById = new Map<string, number>();
+    for (const inv of (invR.data || []) as any[]) invoiceTotalById.set(inv.id, Number(inv.total_amount) || 0);
+    const attributedByInvoice = new Map<string, number>();
+    for (const li of (invItemsR.data || []) as any[]) {
+      const amt = Number(li.total_price) || 0;
+      if (!amt) continue;
+      const matched = li.matched_item_id ? itemById.get(li.matched_item_id) : null;
+      bump(matched ? catOf(matched) : 'Uncategorized', amt);
+      attributedByInvoice.set(li.invoice_id, (attributedByInvoice.get(li.invoice_id) || 0) + amt);
+    }
+    for (const [invId, total] of invoiceTotalById.entries()) {
+      const gap = total - (attributedByInvoice.get(invId) || 0);
+      if (Math.abs(gap) > 0.01) bump('Uncategorized', gap);
+    }
   }
 
   const aligned = !!endingCountRow;
   const cogs = startingCount + totalPurchases - endingCount;
   const cogsPct = salesNet > 0 ? (cogs / salesNet) * 100 : 0;
+
+  // === Per-category COGS rows ===
+  const allCats = new Set<string>([
+    ...startingResult.byCategory.keys(),
+    ...endingResult.byCategory.keys(),
+    ...purchasesByCategory.keys(),
+  ]);
+  const cogsByCategory: CogsCategoryRow[] = Array.from(allCats).map((cat) => {
+    const s = startingResult.byCategory.get(cat) || 0;
+    const e = endingResult.byCategory.get(cat) || 0;
+    const p = purchasesByCategory.get(cat) || 0;
+    const c = s + p - e;
+    return {
+      category: cat,
+      starting: s,
+      purchases: p,
+      ending: e,
+      cogs: c,
+      cogsPct: salesNet > 0 ? Math.round((c / salesNet) * 1000) / 10 : 0,
+      pctOfTotal: 0,
+    };
+  });
+  const totalCogsAbs = cogsByCategory.reduce((s, r) => s + Math.max(0, r.cogs), 0);
+  cogsByCategory.forEach(r => {
+    r.pctOfTotal = totalCogsAbs > 0 ? Math.round((Math.max(0, r.cogs) / totalCogsAbs) * 1000) / 10 : 0;
+  });
+  cogsByCategory.sort((a, b) => b.cogs - a.cogs);
+
+
 
   // === Cash drawer === parse value_text JSON from logbook entries
   const drawerRows = drawerR.data || [];
@@ -385,6 +527,7 @@ async function fetchLocationData(
       aligned,
       startLabel: startingCountRow?.period_end_date || startingCountRow?.count_date,
       endLabel: endingCountRow?.period_end_date || endingCountRow?.count_date,
+      cogsByCategory,
     },
     labor: laborAgg,
     cash: { days: cashDays, total: cashTotal, totalVariance: cashTotalVariance },
@@ -416,6 +559,7 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
       // Combined / org total
       const combined: LocationReportData = JSON.parse(JSON.stringify(EMPTY_DATA));
       const vendorMap = new Map<string, number>();
+      const catMap = new Map<string, { starting: number; purchases: number; ending: number }>();
       results.forEach(r => {
         combined.inventory.startingCount += r.inventory.startingCount;
         combined.inventory.endingCount += r.inventory.endingCount;
@@ -423,6 +567,11 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.inventory.cogs += r.inventory.cogs;
         combined.inventory.aligned = combined.inventory.aligned || r.inventory.aligned;
         r.inventory.vendors.forEach(v => vendorMap.set(v.name, (vendorMap.get(v.name) || 0) + v.amount));
+        r.inventory.cogsByCategory.forEach(c => {
+          const cur = catMap.get(c.category) || { starting: 0, purchases: 0, ending: 0 };
+          cur.starting += c.starting; cur.purchases += c.purchases; cur.ending += c.ending;
+          catMap.set(c.category, cur);
+        });
         combined.labor.totalHours += r.labor.totalHours;
         combined.labor.regularHours += r.labor.regularHours;
         combined.labor.otHours += r.labor.otHours;
@@ -459,6 +608,24 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
       combined.inventory.cogsPct = combined.sales.net > 0
         ? Math.round((combined.inventory.cogs / combined.sales.net) * 1000) / 10
         : 0;
+      const combinedRows: CogsCategoryRow[] = Array.from(catMap.entries()).map(([cat, v]) => {
+        const c = v.starting + v.purchases - v.ending;
+        return {
+          category: cat,
+          starting: v.starting,
+          purchases: v.purchases,
+          ending: v.ending,
+          cogs: c,
+          cogsPct: combined.sales.net > 0 ? Math.round((c / combined.sales.net) * 1000) / 10 : 0,
+          pctOfTotal: 0,
+        };
+      });
+      const totalAbs = combinedRows.reduce((s, r) => s + Math.max(0, r.cogs), 0);
+      combinedRows.forEach(r => {
+        r.pctOfTotal = totalAbs > 0 ? Math.round((Math.max(0, r.cogs) / totalAbs) * 1000) / 10 : 0;
+      });
+      combinedRows.sort((a, b) => b.cogs - a.cogs);
+      combined.inventory.cogsByCategory = combinedRows;
       return { byLocation, combined };
     },
     enabled: locationIds.length > 0,
