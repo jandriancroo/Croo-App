@@ -70,6 +70,7 @@ const DATA_LIBRARY: { type: BlockType; title: string; icon: any; description: st
   { type: 'header', title: 'Section Header', icon: LayoutIcon, description: 'Big section divider' },
   { type: 'text', title: 'Text Block', icon: FileText, description: 'Custom commentary / notes' },
   { type: 'inventory', title: 'Inventory Summary', icon: Package, description: 'Starting count, purchases by vendor, COGS%' },
+  { type: 'cogs_by_category', title: 'COGS by Category', icon: Package, description: 'Per-category COGS (Food, Paper, Chemicals, etc.)' },
   { type: 'labor', title: 'Gross Labor', icon: Clock, description: 'Hours, OT, DOT, gross wages' },
   { type: 'cash', title: 'Cash Over/Short', icon: DollarSign, description: 'Drawer counts, daily/weekly variance' },
   { type: 'sales', title: 'Sales Total', icon: DollarSign, description: 'Net sales for the period' },
