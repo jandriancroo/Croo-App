@@ -190,12 +190,11 @@ async function fetchLocationData(
 
   // Sum a count's value using the canonical calculator (same as PeriodDetailPanel).
   // Pulls inventory_items and item_conversions to honor pack overrides + brand mapping
-  // so the math matches the inventory period panel exactly.
-  const sumCount = async (id?: string) => {
-    if (!id) return 0;
-    // Gate live recipe-cost fallback by status: completed counts MUST stay
-    // frozen at whatever snapshot they hold (even if NULL → $0). Only
-    // in-progress counts may pull live recipe batch cost as a fallback.
+  // so the math matches the inventory period panel exactly. Returns both the
+  // grand total AND a per-category breakdown (category from inventory_items.category).
+  const sumCount = async (id?: string): Promise<{ total: number; byCategory: Map<string, number> }> => {
+    const empty = { total: 0, byCategory: new Map<string, number>() };
+    if (!id) return empty;
     const { data: countRow } = await supabase
       .from('inventory_counts')
       .select('status')
@@ -207,11 +206,11 @@ async function fetchLocationData(
       .select('item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs')
       .eq('count_id', id);
     const rows = (ciRows || []) as any[];
-    if (!rows.length) return 0;
+    if (!rows.length) return empty;
     const itemIds = Array.from(new Set(rows.map(r => r.item_id)));
     const { data: items } = await supabase
       .from('inventory_items')
-      .select('id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit')
+      .select('id, category, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit')
       .in('id', itemIds);
     const itemMap = new Map<string, any>();
     for (const it of items || []) itemMap.set(it.id, it);
@@ -224,12 +223,12 @@ async function fetchLocationData(
         .in('brand_item_id', brandIds as string[]);
       for (const c of convs || []) conversionMap.set((c as any).brand_item_id, c);
     }
-    // Recipe cost fallback — ONLY for in-progress counts. Completed counts
-    // are frozen and must never recalculate, even if their snapshot is NULL.
     const hasAnyRecipe = (items || []).some((i: any) => i?.is_recipe === true);
     const recipeCosts = (isInProgress && hasAnyRecipe) ? await fetchRecipeCosts(locationId) : null;
 
-    return rows.reduce((s, ci) => {
+    let total = 0;
+    const byCategory = new Map<string, number>();
+    for (const ci of rows) {
       const item = itemMap.get(ci.item_id);
       const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
       const isRecipe = item?.is_recipe === true;
@@ -238,7 +237,7 @@ async function fetchLocationData(
         isRecipe && (item?.cost_per_unit == null || item?.cost_per_unit === 0) && liveRecipeCost
           ? liveRecipeCost
           : item?.cost_per_unit;
-      return s + calculateCountItemValue(
+      const value = calculateCountItemValue(
         ci,
         item ? {
           brand_item_id: item.brand_item_id,
@@ -254,8 +253,14 @@ async function fetchLocationData(
         conversion || null,
         false
       );
-    }, 0);
+      total += value;
+      const rawCat = (item?.category as string | undefined)?.trim();
+      const cat = !rawCat || rawCat === 'MI' ? 'Uncategorized' : rawCat;
+      byCategory.set(cat, (byCategory.get(cat) || 0) + value);
+    }
+    return { total, byCategory };
   };
+
 
   let startingCount = await sumCount(startingCountRow?.id);
   let endingCount = await sumCount(endingCountRow?.id);
