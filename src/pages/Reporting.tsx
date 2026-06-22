@@ -364,6 +364,83 @@ function CashBlock({ data, options }: { data: any; options?: any }) {
   );
 }
 
+function CogsByCategoryBlock({ data, salesNet }: { data: any; salesNet: number }) {
+  const rows: any[] = data?.cogsByCategory || [];
+  const hasAny = rows.some(r => r.cogs !== 0);
+  if (!hasAny) {
+    return <p className="text-sm text-muted-foreground italic">No per-category COGS available — need a completed inventory count in this period.</p>;
+  }
+  // Distinct hues — semantic-token-agnostic palette using HSL so it works in light/dark.
+  const palette = [
+    'hsl(20 90% 55%)', 'hsl(140 55% 45%)', 'hsl(210 75% 55%)', 'hsl(45 90% 55%)',
+    'hsl(280 60% 60%)', 'hsl(0 70% 60%)', 'hsl(180 60% 45%)', 'hsl(320 60% 60%)',
+    'hsl(95 50% 45%)', 'hsl(240 50% 60%)', 'hsl(15 70% 50%)', 'hsl(170 50% 40%)',
+    'hsl(50 70% 45%)', 'hsl(260 40% 55%)',
+  ];
+  const totalAbs = rows.reduce((s, r) => s + Math.max(0, r.cogs), 0);
+  const totalCogs = rows.reduce((s, r) => s + r.cogs, 0);
+  return (
+    <div className="space-y-3">
+      {/* Mini stacked bar */}
+      <div className="flex h-3 w-full overflow-hidden rounded-full border border-border/40 bg-muted/40">
+        {rows.filter(r => r.cogs > 0).map((r, i) => (
+          <div
+            key={r.category}
+            className="h-full"
+            style={{ width: `${totalAbs > 0 ? (r.cogs / totalAbs) * 100 : 0}%`, background: palette[i % palette.length] }}
+            title={`${r.category}: $${Math.round(r.cogs).toLocaleString()} (${r.pctOfTotal}%)`}
+          />
+        ))}
+      </div>
+      {/* Legend swatches */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+        {rows.filter(r => r.cogs > 0).map((r, i) => (
+          <div key={r.category} className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: palette[i % palette.length] }} />
+            <span className="text-muted-foreground">{r.category}</span>
+          </div>
+        ))}
+      </div>
+      {/* Detail table */}
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-muted-foreground border-b">
+            <th className="py-1.5 text-left font-medium">Category</th>
+            <th className="py-1.5 text-right font-medium">Start</th>
+            <th className="py-1.5 text-right font-medium">Purchases</th>
+            <th className="py-1.5 text-right font-medium">End</th>
+            <th className="py-1.5 text-right font-medium">COGS</th>
+            <th className="py-1.5 text-right font-medium">% Sales</th>
+            <th className="py-1.5 text-right font-medium">% COGS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.category} className="border-b last:border-0">
+              <td className="py-1.5">{r.category}</td>
+              <td className="py-1.5 text-right tabular-nums">${Math.round(r.starting).toLocaleString()}</td>
+              <td className="py-1.5 text-right tabular-nums">${Math.round(r.purchases).toLocaleString()}</td>
+              <td className="py-1.5 text-right tabular-nums">${Math.round(r.ending).toLocaleString()}</td>
+              <td className="py-1.5 text-right tabular-nums font-medium">${Math.round(r.cogs).toLocaleString()}</td>
+              <td className="py-1.5 text-right tabular-nums text-muted-foreground">{r.cogsPct}%</td>
+              <td className="py-1.5 text-right tabular-nums text-muted-foreground">{r.pctOfTotal}%</td>
+            </tr>
+          ))}
+          <tr className="font-semibold">
+            <td className="py-1.5">Total</td>
+            <td className="py-1.5 text-right tabular-nums">${Math.round(rows.reduce((s, r) => s + r.starting, 0)).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums">${Math.round(rows.reduce((s, r) => s + r.purchases, 0)).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums">${Math.round(rows.reduce((s, r) => s + r.ending, 0)).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums text-primary">${Math.round(totalCogs).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums">{salesNet > 0 ? Math.round((totalCogs / salesNet) * 1000) / 10 : 0}%</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function renderBlock(block: ReportBlock, locationData: LocationReportData) {
   switch (block.type) {
     case 'header':
@@ -374,6 +451,8 @@ function renderBlock(block: ReportBlock, locationData: LocationReportData) {
       return <div style={{ height: block.options?.height || 24 }} />;
     case 'inventory':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} options={block.options} /></div>;
+    case 'cogs_by_category':
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CogsByCategoryBlock data={locationData.inventory} salesNet={locationData.sales.net} /></div>;
     case 'labor':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} salesNet={locationData.sales.net} options={block.options} /></div>;
     case 'cash':
