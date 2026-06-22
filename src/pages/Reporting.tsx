@@ -561,6 +561,8 @@ function renderBlock(block: ReportBlock, locationData: LocationReportData) {
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} options={block.options} /></div>;
     case 'cogs_by_category':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CogsByCategoryBlock data={locationData.inventory} salesNet={locationData.sales.net} /></div>;
+    case 'cogs_by_segment':
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CogsBySegmentBlock data={locationData.inventory} salesNet={locationData.sales.net} /></div>;
     case 'labor':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} salesNet={locationData.sales.net} options={block.options} /></div>;
     case 'cash':
