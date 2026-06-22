@@ -443,6 +443,112 @@ function CogsByCategoryBlock({ data, salesNet }: { data: any; salesNet: number }
   );
 }
 
+function CogsBySegmentBlock({ data, salesNet }: { data: any; salesNet: number }) {
+  const rows: any[] = data?.cogsByCategory || [];
+  const cats = rows.map(r => r.category);
+  const { resolve, loading } = useCategorySegments(cats);
+
+  if (!rows.some(r => r.cogs !== 0)) {
+    return <p className="text-sm text-muted-foreground italic">No per-segment COGS available — need a completed inventory count in this period.</p>;
+  }
+
+  // Roll up by segment.
+  const bySeg = new Map<CogsSegment, { starting: number; purchases: number; ending: number; cogs: number; sources: string[] }>();
+  for (const r of rows) {
+    const seg = resolve(r.category);
+    const cur = bySeg.get(seg) || { starting: 0, purchases: 0, ending: 0, cogs: 0, sources: [] };
+    cur.starting += r.starting || 0;
+    cur.purchases += r.purchases || 0;
+    cur.ending += r.ending || 0;
+    cur.cogs += r.cogs || 0;
+    cur.sources.push(r.category);
+    bySeg.set(seg, cur);
+  }
+  const ordered = SEGMENT_ORDER.filter(s => bySeg.has(s)).map(s => ({ segment: s, ...bySeg.get(s)! }));
+  const totalAbs = ordered.reduce((s, r) => s + Math.max(0, r.cogs), 0);
+  const totalCogs = ordered.reduce((s, r) => s + r.cogs, 0);
+
+  const segColors: Record<CogsSegment, string> = {
+    Food: 'hsl(20 90% 55%)',
+    Paper: 'hsl(45 90% 55%)',
+    Beverages: 'hsl(210 75% 55%)',
+    Supplies: 'hsl(140 55% 45%)',
+    Alcohol: 'hsl(280 60% 60%)',
+    Other: 'hsl(0 0% 55%)',
+  };
+
+  return (
+    <div className="space-y-3">
+      {loading && <div className="text-[11px] text-muted-foreground">Classifying categories…</div>}
+      <div className="flex h-3 w-full overflow-hidden rounded-full border border-border/40 bg-muted/40">
+        {ordered.filter(r => r.cogs > 0).map(r => (
+          <div
+            key={r.segment}
+            className="h-full"
+            style={{ width: `${totalAbs > 0 ? (r.cogs / totalAbs) * 100 : 0}%`, background: segColors[r.segment] }}
+            title={`${r.segment}: $${Math.round(r.cogs).toLocaleString()}`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+        {ordered.filter(r => r.cogs > 0).map(r => (
+          <div key={r.segment} className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: segColors[r.segment] }} />
+            <span className="text-muted-foreground">{r.segment}</span>
+          </div>
+        ))}
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-muted-foreground border-b">
+            <th className="py-1.5 text-left font-medium">Segment</th>
+            <th className="py-1.5 text-right font-medium">Start</th>
+            <th className="py-1.5 text-right font-medium">Purchases</th>
+            <th className="py-1.5 text-right font-medium">End</th>
+            <th className="py-1.5 text-right font-medium">COGS</th>
+            <th className="py-1.5 text-right font-medium">% Sales</th>
+            <th className="py-1.5 text-right font-medium">% COGS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ordered.map(r => {
+            const pctSales = salesNet > 0 ? Math.round((r.cogs / salesNet) * 1000) / 10 : 0;
+            const pctTotal = totalCogs > 0 ? Math.round((r.cogs / totalCogs) * 1000) / 10 : 0;
+            return (
+              <tr key={r.segment} className="border-b last:border-0">
+                <td className="py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-sm" style={{ background: segColors[r.segment] }} />
+                    <span>{r.segment}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground pl-4 truncate" title={r.sources.join(', ')}>
+                    {r.sources.slice(0, 4).join(', ')}{r.sources.length > 4 ? ` +${r.sources.length - 4}` : ''}
+                  </div>
+                </td>
+                <td className="py-1.5 text-right tabular-nums">${Math.round(r.starting).toLocaleString()}</td>
+                <td className="py-1.5 text-right tabular-nums">${Math.round(r.purchases).toLocaleString()}</td>
+                <td className="py-1.5 text-right tabular-nums">${Math.round(r.ending).toLocaleString()}</td>
+                <td className="py-1.5 text-right tabular-nums font-medium">${Math.round(r.cogs).toLocaleString()}</td>
+                <td className="py-1.5 text-right tabular-nums text-muted-foreground">{pctSales}%</td>
+                <td className="py-1.5 text-right tabular-nums text-muted-foreground">{pctTotal}%</td>
+              </tr>
+            );
+          })}
+          <tr className="font-semibold">
+            <td className="py-1.5">Total</td>
+            <td className="py-1.5 text-right tabular-nums">${Math.round(ordered.reduce((s, r) => s + r.starting, 0)).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums">${Math.round(ordered.reduce((s, r) => s + r.purchases, 0)).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums">${Math.round(ordered.reduce((s, r) => s + r.ending, 0)).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums text-primary">${Math.round(totalCogs).toLocaleString()}</td>
+            <td className="py-1.5 text-right tabular-nums">{salesNet > 0 ? Math.round((totalCogs / salesNet) * 1000) / 10 : 0}%</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function renderBlock(block: ReportBlock, locationData: LocationReportData) {
   switch (block.type) {
     case 'header':
