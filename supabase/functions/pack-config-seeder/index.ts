@@ -446,7 +446,6 @@ Deno.serve(async (req) => {
       }
 
 
-      if (templateId === '7c4b802b-b599-43a7-b852-36156618b8ac') console.log('[diag] Hand Soap locSet:', Array.from(locSet), 'maps:', JSON.stringify(maps));
       for (const locationId of locSet) {
         buckets.pairs_evaluated++;
 
