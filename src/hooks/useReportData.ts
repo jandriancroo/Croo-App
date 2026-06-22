@@ -4,6 +4,16 @@ import { format } from 'date-fns';
 import { calculateCountItemValue } from '@/utils/countItemValue';
 import { fetchRecipeCosts } from '@/utils/recipeCostCalculation';
 
+export interface CogsCategoryRow {
+  category: string;
+  starting: number;
+  purchases: number;
+  ending: number;
+  cogs: number;
+  cogsPct: number;       // cogs as % of sales
+  pctOfTotal: number;    // share of total COGS $
+}
+
 export interface LocationReportData {
   inventory: {
     startingCount: number;
@@ -16,6 +26,7 @@ export interface LocationReportData {
     periodLabel?: string;
     startLabel?: string;
     endLabel?: string;
+    cogsByCategory: CogsCategoryRow[];
   };
   labor: {
     totalHours: number;
@@ -34,7 +45,7 @@ export interface LocationReportData {
 }
 
 const EMPTY_DATA: LocationReportData = {
-  inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false },
+  inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false, cogsByCategory: [] },
   labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
   cash: { days: [], total: 0, totalVariance: 0 },
   sales: { net: 0, guests: 0 },
