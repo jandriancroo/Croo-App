@@ -113,8 +113,9 @@ export function MobileAddScheduleSheet({
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'shift' | 'employee'>(defaultTab);
-  useEffect(() => { if (open) setTab(defaultTab); }, [open, defaultTab]);
+  const initialTab = lockTab ? defaultTab : 'employee';
+  const [tab, setTab] = useState<'shift' | 'employee'>(initialTab);
+  useEffect(() => { if (open) setTab(initialTab); }, [open, initialTab]);
   const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
   const [availPreviewRequest, setAvailPreviewRequest] = useState<AvailabilityRequest | null>(null);
 
@@ -351,16 +352,10 @@ export function MobileAddScheduleSheet({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>{lockTab && defaultTab === 'shift' ? 'New Shift' : 'Add to Schedule'}</DialogTitle>
+            <DialogTitle>{lockTab && defaultTab === 'shift' ? 'New Shift' : 'Employee Schedule'}</DialogTitle>
           </DialogHeader>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
-            {!lockTab && (
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="shift">Add Shift</TabsTrigger>
-                <TabsTrigger value="employee">Employee Schedule</TabsTrigger>
-              </TabsList>
-            )}
 
             {/* ============ ADD SHIFT TAB ============ */}
             <TabsContent value="shift" className="space-y-4 pt-3">
