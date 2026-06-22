@@ -742,7 +742,7 @@ Deno.serve(async (req) => {
           parse_failures: reports.parse_failures.sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? '')),
         },
 
-        sample_proposals: Array.from(proposalByKey.values()).slice(0, 10),
+        sample_proposals: Array.from(proposalByKey.values()),
         sample_ledger_rows: ledgerRows.slice(0, 10),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
