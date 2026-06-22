@@ -113,8 +113,9 @@ export function MobileAddScheduleSheet({
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'shift' | 'employee'>(defaultTab);
-  useEffect(() => { if (open) setTab(defaultTab); }, [open, defaultTab]);
+  const initialTab = lockTab ? defaultTab : 'employee';
+  const [tab, setTab] = useState<'shift' | 'employee'>(initialTab);
+  useEffect(() => { if (open) setTab(initialTab); }, [open, initialTab]);
   const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
   const [availPreviewRequest, setAvailPreviewRequest] = useState<AvailabilityRequest | null>(null);
 
