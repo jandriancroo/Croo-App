@@ -697,6 +697,9 @@ export default function Reporting() {
       rows.push({ Location: loc.name, Section: 'Inventory — Total Purchases', Value: d.inventory.totalPurchases });
       rows.push({ Location: loc.name, Section: 'Inventory — COGS', Value: d.inventory.cogs });
       rows.push({ Location: loc.name, Section: 'Inventory — COGS %', Value: d.inventory.cogsPct });
+      (d.inventory.cogsByCategory || []).forEach((c: any) => {
+        rows.push({ Location: loc.name, Section: `COGS by Category — ${c.category}`, Value: c.cogs });
+      });
       rows.push({ Location: loc.name, Section: 'Labor — Total Hours', Value: d.labor.totalHours });
       rows.push({ Location: loc.name, Section: 'Labor — OT Hours', Value: d.labor.otHours });
       rows.push({ Location: loc.name, Section: 'Labor — DOT Hours', Value: d.labor.dotHours });
