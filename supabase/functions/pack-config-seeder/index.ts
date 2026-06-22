@@ -442,6 +442,7 @@ Deno.serve(async (req) => {
         for (const m of maps) {
           if (m.vendor === 'pfg') {
             const bid = pfgBidIdx.get(`${locationId}::${m.vendor_item_id}`);
+            if (templateId === '7c4b802b-b599-43a7-b852-36156618b8ac') console.log('[diag] Hand Soap lookup', locationId, m.vendor_item_id, 'bidHit?', !!bid);
             if (bid?.pack_size) {
               const parsed = parsePackString(bid.pack_size);
               if (parsed) {
