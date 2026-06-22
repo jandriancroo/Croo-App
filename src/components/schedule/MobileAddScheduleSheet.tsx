@@ -146,7 +146,7 @@ export function MobileAddScheduleSheet({
   // Init defaults on open
   useEffect(() => {
     if (!open) return;
-    setTab('shift');
+    setTab(initialTab);
     setShiftUserId('');
     setShiftTemplateId('');
     setShiftStart('09:00');
@@ -360,6 +360,18 @@ export function MobileAddScheduleSheet({
             {/* ============ ADD SHIFT TAB ============ */}
             <TabsContent value="shift" className="space-y-4 pt-3">
               <div className="space-y-2">
+                <Label>Assign To <span className="text-destructive">*</span></Label>
+                <Select value={shiftUserId} onValueChange={setShiftUserId}>
+                  <SelectTrigger><SelectValue placeholder="Pick an employee" /></SelectTrigger>
+                  <SelectContent>
+                    {profiles.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.nickname || p.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Quick Fill</Label>
                 <Select
                   value={shiftTemplateId || 'none'}
@@ -389,17 +401,6 @@ export function MobileAddScheduleSheet({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Assign To <span className="text-destructive">*</span></Label>
-                <Select value={shiftUserId} onValueChange={setShiftUserId}>
-                  <SelectTrigger><SelectValue placeholder="Pick an employee" /></SelectTrigger>
-                  <SelectContent>
-                    {profiles.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.nickname || p.full_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="space-y-2">
                 <Label>Days {selectedDayIdxs.length > 0 && <span className="text-muted-foreground font-normal">({selectedDayIdxs.length} selected)</span>}</Label>
