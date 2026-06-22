@@ -559,6 +559,7 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
       // Combined / org total
       const combined: LocationReportData = JSON.parse(JSON.stringify(EMPTY_DATA));
       const vendorMap = new Map<string, number>();
+      const catMap = new Map<string, { starting: number; purchases: number; ending: number }>();
       results.forEach(r => {
         combined.inventory.startingCount += r.inventory.startingCount;
         combined.inventory.endingCount += r.inventory.endingCount;
@@ -566,6 +567,11 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.inventory.cogs += r.inventory.cogs;
         combined.inventory.aligned = combined.inventory.aligned || r.inventory.aligned;
         r.inventory.vendors.forEach(v => vendorMap.set(v.name, (vendorMap.get(v.name) || 0) + v.amount));
+        r.inventory.cogsByCategory.forEach(c => {
+          const cur = catMap.get(c.category) || { starting: 0, purchases: 0, ending: 0 };
+          cur.starting += c.starting; cur.purchases += c.purchases; cur.ending += c.ending;
+          catMap.set(c.category, cur);
+        });
         combined.labor.totalHours += r.labor.totalHours;
         combined.labor.regularHours += r.labor.regularHours;
         combined.labor.otHours += r.labor.otHours;
@@ -602,6 +608,24 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
       combined.inventory.cogsPct = combined.sales.net > 0
         ? Math.round((combined.inventory.cogs / combined.sales.net) * 1000) / 10
         : 0;
+      const combinedRows: CogsCategoryRow[] = Array.from(catMap.entries()).map(([cat, v]) => {
+        const c = v.starting + v.purchases - v.ending;
+        return {
+          category: cat,
+          starting: v.starting,
+          purchases: v.purchases,
+          ending: v.ending,
+          cogs: c,
+          cogsPct: combined.sales.net > 0 ? Math.round((c / combined.sales.net) * 1000) / 10 : 0,
+          pctOfTotal: 0,
+        };
+      });
+      const totalAbs = combinedRows.reduce((s, r) => s + Math.max(0, r.cogs), 0);
+      combinedRows.forEach(r => {
+        r.pctOfTotal = totalAbs > 0 ? Math.round((Math.max(0, r.cogs) / totalAbs) * 1000) / 10 : 0;
+      });
+      combinedRows.sort((a, b) => b.cogs - a.cogs);
+      combined.inventory.cogsByCategory = combinedRows;
       return { byLocation, combined };
     },
     enabled: locationIds.length > 0,
