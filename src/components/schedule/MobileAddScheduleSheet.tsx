@@ -22,6 +22,47 @@ interface Profile {
   full_name: string;
   nickname?: string | null;
   profile_photo_url: string | null;
+  role?: string | null;
+}
+
+const ROLE_GROUPS: { key: string; label: string; roles: string[] }[] = [
+  { key: 'admin', label: 'Admins', roles: ['super_admin', 'brand_admin', 'org_admin', 'admin'] },
+  { key: 'manager', label: 'Managers', roles: ['manager'] },
+  { key: 'shift_manager', label: 'Shift Managers', roles: ['shift_manager'] },
+  { key: 'team_member', label: 'Team Members', roles: ['team_member'] },
+];
+
+const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
+  super_admin:  { label: 'SUPER', cls: 'bg-purple-500/15 text-purple-600 border-purple-500/30' },
+  brand_admin:  { label: 'BRAND', cls: 'bg-purple-500/15 text-purple-600 border-purple-500/30' },
+  org_admin:    { label: 'ORG',   cls: 'bg-purple-500/15 text-purple-600 border-purple-500/30' },
+  admin:        { label: 'ADMIN', cls: 'bg-red-500/15 text-red-600 border-red-500/30' },
+  manager:      { label: 'MGR',   cls: 'bg-blue-500/15 text-blue-600 border-blue-500/30' },
+  shift_manager:{ label: 'SHIFT', cls: 'bg-amber-500/15 text-amber-700 border-amber-500/30' },
+  team_member:  { label: 'TEAM',  cls: 'bg-muted text-muted-foreground border-border' },
+};
+
+function groupProfilesByRole(profiles: Profile[]) {
+  return ROLE_GROUPS.map(g => ({
+    ...g,
+    members: profiles
+      .filter(p => g.roles.includes((p.role || 'team_member') as string))
+      .sort((a, b) => (a.nickname || a.full_name).localeCompare(b.nickname || b.full_name)),
+  })).filter(g => g.members.length > 0);
+}
+
+function ProfileSelectItem({ p }: { p: Profile }) {
+  const badge = ROLE_BADGE[(p.role || 'team_member') as string] || ROLE_BADGE.team_member;
+  return (
+    <SelectItem value={p.id}>
+      <div className="flex items-center gap-2 w-full">
+        <span className="flex-1 truncate">{p.nickname || p.full_name}</span>
+        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border ml-2 shrink-0", badge.cls)}>
+          {badge.label}
+        </span>
+      </div>
+    </SelectItem>
+  );
 }
 
 interface Template {
