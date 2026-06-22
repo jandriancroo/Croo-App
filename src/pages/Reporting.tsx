@@ -44,7 +44,7 @@ import { useMultiLocationReportData, type LocationReportData } from '@/hooks/use
 
 // ============ TYPES ============
 type Orientation = 'portrait' | 'landscape';
-type BlockType = 'inventory' | 'labor' | 'cash' | 'sales' | 'header' | 'spacer' | 'text';
+type BlockType = 'inventory' | 'labor' | 'cash' | 'sales' | 'header' | 'spacer' | 'text' | 'cogs_by_category';
 
 interface ReportBlock {
   id: string;
