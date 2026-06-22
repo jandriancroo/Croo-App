@@ -405,8 +405,11 @@ export function MobileAddScheduleSheet({
                 <Select value={shiftUserId} onValueChange={setShiftUserId}>
                   <SelectTrigger><SelectValue placeholder="Pick an employee" /></SelectTrigger>
                   <SelectContent>
-                    {profiles.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.nickname || p.full_name}</SelectItem>
+                    {groupProfilesByRole(profiles).map(g => (
+                      <SelectGroup key={g.key}>
+                        <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">{g.label}</SelectLabel>
+                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>
