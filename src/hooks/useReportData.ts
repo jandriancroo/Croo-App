@@ -527,6 +527,7 @@ async function fetchLocationData(
       aligned,
       startLabel: startingCountRow?.period_end_date || startingCountRow?.count_date,
       endLabel: endingCountRow?.period_end_date || endingCountRow?.count_date,
+      cogsByCategory,
     },
     labor: laborAgg,
     cash: { days: cashDays, total: cashTotal, totalVariance: cashTotalVariance },
