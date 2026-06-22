@@ -540,7 +540,7 @@ Deno.serve(async (req) => {
             outer_type: ov.outer_type ?? r.parsed.outer_type,
             inner_qty: ov.inner_qty ?? r.parsed.inner_qty,
             inner_type: ov.inner_type ?? r.parsed.inner_type,
-            common_unit: r.parsed.common_unit, // common_unit not overridable; tracks inner_type semantics
+            common_unit: ov.inner_type ?? r.parsed.common_unit, // override inner_type also drives common_unit (semantic re-anchor)
           };
           // count_units_per_case MUST match CHECK constraint: outer_qty * COALESCE(inner_qty, 1)
           const cupc = final.outer_qty * (final.inner_qty || 1);
