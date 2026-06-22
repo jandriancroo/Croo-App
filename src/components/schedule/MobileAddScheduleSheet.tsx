@@ -32,14 +32,11 @@ const ROLE_GROUPS: { key: string; label: string; roles: string[] }[] = [
   { key: 'team_member', label: 'Team Members', roles: ['team_member'] },
 ];
 
-const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
-  super_admin:  { label: 'SUPER', cls: 'bg-purple-500/15 text-purple-600 border-purple-500/30' },
-  brand_admin:  { label: 'BRAND', cls: 'bg-purple-500/15 text-purple-600 border-purple-500/30' },
-  org_admin:    { label: 'ORG',   cls: 'bg-purple-500/15 text-purple-600 border-purple-500/30' },
-  admin:        { label: 'ADMIN', cls: 'bg-red-500/15 text-red-600 border-red-500/30' },
-  manager:      { label: 'MGR',   cls: 'bg-blue-500/15 text-blue-600 border-blue-500/30' },
-  shift_manager:{ label: 'SHIFT', cls: 'bg-amber-500/15 text-amber-700 border-amber-500/30' },
-  team_member:  { label: 'TEAM',  cls: 'bg-muted text-muted-foreground border-border' },
+const GROUP_STYLE: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  admin:        { bg: 'bg-red-500/12', text: 'text-red-700', border: 'border-red-500/30', dot: 'bg-red-500' },
+  manager:      { bg: 'bg-blue-500/12', text: 'text-blue-700', border: 'border-blue-500/30', dot: 'bg-blue-500' },
+  shift_manager:{ bg: 'bg-amber-500/12', text: 'text-amber-800', border: 'border-amber-500/30', dot: 'bg-amber-500' },
+  team_member:  { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border', dot: 'bg-muted-foreground' },
 };
 
 function groupProfilesByRole(profiles: Profile[]) {
@@ -52,18 +49,28 @@ function groupProfilesByRole(profiles: Profile[]) {
 }
 
 function ProfileSelectItem({ p }: { p: Profile }) {
-  const badge = ROLE_BADGE[(p.role || 'team_member') as string] || ROLE_BADGE.team_member;
   return (
     <SelectItem value={p.id}>
-      <div className="flex items-center gap-2 w-full">
-        <span className="flex-1 truncate">{p.nickname || p.full_name}</span>
-        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border ml-2 shrink-0", badge.cls)}>
-          {badge.label}
-        </span>
-      </div>
+      <span className="truncate">{p.nickname || p.full_name}</span>
     </SelectItem>
   );
 }
+
+function RoleGroupLabel({ group }: { group: { key: string; label: string } }) {
+  const style = GROUP_STYLE[group.key] || GROUP_STYLE.team_member;
+  return (
+    <SelectLabel
+      className={cn(
+        "my-1.5 mx-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-2",
+        style.bg, style.text, style.border
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+      {group.label}
+    </SelectLabel>
+  );
+}
+
 
 interface Template {
   id: string;
@@ -407,10 +414,11 @@ export function MobileAddScheduleSheet({
                   <SelectContent>
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
-                        <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">{g.label}</SelectLabel>
+                        <RoleGroupLabel group={g} />
                         {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
                       </SelectGroup>
                     ))}
+
                   </SelectContent>
                 </Select>
               </div>
@@ -489,10 +497,11 @@ export function MobileAddScheduleSheet({
                   <SelectContent>
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
-                        <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">{g.label}</SelectLabel>
+                        <RoleGroupLabel group={g} />
                         {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
                       </SelectGroup>
                     ))}
+
                   </SelectContent>
                 </Select>
                 {empProfile && (
