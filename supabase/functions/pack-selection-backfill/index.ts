@@ -402,14 +402,28 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const matches = matchConfigs(pair.brand_template_id, parsed);
+    // Apply pack_override_* from brand_vendor_mappings (mirrors seeder).
+    // Override inner_type also re-anchors common_unit (semantic re-anchor).
+    const vkey = chosen.source.startsWith("pa_") ? "pa" : "pfg";
+    const ov = overrideIdx.get(`${pair.brand_template_id}::${vkey}::${chosen.vendor_item_id}`);
+    const overrideApplied = !!ov && (ov.outer_qty != null || ov.outer_type != null || ov.inner_qty != null || ov.inner_type != null);
+    const lookup: ParsedPack = overrideApplied ? {
+      outer_qty: ov!.outer_qty ?? parsed.outer_qty,
+      outer_type: ov!.outer_type ?? parsed.outer_type,
+      inner_qty: ov!.inner_qty ?? parsed.inner_qty,
+      inner_type: ov!.inner_type ?? parsed.inner_type,
+      common_unit: ov!.inner_type ?? parsed.common_unit,
+    } : parsed;
+
+    const matches = matchConfigs(pair.brand_template_id, lookup);
     if (matches.length === 0) {
       resolutions.push({
         pair, bucket: "deferred_no_config",
-        source: chosen.source, vendor_item_id: chosen.vendor_item_id, pack_string: chosen.pack_size || undefined, parsed,
+        source: chosen.source, vendor_item_id: chosen.vendor_item_id, pack_string: chosen.pack_size || undefined, parsed: lookup,
       });
       continue;
     }
+
 
     const bucketName: Bucket =
       chosen.source === "pfg_bid" ? "pfg_bid"
