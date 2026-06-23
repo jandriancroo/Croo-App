@@ -3,6 +3,11 @@ import * as React from "react";
 const MOBILE_BREAKPOINT = 768;
 const LARGE_PHONE_MIN_SCREEN = 390; // iPhone Air/Plus/Max screen min dimension
 
+function hasMobileViewport(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth < MOBILE_BREAKPOINT;
+}
+
 /**
  * Detects if the device is a phone (not tablet/desktop).
  */
@@ -51,6 +56,9 @@ export function useIsMobile() {
     // Large phone in landscape → show desktop view
     if (isLargePhoneLandscape()) return false;
     
+    // Explicitly phone-sized viewport → mobile UI, even on iPad/editor preview.
+    if (hasMobileViewport()) return true;
+    
     // Phones in portrait → always mobile
     if (isPhoneDevice()) return true;
     
@@ -58,12 +66,20 @@ export function useIsMobile() {
     if (isTabletDevice()) return false;
     
     // Desktop → viewport width
-    return window.innerWidth < MOBILE_BREAKPOINT;
+    return hasMobileViewport();
   });
 
   React.useEffect(() => {
     const phone = isPhoneDevice();
     const tablet = isTabletDevice();
+    const viewportMobile = hasMobileViewport();
+    
+    // A phone-sized iframe/window should render mobile chrome even when the
+    // underlying device is an iPad requesting desktop/tablet mode.
+    if (viewportMobile && !isLargePhoneLandscape()) {
+      setIsMobile(true);
+      return;
+    }
     
     // Tablets: always desktop, no listener needed
     if (tablet) {
