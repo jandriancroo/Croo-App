@@ -200,18 +200,30 @@ Deno.serve(async (req) => {
   // Vendor mappings (template -> vendor -> [vendor_item_ids])
   const { data: mappings } = await supabase
     .from("brand_vendor_mappings")
-    .select("brand_template_id, vendor, vendor_item_id")
+    .select("brand_template_id, vendor, vendor_item_id, pack_override_outer_qty, pack_override_outer_type, pack_override_inner_qty, pack_override_inner_type")
     .in("brand_template_id", templateIds);
 
   const tplVendorIds = new Map<string, { pfg: Set<string>; pa: Set<string> }>();
+  // (template, vendor_key, vendor_item_id) -> override fields (mirrors seeder).
+  const overrideIdx = new Map<string, { outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null }>();
   for (const m of mappings || []) {
     if (!tplVendorIds.has(m.brand_template_id)) {
       tplVendorIds.set(m.brand_template_id, { pfg: new Set(), pa: new Set() });
     }
     const bucket = tplVendorIds.get(m.brand_template_id)!;
-    if (m.vendor === "pfg") bucket.pfg.add(String(m.vendor_item_id));
-    else if (m.vendor === "produce_alliance") bucket.pa.add(String(m.vendor_item_id));
+    const vkey = m.vendor === "pfg" ? "pfg" : m.vendor === "produce_alliance" ? "pa" : null;
+    if (vkey === "pfg") bucket.pfg.add(String(m.vendor_item_id));
+    else if (vkey === "pa") bucket.pa.add(String(m.vendor_item_id));
+    if (vkey) {
+      overrideIdx.set(`${m.brand_template_id}::${vkey}::${m.vendor_item_id}`, {
+        outer_qty: (m as any).pack_override_outer_qty ?? null,
+        outer_type: (m as any).pack_override_outer_type ?? null,
+        inner_qty: (m as any).pack_override_inner_qty ?? null,
+        inner_type: (m as any).pack_override_inner_type ?? null,
+      });
+    }
   }
+
 
   // Approved brand_pack_configs grouped by template_id
   const { data: configs } = await supabase
@@ -390,14 +402,28 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const matches = matchConfigs(pair.brand_template_id, parsed);
+    // Apply pack_override_* from brand_vendor_mappings (mirrors seeder).
+    // Override inner_type also re-anchors common_unit (semantic re-anchor).
+    const vkey = chosen.source.startsWith("pa_") ? "pa" : "pfg";
+    const ov = overrideIdx.get(`${pair.brand_template_id}::${vkey}::${chosen.vendor_item_id}`);
+    const overrideApplied = !!ov && (ov.outer_qty != null || ov.outer_type != null || ov.inner_qty != null || ov.inner_type != null);
+    const lookup: ParsedPack = overrideApplied ? {
+      outer_qty: ov!.outer_qty ?? parsed.outer_qty,
+      outer_type: ov!.outer_type ?? parsed.outer_type,
+      inner_qty: ov!.inner_qty ?? parsed.inner_qty,
+      inner_type: ov!.inner_type ?? parsed.inner_type,
+      common_unit: ov!.inner_type ?? parsed.common_unit,
+    } : parsed;
+
+    const matches = matchConfigs(pair.brand_template_id, lookup);
     if (matches.length === 0) {
       resolutions.push({
         pair, bucket: "deferred_no_config",
-        source: chosen.source, vendor_item_id: chosen.vendor_item_id, pack_string: chosen.pack_size || undefined, parsed,
+        source: chosen.source, vendor_item_id: chosen.vendor_item_id, pack_string: chosen.pack_size || undefined, parsed: lookup,
       });
       continue;
     }
+
 
     const bucketName: Bucket =
       chosen.source === "pfg_bid" ? "pfg_bid"
