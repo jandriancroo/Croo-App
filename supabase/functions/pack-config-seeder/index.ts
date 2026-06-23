@@ -419,7 +419,7 @@ Deno.serve(async (req) => {
     for (const [templateId, locSet] of locationsByTemplate.entries()) {
       buckets.templates_with_locations++;
       const tpl = templatesById.get(templateId);
-      const maps = mappingsByTemplate.get(templateId);
+      let maps = mappingsByTemplate.get(templateId);
 
       if (!maps || maps.length === 0) {
         reports.needs_vendor_mapping.push({
@@ -432,17 +432,63 @@ Deno.serve(async (req) => {
       buckets.templates_with_mapping++;
 
       if (maps.length > 1) {
-        // HARD SKIP: multi-mapping templates are a data integrity violation
-        // (Jordan's rule: "DIFF vendor = NEW BRAND ITEM"). Do not propose
-        // configs from ambiguous mappings — surface to needs_deduplication
-        // for manual cleanup before next run.
-        reports.needs_deduplication.push({
-          template_id: templateId,
-          template_name: tpl?.product_name ?? '(unknown)',
-          mappings: maps.map(m => ({ vendor: m.vendor, vendor_item_id: m.vendor_item_id })),
-          locations: Array.from(locSet),
+        // Equivalence collapse: if every mapping resolves to the SAME
+        // pack_structure_key (outer_qty × inner_qty × common_unit) after
+        // override application — using a source-probe fallback when override
+        // fields are partial — treat them as duplicate SKUs for the same
+        // physical pack and emit one proposal using the first mapping as
+        // representative. If any mapping is unresolvable, or if the resolved
+        // structures differ, keep the hard skip into needs_deduplication
+        // (Jordan's "DIFF vendor = NEW BRAND ITEM" rule).
+        const structureKeys: (string | null)[] = maps.map((m) => {
+          const ov = m.override;
+          if (ov.outer_qty != null && ov.inner_qty != null && ov.inner_type != null) {
+            return structureKey({
+              outer_qty: ov.outer_qty,
+              inner_qty: ov.inner_qty,
+              common_unit: ov.inner_type,
+            });
+          }
+          for (const locationId of locSet) {
+            let probed: ReturnType<typeof parsePackString> = null;
+            if (m.vendor === 'pfg') {
+              const bid = pfgBidIdx.get(`${locationId}::${m.vendor_item_id}`);
+              if (bid?.pack_size) probed = parsePackString(bid.pack_size);
+              if (!probed) {
+                const ord = pfgOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
+                if (ord?.packSize) probed = parsePackString(ord.packSize);
+              }
+            } else if (m.vendor === 'pa') {
+              const cat = paCatalogIdx.get(`${locationId}::${m.vendor_item_id}`);
+              if (cat?.pack_size) probed = parsePackString(cat.pack_size);
+              if (!probed) {
+                const ord = paOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
+                if (ord?.pack_size) probed = parsePackString(ord.pack_size);
+              }
+            }
+            if (probed) {
+              return structureKey({
+                outer_qty: ov.outer_qty ?? probed.outer_qty,
+                inner_qty: ov.inner_qty ?? probed.inner_qty,
+                common_unit: ov.inner_type ?? probed.common_unit,
+              });
+            }
+          }
+          return null;
         });
-        continue;
+
+        const unresolvable = structureKeys.some((k) => k === null);
+        const distinct = new Set(structureKeys.filter((k): k is string => k !== null));
+        if (unresolvable || distinct.size > 1) {
+          reports.needs_deduplication.push({
+            template_id: templateId,
+            template_name: tpl?.product_name ?? '(unknown)',
+            mappings: maps.map(m => ({ vendor: m.vendor, vendor_item_id: m.vendor_item_id })),
+            locations: Array.from(locSet),
+          });
+          continue;
+        }
+        maps = [maps[0]];
       }
 
 
