@@ -200,18 +200,30 @@ Deno.serve(async (req) => {
   // Vendor mappings (template -> vendor -> [vendor_item_ids])
   const { data: mappings } = await supabase
     .from("brand_vendor_mappings")
-    .select("brand_template_id, vendor, vendor_item_id")
+    .select("brand_template_id, vendor, vendor_item_id, pack_override_outer_qty, pack_override_outer_type, pack_override_inner_qty, pack_override_inner_type")
     .in("brand_template_id", templateIds);
 
   const tplVendorIds = new Map<string, { pfg: Set<string>; pa: Set<string> }>();
+  // (template, vendor_key, vendor_item_id) -> override fields (mirrors seeder).
+  const overrideIdx = new Map<string, { outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null }>();
   for (const m of mappings || []) {
     if (!tplVendorIds.has(m.brand_template_id)) {
       tplVendorIds.set(m.brand_template_id, { pfg: new Set(), pa: new Set() });
     }
     const bucket = tplVendorIds.get(m.brand_template_id)!;
-    if (m.vendor === "pfg") bucket.pfg.add(String(m.vendor_item_id));
-    else if (m.vendor === "produce_alliance") bucket.pa.add(String(m.vendor_item_id));
+    const vkey = m.vendor === "pfg" ? "pfg" : m.vendor === "produce_alliance" ? "pa" : null;
+    if (vkey === "pfg") bucket.pfg.add(String(m.vendor_item_id));
+    else if (vkey === "pa") bucket.pa.add(String(m.vendor_item_id));
+    if (vkey) {
+      overrideIdx.set(`${m.brand_template_id}::${vkey}::${m.vendor_item_id}`, {
+        outer_qty: (m as any).pack_override_outer_qty ?? null,
+        outer_type: (m as any).pack_override_outer_type ?? null,
+        inner_qty: (m as any).pack_override_inner_qty ?? null,
+        inner_type: (m as any).pack_override_inner_type ?? null,
+      });
+    }
   }
+
 
   // Approved brand_pack_configs grouped by template_id
   const { data: configs } = await supabase
