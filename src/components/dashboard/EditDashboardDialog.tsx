@@ -764,6 +764,7 @@ export function EditDashboardDialog({
                   onEdit={handleEditCube}
                   onDelete={(id) => setDeleteId(id)}
                   onToggleHidden={canHideForSelf ? handleToggleHiddenForSelf : undefined}
+                  onToggleTrackerLocationHidden={canPublish ? handleToggleTrackerLocationHidden : undefined}
                   isOwn={!!user?.id && cube.createdBy === user.id}
                   creatorName={cube.createdBy ? creatorNamesMap[cube.createdBy] : undefined}
                 />
