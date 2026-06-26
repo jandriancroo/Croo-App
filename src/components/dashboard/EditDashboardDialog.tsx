@@ -287,6 +287,17 @@ export function EditDashboardDialog({
       toast.error(e?.message || 'Failed to update visibility');
     }
   };
+
+  const handleToggleTrackerLocationHidden = async (cube: CubeConfig) => {
+    if (!currentLocation?.id) return;
+    try {
+      const nowHidden = await toggleTrackerHiddenForLocation(cube.id, currentLocation.id);
+      toast.success(nowHidden ? 'Promo hidden at this location' : 'Promo shown at this location');
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update visibility');
+    }
+  };
   const [excludedLocationIds, setExcludedLocationIds] = useState<string[]>([]);
   const [excludeOpen, setExcludeOpen] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
