@@ -41,8 +41,9 @@ import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { createDashboardWidget, updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
+import { createDashboardWidget, updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf, toggleTrackerHiddenForLocation, endPromoTrackerByTitle } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
+import { ScopeBadge } from "./ScopeBadge";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
