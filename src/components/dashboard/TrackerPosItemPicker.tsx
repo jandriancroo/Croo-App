@@ -122,14 +122,16 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
                   key={item.name}
                   type="button"
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs transition-colors hover:bg-primary/10",
+                    "flex w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-left text-xs transition-colors hover:bg-primary/10",
                     isSelected && "bg-primary/10 text-primary"
                   )}
                   onClick={() => isSelected ? removeItem(item.name) : addItem(item.name)}
                 >
                   <span className="min-w-0 flex-1 truncate font-medium">{item.name}</span>
-                  {item.category && <span className="shrink-0 text-[10px] text-muted-foreground">{item.category}</span>}
-                  {typeof item.quantity === "number" && <span className="shrink-0 text-[10px] text-muted-foreground">{Math.round(item.quantity)} sold</span>}
+                  <div className="flex shrink-0 flex-col items-end text-[10px] leading-tight text-muted-foreground">
+                    {item.category && <span className="truncate">{item.category}</span>}
+                    {typeof item.quantity === "number" && <span>{Math.round(item.quantity)} sold</span>}
+                  </div>
                   {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
                 </button>
               );
