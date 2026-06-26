@@ -251,6 +251,7 @@ export default function Dashboard() {
         trackerLocationRefs: updates.trackerLocationRefs ?? existing?.trackerLocationRefs,
         trackerRankMetrics: updates.trackerRankMetrics ?? existing?.trackerRankMetrics,
         trackerLocationScope: updates.trackerLocationScope ?? existing?.trackerLocationScope,
+        trackerExcludedLocationIds: (updates as any).trackerExcludedLocationIds ?? existing?.trackerExcludedLocationIds,
       });
 
       const scopeChanged = updates.authorityScope !== undefined && updates.authorityScope !== existing?.authorityScope;
