@@ -32,7 +32,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
     queryKey: ["tracker-pos-items", currentLocation?.id],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("pos-search", {
-        body: { locationId: currentLocation?.id, daysBack: 7 },
+        body: { locationId: currentLocation?.id, daysBack: 7, scope: "location" },
       });
 
       if (error) throw error;
