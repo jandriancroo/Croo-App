@@ -176,13 +176,7 @@ export async function toggleTrackerHiddenForLocation(
 export async function endPromoTrackerByTitle(title: string): Promise<number> {
   const trimmed = (title || '').trim();
   if (!trimmed) return 0;
-  const { data, error } = await supabase
-    .from('dashboard_widgets')
-    .select('id')
-    .eq('widget_type', 'tracker')
-    .eq('title', trimmed);
+  const { data, error } = await supabase.rpc('end_promo_tracker_by_title', { _title: trimmed });
   if (error) throw error;
-  const ids = (data || []).map((r: any) => r.id as string);
-  await Promise.allSettled(ids.map((id) => deleteDashboardWidget(id)));
-  return ids.length;
+  return (data as number) ?? 0;
 }
