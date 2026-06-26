@@ -81,6 +81,7 @@ function mapRow(row: DashboardWidgetRow, userId: string, locationId: string): Un
     organizationId: row.organization_id ?? null,
     locationId: row.location_id ?? null,
     hiddenForSelf: Array.isArray(row.hidden_for_user_ids) && row.hidden_for_user_ids.includes(userId),
+    hiddenForLocation: row.widget_type === 'tracker' && !!locationId && excludedLocs.includes(locationId),
     faceMetrics: (cfg.face_metrics as MetricType[][]) || [],
     faceTitles: (cfg.face_titles as string[]) || [],
     numFaces: cfg.num_faces || 1,
