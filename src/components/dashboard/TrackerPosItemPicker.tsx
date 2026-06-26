@@ -29,7 +29,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
   const selected = useMemo(() => new Set(value.map(item => item.toLowerCase())), [value]);
 
   const { data: posItems = [], isLoading, isError } = useQuery({
-    queryKey: ["tracker-pos-items", currentLocation?.id],
+    queryKey: ["tracker-pos-items", currentLocation?.id, "location-7d"],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("pos-search", {
         body: { locationId: currentLocation?.id, daysBack: 7, scope: "location" },
