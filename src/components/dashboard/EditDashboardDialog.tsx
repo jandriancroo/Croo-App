@@ -1227,6 +1227,28 @@ export function EditDashboardDialog({
                       </div>
                     </div>
                   )}
+
+                  {canPublish && (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-destructive">End Promo</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Removes this tracker everywhere it appears across the brand.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setEndPromoOpen(true)}
+                          disabled={isEndingPromo}
+                        >
+                          End Promo
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
