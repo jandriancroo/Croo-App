@@ -908,7 +908,9 @@ export function EditDashboardDialog({
                   <Label htmlFor="edit-title">
                     {editingCube.cubeType === 'tracker' ? 'Promo Name' : editingCube.cubeType === 'data' ? 'Title' : 'Label'}
                   </Label>
-                  {editingCube.cubeType === 'tracker' && <ScopeBadge scope={editingCube.authorityScope} />}
+                  {editingCube.cubeType === 'tracker' && (
+                    <ScopeBadge scope={(editingCube.trackerLocationScope as any) || editingCube.authorityScope} />
+                  )}
                 </div>
                 <Input
                   id="edit-title"
