@@ -63,8 +63,9 @@ export interface UnifiedWidgetConfig {
   trackerExcludedLocationIds?: string[];
 }
 
-function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
+function mapRow(row: DashboardWidgetRow, userId: string, locationId: string): UnifiedWidgetConfig {
   const cfg = row.config || {};
+  const excludedLocs: string[] = Array.isArray(cfg.tracker_excluded_location_ids) ? cfg.tracker_excluded_location_ids : [];
   return {
     id: row.id,
     title: row.title || '',
