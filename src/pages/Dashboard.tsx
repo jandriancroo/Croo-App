@@ -552,7 +552,7 @@ export default function Dashboard() {
   // When sales are hidden but the user still has trackers published to them
   // (promo rank widgets), render WidgetsSection in trackers-only mode so the
   // tracker still shows alongside checklists.
-  const hasVisibleTracker = dashboardCubes.some(c => c.cubeType === 'tracker' && !(c as any).hiddenForSelf);
+  const hasVisibleTracker = dashboardCubes.some(c => c.cubeType === 'tracker' && !(c as any).hiddenForSelf && !(c as any).hiddenForLocation);
   const showTrackersOnly = !showWidgets && hasVisibleTracker;
 
   const dashboardContent = (showWidgets || showTrackersOnly) ? (
