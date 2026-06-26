@@ -130,7 +130,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
                   <span className="truncate font-medium">{item.name}</span>
                   <div className="text-right text-[10px] leading-tight text-muted-foreground">
                     {item.category && <span className="block truncate">{item.category}</span>}
-                    {typeof item.quantity === "number" && <span className="block">{Math.round(item.quantity).toLocaleString()}</span>}
+                    {typeof item.quantity === "number" && <span className="block">{Math.round(item.quantity)}</span>}
                   </div>
                   {isSelected && <Check className="h-3.5 w-3.5" />}
                 </button>
