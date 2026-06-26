@@ -45,6 +45,7 @@ export interface UnifiedWidgetConfig {
   organizationId: string | null;
   locationId: string | null;
   hiddenForSelf: boolean;
+  hiddenForLocation: boolean;
   // 3D
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
