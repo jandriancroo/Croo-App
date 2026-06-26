@@ -687,6 +687,22 @@ export function EditDashboardDialog({
     setDeleteId(null);
   };
 
+  const handleEndPromo = async () => {
+    if (!editingCube) return;
+    setIsEndingPromo(true);
+    try {
+      const removed = await endPromoTrackerByTitle(editingCube.title || '');
+      toast.success(`Promo ended — removed from ${removed} location${removed === 1 ? '' : 's'}`);
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+      setEndPromoOpen(false);
+      handleBack();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to end promo');
+    } finally {
+      setIsEndingPromo(false);
+    }
+  };
+
   const handleAddClick = () => {
     // Open the Add Widget dialog FIRST so it animates in over the Edit dialog,
     // then close the Edit dialog on the next frame. This eliminates the visible
