@@ -189,12 +189,11 @@ function SortableCubeRow({
       >
         {isTracker ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
-      <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-medium leading-tight">
             {cube.title || '3D Data Cube'}
           </p>
-          {isTracker && <ScopeBadge scope={cube.authorityScope} />}
           {!isOwn && creatorName && (
             <span className="flex-shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
               by {creatorName}
