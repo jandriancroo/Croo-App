@@ -2024,6 +2024,7 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
       results.push({ locationId: integration.location_id, success: true });
       if (swapped === true) {
         console.log(`[PFG Keep-Alive] ✓ Refreshed token for location ${integration.location_id}`);
+        await autoResolveChainBrokenTicket(supabase, integration.location_id);
       } else {
         console.warn(`[PFG Keep-Alive] ⚠ Lost race for ${integration.location_id} — concurrent caller wrote first; skipping our (now-dead) token write`);
       }
