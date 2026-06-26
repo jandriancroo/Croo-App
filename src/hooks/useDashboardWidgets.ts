@@ -59,6 +59,7 @@ export interface UnifiedWidgetConfig {
   trackerLocationRefs?: string[];
   trackerLocationScope?: 'org' | 'brand';
   trackerRankMetrics?: TrackerRankMetric[];
+  trackerExcludedLocationIds?: string[];
 }
 
 function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
