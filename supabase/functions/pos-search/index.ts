@@ -40,7 +40,8 @@ serve(async (req) => {
   }
 
   try {
-    const { locationId, search, daysBack } = await req.json();
+    const { locationId, search, daysBack, scope } = await req.json();
+    const singleLocation = scope === "location";
     if (!locationId) {
       return new Response(JSON.stringify({ error: "locationId required" }), {
         status: 400,
@@ -73,7 +74,7 @@ serve(async (req) => {
     // Collect ALL QU location IDs across the brand
     let quLocationIds: number[] = [];
 
-    if (brandId) {
+    if (brandId && !singleLocation) {
       // Get all locations in this brand via organizations
       const { data: orgs } = await supabase
         .from("organizations")
