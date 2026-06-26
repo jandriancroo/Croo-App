@@ -306,7 +306,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   // the Edit dialog (managed by Dashboard.tsx) can show them with a restore
   // affordance.
   const cubes: DataCubeConfig[] = useMemo(
-    () => unifiedWidgets.filter(w => !w.hiddenForSelf).map(w => ({
+    () => unifiedWidgets.filter(w => !w.hiddenForSelf && !w.hiddenForLocation).map(w => ({
       id: w.id,
       title: w.title,
       size: w.size,

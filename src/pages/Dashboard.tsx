@@ -227,6 +227,8 @@ export default function Dashboard() {
     organizationId: w.organizationId,
     locationId: w.locationId,
     hiddenForSelf: w.hiddenForSelf,
+    hiddenForLocation: w.hiddenForLocation,
+    trackerExcludedLocationIds: w.trackerExcludedLocationIds,
     createdBy: w.createdBy,
   })), [unifiedWidgets]);
 
@@ -249,6 +251,7 @@ export default function Dashboard() {
         trackerLocationRefs: updates.trackerLocationRefs ?? existing?.trackerLocationRefs,
         trackerRankMetrics: updates.trackerRankMetrics ?? existing?.trackerRankMetrics,
         trackerLocationScope: updates.trackerLocationScope ?? existing?.trackerLocationScope,
+        trackerExcludedLocationIds: (updates as any).trackerExcludedLocationIds ?? existing?.trackerExcludedLocationIds,
       });
 
       const scopeChanged = updates.authorityScope !== undefined && updates.authorityScope !== existing?.authorityScope;
@@ -549,7 +552,7 @@ export default function Dashboard() {
   // When sales are hidden but the user still has trackers published to them
   // (promo rank widgets), render WidgetsSection in trackers-only mode so the
   // tracker still shows alongside checklists.
-  const hasVisibleTracker = dashboardCubes.some(c => c.cubeType === 'tracker' && !(c as any).hiddenForSelf);
+  const hasVisibleTracker = dashboardCubes.some(c => c.cubeType === 'tracker' && !(c as any).hiddenForSelf && !(c as any).hiddenForLocation);
   const showTrackersOnly = !showWidgets && hasVisibleTracker;
 
   const dashboardContent = (showWidgets || showTrackersOnly) ? (

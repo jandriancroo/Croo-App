@@ -120,6 +120,7 @@ export function buildWidgetConfigJson(cube: {
   trackerLocationRefs?: any;
   trackerRankMetrics?: any;
   trackerLocationScope?: any;
+  trackerExcludedLocationIds?: any;
 }): Record<string, any> {
   const cfg: Record<string, any> = {};
   if (cube.metrics !== undefined) cfg.metrics = cube.metrics;
@@ -135,5 +136,53 @@ export function buildWidgetConfigJson(cube: {
   if (cube.trackerLocationRefs !== undefined) cfg.tracker_location_refs = cube.trackerLocationRefs;
   if (cube.trackerRankMetrics !== undefined) cfg.tracker_rank_metrics = cube.trackerRankMetrics;
   if (cube.trackerLocationScope !== undefined) cfg.tracker_location_scope = cube.trackerLocationScope;
+  if (cube.trackerExcludedLocationIds !== undefined) cfg.tracker_excluded_location_ids = cube.trackerExcludedLocationIds;
   return cfg;
+}
+
+/**
+ * Toggle whether this tracker widget is hidden for ALL users at a given location.
+ * Stored as `tracker_excluded_location_ids` array in the widget config.
+ * Returns true if now hidden at that location, false if now visible.
+ */
+export async function toggleTrackerHiddenForLocation(
+  widget_id: string,
+  location_id: string,
+): Promise<boolean> {
+  const { data: row, error: readErr } = await supabase
+    .from('dashboard_widgets')
+    .select('config')
+    .eq('id', widget_id)
+    .single();
+  if (readErr) throw readErr;
+  const cfg = (row?.config as any) || {};
+  const current: string[] = Array.isArray(cfg.tracker_excluded_location_ids)
+    ? cfg.tracker_excluded_location_ids
+    : [];
+  const isHidden = current.includes(location_id);
+  const next = isHidden ? current.filter((id) => id !== location_id) : [...current, location_id];
+  await updateDashboardWidget({
+    widget_id,
+    config: { ...cfg, tracker_excluded_location_ids: next },
+  });
+  return !isHidden;
+}
+
+/**
+ * End-of-promo: hard delete every widget row (across all locations) that
+ * shares this tracker's title. Used by the "End Promo" button in the
+ * Edit Widget dialog.
+ */
+export async function endPromoTrackerByTitle(title: string): Promise<number> {
+  const trimmed = (title || '').trim();
+  if (!trimmed) return 0;
+  const { data, error } = await supabase
+    .from('dashboard_widgets')
+    .select('id')
+    .eq('widget_type', 'tracker')
+    .eq('title', trimmed);
+  if (error) throw error;
+  const ids = (data || []).map((r: any) => r.id as string);
+  await Promise.allSettled(ids.map((id) => deleteDashboardWidget(id)));
+  return ids.length;
 }

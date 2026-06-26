@@ -41,8 +41,9 @@ import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { createDashboardWidget, updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
+import { createDashboardWidget, updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf, toggleTrackerHiddenForLocation, endPromoTrackerByTitle } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
+import { ScopeBadge } from "./ScopeBadge";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
@@ -96,6 +97,9 @@ export interface CubeConfig {
   locationId?: string | null;
   // Per-user "hide from my dashboard" toggle state for the current viewer
   hiddenForSelf?: boolean;
+  // Tracker-only: hidden for ALL users at the current location (admin toggle)
+  hiddenForLocation?: boolean;
+  trackerExcludedLocationIds?: string[];
   // user_id of the widget creator (for "Created by" attribution)
   createdBy?: string;
 }
@@ -139,6 +143,7 @@ function SortableCubeRow({
   onEdit,
   onDelete,
   onToggleHidden,
+  onToggleTrackerLocationHidden,
   creatorName,
   isOwn,
 }: {
@@ -146,6 +151,7 @@ function SortableCubeRow({
   onEdit: (cube: CubeConfig) => void;
   onDelete: (id: string) => void;
   onToggleHidden?: (cube: CubeConfig) => void;
+  onToggleTrackerLocationHidden?: (cube: CubeConfig) => void;
   creatorName?: string | null;
   isOwn?: boolean;
 }) {
@@ -159,12 +165,14 @@ function SortableCubeRow({
 
   const accentBg = isThemeColorKey(cube.accentColor) ? undefined : cube.accentColor;
   const accentClass = isThemeColorKey(cube.accentColor) ? getThemeColorClass(cube.accentColor) : '';
+  const isTracker = cube.cubeType === 'tracker';
+  const dimmed = cube.hiddenForSelf || (isTracker && cube.hiddenForLocation);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors hover:bg-accent/50 ${cube.hiddenForSelf ? 'opacity-60' : ''}`}
+      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors hover:bg-accent/50 ${dimmed ? 'opacity-60' : ''}`}
       onClick={() => onEdit(cube)}
     >
       <div
@@ -179,13 +187,14 @@ function SortableCubeRow({
         className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${accentClass}`}
         style={accentBg ? { backgroundColor: accentBg } : undefined}
       >
-        {cube.cubeType === 'tracker' ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
+        {isTracker ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-medium leading-tight">
             {cube.title || '3D Data Cube'}
           </p>
+          {isTracker && <ScopeBadge scope={cube.authorityScope} />}
           {!isOwn && creatorName && (
             <span className="flex-shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
               by {creatorName}
@@ -193,16 +202,28 @@ function SortableCubeRow({
           )}
         </div>
         <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
-          {cube.hiddenForSelf
-            ? 'Hidden from your dashboard'
-            : cube.cubeType === 'data-3d'
-              ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-              : cube.cubeType === 'tracker'
-                ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
-                : `${cube.size} · ${cube.metrics.length} metrics`}
+          {isTracker && cube.hiddenForLocation
+            ? 'Hidden at this location'
+            : cube.hiddenForSelf
+              ? 'Hidden from your dashboard'
+              : cube.cubeType === 'data-3d'
+                ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
+                : isTracker
+                  ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
+                  : `${cube.size} · ${cube.metrics.length} metrics`}
         </p>
       </div>
-      {onToggleHidden && (
+      {isTracker && onToggleTrackerLocationHidden ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+          title={cube.hiddenForLocation ? 'Show at this location' : 'Hide at this location (all users)'}
+          onClick={(e) => { e.stopPropagation(); onToggleTrackerLocationHidden(cube); }}
+        >
+          {cube.hiddenForLocation ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </Button>
+      ) : onToggleHidden ? (
         <Button
           variant="ghost"
           size="icon"
@@ -212,15 +233,17 @@ function SortableCubeRow({
         >
           {cube.hiddenForSelf ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
         </Button>
+      ) : null}
+      {!isTracker && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+          onClick={(e) => { e.stopPropagation(); onDelete(cube.id); }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-        onClick={(e) => { e.stopPropagation(); onDelete(cube.id); }}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
     </div>
   );
 }
@@ -243,6 +266,8 @@ export function EditDashboardDialog({
   const [editForm, setEditForm] = useState<Partial<CubeConfig>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [endPromoOpen, setEndPromoOpen] = useState(false);
+  const [isEndingPromo, setIsEndingPromo] = useState(false);
   const [promoImageToCrop, setPromoImageToCrop] = useState('');
   const [promoCropDialogOpen, setPromoCropDialogOpen] = useState(false);
   const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
@@ -259,6 +284,17 @@ export function EditDashboardDialog({
     try {
       const nowHidden = await toggleWidgetHiddenForSelf(cube.id);
       toast.success(nowHidden ? 'Hidden from your dashboard' : 'Shown on your dashboard');
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update visibility');
+    }
+  };
+
+  const handleToggleTrackerLocationHidden = async (cube: CubeConfig) => {
+    if (!currentLocation?.id) return;
+    try {
+      const nowHidden = await toggleTrackerHiddenForLocation(cube.id, currentLocation.id);
+      toast.success(nowHidden ? 'Promo hidden at this location' : 'Promo shown at this location');
       queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
     } catch (e: any) {
       toast.error(e?.message || 'Failed to update visibility');
@@ -651,6 +687,22 @@ export function EditDashboardDialog({
     setDeleteId(null);
   };
 
+  const handleEndPromo = async () => {
+    if (!editingCube) return;
+    setIsEndingPromo(true);
+    try {
+      const removed = await endPromoTrackerByTitle(editingCube.title || '');
+      toast.success(`Promo ended — removed from ${removed} location${removed === 1 ? '' : 's'}`);
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+      setEndPromoOpen(false);
+      handleBack();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to end promo');
+    } finally {
+      setIsEndingPromo(false);
+    }
+  };
+
   const handleAddClick = () => {
     // Open the Add Widget dialog FIRST so it animates in over the Edit dialog,
     // then close the Edit dialog on the next frame. This eliminates the visible
@@ -730,6 +782,7 @@ export function EditDashboardDialog({
                   onEdit={handleEditCube}
                   onDelete={(id) => setDeleteId(id)}
                   onToggleHidden={canHideForSelf ? handleToggleHiddenForSelf : undefined}
+                  onToggleTrackerLocationHidden={canPublish ? handleToggleTrackerLocationHidden : undefined}
                   isOwn={!!user?.id && cube.createdBy === user.id}
                   creatorName={cube.createdBy ? creatorNamesMap[cube.createdBy] : undefined}
                 />
@@ -852,9 +905,12 @@ export function EditDashboardDialog({
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               {/* Widget Label - for all cube types */}
               <div className="space-y-1.5">
-                <Label htmlFor="edit-title">
-                  {editingCube.cubeType === 'tracker' ? 'Promo Name' : editingCube.cubeType === 'data' ? 'Title' : 'Label'}
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="edit-title">
+                    {editingCube.cubeType === 'tracker' ? 'Promo Name' : editingCube.cubeType === 'data' ? 'Title' : 'Label'}
+                  </Label>
+                  {editingCube.cubeType === 'tracker' && <ScopeBadge scope={editingCube.authorityScope} />}
+                </div>
                 <Input
                   id="edit-title"
                   placeholder={
@@ -1171,6 +1227,28 @@ export function EditDashboardDialog({
                       </div>
                     </div>
                   )}
+
+                  {canPublish && (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-destructive">End Promo</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Removes this tracker everywhere it appears across the brand.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setEndPromoOpen(true)}
+                          disabled={isEndingPromo}
+                        >
+                          End Promo
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1254,6 +1332,24 @@ export function EditDashboardDialog({
               }}
             >
               Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* End Promo confirmation */}
+      <AlertDialog open={endPromoOpen} onOpenChange={setEndPromoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End this promo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the tracker from every location it was published to. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isEndingPromo}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleEndPromo} disabled={isEndingPromo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isEndingPromo ? 'Ending…' : 'End Promo'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -45,6 +45,7 @@ export interface UnifiedWidgetConfig {
   organizationId: string | null;
   locationId: string | null;
   hiddenForSelf: boolean;
+  hiddenForLocation: boolean;
   // 3D
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
@@ -59,10 +60,12 @@ export interface UnifiedWidgetConfig {
   trackerLocationRefs?: string[];
   trackerLocationScope?: 'org' | 'brand';
   trackerRankMetrics?: TrackerRankMetric[];
+  trackerExcludedLocationIds?: string[];
 }
 
-function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
+function mapRow(row: DashboardWidgetRow, userId: string, locationId: string): UnifiedWidgetConfig {
   const cfg = row.config || {};
+  const excludedLocs: string[] = Array.isArray(cfg.tracker_excluded_location_ids) ? cfg.tracker_excluded_location_ids : [];
   return {
     id: row.id,
     title: row.title || '',
@@ -78,6 +81,7 @@ function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
     organizationId: row.organization_id ?? null,
     locationId: row.location_id ?? null,
     hiddenForSelf: Array.isArray(row.hidden_for_user_ids) && row.hidden_for_user_ids.includes(userId),
+    hiddenForLocation: row.widget_type === 'tracker' && !!locationId && excludedLocs.includes(locationId),
     faceMetrics: (cfg.face_metrics as MetricType[][]) || [],
     faceTitles: (cfg.face_titles as string[]) || [],
     numFaces: cfg.num_faces || 1,
@@ -90,6 +94,7 @@ function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
     trackerLocationRefs: (cfg.tracker_location_refs as string[]) || [],
     trackerLocationScope: (cfg.tracker_location_scope as 'org' | 'brand') || 'org',
     trackerRankMetrics: (cfg.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
+    trackerExcludedLocationIds: (cfg.tracker_excluded_location_ids as string[]) || [],
   };
 }
 
@@ -130,7 +135,7 @@ export function useDashboardWidgets(locationId: string | null | undefined) {
         return r.location_id === locationId;
       });
 
-      return filtered.map(r => mapRow(r, user.id));
+      return filtered.map(r => mapRow(r, user.id, locationId));
     },
     enabled: !!user?.id && !!locationId,
     staleTime: 30 * 1000,
