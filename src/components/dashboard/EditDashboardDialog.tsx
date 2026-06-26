@@ -266,6 +266,8 @@ export function EditDashboardDialog({
   const [editForm, setEditForm] = useState<Partial<CubeConfig>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [endPromoOpen, setEndPromoOpen] = useState(false);
+  const [isEndingPromo, setIsEndingPromo] = useState(false);
   const [promoImageToCrop, setPromoImageToCrop] = useState('');
   const [promoCropDialogOpen, setPromoCropDialogOpen] = useState(false);
   const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
