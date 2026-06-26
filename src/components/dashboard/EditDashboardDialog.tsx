@@ -143,6 +143,7 @@ function SortableCubeRow({
   onEdit,
   onDelete,
   onToggleHidden,
+  onToggleTrackerLocationHidden,
   creatorName,
   isOwn,
 }: {
@@ -150,6 +151,7 @@ function SortableCubeRow({
   onEdit: (cube: CubeConfig) => void;
   onDelete: (id: string) => void;
   onToggleHidden?: (cube: CubeConfig) => void;
+  onToggleTrackerLocationHidden?: (cube: CubeConfig) => void;
   creatorName?: string | null;
   isOwn?: boolean;
 }) {
@@ -163,12 +165,14 @@ function SortableCubeRow({
 
   const accentBg = isThemeColorKey(cube.accentColor) ? undefined : cube.accentColor;
   const accentClass = isThemeColorKey(cube.accentColor) ? getThemeColorClass(cube.accentColor) : '';
+  const isTracker = cube.cubeType === 'tracker';
+  const dimmed = cube.hiddenForSelf || (isTracker && cube.hiddenForLocation);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors hover:bg-accent/50 ${cube.hiddenForSelf ? 'opacity-60' : ''}`}
+      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors hover:bg-accent/50 ${dimmed ? 'opacity-60' : ''}`}
       onClick={() => onEdit(cube)}
     >
       <div
@@ -183,13 +187,14 @@ function SortableCubeRow({
         className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${accentClass}`}
         style={accentBg ? { backgroundColor: accentBg } : undefined}
       >
-        {cube.cubeType === 'tracker' ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
+        {isTracker ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-medium leading-tight">
             {cube.title || '3D Data Cube'}
           </p>
+          {isTracker && <ScopeBadge scope={cube.authorityScope} />}
           {!isOwn && creatorName && (
             <span className="flex-shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
               by {creatorName}
@@ -197,16 +202,28 @@ function SortableCubeRow({
           )}
         </div>
         <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
-          {cube.hiddenForSelf
-            ? 'Hidden from your dashboard'
-            : cube.cubeType === 'data-3d'
-              ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-              : cube.cubeType === 'tracker'
-                ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
-                : `${cube.size} · ${cube.metrics.length} metrics`}
+          {isTracker && cube.hiddenForLocation
+            ? 'Hidden at this location'
+            : cube.hiddenForSelf
+              ? 'Hidden from your dashboard'
+              : cube.cubeType === 'data-3d'
+                ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
+                : isTracker
+                  ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
+                  : `${cube.size} · ${cube.metrics.length} metrics`}
         </p>
       </div>
-      {onToggleHidden && (
+      {isTracker && onToggleTrackerLocationHidden ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+          title={cube.hiddenForLocation ? 'Show at this location' : 'Hide at this location (all users)'}
+          onClick={(e) => { e.stopPropagation(); onToggleTrackerLocationHidden(cube); }}
+        >
+          {cube.hiddenForLocation ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </Button>
+      ) : onToggleHidden ? (
         <Button
           variant="ghost"
           size="icon"
@@ -216,15 +233,17 @@ function SortableCubeRow({
         >
           {cube.hiddenForSelf ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
         </Button>
+      ) : null}
+      {!isTracker && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+          onClick={(e) => { e.stopPropagation(); onDelete(cube.id); }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-        onClick={(e) => { e.stopPropagation(); onDelete(cube.id); }}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
     </div>
   );
 }
