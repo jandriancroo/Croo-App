@@ -135,7 +135,7 @@ export function useDashboardWidgets(locationId: string | null | undefined) {
         return r.location_id === locationId;
       });
 
-      return filtered.map(r => mapRow(r, user.id));
+      return filtered.map(r => mapRow(r, user.id, locationId));
     },
     enabled: !!user?.id && !!locationId,
     staleTime: 30 * 1000,
