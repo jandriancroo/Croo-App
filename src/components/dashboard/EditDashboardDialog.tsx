@@ -1336,6 +1336,24 @@ export function EditDashboardDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* End Promo confirmation */}
+      <AlertDialog open={endPromoOpen} onOpenChange={setEndPromoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End this promo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the tracker from every location it was published to. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isEndingPromo}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleEndPromo} disabled={isEndingPromo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isEndingPromo ? 'Ending…' : 'End Promo'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
