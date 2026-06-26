@@ -97,6 +97,9 @@ export interface CubeConfig {
   locationId?: string | null;
   // Per-user "hide from my dashboard" toggle state for the current viewer
   hiddenForSelf?: boolean;
+  // Tracker-only: hidden for ALL users at the current location (admin toggle)
+  hiddenForLocation?: boolean;
+  trackerExcludedLocationIds?: string[];
   // user_id of the widget creator (for "Created by" attribution)
   createdBy?: string;
 }
