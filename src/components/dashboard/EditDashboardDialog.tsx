@@ -905,9 +905,12 @@ export function EditDashboardDialog({
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               {/* Widget Label - for all cube types */}
               <div className="space-y-1.5">
-                <Label htmlFor="edit-title">
-                  {editingCube.cubeType === 'tracker' ? 'Promo Name' : editingCube.cubeType === 'data' ? 'Title' : 'Label'}
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="edit-title">
+                    {editingCube.cubeType === 'tracker' ? 'Promo Name' : editingCube.cubeType === 'data' ? 'Title' : 'Label'}
+                  </Label>
+                  {editingCube.cubeType === 'tracker' && <ScopeBadge scope={editingCube.authorityScope} />}
+                </div>
                 <Input
                   id="edit-title"
                   placeholder={
