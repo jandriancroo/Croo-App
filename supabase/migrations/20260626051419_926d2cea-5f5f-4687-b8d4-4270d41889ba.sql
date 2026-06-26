@@ -1,0 +1,1 @@
+DELETE FROM public.dashboard_widgets WHERE id IN ('882967ad-861d-49c7-b39b-0775cce672a5','00f82bf4-1901-4a42-8e8d-5e59092ed50f','0d647b0c-4f15-4bfd-9147-b73e7024df29');

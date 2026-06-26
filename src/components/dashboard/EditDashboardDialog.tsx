@@ -327,17 +327,32 @@ export function EditDashboardDialog({
     app: 'App-Wide',
   };
 
-  const { data: publishableLocations = [] } = useQuery({
+  const { data: allPublishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null }>;
+      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null; brand_id: string | null }>;
       const { data, error } = await supabase.rpc('get_publishable_locations', { _user_id: user.id });
       if (error) { console.error('[EditDashboardDialog] get_publishable_locations error', error); return []; }
-      return (data || []) as Array<{ id: string; name: string; organization_id: string | null }>;
+      return (data || []) as Array<{ id: string; name: string; organization_id: string | null; brand_id: string | null }>;
     },
     enabled: !!user?.id && canPublish && open,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Trackers must stay scoped to the brand they were published under.
+  // Derive brand from the editing widget's own location; super-admins can
+  // publish across brands, but a tracker created for Brand A must NEVER be
+  // fanned out to Brand B locations when re-saved.
+  const trackerBrandId = (() => {
+    const locId = editingCube?.locationId;
+    if (!locId) return null;
+    return allPublishableLocations.find(l => l.id === locId)?.brand_id ?? null;
+  })();
+  const publishableLocations = trackerBrandId
+    ? allPublishableLocations.filter(l => l.brand_id === trackerBrandId)
+    : (editingCube?.locationId
+        ? allPublishableLocations.filter(l => l.id === editingCube.locationId)
+        : allPublishableLocations);
 
   // Reset exclusion state when leaving edit view
   useEffect(() => {
