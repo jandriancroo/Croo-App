@@ -126,6 +126,12 @@ export function useDashboardWidgets(locationId: string | null | undefined) {
       const rows = (data || []) as DashboardWidgetRow[];
 
       const filtered = rows.filter(r => {
+        // Tracker per-location hide: respected for ALL viewers (admin+ included);
+        // the eye toggle still lives in the Edit Dashboard list so it can be undone.
+        if (r.widget_type === 'tracker') {
+          const excluded = (r.config as any)?.tracker_excluded_location_ids as string[] | undefined;
+          if (Array.isArray(excluded) && locationId && excluded.includes(locationId)) return false;
+        }
         if (r.authority_scope === 'org' || r.authority_scope === 'brand' || r.authority_scope === 'app') {
           return true;
         }
