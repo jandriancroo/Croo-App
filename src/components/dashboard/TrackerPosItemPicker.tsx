@@ -100,7 +100,11 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
           />
         </div>
 
-        <ScrollArea className="mt-1.5 h-[136px]">
+        <div className="mt-1 flex justify-end px-1">
+          <span className="text-[10px] text-muted-foreground">Last 7 days sales</span>
+        </div>
+
+        <ScrollArea className="mt-1 h-[136px]">
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
