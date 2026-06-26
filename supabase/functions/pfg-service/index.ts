@@ -1947,6 +1947,7 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
 
           results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
           console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id} (swap=${ropcSwapped})`);
+          await autoResolveChainBrokenTicket(supabase, integration.location_id);
           continue;
         }
 
