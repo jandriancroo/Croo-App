@@ -214,13 +214,36 @@ const SYSTEM_TICKET_OWNER_ID = 'a2e81a39-0e0b-47b1-a1aa-0e53f3869d37';
 
 // Auto-create a deduped support ticket when a PFG refresh chain breaks.
 // One open ticket per location at a time — close/resolve it to allow a new one.
-// Prevents flooding the support inbox when the cron fires every 5 min.
+// Gated by a failure-streak check so a single transient failure does not
+// open a ticket. Requires N consecutive ropc_failed outcomes inside a window.
+const CHAIN_BROKEN_MIN_FAILURES = 3;
+const CHAIN_BROKEN_WINDOW_MIN = 30;
+
 async function maybeCreateChainBrokenTicket(
   supabase: any,
   locationId: string,
   failReason: string,
 ): Promise<void> {
   try {
+    // Streak gate — only open a ticket after repeated failures within window.
+    const sinceIso = new Date(Date.now() - CHAIN_BROKEN_WINDOW_MIN * 60_000).toISOString();
+    const { data: recent } = await supabase
+      .from('pfg_refresh_audit')
+      .select('outcome, created_at')
+      .eq('location_id', locationId)
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    const failCount = (recent || []).filter((r: any) =>
+      r.outcome === 'ropc_failed' || r.outcome === 'refresh_failed'
+    ).length;
+
+    if (failCount < CHAIN_BROKEN_MIN_FAILURES) {
+      console.log(`[PFG Ticket] Streak gate: ${failCount}/${CHAIN_BROKEN_MIN_FAILURES} failures in last ${CHAIN_BROKEN_WINDOW_MIN}m for ${locationId} — not opening ticket yet`);
+      return;
+    }
+
     const { data: loc } = await supabase
       .from('locations')
       .select('name')
@@ -248,7 +271,8 @@ async function maybeCreateChainBrokenTicket(
       ``,
       `🚨 PFG token refresh chain BROKEN for ${locName}.`,
       ``,
-      `Both the standard refresh AND the ROPC password fallback failed.`,
+      `Both the standard refresh AND the ROPC password fallback failed`,
+      `${CHAIN_BROKEN_MIN_FAILURES}+ times in the last ${CHAIN_BROKEN_WINDOW_MIN} minutes.`,
       `A manager needs to manually reconnect PFG in Settings → Integrations.`,
       ``,
       `Failure detail: ${failReason}`,
@@ -272,6 +296,35 @@ async function maybeCreateChainBrokenTicket(
     }
   } catch (e) {
     console.error('[PFG Ticket] Unexpected error creating ticket:', e);
+  }
+}
+
+// Auto-resolve any open chain-broken ticket for this location on a
+// successful refresh. Keeps the inbox clean when the chain self-heals.
+async function autoResolveChainBrokenTicket(
+  supabase: any,
+  locationId: string,
+): Promise<void> {
+  try {
+    const dedupMarker = `[pfg-chain-broken:${locationId}]`;
+    const { data: open } = await supabase
+      .from('support_tickets')
+      .select('id')
+      .eq('status', 'open')
+      .ilike('description', `%${dedupMarker}%`);
+    if (!open || open.length === 0) return;
+    const ids = open.map((r: any) => r.id);
+    const { error } = await supabase
+      .from('support_tickets')
+      .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+      .in('id', ids);
+    if (error) {
+      console.error('[PFG Ticket] Auto-resolve failed:', error);
+    } else {
+      console.log(`[PFG Ticket] Auto-resolved ${ids.length} chain-broken ticket(s) for ${locationId}`);
+    }
+  } catch (e) {
+    console.error('[PFG Ticket] Auto-resolve unexpected error:', e);
   }
 }
 
