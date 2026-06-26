@@ -227,6 +227,8 @@ export default function Dashboard() {
     organizationId: w.organizationId,
     locationId: w.locationId,
     hiddenForSelf: w.hiddenForSelf,
+    hiddenForLocation: w.hiddenForLocation,
+    trackerExcludedLocationIds: w.trackerExcludedLocationIds,
     createdBy: w.createdBy,
   })), [unifiedWidgets]);
 
