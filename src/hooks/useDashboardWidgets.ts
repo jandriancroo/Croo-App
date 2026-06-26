@@ -91,6 +91,7 @@ function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
     trackerLocationRefs: (cfg.tracker_location_refs as string[]) || [],
     trackerLocationScope: (cfg.tracker_location_scope as 'org' | 'brand') || 'org',
     trackerRankMetrics: (cfg.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
+    trackerExcludedLocationIds: (cfg.tracker_excluded_location_ids as string[]) || [],
   };
 }
 
