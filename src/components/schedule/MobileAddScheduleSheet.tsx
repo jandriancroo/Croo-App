@@ -407,7 +407,15 @@ export function MobileAddScheduleSheet({
       queryClient.invalidateQueries({ queryKey: ['schedule', locationId] });
       onCreated?.();
       setReviewOpen(false);
-      onOpenChange(false);
+      // Reset builder state but keep the sheet open so manager can pick the next employee.
+      setWeekDraft({});
+      setDayCursor(0);
+      if (pendingEmpSwitchId) {
+        setEmpUserId(pendingEmpSwitchId);
+        setPendingEmpSwitchId(null);
+      } else {
+        setEmpUserId('');
+      }
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || 'Failed to apply schedule');
