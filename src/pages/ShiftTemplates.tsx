@@ -16,6 +16,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 import { StationsManagerCard } from "@/components/settings/StationsManagerCard";
+import { BreakEditor } from "@/components/schedule/BreakEditor";
+import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
+import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
 
 interface ShiftTemplate {
   id: string;
