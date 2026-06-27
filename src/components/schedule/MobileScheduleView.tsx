@@ -216,6 +216,40 @@ export function MobileScheduleView({
     if (un.length > 0) out.push({ station: null, items: un });
     return out.filter(s => s.items.length > 0);
   }, [stations, stationAssignments]);
+
+  /** Render a flat list of items either flat, or wrapped in station section headers when grouping is on. */
+  const renderMaybeStationGrouped = useCallback(<T,>(
+    items: T[],
+    getUserId: (item: T) => string | null | undefined,
+    renderItem: (item: T) => JSX.Element | null,
+    keyForItem: (item: T) => string,
+  ) => {
+    if (!useStationGrouping) {
+      return <>{items.map(it => <React.Fragment key={keyForItem(it)}>{renderItem(it)}</React.Fragment>)}</>;
+    }
+    const groups = groupByStation(items, getUserId);
+    return (
+      <>
+        {groups.map(({ station, items: groupItems }) => (
+          <div key={station?.id ?? 'unassigned'} className="space-y-1.5">
+            <div className="flex items-center gap-1.5 px-0.5 pt-1">
+              <span
+                className="inline-block h-2 w-2 rounded-sm flex-shrink-0"
+                style={{ background: station?.color || '#9ca3af' }}
+              />
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {station?.name ?? 'Unassigned'}
+              </span>
+              <span className="text-[10px] text-muted-foreground/70">· {groupItems.length}</span>
+            </div>
+            {groupItems.map(it => (
+              <React.Fragment key={keyForItem(it)}>{renderItem(it)}</React.Fragment>
+            ))}
+          </div>
+        ))}
+      </>
+    );
+  }, [useStationGrouping, groupByStation]);
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   
