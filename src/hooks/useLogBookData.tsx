@@ -48,6 +48,8 @@ export function useLogBookData() {
   const [searchDateFilter, setSearchDateFilter] = useState<Date | undefined>(undefined);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [generatingWeeklySummary, setGeneratingWeeklySummary] = useState(false);
+  const [recentPage, setRecentPage] = useState(1);
+
 
   // Redirect team members
   useEffect(() => {
