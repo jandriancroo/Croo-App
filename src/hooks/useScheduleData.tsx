@@ -348,7 +348,8 @@ export function useScheduleData() {
         processedBlackoutDates = locationSettingsResult.data.blackout_dates || [];
         processedLocationSettings = {
           hours_open: locationSettingsResult.data.hours_open || undefined,
-          hours_close: locationSettingsResult.data.hours_close || undefined
+          hours_close: locationSettingsResult.data.hours_close || undefined,
+          stations_enabled: !!(locationSettingsResult.data as any).stations_enabled,
         };
       }
 
