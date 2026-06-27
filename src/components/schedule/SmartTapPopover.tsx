@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sparkles } from "lucide-react";
+import { Sparkles, MapPin, Check } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 
 interface ShiftTemplate {
@@ -13,6 +13,12 @@ interface ShiftTemplate {
   position?: string;
 }
 
+interface StationOption {
+  id: string;
+  name: string;
+  color?: string | null;
+}
+
 interface SmartTapPopoverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -21,6 +27,10 @@ interface SmartTapPopoverProps {
   onSelectTemplate: (template: ShiftTemplate) => void;
   children: React.ReactNode;
   isCompactMode?: boolean;
+  /** Stations enabled at the location. When provided, a Station picker appears in the popover. */
+  stations?: StationOption[];
+  currentStationId?: string | null;
+  onSelectStation?: (stationId: string | null) => void;
 }
 
 const MAX_PER_COLUMN = 5;
@@ -33,7 +43,11 @@ function SmartTapPopoverComponent({
   onSelectTemplate,
   children,
   isCompactMode = false,
+  stations,
+  currentStationId,
+  onSelectStation,
 }: SmartTapPopoverProps) {
+
   const { recentTemplates, otherColumns } = useMemo(() => {
     const recent: ShiftTemplate[] = [];
     const others: ShiftTemplate[] = [];
