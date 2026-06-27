@@ -1173,6 +1173,8 @@ export function MobileScheduleView({
                           <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
                         </button>
                       </>
+                    )}
+                  </>
                 )}
               </div>
 
