@@ -16,6 +16,10 @@ import { ArrowUp, Trash2, AlertTriangle } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BreakEditor } from "./BreakEditor";
+import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
+import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
+
 
 interface EditShiftDialogProps {
   open: boolean;
