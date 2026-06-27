@@ -899,6 +899,50 @@ export function MobileAddScheduleSheet({
                 </DialogHeader>
 
                 <div className="space-y-0.5">
+                  {/* Stations — assign primary station to this employee */}
+                  {stationsEnabled && empUserId && (
+                    <>
+                      <div className="flex items-center justify-center gap-1 px-2 pt-1 pb-0.5">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Station
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 px-1 pb-1">
+                        {stationsList.map((s) => {
+                          const active = stationAssignments[empUserId] === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => assignUserStation(empUserId, active ? null : s.id)}
+                              className={cn(
+                                "flex items-center gap-1 px-2 py-1 rounded-md border text-xs transition",
+                                active ? "border-primary bg-primary/10" : "border-border hover:bg-accent/70"
+                              )}
+                            >
+                              <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: s.color }} />
+                              <span className="truncate max-w-[80px]">{s.name}</span>
+                              {active && <Check className="h-3 w-3 text-primary" />}
+                            </button>
+                          );
+                        })}
+                        {stationAssignments[empUserId] && (
+                          <button
+                            type="button"
+                            onClick={() => assignUserStation(empUserId, null)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-accent/70"
+                          >
+                            <XIcon className="h-3 w-3" />
+                            Unassign
+                          </button>
+                        )}
+                      </div>
+                      <div className="my-1 h-px bg-border" />
+                    </>
+                  )}
+
+
                   {/* + Create — compact, text-only */}
                   <button
                     type="button"
