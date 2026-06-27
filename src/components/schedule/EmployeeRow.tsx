@@ -67,7 +67,12 @@ interface EmployeeRowProps {
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
   /** Optional small badge shown next to the name (e.g. "Manager"). */
   roleBadge?: string;
+  /** Stations enabled at the location (passed to SmartTap popover). */
+  stations?: { id: string; name: string; color?: string | null }[];
+  currentStationId?: string | null;
+  onAssignStation?: (userId: string, stationId: string | null) => void;
 }
+
 
 function EmployeeRowComponent({
   profile,
