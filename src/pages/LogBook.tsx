@@ -25,6 +25,7 @@ export default function LogBook() {
     deleteEntryId, setDeleteEntryId,
     deleteEntryMutation,
     isAdmin, isManager, isShiftManager, roleLoading,
+    hasMoreRecentEntries, loadMoreRecentEntries, isFetchingRecentEntries,
   } = data;
 
   // Don't render if role is still loading or user doesn't have access
