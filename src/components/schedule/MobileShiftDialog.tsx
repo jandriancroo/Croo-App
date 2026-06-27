@@ -88,6 +88,8 @@ export function MobileShiftDialog({
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [showOfferDialog, setShowOfferDialog] = useState(false);
+  const [breaks, setBreaks] = useState<ShiftBreak[]>([]);
+  const breakCoverageEnabled = useBreakCoverageEnabled(locationId);
 
   useEffect(() => {
     if (shift) {
@@ -96,6 +98,7 @@ export function MobileShiftDialog({
       setSelectedUserId(shift.user_id || '');
       setSelectedTemplateId(shift.template_id || '');
       setShiftDate(shift.shift_date);
+      setBreaks(normalizeBreaks(shift.breaks));
     } else if (isCreating && templates.length > 0) {
       // Set defaults for new shift
       setStartTime('09:00');
@@ -103,6 +106,7 @@ export function MobileShiftDialog({
       setSelectedUserId('');
       setSelectedTemplateId('');
       setShiftDate(shift?.shift_date || getTodayInPST());
+      setBreaks([]);
     }
   }, [shift, isCreating, templates]);
 
