@@ -125,23 +125,14 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-5 w-5" />
-          Stations
-        </CardTitle>
-        <CardDescription>
-          Group your weekly schedule by station (e.g. FOH / BOH / Patio, or rooms in a daycare).
-          Shifts without a station show under &ldquo;Unassigned&rdquo;.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <Label className="text-base font-semibold">Enable stations</Label>
-            <p className="text-sm text-muted-foreground">
-              When on, the schedule will group employees by station.
-            </p>
+      <CardHeader className="py-3 px-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+            <CardTitle className="text-sm font-semibold">Stations</CardTitle>
+            <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+              Group your schedule by station (FOH / BOH / Patio, daycare rooms, etc.)
+            </span>
           </div>
           <Switch
             checked={enabled}
@@ -149,16 +140,18 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
             onCheckedChange={handleToggle}
           />
         </div>
-
-        {enabled && (
-          <div className="border-t pt-5 space-y-3">
-            <Label className="text-sm font-semibold">Your stations</Label>
+      </CardHeader>
+      {enabled && (
+      <CardContent className="space-y-3 pt-0 px-4 pb-4">
+        <div className="border-t pt-3 space-y-2">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Your stations</Label>
 
             {stations.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 No stations yet. Add your first one below.
               </p>
             )}
+
 
             <div className="space-y-2">
               {stations.map((s) => {
