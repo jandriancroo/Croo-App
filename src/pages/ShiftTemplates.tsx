@@ -82,6 +82,7 @@ export default function ShiftTemplates() {
       position: isPredefined ? template.position || "" : "",
       days_of_week: template.days_of_week || [0, 1, 2, 3, 4, 5, 6],
       allowed_roles: template.allowed_roles || [template.role || "team_member"],
+      breaks: (template as any).breaks ? (await import("@/types/shiftBreak")).normalizeBreaks((template as any).breaks) : [],
     });
     setDialogOpen(true);
   };
