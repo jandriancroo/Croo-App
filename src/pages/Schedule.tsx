@@ -512,7 +512,7 @@ export default function Schedule() {
                                   {roleProfiles.map((profile) => (
                                     <div key={profile.id} className="relative">
                                       {useStationGrouping && (isAdmin || isManager) && (
-                                        <div className="absolute left-12 top-1 z-10">
+                                        <div className="absolute right-2 top-1 z-10">
                                           <StationAssignChip
                                             userId={profile.id}
                                             userName={profile.full_name}
@@ -586,7 +586,7 @@ export default function Schedule() {
                               {profilesIn.map((profile: any) => (
                                 <div key={profile.id} className="relative">
                                   {(isAdmin || isManager) && (
-                                    <div className="absolute left-12 top-1 z-10">
+                                    <div className="absolute right-2 top-1 z-10">
                                       <StationAssignChip
                                         userId={profile.id}
                                         userName={profile.full_name}
