@@ -523,13 +523,22 @@ export function MobileAddScheduleSheet({
             <TabsContent value="employee" className="space-y-4 pt-3">
               <div className="space-y-2">
                 <Label>Team Member</Label>
-                <Select value={empUserId} onValueChange={setEmpUserId}>
+                <Select value={empUserId} onValueChange={(v) => {
+                  if (v === empUserId) return;
+                  const hasDrafts = Object.values(weekDraft).some(Boolean);
+                  if (hasDrafts && empUserId) {
+                    setPendingEmpSwitchId(v);
+                    setReviewOpen(true);
+                  } else {
+                    setEmpUserId(v);
+                  }
+                }}>
                   <SelectTrigger><SelectValue placeholder="Pick employee" /></SelectTrigger>
                   <SelectContent>
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
                         <RoleGroupLabel group={g} />
-                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
+                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} count={shiftCountByUser[p.id] || 0} />)}
                       </SelectGroup>
                     ))}
 
