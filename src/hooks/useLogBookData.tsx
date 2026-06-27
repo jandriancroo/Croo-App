@@ -17,7 +17,7 @@ import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 const LOGBOOK_STALE_TIME = 5 * 60 * 1000;
 const LOGBOOK_STALE_TIME_PAST = 30 * 60 * 1000;
 const LOGBOOK_GC_TIME = 60 * 60 * 1000;
-const RECENT_PAGE_SIZE = 50;
+const RECENT_WINDOW_DAYS = 30;
 
 
 export function useLogBookData() {
@@ -184,6 +184,12 @@ export function useLogBookData() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
+  const recentCutoffISO = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - RECENT_WINDOW_DAYS * recentPage);
+    return d.toISOString();
+  }, [recentPage]);
+
   const { data: recentEntries = [], isFetching: isFetchingRecentEntries } = useQuery({
     queryKey: ['logbook-recent-entries', currentLocation?.id, recentPage],
     queryFn: async () => {
@@ -192,8 +198,9 @@ export function useLogBookData() {
         .from('logbook_entries')
         .select(`*, logbook_entry_values(*), profiles(full_name, profile_photo_url), logbook_categories(name)`)
         .eq('location_id', currentLocation.id)
+        .gte('created_at', recentCutoffISO)
         .order('created_at', { ascending: false })
-        .limit(RECENT_PAGE_SIZE * recentPage);
+        .limit(2000);
       if (error) throw error;
       return data;
     },
@@ -201,6 +208,25 @@ export function useLogBookData() {
     staleTime: LOGBOOK_STALE_TIME,
     gcTime: LOGBOOK_GC_TIME,
     placeholderData: keepPreviousData,
+  });
+
+  // Probe: is there anything older than current window?
+  const { data: hasOlderEntries = false } = useQuery({
+    queryKey: ['logbook-recent-has-older', currentLocation?.id, recentCutoffISO],
+    queryFn: async () => {
+      if (!currentLocation) return false;
+      const { data, error } = await supabase
+        .from('logbook_entries')
+        .select('id')
+        .eq('location_id', currentLocation.id)
+        .lt('created_at', recentCutoffISO)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return (data?.length ?? 0) > 0;
+    },
+    enabled: !!currentLocation,
+    staleTime: LOGBOOK_STALE_TIME,
   });
 
 
@@ -357,8 +383,8 @@ export function useLogBookData() {
   }, [searchTerms, searchResults, recentEntries, writeUpEntries, readAndSignEntries, performanceReviewEntries]);
 
   const hasMoreRecentEntries = useMemo(() =>
-    searchTerms.length === 0 && recentEntries.length >= RECENT_PAGE_SIZE * recentPage,
-  [searchTerms.length, recentEntries.length, recentPage]);
+    searchTerms.length === 0 && hasOlderEntries,
+  [searchTerms.length, hasOlderEntries]);
 
   const loadMoreRecentEntries = useCallback(() => {
     setRecentPage(prev => prev + 1);
