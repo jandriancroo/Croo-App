@@ -419,7 +419,7 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
     <tr>
       <th class="name-th">Employee</th>
       <th>
-        <div style="position:relative;height:14px">
+        <div style="position:relative;height:14px;width:100%">
           ${hourHeaders
             .map(
               (h, i) =>
