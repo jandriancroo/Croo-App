@@ -508,7 +508,7 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
   <div class="date">${dateLabel}</div>
 </div>
 
-<div class="roster-grid">
+<div class="roster-sections">
   ${rosterItems || '<div class="no-shift">No shifts scheduled.</div>'}
 </div>
 
