@@ -47,6 +47,7 @@ interface Shift {
   start_time: string;
   end_time: string;
   shift_date: string;
+  breaks?: unknown;
   template_id?: string | null;
   template?: {
     position: string | null;
@@ -94,7 +95,7 @@ interface MobileScheduleViewProps {
   isPublishing?: boolean;
   hasPendingChanges?: boolean;
   isLoading?: boolean; // Show skeleton cards while loading
-  locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  locationSettings?: { hours_open?: string; hours_close?: string; break_coverage_enabled?: boolean } | null;
   lastWeekShifts?: Array<{ user_id: string | null; template_id: string | null; shift_date: string }>;
 }
 
@@ -661,6 +662,25 @@ export function MobileScheduleView({
     return position.replace(/\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?$/i, '').trim();
   };
 
+  const handlePrintDayTimeline = () => {
+    exportDayTimelineToPrint({
+      locationName: currentLocation?.name || 'Location',
+      date: selectedDate,
+      profiles: profiles.map((p: any) => ({ id: p.id, full_name: p.full_name, role: p.role })),
+      shifts: dayShifts.map((s: any) => ({
+        id: s.id,
+        user_id: s.user_id,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        template_name: s.template?.template_name ?? null,
+        template_color: s.template?.color ?? null,
+        position: s.template?.position ?? null,
+        breaks: s.breaks,
+      })),
+      breakCoverageEnabled: !!locationSettings?.break_coverage_enabled,
+    });
+  };
+
   // Determine if a shift is published (same logic as desktop EmployeeRow)
   const isShiftPublished = (shift: Shift): boolean => {
     // If schedule was never published, all shifts are drafts
@@ -803,23 +823,7 @@ export function MobileScheduleView({
                     size="icon"
                     className="h-7 w-7"
                     title="Print Day Timeline"
-                    onClick={() =>
-                      exportDayTimelineToPrint({
-                        locationName: currentLocation?.name || 'Location',
-                        date: selectedDate,
-                        profiles: profiles.map((p: any) => ({ id: p.id, full_name: p.full_name, role: p.role })),
-                        shifts: dayShifts.map((s: any) => ({
-                          id: s.id,
-                          user_id: s.user_id,
-                          start_time: s.start_time,
-                          end_time: s.end_time,
-                          template_name: s.template?.template_name ?? null,
-                          template_color: s.template?.color ?? null,
-                          position: s.template?.position ?? null,
-                          breaks: s.breaks,
-                        })),
-                      })
-                    }
+                    onClick={handlePrintDayTimeline}
                   >
                     <Printer className="h-4 w-4" />
                   </Button>
@@ -1070,6 +1074,19 @@ export function MobileScheduleView({
                         >
                           <CheckCircle className="h-3.5 w-3.5" />
                           <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
+                        </button>
+                      </>
+                    )}
+                    {scheduleId && (
+                      <>
+                        <div className="w-px bg-primary-foreground/15 my-1" />
+                        <button
+                          type="button"
+                          onClick={handlePrintDayTimeline}
+                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wide">Print/PDF</span>
                         </button>
                       </>
                     )}

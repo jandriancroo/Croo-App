@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { format, subWeeks } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { formatTime12Hour } from "@/lib/utils";
@@ -6,9 +7,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { Sparkles, Loader2, User } from "lucide-react";
+import { Sparkles, Loader2, User, Printer } from "lucide-react";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
+import { exportDayTimelineToPrint } from "@/utils/exportDayTimelinePrint";
+import { normalizeBreaks } from "@/types/shiftBreak";
 interface DayBreakdownDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -17,9 +20,9 @@ interface DayBreakdownDialogProps {
   // All shifts for the current week
   shifts: any[];
   // Profiles so we can resolve names and wages
-  profiles: { id: string; full_name?: string | null; hourly_wage?: number | null }[];
+  profiles: { id: string; full_name?: string | null; hourly_wage?: number | null; role?: string | null }[];
   // Location settings for business hours
-  locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  locationSettings?: { hours_open?: string; hours_close?: string; break_coverage_enabled?: boolean } | null;
 }
 
 export function DayBreakdownDialog({
@@ -308,16 +311,64 @@ export function DayBreakdownDialog({
     }).format(amount);
   };
 
+  const coverageBlocksByUser = new Map<string, Array<{ coveredUserName: string; start_time: string; end_time: string }>>();
+  dayShifts.forEach((coveredShift: any) => {
+    const coveredProfile = getProfileForShift(coveredShift);
+    normalizeBreaks(coveredShift.breaks).forEach((br) => {
+      if (!br.covered_by_user_id) return;
+      const blocks = coverageBlocksByUser.get(br.covered_by_user_id) || [];
+      blocks.push({
+        coveredUserName: coveredProfile?.full_name || "Unknown",
+        start_time: br.start_time,
+        end_time: br.end_time,
+      });
+      coverageBlocksByUser.set(br.covered_by_user_id, blocks);
+    });
+  });
+
+  const handlePrintDayTimeline = () => {
+    exportDayTimelineToPrint({
+      locationName: currentLocation?.name || "Location",
+      date,
+      profiles: profiles.map((p) => ({
+        id: p.id,
+        full_name: p.full_name || "Unknown",
+        role: p.role,
+      })),
+      shifts: dayShifts
+        .filter((shift: any) => !shift.is_time_off)
+        .map((shift: any) => ({
+          id: shift.id,
+          user_id: shift.user_id,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          template_name: shift.template?.template_name ?? null,
+          template_color: shift.template?.color ?? shift.color ?? null,
+          position: shift.template?.template_name ?? null,
+          breaks: shift.breaks,
+        })),
+      breakCoverageEnabled: !!locationSettings?.break_coverage_enabled,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">
-            {format(date, "EEEE, MMMM d, yyyy")}
-          </DialogTitle>
-          <DialogDescription>
-            Visual timeline and labor breakdown for the selected day.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle className="text-xl">
+                {format(date, "EEEE, MMMM d, yyyy")}
+              </DialogTitle>
+              <DialogDescription>
+                Visual timeline and labor breakdown for the selected day.
+              </DialogDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={handlePrintDayTimeline} className="gap-2 shrink-0">
+              <Printer className="h-4 w-4" />
+              Print / PDF
+            </Button>
+          </div>
         </DialogHeader>
 
         {dayShifts.length === 0 ? (
@@ -445,7 +496,7 @@ export function DayBreakdownDialog({
                                 </span>
                               </div>
                               {/* Break overlays */}
-                              {Array.isArray(shift.breaks) && shift.breaks.map((br: any, i: number) => {
+                               {normalizeBreaks(shift.breaks).map((br: any, i: number) => {
                                 if (!br?.start_time || !br?.end_time) return null;
                                 const [bsH, bsM] = String(br.start_time).split(":").map(Number);
                                 const [beH, beM] = String(br.end_time).split(":").map(Number);
@@ -454,19 +505,31 @@ export function DayBreakdownDialog({
                                 if (be < bs) be += 24;
                                 const bLeft = ((bs - earliest) / totalRange) * 100;
                                 const bWidth = ((be - bs) / totalRange) * 100;
-                                const coverProfile = br.covered_by_user_id
-                                  ? profiles.find((p: any) => p.id === br.covered_by_user_id)
-                                  : null;
                                 return (
                                   <div
                                     key={br.id ?? i}
-                                    title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}${coverProfile ? ` · Covered by ${coverProfile.full_name}` : ''}`}
-                                    className="absolute top-0 h-full rounded border border-amber-600/70 bg-amber-400/80 flex items-center justify-center text-[10px] font-semibold text-amber-950 shadow-sm"
+                                     title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}`}
+                                     className="absolute top-0 h-full rounded border border-amber-600/70 bg-amber-400/45 shadow-sm"
                                     style={{ left: `${bLeft}%`, width: `${bWidth}%`, zIndex: 2 }}
+                                   />
+                                );
+                              })}
+                              {(coverageBlocksByUser.get(shift.user_id) || []).map((coverage, i) => {
+                                const [csH, csM] = String(coverage.start_time).split(":").map(Number);
+                                const [ceH, ceM] = String(coverage.end_time).split(":").map(Number);
+                                const cs = csH + csM / 60;
+                                let ce = ceH + ceM / 60;
+                                if (ce < cs) ce += 24;
+                                const cLeft = ((cs - earliest) / totalRange) * 100;
+                                const cWidth = ((ce - cs) / totalRange) * 100;
+                                return (
+                                  <div
+                                    key={`${shift.id}-coverage-${i}`}
+                                    title={`Covering ${coverage.coveredUserName} ${formatTime12Hour(coverage.start_time)} - ${formatTime12Hour(coverage.end_time)}`}
+                                    className="absolute top-0 h-full rounded border border-primary/70 bg-primary/15 flex items-center justify-center text-[10px] font-semibold text-primary shadow-sm"
+                                    style={{ left: `${cLeft}%`, width: `${cWidth}%`, zIndex: 3 }}
                                   >
-                                    <span className="truncate px-1">
-                                      ☕ {coverProfile ? `→ ${coverProfile.full_name.split(' ')[0]}` : 'Break'}
-                                    </span>
+                                    <span className="truncate px-1">Covering {coverage.coveredUserName.split(' ')[0]}</span>
                                   </div>
                                 );
                               })}

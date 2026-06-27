@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useScheduleData } from "@/hooks/useScheduleData";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Settings, Calendar, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History, Minimize2, Maximize2, Printer } from "lucide-react";
 import { exportScheduleToPrint } from "@/utils/exportSchedulePrint";
@@ -92,7 +94,22 @@ export default function Schedule() {
   const [hideTemplatesBar, setHideTemplatesBar] = useState(() => localStorage.getItem('schedule-hide-templates') === 'true');
 
   // Stations (Phase 2) — group schedule by Station → Role when enabled
-  const stationsEnabled = !!(locationSettings as any)?.stations_enabled;
+  const { data: liveStationSettings } = useQuery({
+    queryKey: ['schedule-stations-enabled', currentLocation?.id],
+    enabled: !!currentLocation?.id,
+    staleTime: 10_000,
+    refetchOnMount: 'always',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('stations_enabled')
+        .eq('location_id', currentLocation!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const stationsEnabled = liveStationSettings?.stations_enabled ?? !!(locationSettings as any)?.stations_enabled;
   const { stations } = useLocationStations(currentLocation?.id);
   const { assignments: stationAssignments, assign: assignUserStation } =
     useUserStationAssignments(currentLocation?.id);
@@ -210,6 +227,7 @@ export default function Schedule() {
           shifts={shifts.map(s => ({
             ...s,
             template_id: s.template_id,
+            breaks: (s as any).breaks,
             template: templates.find(t => t.id === s.template_id) ? {
               position: templates.find(t => t.id === s.template_id)?.template_name.split(' ').slice(0, -3).join(' ') || null,
               color: templates.find(t => t.id === s.template_id)?.color || null,
@@ -239,7 +257,7 @@ export default function Schedule() {
       ) : (
         <div className="pb-56">
         <DndContext
-          sensors={isTeamMemberDesktopView ? emptySensors : activeSensors}
+          sensors={activeSensors}
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart}
           onDragEnd={isTeamMemberDesktopView ? undefined : handleDragEnd}
           collisionDetection={closestCenter}
