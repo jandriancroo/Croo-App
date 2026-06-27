@@ -1291,30 +1291,34 @@ export function MobileScheduleView({
                           {loadingActive ? (
                             <div className="text-center py-8 text-muted-foreground">Loading...</div>
                           ) : (
-                            laterShifts.map(shift => {
-                              const profile = getProfileForShift(shift);
-                              if (!profile) return null;
-                              const shiftLabel = getShiftLabel(shift);
-                              return (
-                                <MobileShiftCard
-                                  key={shift.id}
-                                  name={getDisplayName(profile.full_name, (profile as any).nickname)}
-                                  avatarUrl={profile.profile_photo_url}
-                                  startTime={shift.start_time}
-                                  endTime={shift.end_time}
-                                  accentColor={shift.template?.color}
-                                  isPublished={isShiftPublished(shift)}
-                                  positionLabel={shiftLabel}
-                                  positionColor={shift.template?.color}
-                                  onClick={() => {
-                                    if (isAdmin || isManager) {
-                                      setSelectedShift(shift);
-                                      setShiftDialogOpen(true);
-                                    }
-                                  }}
-                                />
-                              );
-                            })
+                            renderMaybeStationGrouped(
+                              laterShifts,
+                              (shift) => shift.user_id,
+                              (shift) => {
+                                const profile = getProfileForShift(shift);
+                                if (!profile) return null;
+                                const shiftLabel = getShiftLabel(shift);
+                                return (
+                                  <MobileShiftCard
+                                    name={getDisplayName(profile.full_name, (profile as any).nickname)}
+                                    avatarUrl={profile.profile_photo_url}
+                                    startTime={shift.start_time}
+                                    endTime={shift.end_time}
+                                    accentColor={shift.template?.color}
+                                    isPublished={isShiftPublished(shift)}
+                                    positionLabel={shiftLabel}
+                                    positionColor={shift.template?.color}
+                                    onClick={() => {
+                                      if (isAdmin || isManager) {
+                                        setSelectedShift(shift);
+                                        setShiftDialogOpen(true);
+                                      }
+                                    }}
+                                  />
+                                );
+                              },
+                              (shift) => shift.id,
+                            )
                           )}
                         </div>
                       ) : null;
