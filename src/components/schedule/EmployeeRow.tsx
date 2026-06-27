@@ -299,7 +299,10 @@ function DayCell({
   templates = [],
   recentTemplateIds = [],
   onSmartTap,
-  cellDateStr = ""
+  cellDateStr = "",
+  stations,
+  currentStationId,
+  onAssignStation,
 }: {
   userId: string;
   dayIndex: number;
@@ -320,7 +323,11 @@ function DayCell({
   recentTemplateIds?: string[];
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
   cellDateStr?: string;
+  stations?: { id: string; name: string; color?: string | null }[];
+  currentStationId?: string | null;
+  onAssignStation?: (stationId: string | null) => void;
 }) {
+
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
     setNodeRef,
