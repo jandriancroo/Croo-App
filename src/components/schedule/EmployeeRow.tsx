@@ -337,7 +337,9 @@ function DayCell({
   });
   
   const [smartTapOpen, setSmartTapOpen] = useState(false);
-  const canSmartTap = onSmartTap && templates.length > 0 && shifts.length === 0 && userId !== "unassigned";
+  const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
+  const canSmartTap = !!onSmartTap && (templates.length > 0 || hasStationPicker) && shifts.length === 0 && userId !== "unassigned";
+
   
   const formatTime12h = (time: string) => {
     const parts = time.split(":");
