@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
+import { StationsManagerCard } from "@/components/settings/StationsManagerCard";
 import { CopyEventCategoriesDialog } from "@/components/schedule/CopyEventCategoriesDialog";
 
 interface ShiftTemplate {
@@ -324,6 +325,9 @@ export default function ScheduleTemplates() {
           </TabsList>
 
           <TabsContent value="shifts" className="space-y-4 mt-4">
+            {currentLocation?.id && (
+              <StationsManagerCard locationId={currentLocation.id} />
+            )}
             <div className="flex justify-between items-center">
               <p className="text-muted-foreground">Create reusable shift templates for quick scheduling</p>
               <div className="flex items-center gap-2">
