@@ -405,7 +405,11 @@ function DayCell({
       recentTemplateIds={recentTemplateIds}
       onSelectTemplate={handleSmartTapSelect}
       isCompactMode={isCompactMode}
+      stations={hasStationPicker ? stations : undefined}
+      currentStationId={currentStationId ?? null}
+      onSelectStation={hasStationPicker ? onAssignStation : undefined}
     >
+
       <div 
         className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}
         onClick={canSmartTap ? () => setSmartTapOpen(true) : undefined}
