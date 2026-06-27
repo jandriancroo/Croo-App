@@ -348,30 +348,30 @@ export default function ScheduleTemplates() {
             </div>
 
             {shiftTemplates.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {shiftTemplates.map((template) => (
-                  <Card key={template.id} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: template.color }} />
-                          <h3 className="font-semibold text-lg">{template.position}</h3>
+                  <Card key={template.id} className="p-2.5">
+                    <div className="flex justify-between items-start gap-1">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: template.color }} />
+                          <h3 className="font-semibold text-sm truncate">{template.position}</h3>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {formatTime12Hour(template.start_time)} - {formatTime12Hour(template.end_time)}
+                        <p className="text-xs text-muted-foreground">
+                          {formatTime12Hour(template.start_time)} – {formatTime12Hour(template.end_time)}
                         </p>
-                        <p className="text-sm text-muted-foreground capitalize mt-1">
+                        <p className="text-[11px] text-muted-foreground capitalize">
                           {template.role.replace("_", " ")}
                         </p>
                         {template.days_of_week && template.days_of_week.length < 7 && (
-                          <p className="text-xs text-muted-foreground mt-2">
+                          <p className="text-[10px] text-muted-foreground mt-1">
                             {template.days_of_week.map(d => DAY_NAMES[d].slice(0, 3)).join(", ")}
                           </p>
                         )}
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 -mt-1"><MoreVertical className="h-3.5 w-3.5" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEditDialog(template)}>
@@ -390,6 +390,7 @@ export default function ScheduleTemplates() {
                   </Card>
                 ))}
               </div>
+
             ) : (
               <Card className="p-12 text-center">
                 <h3 className="text-lg font-semibold mb-2">No Shift Templates Yet</h3>
