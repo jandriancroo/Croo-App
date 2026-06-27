@@ -625,6 +625,19 @@ export default function LocationProfile() {
                       </div>
                     )}
                   </div>
+
+                  {/* Break Coverage Assignments */}
+                  <div className="border-t pt-6 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-base font-semibold">Break Coverage Assignments</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Lets you schedule break times within shifts and assign a coverer for each break. Used by daycares and any location with pre-arranged break coverage. When off, no break UI appears on the schedule.
+                        </p>
+                      </div>
+                      <Switch checked={breakCoverageEnabled} onCheckedChange={setBreakCoverageEnabled} />
+                    </div>
+                  </div>
                 </>
               )}
 
