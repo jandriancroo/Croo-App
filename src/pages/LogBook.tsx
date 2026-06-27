@@ -19,6 +19,7 @@ export default function LogBook() {
     activeTab, setActiveTab,
     searchQuery, setSearchQuery,
     searchDateFilter, setSearchDateFilter,
+    searchCategoryName, setSearchCategoryName,
     manageCategoriesOpen, setManageCategoriesOpen,
     showCateringUpload, setShowCateringUpload,
     cateringSearchQuery, setCateringSearchQuery,
@@ -26,7 +27,15 @@ export default function LogBook() {
     deleteEntryMutation,
     isAdmin, isManager, isShiftManager, roleLoading,
     hasMoreRecentEntries, loadMoreRecentEntries, isFetchingRecentEntries,
+    categories,
   } = data;
+
+  const searchCategoryOptions = [
+    ...((categories || []).map((c: any) => c.name).filter(Boolean)),
+    'Employee Write-Up',
+    'Read & Sign',
+    ...((isAdmin || isManager) ? ['Performance Review'] : []),
+  ];
 
   // Don't render if role is still loading or user doesn't have access
   if (roleLoading || (!isAdmin && !isManager && !isShiftManager)) {
