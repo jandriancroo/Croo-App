@@ -197,9 +197,9 @@ function EmployeeRowComponent({
                     return `${firstName}${lastInitial}`;
                   })()}
                 </p>
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex flex-col gap-0.5 min-w-0">
                   {roleBadge && (
-                    <span className="px-1.5 py-0 rounded-full text-[9px] font-semibold uppercase tracking-wide bg-muted text-muted-foreground border border-border whitespace-nowrap flex-shrink-0">
+                    <span className="px-1.5 py-0 rounded-full text-[9px] font-semibold uppercase tracking-wide bg-muted text-muted-foreground border border-border whitespace-nowrap self-start max-w-full truncate">
                       {roleBadge}
                     </span>
                   )}
