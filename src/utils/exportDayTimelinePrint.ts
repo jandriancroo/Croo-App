@@ -19,6 +19,12 @@ interface PrintShift {
   breaks?: unknown;
 }
 
+export interface PrintStation {
+  id: string;
+  name: string;
+  color?: string;
+}
+
 export interface DayTimelinePrintData {
   locationName: string;
   date: Date;
@@ -26,6 +32,10 @@ export interface DayTimelinePrintData {
   shifts: PrintShift[];
   /** Whether the location uses break coverage; controls page 2 detail. */
   breakCoverageEnabled?: boolean;
+  /** Optional stations to group by. When provided, output is grouped per station. */
+  stations?: PrintStation[];
+  /** Map of user_id -> station_id (or null for unassigned). */
+  stationAssignments?: Record<string, string | null>;
 }
 
 function escapeHtml(text: string): string {
