@@ -145,6 +145,24 @@ export function MobileDayPreviewSheet({
 
   const profileFor = (id: string | null) => profiles.find((p) => p.id === id) || null;
 
+  // Stations support
+  const { stations } = useLocationStations(currentLocation?.id);
+  const { assignments: stationAssignments } = useUserStationAssignments(currentLocation?.id);
+  const { data: stationsEnabledRow } = useQuery({
+    queryKey: ['location_stations_enabled', currentLocation?.id],
+    enabled: !!currentLocation?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('location_settings')
+        .select('stations_enabled')
+        .eq('location_id', currentLocation!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const stationsEnabled = !!(stationsEnabledRow as any)?.stations_enabled && (stations ?? []).length > 0;
+
   // Pending draft hours/cost
   const pendingHours = pendingDraft ? calcWorkedHours(pendingDraft.start, pendingDraft.end) : 0;
   const pendingWage = pendingDraft ? (profileFor(pendingDraft.employeeId)?.hourly_wage ?? 15) : 15;
