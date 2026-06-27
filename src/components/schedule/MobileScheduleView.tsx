@@ -1173,21 +1173,6 @@ export function MobileScheduleView({
                           <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
                         </button>
                       </>
-                    )}
-                    {scheduleId && (
-                      <>
-                        <div className="w-px bg-primary-foreground/15 my-1" />
-                        <button
-                          type="button"
-                          onClick={handlePrintDayTimeline}
-                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                        >
-                          <Printer className="h-3.5 w-3.5" />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide">Print/PDF</span>
-                        </button>
-                      </>
-                    )}
-                  </>
                 )}
               </div>
 
