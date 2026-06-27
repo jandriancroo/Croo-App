@@ -161,11 +161,14 @@ export default function Schedule() {
     if (!over) return;
 
     const isEmployeeDrag = profiles.some(p => p.id === active.id);
-    if (isEmployeeDrag && active.id !== over.id) {
-      const result = await handleDragReorder(active.id as string, over.id as string);
-      if (result?.type === 'role_change') {
-        setPendingRoleChange({ userId: result.userId, userName: result.userName, newRole: result.newRole });
-        setRoleChangeDialogOpen(true);
+    if (isEmployeeDrag) {
+      // Employee row drags only reorder within the same section now.
+      // Role changes happen exclusively on the User Management page.
+      if (active.id !== over.id) {
+        const result = await handleDragReorder(active.id as string, over.id as string);
+        if (result?.type === 'role_change') {
+          // Intentionally ignored — roles are managed in User Management.
+        }
       }
       return;
     }
