@@ -112,7 +112,7 @@ export function useScheduleData() {
   const [weeklyTotalSales, setWeeklyTotalSales] = useState(0);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
-  const [locationSettings, setLocationSettings] = useState<{ hours_open?: string; hours_close?: string } | null>(null);
+  const [locationSettings, setLocationSettings] = useState<{ hours_open?: string; hours_close?: string; stations_enabled?: boolean } | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
 
   const currentUserId = user?.id || null;
