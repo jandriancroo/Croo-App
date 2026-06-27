@@ -550,51 +550,41 @@ export function MobileShiftDialog({
         </div>
 
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-row flex-wrap gap-1.5 px-3 py-2 border-t shrink-0 bg-background">
           {/* Offer Up button - show for assigned shifts that aren't being created */}
           {!isCreating && shift?.user_id && (
-            <Button 
+            <Button
               variant="outline"
+              size="sm"
               onClick={() => setShowOfferDialog(true)}
-              className="w-full sm:w-auto sm:mr-auto border-primary/50 text-primary hover:bg-primary/10"
+              className="h-8 px-2 text-xs mr-auto border-primary/50 text-primary hover:bg-primary/10"
             >
-              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
               Offer Up
             </Button>
           )}
-          {isAdmin && !isCreating && !shift?.user_id && (
-            <Button 
-              variant="destructive" 
-              onClick={handleDelete} 
+          {isAdmin && !isCreating && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
               disabled={deleting}
-              className="w-full sm:w-auto sm:mr-auto"
+              className={`h-8 px-2 text-xs ${!shift?.user_id ? 'mr-auto' : ''}`}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleting ? 'Deleting...' : 'Delete'}
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              {deleting ? '...' : 'Delete'}
             </Button>
           )}
-          {isAdmin && !isCreating && shift?.user_id && (
-            <Button 
-              variant="destructive" 
-              onClick={handleDelete} 
-              disabled={deleting}
-              className="w-full sm:w-auto"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleting ? 'Deleting...' : 'Delete'}
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 px-3 text-xs">
+            {isAdmin ? 'Cancel' : 'Close'}
+          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 px-3 text-xs">
+              {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
             </Button>
           )}
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
-              {isAdmin ? 'Cancel' : 'Close'}
-            </Button>
-            {isAdmin && (
-              <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none">
-                {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
-              </Button>
-            )}
-          </div>
         </DialogFooter>
+
       </DialogContent>
 
       {/* Offer Up Dialog */}
