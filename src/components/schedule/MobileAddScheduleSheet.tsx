@@ -210,6 +210,25 @@ export function MobileAddScheduleSheet({
   const [popoverDayIdx, setPopoverDayIdx] = useState<number | null>(null);
   const customStartRef = useRef<HTMLInputElement>(null);
 
+  // Stations support — only render station UI when location toggled it on
+  const { data: stationsEnabledRow } = useQuery({
+    queryKey: ['location_stations_enabled', locationId],
+    enabled: !!locationId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('location_settings')
+        .select('stations_enabled')
+        .eq('location_id', locationId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const { stations } = useLocationStations(locationId);
+  const stationsList = stations ?? [];
+  const stationsEnabled = !!(stationsEnabledRow as any)?.stations_enabled && stationsList.length > 0;
+  const { assignments: stationAssignments, assign: assignUserStation } = useUserStationAssignments(locationId);
+
   // Init defaults on open
   useEffect(() => {
     if (!open) return;
