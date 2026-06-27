@@ -1429,38 +1429,42 @@ export function MobileScheduleView({
                     <div className="flex items-center gap-1 ml-auto">
                     </div>
                   </h4>
-                  {dayPunches.map(punch => (
-                    <MobileShiftCard
-                      key={punch.id}
-                      name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
-                      avatarUrl={punch.profile.profile_photo_url}
-                      startTime={punch.scheduledShift?.start_time || '00:00'}
-                      endTime={punch.scheduledShift?.end_time || '00:00'}
-                      statusIndicator="none"
-                      scheduledStart={punch.scheduledShift?.start_time}
-                      scheduledEnd={punch.scheduledShift?.end_time}
-                      isPhantom={punch.scheduledShift?.is_phantom}
-                      clockInTime={punch.clockInTime}
-                      clockOutTime={punch.clockOutTime}
-                      breakStartTime={punch.breakStartTime}
-                      breakEndTime={punch.breakEndTime}
-                      hoursWorked={punch.hoursWorked}
-                      createdByName={punch.createdByName}
-                      timezone={timezone}
-                      formatTimeDisplay={formatTimeDisplay}
-                      showBreakIndicator={false}
-                      onClick={() => {
-                        setSelectedPunch({
-                          userId: punch.user_id,
-                          userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                          userPhoto: punch.profile.profile_photo_url,
-                          punchDate: selectedDateStr,
-                          clockInId: punch.id,
-                        });
-                        setEditPunchOpen(true);
-                      }}
-                    />
-                  ))}
+                  {renderMaybeStationGrouped(
+                    dayPunches,
+                    (punch) => punch.user_id,
+                    (punch) => (
+                      <MobileShiftCard
+                        name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                        avatarUrl={punch.profile.profile_photo_url}
+                        startTime={punch.scheduledShift?.start_time || '00:00'}
+                        endTime={punch.scheduledShift?.end_time || '00:00'}
+                        statusIndicator="none"
+                        scheduledStart={punch.scheduledShift?.start_time}
+                        scheduledEnd={punch.scheduledShift?.end_time}
+                        isPhantom={punch.scheduledShift?.is_phantom}
+                        clockInTime={punch.clockInTime}
+                        clockOutTime={punch.clockOutTime}
+                        breakStartTime={punch.breakStartTime}
+                        breakEndTime={punch.breakEndTime}
+                        hoursWorked={punch.hoursWorked}
+                        createdByName={punch.createdByName}
+                        timezone={timezone}
+                        formatTimeDisplay={formatTimeDisplay}
+                        showBreakIndicator={false}
+                        onClick={() => {
+                          setSelectedPunch({
+                            userId: punch.user_id,
+                            userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                            userPhoto: punch.profile.profile_photo_url,
+                            punchDate: selectedDateStr,
+                            clockInId: punch.id,
+                          });
+                          setEditPunchOpen(true);
+                        }}
+                      />
+                    ),
+                    (punch) => punch.id,
+                  )}
                 </div>
               ) : (
                 /* Future days or past without punches — show all scheduled shifts */
