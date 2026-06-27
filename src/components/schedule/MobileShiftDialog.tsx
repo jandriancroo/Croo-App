@@ -35,6 +35,7 @@ interface Shift {
   end_time: string;
   shift_date: string;
   template_id?: string | null;
+  breaks?: unknown;
   template?: {
     position: string | null;
     color: string | null;
