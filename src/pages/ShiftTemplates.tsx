@@ -62,6 +62,7 @@ export default function ShiftTemplates() {
       position: "",
       days_of_week: [0, 1, 2, 3, 4, 5, 6],
       allowed_roles: ["team_member"],
+      breaks: [],
     });
     setCustomPosition("");
     setShowCustomPosition(false);
