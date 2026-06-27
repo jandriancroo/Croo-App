@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { MapPin, ArrowLeft, Save, Shield, CalendarIcon, X } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
+import { StationsManagerCard } from '@/components/settings/StationsManagerCard';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -635,6 +636,11 @@ export default function LocationProfile() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Stations (schedule grouping) */}
+          {!isNew && locationId && (
+            <StationsManagerCard locationId={locationId} />
+          )}
 
           {/* Labor Rules */}
           {!isNew && (
