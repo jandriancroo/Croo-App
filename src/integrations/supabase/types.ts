@@ -10303,6 +10303,7 @@ export type Database = {
           created_at: string
           id: string
           location_id: string
+          primary_station_id: string | null
           show_on_schedule: boolean
           user_id: string
         }
@@ -10310,6 +10311,7 @@ export type Database = {
           created_at?: string
           id?: string
           location_id: string
+          primary_station_id?: string | null
           show_on_schedule?: boolean
           user_id: string
         }
@@ -10317,6 +10319,7 @@ export type Database = {
           created_at?: string
           id?: string
           location_id?: string
+          primary_station_id?: string | null
           show_on_schedule?: boolean
           user_id?: string
         }
@@ -10326,6 +10329,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_locations_primary_station_id_fkey"
+            columns: ["primary_station_id"]
+            isOneToOne: false
+            referencedRelation: "location_stations"
             referencedColumns: ["id"]
           },
         ]
