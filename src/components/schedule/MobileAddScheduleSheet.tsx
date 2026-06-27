@@ -105,6 +105,8 @@ interface Props {
   scheduleId: string | null;
   locationId?: string | null;
   shifts: ExistingShift[];
+  /** Prior week's shifts — used to surface "Last Week" templates per employee (Smart Tap behavior). */
+  lastWeekShifts?: Array<{ user_id: string | null; template_id: string | null; shift_date: string }>;
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
   defaultTab?: 'shift' | 'employee';
