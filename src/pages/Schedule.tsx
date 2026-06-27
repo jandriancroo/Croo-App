@@ -36,7 +36,7 @@ import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog
 import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 import { useLocationStations } from "@/hooks/useLocationStations";
 import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
-import { StationAssignChip } from "@/components/schedule/StationAssignChip";
+// StationAssignChip removed — station assignment moved into SmartTap popover
 import { StationGroupSection } from "@/components/schedule/StationGroupSection";
 
 export default function Schedule() {
@@ -511,17 +511,6 @@ export default function Schedule() {
                                 <SortableContext items={roleProfiles.map(p => p.id)} strategy={verticalListSortingStrategy}>
                                   {roleProfiles.map((profile) => (
                                     <div key={profile.id} className="relative">
-                                      {useStationGrouping && (isAdmin || isManager) && (
-                                        <div className="absolute right-2 top-1 z-10">
-                                          <StationAssignChip
-                                            userId={profile.id}
-                                            userName={profile.full_name}
-                                            stations={stations}
-                                            currentStationId={stationAssignments[profile.id] ?? null}
-                                            onAssign={(sid) => assignUserStation(profile.id, sid)}
-                                          />
-                                        </div>
-                                      )}
                                       <EmployeeRow
                                         profile={profile}
                                         shifts={shifts.filter((s) => s.user_id === profile.id)}
@@ -541,9 +530,13 @@ export default function Schedule() {
                                         holidays={holidays}
                                         allShifts={lastWeekShifts}
                                         onSmartTap={onSmartTap}
+                                        stations={useStationGrouping ? stations : undefined}
+                                        currentStationId={stationAssignments[profile.id] ?? null}
+                                        onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
                                       />
                                     </div>
                                   ))}
+
                                 </SortableContext>
                               </CollapsibleContent>
                             </div>
@@ -585,17 +578,6 @@ export default function Schedule() {
                             <SortableContext items={profilesIn.map(p => p.id)} strategy={verticalListSortingStrategy}>
                               {profilesIn.map((profile: any) => (
                                 <div key={profile.id} className="relative">
-                                  {(isAdmin || isManager) && (
-                                    <div className="absolute right-2 top-1 z-10">
-                                      <StationAssignChip
-                                        userId={profile.id}
-                                        userName={profile.full_name}
-                                        stations={stations}
-                                        currentStationId={stationAssignments[profile.id] ?? null}
-                                        onAssign={(sid) => assignUserStation(profile.id, sid)}
-                                      />
-                                    </div>
-                                  )}
                                   <EmployeeRow
                                     profile={profile}
                                     roleBadge={roleLabels[profile.role] || undefined}
@@ -616,9 +598,13 @@ export default function Schedule() {
                                     holidays={holidays}
                                     allShifts={lastWeekShifts}
                                     onSmartTap={onSmartTap}
+                                    stations={stations}
+                                    currentStationId={stationAssignments[profile.id] ?? null}
+                                    onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
                                   />
                                 </div>
                               ))}
+
                             </SortableContext>
                           </StationGroupSection>
                         );

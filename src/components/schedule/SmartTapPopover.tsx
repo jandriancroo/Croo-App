@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sparkles } from "lucide-react";
+import { Sparkles, MapPin, Check } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 
 interface ShiftTemplate {
@@ -13,6 +13,12 @@ interface ShiftTemplate {
   position?: string;
 }
 
+interface StationOption {
+  id: string;
+  name: string;
+  color?: string | null;
+}
+
 interface SmartTapPopoverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -21,6 +27,10 @@ interface SmartTapPopoverProps {
   onSelectTemplate: (template: ShiftTemplate) => void;
   children: React.ReactNode;
   isCompactMode?: boolean;
+  /** Stations enabled at the location. When provided, a Station picker appears in the popover. */
+  stations?: StationOption[];
+  currentStationId?: string | null;
+  onSelectStation?: (stationId: string | null) => void;
 }
 
 const MAX_PER_COLUMN = 5;
@@ -33,7 +43,11 @@ function SmartTapPopoverComponent({
   onSelectTemplate,
   children,
   isCompactMode = false,
+  stations,
+  currentStationId,
+  onSelectStation,
 }: SmartTapPopoverProps) {
+
   const { recentTemplates, otherColumns } = useMemo(() => {
     const recent: ShiftTemplate[] = [];
     const others: ShiftTemplate[] = [];
@@ -58,10 +72,12 @@ function SmartTapPopoverComponent({
     return { recentTemplates: recent.slice(0, 3), otherColumns: columns };
   }, [templates, recentTemplateIds]);
 
-  if (templates.length === 0) return <>{children}</>;
+  const hasStations = !!(stations && stations.length > 0 && onSelectStation);
+  if (templates.length === 0 && !hasStations) return <>{children}</>;
 
   const hasRecent = recentTemplates.length > 0;
   const hasOthers = otherColumns.length > 0;
+
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -73,7 +89,49 @@ function SmartTapPopoverComponent({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="flex gap-2 overflow-x-auto">
+          {/* Stations column (only when enabled at this location) */}
+          {hasStations && (
+            <div className="min-w-[140px] flex-shrink-0">
+              <div className="flex items-center gap-1.5 px-1 pb-1">
+                <MapPin className="h-3 w-3 text-sky-500" />
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Station
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => { onSelectStation?.(null); onOpenChange(false); }}
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent/70"
+                >
+                  <span className="text-muted-foreground">Unassigned</span>
+                  {(currentStationId ?? null) === null && <Check className="h-3.5 w-3.5" />}
+                </button>
+                {stations!.map((s) => (
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => { onSelectStation?.(s.id); onOpenChange(false); }}
+                    className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent/70"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                        style={{ background: s.color || "#94a3b8" }}
+                      />
+                      <span className="truncate">{s.name}</span>
+                    </span>
+                    {currentStationId === s.id && <Check className="h-3.5 w-3.5" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {hasStations && (hasRecent || hasOthers) && (
+            <div className="w-px bg-border flex-shrink-0" />
+          )}
           {/* Recent column */}
+
           {hasRecent && (
             <div className="min-w-[130px] flex-shrink-0">
               <div className="flex items-center gap-1.5 px-1 pb-1">

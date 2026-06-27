@@ -67,7 +67,12 @@ interface EmployeeRowProps {
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
   /** Optional small badge shown next to the name (e.g. "Manager"). */
   roleBadge?: string;
+  /** Stations enabled at the location (passed to SmartTap popover). */
+  stations?: { id: string; name: string; color?: string | null }[];
+  currentStationId?: string | null;
+  onAssignStation?: (userId: string, stationId: string | null) => void;
 }
+
 
 function EmployeeRowComponent({
   profile,
@@ -88,8 +93,12 @@ function EmployeeRowComponent({
   holidays = [],
   allShifts = [],
   onSmartTap,
-  roleBadge
+  roleBadge,
+  stations,
+  currentStationId,
+  onAssignStation,
 }: EmployeeRowProps) {
+
   const navigate = useNavigate();
   const weekDays = Array.from({
     length: 7
@@ -263,7 +272,11 @@ function EmployeeRowComponent({
          recentTemplateIds={recentTemplateIds}
          onSmartTap={onSmartTap}
          cellDateStr={cellDateStr}
+         stations={stations}
+         currentStationId={currentStationId}
+         onAssignStation={onAssignStation ? (sid) => onAssignStation(profile.id, sid) : undefined}
        />;
+
     })}
     </div>;
 }
@@ -286,7 +299,10 @@ function DayCell({
   templates = [],
   recentTemplateIds = [],
   onSmartTap,
-  cellDateStr = ""
+  cellDateStr = "",
+  stations,
+  currentStationId,
+  onAssignStation,
 }: {
   userId: string;
   dayIndex: number;
@@ -307,7 +323,11 @@ function DayCell({
   recentTemplateIds?: string[];
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
   cellDateStr?: string;
+  stations?: { id: string; name: string; color?: string | null }[];
+  currentStationId?: string | null;
+  onAssignStation?: (stationId: string | null) => void;
 }) {
+
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
     setNodeRef,
@@ -317,7 +337,9 @@ function DayCell({
   });
   
   const [smartTapOpen, setSmartTapOpen] = useState(false);
-  const canSmartTap = onSmartTap && templates.length > 0 && shifts.length === 0 && userId !== "unassigned";
+  const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
+  const canSmartTap = !!onSmartTap && (templates.length > 0 || hasStationPicker) && shifts.length === 0 && userId !== "unassigned";
+
   
   const formatTime12h = (time: string) => {
     const parts = time.split(":");
@@ -383,7 +405,11 @@ function DayCell({
       recentTemplateIds={recentTemplateIds}
       onSelectTemplate={handleSmartTapSelect}
       isCompactMode={isCompactMode}
+      stations={hasStationPicker ? stations : undefined}
+      currentStationId={currentStationId ?? null}
+      onSelectStation={hasStationPicker ? onAssignStation : undefined}
     >
+
       <div 
         className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}
         onClick={canSmartTap ? () => setSmartTapOpen(true) : undefined}
