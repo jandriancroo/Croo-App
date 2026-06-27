@@ -418,18 +418,14 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
   <thead>
     <tr>
       <th class="name-th">Employee</th>
-      <th>
-        <div style="position:relative;height:14px;width:100%">
-          ${hourHeaders
-            .map(
-              (h, i) =>
-                `<div class="hour-tick" style="left:${(i / hourHeaders.length) * 100}%;width:${100 / hourHeaders.length}%">${h}</div>`,
-            )
-            .join('')}
+      <th class="hours-th">
+        <div class="hours-row">
+          ${hourHeaders.map((h) => `<div class="hours-row-cell">${h}</div>`).join('')}
         </div>
       </th>
     </tr>
   </thead>
+
   <tbody>
     ${timelineRows || '<tr><td class="name-cell">—</td><td class="timeline-cell"><em>No shifts</em></td></tr>'}
   </tbody>
