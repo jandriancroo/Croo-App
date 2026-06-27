@@ -833,7 +833,7 @@ export function MobileAddScheduleSheet({
               <Badge className="text-base px-3 py-1">{totalWeekHours.toFixed(1)}h</Badge>
             </div>
             <DialogFooter className="gap-2 flex-row">
-              <Button variant="outline" onClick={() => setReviewOpen(false)} className="flex-1">Back</Button>
+              <Button variant="outline" onClick={() => { setPendingEmpSwitchId(null); setReviewOpen(false); }} className="flex-1">Back</Button>
               <Button onClick={handleApplyWeek} disabled={savingWeek} className="flex-1">
                 {savingWeek ? 'Applying...' : 'Apply'}
               </Button>
