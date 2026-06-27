@@ -559,7 +559,10 @@ export function DayBreakdownDialog({
                                   <div
                                     key={br.id ?? i}
                                     title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}`}
-                                    className="absolute top-0 h-full rounded border border-amber-700 bg-amber-300 pointer-events-none"
+                                    className="absolute top-0 h-full rounded border border-amber-600/60 pointer-events-none opacity-70"
+                                    style={{
+                                      // overrides set below via inline style
+                                    }}
                                     style={{ left: `${bLeft}%`, width: `${bWidth}%`, zIndex: 2 }}
                                   />
                                 );
