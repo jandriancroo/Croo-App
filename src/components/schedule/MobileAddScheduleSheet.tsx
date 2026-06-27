@@ -591,7 +591,11 @@ export function MobileAddScheduleSheet({
                     setEmpUserId(v);
                   }
                 }}>
-                  <SelectTrigger><SelectValue placeholder="Pick employee" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick employee">
+                      {empProfile ? (empProfile.nickname || empProfile.full_name) : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
