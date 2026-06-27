@@ -351,8 +351,17 @@ export function useLogBookData() {
       : [...recentEntries, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries];
     const sorted = combined.sort((a: any, b: any) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return searchTerms.length > 0 ? sorted : sorted.slice(0, 100);
+    return sorted;
   }, [searchTerms, searchResults, recentEntries, writeUpEntries, readAndSignEntries, performanceReviewEntries]);
+
+  const hasMoreRecentEntries = useMemo(() =>
+    searchTerms.length === 0 && recentEntries.length >= RECENT_PAGE_SIZE * recentPage,
+  [searchTerms.length, recentEntries.length, recentPage]);
+
+  const loadMoreRecentEntries = useCallback(() => {
+    setRecentPage(prev => prev + 1);
+  }, []);
+
 
   // Category IDs
   const bankDepositCategoryId = useMemo(() => categories.find((c: any) => c.name?.toLowerCase() === 'bank deposit')?.id, [categories]);
