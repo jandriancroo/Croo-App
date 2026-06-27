@@ -142,6 +142,7 @@ export default function LocationProfile() {
         setCutoffEnabled(!!(data as any).time_off_cutoff_enabled);
         if (typeof (data as any).time_off_cutoff_days_before === "number") setCutoffDaysBefore((data as any).time_off_cutoff_days_before);
         if ((data as any).time_off_cutoff_time) setCutoffTime(String((data as any).time_off_cutoff_time).slice(0, 5));
+        setBreakCoverageEnabled(!!(data as any).break_coverage_enabled);
       }
     } catch (error) {
       console.error("Error fetching location settings:", error);
