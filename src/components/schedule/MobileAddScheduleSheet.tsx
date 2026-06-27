@@ -204,6 +204,9 @@ export function MobileAddScheduleSheet({
   // When user picks a different team member while drafts exist, we route through Confirm Week.
   // If Apply succeeds → switch to this id; if Back → keep working on the current employee.
   const [pendingEmpSwitchId, setPendingEmpSwitchId] = useState<string | null>(null);
+  // Smart-Tap popover state — which day's chip is currently open (0..6, or null)
+  const [popoverDayIdx, setPopoverDayIdx] = useState<number | null>(null);
+  const customStartRef = useRef<HTMLInputElement>(null);
 
   // Init defaults on open
   useEffect(() => {
