@@ -234,6 +234,27 @@ export function MobileAddScheduleSheet({
     return map;
   }, [empUserId, shifts]);
 
+  // Shift count per user (for dropdown badges). For the currently selected user,
+  // include in-progress drafts so the badge reflects what they're building right now.
+  const shiftCountByUser = useMemo(() => {
+    const m: Record<string, Set<string>> = {};
+    shifts.forEach(s => {
+      if (!s.user_id) return;
+      if (!m[s.user_id]) m[s.user_id] = new Set();
+      m[s.user_id].add(s.shift_date);
+    });
+    const out: Record<string, number> = {};
+    Object.entries(m).forEach(([uid, set]) => { out[uid] = set.size; });
+    if (empUserId) {
+      const days = new Set(m[empUserId] || []);
+      Object.entries(weekDraft).forEach(([i, v]) => {
+        if (v) days.add(format(weekDays[parseInt(i)], 'yyyy-MM-dd'));
+      });
+      out[empUserId] = days.size;
+    }
+    return out;
+  }, [shifts, weekDraft, empUserId, weekDays]);
+
   const totalWeekHours = useMemo(() => {
     let h = 0;
     // existing shifts not overridden
