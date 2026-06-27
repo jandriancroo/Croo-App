@@ -487,6 +487,15 @@ export default function ShiftTemplates() {
                   />
                 </div>
 
+                {breakCoverageEnabled && (
+                  <BreakEditor
+                    value={formData.breaks}
+                    onChange={(b) => setFormData({ ...formData, breaks: b })}
+                    shiftStart={formData.start_time}
+                    shiftEnd={formData.end_time}
+                  />
+                )}
+
                 <Button type="submit" className="w-full">
                   {editingTemplate ? "Update Template" : "Create Template"}
                 </Button>
