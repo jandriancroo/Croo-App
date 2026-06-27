@@ -455,9 +455,17 @@ export function useLogBookData() {
     return prevDaySafeCounts.some(sc => sc.shift === 'PM' && checkNeedsBankRun(sc));
   };
 
+  const categoryFilteredEntries = useMemo(() => {
+    if (!searchCategoryName) return expandedEntries;
+    const target = searchCategoryName.toLowerCase();
+    return expandedEntries.filter((entry: any) =>
+      (entry.logbook_categories?.name || '').toLowerCase() === target
+    );
+  }, [expandedEntries, searchCategoryName]);
+
   const dateFilteredEntries = useMemo(() => searchDateFilter
-    ? expandedEntries.filter((entry: any) => entry.entry_date === format(searchDateFilter, 'yyyy-MM-dd'))
-    : expandedEntries, [searchDateFilter, expandedEntries]);
+    ? categoryFilteredEntries.filter((entry: any) => entry.entry_date === format(searchDateFilter, 'yyyy-MM-dd'))
+    : categoryFilteredEntries, [searchDateFilter, categoryFilteredEntries]);
 
   const entriesByDay = useMemo(() => dateFilteredEntries.reduce((acc: any, entry: any) => {
     const dateKey = entry.entry_date;
