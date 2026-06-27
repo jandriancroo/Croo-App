@@ -19,6 +19,12 @@ interface PrintShift {
   breaks?: unknown;
 }
 
+export interface PrintStation {
+  id: string;
+  name: string;
+  color?: string;
+}
+
 export interface DayTimelinePrintData {
   locationName: string;
   date: Date;
@@ -26,6 +32,10 @@ export interface DayTimelinePrintData {
   shifts: PrintShift[];
   /** Whether the location uses break coverage; controls page 2 detail. */
   breakCoverageEnabled?: boolean;
+  /** Optional stations to group by. When provided, output is grouped per station. */
+  stations?: PrintStation[];
+  /** Map of user_id -> station_id (or null for unassigned). */
+  stationAssignments?: Record<string, string | null>;
 }
 
 function escapeHtml(text: string): string {
@@ -110,112 +120,156 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
     return Math.max(0, Math.min(100, (mins / totalMinutes) * 100));
   }
 
-  const timelineRows = profilesWithShifts
-    .map((p) => {
-      const userShifts = shiftsByUser.get(p.id) || [];
-      const coveringBlocks = coveringByUser.get(p.id) || [];
+  const renderTimelineRow = (p: PrintProfile): string => {
+    const userShifts = shiftsByUser.get(p.id) || [];
+    const coveringBlocks = coveringByUser.get(p.id) || [];
 
-      const shiftBars = userShifts
-        .map((s) => {
-          if (!s.start_time || !s.end_time) return '';
-          const left = pctFor(s.start_time);
-          let right = pctFor(s.end_time);
-          if (right <= left) right = 100;
-          const width = right - left;
-          const color = s.template_color || '#3b82f6';
-          const breaks = normalizeBreaks(s.breaks);
-          const breakHtml = breaks
-            .map((b) => {
-              const bLeft = pctFor(b.start_time);
-              let bRight = pctFor(b.end_time);
-              if (bRight <= bLeft) bRight = bLeft + 1;
-              const bWidth = bRight - bLeft;
-              const tooltip = `Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}`;
-              return `<div class="break-overlay" style="left:${bLeft}%;width:${bWidth}%" title="${escapeHtml(tooltip)}"></div>`;
-            })
-            .join('');
-          const rawLabel = s.position || s.template_name || '';
-          // Strip trailing time range (e.g. "Teacher 7:00 AM - 4:00 PM" → "Teacher")
-          const label = rawLabel.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*$/i, '').trim();
-          return `
-            <div class="shift-bar" style="left:${left}%;width:${width}%;background:${color}22;border-color:${color}">
-              <span class="shift-time" style="color:${color}">${formatTime12(s.start_time)}–${formatTime12(s.end_time)}</span>
-              ${label ? `<span class="shift-label">${escapeHtml(label)}</span>` : ''}
-              ${breakHtml}
-            </div>`;
-        })
-        .join('');
+    const shiftBars = userShifts
+      .map((s) => {
+        if (!s.start_time || !s.end_time) return '';
+        const left = pctFor(s.start_time);
+        let right = pctFor(s.end_time);
+        if (right <= left) right = 100;
+        const width = right - left;
+        const color = s.template_color || '#3b82f6';
+        const breaks = normalizeBreaks(s.breaks);
+        const breakHtml = breaks
+          .map((b) => {
+            const bLeft = pctFor(b.start_time);
+            let bRight = pctFor(b.end_time);
+            if (bRight <= bLeft) bRight = bLeft + 1;
+            const bWidth = bRight - bLeft;
+            const tooltip = `Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}`;
+            return `<div class="break-overlay" style="left:${bLeft}%;width:${bWidth}%" title="${escapeHtml(tooltip)}"></div>`;
+          })
+          .join('');
+        const rawLabel = s.position || s.template_name || '';
+        const label = rawLabel.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*$/i, '').trim();
+        return `
+          <div class="shift-bar" style="left:${left}%;width:${width}%;background:${color}22;border-color:${color}">
+            <span class="shift-time" style="color:${color}">${formatTime12(s.start_time)}–${formatTime12(s.end_time)}</span>
+            ${label ? `<span class="shift-label">${escapeHtml(label)}</span>` : ''}
+            ${breakHtml}
+          </div>`;
+      })
+      .join('');
 
-      const coveringBars = coveringBlocks
-        .map((c) => {
-          const left = pctFor(c.start);
-          let right = pctFor(c.end);
-          if (right <= left) right = left + 1;
-          const width = right - left;
-          return `<div class="covering-bar" style="left:${left}%;width:${width}%" title="Covering ${escapeHtml(c.coveredUserName)} ${formatTime12(c.start)}–${formatTime12(c.end)}">Covering ${escapeHtml(c.coveredUserName)}</div>`;
-        })
-        .join('');
+    const coveringBars = coveringBlocks
+      .map((c) => {
+        const left = pctFor(c.start);
+        let right = pctFor(c.end);
+        if (right <= left) right = left + 1;
+        const width = right - left;
+        return `<div class="covering-bar" style="left:${left}%;width:${width}%" title="Covering ${escapeHtml(c.coveredUserName)} ${formatTime12(c.start)}–${formatTime12(c.end)}">Covering ${escapeHtml(c.coveredUserName)}</div>`;
+      })
+      .join('');
 
-      return `
-        <tr>
-          <td class="name-cell">${escapeHtml(p.full_name)}${p.role && p.role !== 'team_member' ? `<span class="role-tag">${escapeHtml(p.role.replace(/_/g, ' '))}</span>` : ''}</td>
-          <td class="timeline-cell">
-            <div class="timeline-track">
-              ${hourHeaders.map((_, i) => `<div class="hour-grid" style="left:${(i / hourHeaders.length) * 100}%"></div>`).join('')}
-              ${shiftBars}
-              ${coveringBars}
+    return `
+      <tr>
+        <td class="name-cell">${escapeHtml(p.full_name)}${p.role && p.role !== 'team_member' ? `<span class="role-tag">${escapeHtml(p.role.replace(/_/g, ' '))}</span>` : ''}</td>
+        <td class="timeline-cell">
+          <div class="timeline-track">
+            ${hourHeaders.map((_, i) => `<div class="hour-grid" style="left:${(i / hourHeaders.length) * 100}%"></div>`).join('')}
+            ${shiftBars}
+            ${coveringBars}
+          </div>
+        </td>
+      </tr>`;
+  };
+
+  const renderRosterItem = (p: PrintProfile): string => {
+    const userShifts = shiftsByUser.get(p.id) || [];
+    const coveringBlocks = coveringByUser.get(p.id) || [];
+
+    const shiftItems = userShifts
+      .map((s) => {
+        const breaks = normalizeBreaks(s.breaks);
+        const breakItems = breaks
+          .map((b) => `<div class="break-line">☕ Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}</div>`)
+          .join('');
+        const rawLabel = s.position || s.template_name || '';
+        const label = rawLabel.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*$/i, '').trim();
+        return `
+          <div class="shift-entry">
+            <div class="shift-line">
+              <strong>${formatTime12(s.start_time)}–${formatTime12(s.end_time)}</strong>
+              ${label ? ` · ${escapeHtml(label)}` : ''}
             </div>
-          </td>
-        </tr>`;
+            ${breakItems}
+          </div>`;
+      })
+      .join('');
+
+    const coveringHtml =
+      coveringBlocks.length > 0
+        ? `<div class="covering-section">
+            <div class="covering-header">Covering</div>
+            ${coveringBlocks
+              .map(
+                (c) =>
+                  `<div class="covering-line">↳ ${escapeHtml(c.coveredUserName)} · ${formatTime12(c.start)}–${formatTime12(c.end)}</div>`,
+              )
+              .join('')}
+          </div>`
+        : '';
+
+    return `
+      <div class="roster-item">
+        <div class="roster-name">${escapeHtml(p.full_name)}${p.role && p.role !== 'team_member' ? `<span class="role-tag-2">${escapeHtml(p.role.replace(/_/g, ' '))}</span>` : ''}</div>
+        ${shiftItems || '<div class="no-shift">(no shift)</div>'}
+        ${coveringHtml}
+      </div>`;
+  };
+
+  // Build station sections (or single "all" section when stations disabled)
+  const useStations = !!data.stations && data.stations.length > 0 && !!data.stationAssignments;
+  type Section = { id: string; name: string; color?: string; profiles: PrintProfile[] };
+  const sections: Section[] = (() => {
+    if (!useStations) {
+      return [{ id: 'all', name: '', profiles: profilesWithShifts }];
+    }
+    const out: Section[] = data.stations!.map((st) => ({
+      id: st.id,
+      name: st.name,
+      color: st.color,
+      profiles: profilesWithShifts.filter((p) => data.stationAssignments![p.id] === st.id),
+    }));
+    const unassigned = profilesWithShifts.filter(
+      (p) => !data.stationAssignments![p.id],
+    );
+    if (unassigned.length > 0) {
+      out.push({ id: 'unassigned', name: 'Unassigned', color: undefined, profiles: unassigned });
+    }
+    return out.filter((s) => s.profiles.length > 0);
+  })();
+
+  const stationHeaderRow = (s: Section) => `
+    <tr class="station-header-row">
+      <td colspan="2" class="station-header-cell">
+        <span class="station-swatch" style="background:${s.color || '#9ca3af'}"></span>
+        <span class="station-name">${escapeHtml(s.name)}</span>
+        <span class="station-count">${s.profiles.length} staff</span>
+      </td>
+    </tr>`;
+
+  const timelineRows = sections
+    .map((s) => {
+      const rows = s.profiles.map(renderTimelineRow).join('');
+      return useStations ? stationHeaderRow(s) + rows : rows;
     })
     .join('');
 
-  // Page 2 — roster + coverage list (portrait)
-  const rosterItems = profilesWithShifts
-    .map((p) => {
-      const userShifts = shiftsByUser.get(p.id) || [];
-      const coveringBlocks = coveringByUser.get(p.id) || [];
-
-      const shiftItems = userShifts
-        .map((s) => {
-          const breaks = normalizeBreaks(s.breaks);
-          const breakItems = breaks
-            .map((b) => {
-              return `<div class="break-line">☕ Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}</div>`;
-            })
-            .join('');
-          const rawLabel = s.position || s.template_name || '';
-          const label = rawLabel.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*$/i, '').trim();
-          return `
-            <div class="shift-entry">
-              <div class="shift-line">
-                <strong>${formatTime12(s.start_time)}–${formatTime12(s.end_time)}</strong>
-                ${label ? ` · ${escapeHtml(label)}` : ''}
-              </div>
-              ${breakItems}
-            </div>`;
-        })
-        .join('');
-
-      const coveringHtml =
-        coveringBlocks.length > 0
-          ? `<div class="covering-section">
-              <div class="covering-header">Covering</div>
-              ${coveringBlocks
-                .map(
-                  (c) =>
-                    `<div class="covering-line">↳ ${escapeHtml(c.coveredUserName)} · ${formatTime12(c.start)}–${formatTime12(c.end)}</div>`,
-                )
-                .join('')}
-            </div>`
-          : '';
-
-      return `
-        <div class="roster-item">
-          <div class="roster-name">${escapeHtml(p.full_name)}${p.role && p.role !== 'team_member' ? `<span class="role-tag-2">${escapeHtml(p.role.replace(/_/g, ' '))}</span>` : ''}</div>
-          ${shiftItems || '<div class="no-shift">(no shift)</div>'}
-          ${coveringHtml}
-        </div>`;
+  const rosterItems = sections
+    .map((s) => {
+      const items = s.profiles.map(renderRosterItem).join('');
+      const header = useStations
+        ? `<div class="roster-station-header" style="break-inside:avoid;">
+             <span class="station-swatch" style="background:${s.color || '#9ca3af'}"></span>
+             <span class="station-name">${escapeHtml(s.name)}</span>
+             <span class="station-count">${s.profiles.length} staff</span>
+           </div>`
+        : '';
+      return `<div class="roster-station-group">${header}<div class="roster-grid">${items}</div></div>`;
     })
     .join('');
 
@@ -359,6 +413,40 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
 
   /* Page 2 — roster */
   .page-break { page-break-before: always; }
+  .roster-sections { display: block; }
+  .roster-station-group { margin-bottom: 14px; break-inside: avoid; }
+  .roster-station-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0 6px;
+    margin-bottom: 6px;
+    border-bottom: 2px solid #d1d5db;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .station-swatch {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+  .station-name { color: #1a1a1a; }
+  .station-count { font-size: 10px; color: #888; font-weight: 500; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+
+  /* Page 1 station header rows */
+  tr.station-header-row td.station-header-cell {
+    background: #f3f4f6;
+    padding: 6px 10px;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: 2px solid #9ca3af;
+  }
+  tr.station-header-row .station-name { vertical-align: middle; }
+
   .roster-grid {
     columns: 2;
     column-gap: 18px;
@@ -454,7 +542,7 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
   <div class="date">${dateLabel}</div>
 </div>
 
-<div class="roster-grid">
+<div class="roster-sections">
   ${rosterItems || '<div class="no-shift">No shifts scheduled.</div>'}
 </div>
 

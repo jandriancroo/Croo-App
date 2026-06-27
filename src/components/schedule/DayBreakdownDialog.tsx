@@ -13,6 +13,7 @@ import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
 import { exportDayTimelineToPrint } from "@/utils/exportDayTimelinePrint";
 import { normalizeBreaks } from "@/types/shiftBreak";
+import type { LocationStation } from "@/hooks/useLocationStations";
 interface DayBreakdownDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,6 +25,9 @@ interface DayBreakdownDialogProps {
   profiles: { id: string; full_name?: string | null; hourly_wage?: number | null; role?: string | null }[];
   // Location settings for business hours
   locationSettings?: { hours_open?: string; hours_close?: string; break_coverage_enabled?: boolean } | null;
+  // Optional station grouping
+  stations?: LocationStation[];
+  stationAssignments?: Record<string, string | null>;
 }
 
 export function DayBreakdownDialog({
@@ -34,6 +38,8 @@ export function DayBreakdownDialog({
   shifts,
   profiles,
   locationSettings,
+  stations,
+  stationAssignments,
 }: DayBreakdownDialogProps) {
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
@@ -349,8 +355,32 @@ export function DayBreakdownDialog({
           breaks: shift.breaks,
         })),
       breakCoverageEnabled: !!locationSettings?.break_coverage_enabled,
+      stations: stations,
+      stationAssignments: stationAssignments,
     });
   };
+
+  // Group sorted shifts by station for in-app timeline rendering
+  const useStations = !!stations && stations.length > 0 && !!stationAssignments;
+  const timelineSections: Array<{ key: string; label: string; color?: string; shifts: any[] }> = (() => {
+    const nonTimeOff = sortedDayShifts.filter((s: any) => !s.is_time_off);
+    if (!useStations) {
+      return [{ key: "all", label: "", shifts: nonTimeOff }];
+    }
+    const sections = stations!.map((st) => ({
+      key: st.id,
+      label: st.name,
+      color: st.color,
+      shifts: nonTimeOff.filter((s: any) => stationAssignments![s.user_id] === st.id),
+    }));
+    const unassigned = nonTimeOff.filter(
+      (s: any) => !s.user_id || !stationAssignments![s.user_id]
+    );
+    if (unassigned.length > 0) {
+      sections.push({ key: "unassigned", label: "Unassigned", color: undefined, shifts: unassigned });
+    }
+    return sections.filter((s) => s.shifts.length > 0);
+  })();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -459,141 +489,149 @@ export function DayBreakdownDialog({
                       ))}
                     </div>
                     
-                    {sortedDayShifts
-                      .filter((shift: any) => !shift.is_time_off)
-                      .map((shift: any) => {
-                        const profile = getProfileForShift(shift);
-                        const [startHour, startMin] = shift.start_time.split(":").map(Number);
-                        const [endHour, endMin] = shift.end_time.split(":").map(Number);
-                        
-                        const startTime = startHour + startMin / 60;
-                        let endTime = endHour + endMin / 60;
-                        // Handle midnight crossover (e.g., 6pm-12am)
-                        if (endTime < startTime) {
-                          endTime += 24;
-                        }
-                        
-                        // Calculate position and width as percentage
-                        const totalRange = latest - earliest;
-                        const leftPercent = ((startTime - earliest) / totalRange) * 100;
-                        const widthPercent = ((endTime - startTime) / totalRange) * 100;
-
-                        const shiftBreaks = normalizeBreaks(shift.breaks);
-                        const myCoverageBlocks = coverageBlocksByUser.get(shift.user_id) || [];
-                        const hasDetails = shiftBreaks.length > 0 || myCoverageBlocks.length > 0;
-                        return (
-                          <div key={shift.id} className="flex items-center relative z-10">
-                            <div className="w-32 flex-shrink-0 text-sm font-medium truncate pr-2">
-                              {profile?.full_name ?? (shift.user_id ? "Hidden" : "Unassigned")}
-                            </div>
-                            <div className="flex-1 relative h-8 bg-muted/30 rounded">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button
-                                    type="button"
-                                    className="absolute h-full rounded flex items-center justify-center text-xs font-medium text-white shadow-sm hover:brightness-110 transition-all text-left"
-                                    style={{
-                                      left: `${leftPercent}%`,
-                                      width: `${widthPercent}%`,
-                                      backgroundColor: getShiftColor(shift),
-                                    }}
-                                  >
-                                    <span className="truncate px-1">
-                                      {formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}
-                                    </span>
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent align="start" className="w-72 text-xs">
-                                  <div className="font-semibold text-sm mb-1">{profile?.full_name ?? 'Unassigned'}</div>
-                                  <div className="text-muted-foreground mb-2">
-                                    Shift {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
-                                  </div>
-                                  {shiftBreaks.length === 0 && myCoverageBlocks.length === 0 ? (
-                                    <div className="text-muted-foreground italic">No breaks on this shift.</div>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {shiftBreaks.length > 0 && (
-                                        <div>
-                                          <div className="font-semibold mb-1">Breaks</div>
-                                          {shiftBreaks.map((br: any, i: number) => {
-                                            const coverer = br.covered_by_user_id
-                                              ? profiles.find((p) => p.id === br.covered_by_user_id)
-                                              : null;
-                                            return (
-                                              <div key={br.id ?? i} className="flex items-center justify-between gap-2 py-0.5">
-                                                <span>{formatTime12Hour(br.start_time)} – {formatTime12Hour(br.end_time)}</span>
-                                                <span className="text-muted-foreground">
-                                                  {coverer ? `Covered by ${coverer.full_name}` : 'No coverage'}
-                                                </span>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                      {myCoverageBlocks.length > 0 && (
-                                        <div>
-                                          <div className="font-semibold mb-1">Covering for others</div>
-                                          {myCoverageBlocks.map((c, i) => (
-                                            <div key={i} className="flex items-center justify-between gap-2 py-0.5">
-                                              <span>{formatTime12Hour(c.start_time)} – {formatTime12Hour(c.end_time)}</span>
-                                              <span className="text-muted-foreground">{c.coveredUserName}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </PopoverContent>
-                              </Popover>
-                              {/* Break overlays — solid shaded amber on the person on break */}
-                              {shiftBreaks.map((br: any, i: number) => {
-                                if (!br?.start_time || !br?.end_time) return null;
-                                const [bsH, bsM] = String(br.start_time).split(":").map(Number);
-                                const [beH, beM] = String(br.end_time).split(":").map(Number);
-                                const bs = bsH + bsM / 60;
-                                let be = beH + beM / 60;
-                                if (be < bs) be += 24;
-                                const bLeft = ((bs - earliest) / totalRange) * 100;
-                                const bWidth = ((be - bs) / totalRange) * 100;
-                                return (
-                                  <div
-                                    key={br.id ?? i}
-                                    title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}`}
-                                    className="absolute top-0 h-full rounded border border-amber-600/60 pointer-events-none opacity-80"
-                                    style={{
-                                      left: `${bLeft}%`,
-                                      width: `${bWidth}%`,
-                                      zIndex: 2,
-                                      backgroundImage:
-                                        'repeating-linear-gradient(45deg, rgba(217,119,6,0.55) 0 4px, rgba(255,237,213,0.85) 4px 8px)',
-                                    }}
-                                  />
-                                );
-                              })}
-                              {/* Coverage overlays — solid block showing WHO they are covering */}
-                              {myCoverageBlocks.map((coverage, i) => {
-                                const [csH, csM] = String(coverage.start_time).split(":").map(Number);
-                                const [ceH, ceM] = String(coverage.end_time).split(":").map(Number);
-                                const cs = csH + csM / 60;
-                                let ce = ceH + ceM / 60;
-                                if (ce < cs) ce += 24;
-                                const cLeft = ((cs - earliest) / totalRange) * 100;
-                                const cWidth = ((ce - cs) / totalRange) * 100;
-                                return (
-                                  <div
-                                    key={`${shift.id}-coverage-${i}`}
-                                    title={`Covering ${coverage.coveredUserName} ${formatTime12Hour(coverage.start_time)} - ${formatTime12Hour(coverage.end_time)}`}
-                                    className="absolute top-0 h-full rounded border border-amber-700 bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm pointer-events-none"
-                                    style={{ left: `${cLeft}%`, width: `${cWidth}%`, zIndex: 3 }}
-                                  >
-                                    <span className="truncate px-1">{coverage.coveredUserName.split(' ')[0]}</span>
-                                  </div>
-                                );
-                              })}
+                    {timelineSections.map((section) => (
+                      <div key={section.key} className="space-y-2">
+                        {useStations && (
+                          <div className="flex items-center gap-2 pt-1 pb-0.5 sticky left-0">
+                            <div
+                              className="w-1.5 h-4 rounded-sm"
+                              style={{ backgroundColor: section.color || "hsl(var(--muted-foreground))" }}
+                            />
+                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {section.label} <span className="text-[10px] font-normal">({section.shifts.length})</span>
                             </div>
                           </div>
-                        );
-                      })}
+                        )}
+                        {section.shifts.map((shift: any) => {
+                          const profile = getProfileForShift(shift);
+                          const [startHour, startMin] = shift.start_time.split(":").map(Number);
+                          const [endHour, endMin] = shift.end_time.split(":").map(Number);
+
+                          const startTime = startHour + startMin / 60;
+                          let endTime = endHour + endMin / 60;
+                          if (endTime < startTime) {
+                            endTime += 24;
+                          }
+
+                          const totalRange = latest - earliest;
+                          const leftPercent = ((startTime - earliest) / totalRange) * 100;
+                          const widthPercent = ((endTime - startTime) / totalRange) * 100;
+
+                          const shiftBreaks = normalizeBreaks(shift.breaks);
+                          const myCoverageBlocks = coverageBlocksByUser.get(shift.user_id) || [];
+                          return (
+                            <div key={shift.id} className="flex items-center relative z-10">
+                              <div className="w-32 flex-shrink-0 text-sm font-medium truncate pr-2">
+                                {profile?.full_name ?? (shift.user_id ? "Hidden" : "Unassigned")}
+                              </div>
+                              <div className="flex-1 relative h-8 bg-muted/30 rounded">
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="absolute h-full rounded flex items-center justify-center text-xs font-medium text-white shadow-sm hover:brightness-110 transition-all text-left"
+                                      style={{
+                                        left: `${leftPercent}%`,
+                                        width: `${widthPercent}%`,
+                                        backgroundColor: getShiftColor(shift),
+                                      }}
+                                    >
+                                      <span className="truncate px-1">
+                                        {formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}
+                                      </span>
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent align="start" className="w-72 text-xs">
+                                    <div className="font-semibold text-sm mb-1">{profile?.full_name ?? 'Unassigned'}</div>
+                                    <div className="text-muted-foreground mb-2">
+                                      Shift {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
+                                    </div>
+                                    {shiftBreaks.length === 0 && myCoverageBlocks.length === 0 ? (
+                                      <div className="text-muted-foreground italic">No breaks on this shift.</div>
+                                    ) : (
+                                      <div className="space-y-2">
+                                        {shiftBreaks.length > 0 && (
+                                          <div>
+                                            <div className="font-semibold mb-1">Breaks</div>
+                                            {shiftBreaks.map((br: any, i: number) => {
+                                              const coverer = br.covered_by_user_id
+                                                ? profiles.find((p) => p.id === br.covered_by_user_id)
+                                                : null;
+                                              return (
+                                                <div key={br.id ?? i} className="flex items-center justify-between gap-2 py-0.5">
+                                                  <span>{formatTime12Hour(br.start_time)} – {formatTime12Hour(br.end_time)}</span>
+                                                  <span className="text-muted-foreground">
+                                                    {coverer ? `Covered by ${coverer.full_name}` : 'No coverage'}
+                                                  </span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                        {myCoverageBlocks.length > 0 && (
+                                          <div>
+                                            <div className="font-semibold mb-1">Covering for others</div>
+                                            {myCoverageBlocks.map((c, i) => (
+                                              <div key={i} className="flex items-center justify-between gap-2 py-0.5">
+                                                <span>{formatTime12Hour(c.start_time)} – {formatTime12Hour(c.end_time)}</span>
+                                                <span className="text-muted-foreground">{c.coveredUserName}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </PopoverContent>
+                                </Popover>
+                                {shiftBreaks.map((br: any, i: number) => {
+                                  if (!br?.start_time || !br?.end_time) return null;
+                                  const [bsH, bsM] = String(br.start_time).split(":").map(Number);
+                                  const [beH, beM] = String(br.end_time).split(":").map(Number);
+                                  const bs = bsH + bsM / 60;
+                                  let be = beH + beM / 60;
+                                  if (be < bs) be += 24;
+                                  const bLeft = ((bs - earliest) / totalRange) * 100;
+                                  const bWidth = ((be - bs) / totalRange) * 100;
+                                  return (
+                                    <div
+                                      key={br.id ?? i}
+                                      title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}`}
+                                      className="absolute top-0 h-full rounded border border-amber-600/60 pointer-events-none opacity-80"
+                                      style={{
+                                        left: `${bLeft}%`,
+                                        width: `${bWidth}%`,
+                                        zIndex: 2,
+                                        backgroundImage:
+                                          'repeating-linear-gradient(45deg, rgba(217,119,6,0.55) 0 4px, rgba(255,237,213,0.85) 4px 8px)',
+                                      }}
+                                    />
+                                  );
+                                })}
+                                {myCoverageBlocks.map((coverage, i) => {
+                                  const [csH, csM] = String(coverage.start_time).split(":").map(Number);
+                                  const [ceH, ceM] = String(coverage.end_time).split(":").map(Number);
+                                  const cs = csH + csM / 60;
+                                  let ce = ceH + ceM / 60;
+                                  if (ce < cs) ce += 24;
+                                  const cLeft = ((cs - earliest) / totalRange) * 100;
+                                  const cWidth = ((ce - cs) / totalRange) * 100;
+                                  return (
+                                    <div
+                                      key={`${shift.id}-coverage-${i}`}
+                                      title={`Covering ${coverage.coveredUserName} ${formatTime12Hour(coverage.start_time)} - ${formatTime12Hour(coverage.end_time)}`}
+                                      className="absolute top-0 h-full rounded border border-amber-700 bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm pointer-events-none"
+                                      style={{ left: `${cLeft}%`, width: `${cWidth}%`, zIndex: 3 }}
+                                    >
+                                      <span className="truncate px-1">{coverage.coveredUserName.split(' ')[0]}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

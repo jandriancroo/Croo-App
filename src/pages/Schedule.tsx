@@ -710,7 +710,7 @@ export default function Schedule() {
         )}
 
         {(isAdmin || isManager) && selectedDayForBreakdown && scheduleId && (
-          <DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} />
+          <DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} stations={useStationGrouping ? stations : undefined} stationAssignments={useStationGrouping ? stationAssignments : undefined} />
         )}
 
         {(isAdmin || isManager) && isCreatingShift && (
