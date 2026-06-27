@@ -17,7 +17,7 @@ import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 const LOGBOOK_STALE_TIME = 5 * 60 * 1000;
 const LOGBOOK_STALE_TIME_PAST = 30 * 60 * 1000;
 const LOGBOOK_GC_TIME = 60 * 60 * 1000;
-const RECENT_PAGE_SIZE = 50;
+const RECENT_WINDOW_DAYS = 30;
 
 
 export function useLogBookData() {
