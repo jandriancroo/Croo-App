@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +46,7 @@ export function useLogBookData() {
   const [isSavingSpecialForm, setIsSavingSpecialForm] = useState(false);
   const [cateringSearchQuery, setCateringSearchQuery] = useState("");
   const [searchDateFilter, setSearchDateFilter] = useState<Date | undefined>(undefined);
+  const [searchCategoryName, setSearchCategoryName] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [generatingWeeklySummary, setGeneratingWeeklySummary] = useState(false);
   const [recentPage, setRecentPage] = useState(1);
@@ -199,6 +200,7 @@ export function useLogBookData() {
     enabled: !!currentLocation,
     staleTime: LOGBOOK_STALE_TIME,
     gcTime: LOGBOOK_GC_TIME,
+    placeholderData: keepPreviousData,
   });
 
 
@@ -453,9 +455,17 @@ export function useLogBookData() {
     return prevDaySafeCounts.some(sc => sc.shift === 'PM' && checkNeedsBankRun(sc));
   };
 
+  const categoryFilteredEntries = useMemo(() => {
+    if (!searchCategoryName) return expandedEntries;
+    const target = searchCategoryName.toLowerCase();
+    return expandedEntries.filter((entry: any) =>
+      (entry.logbook_categories?.name || '').toLowerCase() === target
+    );
+  }, [expandedEntries, searchCategoryName]);
+
   const dateFilteredEntries = useMemo(() => searchDateFilter
-    ? expandedEntries.filter((entry: any) => entry.entry_date === format(searchDateFilter, 'yyyy-MM-dd'))
-    : expandedEntries, [searchDateFilter, expandedEntries]);
+    ? categoryFilteredEntries.filter((entry: any) => entry.entry_date === format(searchDateFilter, 'yyyy-MM-dd'))
+    : categoryFilteredEntries, [searchDateFilter, categoryFilteredEntries]);
 
   const entriesByDay = useMemo(() => dateFilteredEntries.reduce((acc: any, entry: any) => {
     const dateKey = entry.entry_date;
@@ -579,6 +589,7 @@ export function useLogBookData() {
     isSavingSpecialForm, setIsSavingSpecialForm,
     cateringSearchQuery, setCateringSearchQuery,
     searchDateFilter, setSearchDateFilter,
+    searchCategoryName, setSearchCategoryName,
     formData, setFormData,
     generatingWeeklySummary, setGeneratingWeeklySummary,
     // Data

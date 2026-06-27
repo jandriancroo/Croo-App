@@ -19,6 +19,7 @@ export default function LogBook() {
     activeTab, setActiveTab,
     searchQuery, setSearchQuery,
     searchDateFilter, setSearchDateFilter,
+    searchCategoryName, setSearchCategoryName,
     manageCategoriesOpen, setManageCategoriesOpen,
     showCateringUpload, setShowCateringUpload,
     cateringSearchQuery, setCateringSearchQuery,
@@ -26,7 +27,15 @@ export default function LogBook() {
     deleteEntryMutation,
     isAdmin, isManager, isShiftManager, roleLoading,
     hasMoreRecentEntries, loadMoreRecentEntries, isFetchingRecentEntries,
+    categories,
   } = data;
+
+  const searchCategoryOptions = [
+    ...((categories || []).map((c: any) => c.name).filter(Boolean)),
+    'Employee Write-Up',
+    'Read & Sign',
+    ...((isAdmin || isManager) ? ['Performance Review'] : []),
+  ];
 
   // Don't render if role is still loading or user doesn't have access
   if (roleLoading || (!isAdmin && !isManager && !isShiftManager)) {
@@ -99,6 +108,35 @@ export default function LogBook() {
                 </PopoverContent>
               </Popover>
               <LogBookNewEntrySheet data={data} />
+            </div>
+
+            <div className="-mt-2 flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+              {searchCategoryOptions.map((name: string) => {
+                const active = searchCategoryName === name;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setSearchCategoryName(active ? null : name)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                      active
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+              {searchCategoryName && (
+                <button
+                  type="button"
+                  onClick={() => setSearchCategoryName(null)}
+                  className="shrink-0 rounded-full px-3 py-1 text-xs font-medium border border-border text-muted-foreground hover:bg-muted"
+                >
+                  Clear
+                </button>
+              )}
             </div>
 
             <div className="space-y-6">
