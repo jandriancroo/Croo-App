@@ -48,10 +48,17 @@ function groupProfilesByRole(profiles: Profile[]) {
   })).filter(g => g.members.length > 0);
 }
 
-function ProfileSelectItem({ p }: { p: Profile }) {
+function ProfileSelectItem({ p, count }: { p: Profile; count: number }) {
   return (
     <SelectItem value={p.id}>
-      <span className="truncate">{p.nickname || p.full_name}</span>
+      <span className="flex items-center justify-between gap-2 w-full">
+        <span className="truncate">{p.nickname || p.full_name}</span>
+        {count > 0 && (
+          <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold leading-none shrink-0">
+            {count}
+          </span>
+        )}
+      </span>
     </SelectItem>
   );
 }
