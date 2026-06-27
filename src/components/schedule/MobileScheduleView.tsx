@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
 import { getDisplayName } from '@/utils/displayName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,6 +32,8 @@ import { AvailabilityRequest } from '@/hooks/useScheduleData';
 
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone, getBusinessDateForTimestamp } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
+import { useLocationStations, type LocationStation } from '@/hooks/useLocationStations';
+import { useUserStationAssignments } from '@/hooks/useUserStationAssignments';
 
 interface Profile {
   id: string;
@@ -172,6 +174,82 @@ export function MobileScheduleView({
   const { currentLocation } = useLocation();
   const { timezone, closeTime } = useLocationTimezone();
   const queryClient = useQueryClient();
+
+  // Stations grouping (mirrors desktop Schedule.tsx behavior)
+  const { data: liveStationSettings } = useQuery({
+    queryKey: ['mobile-schedule-stations-enabled', currentLocation?.id],
+    enabled: !!currentLocation?.id,
+    staleTime: 10_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('stations_enabled')
+        .eq('location_id', currentLocation!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const stationsEnabled = !!(liveStationSettings as any)?.stations_enabled
+    || !!(locationSettings as any)?.stations_enabled;
+  const { stations } = useLocationStations(currentLocation?.id);
+  const { assignments: stationAssignments } = useUserStationAssignments(currentLocation?.id);
+  const useStationGrouping = stationsEnabled && stations.length > 0;
+
+  /** Group a flat list by station_id (via the user's primary station). */
+  const groupByStation = useCallback(<T,>(items: T[], getUserId: (item: T) => string | null | undefined) => {
+    const buckets = new Map<string | null, T[]>();
+    buckets.set(null, []);
+    for (const s of stations) buckets.set(s.id, []);
+    for (const it of items) {
+      const uid = getUserId(it);
+      const sid = uid ? stationAssignments[uid] ?? null : null;
+      const key = sid && buckets.has(sid) ? sid : null;
+      const arr = buckets.get(key);
+      if (arr) arr.push(it);
+    }
+    const out: { station: LocationStation | null; items: T[] }[] = stations.map(st => ({
+      station: st,
+      items: buckets.get(st.id) ?? [],
+    }));
+    const un = buckets.get(null) ?? [];
+    if (un.length > 0) out.push({ station: null, items: un });
+    return out.filter(s => s.items.length > 0);
+  }, [stations, stationAssignments]);
+
+  /** Render a flat list of items either flat, or wrapped in station section headers when grouping is on. */
+  const renderMaybeStationGrouped = useCallback(<T,>(
+    items: T[],
+    getUserId: (item: T) => string | null | undefined,
+    renderItem: (item: T) => JSX.Element | null,
+    keyForItem: (item: T) => string,
+  ) => {
+    if (!useStationGrouping) {
+      return <>{items.map(it => <React.Fragment key={keyForItem(it)}>{renderItem(it)}</React.Fragment>)}</>;
+    }
+    const groups = groupByStation(items, getUserId);
+    return (
+      <>
+        {groups.map(({ station, items: groupItems }) => (
+          <div key={station?.id ?? 'unassigned'} className="space-y-1.5">
+            <div className="flex items-center gap-1.5 px-0.5 pt-1">
+              <span
+                className="inline-block h-2 w-2 rounded-sm flex-shrink-0"
+                style={{ background: station?.color || '#9ca3af' }}
+              />
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {station?.name ?? 'Unassigned'}
+              </span>
+              <span className="text-[10px] text-muted-foreground/70">· {groupItems.length}</span>
+            </div>
+            {groupItems.map(it => (
+              <React.Fragment key={keyForItem(it)}>{renderItem(it)}</React.Fragment>
+            ))}
+          </div>
+        ))}
+      </>
+    );
+  }, [useStationGrouping, groupByStation]);
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   
@@ -1213,30 +1291,34 @@ export function MobileScheduleView({
                           {loadingActive ? (
                             <div className="text-center py-8 text-muted-foreground">Loading...</div>
                           ) : (
-                            laterShifts.map(shift => {
-                              const profile = getProfileForShift(shift);
-                              if (!profile) return null;
-                              const shiftLabel = getShiftLabel(shift);
-                              return (
-                                <MobileShiftCard
-                                  key={shift.id}
-                                  name={getDisplayName(profile.full_name, (profile as any).nickname)}
-                                  avatarUrl={profile.profile_photo_url}
-                                  startTime={shift.start_time}
-                                  endTime={shift.end_time}
-                                  accentColor={shift.template?.color}
-                                  isPublished={isShiftPublished(shift)}
-                                  positionLabel={shiftLabel}
-                                  positionColor={shift.template?.color}
-                                  onClick={() => {
-                                    if (isAdmin || isManager) {
-                                      setSelectedShift(shift);
-                                      setShiftDialogOpen(true);
-                                    }
-                                  }}
-                                />
-                              );
-                            })
+                            renderMaybeStationGrouped(
+                              laterShifts,
+                              (shift) => shift.user_id,
+                              (shift) => {
+                                const profile = getProfileForShift(shift);
+                                if (!profile) return null;
+                                const shiftLabel = getShiftLabel(shift);
+                                return (
+                                  <MobileShiftCard
+                                    name={getDisplayName(profile.full_name, (profile as any).nickname)}
+                                    avatarUrl={profile.profile_photo_url}
+                                    startTime={shift.start_time}
+                                    endTime={shift.end_time}
+                                    accentColor={shift.template?.color}
+                                    isPublished={isShiftPublished(shift)}
+                                    positionLabel={shiftLabel}
+                                    positionColor={shift.template?.color}
+                                    onClick={() => {
+                                      if (isAdmin || isManager) {
+                                        setSelectedShift(shift);
+                                        setShiftDialogOpen(true);
+                                      }
+                                    }}
+                                  />
+                                );
+                              },
+                              (shift) => shift.id,
+                            )
                           )}
                         </div>
                       ) : null;
@@ -1249,39 +1331,43 @@ export function MobileScheduleView({
                           {`Completed (${completedPunches.length})`}
                         </h4>
 
-                        {completedPunches.map(punch => (
-                          <MobileShiftCard
-                            key={punch.id}
-                            name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
-                            avatarUrl={punch.profile.profile_photo_url}
-                            startTime={punch.scheduledShift?.start_time || '00:00'}
-                            endTime={punch.scheduledShift?.end_time || '00:00'}
-                            statusIndicator="none"
-                            scheduledStart={punch.scheduledShift?.start_time}
-                            scheduledEnd={punch.scheduledShift?.end_time}
-                            isPhantom={punch.scheduledShift?.is_phantom}
-                            clockInTime={punch.clockInTime}
-                            clockOutTime={punch.clockOutTime}
-                            breakStartTime={punch.breakStartTime}
-                            breakEndTime={punch.breakEndTime}
-                            hoursWorked={punch.hoursWorked}
-                            createdByName={punch.createdByName}
-                            timezone={timezone}
-                            formatTimeDisplay={formatTimeDisplay}
-                            showBreakIndicator={false}
-                            onClick={() => {
-                              const today = getTodayInTimezone(timezone);
-                              setSelectedPunch({
-                                userId: punch.user_id,
-                                userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                                userPhoto: punch.profile.profile_photo_url,
-                                punchDate: today,
-                                clockInId: punch.id,
-                              });
-                              setEditPunchOpen(true);
-                            }}
-                          />
-                        ))}
+                        {renderMaybeStationGrouped(
+                          completedPunches,
+                          (punch) => punch.user_id,
+                          (punch) => (
+                            <MobileShiftCard
+                              name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                              avatarUrl={punch.profile.profile_photo_url}
+                              startTime={punch.scheduledShift?.start_time || '00:00'}
+                              endTime={punch.scheduledShift?.end_time || '00:00'}
+                              statusIndicator="none"
+                              scheduledStart={punch.scheduledShift?.start_time}
+                              scheduledEnd={punch.scheduledShift?.end_time}
+                              isPhantom={punch.scheduledShift?.is_phantom}
+                              clockInTime={punch.clockInTime}
+                              clockOutTime={punch.clockOutTime}
+                              breakStartTime={punch.breakStartTime}
+                              breakEndTime={punch.breakEndTime}
+                              hoursWorked={punch.hoursWorked}
+                              createdByName={punch.createdByName}
+                              timezone={timezone}
+                              formatTimeDisplay={formatTimeDisplay}
+                              showBreakIndicator={false}
+                              onClick={() => {
+                                const today = getTodayInTimezone(timezone);
+                                setSelectedPunch({
+                                  userId: punch.user_id,
+                                  userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                                  userPhoto: punch.profile.profile_photo_url,
+                                  punchDate: today,
+                                  clockInId: punch.id,
+                                });
+                                setEditPunchOpen(true);
+                              }}
+                            />
+                          ),
+                          (punch) => punch.id,
+                        )}
                       </div>
                     )}
 
@@ -1343,38 +1429,42 @@ export function MobileScheduleView({
                     <div className="flex items-center gap-1 ml-auto">
                     </div>
                   </h4>
-                  {dayPunches.map(punch => (
-                    <MobileShiftCard
-                      key={punch.id}
-                      name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
-                      avatarUrl={punch.profile.profile_photo_url}
-                      startTime={punch.scheduledShift?.start_time || '00:00'}
-                      endTime={punch.scheduledShift?.end_time || '00:00'}
-                      statusIndicator="none"
-                      scheduledStart={punch.scheduledShift?.start_time}
-                      scheduledEnd={punch.scheduledShift?.end_time}
-                      isPhantom={punch.scheduledShift?.is_phantom}
-                      clockInTime={punch.clockInTime}
-                      clockOutTime={punch.clockOutTime}
-                      breakStartTime={punch.breakStartTime}
-                      breakEndTime={punch.breakEndTime}
-                      hoursWorked={punch.hoursWorked}
-                      createdByName={punch.createdByName}
-                      timezone={timezone}
-                      formatTimeDisplay={formatTimeDisplay}
-                      showBreakIndicator={false}
-                      onClick={() => {
-                        setSelectedPunch({
-                          userId: punch.user_id,
-                          userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                          userPhoto: punch.profile.profile_photo_url,
-                          punchDate: selectedDateStr,
-                          clockInId: punch.id,
-                        });
-                        setEditPunchOpen(true);
-                      }}
-                    />
-                  ))}
+                  {renderMaybeStationGrouped(
+                    dayPunches,
+                    (punch) => punch.user_id,
+                    (punch) => (
+                      <MobileShiftCard
+                        name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                        avatarUrl={punch.profile.profile_photo_url}
+                        startTime={punch.scheduledShift?.start_time || '00:00'}
+                        endTime={punch.scheduledShift?.end_time || '00:00'}
+                        statusIndicator="none"
+                        scheduledStart={punch.scheduledShift?.start_time}
+                        scheduledEnd={punch.scheduledShift?.end_time}
+                        isPhantom={punch.scheduledShift?.is_phantom}
+                        clockInTime={punch.clockInTime}
+                        clockOutTime={punch.clockOutTime}
+                        breakStartTime={punch.breakStartTime}
+                        breakEndTime={punch.breakEndTime}
+                        hoursWorked={punch.hoursWorked}
+                        createdByName={punch.createdByName}
+                        timezone={timezone}
+                        formatTimeDisplay={formatTimeDisplay}
+                        showBreakIndicator={false}
+                        onClick={() => {
+                          setSelectedPunch({
+                            userId: punch.user_id,
+                            userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                            userPhoto: punch.profile.profile_photo_url,
+                            punchDate: selectedDateStr,
+                            clockInId: punch.id,
+                          });
+                          setEditPunchOpen(true);
+                        }}
+                      />
+                    ),
+                    (punch) => punch.id,
+                  )}
                 </div>
               ) : (
                 /* Future days or past without punches — show all scheduled shifts */
@@ -1425,15 +1515,15 @@ export function MobileScheduleView({
                       <p className="text-sm">No shifts scheduled</p>
                     </div>
                   ) : (
-                    dayShifts
-                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                      .map(shift => {
+                    renderMaybeStationGrouped(
+                      [...dayShifts].sort((a, b) => a.start_time.localeCompare(b.start_time)),
+                      (shift) => shift.user_id,
+                      (shift) => {
                         const profile = getProfileForShift(shift);
                         if (!profile) return null;
                         const shiftLabel = getShiftLabel(shift);
                         return (
                           <MobileShiftCard
-                            key={shift.id}
                             name={getDisplayName(profile.full_name, (profile as any).nickname)}
                             avatarUrl={profile.profile_photo_url}
                             startTime={shift.start_time}
@@ -1450,7 +1540,9 @@ export function MobileScheduleView({
                             }}
                           />
                         );
-                      })
+                      },
+                      (shift) => shift.id,
+                    )
                   )}
                 </div>
               )}
