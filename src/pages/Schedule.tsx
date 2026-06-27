@@ -227,6 +227,7 @@ export default function Schedule() {
           shifts={shifts.map(s => ({
             ...s,
             template_id: s.template_id,
+            breaks: (s as any).breaks,
             template: templates.find(t => t.id === s.template_id) ? {
               position: templates.find(t => t.id === s.template_id)?.template_name.split(' ').slice(0, -3).join(' ') || null,
               color: templates.find(t => t.id === s.template_id)?.color || null,
@@ -256,7 +257,7 @@ export default function Schedule() {
       ) : (
         <div className="pb-56">
         <DndContext
-          sensors={isTeamMemberDesktopView ? emptySensors : activeSensors}
+          sensors={activeSensors}
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart}
           onDragEnd={isTeamMemberDesktopView ? undefined : handleDragEnd}
           collisionDetection={closestCenter}
