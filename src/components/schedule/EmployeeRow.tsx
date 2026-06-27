@@ -169,6 +169,9 @@ function EmployeeRowComponent({
             <GripVertical className="h-4 w-4" />
           </div>
         )}
+        {stationChip && profile.id !== "unassigned" && (
+          <div className="flex-shrink-0">{stationChip}</div>
+        )}
         {profile.id !== "unassigned" ? <div onClick={() => navigate('/users', {
         state: {
           viewUserId: profile.id
