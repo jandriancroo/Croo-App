@@ -72,10 +72,12 @@ function SmartTapPopoverComponent({
     return { recentTemplates: recent.slice(0, 3), otherColumns: columns };
   }, [templates, recentTemplateIds]);
 
-  if (templates.length === 0) return <>{children}</>;
+  const hasStations = !!(stations && stations.length > 0 && onSelectStation);
+  if (templates.length === 0 && !hasStations) return <>{children}</>;
 
   const hasRecent = recentTemplates.length > 0;
   const hasOthers = otherColumns.length > 0;
+
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
