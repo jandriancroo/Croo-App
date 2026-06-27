@@ -559,8 +559,14 @@ export function DayBreakdownDialog({
                                   <div
                                     key={br.id ?? i}
                                     title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}`}
-                                    className="absolute top-0 h-full rounded border border-amber-700 bg-amber-300 pointer-events-none"
-                                    style={{ left: `${bLeft}%`, width: `${bWidth}%`, zIndex: 2 }}
+                                    className="absolute top-0 h-full rounded border border-amber-600/60 pointer-events-none opacity-80"
+                                    style={{
+                                      left: `${bLeft}%`,
+                                      width: `${bWidth}%`,
+                                      zIndex: 2,
+                                      backgroundImage:
+                                        'repeating-linear-gradient(45deg, rgba(217,119,6,0.55) 0 4px, rgba(255,237,213,0.85) 4px 8px)',
+                                    }}
                                   />
                                 );
                               })}
