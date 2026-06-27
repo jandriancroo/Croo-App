@@ -70,6 +70,7 @@ export default function LocationProfile() {
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
   const [cutoffEnabled, setCutoffEnabled] = useState(false);
   const [cutoffDaysBefore, setCutoffDaysBefore] = useState(7);
+  const [breakCoverageEnabled, setBreakCoverageEnabled] = useState(false);
   const [cutoffTime, setCutoffTime] = useState("17:00");
   const [businessHours, setBusinessHours] = useState<DayHours[]>(
     DAYS_OF_WEEK.map(day => ({
