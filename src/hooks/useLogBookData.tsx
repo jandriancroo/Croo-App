@@ -589,6 +589,7 @@ export function useLogBookData() {
     isSavingSpecialForm, setIsSavingSpecialForm,
     cateringSearchQuery, setCateringSearchQuery,
     searchDateFilter, setSearchDateFilter,
+    searchCategoryName, setSearchCategoryName,
     formData, setFormData,
     generatingWeeklySummary, setGeneratingWeeklySummary,
     // Data
