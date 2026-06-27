@@ -32,6 +32,10 @@ import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
 import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog";
 import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
+import { useLocationStations } from "@/hooks/useLocationStations";
+import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
+import { StationAssignChip } from "@/components/schedule/StationAssignChip";
+import { StationGroupSection } from "@/components/schedule/StationGroupSection";
 
 export default function Schedule() {
   const navigate = useNavigate();
@@ -86,6 +90,13 @@ export default function Schedule() {
   const isCompactMode = isCompactModeManual !== null ? isCompactModeManual : isTablet;
   const setIsCompactMode = (val: boolean) => setIsCompactModeManual(val);
   const [hideTemplatesBar, setHideTemplatesBar] = useState(() => localStorage.getItem('schedule-hide-templates') === 'true');
+
+  // Stations (Phase 2) — group schedule by Station → Role when enabled
+  const stationsEnabled = !!(locationSettings as any)?.stations_enabled;
+  const { stations } = useLocationStations(currentLocation?.id);
+  const { assignments: stationAssignments, assign: assignUserStation } =
+    useUserStationAssignments(currentLocation?.id);
+  const useStationGrouping = stationsEnabled && stations.length > 0;
 
   // Measure actual navbar height for sticky offset
   useEffect(() => {
@@ -435,78 +446,120 @@ export default function Schedule() {
                   <div className="p-8 text-center text-muted-foreground">No shifts scheduled for you this week</div>
                 )
               ) : (
-                <>
-                  {['super_admin', 'org_admin', 'admin', 'manager', 'shift_manager', 'team_member'].map((roleFilter) => {
-                    const roleProfiles = profiles.filter(p => p.role === roleFilter);
-                    if (roleProfiles.length === 0) return null;
+                (() => {
+                  const ROLE_ORDER = ['super_admin', 'org_admin', 'admin', 'manager', 'shift_manager', 'team_member'];
+                  const roleLabels: Record<string, string> = {
+                    super_admin: 'Super Admins', org_admin: 'Org Admins', admin: 'Admins',
+                    manager: 'Managers', shift_manager: 'Shift Managers', team_member: 'Team Members'
+                  };
+                  const calcHours = (list: typeof shifts) => list.reduce((total, shift) => {
+                    const [sh, sm] = shift.start_time.split(':').map(Number);
+                    const [eh, em] = shift.end_time.split(':').map(Number);
+                    let mins = (eh * 60 + em) - (sh * 60 + sm);
+                    if (mins < 0) mins += 24 * 60;
+                    const h = mins / 60;
+                    return total + (h > 5 ? h - 0.5 : h);
+                  }, 0);
 
-                    const roleColorClass = ['super_admin', 'org_admin', 'admin'].includes(roleFilter)
-                      ? 'bg-role-admin/5 border-l-4 border-role-admin'
-                      : ['shift_manager', 'manager'].includes(roleFilter)
-                      ? 'bg-role-manager/5 border-l-4 border-role-manager'
-                      : 'bg-role-team-member/5 border-l-4 border-role-team-member';
+                  const renderRoleBlock = (scopedProfiles: typeof profiles) => (
+                    <>
+                      {ROLE_ORDER.map((roleFilter) => {
+                        const roleProfiles = scopedProfiles.filter(p => p.role === roleFilter);
+                        if (roleProfiles.length === 0) return null;
+                        const roleColorClass = ['super_admin', 'org_admin', 'admin'].includes(roleFilter)
+                          ? 'bg-role-admin/5 border-l-4 border-role-admin'
+                          : ['shift_manager', 'manager'].includes(roleFilter)
+                          ? 'bg-role-manager/5 border-l-4 border-role-manager'
+                          : 'bg-role-team-member/5 border-l-4 border-role-team-member';
+                        const roleShifts = shifts.filter(s => roleProfiles.some(p => p.id === s.user_id));
+                        const roleTotalHours = calcHours(roleShifts);
+                        return (
+                          <Collapsible key={roleFilter} defaultOpen={true}>
+                            <div className={`${roleColorClass}`}>
+                              <CollapsibleTrigger asChild>
+                                <button className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
+                                  <div className="flex items-center gap-2">
+                                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
+                                    <span className="font-semibold text-sm uppercase tracking-wide">{roleLabels[roleFilter] || roleFilter}</span>
+                                    <span className="text-xs text-muted-foreground font-normal normal-case">({roleProfiles.length} {roleProfiles.length === 1 ? 'employee' : 'employees'})</span>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground font-medium">{roleTotalHours.toFixed(1)} hrs</span>
+                                </button>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <SortableContext items={roleProfiles.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                  {roleProfiles.map((profile) => (
+                                    <div key={profile.id} className="relative">
+                                      {useStationGrouping && (isAdmin || isManager) && (
+                                        <div className="absolute left-12 top-1 z-10">
+                                          <StationAssignChip
+                                            userId={profile.id}
+                                            userName={profile.full_name}
+                                            stations={stations}
+                                            currentStationId={stationAssignments[profile.id] ?? null}
+                                            onAssign={(sid) => assignUserStation(profile.id, sid)}
+                                          />
+                                        </div>
+                                      )}
+                                      <EmployeeRow
+                                        profile={profile}
+                                        shifts={shifts.filter((s) => s.user_id === profile.id)}
+                                        templates={templates}
+                                        availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                                        currentWeekStart={currentWeekStart}
+                                        isEditable={isAdmin || isManager}
+                                        onUpdate={fetchScheduleData}
+                                        canTakeShifts={isAdmin || isManager}
+                                        currentUserId={currentUserId || undefined}
+                                        onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
+                                        isDraggable={isAdmin || isManager}
+                                        isPublished={isPublished}
+                                        publishedSnapshot={publishedSnapshot}
+                                        canViewAllWages={canViewAllWages}
+                                        isCompactMode={isCompactMode}
+                                        holidays={holidays}
+                                        allShifts={lastWeekShifts}
+                                        onSmartTap={onSmartTap}
+                                      />
+                                    </div>
+                                  ))}
+                                </SortableContext>
+                              </CollapsibleContent>
+                            </div>
+                          </Collapsible>
+                        );
+                      })}
+                    </>
+                  );
 
-                    const roleLabels: Record<string, string> = {
-                      super_admin: 'Super Admins', org_admin: 'Org Admins', admin: 'Admins',
-                      manager: 'Managers', shift_manager: 'Shift Managers', team_member: 'Team Members'
-                    };
-                    const roleLabel = roleLabels[roleFilter] || roleFilter;
+                  if (!useStationGrouping) {
+                    return <>{renderRoleBlock(profiles)}</>;
+                  }
 
-                    const roleShifts = shifts.filter(s => roleProfiles.some(p => p.id === s.user_id));
-                    const roleTotalHours = roleShifts.reduce((total, shift) => {
-                      const [startHour, startMin] = shift.start_time.split(':').map(Number);
-                      const [endHour, endMin] = shift.end_time.split(':').map(Number);
-                      let shiftMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
-                      if (shiftMinutes < 0) shiftMinutes += 24 * 60;
-                      const shiftHours = shiftMinutes / 60;
-                      return total + (shiftHours > 5 ? shiftHours - 0.5 : shiftHours);
-                    }, 0);
-
-                    return (
-                      <Collapsible key={roleFilter} defaultOpen={true}>
-                        <div className={`${roleColorClass}`}>
-                          <CollapsibleTrigger asChild>
-                            <button className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
-                              <div className="flex items-center gap-2">
-                                <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
-                                <span className="font-semibold text-sm uppercase tracking-wide">{roleLabel}</span>
-                                <span className="text-xs text-muted-foreground font-normal normal-case">({roleProfiles.length} {roleProfiles.length === 1 ? 'employee' : 'employees'})</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground font-medium">{roleTotalHours.toFixed(1)} hrs</span>
-                            </button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <SortableContext items={roleProfiles.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                              {roleProfiles.map((profile) => (
-                                 <EmployeeRow
-                                   key={profile.id}
-                                   profile={profile}
-                                   shifts={shifts.filter((s) => s.user_id === profile.id)}
-                                   templates={templates}
-                                   availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                                   currentWeekStart={currentWeekStart}
-                                   isEditable={isAdmin || isManager}
-                                   onUpdate={fetchScheduleData}
-                                   canTakeShifts={isAdmin || isManager}
-                                   currentUserId={currentUserId || undefined}
-                                   onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
-                                   isDraggable={isAdmin || isManager}
-                                   isPublished={isPublished}
-                                   publishedSnapshot={publishedSnapshot}
-                                    canViewAllWages={canViewAllWages}
-                                    isCompactMode={isCompactMode}
-                                    holidays={holidays}
-                                    allShifts={lastWeekShifts}
-                                    onSmartTap={onSmartTap}
-                                  />
-                              ))}
-                            </SortableContext>
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    );
-                  })}
-                </>
+                  // Outer: stations + Unassigned bucket. Inner: role-grouped block.
+                  const stationSections = [
+                    ...stations.map(s => ({ station: s, profilesIn: profiles.filter(p => stationAssignments[p.id] === s.id) })),
+                    { station: null as any, profilesIn: profiles.filter(p => !stationAssignments[p.id]) },
+                  ];
+                  return (
+                    <>
+                      {stationSections.map(({ station, profilesIn }) => {
+                        const stationShifts = shifts.filter(s => profilesIn.some(p => p.id === s.user_id));
+                        return (
+                          <StationGroupSection
+                            key={station?.id ?? 'unassigned'}
+                            station={station}
+                            employeeCount={profilesIn.length}
+                            totalHours={calcHours(stationShifts)}
+                            onDropUser={(userId) => assignUserStation(userId, station?.id ?? null)}
+                          >
+                            {renderRoleBlock(profilesIn)}
+                          </StationGroupSection>
+                        );
+                      })}
+                    </>
+                  );
+                })()
               )}
             </div>
             </div>

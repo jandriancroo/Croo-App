@@ -1,0 +1,2 @@
+ALTER TABLE public.user_locations ADD COLUMN IF NOT EXISTS primary_station_id uuid NULL REFERENCES public.location_stations(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_user_locations_location_station ON public.user_locations(location_id, primary_station_id);

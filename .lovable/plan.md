@@ -1,78 +1,45 @@
+## Stations Phase 2 — Schedule grouping + drag-to-assign
 
-# Break Coverage Assignments
+### What the user will see
+On the weekly schedule, when **Stations are enabled** for the location:
+- Outer sections become **Stations** (e.g. *Infants*, *Toddlers*, *Pre-K*) plus a trailing **Unassigned** bucket.
+- Inside each station, people are sub-grouped by **role** (Super Admins → Org Admins → Managers → Team).
+- Every person starts in **Unassigned** until they're placed.
+- Admins/managers can **drag a person row** from one station section into another to set their primary station for this location. Setting persists immediately.
+- The header gets a small "Stations" indicator and station counts (e.g. `Toddlers (3 employees)`).
 
-Add an optional per-location layer for scheduling **breaks within shifts** and assigning a **coverer** for each break. Built for daycare (teachers + breakers) but works for any location that wants pre-arranged break coverage. Gated behind a master toggle so locations that don't use it see zero UI changes.
+When Stations are **disabled**, the schedule looks exactly like it does today (role-only grouping). Zero behavior change.
 
-## 1. Master toggle — Settings → Location Settings
+### Where it lives
+- `MobileScheduleView.tsx` — primary view (the screenshot)
+- Desktop weekly schedule (whichever component renders the grid the user sees on wider viewports)
+- The same grouping is used by the printable Day Timeline export, so stations show up there too
 
-New compact row in `LocationSettingsSection.tsx` (same pattern as the Time-Off Cutoff card):
+### Technical plan
 
-- **Break Coverage Assignments** toggle (off by default)
-- Help text: "Lets you schedule break times within shifts and assign a coverer for each break. Used by daycares and any location with pre-arranged break coverage."
+1. **DB** — store the per-location assignment, not on the global profile:
+   - Add `primary_station_id uuid NULL references location_stations(id) ON DELETE SET NULL` to `user_locations`.
+   - Index on `(location_id, primary_station_id)`.
+   - No RLS changes needed (existing `user_locations` policies cover it).
 
-When off: nothing related to breaks/coverage appears anywhere in the schedule UI, shift form, template form, or day timeline. When on: break + coverage controls unlock.
+2. **Hook** — `useUserStationAssignments(locationId)`:
+   - Returns `Map<user_id, station_id|null>` for the current location.
+   - Mutation `assignUserToStation(userId, stationId|null)` that updates the row and invalidates.
 
-## 2. Data model
+3. **Grouping util** — `groupRosterByStationThenRole(users, stations, assignments)`:
+   - Returns `[{station, roleSections: [{role, users}]}, …, {station: null /* Unassigned */, roleSections}]`.
+   - Stations honor `sort_order`; empty stations still render (so you have a drop target).
 
-Add to `location_settings`:
-- `break_coverage_enabled boolean default false`
+4. **Schedule view changes** (gated on `stations_enabled` + `stations.length > 0`):
+   - Replace the current role-only section loop with the new nested structure.
+   - Station headers show name + color dot + employee count.
+   - Each person row becomes a `dnd-kit` draggable; station headers are drop zones.
+   - On drop → call `assignUserToStation`.
+   - Permission gate: only admins/managers see drag handles; team members see read-only grouping.
 
-Add to `shift_templates` and `scheduled_shifts`:
-- `breaks jsonb default '[]'::jsonb` — array of `{ id, start_time, end_time, covered_by_user_id? }`
+5. **Day Timeline print** — pass the same grouping into `exportDayTimelinePrint` so the PDF roster mirrors the on-screen layout.
 
-Templates only ever store `start_time`/`end_time` per break (no coverer — that's day-of). Scheduled shifts can store an optional `covered_by_user_id` per break.
-
-**Standalone coverages** (coverer has no shift that day): same `breaks` jsonb mechanism on a lightweight `scheduled_shifts` row with `is_coverage_only = true` (new boolean column, default false). This row carries no `start_time`/`end_time` of its own — it exists purely to attach a coverage entry pointing at another shift's break. Labor math and existing schedule rendering ignore `is_coverage_only` rows entirely.
-
-No new tables. No changes to `time_punches`, `labor_cache`, `payroll`, or any cache logic.
-
-## 3. Labor math — deferred (safe)
-
-`calculateShiftHours` in `src/utils/shiftUtils.ts` keeps its current behavior (auto-deduct 30 min if shift > 5h). The new `breaks` array is purely metadata for now. When you're ready to switch to explicit-break math later, it's a one-function change with no backfill needed — break data will already be on every shift that uses the feature.
-
-## 4. Shift form (mobile + desktop) — when enabled
-
-Below the existing time fields, add:
-
-- **+ Add Break** button → reveals a row with start/end time inputs + optional **Covered By** employee dropdown + delete
-- Tap **+ Add Break** again to add more breaks (multiple supported)
-- Coverer dropdown is grouped by role (same pattern as the existing employee selector group-by-role work)
-
-Same UI is added to the template form on `ShiftTemplates.tsx` minus the coverer dropdown (templates only pre-bake times).
-
-## 5. Day timeline rendering
-
-**Covered person's bar:** amber striped overlay segment across the break window, with a small coffee icon + coverer's initials inside (e.g. `☕ DR`). Tap → popover: "Break 12:00–1:00 · Covered by Diego R."
-
-**Coverer's row:** lighter shaded block labeled `Covering Alle · 12–1`. If they have no shift that day, the row only appears because of the coverage block (no empty rows otherwise).
-
-**Conflict guard:** soft warning (not a block) if the chosen coverer's own break overlaps the same window or they're already covering someone else at that time.
-
-**Day view header:** small "Show coverage" toggle (default on) to hide the overlay layer when a manager wants raw shifts only.
-
-## 6. Printable / PDF day timeline — Option C (visual + roster)
-
-New "Print / PDF" button in the day timeline header. Generates a single PDF:
-
-- **Page 1 — Visual timeline (landscape):** horizontal hour grid, one row per employee, shift bars to scale, break overlays + coverage shading matching the on-screen view. Station grouping respected if Stations is enabled.
-- **Page 2 — Roster + coverage list (portrait):** vertical list grouped by employee — name, role, shift times, then indented break lines like `12:00–1:00 · Covered by Diego R.` Followed by a per-person "Covering" section listing any coverage assignments they're providing.
-
-Implementation mirrors the existing `src/utils/exportSchedulePrint.ts` pattern: a dedicated print stylesheet + a `window.print()` path for paper, plus a "Download PDF" action that uses the same PDF stack already in the project. New file `src/utils/exportDayTimelinePrint.ts`.
-
-## 7. Out of scope (easy follow-ups)
-
-- Honoring explicit breaks in labor math (deferred per your call)
-- Recurring weekly coverage patterns
-- Coverage notifications/push
-- Per-break notes
-
----
-
-### Technical notes
-
-- Migration: add `break_coverage_enabled` to `location_settings`; add `breaks jsonb` + `is_coverage_only boolean` to `shift_templates` and `scheduled_shifts`. No RLS changes — existing shift policies cover the new columns.
-- New types: `ShiftBreak` in shared schedule types.
-- New helper `getBreakOverlaysForDay(shifts)` → returns `{ coveredOverlays, coveringBlocks }` for the timeline renderer.
-- All new UI gated on `location_settings.break_coverage_enabled` — locked-feature areas (3D cubes, dock, inventory) untouched.
-- Timezone: break times stored as `HH:mm` strings anchored to the shift's date in location timezone (same pattern as shift times). No new `Date` objects.
-- Printable view: dedicated route-less component rendered into a hidden iframe for `window.print()`, with `@page { size: landscape; }` for page 1 and `@page { size: portrait; }` for page 2 via a page-break wrapper.
+### Out of scope (can do later, just say the word)
+- Per-shift station overrides (the Hybrid model we discussed) — this plan only does the *person's primary station*. A shift inherits its assignee's station for now.
+- Drag a shift block onto a station header to override that one shift.
+- Employee "qualified for multiple stations" picker on the profile.
