@@ -724,15 +724,39 @@ export function MobileAddScheduleSheet({
                           </SelectTrigger>
                           <SelectContent className="max-w-[calc(100vw-2rem)]">
                             <SelectItem value="none">Skip this day</SelectItem>
-                            {templates.map(t => (
-                              <SelectItem key={t.id} value={t.id}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}</span>
-                                  <span className="text-xs text-muted-foreground">{fmt12(t.start_time)} – {fmt12(t.end_time)}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
+                            {(() => {
+                              const recent = recentTemplateIds
+                                .map(id => templates.find(t => t.id === id))
+                                .filter(Boolean) as typeof templates;
+                              const others = templates.filter(t => !recentTemplateIds.includes(t.id));
+                              const renderItem = (t: typeof templates[number], highlighted = false) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  <div className={cn("flex flex-col", highlighted && "")}>
+                                    <span className="font-medium">{t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}</span>
+                                    <span className="text-xs text-muted-foreground">{fmt12(t.start_time)} – {fmt12(t.end_time)}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                              return (
+                                <>
+                                  {recent.length > 0 && (
+                                    <>
+                                      <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                        ✨ Last Week
+                                      </div>
+                                      {recent.map(t => renderItem(t, true))}
+                                      <div className="my-1 h-px bg-border" />
+                                      <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        All Templates
+                                      </div>
+                                    </>
+                                  )}
+                                  {others.map(t => renderItem(t))}
+                                </>
+                              );
+                            })()}
                           </SelectContent>
+
                         </Select>
                       );
                     })()}
