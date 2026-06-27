@@ -551,6 +551,17 @@ export function EditShiftDialog({
               ))}
             </div>
           </div>
+
+          {breakCoverageEnabled && (
+            <BreakEditor
+              value={breaks}
+              onChange={setBreaks}
+              showCoverer
+              coverers={profiles.map((p: any) => ({ id: p.id, full_name: p.full_name }))}
+              shiftStart={startTime}
+              shiftEnd={endTime}
+            />
+          )}
         </div>
 
         <DialogFooter>
