@@ -580,7 +580,7 @@ export default function Schedule() {
                                 <div key={profile.id} className="relative">
                                   <EmployeeRow
                                     profile={profile}
-                                    roleBadge={roleLabels[profile.role] || undefined}
+                                    roleBadge={undefined}
                                     shifts={shifts.filter((s) => s.user_id === profile.id)}
                                     templates={templates}
                                     availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
