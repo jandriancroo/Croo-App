@@ -136,6 +136,12 @@ export function useLogBookData() {
     return () => window.removeEventListener('open-bank-deposit', handleBankDeposit);
   }, []);
 
+  // Reset pagination when switching locations
+  useEffect(() => {
+    setRecentPage(1);
+  }, [currentLocation?.id]);
+
+
   const { data: fields = [] } = useQuery({
     queryKey: ['logbook-fields', selectedCategory],
     queryFn: async () => {
