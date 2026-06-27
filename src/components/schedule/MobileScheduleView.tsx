@@ -1732,6 +1732,22 @@ export function MobileScheduleView({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Share button — bottom right of page */}
+      <button
+        type="button"
+        onClick={handleShare}
+        className="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition"
+        aria-label="Share schedule"
+        title="Share schedule"
+      >
+        <Share className="h-5 w-5" />
+        {shareCopied && (
+          <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background">
+            Link copied!
+          </span>
+        )}
+      </button>
     </div>
   );
 }
