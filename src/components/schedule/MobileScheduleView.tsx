@@ -1478,6 +1478,7 @@ export function MobileScheduleView({
             lockTab={addSheetLockTab}
             locationSettings={locationSettings}
             availabilityRequests={availabilityRequests}
+            lastWeekShifts={lastWeekShifts}
             onCreated={() => onUpdate?.()}
           />
         </Suspense>
