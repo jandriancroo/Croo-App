@@ -17,6 +17,9 @@ import { getTodayInPST } from '@/utils/dateUtils';
 import { format } from 'date-fns';
 import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
+import { BreakEditor } from './BreakEditor';
+import { useBreakCoverageEnabled } from '@/hooks/useBreakCoverageEnabled';
+import { ShiftBreak, normalizeBreaks } from '@/types/shiftBreak';
 
 interface Profile {
   id: string;
