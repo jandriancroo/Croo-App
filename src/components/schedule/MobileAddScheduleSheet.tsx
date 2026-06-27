@@ -161,6 +161,7 @@ export function MobileAddScheduleSheet({
   scheduleId,
   locationId,
   shifts,
+  lastWeekShifts = [],
   defaultDate,
   defaultEmployeeId,
   defaultTab = 'shift',
