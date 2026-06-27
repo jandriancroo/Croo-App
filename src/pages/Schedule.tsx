@@ -223,6 +223,7 @@ export default function Schedule() {
           isLoading={loading}
           locationSettings={locationSettings}
           availabilityRequests={availabilityRequests}
+          lastWeekShifts={lastWeekShifts}
         />
       ) : (
         <div className="pb-56">
