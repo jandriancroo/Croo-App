@@ -94,6 +94,7 @@ interface MobileScheduleViewProps {
   hasPendingChanges?: boolean;
   isLoading?: boolean; // Show skeleton cards while loading
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  lastWeekShifts?: Array<{ user_id: string | null; template_id: string | null; shift_date: string }>;
 }
 
 interface DayPunch {
