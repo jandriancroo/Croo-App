@@ -197,6 +197,9 @@ export function MobileAddScheduleSheet({
   const [weekDraft, setWeekDraft] = useState<Record<number, DayDraft>>({});
   const [reviewOpen, setReviewOpen] = useState(false);
   const [savingWeek, setSavingWeek] = useState(false);
+  // When user picks a different team member while drafts exist, we route through Confirm Week.
+  // If Apply succeeds → switch to this id; if Back → keep working on the current employee.
+  const [pendingEmpSwitchId, setPendingEmpSwitchId] = useState<string | null>(null);
 
   // Init defaults on open
   useEffect(() => {
