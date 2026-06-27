@@ -103,6 +103,18 @@ export default function LogBook() {
 
             <div className="space-y-6">
               <LogBookEntryList data={data} />
+              {hasMoreRecentEntries && !searchQuery && !searchDateFilter && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="outline"
+                    onClick={loadMoreRecentEntries}
+                    disabled={isFetchingRecentEntries}
+                    className="w-full sm:w-auto"
+                  >
+                    {isFetchingRecentEntries ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}
