@@ -139,6 +139,7 @@ export function MobileScheduleView({
   hasPendingChanges = false,
   isLoading = false,
   locationSettings = null,
+  lastWeekShifts = [],
 }: MobileScheduleViewProps) {
   const [activeTab, setActiveTab] = useState<'today' | 'schedule'>(() => {
     const saved = sessionStorage.getItem('mobileScheduleTab');
