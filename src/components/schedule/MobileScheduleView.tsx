@@ -94,6 +94,7 @@ interface MobileScheduleViewProps {
   hasPendingChanges?: boolean;
   isLoading?: boolean; // Show skeleton cards while loading
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  lastWeekShifts?: Array<{ user_id: string | null; template_id: string | null; shift_date: string }>;
 }
 
 interface DayPunch {
@@ -138,6 +139,7 @@ export function MobileScheduleView({
   hasPendingChanges = false,
   isLoading = false,
   locationSettings = null,
+  lastWeekShifts = [],
 }: MobileScheduleViewProps) {
   const [activeTab, setActiveTab] = useState<'today' | 'schedule'>(() => {
     const saved = sessionStorage.getItem('mobileScheduleTab');
@@ -1476,6 +1478,7 @@ export function MobileScheduleView({
             lockTab={addSheetLockTab}
             locationSettings={locationSettings}
             availabilityRequests={availabilityRequests}
+            lastWeekShifts={lastWeekShifts}
             onCreated={() => onUpdate?.()}
           />
         </Suspense>

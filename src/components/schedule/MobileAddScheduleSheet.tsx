@@ -105,6 +105,8 @@ interface Props {
   scheduleId: string | null;
   locationId?: string | null;
   shifts: ExistingShift[];
+  /** Prior week's shifts — used to surface "Last Week" templates per employee (Smart Tap behavior). */
+  lastWeekShifts?: Array<{ user_id: string | null; template_id: string | null; shift_date: string }>;
   defaultDate?: Date;
   defaultEmployeeId?: string | null;
   defaultTab?: 'shift' | 'employee';
@@ -159,6 +161,7 @@ export function MobileAddScheduleSheet({
   scheduleId,
   locationId,
   shifts,
+  lastWeekShifts = [],
   defaultDate,
   defaultEmployeeId,
   defaultTab = 'shift',
@@ -233,6 +236,26 @@ export function MobileAddScheduleSheet({
       .forEach(s => { map[s.shift_date] = s; });
     return map;
   }, [empUserId, shifts]);
+
+  // Smart Tap: last 3 unique template IDs this employee worked LAST WEEK (any day),
+  // ordered by most recent. Surfaces at top of the Apply Template dropdown.
+  const recentTemplateIds = useMemo(() => {
+    if (!empUserId) return [] as string[];
+    const employeeShifts = lastWeekShifts
+      .filter(s => s.user_id === empUserId && s.template_id)
+      .sort((a, b) => (b.shift_date || '').localeCompare(a.shift_date || ''));
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const s of employeeShifts) {
+      const tid = s.template_id as string;
+      if (!seen.has(tid) && templates.some(t => t.id === tid)) {
+        seen.add(tid);
+        out.push(tid);
+        if (out.length >= 3) break;
+      }
+    }
+    return out;
+  }, [empUserId, lastWeekShifts, templates]);
 
   // Shift count per user (for dropdown badges). For the currently selected user,
   // include in-progress drafts so the badge reflects what they're building right now.
@@ -701,15 +724,39 @@ export function MobileAddScheduleSheet({
                           </SelectTrigger>
                           <SelectContent className="max-w-[calc(100vw-2rem)]">
                             <SelectItem value="none">Skip this day</SelectItem>
-                            {templates.map(t => (
-                              <SelectItem key={t.id} value={t.id}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}</span>
-                                  <span className="text-xs text-muted-foreground">{fmt12(t.start_time)} – {fmt12(t.end_time)}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
+                            {(() => {
+                              const recent = recentTemplateIds
+                                .map(id => templates.find(t => t.id === id))
+                                .filter(Boolean) as typeof templates;
+                              const others = templates.filter(t => !recentTemplateIds.includes(t.id));
+                              const renderItem = (t: typeof templates[number], highlighted = false) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  <div className={cn("flex flex-col", highlighted && "")}>
+                                    <span className="font-medium">{t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}</span>
+                                    <span className="text-xs text-muted-foreground">{fmt12(t.start_time)} – {fmt12(t.end_time)}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                              return (
+                                <>
+                                  {recent.length > 0 && (
+                                    <>
+                                      <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                        ✨ Last Week
+                                      </div>
+                                      {recent.map(t => renderItem(t, true))}
+                                      <div className="my-1 h-px bg-border" />
+                                      <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        All Templates
+                                      </div>
+                                    </>
+                                  )}
+                                  {others.map(t => renderItem(t))}
+                                </>
+                              );
+                            })()}
                           </SelectContent>
+
                         </Select>
                       );
                     })()}
