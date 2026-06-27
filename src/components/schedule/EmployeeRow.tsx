@@ -65,6 +65,8 @@ interface EmployeeRowProps {
   holidays?: Holiday[];
   allShifts?: any[];
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  /** Optional small badge shown next to the name (e.g. "Manager"). */
+  roleBadge?: string;
 }
 
 function EmployeeRowComponent({
@@ -85,7 +87,8 @@ function EmployeeRowComponent({
   isCompactMode = false,
   holidays = [],
   allShifts = [],
-  onSmartTap
+  onSmartTap,
+  roleBadge
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
@@ -176,7 +179,30 @@ function EmployeeRowComponent({
             )}
             {!isCompactMode && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={getDisplayName(profile.full_name, profile.nickname)}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <p className="text-xs md:text-sm font-semibold leading-tight truncate" title={getDisplayName(profile.full_name, profile.nickname)}>
+                    {(() => {
+                      const displayName = getDisplayName(profile.full_name, profile.nickname);
+                      const parts = displayName.split(' ');
+                      const firstName = parts[0];
+                      const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1].charAt(0)}.` : '';
+                      return `${firstName}${lastInitial}`;
+                    })()}
+                  </p>
+                  {roleBadge && (
+                    <span className="px-1.5 py-0 rounded-full text-[9px] font-semibold uppercase tracking-wide bg-muted text-muted-foreground border border-border whitespace-nowrap">
+                      {roleBadge}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
+                  {calculateTotalHours()} hrs{canViewAllWages && <> · ${calculateTotalWages()}</>}
+                </p>
+              </div>
+            )}
+            {isCompactMode && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-xs md:text-sm font-semibold leading-tight truncate" title={getDisplayName(profile.full_name, profile.nickname)}>
                   {(() => {
                     const displayName = getDisplayName(profile.full_name, profile.nickname);
                     const parts = displayName.split(' ');
@@ -185,21 +211,12 @@ function EmployeeRowComponent({
                     return `${firstName}${lastInitial}`;
                   })()}
                 </p>
-                <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                  {calculateTotalHours()} hrs{canViewAllWages && <> · ${calculateTotalWages()}</>}
-                </p>
+                {roleBadge && (
+                  <span className="px-1 py-0 rounded-full text-[9px] font-semibold uppercase bg-muted text-muted-foreground border border-border whitespace-nowrap">
+                    {roleBadge}
+                  </span>
+                )}
               </div>
-            )}
-            {isCompactMode && (
-              <p className="text-xs md:text-sm font-semibold leading-tight truncate" title={getDisplayName(profile.full_name, profile.nickname)}>
-                {(() => {
-                  const displayName = getDisplayName(profile.full_name, profile.nickname);
-                  const parts = displayName.split(' ');
-                  const firstName = parts[0];
-                  const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1].charAt(0)}.` : '';
-                  return `${firstName}${lastInitial}`;
-                })()}
-              </p>
             )}
           </div> : <span className="text-sm font-medium text-muted-foreground">Unassigned</span>}
       </div>

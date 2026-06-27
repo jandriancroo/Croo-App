@@ -161,11 +161,14 @@ export default function Schedule() {
     if (!over) return;
 
     const isEmployeeDrag = profiles.some(p => p.id === active.id);
-    if (isEmployeeDrag && active.id !== over.id) {
-      const result = await handleDragReorder(active.id as string, over.id as string);
-      if (result?.type === 'role_change') {
-        setPendingRoleChange({ userId: result.userId, userName: result.userName, newRole: result.newRole });
-        setRoleChangeDialogOpen(true);
+    if (isEmployeeDrag) {
+      // Employee row drags only reorder within the same section now.
+      // Role changes happen exclusively on the User Management page.
+      if (active.id !== over.id) {
+        const result = await handleDragReorder(active.id as string, over.id as string);
+        if (result?.type === 'role_change') {
+          // Intentionally ignored — roles are managed in User Management.
+        }
       }
       return;
     }
@@ -554,10 +557,18 @@ export default function Schedule() {
                     return <>{renderRoleBlock(profiles)}</>;
                   }
 
-                  // Outer: stations + Unassigned bucket. Inner: role-grouped block.
+                  // Stations mode: outer = stations + Unassigned, inner = flat
+                  // list sorted by role. Role appears as a badge on the row,
+                  // NOT as a nested grouping (that doubled up with stations).
+                  const roleRank = (r?: string | null) => {
+                    const i = ROLE_ORDER.indexOf((r ?? 'team_member') as string);
+                    return i === -1 ? ROLE_ORDER.length : i;
+                  };
+                  const sortByRole = (list: typeof profiles) =>
+                    [...list].sort((a: any, b: any) => roleRank(a.role) - roleRank(b.role));
                   const stationSections = [
-                    ...stations.map(s => ({ station: s, profilesIn: profiles.filter(p => stationAssignments[p.id] === s.id) })),
-                    { station: null as any, profilesIn: profiles.filter(p => !stationAssignments[p.id]) },
+                    ...stations.map(s => ({ station: s, profilesIn: sortByRole(profiles.filter(p => stationAssignments[p.id] === s.id)) })),
+                    { station: null as any, profilesIn: sortByRole(profiles.filter(p => !stationAssignments[p.id])) },
                   ];
                   return (
                     <>
@@ -571,7 +582,44 @@ export default function Schedule() {
                             totalHours={calcHours(stationShifts)}
                             onDropUser={(userId) => assignUserStation(userId, station?.id ?? null)}
                           >
-                            {renderRoleBlock(profilesIn)}
+                            <SortableContext items={profilesIn.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                              {profilesIn.map((profile: any) => (
+                                <div key={profile.id} className="relative">
+                                  {(isAdmin || isManager) && (
+                                    <div className="absolute left-12 top-1 z-10">
+                                      <StationAssignChip
+                                        userId={profile.id}
+                                        userName={profile.full_name}
+                                        stations={stations}
+                                        currentStationId={stationAssignments[profile.id] ?? null}
+                                        onAssign={(sid) => assignUserStation(profile.id, sid)}
+                                      />
+                                    </div>
+                                  )}
+                                  <EmployeeRow
+                                    profile={profile}
+                                    roleBadge={roleLabels[profile.role] || undefined}
+                                    shifts={shifts.filter((s) => s.user_id === profile.id)}
+                                    templates={templates}
+                                    availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                                    currentWeekStart={currentWeekStart}
+                                    isEditable={isAdmin || isManager}
+                                    onUpdate={fetchScheduleData}
+                                    canTakeShifts={isAdmin || isManager}
+                                    currentUserId={currentUserId || undefined}
+                                    onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
+                                    isDraggable={isAdmin || isManager}
+                                    isPublished={isPublished}
+                                    publishedSnapshot={publishedSnapshot}
+                                    canViewAllWages={canViewAllWages}
+                                    isCompactMode={isCompactMode}
+                                    holidays={holidays}
+                                    allShifts={lastWeekShifts}
+                                    onSmartTap={onSmartTap}
+                                  />
+                                </div>
+                              ))}
+                            </SortableContext>
                           </StationGroupSection>
                         );
                       })}
