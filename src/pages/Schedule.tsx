@@ -36,7 +36,7 @@ import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog
 import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 import { useLocationStations } from "@/hooks/useLocationStations";
 import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
-import { StationAssignChip } from "@/components/schedule/StationAssignChip";
+// StationAssignChip removed — station assignment moved into SmartTap popover
 import { StationGroupSection } from "@/components/schedule/StationGroupSection";
 
 export default function Schedule() {
