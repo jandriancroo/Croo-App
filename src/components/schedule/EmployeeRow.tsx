@@ -65,6 +65,8 @@ interface EmployeeRowProps {
   holidays?: Holiday[];
   allShifts?: any[];
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  /** Optional small badge shown next to the name (e.g. "Manager"). */
+  roleBadge?: string;
 }
 
 function EmployeeRowComponent({
