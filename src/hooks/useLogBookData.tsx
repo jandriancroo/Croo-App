@@ -46,6 +46,7 @@ export function useLogBookData() {
   const [isSavingSpecialForm, setIsSavingSpecialForm] = useState(false);
   const [cateringSearchQuery, setCateringSearchQuery] = useState("");
   const [searchDateFilter, setSearchDateFilter] = useState<Date | undefined>(undefined);
+  const [searchCategoryName, setSearchCategoryName] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [generatingWeeklySummary, setGeneratingWeeklySummary] = useState(false);
   const [recentPage, setRecentPage] = useState(1);
