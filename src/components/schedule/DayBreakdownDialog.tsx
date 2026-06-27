@@ -511,9 +511,7 @@ export function DayBreakdownDialog({
                                      title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}`}
                                      className="absolute top-0 h-full rounded border border-amber-600/70 bg-amber-400/45 shadow-sm"
                                     style={{ left: `${bLeft}%`, width: `${bWidth}%`, zIndex: 2 }}
-                                  >
-                                     <span className="sr-only">Break</span>
-                                  </div>
+                                   />
                                 );
                               })}
                               {(coverageBlocksByUser.get(shift.user_id) || []).map((coverage, i) => {
