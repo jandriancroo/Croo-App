@@ -320,82 +320,87 @@ export function MobileShiftDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle>{isCreating ? 'Add Shift' : 'Shift Details'}</DialogTitle>
+      <DialogContent
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="max-h-[75vh] p-0 gap-0 flex flex-col overflow-hidden"
+      >
+        <DialogHeader className="px-4 pt-3 pb-2 border-b shrink-0">
+          <DialogTitle className="text-base">{isCreating ? 'Add Shift' : 'Shift Details'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-3 px-4 py-3 overflow-y-auto flex-1 min-h-0">
           {/* Employee Info */}
           {profile && (
-            <div className="flex items-center gap-3 pb-4 border-b">
-              <Avatar className="h-12 w-12">
+            <div className="flex items-center gap-2.5 pb-2 border-b">
+              <Avatar className="h-9 w-9">
                 <AvatarImage src={profile.profile_photo_url || undefined} />
                 <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-semibold">{profile.full_name}</p>
-                <p className="text-sm text-muted-foreground">{shift.template?.position}</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm leading-tight truncate">{profile.full_name}</p>
+                <p className="text-xs text-muted-foreground truncate">{shift.template?.position}</p>
               </div>
             </div>
           )}
 
-          {/* Date */}
+          {/* Date + Times on one row for admins */}
           {isAdmin ? (
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input
-                type="date"
-                value={shiftDate}
-                onChange={(e) => setShiftDate(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div>
-              <Label className="text-muted-foreground">Date</Label>
-              <p className="font-medium">{parseDateStringInTimezone(shift.shift_date, timezone).toLocaleDateString()}</p>
-            </div>
-          )}
-
-          {/* Time Range */}
-          {isAdmin ? (
-            <div className="space-y-2">
-              <Label>Shift Times</Label>
-              <div className="flex gap-2 items-center">
+            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-1.5 items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">Date</Label>
+                <Input
+                  type="date"
+                  value={shiftDate}
+                  onChange={(e) => setShiftDate(e.target.value)}
+                  className="h-9 text-xs px-2"
+                />
+              </div>
+              <div className="pb-2 text-muted-foreground text-xs">·</div>
+              <div className="space-y-1">
+                <Label className="text-xs">Start</Label>
                 <Input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   autoFocus={false}
+                  className="h-9 text-xs px-2"
                 />
-                <span>-</span>
+              </div>
+              <div className="pb-2 text-muted-foreground text-xs">–</div>
+              <div className="space-y-1">
+                <Label className="text-xs">End</Label>
                 <Input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   autoFocus={false}
+                  className="h-9 text-xs px-2"
                 />
               </div>
             </div>
           ) : (
-            <div>
-              <Label className="text-muted-foreground">Time</Label>
-              <div className="flex items-center gap-2">
-                <p className="font-medium">
-                  {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                </p>
-                {shiftHasBreak(shift.start_time, shift.end_time) && (
-                  <BreakIndicator hasBreak={true} size="sm" />
-                )}
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <div>
+                <Label className="text-muted-foreground text-xs">Date</Label>
+                <p className="font-medium">{parseDateStringInTimezone(shift.shift_date, timezone).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">Time</Label>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium">{formatTime(shift.start_time)} - {formatTime(shift.end_time)}</p>
+                  {shiftHasBreak(shift.start_time, shift.end_time) && (
+                    <BreakIndicator hasBreak={true} size="sm" />
+                  )}
+                </div>
               </div>
             </div>
           )}
 
           {/* Break Indicator for Admin */}
           {isAdmin && shiftHasBreak(startTime, endTime) && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <BreakIndicator hasBreak={true} size="sm" />
-              <span>30-minute unpaid break (shift over 5 hours)</span>
+              <span>30-min unpaid break (shift &gt; 5 hrs)</span>
             </div>
           )}
 
@@ -414,8 +419,8 @@ export function MobileShiftDialog({
 
           {/* Template Selection - Admin Only */}
           {isAdmin && templates.length > 0 && (
-            <div className="space-y-2">
-              <Label>Quick Fill</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Quick Fill</Label>
               <Select 
                 value={selectedTemplateId || 'none'} 
                 onValueChange={(value) => {
@@ -447,7 +452,7 @@ export function MobileShiftDialog({
                   }
                 }}
               >
-              <SelectTrigger>
+              <SelectTrigger className="h-9 text-xs">
                   <SelectValue placeholder="Select quick fill option" />
                 </SelectTrigger>
                 <SelectContent className="max-w-[calc(100vw-2rem)]">
@@ -526,10 +531,10 @@ export function MobileShiftDialog({
 
           {/* Employee Assignment - Admin Only */}
           {isAdmin && (
-            <div className="space-y-2">
-              <Label>Assigned Employee</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Assigned Employee</Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-xs">
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -544,51 +549,42 @@ export function MobileShiftDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+
+        <DialogFooter className="flex-row flex-wrap gap-1.5 px-3 py-2 border-t shrink-0 bg-background">
           {/* Offer Up button - show for assigned shifts that aren't being created */}
           {!isCreating && shift?.user_id && (
-            <Button 
+            <Button
               variant="outline"
+              size="sm"
               onClick={() => setShowOfferDialog(true)}
-              className="w-full sm:w-auto sm:mr-auto border-primary/50 text-primary hover:bg-primary/10"
+              className="h-8 px-2 text-xs mr-auto border-primary/50 text-primary hover:bg-primary/10"
             >
-              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
               Offer Up
             </Button>
           )}
-          {isAdmin && !isCreating && !shift?.user_id && (
-            <Button 
-              variant="destructive" 
-              onClick={handleDelete} 
+          {isAdmin && !isCreating && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
               disabled={deleting}
-              className="w-full sm:w-auto sm:mr-auto"
+              className={`h-8 px-2 text-xs ${!shift?.user_id ? 'mr-auto' : ''}`}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleting ? 'Deleting...' : 'Delete'}
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              {deleting ? '...' : 'Delete'}
             </Button>
           )}
-          {isAdmin && !isCreating && shift?.user_id && (
-            <Button 
-              variant="destructive" 
-              onClick={handleDelete} 
-              disabled={deleting}
-              className="w-full sm:w-auto"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleting ? 'Deleting...' : 'Delete'}
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 px-3 text-xs">
+            {isAdmin ? 'Cancel' : 'Close'}
+          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 px-3 text-xs">
+              {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
             </Button>
           )}
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
-              {isAdmin ? 'Cancel' : 'Close'}
-            </Button>
-            {isAdmin && (
-              <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none">
-                {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
-              </Button>
-            )}
-          </div>
         </DialogFooter>
+
       </DialogContent>
 
       {/* Offer Up Dialog */}
