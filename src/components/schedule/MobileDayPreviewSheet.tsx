@@ -11,6 +11,9 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
 import { Button } from "@/components/ui/button";
+import { useLocationStations } from "@/hooks/useLocationStations";
+import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
+import { useQuery } from "@tanstack/react-query";
 
 interface PendingDraft {
   employeeId: string;
@@ -141,6 +144,24 @@ export function MobileDayPreviewSheet({
   });
 
   const profileFor = (id: string | null) => profiles.find((p) => p.id === id) || null;
+
+  // Stations support
+  const { stations } = useLocationStations(currentLocation?.id);
+  const { assignments: stationAssignments } = useUserStationAssignments(currentLocation?.id);
+  const { data: stationsEnabledRow } = useQuery({
+    queryKey: ['location_stations_enabled', currentLocation?.id],
+    enabled: !!currentLocation?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('location_settings')
+        .select('stations_enabled')
+        .eq('location_id', currentLocation!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const stationsEnabled = !!(stationsEnabledRow as any)?.stations_enabled && (stations ?? []).length > 0;
 
   // Pending draft hours/cost
   const pendingHours = pendingDraft ? calcWorkedHours(pendingDraft.start, pendingDraft.end) : 0;
@@ -283,35 +304,65 @@ export function MobileDayPreviewSheet({
                     </div>
                   </div>
                 )}
-                {sorted.map((shift) => {
-                  const p = profileFor(shift.user_id);
-                  const name = p ? (p.nickname || p.full_name || "Hidden") : (shift.user_id ? "Hidden" : "Unassigned");
-                  const wh = calcWorkedHours(shift.start_time, shift.end_time);
-                  const wage = p?.hourly_wage ?? 15;
-                  const cost = wh * wage;
-                  const color = shift.template?.color || shift.color || "hsl(var(--primary))";
-                  return (
-                    <div key={shift.id} className="flex items-center gap-3 px-3 py-2.5">
-                      <Avatar className="h-9 w-9 shrink-0">
-                        <AvatarImage src={p?.profile_photo_url || undefined} />
-                        <AvatarFallback className="text-xs">{name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                          <p className="text-sm font-semibold truncate">{name}</p>
+                {(() => {
+                  const renderRow = (shift: any) => {
+                    const p = profileFor(shift.user_id);
+                    const name = p ? (p.nickname || p.full_name || "Hidden") : (shift.user_id ? "Hidden" : "Unassigned");
+                    const wh = calcWorkedHours(shift.start_time, shift.end_time);
+                    const wage = p?.hourly_wage ?? 15;
+                    const cost = wh * wage;
+                    const color = shift.template?.color || shift.color || "hsl(var(--primary))";
+                    return (
+                      <div key={shift.id} className="flex items-center gap-3 px-3 py-2.5">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarImage src={p?.profile_photo_url || undefined} />
+                          <AvatarFallback className="text-xs">{name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                            <p className="text-sm font-semibold truncate">{name}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
-                        </p>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold tabular-nums">{wh.toFixed(1)}h</p>
+                          <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(cost)}</p>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold tabular-nums">{wh.toFixed(1)}h</p>
-                        <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(cost)}</p>
+                    );
+                  };
+
+                  if (!stationsEnabled) {
+                    return sorted.map(renderRow);
+                  }
+
+                  const groups: { id: string; name: string; color: string; items: any[] }[] = [
+                    ...(stations ?? []).map((s) => ({ id: s.id, name: s.name, color: s.color, items: [] as any[] })),
+                    { id: "__unassigned__", name: "Unassigned", color: "hsl(var(--muted-foreground))", items: [] as any[] },
+                  ];
+                  for (const shift of sorted) {
+                    const sid = shift.user_id ? (stationAssignments[shift.user_id] ?? null) : null;
+                    const bucket = groups.find((g) => g.id === sid) ?? groups[groups.length - 1];
+                    bucket.items.push(shift);
+                  }
+                  return groups
+                    .filter((g) => g.items.length > 0)
+                    .map((g) => (
+                      <div key={g.id}>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30">
+                          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: g.color }} />
+                          <span className="text-[11px] font-semibold uppercase tracking-wide">{g.name}</span>
+                          <span className="text-[11px] text-muted-foreground ml-auto">{g.items.length}</span>
+                        </div>
+                        <div className="divide-y">
+                          {g.items.map(renderRow)}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    ));
+                })()}
               </div>
             )}
           </div>

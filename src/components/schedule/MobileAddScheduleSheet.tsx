@@ -10,12 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff, Clock, AlertTriangle, Plus, X as XIcon, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff, Clock, AlertTriangle, Plus, X as XIcon, Sparkles, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { MobileDayPreviewSheet } from './MobileDayPreviewSheet';
 import { AvailabilityRequest } from '@/hooks/useScheduleData';
+import { useLocationStations } from '@/hooks/useLocationStations';
+import { useUserStationAssignments } from '@/hooks/useUserStationAssignments';
+import { useQuery } from '@tanstack/react-query';
 
 interface Profile {
   id: string;
@@ -206,6 +209,25 @@ export function MobileAddScheduleSheet({
   // Smart-Tap popover state — which day's chip is currently open (0..6, or null)
   const [popoverDayIdx, setPopoverDayIdx] = useState<number | null>(null);
   const customStartRef = useRef<HTMLInputElement>(null);
+
+  // Stations support — only render station UI when location toggled it on
+  const { data: stationsEnabledRow } = useQuery({
+    queryKey: ['location_stations_enabled', locationId],
+    enabled: !!locationId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('location_settings')
+        .select('stations_enabled')
+        .eq('location_id', locationId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const { stations } = useLocationStations(locationId);
+  const stationsList = stations ?? [];
+  const stationsEnabled = !!(stationsEnabledRow as any)?.stations_enabled && stationsList.length > 0;
+  const { assignments: stationAssignments, assign: assignUserStation } = useUserStationAssignments(locationId);
 
   // Init defaults on open
   useEffect(() => {
@@ -877,6 +899,50 @@ export function MobileAddScheduleSheet({
                 </DialogHeader>
 
                 <div className="space-y-0.5">
+                  {/* Stations — assign primary station to this employee */}
+                  {stationsEnabled && empUserId && (
+                    <>
+                      <div className="flex items-center justify-center gap-1 px-2 pt-1 pb-0.5">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Station
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 px-1 pb-1">
+                        {stationsList.map((s) => {
+                          const active = stationAssignments[empUserId] === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => assignUserStation(empUserId, active ? null : s.id)}
+                              className={cn(
+                                "flex items-center gap-1 px-2 py-1 rounded-md border text-xs transition",
+                                active ? "border-primary bg-primary/10" : "border-border hover:bg-accent/70"
+                              )}
+                            >
+                              <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: s.color }} />
+                              <span className="truncate max-w-[80px]">{s.name}</span>
+                              {active && <Check className="h-3 w-3 text-primary" />}
+                            </button>
+                          );
+                        })}
+                        {stationAssignments[empUserId] && (
+                          <button
+                            type="button"
+                            onClick={() => assignUserStation(empUserId, null)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-accent/70"
+                          >
+                            <XIcon className="h-3 w-3" />
+                            Unassign
+                          </button>
+                        )}
+                      </div>
+                      <div className="my-1 h-px bg-border" />
+                    </>
+                  )}
+
+
                   {/* + Create — compact, text-only */}
                   <button
                     type="button"
