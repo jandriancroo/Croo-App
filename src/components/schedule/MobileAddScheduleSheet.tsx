@@ -331,6 +331,30 @@ export function MobileAddScheduleSheet({
     });
   };
 
+  // Smart Tap on a day chip → apply template to THAT day and advance cursor to it
+  const applyTemplateToDay = (dayIdx: number, templateId: string) => {
+    const t = templates.find(x => x.id === templateId);
+    if (!t) return;
+    setWeekDraft(prev => ({
+      ...prev,
+      [dayIdx]: { start: t.start_time, end: t.end_time, templateId },
+    }));
+    setDayCursor(dayIdx);
+    setPopoverDayIdx(null);
+  };
+
+  // Smart Tap "+ Create" → seed an empty draft (manual), focus cursor to that day,
+  // close popover, and focus the custom-times start input below.
+  const startManualForDay = (dayIdx: number) => {
+    setWeekDraft(prev => ({
+      ...prev,
+      [dayIdx]: prev[dayIdx] ?? { start: '09:00', end: '17:00', templateId: null },
+    }));
+    setDayCursor(dayIdx);
+    setPopoverDayIdx(null);
+    setTimeout(() => customStartRef.current?.focus(), 80);
+  };
+
   const toggleDay = (i: number) => {
     setSelectedDayIdxs(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i].sort());
   };
