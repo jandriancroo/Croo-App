@@ -182,7 +182,7 @@ export function useLogBookData() {
         .select(`*, logbook_entry_values(*), profiles(full_name, profile_photo_url), logbook_categories(name)`)
         .eq('location_id', currentLocation.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(500);
       if (error) throw error;
       return data;
     },
