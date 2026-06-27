@@ -230,7 +230,8 @@ export default function ShiftTemplates() {
             position: positionValue,
             days_of_week: formData.days_of_week,
             allowed_roles: formData.allowed_roles,
-          })
+            breaks: formData.breaks,
+          } as any)
           .eq("id", editingTemplate.id);
 
         if (error) throw error;
@@ -247,7 +248,8 @@ export default function ShiftTemplates() {
           days_of_week: formData.days_of_week,
           allowed_roles: formData.allowed_roles,
           location_id: currentLocation?.id,
-        });
+          breaks: formData.breaks,
+        } as any);
 
         if (error) throw error;
         toast.success("Shift template created");
