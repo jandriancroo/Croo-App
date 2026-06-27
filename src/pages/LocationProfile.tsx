@@ -303,6 +303,7 @@ export default function LocationProfile() {
           time_off_cutoff_enabled: cutoffEnabled,
           time_off_cutoff_days_before: cutoffDaysBefore,
           time_off_cutoff_time: cutoffTime,
+          break_coverage_enabled: breakCoverageEnabled,
         };
 
         if (settingsId) {
