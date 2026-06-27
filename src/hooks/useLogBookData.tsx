@@ -199,6 +199,7 @@ export function useLogBookData() {
     enabled: !!currentLocation,
     staleTime: LOGBOOK_STALE_TIME,
     gcTime: LOGBOOK_GC_TIME,
+    placeholderData: keepPreviousData,
   });
 
 
