@@ -278,7 +278,7 @@ export function useScheduleData() {
         supabase.from("availability_requests").select("*").eq("location_id", currentLocation.id).eq("request_type", "unpaid").in("status", ["pending", "approved"]).lte("start_date", format(weekEnd, "yyyy-MM-dd")).or(`end_date.gte.${format(currentWeekStart, "yyyy-MM-dd")},and(end_date.is.null,start_date.gte.${format(currentWeekStart, "yyyy-MM-dd")})`),
         supabase.from("schedule_projected_sales").select("*").eq("schedule_id", schedule.id),
         supabase.from("holidays").select("*").or(`location_id.eq.${currentLocation.id},location_id.is.null`).gte("holiday_date", format(currentWeekStart, "yyyy-MM-dd")).lte("holiday_date", format(weekEnd, "yyyy-MM-dd")),
-        supabase.from("location_settings").select("blackout_dates, hours_open, hours_close").eq("location_id", currentLocation.id).single(),
+        supabase.from("location_settings").select("blackout_dates, hours_open, hours_close, stations_enabled").eq("location_id", currentLocation.id).single(),
         supabase.from("schedules").select("id").eq("week_start_date", lastWeekDate).eq("location_id", currentLocation.id).single(),
       ]);
 
