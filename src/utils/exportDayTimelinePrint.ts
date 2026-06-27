@@ -413,6 +413,40 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
 
   /* Page 2 — roster */
   .page-break { page-break-before: always; }
+  .roster-sections { display: block; }
+  .roster-station-group { margin-bottom: 14px; break-inside: avoid; }
+  .roster-station-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0 6px;
+    margin-bottom: 6px;
+    border-bottom: 2px solid #d1d5db;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .station-swatch {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+  .station-name { color: #1a1a1a; }
+  .station-count { font-size: 10px; color: #888; font-weight: 500; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+
+  /* Page 1 station header rows */
+  tr.station-header-row td.station-header-cell {
+    background: #f3f4f6;
+    padding: 6px 10px;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: 2px solid #9ca3af;
+  }
+  tr.station-header-row .station-name { vertical-align: middle; }
+
   .roster-grid {
     columns: 2;
     column-gap: 18px;
