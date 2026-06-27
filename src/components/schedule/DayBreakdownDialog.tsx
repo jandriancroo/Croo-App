@@ -444,6 +444,32 @@ export function DayBreakdownDialog({
                                   {formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}
                                 </span>
                               </div>
+                              {/* Break overlays */}
+                              {Array.isArray(shift.breaks) && shift.breaks.map((br: any, i: number) => {
+                                if (!br?.start_time || !br?.end_time) return null;
+                                const [bsH, bsM] = String(br.start_time).split(":").map(Number);
+                                const [beH, beM] = String(br.end_time).split(":").map(Number);
+                                const bs = bsH + bsM / 60;
+                                let be = beH + beM / 60;
+                                if (be < bs) be += 24;
+                                const bLeft = ((bs - earliest) / totalRange) * 100;
+                                const bWidth = ((be - bs) / totalRange) * 100;
+                                const coverProfile = br.covered_by_user_id
+                                  ? profiles.find((p: any) => p.id === br.covered_by_user_id)
+                                  : null;
+                                return (
+                                  <div
+                                    key={br.id ?? i}
+                                    title={`Break ${formatTime12Hour(br.start_time)} - ${formatTime12Hour(br.end_time)}${coverProfile ? ` · Covered by ${coverProfile.full_name}` : ''}`}
+                                    className="absolute top-0 h-full rounded border border-amber-600/70 bg-amber-400/80 flex items-center justify-center text-[10px] font-semibold text-amber-950 shadow-sm"
+                                    style={{ left: `${bLeft}%`, width: `${bWidth}%`, zIndex: 2 }}
+                                  >
+                                    <span className="truncate px-1">
+                                      ☕ {coverProfile ? `→ ${coverProfile.full_name.split(' ')[0]}` : 'Break'}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         );

@@ -112,7 +112,7 @@ export function useScheduleData() {
   const [weeklyTotalSales, setWeeklyTotalSales] = useState(0);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
-  const [locationSettings, setLocationSettings] = useState<{ hours_open?: string; hours_close?: string } | null>(null);
+  const [locationSettings, setLocationSettings] = useState<{ hours_open?: string; hours_close?: string; stations_enabled?: boolean } | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
 
   const currentUserId = user?.id || null;
@@ -343,12 +343,13 @@ export function useScheduleData() {
       }
 
       let processedBlackoutDates: string[] = [];
-      let processedLocationSettings: { hours_open?: string; hours_close?: string } | null = null;
+      let processedLocationSettings: { hours_open?: string; hours_close?: string; stations_enabled?: boolean } | null = null;
       if (!locationSettingsResult.error && locationSettingsResult.data) {
         processedBlackoutDates = locationSettingsResult.data.blackout_dates || [];
         processedLocationSettings = {
           hours_open: locationSettingsResult.data.hours_open || undefined,
-          hours_close: locationSettingsResult.data.hours_close || undefined
+          hours_close: locationSettingsResult.data.hours_close || undefined,
+          stations_enabled: !!(locationSettingsResult.data as any).stations_enabled,
         };
       }
 
