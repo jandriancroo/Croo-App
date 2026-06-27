@@ -235,8 +235,9 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
               </Button>
             </div>
           </div>
-        )}
       </CardContent>
+      )}
     </Card>
+
   );
 }
