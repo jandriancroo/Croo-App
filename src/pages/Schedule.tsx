@@ -91,6 +91,13 @@ export default function Schedule() {
   const setIsCompactMode = (val: boolean) => setIsCompactModeManual(val);
   const [hideTemplatesBar, setHideTemplatesBar] = useState(() => localStorage.getItem('schedule-hide-templates') === 'true');
 
+  // Stations (Phase 2) — group schedule by Station → Role when enabled
+  const stationsEnabled = !!(locationSettings as any)?.stations_enabled;
+  const { stations } = useLocationStations(currentLocation?.id);
+  const { assignments: stationAssignments, assign: assignUserStation } =
+    useUserStationAssignments(currentLocation?.id);
+  const useStationGrouping = stationsEnabled && stations.length > 0;
+
   // Measure actual navbar height for sticky offset
   useEffect(() => {
     const measureHeader = () => {
