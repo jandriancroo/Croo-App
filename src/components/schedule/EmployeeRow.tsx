@@ -272,7 +272,11 @@ function EmployeeRowComponent({
          recentTemplateIds={recentTemplateIds}
          onSmartTap={onSmartTap}
          cellDateStr={cellDateStr}
+         stations={stations}
+         currentStationId={currentStationId}
+         onAssignStation={onAssignStation ? (sid) => onAssignStation(profile.id, sid) : undefined}
        />;
+
     })}
     </div>;
 }
