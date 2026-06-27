@@ -446,7 +446,7 @@ export function MobileAddScheduleSheet({
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
                         <RoleGroupLabel group={g} />
-                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
+                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} count={shiftCountByUser[p.id] || 0} />)}
                       </SelectGroup>
                     ))}
 
