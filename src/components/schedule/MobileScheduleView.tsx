@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
 import { getDisplayName } from '@/utils/displayName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
