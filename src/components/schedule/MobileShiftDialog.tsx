@@ -399,6 +399,19 @@ export function MobileShiftDialog({
             </div>
           )}
 
+          {/* Scheduled Breaks + Coverage — gated on master toggle */}
+          {isAdmin && breakCoverageEnabled && (
+            <BreakEditor
+              value={breaks}
+              onChange={setBreaks}
+              showCoverer
+              coverers={profiles.map((p) => ({ id: p.id, full_name: p.full_name }))}
+              shiftStart={startTime}
+              shiftEnd={endTime}
+            />
+          )}
+
+
           {/* Template Selection - Admin Only */}
           {isAdmin && templates.length > 0 && (
             <div className="space-y-2">
