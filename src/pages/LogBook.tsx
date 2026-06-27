@@ -31,12 +31,44 @@ export default function LogBook() {
     categories,
   } = data;
 
-  const searchCategoryOptions = [
+  const searchCategoryOptions: string[] = [
     ...((categories || []).map((c: any) => c.name).filter(Boolean)),
     'Employee Write-Up',
     'Read & Sign',
     ...((isAdmin || isManager) ? ['Performance Review'] : []),
   ];
+
+  // Color palette for badges (deterministic by name hash)
+  const badgePalette = [
+    { bg: 'bg-blue-500/15', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-500/30', solid: 'bg-blue-500 text-white border-blue-500' },
+    { bg: 'bg-emerald-500/15', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-500/30', solid: 'bg-emerald-500 text-white border-emerald-500' },
+    { bg: 'bg-amber-500/15', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-500/30', solid: 'bg-amber-500 text-white border-amber-500' },
+    { bg: 'bg-purple-500/15', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-500/30', solid: 'bg-purple-500 text-white border-purple-500' },
+    { bg: 'bg-pink-500/15', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-500/30', solid: 'bg-pink-500 text-white border-pink-500' },
+    { bg: 'bg-cyan-500/15', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-500/30', solid: 'bg-cyan-500 text-white border-cyan-500' },
+    { bg: 'bg-orange-500/15', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-500/30', solid: 'bg-orange-500 text-white border-orange-500' },
+    { bg: 'bg-indigo-500/15', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-500/30', solid: 'bg-indigo-500 text-white border-indigo-500' },
+    { bg: 'bg-rose-500/15', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-500/30', solid: 'bg-rose-500 text-white border-rose-500' },
+    { bg: 'bg-teal-500/15', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-500/30', solid: 'bg-teal-500 text-white border-teal-500' },
+  ];
+  const colorFor = (name: string) => {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return badgePalette[h % badgePalette.length];
+  };
+
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!searchFocused) return;
+    const onDown = (e: MouseEvent) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node)) {
+        setSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [searchFocused]);
 
   // Don't render if role is still loading or user doesn't have access
   if (roleLoading || (!isAdmin && !isManager && !isShiftManager)) {
