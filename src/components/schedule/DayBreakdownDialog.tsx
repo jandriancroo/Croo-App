@@ -13,6 +13,7 @@ import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
 import { exportDayTimelineToPrint } from "@/utils/exportDayTimelinePrint";
 import { normalizeBreaks } from "@/types/shiftBreak";
+import type { LocationStation } from "@/hooks/useLocationStations";
 interface DayBreakdownDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,6 +25,9 @@ interface DayBreakdownDialogProps {
   profiles: { id: string; full_name?: string | null; hourly_wage?: number | null; role?: string | null }[];
   // Location settings for business hours
   locationSettings?: { hours_open?: string; hours_close?: string; break_coverage_enabled?: boolean } | null;
+  // Optional station grouping
+  stations?: LocationStation[];
+  stationAssignments?: Record<string, string | null>;
 }
 
 export function DayBreakdownDialog({
@@ -34,6 +38,8 @@ export function DayBreakdownDialog({
   shifts,
   profiles,
   locationSettings,
+  stations,
+  stationAssignments,
 }: DayBreakdownDialogProps) {
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
