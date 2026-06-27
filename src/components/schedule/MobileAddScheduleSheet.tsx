@@ -237,6 +237,26 @@ export function MobileAddScheduleSheet({
     return map;
   }, [empUserId, shifts]);
 
+  // Smart Tap: last 3 unique template IDs this employee worked LAST WEEK (any day),
+  // ordered by most recent. Surfaces at top of the Apply Template dropdown.
+  const recentTemplateIds = useMemo(() => {
+    if (!empUserId) return [] as string[];
+    const employeeShifts = lastWeekShifts
+      .filter(s => s.user_id === empUserId && s.template_id)
+      .sort((a, b) => (b.shift_date || '').localeCompare(a.shift_date || ''));
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const s of employeeShifts) {
+      const tid = s.template_id as string;
+      if (!seen.has(tid) && templates.some(t => t.id === tid)) {
+        seen.add(tid);
+        out.push(tid);
+        if (out.length >= 3) break;
+      }
+    }
+    return out;
+  }, [empUserId, lastWeekShifts, templates]);
+
   // Shift count per user (for dropdown badges). For the currently selected user,
   // include in-progress drafts so the badge reflects what they're building right now.
   const shiftCountByUser = useMemo(() => {
