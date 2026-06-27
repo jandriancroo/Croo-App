@@ -207,7 +207,8 @@ export function MobileShiftDialog({
             template_id: selectedTemplateId || null,
             day_of_week: dayOfWeek,
             shift_date: shiftDate,
-          });
+            breaks: breakCoverageEnabled ? breaks : [],
+          } as any);
 
         if (shiftError) throw shiftError;
       } else {
@@ -224,7 +225,8 @@ export function MobileShiftDialog({
             template_id: selectedTemplateId || null,
             shift_date: shiftDate,
             day_of_week: dayOfWeek,
-          })
+            breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
+          } as any)
           .eq('id', shift!.id);
 
         if (shiftError) throw shiftError;
