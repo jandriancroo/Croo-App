@@ -48,10 +48,17 @@ function groupProfilesByRole(profiles: Profile[]) {
   })).filter(g => g.members.length > 0);
 }
 
-function ProfileSelectItem({ p }: { p: Profile }) {
+function ProfileSelectItem({ p, count }: { p: Profile; count: number }) {
   return (
     <SelectItem value={p.id}>
-      <span className="truncate">{p.nickname || p.full_name}</span>
+      <span className="flex items-center justify-between gap-2 w-full">
+        <span className="truncate">{p.nickname || p.full_name}</span>
+        {count > 0 && (
+          <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold leading-none shrink-0">
+            {count}
+          </span>
+        )}
+      </span>
     </SelectItem>
   );
 }
@@ -190,6 +197,9 @@ export function MobileAddScheduleSheet({
   const [weekDraft, setWeekDraft] = useState<Record<number, DayDraft>>({});
   const [reviewOpen, setReviewOpen] = useState(false);
   const [savingWeek, setSavingWeek] = useState(false);
+  // When user picks a different team member while drafts exist, we route through Confirm Week.
+  // If Apply succeeds → switch to this id; if Back → keep working on the current employee.
+  const [pendingEmpSwitchId, setPendingEmpSwitchId] = useState<string | null>(null);
 
   // Init defaults on open
   useEffect(() => {
@@ -223,6 +233,27 @@ export function MobileAddScheduleSheet({
       .forEach(s => { map[s.shift_date] = s; });
     return map;
   }, [empUserId, shifts]);
+
+  // Shift count per user (for dropdown badges). For the currently selected user,
+  // include in-progress drafts so the badge reflects what they're building right now.
+  const shiftCountByUser = useMemo(() => {
+    const m: Record<string, Set<string>> = {};
+    shifts.forEach(s => {
+      if (!s.user_id) return;
+      if (!m[s.user_id]) m[s.user_id] = new Set();
+      m[s.user_id].add(s.shift_date);
+    });
+    const out: Record<string, number> = {};
+    Object.entries(m).forEach(([uid, set]) => { out[uid] = set.size; });
+    if (empUserId) {
+      const days = new Set(m[empUserId] || []);
+      Object.entries(weekDraft).forEach(([i, v]) => {
+        if (v) days.add(format(weekDays[parseInt(i)], 'yyyy-MM-dd'));
+      });
+      out[empUserId] = days.size;
+    }
+    return out;
+  }, [shifts, weekDraft, empUserId, weekDays]);
 
   const totalWeekHours = useMemo(() => {
     let h = 0;
@@ -376,7 +407,15 @@ export function MobileAddScheduleSheet({
       queryClient.invalidateQueries({ queryKey: ['schedule', locationId] });
       onCreated?.();
       setReviewOpen(false);
-      onOpenChange(false);
+      // Reset builder state but keep the sheet open so manager can pick the next employee.
+      setWeekDraft({});
+      setDayCursor(0);
+      if (pendingEmpSwitchId) {
+        setEmpUserId(pendingEmpSwitchId);
+        setPendingEmpSwitchId(null);
+      } else {
+        setEmpUserId('');
+      }
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || 'Failed to apply schedule');
@@ -415,7 +454,7 @@ export function MobileAddScheduleSheet({
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
                         <RoleGroupLabel group={g} />
-                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
+                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} count={shiftCountByUser[p.id] || 0} />)}
                       </SelectGroup>
                     ))}
 
@@ -492,13 +531,22 @@ export function MobileAddScheduleSheet({
             <TabsContent value="employee" className="space-y-4 pt-3">
               <div className="space-y-2">
                 <Label>Team Member</Label>
-                <Select value={empUserId} onValueChange={setEmpUserId}>
+                <Select value={empUserId} onValueChange={(v) => {
+                  if (v === empUserId) return;
+                  const hasDrafts = Object.values(weekDraft).some(Boolean);
+                  if (hasDrafts && empUserId) {
+                    setPendingEmpSwitchId(v);
+                    setReviewOpen(true);
+                  } else {
+                    setEmpUserId(v);
+                  }
+                }}>
                   <SelectTrigger><SelectValue placeholder="Pick employee" /></SelectTrigger>
                   <SelectContent>
                     {groupProfilesByRole(profiles).map(g => (
                       <SelectGroup key={g.key}>
                         <RoleGroupLabel group={g} />
-                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} />)}
+                        {g.members.map(p => <ProfileSelectItem key={p.id} p={p} count={shiftCountByUser[p.id] || 0} />)}
                       </SelectGroup>
                     ))}
 
@@ -712,7 +760,7 @@ export function MobileAddScheduleSheet({
       </Dialog>
 
       {/* ============ REVIEW DIALOG ============ */}
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+      <Dialog open={reviewOpen} onOpenChange={(o) => { if (!o) setPendingEmpSwitchId(null); setReviewOpen(o); }}>
         <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col">
           <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
             <DialogTitle className="text-base truncate pr-6">Confirm Week — {empName}</DialogTitle>
@@ -785,7 +833,7 @@ export function MobileAddScheduleSheet({
               <Badge className="text-base px-3 py-1">{totalWeekHours.toFixed(1)}h</Badge>
             </div>
             <DialogFooter className="gap-2 flex-row">
-              <Button variant="outline" onClick={() => setReviewOpen(false)} className="flex-1">Back</Button>
+              <Button variant="outline" onClick={() => { setPendingEmpSwitchId(null); setReviewOpen(false); }} className="flex-1">Back</Button>
               <Button onClick={handleApplyWeek} disabled={savingWeek} className="flex-1">
                 {savingWeek ? 'Applying...' : 'Apply'}
               </Button>
