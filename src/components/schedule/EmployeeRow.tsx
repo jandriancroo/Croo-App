@@ -67,6 +67,8 @@ interface EmployeeRowProps {
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
   /** Optional small badge shown next to the name (e.g. "Manager"). */
   roleBadge?: string;
+  /** Optional station-assignment chip rendered as the leftmost element of the row. */
+  stationChip?: React.ReactNode;
 }
 
 function EmployeeRowComponent({
@@ -88,7 +90,8 @@ function EmployeeRowComponent({
   holidays = [],
   allShifts = [],
   onSmartTap,
-  roleBadge
+  roleBadge,
+  stationChip
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
@@ -165,6 +168,9 @@ function EmployeeRowComponent({
           <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
             <GripVertical className="h-4 w-4" />
           </div>
+        )}
+        {stationChip && profile.id !== "unassigned" && (
+          <div className="flex-shrink-0">{stationChip}</div>
         )}
         {profile.id !== "unassigned" ? <div onClick={() => navigate('/users', {
         state: {
