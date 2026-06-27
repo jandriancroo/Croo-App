@@ -109,66 +109,84 @@ export default function LogBook() {
         {/* Recent Logs Tab */}
         {activeTab === "search" && (
           <div className="space-y-4" style={{ marginTop: "1rem" }}>
-            <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search entries..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1"
-              />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button size="icon" variant={searchDateFilter ? "default" : "outline"} title="Filter by date">
-                    <CalendarIcon className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={searchDateFilter}
-                    onSelect={(date) => setSearchDateFilter(date || undefined)}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
+            <div ref={searchWrapRef} className="relative">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <div className="relative flex-1">
+                  <Input
+                    placeholder={searchCategoryName ? "Refine within filter..." : "Search entries..."}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    className={searchCategoryName ? "pl-2" : ""}
                   />
-                  {searchDateFilter && (
-                    <div className="p-2 border-t border-border">
-                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setSearchDateFilter(undefined)}>
-                        Clear date filter
-                      </Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-              <LogBookNewEntrySheet data={data} />
-            </div>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="icon" variant={searchDateFilter ? "default" : "outline"} title="Filter by date">
+                      <CalendarIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={searchDateFilter}
+                      onSelect={(date) => setSearchDateFilter(date || undefined)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                    {searchDateFilter && (
+                      <div className="p-2 border-t border-border">
+                        <Button variant="ghost" size="sm" className="w-full" onClick={() => setSearchDateFilter(undefined)}>
+                          Clear date filter
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                <LogBookNewEntrySheet data={data} />
+              </div>
 
-            <div className="-mt-2 flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-              {searchCategoryOptions.map((name: string) => {
-                const active = searchCategoryName === name;
+              {searchCategoryName && (() => {
+                const c = colorFor(searchCategoryName);
                 return (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => setSearchCategoryName(active ? null : name)}
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-                    }`}
-                  >
-                    {name}
-                  </button>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Filter:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSearchCategoryName(null)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${c.solid}`}
+                    >
+                      {searchCategoryName}
+                      <span aria-hidden className="ml-0.5 opacity-80">×</span>
+                    </button>
+                  </div>
                 );
-              })}
-              {searchCategoryName && (
-                <button
-                  type="button"
-                  onClick={() => setSearchCategoryName(null)}
-                  className="shrink-0 rounded-full px-3 py-1 text-xs font-medium border border-border text-muted-foreground hover:bg-muted"
-                >
-                  Clear
-                </button>
+              })()}
+
+              {searchFocused && !searchCategoryName && (
+                <div className="absolute left-6 right-0 top-full z-30 mt-2 rounded-xl border border-border bg-popover shadow-lg p-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Filter by log type</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {searchCategoryOptions.map((name: string) => {
+                      const c = colorFor(name);
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSearchCategoryName(name);
+                            setSearchFocused(false);
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${c.bg} ${c.text} ${c.border} hover:opacity-80`}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
 
