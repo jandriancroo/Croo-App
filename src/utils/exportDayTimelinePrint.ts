@@ -130,20 +130,8 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
               let bRight = pctFor(b.end_time);
               if (bRight <= bLeft) bRight = bLeft + 1;
               const bWidth = bRight - bLeft;
-              const cov = b.covered_by_user_id
-                ? data.profiles.find((pp) => pp.id === b.covered_by_user_id)?.full_name
-                : null;
-              const initials = cov
-                ? cov
-                    .split(/\s+/)
-                    .map((w) => w[0]?.toUpperCase() || '')
-                    .slice(0, 2)
-                    .join('')
-                : '';
-              const tooltip = cov
-                ? `Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)} · Covered by ${cov}`
-                : `Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}`;
-              return `<div class="break-overlay" style="left:${bLeft}%;width:${bWidth}%" title="${escapeHtml(tooltip)}"><span class="break-label">☕${initials ? ` ${escapeHtml(initials)}` : ''}</span></div>`;
+              const tooltip = `Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}`;
+              return `<div class="break-overlay" style="left:${bLeft}%;width:${bWidth}%" title="${escapeHtml(tooltip)}"></div>`;
             })
             .join('');
           const label = s.position || s.template_name || '';
@@ -191,10 +179,7 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
           const breaks = normalizeBreaks(s.breaks);
           const breakItems = breaks
             .map((b) => {
-              const cov = b.covered_by_user_id
-                ? data.profiles.find((pp) => pp.id === b.covered_by_user_id)?.full_name
-                : null;
-              return `<div class="break-line">☕ Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}${cov ? ` · <strong>Covered by ${escapeHtml(cov)}</strong>` : ' · <em>No coverer</em>'}</div>`;
+              return `<div class="break-line">☕ Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}</div>`;
             })
             .join('');
           const label = s.position || s.template_name || '';
