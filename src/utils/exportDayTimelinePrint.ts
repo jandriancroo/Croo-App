@@ -134,7 +134,9 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
               return `<div class="break-overlay" style="left:${bLeft}%;width:${bWidth}%" title="${escapeHtml(tooltip)}"></div>`;
             })
             .join('');
-          const label = s.position || s.template_name || '';
+          const rawLabel = s.position || s.template_name || '';
+          // Strip trailing time range (e.g. "Teacher 7:00 AM - 4:00 PM" → "Teacher")
+          const label = rawLabel.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*$/i, '').trim();
           return `
             <div class="shift-bar" style="left:${left}%;width:${width}%;background:${color}22;border-color:${color}">
               <span class="shift-time" style="color:${color}">${formatTime12(s.start_time)}–${formatTime12(s.end_time)}</span>
