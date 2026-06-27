@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +17,8 @@ import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 const LOGBOOK_STALE_TIME = 5 * 60 * 1000;
 const LOGBOOK_STALE_TIME_PAST = 30 * 60 * 1000;
 const LOGBOOK_GC_TIME = 60 * 60 * 1000;
+const RECENT_PAGE_SIZE = 50;
+
 
 export function useLogBookData() {
   const { user } = useAuth();
@@ -46,6 +48,8 @@ export function useLogBookData() {
   const [searchDateFilter, setSearchDateFilter] = useState<Date | undefined>(undefined);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [generatingWeeklySummary, setGeneratingWeeklySummary] = useState(false);
+  const [recentPage, setRecentPage] = useState(1);
+
 
   // Redirect team members
   useEffect(() => {
@@ -132,6 +136,12 @@ export function useLogBookData() {
     return () => window.removeEventListener('open-bank-deposit', handleBankDeposit);
   }, []);
 
+  // Reset pagination when switching locations
+  useEffect(() => {
+    setRecentPage(1);
+  }, [currentLocation?.id]);
+
+
   const { data: fields = [] } = useQuery({
     queryKey: ['logbook-fields', selectedCategory],
     queryFn: async () => {
@@ -173,8 +183,8 @@ export function useLogBookData() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
-  const { data: recentEntries = [] } = useQuery({
-    queryKey: ['logbook-recent-entries', currentLocation?.id],
+  const { data: recentEntries = [], isFetching: isFetchingRecentEntries } = useQuery({
+    queryKey: ['logbook-recent-entries', currentLocation?.id, recentPage],
     queryFn: async () => {
       if (!currentLocation) return [];
       const { data, error } = await supabase
@@ -182,7 +192,7 @@ export function useLogBookData() {
         .select(`*, logbook_entry_values(*), profiles(full_name, profile_photo_url), logbook_categories(name)`)
         .eq('location_id', currentLocation.id)
         .order('created_at', { ascending: false })
-        .limit(500);
+        .limit(RECENT_PAGE_SIZE * recentPage);
       if (error) throw error;
       return data;
     },
@@ -190,6 +200,7 @@ export function useLogBookData() {
     staleTime: LOGBOOK_STALE_TIME,
     gcTime: LOGBOOK_GC_TIME,
   });
+
 
   const { data: employeeWriteUps = [] } = useQuery({
     queryKey: ['employee-writeups', currentLocation?.id],
@@ -340,8 +351,17 @@ export function useLogBookData() {
       : [...recentEntries, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries];
     const sorted = combined.sort((a: any, b: any) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return searchTerms.length > 0 ? sorted : sorted.slice(0, 100);
+    return sorted;
   }, [searchTerms, searchResults, recentEntries, writeUpEntries, readAndSignEntries, performanceReviewEntries]);
+
+  const hasMoreRecentEntries = useMemo(() =>
+    searchTerms.length === 0 && recentEntries.length >= RECENT_PAGE_SIZE * recentPage,
+  [searchTerms.length, recentEntries.length, recentPage]);
+
+  const loadMoreRecentEntries = useCallback(() => {
+    setRecentPage(prev => prev + 1);
+  }, []);
+
 
   // Category IDs
   const bankDepositCategoryId = useMemo(() => categories.find((c: any) => c.name?.toLowerCase() === 'bank deposit')?.id, [categories]);
@@ -570,6 +590,8 @@ export function useLogBookData() {
     bankDepositCategoryId, safeCountCategoryId, drawerCountCategoryId,
     // Derived
     sortedDays, entriesByDay, checkPreviousNightNeededBankRun,
+    // Pagination
+    recentPage, hasMoreRecentEntries, loadMoreRecentEntries, isFetchingRecentEntries,
     // Mutations
     handleFileUpload, saveEntryMutation, deleteEntryMutation, followupMutation,
     // Helpers
