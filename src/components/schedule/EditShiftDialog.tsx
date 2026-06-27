@@ -201,7 +201,8 @@ export function EditShiftDialog({
           end_time: endTime,
           user_id: selectedUserId === "unassigned" ? null : selectedUserId,
           template_id: position || null,
-        })
+          breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
+        } as any)
         .eq("id", shift.id);
 
       if (updateError) throw updateError;
