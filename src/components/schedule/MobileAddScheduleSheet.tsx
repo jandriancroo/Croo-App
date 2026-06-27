@@ -760,7 +760,7 @@ export function MobileAddScheduleSheet({
       </Dialog>
 
       {/* ============ REVIEW DIALOG ============ */}
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+      <Dialog open={reviewOpen} onOpenChange={(o) => { if (!o) setPendingEmpSwitchId(null); setReviewOpen(o); }}>
         <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col">
           <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
             <DialogTitle className="text-base truncate pr-6">Confirm Week — {empName}</DialogTitle>
