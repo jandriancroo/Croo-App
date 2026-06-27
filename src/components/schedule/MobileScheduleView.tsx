@@ -1515,15 +1515,15 @@ export function MobileScheduleView({
                       <p className="text-sm">No shifts scheduled</p>
                     </div>
                   ) : (
-                    dayShifts
-                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                      .map(shift => {
+                    renderMaybeStationGrouped(
+                      [...dayShifts].sort((a, b) => a.start_time.localeCompare(b.start_time)),
+                      (shift) => shift.user_id,
+                      (shift) => {
                         const profile = getProfileForShift(shift);
                         if (!profile) return null;
                         const shiftLabel = getShiftLabel(shift);
                         return (
                           <MobileShiftCard
-                            key={shift.id}
                             name={getDisplayName(profile.full_name, (profile as any).nickname)}
                             avatarUrl={profile.profile_photo_url}
                             startTime={shift.start_time}
@@ -1540,7 +1540,9 @@ export function MobileScheduleView({
                             }}
                           />
                         );
-                      })
+                      },
+                      (shift) => shift.id,
+                    )
                   )}
                 </div>
               )}
