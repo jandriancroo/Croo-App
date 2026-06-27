@@ -37,6 +37,7 @@ export default function ShiftTemplates() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const breakCoverageEnabled = useBreakCoverageEnabled(currentLocation?.id);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [positions, setPositions] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
