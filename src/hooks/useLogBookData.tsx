@@ -383,8 +383,8 @@ export function useLogBookData() {
   }, [searchTerms, searchResults, recentEntries, writeUpEntries, readAndSignEntries, performanceReviewEntries]);
 
   const hasMoreRecentEntries = useMemo(() =>
-    searchTerms.length === 0 && recentEntries.length >= RECENT_PAGE_SIZE * recentPage,
-  [searchTerms.length, recentEntries.length, recentPage]);
+    searchTerms.length === 0 && hasOlderEntries,
+  [searchTerms.length, hasOlderEntries]);
 
   const loadMoreRecentEntries = useCallback(() => {
     setRecentPage(prev => prev + 1);
