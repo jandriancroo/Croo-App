@@ -184,6 +184,12 @@ export function useLogBookData() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
+  const recentCutoffISO = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - RECENT_WINDOW_DAYS * recentPage);
+    return d.toISOString();
+  }, [recentPage]);
+
   const { data: recentEntries = [], isFetching: isFetchingRecentEntries } = useQuery({
     queryKey: ['logbook-recent-entries', currentLocation?.id, recentPage],
     queryFn: async () => {
@@ -192,8 +198,9 @@ export function useLogBookData() {
         .from('logbook_entries')
         .select(`*, logbook_entry_values(*), profiles(full_name, profile_photo_url), logbook_categories(name)`)
         .eq('location_id', currentLocation.id)
+        .gte('created_at', recentCutoffISO)
         .order('created_at', { ascending: false })
-        .limit(RECENT_PAGE_SIZE * recentPage);
+        .limit(2000);
       if (error) throw error;
       return data;
     },
@@ -201,6 +208,25 @@ export function useLogBookData() {
     staleTime: LOGBOOK_STALE_TIME,
     gcTime: LOGBOOK_GC_TIME,
     placeholderData: keepPreviousData,
+  });
+
+  // Probe: is there anything older than current window?
+  const { data: hasOlderEntries = false } = useQuery({
+    queryKey: ['logbook-recent-has-older', currentLocation?.id, recentCutoffISO],
+    queryFn: async () => {
+      if (!currentLocation) return false;
+      const { data, error } = await supabase
+        .from('logbook_entries')
+        .select('id')
+        .eq('location_id', currentLocation.id)
+        .lt('created_at', recentCutoffISO)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return (data?.length ?? 0) > 0;
+    },
+    enabled: !!currentLocation,
+    staleTime: LOGBOOK_STALE_TIME,
   });
 
 
