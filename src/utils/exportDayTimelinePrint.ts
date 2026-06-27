@@ -184,7 +184,8 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
               return `<div class="break-line">☕ Break ${formatTime12(b.start_time)}–${formatTime12(b.end_time)}</div>`;
             })
             .join('');
-          const label = s.position || s.template_name || '';
+          const rawLabel = s.position || s.template_name || '';
+          const label = rawLabel.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(AM|PM)?\s*$/i, '').trim();
           return `
             <div class="shift-entry">
               <div class="shift-line">
