@@ -343,7 +343,7 @@ export function useScheduleData() {
       }
 
       let processedBlackoutDates: string[] = [];
-      let processedLocationSettings: { hours_open?: string; hours_close?: string } | null = null;
+      let processedLocationSettings: { hours_open?: string; hours_close?: string; stations_enabled?: boolean } | null = null;
       if (!locationSettingsResult.error && locationSettingsResult.data) {
         processedBlackoutDates = locationSettingsResult.data.blackout_dates || [];
         processedLocationSettings = {
