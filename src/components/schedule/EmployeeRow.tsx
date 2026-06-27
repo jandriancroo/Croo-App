@@ -67,6 +67,8 @@ interface EmployeeRowProps {
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
   /** Optional small badge shown next to the name (e.g. "Manager"). */
   roleBadge?: string;
+  /** Optional station-assignment chip rendered as the leftmost element of the row. */
+  stationChip?: React.ReactNode;
 }
 
 function EmployeeRowComponent({
