@@ -89,7 +89,49 @@ function SmartTapPopoverComponent({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="flex gap-2 overflow-x-auto">
+          {/* Stations column (only when enabled at this location) */}
+          {hasStations && (
+            <div className="min-w-[140px] flex-shrink-0">
+              <div className="flex items-center gap-1.5 px-1 pb-1">
+                <MapPin className="h-3 w-3 text-sky-500" />
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Station
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => { onSelectStation?.(null); onOpenChange(false); }}
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent/70"
+                >
+                  <span className="text-muted-foreground">Unassigned</span>
+                  {(currentStationId ?? null) === null && <Check className="h-3.5 w-3.5" />}
+                </button>
+                {stations!.map((s) => (
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => { onSelectStation?.(s.id); onOpenChange(false); }}
+                    className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent/70"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                        style={{ background: s.color || "#94a3b8" }}
+                      />
+                      <span className="truncate">{s.name}</span>
+                    </span>
+                    {currentStationId === s.id && <Check className="h-3.5 w-3.5" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {hasStations && (hasRecent || hasOthers) && (
+            <div className="w-px bg-border flex-shrink-0" />
+          )}
           {/* Recent column */}
+
           {hasRecent && (
             <div className="min-w-[130px] flex-shrink-0">
               <div className="flex items-center gap-1.5 px-1 pb-1">
