@@ -1,16 +1,17 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { DateTime } from 'luxon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff, Clock, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff, Clock, AlertTriangle, Plus, X as XIcon, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -203,6 +204,9 @@ export function MobileAddScheduleSheet({
   // When user picks a different team member while drafts exist, we route through Confirm Week.
   // If Apply succeeds → switch to this id; if Back → keep working on the current employee.
   const [pendingEmpSwitchId, setPendingEmpSwitchId] = useState<string | null>(null);
+  // Smart-Tap popover state — which day's chip is currently open (0..6, or null)
+  const [popoverDayIdx, setPopoverDayIdx] = useState<number | null>(null);
+  const customStartRef = useRef<HTMLInputElement>(null);
 
   // Init defaults on open
   useEffect(() => {
@@ -325,6 +329,30 @@ export function MobileAddScheduleSheet({
       delete next[dayCursor];
       return next;
     });
+  };
+
+  // Smart Tap on a day chip → apply template to THAT day and advance cursor to it
+  const applyTemplateToDay = (dayIdx: number, templateId: string) => {
+    const t = templates.find(x => x.id === templateId);
+    if (!t) return;
+    setWeekDraft(prev => ({
+      ...prev,
+      [dayIdx]: { start: t.start_time, end: t.end_time, templateId },
+    }));
+    setDayCursor(dayIdx);
+    setPopoverDayIdx(null);
+  };
+
+  // Smart Tap "+ Create" → seed an empty draft (manual), focus cursor to that day,
+  // close popover, and focus the custom-times start input below.
+  const startManualForDay = (dayIdx: number) => {
+    setWeekDraft(prev => ({
+      ...prev,
+      [dayIdx]: prev[dayIdx] ?? { start: '09:00', end: '17:00', templateId: null },
+    }));
+    setDayCursor(dayIdx);
+    setPopoverDayIdx(null);
+    setTimeout(() => customStartRef.current?.focus(), 80);
   };
 
   const toggleDay = (i: number) => {
@@ -664,25 +692,167 @@ export function MobileAddScheduleSheet({
                     </Button>
                   </div>
 
-                  {/* Day dots */}
+                  {/* Day chips — Smart Tap on tap */}
                   <div className="grid grid-cols-7 gap-1">
                     {weekDays.map((d, i) => {
-                      const has = !!weekDraft[i] || !!empExistingByDay[format(d, 'yyyy-MM-dd')];
+                      const dateStr = format(d, 'yyyy-MM-dd');
+                      const draft = weekDraft[i];
+                      const existing = empExistingByDay[dateStr];
                       const isCursor = i === dayCursor;
+
+                      // Color line(s) under day label. Draft first, then existing.
+                      const lineColors: string[] = [];
+                      if (draft) {
+                        const tpl = templates.find(t => t.id === draft?.templateId);
+                        lineColors.push(tpl?.color || '#94a3b8'); // manual = slate
+                      } else if (existing) {
+                        const tpl = templates.find(t => t.id === existing.template_id);
+                        lineColors.push(tpl?.color || '#94a3b8');
+                      }
+
                       return (
-                        <button
+                        <Popover
                           key={i}
-                          type="button"
-                          onClick={() => setDayCursor(i)}
-                          className={cn(
-                            "flex flex-col items-center py-1.5 rounded-md border text-[10px] transition",
-                            isCursor ? "border-primary bg-primary/10" : "border-border",
-                            has && !isCursor && "bg-primary/5"
-                          )}
+                          open={popoverDayIdx === i}
+                          onOpenChange={(o) => setPopoverDayIdx(o ? i : null)}
                         >
-                          <span className="uppercase font-medium">{DAY_LABELS[i]}</span>
-                          {has && <span className="mt-0.5 h-1 w-1 rounded-full bg-primary" />}
-                        </button>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => setDayCursor(i)}
+                              className={cn(
+                                "flex flex-col items-center justify-between gap-1.5 py-2.5 px-1 rounded-lg border text-[10px] transition active:scale-95 min-h-[52px]",
+                                isCursor ? "border-primary bg-primary/10 shadow-sm" : "border-border bg-background",
+                                lineColors.length > 0 && !isCursor && "bg-muted/30"
+                              )}
+                            >
+                              <span className="uppercase font-semibold tracking-wide">{DAY_LABELS[i]}</span>
+                              <div className="flex flex-col items-center gap-0.5 w-full px-1.5">
+                                {lineColors.length > 0 ? (
+                                  lineColors.slice(0, 3).map((c, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="h-[3px] w-full rounded-full"
+                                      style={{ backgroundColor: c }}
+                                    />
+                                  ))
+                                ) : (
+                                  <span className="h-[3px] w-full rounded-full bg-transparent" />
+                                )}
+                              </div>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-[260px] p-1.5 z-[200]"
+                            side="bottom"
+                            align="center"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                          >
+                            {/* + Create — compact, text-only */}
+                            <button
+                              type="button"
+                              onClick={() => startManualForDay(i)}
+                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-accent/70 transition"
+                            >
+                              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-xs font-medium">Create — manual times</span>
+                            </button>
+
+                            {(recentTemplateIds.length > 0 || templates.length > 0) && (
+                              <div className="my-1 h-px bg-border" />
+                            )}
+
+                            {/* Last Week */}
+                            {recentTemplateIds.length > 0 && (
+                              <div className="mb-1">
+                                <div className="flex items-center gap-1 px-2 pt-1 pb-0.5">
+                                  <Sparkles className="h-3 w-3 text-amber-500" />
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                                    Last Week
+                                  </span>
+                                </div>
+                                <div className="space-y-0.5">
+                                  {recentTemplateIds
+                                    .map(id => templates.find(t => t.id === id))
+                                    .filter(Boolean)
+                                    .map((t) => (
+                                      <button
+                                        key={t!.id}
+                                        type="button"
+                                        onClick={() => applyTemplateToDay(i, t!.id)}
+                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-accent/70 transition"
+                                      >
+                                        <span
+                                          className="h-3 w-3 rounded-sm shrink-0"
+                                          style={{ backgroundColor: t!.color || '#ef4444' }}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-medium truncate">
+                                            {t!.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
+                                          </p>
+                                          <p className="text-[10px] text-muted-foreground">
+                                            {fmt12(t!.start_time)} – {fmt12(t!.end_time)}
+                                          </p>
+                                        </div>
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* All Templates */}
+                            {templates.filter(t => !recentTemplateIds.includes(t.id)).length > 0 && (
+                              <>
+                                {recentTemplateIds.length > 0 && (
+                                  <div className="px-2 pt-1 pb-0.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                      All Templates
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="space-y-0.5 max-h-[240px] overflow-y-auto">
+                                  {templates
+                                    .filter(t => !recentTemplateIds.includes(t.id))
+                                    .map(t => (
+                                      <button
+                                        key={t.id}
+                                        type="button"
+                                        onClick={() => applyTemplateToDay(i, t.id)}
+                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-accent/70 transition"
+                                      >
+                                        <span
+                                          className="h-3 w-3 rounded-sm shrink-0"
+                                          style={{ backgroundColor: t.color || '#ef4444' }}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-medium truncate">
+                                            {t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
+                                          </p>
+                                          <p className="text-[10px] text-muted-foreground">
+                                            {fmt12(t.start_time)} – {fmt12(t.end_time)}
+                                          </p>
+                                        </div>
+                                      </button>
+                                    ))}
+                                </div>
+                              </>
+                            )}
+
+                            {draft && (
+                              <>
+                                <div className="my-1 h-px bg-border" />
+                                <button
+                                  type="button"
+                                  onClick={() => { clearDayDraft(); setPopoverDayIdx(null); }}
+                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-destructive hover:bg-destructive/10 transition"
+                                >
+                                  <XIcon className="h-3.5 w-3.5" />
+                                  <span className="text-xs font-medium">Clear this day</span>
+                                </button>
+                              </>
+                            )}
+                          </PopoverContent>
+                        </Popover>
                       );
                     })}
                   </div>
@@ -695,78 +865,72 @@ export function MobileAddScheduleSheet({
                     </div>
                   )}
 
-                  {/* Apply template */}
+                  {/* Applied template — read-only display */}
                   <div className="space-y-2">
-                    <Label>Apply Template</Label>
+                    <Label>Applied Template</Label>
                     {(() => {
-                      const selectedTpl = templates.find(t => t.id === currentDraft?.templateId);
-                      return (
-                        <Select
-                          value={currentDraft?.templateId || 'none'}
-                          onValueChange={(v) => v === 'none' ? clearDayDraft() : applyTemplateToDayDraft(v)}
-                        >
-                          <SelectTrigger className={cn(
-                            "h-auto min-h-[3rem] py-2",
-                            selectedTpl && "border-primary/40 bg-primary/5"
-                          )}>
-                            {selectedTpl ? (
-                              <div className="flex flex-col items-start text-left flex-1 min-w-0">
-                                <span className="font-semibold text-sm leading-tight truncate w-full">
-                                  {selectedTpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
-                                </span>
-                                <span className="text-xs text-muted-foreground mt-0.5">
-                                  {fmt12(selectedTpl.start_time)} – {fmt12(selectedTpl.end_time)}
-                                </span>
-                              </div>
-                            ) : (
-                              <SelectValue placeholder="Choose template" />
-                            )}
-                          </SelectTrigger>
-                          <SelectContent className="max-w-[calc(100vw-2rem)]">
-                            <SelectItem value="none">Skip this day</SelectItem>
-                            {(() => {
-                              const recent = recentTemplateIds
-                                .map(id => templates.find(t => t.id === id))
-                                .filter(Boolean) as typeof templates;
-                              const others = templates.filter(t => !recentTemplateIds.includes(t.id));
-                              const renderItem = (t: typeof templates[number], highlighted = false) => (
-                                <SelectItem key={t.id} value={t.id}>
-                                  <div className={cn("flex flex-col", highlighted && "")}>
-                                    <span className="font-medium">{t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}</span>
-                                    <span className="text-xs text-muted-foreground">{fmt12(t.start_time)} – {fmt12(t.end_time)}</span>
-                                  </div>
-                                </SelectItem>
-                              );
-                              return (
-                                <>
-                                  {recent.length > 0 && (
-                                    <>
-                                      <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                        ✨ Last Week
-                                      </div>
-                                      {recent.map(t => renderItem(t, true))}
-                                      <div className="my-1 h-px bg-border" />
-                                      <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        All Templates
-                                      </div>
-                                    </>
-                                  )}
-                                  {others.map(t => renderItem(t))}
-                                </>
-                              );
-                            })()}
-                          </SelectContent>
+                      const tpl = templates.find(t => t.id === currentDraft?.templateId);
+                      const isOverridden = !!tpl && !!currentDraft &&
+                        (currentDraft.start !== tpl.start_time || currentDraft.end !== tpl.end_time);
+                      const isManual = !!currentDraft && (!tpl || isOverridden);
+                      const isEmpty = !currentDraft;
 
-                        </Select>
+                      return (
+                        <div
+                          className={cn(
+                            "rounded-md border px-3 py-2.5 flex items-center gap-2.5 min-h-[3rem]",
+                            isEmpty && "border-dashed bg-muted/20",
+                            !isEmpty && isManual && "border-slate-400/40 bg-slate-500/5",
+                            !isEmpty && !isManual && "border-primary/40 bg-primary/5"
+                          )}
+                        >
+                          {isEmpty ? (
+                            <p className="text-xs text-muted-foreground italic">
+                              Tap a day chip above to apply a template or create manually
+                            </p>
+                          ) : isManual ? (
+                            <>
+                              <span className="h-3 w-3 rounded-sm shrink-0 bg-slate-400" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold leading-tight">Manual entry</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  {tpl ? `Overrides "${tpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}"` : 'Custom times below'}
+                                </p>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={clearDayDraft} className="h-7 w-7 shrink-0">
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <span
+                                className="h-3 w-3 rounded-sm shrink-0"
+                                style={{ backgroundColor: tpl!.color || '#ef4444' }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold leading-tight truncate">
+                                  {tpl!.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  {fmt12(tpl!.start_time)} – {fmt12(tpl!.end_time)}
+                                </p>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={clearDayDraft} className="h-7 w-7 shrink-0">
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       );
                     })()}
                   </div>
 
-                  {/* Custom times */}
+                  {/* Custom times — overrides the template */}
                   <div className="space-y-2">
-                    <Label>Or Custom Times</Label>
+                    <Label>Or Custom Times <span className="text-[10px] font-normal text-muted-foreground">(overrides template)</span></Label>
                     <div className="flex items-center gap-2">
                       <Input
+                        ref={customStartRef}
                         type="time"
                         value={currentDraft?.start || ''}
                         onChange={e => setCustomDayDraft(e.target.value, currentDraft?.end || '17:00')}
