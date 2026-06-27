@@ -355,8 +355,32 @@ export function DayBreakdownDialog({
           breaks: shift.breaks,
         })),
       breakCoverageEnabled: !!locationSettings?.break_coverage_enabled,
+      stations: stations,
+      stationAssignments: stationAssignments,
     });
   };
+
+  // Group sorted shifts by station for in-app timeline rendering
+  const useStations = !!stations && stations.length > 0 && !!stationAssignments;
+  const timelineSections: Array<{ key: string; label: string; color?: string; shifts: any[] }> = (() => {
+    const nonTimeOff = sortedDayShifts.filter((s: any) => !s.is_time_off);
+    if (!useStations) {
+      return [{ key: "all", label: "", shifts: nonTimeOff }];
+    }
+    const sections = stations!.map((st) => ({
+      key: st.id,
+      label: st.name,
+      color: st.color,
+      shifts: nonTimeOff.filter((s: any) => stationAssignments![s.user_id] === st.id),
+    }));
+    const unassigned = nonTimeOff.filter(
+      (s: any) => !s.user_id || !stationAssignments![s.user_id]
+    );
+    if (unassigned.length > 0) {
+      sections.push({ key: "unassigned", label: "Unassigned", color: undefined, shifts: unassigned });
+    }
+    return sections.filter((s) => s.shifts.length > 0);
+  })();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
