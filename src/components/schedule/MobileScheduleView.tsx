@@ -174,6 +174,48 @@ export function MobileScheduleView({
   const { currentLocation } = useLocation();
   const { timezone, closeTime } = useLocationTimezone();
   const queryClient = useQueryClient();
+
+  // Stations grouping (mirrors desktop Schedule.tsx behavior)
+  const { data: liveStationSettings } = useQuery({
+    queryKey: ['mobile-schedule-stations-enabled', currentLocation?.id],
+    enabled: !!currentLocation?.id,
+    staleTime: 10_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('stations_enabled')
+        .eq('location_id', currentLocation!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const stationsEnabled = !!(liveStationSettings as any)?.stations_enabled
+    || !!(locationSettings as any)?.stations_enabled;
+  const { stations } = useLocationStations(currentLocation?.id);
+  const { assignments: stationAssignments } = useUserStationAssignments(currentLocation?.id);
+  const useStationGrouping = stationsEnabled && stations.length > 0;
+
+  /** Group a flat list by station_id (via the user's primary station). */
+  const groupByStation = useCallback(<T,>(items: T[], getUserId: (item: T) => string | null | undefined) => {
+    const buckets = new Map<string | null, T[]>();
+    buckets.set(null, []);
+    for (const s of stations) buckets.set(s.id, []);
+    for (const it of items) {
+      const uid = getUserId(it);
+      const sid = uid ? stationAssignments[uid] ?? null : null;
+      const key = sid && buckets.has(sid) ? sid : null;
+      const arr = buckets.get(key);
+      if (arr) arr.push(it);
+    }
+    const out: { station: LocationStation | null; items: T[] }[] = stations.map(st => ({
+      station: st,
+      items: buckets.get(st.id) ?? [],
+    }));
+    const un = buckets.get(null) ?? [];
+    if (un.length > 0) out.push({ station: null, items: un });
+    return out.filter(s => s.items.length > 0);
+  }, [stations, stationAssignments]);
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   
