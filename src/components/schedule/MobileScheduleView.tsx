@@ -6,7 +6,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid, Printer } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid, Printer, Share } from 'lucide-react';
 import { exportDayTimelineToPrint } from '@/utils/exportDayTimelinePrint';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
@@ -759,6 +759,25 @@ export function MobileScheduleView({
     });
   };
 
+  const [shareCopied, setShareCopied] = useState(false);
+  const handleShare = async () => {
+    const url = window.location.href;
+    const text = currentLocation?.name
+      ? `Schedule for ${currentLocation.name} — ${format(selectedDate, 'EEEE, MMMM d')}`
+      : `Schedule for ${format(selectedDate, 'EEEE, MMMM d')}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: document.title, text, url });
+      } catch {}
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {}
+  };
+
   // Determine if a shift is published (same logic as desktop EmployeeRow)
   const isShiftPublished = (shift: Shift): boolean => {
     // If schedule was never published, all shifts are drafts
@@ -1152,19 +1171,6 @@ export function MobileScheduleView({
                         >
                           <CheckCircle className="h-3.5 w-3.5" />
                           <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
-                        </button>
-                      </>
-                    )}
-                    {scheduleId && (
-                      <>
-                        <div className="w-px bg-primary-foreground/15 my-1" />
-                        <button
-                          type="button"
-                          onClick={handlePrintDayTimeline}
-                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                        >
-                          <Printer className="h-3.5 w-3.5" />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide">Print/PDF</span>
                         </button>
                       </>
                     )}
@@ -1726,6 +1732,22 @@ export function MobileScheduleView({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Share button — bottom right of page */}
+      <button
+        type="button"
+        onClick={handleShare}
+        className="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition"
+        aria-label="Share schedule"
+        title="Share schedule"
+      >
+        <Share className="h-5 w-5" />
+        {shareCopied && (
+          <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background">
+            Link copied!
+          </span>
+        )}
+      </button>
     </div>
   );
 }
