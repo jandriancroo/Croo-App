@@ -511,9 +511,8 @@ export default function Schedule() {
                                 <SortableContext items={roleProfiles.map(p => p.id)} strategy={verticalListSortingStrategy}>
                                   {roleProfiles.map((profile) => (
                                     <div key={profile.id} className="relative">
-                                      <EmployeeRow
-                                        profile={profile}
-                                        stationChip={useStationGrouping && (isAdmin || isManager) ? (
+                                      {useStationGrouping && (isAdmin || isManager) && (
+                                        <div className="absolute right-2 top-1 z-10">
                                           <StationAssignChip
                                             userId={profile.id}
                                             userName={profile.full_name}
@@ -521,7 +520,10 @@ export default function Schedule() {
                                             currentStationId={stationAssignments[profile.id] ?? null}
                                             onAssign={(sid) => assignUserStation(profile.id, sid)}
                                           />
-                                        ) : undefined}
+                                        </div>
+                                      )}
+                                      <EmployeeRow
+                                        profile={profile}
                                         shifts={shifts.filter((s) => s.user_id === profile.id)}
                                         templates={templates}
                                         availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
@@ -583,9 +585,8 @@ export default function Schedule() {
                             <SortableContext items={profilesIn.map(p => p.id)} strategy={verticalListSortingStrategy}>
                               {profilesIn.map((profile: any) => (
                                 <div key={profile.id} className="relative">
-                                  <EmployeeRow
-                                    profile={profile}
-                                    stationChip={(isAdmin || isManager) ? (
+                                  {(isAdmin || isManager) && (
+                                    <div className="absolute right-2 top-1 z-10">
                                       <StationAssignChip
                                         userId={profile.id}
                                         userName={profile.full_name}
@@ -593,7 +594,10 @@ export default function Schedule() {
                                         currentStationId={stationAssignments[profile.id] ?? null}
                                         onAssign={(sid) => assignUserStation(profile.id, sid)}
                                       />
-                                    ) : undefined}
+                                    </div>
+                                  )}
+                                  <EmployeeRow
+                                    profile={profile}
                                     roleBadge={roleLabels[profile.role] || undefined}
                                     shifts={shifts.filter((s) => s.user_id === profile.id)}
                                     templates={templates}
