@@ -590,6 +590,8 @@ export function useLogBookData() {
     bankDepositCategoryId, safeCountCategoryId, drawerCountCategoryId,
     // Derived
     sortedDays, entriesByDay, checkPreviousNightNeededBankRun,
+    // Pagination
+    recentPage, hasMoreRecentEntries, loadMoreRecentEntries, isFetchingRecentEntries,
     // Mutations
     handleFileUpload, saveEntryMutation, deleteEntryMutation, followupMutation,
     // Helpers
