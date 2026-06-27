@@ -15,6 +15,7 @@ import { Plus, Trash2, Pencil, Copy, MoreVertical, Briefcase, X, Check } from "l
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
+import { StationsManagerCard } from "@/components/settings/StationsManagerCard";
 
 interface ShiftTemplate {
   id: string;
@@ -320,6 +321,13 @@ export default function ShiftTemplates() {
             New Template
           </Button>
         </div>
+
+        {/* Stations (schedule grouping) */}
+        {currentLocation?.id && (
+          <StationsManagerCard locationId={currentLocation.id} />
+        )}
+
+
 
         {/* Template create/edit dialog — lives outside the header row */}
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
