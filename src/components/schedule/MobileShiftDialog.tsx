@@ -17,6 +17,9 @@ import { getTodayInPST } from '@/utils/dateUtils';
 import { format } from 'date-fns';
 import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
+import { BreakEditor } from './BreakEditor';
+import { useBreakCoverageEnabled } from '@/hooks/useBreakCoverageEnabled';
+import { ShiftBreak, normalizeBreaks } from '@/types/shiftBreak';
 
 interface Profile {
   id: string;
@@ -32,6 +35,7 @@ interface Shift {
   end_time: string;
   shift_date: string;
   template_id?: string | null;
+  breaks?: unknown;
   template?: {
     position: string | null;
     color: string | null;
@@ -84,6 +88,8 @@ export function MobileShiftDialog({
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [showOfferDialog, setShowOfferDialog] = useState(false);
+  const [breaks, setBreaks] = useState<ShiftBreak[]>([]);
+  const breakCoverageEnabled = useBreakCoverageEnabled(locationId);
 
   useEffect(() => {
     if (shift) {
@@ -92,6 +98,7 @@ export function MobileShiftDialog({
       setSelectedUserId(shift.user_id || '');
       setSelectedTemplateId(shift.template_id || '');
       setShiftDate(shift.shift_date);
+      setBreaks(normalizeBreaks(shift.breaks));
     } else if (isCreating && templates.length > 0) {
       // Set defaults for new shift
       setStartTime('09:00');
@@ -99,6 +106,7 @@ export function MobileShiftDialog({
       setSelectedUserId('');
       setSelectedTemplateId('');
       setShiftDate(shift?.shift_date || getTodayInPST());
+      setBreaks([]);
     }
   }, [shift, isCreating, templates]);
 
@@ -199,7 +207,8 @@ export function MobileShiftDialog({
             template_id: selectedTemplateId || null,
             day_of_week: dayOfWeek,
             shift_date: shiftDate,
-          });
+            breaks: breakCoverageEnabled ? breaks : [],
+          } as any);
 
         if (shiftError) throw shiftError;
       } else {
@@ -216,7 +225,8 @@ export function MobileShiftDialog({
             template_id: selectedTemplateId || null,
             shift_date: shiftDate,
             day_of_week: dayOfWeek,
-          })
+            breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
+          } as any)
           .eq('id', shift!.id);
 
         if (shiftError) throw shiftError;
@@ -388,6 +398,19 @@ export function MobileShiftDialog({
               <span>30-minute unpaid break (shift over 5 hours)</span>
             </div>
           )}
+
+          {/* Scheduled Breaks + Coverage — gated on master toggle */}
+          {isAdmin && breakCoverageEnabled && (
+            <BreakEditor
+              value={breaks}
+              onChange={setBreaks}
+              showCoverer
+              coverers={profiles.map((p) => ({ id: p.id, full_name: p.full_name }))}
+              shiftStart={startTime}
+              shiftEnd={endTime}
+            />
+          )}
+
 
           {/* Template Selection - Admin Only */}
           {isAdmin && templates.length > 0 && (

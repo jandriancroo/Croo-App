@@ -6,7 +6,8 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid, Printer } from 'lucide-react';
+import { exportDayTimelineToPrint } from '@/utils/exportDayTimelinePrint';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
@@ -796,6 +797,31 @@ export function MobileScheduleView({
                     onClick={() => setAddSheetOpen(true)}
                   >
                     <UserPlus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    title="Print Day Timeline"
+                    onClick={() =>
+                      exportDayTimelineToPrint({
+                        locationName: currentLocation?.name || 'Location',
+                        date: selectedDate,
+                        profiles: profiles.map((p: any) => ({ id: p.id, full_name: p.full_name, role: p.role })),
+                        shifts: dayShifts.map((s: any) => ({
+                          id: s.id,
+                          user_id: s.user_id,
+                          start_time: s.start_time,
+                          end_time: s.end_time,
+                          template_name: s.template?.template_name ?? null,
+                          template_color: s.template?.color ?? null,
+                          position: s.template?.position ?? null,
+                          breaks: s.breaks,
+                        })),
+                      })
+                    }
+                  >
+                    <Printer className="h-4 w-4" />
                   </Button>
                 </>
               )}

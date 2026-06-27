@@ -70,6 +70,7 @@ export default function LocationProfile() {
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
   const [cutoffEnabled, setCutoffEnabled] = useState(false);
   const [cutoffDaysBefore, setCutoffDaysBefore] = useState(7);
+  const [breakCoverageEnabled, setBreakCoverageEnabled] = useState(false);
   const [cutoffTime, setCutoffTime] = useState("17:00");
   const [businessHours, setBusinessHours] = useState<DayHours[]>(
     DAYS_OF_WEEK.map(day => ({
@@ -141,6 +142,7 @@ export default function LocationProfile() {
         setCutoffEnabled(!!(data as any).time_off_cutoff_enabled);
         if (typeof (data as any).time_off_cutoff_days_before === "number") setCutoffDaysBefore((data as any).time_off_cutoff_days_before);
         if ((data as any).time_off_cutoff_time) setCutoffTime(String((data as any).time_off_cutoff_time).slice(0, 5));
+        setBreakCoverageEnabled(!!(data as any).break_coverage_enabled);
       }
     } catch (error) {
       console.error("Error fetching location settings:", error);
@@ -301,6 +303,7 @@ export default function LocationProfile() {
           time_off_cutoff_enabled: cutoffEnabled,
           time_off_cutoff_days_before: cutoffDaysBefore,
           time_off_cutoff_time: cutoffTime,
+          break_coverage_enabled: breakCoverageEnabled,
         };
 
         if (settingsId) {
@@ -621,6 +624,19 @@ export default function LocationProfile() {
                         </p>
                       </div>
                     )}
+                  </div>
+
+                  {/* Break Coverage Assignments */}
+                  <div className="border-t pt-6 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-base font-semibold">Break Coverage Assignments</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Lets you schedule break times within shifts and assign a coverer for each break. Used by daycares and any location with pre-arranged break coverage. When off, no break UI appears on the schedule.
+                        </p>
+                      </div>
+                      <Switch checked={breakCoverageEnabled} onCheckedChange={setBreakCoverageEnabled} />
+                    </div>
                   </div>
                 </>
               )}

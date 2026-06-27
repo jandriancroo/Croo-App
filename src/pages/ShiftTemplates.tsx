@@ -16,6 +16,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 import { StationsManagerCard } from "@/components/settings/StationsManagerCard";
+import { BreakEditor } from "@/components/schedule/BreakEditor";
+import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
+import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
 
 interface ShiftTemplate {
   id: string;
@@ -34,6 +37,7 @@ export default function ShiftTemplates() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const breakCoverageEnabled = useBreakCoverageEnabled(currentLocation?.id);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [positions, setPositions] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,6 +54,7 @@ export default function ShiftTemplates() {
     position: "",
     days_of_week: [0, 1, 2, 3, 4, 5, 6] as number[],
     allowed_roles: ["team_member"] as string[],
+    breaks: [] as import("@/types/shiftBreak").ShiftBreak[],
   });
 
   const resetForm = () => {
@@ -61,6 +66,7 @@ export default function ShiftTemplates() {
       position: "",
       days_of_week: [0, 1, 2, 3, 4, 5, 6],
       allowed_roles: ["team_member"],
+      breaks: [],
     });
     setCustomPosition("");
     setShowCustomPosition(false);
@@ -80,6 +86,7 @@ export default function ShiftTemplates() {
       position: isPredefined ? template.position || "" : "",
       days_of_week: template.days_of_week || [0, 1, 2, 3, 4, 5, 6],
       allowed_roles: template.allowed_roles || [template.role || "team_member"],
+      breaks: normalizeBreaks((template as any).breaks),
     });
     setDialogOpen(true);
   };
@@ -224,7 +231,8 @@ export default function ShiftTemplates() {
             position: positionValue,
             days_of_week: formData.days_of_week,
             allowed_roles: formData.allowed_roles,
-          })
+            breaks: formData.breaks,
+          } as any)
           .eq("id", editingTemplate.id);
 
         if (error) throw error;
@@ -241,7 +249,8 @@ export default function ShiftTemplates() {
           days_of_week: formData.days_of_week,
           allowed_roles: formData.allowed_roles,
           location_id: currentLocation?.id,
-        });
+          breaks: formData.breaks,
+        } as any);
 
         if (error) throw error;
         toast.success("Shift template created");
@@ -477,6 +486,15 @@ export default function ShiftTemplates() {
                     className="h-10"
                   />
                 </div>
+
+                {breakCoverageEnabled && (
+                  <BreakEditor
+                    value={formData.breaks}
+                    onChange={(b) => setFormData({ ...formData, breaks: b })}
+                    shiftStart={formData.start_time}
+                    shiftEnd={formData.end_time}
+                  />
+                )}
 
                 <Button type="submit" className="w-full">
                   {editingTemplate ? "Update Template" : "Create Template"}

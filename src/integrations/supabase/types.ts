@@ -5771,6 +5771,7 @@ export type Database = {
           average_pizza_price: number | null
           birthday_events_enabled: boolean | null
           blackout_dates: string[] | null
+          break_coverage_enabled: boolean
           created_at: string
           day_part_am_cutoff: string
           drawer_bank: number
@@ -5804,6 +5805,7 @@ export type Database = {
           average_pizza_price?: number | null
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
+          break_coverage_enabled?: boolean
           created_at?: string
           day_part_am_cutoff?: string
           drawer_bank?: number
@@ -5837,6 +5839,7 @@ export type Database = {
           average_pizza_price?: number | null
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
+          break_coverage_enabled?: boolean
           created_at?: string
           day_part_am_cutoff?: string
           drawer_bank?: number
@@ -9116,10 +9119,12 @@ export type Database = {
       }
       scheduled_shifts: {
         Row: {
+          breaks: Json
           created_at: string | null
           day_of_week: number
           end_time: string
           id: string
+          is_coverage_only: boolean
           is_phantom: boolean
           is_time_off: boolean | null
           original_end_time: string | null
@@ -9132,10 +9137,12 @@ export type Database = {
           was_trimmed: boolean | null
         }
         Insert: {
+          breaks?: Json
           created_at?: string | null
           day_of_week: number
           end_time: string
           id?: string
+          is_coverage_only?: boolean
           is_phantom?: boolean
           is_time_off?: boolean | null
           original_end_time?: string | null
@@ -9148,10 +9155,12 @@ export type Database = {
           was_trimmed?: boolean | null
         }
         Update: {
+          breaks?: Json
           created_at?: string | null
           day_of_week?: number
           end_time?: string
           id?: string
+          is_coverage_only?: boolean
           is_phantom?: boolean
           is_time_off?: boolean | null
           original_end_time?: string | null
@@ -9360,6 +9369,7 @@ export type Database = {
       shift_templates: {
         Row: {
           allowed_roles: string[] | null
+          breaks: Json
           color: string | null
           created_at: string | null
           created_by: string | null
@@ -9375,6 +9385,7 @@ export type Database = {
         }
         Insert: {
           allowed_roles?: string[] | null
+          breaks?: Json
           color?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -9390,6 +9401,7 @@ export type Database = {
         }
         Update: {
           allowed_roles?: string[] | null
+          breaks?: Json
           color?: string | null
           created_at?: string | null
           created_by?: string | null

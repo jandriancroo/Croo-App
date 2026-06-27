@@ -16,6 +16,10 @@ import { ArrowUp, Trash2, AlertTriangle } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BreakEditor } from "./BreakEditor";
+import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
+import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
+
 
 interface EditShiftDialogProps {
   open: boolean;
@@ -61,6 +65,9 @@ export function EditShiftDialog({
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [showOfferDialog, setShowOfferDialog] = useState(false);
+
+  const [breaks, setBreaks] = useState<ShiftBreak[]>(normalizeBreaks((shift as any)?.breaks));
+  const breakCoverageEnabled = useBreakCoverageEnabled(currentLocation?.id);
 
   // Build schedule query key for optimistic updates
   const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
@@ -194,7 +201,8 @@ export function EditShiftDialog({
           end_time: endTime,
           user_id: selectedUserId === "unassigned" ? null : selectedUserId,
           template_id: position || null,
-        })
+          breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
+        } as any)
         .eq("id", shift.id);
 
       if (updateError) throw updateError;
@@ -543,6 +551,17 @@ export function EditShiftDialog({
               ))}
             </div>
           </div>
+
+          {breakCoverageEnabled && (
+            <BreakEditor
+              value={breaks}
+              onChange={setBreaks}
+              showCoverer
+              coverers={profiles.map((p: any) => ({ id: p.id, full_name: p.full_name }))}
+              shiftStart={startTime}
+              shiftEnd={endTime}
+            />
+          )}
         </div>
 
         <DialogFooter>
