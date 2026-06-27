@@ -260,18 +260,23 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
     font-size: 10px;
   }
   th.name-th { width: 130px; text-align: left; padding-left: 8px; }
-  .hour-header-row { position: relative; }
-  .hour-header-row .hour-tick {
-    position: absolute;
-    top: 0;
-    bottom: 0;
+  .hours-th { padding: 0 !important; }
+  .hours-row {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 100%;
+    height: 16px;
+  }
+  .hours-row-cell {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
     font-size: 9px;
     color: #555;
     border-left: 1px dashed #ccc;
+    line-height: 16px;
   }
+  .hours-row-cell:first-child { border-left: 0; }
+
   .name-cell {
     padding: 6px 8px;
     font-weight: 700;
@@ -418,18 +423,14 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
   <thead>
     <tr>
       <th class="name-th">Employee</th>
-      <th>
-        <div style="position:relative;height:14px;width:100%">
-          ${hourHeaders
-            .map(
-              (h, i) =>
-                `<div class="hour-tick" style="left:${(i / hourHeaders.length) * 100}%;width:${100 / hourHeaders.length}%">${h}</div>`,
-            )
-            .join('')}
+      <th class="hours-th">
+        <div class="hours-row">
+          ${hourHeaders.map((h) => `<div class="hours-row-cell">${h}</div>`).join('')}
         </div>
       </th>
     </tr>
   </thead>
+
   <tbody>
     ${timelineRows || '<tr><td class="name-cell">—</td><td class="timeline-cell"><em>No shifts</em></td></tr>'}
   </tbody>
