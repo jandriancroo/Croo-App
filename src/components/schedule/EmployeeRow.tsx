@@ -93,8 +93,12 @@ function EmployeeRowComponent({
   holidays = [],
   allShifts = [],
   onSmartTap,
-  roleBadge
+  roleBadge,
+  stations,
+  currentStationId,
+  onAssignStation,
 }: EmployeeRowProps) {
+
   const navigate = useNavigate();
   const weekDays = Array.from({
     length: 7
