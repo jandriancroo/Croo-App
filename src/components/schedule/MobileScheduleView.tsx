@@ -32,6 +32,8 @@ import { AvailabilityRequest } from '@/hooks/useScheduleData';
 
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone, getBusinessDateForTimestamp } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
+import { useLocationStations, type LocationStation } from '@/hooks/useLocationStations';
+import { useUserStationAssignments } from '@/hooks/useUserStationAssignments';
 
 interface Profile {
   id: string;
