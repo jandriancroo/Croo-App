@@ -6,7 +6,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid, Printer } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid, Printer, Share } from 'lucide-react';
 import { exportDayTimelineToPrint } from '@/utils/exportDayTimelinePrint';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
@@ -757,6 +757,25 @@ export function MobileScheduleView({
       })),
       breakCoverageEnabled: !!locationSettings?.break_coverage_enabled,
     });
+  };
+
+  const [shareCopied, setShareCopied] = useState(false);
+  const handleShare = async () => {
+    const url = window.location.href;
+    const text = currentLocation?.name
+      ? `Schedule for ${currentLocation.name} — ${format(selectedDate, 'EEEE, MMMM d')}`
+      : `Schedule for ${format(selectedDate, 'EEEE, MMMM d')}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: document.title, text, url });
+      } catch {}
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {}
   };
 
   // Determine if a shift is published (same logic as desktop EmployeeRow)
