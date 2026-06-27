@@ -511,8 +511,9 @@ export default function Schedule() {
                                 <SortableContext items={roleProfiles.map(p => p.id)} strategy={verticalListSortingStrategy}>
                                   {roleProfiles.map((profile) => (
                                     <div key={profile.id} className="relative">
-                                      {useStationGrouping && (isAdmin || isManager) && (
-                                        <div className="absolute right-2 top-1 z-10">
+                                      <EmployeeRow
+                                        profile={profile}
+                                        stationChip={useStationGrouping && (isAdmin || isManager) ? (
                                           <StationAssignChip
                                             userId={profile.id}
                                             userName={profile.full_name}
@@ -520,10 +521,7 @@ export default function Schedule() {
                                             currentStationId={stationAssignments[profile.id] ?? null}
                                             onAssign={(sid) => assignUserStation(profile.id, sid)}
                                           />
-                                        </div>
-                                      )}
-                                      <EmployeeRow
-                                        profile={profile}
+                                        ) : undefined}
                                         shifts={shifts.filter((s) => s.user_id === profile.id)}
                                         templates={templates}
                                         availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
