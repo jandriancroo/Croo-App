@@ -5790,6 +5790,7 @@ export type Database = {
           punch_clock_text_shadow: boolean | null
           safe_count_notifications_enabled: boolean
           safe_target: number
+          stations_enabled: boolean
           team_member_sales_view_enabled: boolean
           time_off_cutoff_day: number
           time_off_cutoff_days_before: number
@@ -5822,6 +5823,7 @@ export type Database = {
           punch_clock_text_shadow?: boolean | null
           safe_count_notifications_enabled?: boolean
           safe_target?: number
+          stations_enabled?: boolean
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
           time_off_cutoff_days_before?: number
@@ -5854,6 +5856,7 @@ export type Database = {
           punch_clock_text_shadow?: boolean | null
           safe_count_notifications_enabled?: boolean
           safe_target?: number
+          stations_enabled?: boolean
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
           time_off_cutoff_days_before?: number
@@ -5867,6 +5870,47 @@ export type Database = {
             foreignKeyName: "location_settings_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_stations: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_active: boolean
+          location_id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_stations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
@@ -9082,6 +9126,7 @@ export type Database = {
           schedule_id: string | null
           shift_date: string
           start_time: string
+          station_id: string | null
           template_id: string | null
           user_id: string | null
           was_trimmed: boolean | null
@@ -9097,6 +9142,7 @@ export type Database = {
           schedule_id?: string | null
           shift_date: string
           start_time: string
+          station_id?: string | null
           template_id?: string | null
           user_id?: string | null
           was_trimmed?: boolean | null
@@ -9112,6 +9158,7 @@ export type Database = {
           schedule_id?: string | null
           shift_date?: string
           start_time?: string
+          station_id?: string | null
           template_id?: string | null
           user_id?: string | null
           was_trimmed?: boolean | null
@@ -9122,6 +9169,13 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_shifts_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "location_stations"
             referencedColumns: ["id"]
           },
           {
@@ -9316,6 +9370,7 @@ export type Database = {
           position: string | null
           role: Database["public"]["Enums"]["app_role"]
           start_time: string
+          station_id: string | null
           template_name: string
         }
         Insert: {
@@ -9330,6 +9385,7 @@ export type Database = {
           position?: string | null
           role: Database["public"]["Enums"]["app_role"]
           start_time: string
+          station_id?: string | null
           template_name: string
         }
         Update: {
@@ -9344,6 +9400,7 @@ export type Database = {
           position?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           start_time?: string
+          station_id?: string | null
           template_name?: string
         }
         Relationships: [
@@ -9352,6 +9409,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_templates_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "location_stations"
             referencedColumns: ["id"]
           },
         ]
