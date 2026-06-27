@@ -4,7 +4,6 @@ import { format, addDays, startOfWeek } from 'date-fns';
 import { DateTime } from 'luxon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -692,7 +691,7 @@ export function MobileAddScheduleSheet({
                     </Button>
                   </div>
 
-                  {/* Day chips — Smart Tap on tap */}
+                  {/* Day chips — tapping opens a centered fixed Smart Tap dialog */}
                   <div className="grid grid-cols-7 gap-1">
                     {weekDays.map((d, i) => {
                       const dateStr = format(d, 'yyyy-MM-dd');
@@ -711,148 +710,31 @@ export function MobileAddScheduleSheet({
                       }
 
                       return (
-                        <Popover
+                        <button
                           key={i}
-                          open={popoverDayIdx === i}
-                          onOpenChange={(o) => setPopoverDayIdx(o ? i : null)}
+                          type="button"
+                          onClick={() => { setDayCursor(i); setPopoverDayIdx(i); }}
+                          className={cn(
+                            "flex flex-col items-center justify-between gap-1.5 py-2.5 px-1 rounded-lg border text-[10px] transition active:scale-95 min-h-[52px]",
+                            isCursor ? "border-primary bg-primary/10 shadow-sm" : "border-border bg-background",
+                            lineColors.length > 0 && !isCursor && "bg-muted/30"
+                          )}
                         >
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => setDayCursor(i)}
-                              className={cn(
-                                "flex flex-col items-center justify-between gap-1.5 py-2.5 px-1 rounded-lg border text-[10px] transition active:scale-95 min-h-[52px]",
-                                isCursor ? "border-primary bg-primary/10 shadow-sm" : "border-border bg-background",
-                                lineColors.length > 0 && !isCursor && "bg-muted/30"
-                              )}
-                            >
-                              <span className="uppercase font-semibold tracking-wide">{DAY_LABELS[i]}</span>
-                              <div className="flex flex-col items-center gap-0.5 w-full px-1.5">
-                                {lineColors.length > 0 ? (
-                                  lineColors.slice(0, 3).map((c, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="h-[3px] w-full rounded-full"
-                                      style={{ backgroundColor: c }}
-                                    />
-                                  ))
-                                ) : (
-                                  <span className="h-[3px] w-full rounded-full bg-transparent" />
-                                )}
-                              </div>
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-[260px] p-1.5 z-[200]"
-                            side="bottom"
-                            align="center"
-                            onOpenAutoFocus={(e) => e.preventDefault()}
-                          >
-                            {/* + Create — compact, text-only */}
-                            <button
-                              type="button"
-                              onClick={() => startManualForDay(i)}
-                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-accent/70 transition"
-                            >
-                              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-xs font-medium">Create — manual times</span>
-                            </button>
-
-                            {(recentTemplateIds.length > 0 || templates.length > 0) && (
-                              <div className="my-1 h-px bg-border" />
+                          <span className="uppercase font-semibold tracking-wide">{DAY_LABELS[i]}</span>
+                          <div className="flex flex-col items-center gap-0.5 w-full px-1.5">
+                            {lineColors.length > 0 ? (
+                              lineColors.slice(0, 3).map((c, idx) => (
+                                <span
+                                  key={idx}
+                                  className="h-[3px] w-full rounded-full"
+                                  style={{ backgroundColor: c }}
+                                />
+                              ))
+                            ) : (
+                              <span className="h-[3px] w-full rounded-full bg-transparent" />
                             )}
-
-                            {/* Last Week */}
-                            {recentTemplateIds.length > 0 && (
-                              <div className="mb-1">
-                                <div className="flex items-center gap-1 px-2 pt-1 pb-0.5">
-                                  <Sparkles className="h-3 w-3 text-amber-500" />
-                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                                    Last Week
-                                  </span>
-                                </div>
-                                <div className="space-y-0.5">
-                                  {recentTemplateIds
-                                    .map(id => templates.find(t => t.id === id))
-                                    .filter(Boolean)
-                                    .map((t) => (
-                                      <button
-                                        key={t!.id}
-                                        type="button"
-                                        onClick={() => applyTemplateToDay(i, t!.id)}
-                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-accent/70 transition"
-                                      >
-                                        <span
-                                          className="h-3 w-3 rounded-sm shrink-0"
-                                          style={{ backgroundColor: t!.color || '#ef4444' }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs font-medium truncate">
-                                            {t!.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
-                                          </p>
-                                          <p className="text-[10px] text-muted-foreground">
-                                            {fmt12(t!.start_time)} – {fmt12(t!.end_time)}
-                                          </p>
-                                        </div>
-                                      </button>
-                                    ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* All Templates */}
-                            {templates.filter(t => !recentTemplateIds.includes(t.id)).length > 0 && (
-                              <>
-                                {recentTemplateIds.length > 0 && (
-                                  <div className="px-2 pt-1 pb-0.5">
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                      All Templates
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="space-y-0.5 max-h-[240px] overflow-y-auto">
-                                  {templates
-                                    .filter(t => !recentTemplateIds.includes(t.id))
-                                    .map(t => (
-                                      <button
-                                        key={t.id}
-                                        type="button"
-                                        onClick={() => applyTemplateToDay(i, t.id)}
-                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-accent/70 transition"
-                                      >
-                                        <span
-                                          className="h-3 w-3 rounded-sm shrink-0"
-                                          style={{ backgroundColor: t.color || '#ef4444' }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs font-medium truncate">
-                                            {t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
-                                          </p>
-                                          <p className="text-[10px] text-muted-foreground">
-                                            {fmt12(t.start_time)} – {fmt12(t.end_time)}
-                                          </p>
-                                        </div>
-                                      </button>
-                                    ))}
-                                </div>
-                              </>
-                            )}
-
-                            {draft && (
-                              <>
-                                <div className="my-1 h-px bg-border" />
-                                <button
-                                  type="button"
-                                  onClick={() => { clearDayDraft(); setPopoverDayIdx(null); }}
-                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-destructive hover:bg-destructive/10 transition"
-                                >
-                                  <XIcon className="h-3.5 w-3.5" />
-                                  <span className="text-xs font-medium">Clear this day</span>
-                                </button>
-                              </>
-                            )}
-                          </PopoverContent>
-                        </Popover>
+                          </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -967,6 +849,137 @@ export function MobileAddScheduleSheet({
               )}
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============ SMART TAP DIALOG (centered, fixed) ============ */}
+      <Dialog open={popoverDayIdx !== null} onOpenChange={(o) => !o && setPopoverDayIdx(null)}>
+        <DialogContent
+          className="max-w-[300px] p-2 gap-2 rounded-2xl"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          {popoverDayIdx !== null && (() => {
+            const i = popoverDayIdx;
+            const d = weekDays[i];
+            const dateStr = format(d, 'yyyy-MM-dd');
+            const draft = weekDraft[i];
+            const existing = empExistingByDay[dateStr];
+            return (
+              <>
+                <DialogHeader className="px-2 pt-1 pb-0">
+                  <DialogTitle className="text-sm font-medium text-center">
+                    {DAY_LABELS[i]} {format(d, 'MMM d')}
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-0.5">
+                  {/* + Create — compact, text-only */}
+                  <button
+                    type="button"
+                    onClick={() => startManualForDay(i)}
+                    className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left hover:bg-accent/70 transition"
+                  >
+                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Create — manual times</span>
+                  </button>
+
+                  {(recentTemplateIds.length > 0 || templates.length > 0) && (
+                    <div className="my-1 h-px bg-border" />
+                  )}
+
+                  {/* Last Week */}
+                  {recentTemplateIds.length > 0 && (
+                    <div className="mb-1">
+                      <div className="flex items-center justify-center gap-1 px-2 pt-1 pb-0.5">
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          Last Week
+                        </span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {recentTemplateIds
+                          .map(id => templates.find(t => t.id === id))
+                          .filter(Boolean)
+                          .map((t) => (
+                            <button
+                              key={t!.id}
+                              type="button"
+                              onClick={() => applyTemplateToDay(i, t!.id)}
+                              className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left hover:bg-accent/70 transition"
+                            >
+                              <span
+                                className="h-3 w-3 rounded-sm shrink-0"
+                                style={{ backgroundColor: t!.color || '#ef4444' }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {t!.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {fmt12(t!.start_time)} – {fmt12(t!.end_time)}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All Templates */}
+                  {templates.filter(t => !recentTemplateIds.includes(t.id)).length > 0 && (
+                    <>
+                      {recentTemplateIds.length > 0 && (
+                        <div className="px-2 pt-1 pb-0.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            All Templates
+                          </span>
+                        </div>
+                      )}
+                      <div className="space-y-0.5 max-h-[240px] overflow-y-auto">
+                        {templates
+                          .filter(t => !recentTemplateIds.includes(t.id))
+                          .map(t => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => applyTemplateToDay(i, t.id)}
+                              className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left hover:bg-accent/70 transition"
+                            >
+                              <span
+                                className="h-3 w-3 rounded-sm shrink-0"
+                                style={{ backgroundColor: t.color || '#ef4444' }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {t.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {fmt12(t.start_time)} – {fmt12(t.end_time)}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                      </div>
+                    </>
+                  )}
+
+                  {draft && (
+                    <>
+                      <div className="my-1 h-px bg-border" />
+                      <button
+                        type="button"
+                        onClick={() => { clearDayDraft(); setPopoverDayIdx(null); }}
+                        className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left text-destructive hover:bg-destructive/10 transition"
+                      >
+                        <XIcon className="h-4 w-4" />
+                        <span className="text-sm font-medium">Clear this day</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
