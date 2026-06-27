@@ -66,6 +66,9 @@ export function EditShiftDialog({
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [showOfferDialog, setShowOfferDialog] = useState(false);
 
+  const [breaks, setBreaks] = useState<ShiftBreak[]>(normalizeBreaks((shift as any)?.breaks));
+  const breakCoverageEnabled = useBreakCoverageEnabled(currentLocation?.id);
+
   // Build schedule query key for optimistic updates
   const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
 
