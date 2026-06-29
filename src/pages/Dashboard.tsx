@@ -599,6 +599,10 @@ export default function Dashboard() {
             </div>
           </div>
 
+          <BillingActivationBanner />
+
+
+
           {/* Edit Dashboard Dialog - lazy loaded */}
           <Suspense fallback={null}>
             <EditDashboardDialog
