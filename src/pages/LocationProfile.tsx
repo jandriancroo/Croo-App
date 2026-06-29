@@ -656,6 +656,10 @@ export default function LocationProfile() {
           </Card>
 
 
+          {!isNew && isSuperAdmin && location?.name && (
+            <InitiateBillingCard locationId={locationId!} locationName={location.name} />
+          )}
+
           {/* Labor Rules */}
           {!isNew && (
             <LaborRulesSection locationId={locationId} />
@@ -665,6 +669,7 @@ export default function LocationProfile() {
           {!isNew && (
             <IntegrationsSection locationId={locationId} />
           )}
+
         </div>
       </div>
     </Layout>
