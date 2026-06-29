@@ -39,28 +39,28 @@ export default defineConfig(({ mode }) => {
       // We handle SW registration manually in main.tsx
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: ['croo-logo-inverted.webp'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'notification-icon.png', 'notification-icon-monochrome.png'],
       manifest: {
-        name: 'CrooHQ - Food Service Made Smart',
+        name: 'CrooHQ - Built for operators, by operators',
         short_name: 'CrooHQ',
-        description: 'All-in-one platform for restaurant scheduling, time tracking, task management, and team communication.',
-        theme_color: '#3D2B1F',
-        background_color: '#3D2B1F',
+        description: 'Built for operators, by operators',
+        theme_color: '#03adbb',
+        background_color: '#03adbb',
         display: 'standalone',
         orientation: 'any',
         scope: '/',
         start_url: '/',
         icons: [
           {
-            src: '/croo-logo-inverted.webp',
+            src: '/favicon.png',
             sizes: '512x512',
-            type: 'image/webp',
+            type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: '/croo-logo-transparent.webp',
-            sizes: '512x512',
-            type: 'image/webp',
+            src: '/apple-touch-icon.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'any'
           },
           {
