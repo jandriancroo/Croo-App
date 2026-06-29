@@ -3,7 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { MapPin, DollarSign, Clock, ArrowLeft, Loader2 } from 'lucide-react';
-import crooLogo from '@/assets/croo-logo.webp';
+import crooLogo from '@/assets/croo-logo-square.png';
 
 const EMPLOYMENT_LABEL: Record<string, string> = {
   full_time: 'Full Time',

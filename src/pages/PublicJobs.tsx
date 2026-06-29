@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, DollarSign, Clock, Briefcase, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
-import crooLogo from '@/assets/croo-logo.webp';
+import crooLogo from '@/assets/croo-logo-square.png';
 import { Helmet } from 'react-helmet-async';
 
 interface JobListing {
