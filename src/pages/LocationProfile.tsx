@@ -17,6 +17,8 @@ import { LocationMap } from '@/components/settings/LocationMap';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
+import { InitiateBillingCard } from '@/components/billing/InitiateBillingCard';
+
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { format } from 'date-fns';
