@@ -88,7 +88,7 @@ export default function Auth() {
             />
           </div>
           <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm">
-            food service made smart
+            Built for operators, by operators
           </p>
         </div>
         
