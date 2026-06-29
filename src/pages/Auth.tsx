@@ -87,7 +87,7 @@ export default function Auth() {
               className="h-14 w-auto"
             />
           </div>
-          <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm">
+          <p className="font-vansans text-xl font-medium text-[#E67E22] tracking-tight drop-shadow-sm">
             Built for operators, by operators
           </p>
         </div>
