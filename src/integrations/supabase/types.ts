@@ -5922,6 +5922,9 @@ export type Database = {
       locations: {
         Row: {
           address: string | null
+          billing_initiated_at: string | null
+          billing_initiated_by: string | null
+          billing_initiated_email: string | null
           brand_id: string | null
           created_at: string
           created_by: string | null
@@ -5945,6 +5948,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          billing_initiated_at?: string | null
+          billing_initiated_by?: string | null
+          billing_initiated_email?: string | null
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -5968,6 +5974,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          billing_initiated_at?: string | null
+          billing_initiated_by?: string | null
+          billing_initiated_email?: string | null
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
