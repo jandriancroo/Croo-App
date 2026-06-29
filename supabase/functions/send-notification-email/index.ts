@@ -185,11 +185,14 @@ serve(async (req) => {
     }
 
 
+    const ctaUrl = type === "billing_initiated" && data?.billing_url ? data.billing_url : "https://croohq.com";
+    const ctaText = type === "billing_initiated" ? "Activate Subscription" : "Open Croo";
     const emailHtml = wrapEmail(`
       ${getEmailHeader(headerTitle)}
-      <tr><td style="padding:30px 40px;">${content}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "Open Croo")}</div></td></tr>
+      <tr><td style="padding:30px 40px;">${content}<div style="margin-top:24px;">${getCTAButton(ctaUrl, ctaText)}</div></td></tr>
       ${getEmailFooter()}
     `);
+
 
     await queueEmail({
       from: "CrooHQ <hello@croohq.email>",
