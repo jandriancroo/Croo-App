@@ -30,6 +30,8 @@ import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog'
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
 import { getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
+import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
+
 
 // Lazy-loaded components (only needed conditionally)
 const CrowSplashAnimation = lazy(() => import('@/components/CrowSplashAnimation'));
