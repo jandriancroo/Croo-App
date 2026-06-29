@@ -82,9 +82,9 @@ export default function Auth() {
             <img 
               src={crooLogo} 
               alt="Croo" 
-              width={200}
-              height={96}
-              className="h-24 w-auto"
+              width={140}
+              height={56}
+              className="h-14 w-auto"
             />
           </div>
           <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm">
