@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import crooLogo from '@/assets/croo-logo-square.png';
+import crooLogo from '@/assets/croo-logo.webp';
 
 interface AppSplashScreenProps {
   onComplete?: () => void;
@@ -54,7 +54,7 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
         <motion.img 
           src={crooLogo} 
           alt="Croo" 
-          className="w-24 h-24 object-contain"
+          className="h-16 w-auto object-contain"
           style={{ 
             willChange: 'transform, opacity',
             transform: 'translateZ(0)', // Force GPU layer

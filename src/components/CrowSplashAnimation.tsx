@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import crooLogo from '@/assets/croo-logo-square.png';
+import crooLogo from '@/assets/croo-logo.webp';
 
 interface CrowSplashAnimationProps {
   onComplete: () => void;
@@ -53,7 +53,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
         <motion.img 
           src={crooLogo} 
           alt="Logo" 
-          className="h-28 w-auto"
+          className="h-16 w-auto object-contain"
           style={{ 
             willChange: 'transform, opacity',
             transform: 'translateZ(0)',
