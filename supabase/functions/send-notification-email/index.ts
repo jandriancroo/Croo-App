@@ -159,9 +159,31 @@ serve(async (req) => {
         <p style="color:#666;font-size:13px;margin:0 0 10px;">💡 <strong>Tip:</strong> Forward this email to your vendor rep if a credit memo is needed.</p>
       `;
     }
+    // ========== BILLING INITIATED ==========
+    else if (type === "billing_initiated") {
+      const { location_name, recipient_name, billing_url, initiated_by_name } = data;
+      subject = `Activate your CrooHQ subscription for ${location_name}`;
+      headerTitle = "Time to Activate Billing";
+      source = "billing_initiated";
+      content = `
+        <p style="color:${textColor};font-size:15px;margin:0 0 16px;">${recipient_name ? `Hi ${recipient_name},` : 'Hi there,'}</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Your demo of CrooHQ for <strong>${location_name}</strong> is ready to convert to a full subscription. ${initiated_by_name ? `${initiated_by_name} from the Croo team` : 'The Croo team'} has enabled billing for your location.</p>
+        <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid ${accentColor};">
+          <p style="color:${textColor};font-size:14px;margin:0 0 8px;"><strong>What happens next:</strong></p>
+          <ul style="color:${textColor};font-size:14px;margin:0;padding-left:20px;line-height:1.7;">
+            <li>Click the button below to choose your plan</li>
+            <li>Enter payment details through our secure Stripe checkout</li>
+            <li>Your subscription renews automatically each cycle</li>
+            <li>Manage or cancel anytime from your billing portal</li>
+          </ul>
+        </div>
+        <p style="color:#666;font-size:13px;margin:0 0 20px;">You'll also see a banner inside the app linking you to this same page.</p>
+      `;
+    }
     else {
       return new Response(JSON.stringify({ error: "Unknown notification type: " + type }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     const emailHtml = wrapEmail(`
       ${getEmailHeader(headerTitle)}
