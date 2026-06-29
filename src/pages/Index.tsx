@@ -74,7 +74,7 @@ const Index = () => {
         {/* Hero Content */}
         <div className="container mx-auto px-6 py-20 text-center relative z-10">
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 text-foreground">
-            Food Service Made Smart
+            Built for operators, by operators
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
             All-in-one platform for restaurant scheduling, time tracking, task management, and team communication.

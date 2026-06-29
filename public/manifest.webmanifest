@@ -1,9 +1,9 @@
 {
   "name": "CrooHQ",
   "short_name": "CrooHQ",
-  "description": "Food Service Made Smart",
-  "theme_color": "#3B8C9B",
-  "background_color": "#3B8C9B",
+  "description": "Built for operators, by operators",
+  "theme_color": "#03adbb",
+  "background_color": "#03adbb",
   "display": "standalone",
   "start_url": "/",
   "scope": "/",
@@ -28,3 +28,4 @@
     }
   ]
 }
+
