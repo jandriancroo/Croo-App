@@ -335,8 +335,12 @@ Deno.serve(async (req) => {
         const k = `${o.location_id}::${String(sku)}`;
         const prior = paOrderIdx.get(k);
         if (!prior || (o.order_date && o.order_date > (prior._order_date ?? ''))) {
+          // Only carry a pack_size when PA order has explicit pack info.
+          // The previous `1 ${it.unit}` fallback synthesized a degenerate
+          // "1 case × 1 case" structure that duplicated pa_catalog proposals.
+          const rawPack = it.pack_size ?? it.pack ?? null;
           paOrderIdx.set(k, {
-            pack_size: it.unit ? `1 ${it.unit}` : null, // best-effort; PA orders don't carry rich pack info
+            pack_size: rawPack,
             unit_price: it.price ?? null,
             description: it.name ?? null,
             pa_product_id: sku,
