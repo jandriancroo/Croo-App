@@ -70,66 +70,82 @@ serve(async (req) => {
       // --- Scan PFG orders (last 90 days) ---
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-      for (let i = 0; i < locIds.length; i += 10) {
-        const batch = locIds.slice(i, i + 10);
-        const { data: pfgOrders } = await supabase
-          .from("pfg_orders")
-          .select("location_id, item_number, description, unit_price, delivery_date")
-          .in("location_id", batch)
-          .gte("delivery_date", ninetyDaysAgo)
-          .order("delivery_date", { ascending: false });
+      const scanStats = { pfgOrders: 0, paOrders: 0, bidItems: 0, invoices: 0 };
 
-        for (const order of (pfgOrders || [])) {
-          const sku = String(order.item_number || "").trim();
+      // Helper: extract items[] line entries from a jsonb items array on orders/invoices
+      const ingestJsonbItems = (
+        items: any[],
+        territory: string,
+        seenDate: string,
+        locationId: string,
+        sourcePrefix: "pfg" | "pa",
+        skuField: "item_number" | "pa_item_id"
+      ) => {
+        let count = 0;
+        for (const it of items) {
+          const sku = String(
+            it?.[skuField] ??
+              it?.itemNumber ??
+              it?.paItemId ??
+              it?.pa_item_id ??
+              ""
+          ).trim();
           if (!sku) continue;
-          const territory = territoryMap.get(order.location_id) || "unknown";
-          const key = `pfg|${sku}|${territory}`;
+          const key = `${sourcePrefix}|${sku}|${territory}`;
           const existing = skuMap.get(key);
-          if (!existing || order.delivery_date > existing.lastSeen) {
+          if (!existing || seenDate > existing.lastSeen) {
             skuMap.set(key, {
-              lastSeen: order.delivery_date,
-              lastPrice: order.unit_price,
-              lastLocationId: order.location_id,
-              productName: order.description || "",
+              lastSeen: seenDate,
+              lastPrice: it?.unit_price ?? it?.unitPrice ?? existing?.lastPrice ?? null,
+              lastLocationId: locationId,
+              productName: it?.description || existing?.productName || "",
             });
           }
+          count++;
+        }
+        return count;
+      };
+
+      // --- Scan PFG orders (last 90 days) — items live in jsonb `items[]` ---
+      for (let i = 0; i < locIds.length; i += 10) {
+        const batch = locIds.slice(i, i + 10);
+        const { data: pfgOrders, error: pfgOrdErr } = await supabase
+          .from("pfg_orders")
+          .select("location_id, delivery_date, items")
+          .in("location_id", batch)
+          .gte("delivery_date", ninetyDaysAgo);
+        if (pfgOrdErr) console.error(`[${brand.name}] pfg_orders query error:`, pfgOrdErr.message);
+        for (const order of (pfgOrders || [])) {
+          const items = Array.isArray(order.items) ? order.items : [];
+          const territory = territoryMap.get(order.location_id) || "unknown";
+          scanStats.pfgOrders += ingestJsonbItems(items, territory, order.delivery_date, order.location_id, "pfg", "item_number");
         }
       }
 
-      // --- Scan PA orders (last 90 days) ---
+      // --- Scan PA orders (last 90 days) — items live in jsonb `items[]` ---
       for (let i = 0; i < locIds.length; i += 10) {
         const batch = locIds.slice(i, i + 10);
-        const { data: paOrders } = await supabase
+        const { data: paOrders, error: paOrdErr } = await supabase
           .from("pa_orders")
-          .select("location_id, pa_item_id, description, unit_price, delivery_date")
+          .select("location_id, delivery_date, items")
           .in("location_id", batch)
-          .gte("delivery_date", ninetyDaysAgo)
-          .order("delivery_date", { ascending: false });
-
+          .gte("delivery_date", ninetyDaysAgo);
+        if (paOrdErr) console.error(`[${brand.name}] pa_orders query error:`, paOrdErr.message);
         for (const order of (paOrders || [])) {
-          const sku = String(order.pa_item_id || "").trim();
-          if (!sku) continue;
+          const items = Array.isArray(order.items) ? order.items : [];
           const territory = territoryMap.get(order.location_id) || "unknown";
-          const key = `pa|${sku}|${territory}`;
-          const existing = skuMap.get(key);
-          if (!existing || order.delivery_date > existing.lastSeen) {
-            skuMap.set(key, {
-              lastSeen: order.delivery_date,
-              lastPrice: order.unit_price,
-              lastLocationId: order.location_id,
-              productName: order.description || "",
-            });
-          }
+          scanStats.paOrders += ingestJsonbItems(items, territory, order.delivery_date, order.location_id, "pa", "pa_item_id");
         }
       }
 
       // --- Scan PFG bid items (always-current bid guide, has last_seen_at) ---
       for (let i = 0; i < locIds.length; i += 10) {
         const batch = locIds.slice(i, i + 10);
-        const { data: bidItems } = await supabase
+        const { data: bidItems, error: bidErr } = await supabase
           .from("pfg_bid_items")
           .select("location_id, item_number, description, unit_price, last_seen_at")
           .in("location_id", batch);
+        if (bidErr) console.error(`[${brand.name}] pfg_bid_items query error:`, bidErr.message);
 
         for (const bi of (bidItems || [])) {
           const sku = String(bi.item_number || "").trim();
@@ -147,40 +163,27 @@ serve(async (req) => {
               productName: bi.description || existing?.productName || "",
             });
           }
+          scanStats.bidItems++;
         }
       }
 
       // --- Scan PFG invoices items[] (last 90 days) ---
       for (let i = 0; i < locIds.length; i += 10) {
         const batch = locIds.slice(i, i + 10);
-        const { data: invoices } = await supabase
+        const { data: invoices, error: invErr } = await supabase
           .from("pfg_invoices")
           .select("location_id, invoice_date, items")
           .in("location_id", batch)
           .gte("invoice_date", ninetyDaysAgo);
+        if (invErr) console.error(`[${brand.name}] pfg_invoices query error:`, invErr.message);
 
         for (const inv of (invoices || [])) {
           const items = Array.isArray(inv.items) ? inv.items : [];
           const territory = territoryMap.get(inv.location_id) || "unknown";
-          for (const it of items) {
-            const sku = String(it?.item_number || it?.itemNumber || "").trim();
-            if (!sku) continue;
-            const key = `pfg|${sku}|${territory}`;
-            const seen = inv.invoice_date;
-            const existing = skuMap.get(key);
-            if (!existing || seen > existing.lastSeen) {
-              skuMap.set(key, {
-                lastSeen: seen,
-                lastPrice: it?.unit_price ?? it?.unitPrice ?? existing?.lastPrice ?? null,
-                lastLocationId: inv.location_id,
-                productName: it?.description || existing?.productName || "",
-              });
-            }
-          }
+          scanStats.invoices += ingestJsonbItems(items, territory, inv.invoice_date, inv.location_id, "pfg", "item_number");
         }
       }
-
-
+      console.log(`[${brand.name}] scan stats: locations=${locIds.length}, skuMap=${skuMap.size}, pfgOrders=${scanStats.pfgOrders}, paOrders=${scanStats.paOrders}, bidItems=${scanStats.bidItems}, invoices=${scanStats.invoices}`);
 
       // --- Load existing records to detect first_seen_at and status transitions ---
       const { data: existingHealth } = await supabase
