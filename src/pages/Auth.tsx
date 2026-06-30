@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.webp';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
-import { useAuth } from '@/lib/auth';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -68,7 +67,7 @@ export default function Auth() {
     return <CrowSplashAnimation onComplete={handleSplashComplete} />;
   }
 
-  const season = getSeason();
+  
 
   return (
     <>
@@ -91,7 +90,6 @@ export default function Auth() {
         </div>
         
         <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] relative overflow-visible">
-          <SeasonalCardDecor />
           <CardHeader className="text-center pb-2 pt-6">
             <h2 className="text-xl font-semibold">Sign In</h2>
           </CardHeader>
@@ -118,12 +116,9 @@ export default function Auth() {
                   required
                 />
               </div>
-              <div className="relative">
-                <SeasonalButtonDecor />
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Signing in...' : 'Sign In'}
-                </Button>
-              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
               <div className="text-center">
                 <button
                   type="button"
