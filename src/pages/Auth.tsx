@@ -75,7 +75,7 @@ export default function Auth() {
       <RotatingAuthBackground />
       <div className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10">
         <Card className="w-full max-w-md shadow-2xl border-2 bg-card/95 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
-      <CardHeader className="text-center pb-4 pt-10 space-y-4">
+      <CardHeader className="text-center pb-2 pt-8 space-y-4">
         {/* Powered by Croo branding — now inside the card */}
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-center justify-center gap-2">
@@ -94,8 +94,8 @@ export default function Auth() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-6 pt-2">
-          <h2 className="text-2xl font-semibold text-center">Sign In</h2>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-center">Sign In</h2>
         </div>
         <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
