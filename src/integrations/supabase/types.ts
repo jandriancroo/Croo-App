@@ -11468,7 +11468,7 @@ export type Database = {
         | "scheduling_issues"
         | "other"
       support_ticket_status: "open" | "in_progress" | "resolved"
-      vendor_sku_status: "active" | "stale" | "discontinued"
+      vendor_sku_status: "active" | "stale" | "discontinued" | "needs_review"
       visual_alert_type: "quick_task" | "overdue_checklist"
     }
     CompositeTypes: {
@@ -11634,7 +11634,7 @@ export const Constants = {
         "other",
       ],
       support_ticket_status: ["open", "in_progress", "resolved"],
-      vendor_sku_status: ["active", "stale", "discontinued"],
+      vendor_sku_status: ["active", "stale", "discontinued", "needs_review"],
       visual_alert_type: ["quick_task", "overdue_checklist"],
     },
   },
