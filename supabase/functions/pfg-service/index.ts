@@ -1270,6 +1270,8 @@ async function syncRecentInvoices(
   let upserted = 0;
   let failed = 0;
   let novelInvoices = 0;
+  let pricesStamped = 0;
+  let backfillStamped = 0;
   const auditCtx = {
     supabase,
     integrationId: integration.id,
