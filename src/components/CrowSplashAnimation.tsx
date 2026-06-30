@@ -53,7 +53,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
         <motion.img 
           src={crooLogo} 
           alt="Logo" 
-          className="h-16 w-auto object-contain"
+          className="h-10 w-auto object-contain"
           style={{ 
             willChange: 'transform, opacity',
             transform: 'translateZ(0)',
@@ -62,7 +62,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
           initial={{ opacity: 1, scale: 1 }}
           animate={{
             opacity: phase === 'loading' ? 1 : 0,
-            scale: 1.25,
+            scale: 1.1,
           }}
           transition={{
             opacity: { duration: 0.3, ease: 'linear' },
