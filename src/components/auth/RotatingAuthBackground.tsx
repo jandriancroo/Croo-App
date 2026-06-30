@@ -1,75 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
-import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
-import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
-import mtnDay from '@/assets/auth-bg/mtn-day.jpg.asset.json';
-import townDay from '@/assets/auth-bg/town-day.jpg.asset.json';
-import beachNight from '@/assets/auth-bg/beach-night.jpg.asset.json';
-import cityNight from '@/assets/auth-bg/city-night.jpg.asset.json';
-import desNight from '@/assets/auth-bg/des-night.jpg.asset.json';
-import mtnNight from '@/assets/auth-bg/mtn-night.jpg.asset.json';
-import townNight from '@/assets/auth-bg/town-night.jpg.asset.json';
+import { useEffect } from 'react';
 
-const DAY_IMAGES = [beachDay.url, cityDay.url, desDay.url, mtnDay.url, townDay.url];
-const NIGHT_IMAGES = [beachNight.url, cityNight.url, desNight.url, mtnNight.url, townNight.url];
-
-const ROTATE_MS = 60_000;
-const SWIPE_THRESHOLD = 40;
-
-function isDaytime(d = new Date()) {
-  const h = d.getHours();
-  return h >= 6 && h < 19; // 6am - 7pm local
+interface Props {
+  images: string[];
+  index: number;
+  isDay: boolean;
 }
 
-export default function RotatingAuthBackground() {
-  const [isDay, setIsDay] = useState(isDaytime());
-  const images = useMemo(() => (isDay ? DAY_IMAGES : NIGHT_IMAGES), [isDay]);
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * 5));
-  const touchStartX = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const id = setInterval(() => setIsDay(isDaytime()), 5 * 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setIndex((i) => (i + 1) % images.length);
-    }, ROTATE_MS);
-    return () => clearInterval(id);
-  }, [images.length]);
-
+export default function RotatingAuthBackground({ images, index, isDay }: Props) {
   useEffect(() => {
     const next = images[(index + 1) % images.length];
     const img = new Image();
     img.src = next;
   }, [index, images]);
 
-  const goTo = (i: number) => setIndex(i);
-  const next = () => setIndex((i) => (i + 1) % images.length);
-  const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.changedTouches[0].screenX;
-  };
-
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const endX = e.changedTouches[0].screenX;
-    const delta = endX - touchStartX.current;
-    if (delta < -SWIPE_THRESHOLD) next();
-    else if (delta > SWIPE_THRESHOLD) prev();
-    touchStartX.current = null;
-  };
-
   return (
-    <div
-      ref={containerRef}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      className="fixed inset-0 -z-10 overflow-hidden bg-background"
-    >
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-background">
       {images.map((src, i) => (
         <div
           key={src}
@@ -89,23 +34,6 @@ export default function RotatingAuthBackground() {
             : 'linear-gradient(135deg, hsl(0 0% 0% / 0.55), hsl(var(--primary) / 0.25))',
         }}
       />
-
-      {/* Dot switcher */}
-      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-2 z-10">
-        {images.map((src, i) => (
-          <button
-            key={src}
-            type="button"
-            aria-label={`Show background ${i + 1}`}
-            onClick={() => goTo(i)}
-            className={`h-2.5 rounded-full transition-all duration-300 ${
-              i === index
-                ? 'w-6 bg-primary'
-                : 'w-2.5 bg-white/60 hover:bg-white/90'
-            }`}
-          />
-        ))}
-      </div>
     </div>
   );
 }
