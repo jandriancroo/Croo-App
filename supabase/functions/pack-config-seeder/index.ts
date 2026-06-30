@@ -335,8 +335,12 @@ Deno.serve(async (req) => {
         const k = `${o.location_id}::${String(sku)}`;
         const prior = paOrderIdx.get(k);
         if (!prior || (o.order_date && o.order_date > (prior._order_date ?? ''))) {
+          // Only carry a pack_size when PA order has explicit pack info.
+          // The previous `1 ${it.unit}` fallback synthesized a degenerate
+          // "1 case × 1 case" structure that duplicated pa_catalog proposals.
+          const rawPack = it.pack_size ?? it.pack ?? null;
           paOrderIdx.set(k, {
-            pack_size: it.unit ? `1 ${it.unit}` : null, // best-effort; PA orders don't carry rich pack info
+            pack_size: rawPack,
             unit_price: it.price ?? null,
             description: it.name ?? null,
             pa_product_id: sku,
@@ -531,6 +535,7 @@ Deno.serve(async (req) => {
             }
           } else if (m.vendor === 'pa') {
             const cat = paCatalogIdx.get(`${locationId}::${m.vendor_item_id}`);
+            let catalogResolvedHere = false;
             if (cat?.pack_size) {
               const parsed = parsePackString(cat.pack_size);
               if (parsed) {
@@ -540,12 +545,16 @@ Deno.serve(async (req) => {
                   cost_per_case: cat.unit_price ?? null, raw_pack_string: cat.pack_size,
                   observed_at: cat.last_seen_at ?? null, label: formatPackLabel(parsed),
                 });
+                catalogResolvedHere = true;
               } else {
                 reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
               }
             }
             const ord = paOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
-            if (ord?.pack_size) {
+            // Same-run guard: if pa_catalog already produced a resolved row for
+            // this (template, location, vendor_item_id), defer to it rather
+            // than emitting a second (often degenerate) proposal from pa_order.
+            if (!catalogResolvedHere && ord?.pack_size) {
               const parsed = parsePackString(ord.pack_size);
               if (parsed) {
                 resolved.push({
@@ -554,7 +563,11 @@ Deno.serve(async (req) => {
                   cost_per_case: ord.unit_price ?? null, raw_pack_string: ord.pack_size,
                   observed_at: ord._order_date ?? null, label: formatPackLabel(parsed),
                 });
+              } else {
+                reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pa_order', pack_string: ord.pack_size });
               }
+            } else if (catalogResolvedHere && ord) {
+              reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pa_order', pack_string: '(skipped: pa_catalog already resolved this template/location)' });
             }
           }
           // Heimark / other → no vendor source pipeline yet (option a).
