@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.webp';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
+import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -71,27 +72,27 @@ export default function Auth() {
 
   return (
     <>
-      <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-6 relative z-10 bg-gradient-to-br from-background via-primary/15 to-accent/25">
-        {/* Powered by Croo branding */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-sm text-muted-foreground font-medium">Powered by</span>
-            <img 
-              src={crooLogo} 
-              alt="Croo" 
-              width={100}
-              height={40}
-              className="h-8 w-auto"
-            />
-          </div>
-          <p className="font-sans text-sm italic font-medium text-primary tracking-tight">
-            Built for operators, by operators
-          </p>
-        </div>
-        
-        <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] relative overflow-visible">
-          <CardHeader className="text-center pb-2 pt-6">
-            <h2 className="text-xl font-semibold">Sign In</h2>
+      <RotatingAuthBackground />
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10">
+        <Card className="w-full max-w-md shadow-2xl border-2 bg-card/95 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
+          <CardHeader className="text-center pb-2 pt-6 space-y-3">
+            {/* Powered by Croo branding — now inside the card */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Powered by</span>
+                <img
+                  src={crooLogo}
+                  alt="Croo"
+                  width={100}
+                  height={40}
+                  className="h-7 w-auto"
+                />
+              </div>
+              <p className="font-sans text-xs italic font-medium text-primary tracking-tight">
+                Built for operators, by operators
+              </p>
+            </div>
+            <h2 className="text-xl font-semibold pt-1">Sign In</h2>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignIn} className="space-y-4">
