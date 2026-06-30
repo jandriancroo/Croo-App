@@ -7,6 +7,7 @@ interface ChecklistItem {
   title: string;
   due_by_time: string | null;
   lock_until_time: string | null;
+  frequency?: string;
 }
 
 interface ChecklistsGridProps {
@@ -20,7 +21,11 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   getCompletionData,
   timezone,
 }: ChecklistsGridProps) {
-  const remainingCount = checklists.filter(cl => {
+  // Monthly checklists (e.g. deep cleaning) appear in the list when they're
+  // close to their due date, but should NOT count toward the daily "remaining"
+  // rollup — they're on their own cadence.
+  const dailyChecklists = checklists.filter(cl => cl.frequency !== 'monthly');
+  const remainingCount = dailyChecklists.filter(cl => {
     const { expected, completed } = getCompletionData(cl.id);
     return expected === 0 || completed < expected;
   }).length;
