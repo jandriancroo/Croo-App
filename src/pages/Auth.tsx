@@ -64,7 +64,7 @@ export default function Auth() {
   const location = useLocation();
 
   const [isDay, setIsDay] = useState(isDaytime());
-  const images = useMemo(() => (isDay ? DAY_IMAGES : NIGHT_IMAGES), [isDay]);
+  const images = useMemo(() => getActiveImages(isDay), [isDay]);
   const [index, setIndex] = useState(() => Math.floor(Math.random() * images.length));
   const touchStartX = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
