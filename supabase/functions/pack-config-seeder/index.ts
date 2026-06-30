@@ -883,6 +883,11 @@ Deno.serve(async (req) => {
         if (upErr) { legacyStampErrors++; } else { legacyStamped++; }
         // Prevent the same legacy row from being stamped twice in one run.
         existingByLegacyKey.delete(legacyK);
+        // CRITICAL: register the now-stamped row in approvedBySkuKey so any
+        // sibling candidate (e.g. pa_order junk like "1 case") for the same
+        // (template, vendor, sku) short-circuits instead of inserting a
+        // degenerate proposal in the same run.
+        approvedBySkuKey.set(skuK, { ...legacyRow, source_evidence: merged });
         continue;
       }
       const { error: insErr } = await supabase.from("brand_pack_configs").insert({
