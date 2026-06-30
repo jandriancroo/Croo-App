@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.webp';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
-import { SeasonalCardDecor, SeasonalButtonDecor, WinterSnowfall, getSeason } from '@/components/auth/SeasonalDecorations';
+import { useAuth } from '@/lib/auth';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -72,8 +72,6 @@ export default function Auth() {
 
   return (
     <>
-      {season === 'winter' && <WinterSnowfall />}
-      
       <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-6 relative z-10 bg-gradient-to-br from-background via-primary/15 to-accent/25">
         {/* Powered by Croo branding */}
         <div className="flex flex-col items-center gap-2">
