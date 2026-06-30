@@ -35,6 +35,7 @@ import InvoiceUploadDialog from "./InvoiceUploadDialog";
 import SalesDateEditor from "./SalesDateEditor";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
+import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
 interface PeriodDetailPanelProps {
   count: any;
@@ -70,6 +71,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     staleTime: 10 * 60 * 1000,
   });
   const { conversionMap } = useBrandConversions(brandId);
+
+  // Recipe live-cost map — used only as a fallback for in_progress counts where
+  // an item.is_recipe === true and cost_per_unit is null/0. Submitted/completed
+  // counts always read cost_at_count snapshots. Mirrors InventoryCountView.tsx:110.
+  const { data: recipeCosts } = useQuery({
+    queryKey: ["recipe-costs-for-period-panel", locationId],
+    queryFn: () => fetchRecipeCosts(locationId),
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+
 
 
   // Fetch previous count to check if it was flex (affects current period start)
