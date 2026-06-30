@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
 import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
 import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
@@ -14,6 +14,7 @@ const DAY_IMAGES = [beachDay.url, cityDay.url, desDay.url, mtnDay.url, townDay.u
 const NIGHT_IMAGES = [beachNight.url, cityNight.url, desNight.url, mtnNight.url, townNight.url];
 
 const ROTATE_MS = 60_000;
+const SWIPE_THRESHOLD = 40;
 
 function isDaytime(d = new Date()) {
   const h = d.getHours();
@@ -24,6 +25,8 @@ export default function RotatingAuthBackground() {
   const [isDay, setIsDay] = useState(isDaytime());
   const images = useMemo(() => (isDay ? DAY_IMAGES : NIGHT_IMAGES), [isDay]);
   const [index, setIndex] = useState(() => Math.floor(Math.random() * 5));
+  const touchStartX = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setIsDay(isDaytime()), 5 * 60_000);
@@ -43,8 +46,30 @@ export default function RotatingAuthBackground() {
     img.src = next;
   }, [index, images]);
 
+  const goTo = (i: number) => setIndex(i);
+  const next = () => setIndex((i) => (i + 1) % images.length);
+  const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.changedTouches[0].screenX;
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const endX = e.changedTouches[0].screenX;
+    const delta = endX - touchStartX.current;
+    if (delta < -SWIPE_THRESHOLD) next();
+    else if (delta > SWIPE_THRESHOLD) prev();
+    touchStartX.current = null;
+  };
+
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-background">
+    <div
+      ref={containerRef}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      className="fixed inset-0 -z-10 overflow-hidden bg-background"
+    >
       {images.map((src, i) => (
         <div
           key={src}
@@ -64,6 +89,23 @@ export default function RotatingAuthBackground() {
             : 'linear-gradient(135deg, hsl(0 0% 0% / 0.55), hsl(var(--primary) / 0.25))',
         }}
       />
+
+      {/* Dot switcher */}
+      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-2 z-10">
+        {images.map((src, i) => (
+          <button
+            key={src}
+            type="button"
+            aria-label={`Show background ${i + 1}`}
+            onClick={() => goTo(i)}
+            className={`h-2.5 rounded-full transition-all duration-300 ${
+              i === index
+                ? 'w-6 bg-primary'
+                : 'w-2.5 bg-white/60 hover:bg-white/90'
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
