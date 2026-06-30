@@ -1355,12 +1355,29 @@ async function syncRecentInvoices(
         failed += rows.length;
       } else {
         upserted += rows.length;
+        pricesStamped += await cascadeInvoicePricesToInventory(
+          supabase, integration.location_id, rows,
+        );
       }
     }
   }
 
-  console.log(`[PFG Invoice Sync] location=${integration.location_id} upserted=${upserted} failed=${failed} novel=${novelInvoices}`);
-  return { invoicesProcessed: list.length, invoicesUpserted: upserted, failed, novelInvoices };
+  if (opts.backfillFromStored) {
+    const since180 = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data: stored } = await supabase
+      .from('pfg_invoices')
+      .select('invoice_date, items')
+      .eq('location_id', integration.location_id)
+      .gte('invoice_date', since180);
+    if (stored?.length) {
+      backfillStamped = await cascadeInvoicePricesToInventory(
+        supabase, integration.location_id, stored,
+      );
+    }
+  }
+
+  console.log(`[PFG Invoice Sync] location=${integration.location_id} upserted=${upserted} failed=${failed} novel=${novelInvoices} pricesStamped=${pricesStamped} backfillStamped=${backfillStamped}`);
+  return { invoicesProcessed: list.length, invoicesUpserted: upserted, failed, novelInvoices, pricesStamped, backfillStamped };
 }
 
 // ============================================================================
