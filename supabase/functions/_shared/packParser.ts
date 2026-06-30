@@ -93,7 +93,7 @@ export function normalizeUnit(raw: string): { inner_type: string; common_unit: s
     case 'kg': case 'kgs': return { inner_type: 'kg', common_unit: 'kg' };
     case 'g': case 'gs': return { inner_type: 'g', common_unit: 'g' };
     case 'ml': return { inner_type: 'ml', common_unit: 'ml' };
-    case 'l': case 'liter': case 'liters': return { inner_type: 'l', common_unit: 'l' };
+    case 'l': case 'lt': case 'ltr': case 'liter': case 'liters': case 'litre': case 'litres': return { inner_type: 'l', common_unit: 'l' };
     case 'ct': case 'ea': case 'each': case 'cn': case 'count': case 'rl': return { inner_type: 'ea', common_unit: 'ea' };
     default: return { inner_type: raw, common_unit: raw };
   }
