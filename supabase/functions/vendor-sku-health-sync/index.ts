@@ -123,6 +123,65 @@ serve(async (req) => {
         }
       }
 
+      // --- Scan PFG bid items (always-current bid guide, has last_seen_at) ---
+      for (let i = 0; i < locIds.length; i += 10) {
+        const batch = locIds.slice(i, i + 10);
+        const { data: bidItems } = await supabase
+          .from("pfg_bid_items")
+          .select("location_id, item_number, description, unit_price, last_seen_at")
+          .in("location_id", batch);
+
+        for (const bi of (bidItems || [])) {
+          const sku = String(bi.item_number || "").trim();
+          if (!sku) continue;
+          const territory = territoryMap.get(bi.location_id) || "unknown";
+          const key = `pfg|${sku}|${territory}`;
+          const seen = (bi.last_seen_at || "").toString().split("T")[0];
+          if (!seen) continue;
+          const existing = skuMap.get(key);
+          if (!existing || seen > existing.lastSeen) {
+            skuMap.set(key, {
+              lastSeen: seen,
+              lastPrice: bi.unit_price ?? existing?.lastPrice ?? null,
+              lastLocationId: bi.location_id,
+              productName: bi.description || existing?.productName || "",
+            });
+          }
+        }
+      }
+
+      // --- Scan PFG invoices items[] (last 90 days) ---
+      for (let i = 0; i < locIds.length; i += 10) {
+        const batch = locIds.slice(i, i + 10);
+        const { data: invoices } = await supabase
+          .from("pfg_invoices")
+          .select("location_id, invoice_date, items")
+          .in("location_id", batch)
+          .gte("invoice_date", ninetyDaysAgo);
+
+        for (const inv of (invoices || [])) {
+          const items = Array.isArray(inv.items) ? inv.items : [];
+          const territory = territoryMap.get(inv.location_id) || "unknown";
+          for (const it of items) {
+            const sku = String(it?.item_number || it?.itemNumber || "").trim();
+            if (!sku) continue;
+            const key = `pfg|${sku}|${territory}`;
+            const seen = inv.invoice_date;
+            const existing = skuMap.get(key);
+            if (!existing || seen > existing.lastSeen) {
+              skuMap.set(key, {
+                lastSeen: seen,
+                lastPrice: it?.unit_price ?? it?.unitPrice ?? existing?.lastPrice ?? null,
+                lastLocationId: inv.location_id,
+                productName: it?.description || existing?.productName || "",
+              });
+            }
+          }
+        }
+      }
+
+
+
       // --- Load existing records to detect first_seen_at and status transitions ---
       const { data: existingHealth } = await supabase
         .from("vendor_sku_health")

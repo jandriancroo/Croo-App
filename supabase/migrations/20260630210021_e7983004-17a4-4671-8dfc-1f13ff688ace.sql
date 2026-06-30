@@ -1,0 +1,1 @@
+ALTER TYPE public.vendor_sku_status ADD VALUE IF NOT EXISTS 'needs_review';

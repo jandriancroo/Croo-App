@@ -11155,6 +11155,7 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       end_promo_tracker_by_title: { Args: { _title: string }; Returns: number }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -11467,7 +11468,7 @@ export type Database = {
         | "scheduling_issues"
         | "other"
       support_ticket_status: "open" | "in_progress" | "resolved"
-      vendor_sku_status: "active" | "stale" | "discontinued"
+      vendor_sku_status: "active" | "stale" | "discontinued" | "needs_review"
       visual_alert_type: "quick_task" | "overdue_checklist"
     }
     CompositeTypes: {
@@ -11633,7 +11634,7 @@ export const Constants = {
         "other",
       ],
       support_ticket_status: ["open", "in_progress", "resolved"],
-      vendor_sku_status: ["active", "stale", "discontinued"],
+      vendor_sku_status: ["active", "stale", "discontinued", "needs_review"],
       visual_alert_type: ["quick_task", "overdue_checklist"],
     },
   },
