@@ -27,7 +27,7 @@ function getEmailFooter(): string {
 }
 
 function getHeader(title: string): string {
-  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
+  return `<tr><td style="background:${primaryColor};padding:24px 32px;text-align:center;">
     <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
     <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">${title}</h1>
   </td></tr>`;
@@ -43,7 +43,7 @@ function buildAuthEmail(type: string, actionUrl: string, email: string): { subje
           <tr><td style="padding:28px 32px;">
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">We received a request to reset the password for your CrooHQ account (<strong>${email}</strong>).</p>
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to set a new password:</p>
-            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Reset Password</a></div>
+            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Reset Password</a></div>
             <p style="color:#999;font-size:12px;text-align:center;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
           </td></tr>
           ${getEmailFooter()}`),
@@ -56,7 +56,7 @@ function buildAuthEmail(type: string, actionUrl: string, email: string): { subje
           ${getHeader('Sign In to CrooHQ')}
           <tr><td style="padding:28px 32px;">
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to sign in to your CrooHQ account:</p>
-            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Sign In</a></div>
+            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Sign In</a></div>
             <p style="color:#999;font-size:12px;text-align:center;">This link expires in 1 hour.</p>
           </td></tr>
           ${getEmailFooter()}`),
@@ -70,7 +70,7 @@ function buildAuthEmail(type: string, actionUrl: string, email: string): { subje
           ${getHeader('Confirm Your Email')}
           <tr><td style="padding:28px 32px;">
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Please confirm your email address (<strong>${email}</strong>) to complete your CrooHQ account setup:</p>
-            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Confirm Email</a></div>
+            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Confirm Email</a></div>
             <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
           </td></tr>
           ${getEmailFooter()}`),
@@ -83,7 +83,7 @@ function buildAuthEmail(type: string, actionUrl: string, email: string): { subje
           ${getHeader('You\'re Invited!')}
           <tr><td style="padding:28px 32px;">
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">You've been invited to join CrooHQ. Click the button below to accept the invitation and set up your account:</p>
-            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Accept Invitation</a></div>
+            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Accept Invitation</a></div>
             <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
           </td></tr>
           ${getEmailFooter()}`),
@@ -96,7 +96,7 @@ function buildAuthEmail(type: string, actionUrl: string, email: string): { subje
           ${getHeader('Confirm Email Change')}
           <tr><td style="padding:28px 32px;">
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">You requested to change your email address. Click below to confirm:</p>
-            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Confirm Email Change</a></div>
+            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Confirm Email Change</a></div>
             <p style="color:#999;font-size:12px;text-align:center;">If you didn't request this, you can safely ignore this email.</p>
           </td></tr>
           ${getEmailFooter()}`),
@@ -110,7 +110,7 @@ function buildAuthEmail(type: string, actionUrl: string, email: string): { subje
           ${getHeader('Action Required')}
           <tr><td style="padding:28px 32px;">
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to continue:</p>
-            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Continue</a></div>
+            <div style="text-align:center;margin:28px 0;"><a href="${actionUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Continue</a></div>
           </td></tr>
           ${getEmailFooter()}`),
       };

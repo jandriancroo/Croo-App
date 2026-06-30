@@ -290,7 +290,7 @@ function getEmailHeader(title: string, logoUrl?: string, orgName?: string): stri
   const logoHtml = logoUrl 
     ? `<img src="${logoUrl}" alt="${orgName || 'Logo'}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>`
     : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
-  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
+  return `<tr><td style="background:${primaryColor};padding:30px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
 }
 
 function getEmailFooter(): string {
@@ -298,7 +298,7 @@ function getEmailFooter(): string {
 }
 
 function getCTAButton(url: string, text: string): string {
-  return `<div style="text-align:center;"><a href="${url}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">${text}</a></div>`;
+  return `<div style="text-align:center;"><a href="${url}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">${text}</a></div>`;
 }
 
 function generateICS(date: string, time: string, orgName: string, locationName: string, locationAddress: string | undefined): string {
@@ -343,7 +343,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
         </div>
         <div style="text-align:center;margin:28px 0;">
-          <a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a>
+          <a href="#" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a>
         </div>
         <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
       </td></tr>
@@ -393,7 +393,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
         </div>
-        <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+        <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
         <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
       </td></tr>
       ${getEmailFooter()}`),
@@ -443,7 +443,7 @@ async function resendInviteEmail(payload: any): Promise<Response> {
       <tr><td style="padding:28px 32px;">
         <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
         <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">${displayName}</strong>. Click below to set your password and get started.</p>
-        <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+        <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
         <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
       </td></tr>
       ${getEmailFooter()}`),
@@ -563,7 +563,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
           <p style="color:#666;font-size:14px;margin:0;">Sample Location</p>
         </div>
         <div style="text-align:center;margin:24px 0;">
-          <a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a>
+          <a href="#" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a>
         </div>
       </td></tr>
       ${getEmailFooter()}`);
@@ -619,7 +619,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
           <p style="color:#666;font-size:14px;margin:0;">${locationName}</p>
           ${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}
         </div>
-        <div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a></div>
+        <div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a></div>
       </td></tr>
       ${getEmailFooter()}`),
     source: 'interview_invite',
