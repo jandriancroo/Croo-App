@@ -183,8 +183,7 @@ serve(async (req) => {
           scanStats.invoices += ingestJsonbItems(items, territory, inv.invoice_date, inv.location_id, "pfg", "item_number");
         }
       }
-
-
+      console.log(`[${brand.name}] scan stats: locations=${locIds.length}, skuMap=${skuMap.size}, pfgOrders=${scanStats.pfgOrders}, paOrders=${scanStats.paOrders}, bidItems=${scanStats.bidItems}, invoices=${scanStats.invoices}`);
 
       // --- Load existing records to detect first_seen_at and status transitions ---
       const { data: existingHealth } = await supabase
