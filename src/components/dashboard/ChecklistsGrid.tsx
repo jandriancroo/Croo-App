@@ -7,6 +7,7 @@ interface ChecklistItem {
   title: string;
   due_by_time: string | null;
   lock_until_time: string | null;
+  frequency?: string;
 }
 
 interface ChecklistsGridProps {
@@ -20,7 +21,11 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   getCompletionData,
   timezone,
 }: ChecklistsGridProps) {
-  const remainingCount = checklists.filter(cl => {
+  // Monthly checklists (e.g. deep cleaning) appear in the list when they're
+  // close to their due date, but should NOT count toward the daily "remaining"
+  // rollup — they're on their own cadence.
+  const dailyChecklists = checklists.filter(cl => cl.frequency !== 'monthly');
+  const remainingCount = dailyChecklists.filter(cl => {
     const { expected, completed } = getCompletionData(cl.id);
     return expected === 0 || completed < expected;
   }).length;
@@ -53,7 +58,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between">
         <h3 className="text-sm font-bold tracking-tight">Checklists</h3>
         <span className="text-xs text-muted-foreground">
-          {remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${checklists.length} remaining`}
+          {remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${dailyChecklists.length} remaining`}
         </span>
       </div>
       <div className="divide-y divide-border/30">
