@@ -93,7 +93,7 @@ export default function Auth() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
+        <div className="mb-8">
           <h2 className="text-lg font-semibold text-center">Sign In</h2>
         </div>
         <form onSubmit={handleSignIn} className="space-y-4">
