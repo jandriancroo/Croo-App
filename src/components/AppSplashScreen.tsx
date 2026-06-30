@@ -54,7 +54,7 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
         <motion.img 
           src={crooLogo} 
           alt="Croo" 
-          className="h-16 w-auto object-contain"
+          className="h-10 w-auto object-contain"
           style={{ 
             willChange: 'transform, opacity',
             transform: 'translateZ(0)', // Force GPU layer
@@ -63,7 +63,7 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
           initial={{ opacity: 1, scale: 1 }}
           animate={{
             opacity: phase === 'exit' ? 0 : 1,
-            scale: 1.25,
+            scale: 1.1,
           }}
           transition={{
             opacity: { duration: 0.4, ease: 'linear' },
