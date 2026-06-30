@@ -1099,11 +1099,84 @@ function normalizeInvoiceLineItem(item: any) {
 // dedupes Invoices[] across last `days` days, fires GetInvoiceDetails per
 // invoice, normalizes line items, computes novelty diff against last 90d of
 // pfg_orders.items SKUs at this location, and upserts into pfg_invoices.
+async function cascadeInvoicePricesToInventory(
+  supabase: any,
+  locationId: string,
+  invoiceRows: Array<{ invoice_date: string | null; items: any }>,
+): Promise<number> {
+  const skuMeta = new Map<string, { price: number; invoiceDate: string }>();
+  for (const inv of invoiceRows) {
+    const dt = String(inv.invoice_date || '');
+    if (!dt) continue;
+    const items = Array.isArray(inv.items) ? inv.items : [];
+    for (const li of items as any[]) {
+      const sku = String(li?.itemNumber || li?.item_number || '').trim();
+      const price = Number(li?.unit_price ?? li?.unitPrice ?? li?.price);
+      if (!sku || !Number.isFinite(price) || price <= 0) continue;
+      const ex = skuMeta.get(sku);
+      if (!ex || dt > ex.invoiceDate) skuMeta.set(sku, { price, invoiceDate: dt });
+    }
+  }
+  if (skuMeta.size === 0) return 0;
+
+  const { data: locRow } = await supabase
+    .from('locations')
+    .select('organization_id, organizations:organization_id(brand_id)')
+    .eq('id', locationId)
+    .maybeSingle();
+  const brandId = (locRow as any)?.organizations?.brand_id;
+  if (!brandId) return 0;
+
+  const skus = Array.from(skuMeta.keys());
+  const skuToTemplate = new Map<string, string>();
+
+  const { data: maps } = await supabase
+    .from('brand_vendor_mappings')
+    .select('brand_template_id, vendor_item_id, brand_inventory_templates!inner(brand_id)')
+    .eq('vendor', 'pfg')
+    .eq('brand_inventory_templates.brand_id', brandId)
+    .in('vendor_item_id', skus);
+  for (const m of (maps || [])) {
+    skuToTemplate.set(String((m as any).vendor_item_id), (m as any).brand_template_id);
+  }
+
+  const { data: legacy } = await supabase
+    .from('brand_inventory_templates')
+    .select('id, item_number')
+    .eq('brand_id', brandId)
+    .in('item_number', skus);
+  for (const t of (legacy || [])) {
+    const num = String((t as any).item_number);
+    if (!skuToTemplate.has(num)) skuToTemplate.set(num, (t as any).id);
+  }
+  if (skuToTemplate.size === 0) return 0;
+
+  let stamped = 0;
+  for (const [sku, meta] of skuMeta) {
+    const tplId = skuToTemplate.get(sku);
+    if (!tplId) continue;
+    const invoiceIso = `${meta.invoiceDate}T00:00:00Z`;
+    const nowIso = new Date().toISOString();
+    const { count, error } = await supabase
+      .from('inventory_items')
+      .update(
+        { cost_per_unit: meta.price, last_synced_at: nowIso, updated_at: nowIso },
+        { count: 'exact' },
+      )
+      .eq('brand_item_id', tplId)
+      .eq('location_id', locationId)
+      .or(`cost_per_unit.is.null,last_synced_at.is.null,last_synced_at.lt.${invoiceIso}`);
+    if (!error && count) stamped += count;
+  }
+  return stamped;
+}
+
 async function syncRecentInvoices(
   supabase: any,
   integration: { id: string; location_id: string; credentials: PFGCredentials },
   days = 3,
-): Promise<{ invoicesProcessed: number; invoicesUpserted: number; failed: number; novelInvoices: number }> {
+  opts: { backfillFromStored?: boolean } = {},
+): Promise<{ invoicesProcessed: number; invoicesUpserted: number; failed: number; novelInvoices: number; pricesStamped: number; backfillStamped: number }> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data: orders, error } = await supabase
@@ -1114,7 +1187,7 @@ async function syncRecentInvoices(
 
   if (error) {
     console.warn('[PFG Invoice Sync] pfg_orders read failed:', error.message);
-    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0 };
+    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0, pricesStamped: 0, backfillStamped: 0 };
   }
 
   type InvRef = {
@@ -1197,6 +1270,8 @@ async function syncRecentInvoices(
   let upserted = 0;
   let failed = 0;
   let novelInvoices = 0;
+  let pricesStamped = 0;
+  let backfillStamped = 0;
   const auditCtx = {
     supabase,
     integrationId: integration.id,
@@ -1280,12 +1355,29 @@ async function syncRecentInvoices(
         failed += rows.length;
       } else {
         upserted += rows.length;
+        pricesStamped += await cascadeInvoicePricesToInventory(
+          supabase, integration.location_id, rows,
+        );
       }
     }
   }
 
-  console.log(`[PFG Invoice Sync] location=${integration.location_id} upserted=${upserted} failed=${failed} novel=${novelInvoices}`);
-  return { invoicesProcessed: list.length, invoicesUpserted: upserted, failed, novelInvoices };
+  if (opts.backfillFromStored) {
+    const since180 = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data: stored } = await supabase
+      .from('pfg_invoices')
+      .select('invoice_date, items')
+      .eq('location_id', integration.location_id)
+      .gte('invoice_date', since180);
+    if (stored?.length) {
+      backfillStamped = await cascadeInvoicePricesToInventory(
+        supabase, integration.location_id, stored,
+      );
+    }
+  }
+
+  console.log(`[PFG Invoice Sync] location=${integration.location_id} upserted=${upserted} failed=${failed} novel=${novelInvoices} pricesStamped=${pricesStamped} backfillStamped=${backfillStamped}`);
+  return { invoicesProcessed: list.length, invoicesUpserted: upserted, failed, novelInvoices, pricesStamped, backfillStamped };
 }
 
 // ============================================================================
@@ -1317,6 +1409,7 @@ async function handleSyncInvoices(supabase: any, body: any): Promise<Response> {
   }
 
   const days = typeof body?.days === 'number' && body.days > 0 ? body.days : 3;
+  const backfillFromStored = body?.backfill === true;
   const results: any[] = [];
 
   for (const integration of integrations) {
@@ -1330,6 +1423,7 @@ async function handleSyncInvoices(supabase: any, body: any): Promise<Response> {
         supabase,
         { id: integration.id, location_id: integration.location_id, credentials },
         days,
+        { backfillFromStored },
       );
       results.push({ locationId: integration.location_id, success: true, ...summary });
     } catch (err) {
