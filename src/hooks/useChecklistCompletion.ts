@@ -108,51 +108,65 @@ export function useChecklistCompletion(
       const dataMap: Record<string, CompletionEntry> = {};
 
       for (const checklist of checklists) {
-        const checklistItems = itemsByChecklist.get(checklist.id) || [];
-        // Section headers are not answerable — they should not count toward the
-        // denominator (otherwise a list with 3 sections + 6 prep lists shows "0/9"
-        // when only 6 things can ever be completed).
-        const answerableItems = checklistItems.filter(item => item.item_type !== 'section_header');
-        let itemCount = answerableItems.length;
+        const checklistItems = (itemsByChecklist.get(checklist.id) || []) as any[];
 
-        if (checklist.template_type === 'dynamic') {
-          itemCount = answerableItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
+        // Compute per-item section anchor (max order_index of preceding section_header)
+        const sortedItems = [...checklistItems].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+        let runningAnchor: number | null = null;
+        const anchorByItemId = new Map<string, number | null>();
+        for (const it of sortedItems) {
+          if (it.item_type === 'section_header') {
+            runningAnchor = it.order_index ?? null;
+          }
+          anchorByItemId.set(it.id, it.item_type === 'section_header' ? (it.order_index ?? null) : runningAnchor);
         }
+
+        // Day filter for dynamic checklists (headers always count regardless of day)
+        const isDynamic = checklist.template_type === 'dynamic';
+        const inScope = (it: any) =>
+          it.item_type === 'section_header' ||
+          !isDynamic ||
+          (it.days_of_week && it.days_of_week.includes(currentDay));
+
+        const scoped = sortedItems.filter(inScope);
+        const itemCount = scoped.length;
 
         const isMonthly = checklist.frequency === 'monthly';
         const periodStart = isMonthly ? monthStart : periodStartBusiness;
         const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
 
-        // Filter by response.created_at (when item was actually completed),
-        // NOT submission.submitted_at — the submission record may have been
-        // opened before the business-day cutoff while the actual responses
-        // were entered well within today.
         const responses = (responsesByChecklist.get(checklist.id) || []).filter((r: any) => {
           const createdAt = new Date(r.created_at);
           return createdAt >= periodStart && createdAt <= periodEnd;
         });
 
+        const answeredItemIds = new Set<string>();
+        responses.forEach((r: any) => { if (r.item_id) answeredItemIds.add(r.item_id); });
 
-
-
-        const todayItemIds = checklist.template_type === 'dynamic'
-          ? new Set(answerableItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).map(item => item.id))
-          : null;
-
-        const uniqueItemIds = new Set();
-        responses.forEach((response: any) => {
-          if (response.item_id) {
-            if (todayItemIds === null || todayItemIds.has(response.item_id)) {
-              uniqueItemIds.add(response.item_id);
-            }
+        // Sections complete = any non-header item in that section answered
+        const completedSectionAnchors = new Set<number>();
+        for (const it of scoped) {
+          if (it.item_type !== 'section_header' && answeredItemIds.has(it.id)) {
+            const a = anchorByItemId.get(it.id);
+            if (a != null) completedSectionAnchors.add(a);
           }
-        });
+        }
+
+        let completedCount = 0;
+        for (const it of scoped) {
+          if (it.item_type === 'section_header') {
+            if (it.order_index != null && completedSectionAnchors.has(it.order_index)) completedCount++;
+          } else if (answeredItemIds.has(it.id)) {
+            completedCount++;
+          }
+        }
 
         dataMap[checklist.id] = {
           expected: itemCount,
-          completed: uniqueItemIds.size
+          completed: completedCount
         };
       }
+
 
       return dataMap;
     },
