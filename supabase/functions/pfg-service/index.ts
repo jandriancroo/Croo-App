@@ -1187,7 +1187,7 @@ async function syncRecentInvoices(
 
   if (error) {
     console.warn('[PFG Invoice Sync] pfg_orders read failed:', error.message);
-    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0 };
+    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0, pricesStamped: 0, backfillStamped: 0 };
   }
 
   type InvRef = {
