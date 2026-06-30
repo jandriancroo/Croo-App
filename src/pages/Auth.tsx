@@ -19,9 +19,32 @@ import cityNight from '@/assets/auth-bg/city-night.jpg.asset.json';
 import desNight from '@/assets/auth-bg/des-night.jpg.asset.json';
 import mtnNight from '@/assets/auth-bg/mtn-night.jpg.asset.json';
 import townNight from '@/assets/auth-bg/town-night.jpg.asset.json';
+import july4Day from '@/assets/auth-bg/july4-day.jpg.asset.json';
+import july4Night from '@/assets/auth-bg/july4-night.jpg.asset.json';
 
-const DAY_IMAGES = [beachDay.url, cityDay.url, desDay.url, mtnDay.url, townDay.url];
-const NIGHT_IMAGES = [beachNight.url, cityNight.url, desNight.url, mtnNight.url, townNight.url];
+const BASE_DAY = [beachDay.url, cityDay.url, desDay.url, mtnDay.url, townDay.url];
+const BASE_NIGHT = [beachNight.url, cityNight.url, desNight.url, mtnNight.url, townNight.url];
+
+// Holiday image packs — prepended to the rotation when the holiday window is active.
+type HolidayPack = { name: string; day: string[]; night: string[]; isActive: (d: Date) => boolean };
+const HOLIDAYS: HolidayPack[] = [
+  {
+    name: 'July 4th',
+    day: [july4Day.url],
+    night: [july4Night.url],
+    // Active July 1 – July 5 (local time)
+    isActive: (d) => d.getMonth() === 6 && d.getDate() >= 1 && d.getDate() <= 5,
+  },
+];
+
+function getActiveImages(isDay: boolean, now = new Date()): string[] {
+  const base = isDay ? BASE_DAY : BASE_NIGHT;
+  const holidayImgs = HOLIDAYS
+    .filter((h) => h.isActive(now))
+    .flatMap((h) => (isDay ? h.day : h.night));
+  return [...holidayImgs, ...base];
+}
+
 const ROTATE_MS = 60_000;
 const SWIPE_THRESHOLD = 40;
 
