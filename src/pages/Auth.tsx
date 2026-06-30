@@ -74,10 +74,10 @@ export default function Auth() {
     <>
       <RotatingAuthBackground />
       <div className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10">
-        <Card className="w-full max-w-md shadow-2xl border-2 bg-card/95 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
-      <CardHeader className="text-center pb-2 pt-8 space-y-4">
+        <Card className="w-full max-w-md shadow-2xl border-2 bg-card/75 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
+      <CardHeader className="text-center pb-2 pt-8 space-y-2">
         {/* Powered by Croo branding — now inside the card */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-1">
           <div className="flex items-center justify-center gap-2">
             <span className="text-sm text-muted-foreground font-medium">Powered by</span>
             <img
