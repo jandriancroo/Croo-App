@@ -58,7 +58,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between">
         <h3 className="text-sm font-bold tracking-tight">Checklists</h3>
         <span className="text-xs text-muted-foreground">
-          {remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${checklists.length} remaining`}
+          {remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${dailyChecklists.length} remaining`}
         </span>
       </div>
       <div className="divide-y divide-border/30">
