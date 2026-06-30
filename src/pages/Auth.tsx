@@ -75,27 +75,29 @@ export default function Auth() {
       <RotatingAuthBackground />
       <div className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10">
         <Card className="w-full max-w-md shadow-2xl border-2 bg-card/95 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
-          <CardHeader className="text-center pb-2 pt-6 space-y-3">
-            {/* Powered by Croo branding — now inside the card */}
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium">Powered by</span>
-                <img
-                  src={crooLogo}
-                  alt="Croo"
-                  width={100}
-                  height={40}
-                  className="h-7 w-auto"
-                />
-              </div>
-              <p className="font-sans text-xs italic font-medium text-primary tracking-tight">
-                Built for operators, by operators
-              </p>
-            </div>
-            <h2 className="text-xl font-semibold pt-1">Sign In</h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSignIn} className="space-y-4">
+      <CardHeader className="text-center pb-4 pt-10 space-y-4">
+        {/* Powered by Croo branding — now inside the card */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm text-muted-foreground font-medium">Powered by</span>
+            <img
+              src={crooLogo}
+              alt="Croo"
+              width={100}
+              height={40}
+              className="h-10 w-auto"
+            />
+          </div>
+          <p className="font-sans text-lg italic font-medium text-primary tracking-tight">
+            Built for operators, by operators
+          </p>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-6 pt-2">
+          <h2 className="text-2xl font-semibold text-center">Sign In</h2>
+        </div>
+        <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
