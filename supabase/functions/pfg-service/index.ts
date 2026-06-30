@@ -1409,6 +1409,7 @@ async function handleSyncInvoices(supabase: any, body: any): Promise<Response> {
   }
 
   const days = typeof body?.days === 'number' && body.days > 0 ? body.days : 3;
+  const backfillFromStored = body?.backfill === true;
   const results: any[] = [];
 
   for (const integration of integrations) {
@@ -1422,6 +1423,7 @@ async function handleSyncInvoices(supabase: any, body: any): Promise<Response> {
         supabase,
         { id: integration.id, location_id: integration.location_id, credentials },
         days,
+        { backfillFromStored },
       );
       results.push({ locationId: integration.location_id, success: true, ...summary });
     } catch (err) {
