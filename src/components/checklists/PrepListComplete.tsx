@@ -202,6 +202,14 @@ export function PrepListComplete({
     });
   }, [rows, values]);
 
+  // ANY row filled → prep list counts as started for completion math
+  const anyFilled = useMemo(() => {
+    return rows.some((r) => {
+      const v = values[r.id];
+      return v && v.on_hand !== '' && !Number.isNaN(Number(v.on_hand));
+    });
+  }, [rows, values]);
+
 
   useEffect(() => {
     onAllFilledChange(allFilled);
