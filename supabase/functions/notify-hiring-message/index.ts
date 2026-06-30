@@ -76,7 +76,7 @@ serve(async (req) => {
             <p style="color:${textColor};font-size:15px;line-height:1.6;margin:0;font-style:italic;">"Hey Jane! Thanks for applying. We'd love to bring you in for a quick interview this week. Are you available Thursday or Friday afternoon? Let me know what works best!"</p>
           </div>
           <div style="text-align:center;margin:28px 0;">
-            <a href="${previewChatUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:700;font-size:15px;letter-spacing:0.3px;">Reply Now</a>
+            <a href="${previewChatUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:700;font-size:15px;letter-spacing:0.3px;">Reply Now</a>
           </div>
           <p style="color:#999;font-size:12px;text-align:center;margin:0;">Or open: <a href="${previewChatUrl}" style="color:${primaryColor};text-decoration:underline;">${previewChatUrl}</a></p>
         </td></tr>
@@ -148,7 +148,7 @@ serve(async (req) => {
           <p style="color:${textColor};font-size:15px;line-height:1.6;margin:0;font-style:italic;">"${preview}"</p>
         </div>
         <div style="text-align:center;margin:28px 0;">
-          <a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:700;font-size:15px;letter-spacing:0.3px;">Reply Now</a>
+          <a href="${chatUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:700;font-size:15px;letter-spacing:0.3px;">Reply Now</a>
         </div>
         <p style="color:#999;font-size:12px;text-align:center;margin:0;">Or open: <a href="${chatUrl}" style="color:${primaryColor};text-decoration:underline;">${chatUrl}</a></p>
       </td></tr>
