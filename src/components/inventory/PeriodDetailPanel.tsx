@@ -35,6 +35,7 @@ import InvoiceUploadDialog from "./InvoiceUploadDialog";
 import SalesDateEditor from "./SalesDateEditor";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
+import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
 interface PeriodDetailPanelProps {
   count: any;
@@ -70,6 +71,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     staleTime: 10 * 60 * 1000,
   });
   const { conversionMap } = useBrandConversions(brandId);
+
+  // Recipe live-cost map — used only as a fallback for in_progress counts where
+  // an item.is_recipe === true and cost_per_unit is null/0. Submitted/completed
+  // counts always read cost_at_count snapshots. Mirrors InventoryCountView.tsx:110.
+  const { data: recipeCosts } = useQuery({
+    queryKey: ["recipe-costs-for-period-panel", locationId],
+    queryFn: () => fetchRecipeCosts(locationId),
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+
 
 
   // Fetch previous count to check if it was flex (affects current period start)
@@ -436,9 +449,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       const getCountItemLineValue = (ci: any) => {
         const item = itemMap.get(ci.item_id);
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+        // Recipe live-cost fallback — only for the current (end) count when it
+        // is still in_progress AND the recipe has no cost_per_unit. Begin count
+        // (always completed in a period) and any historical row read snapshots.
+        const ciIsCurrentInProgress = ci.count_id === count.id && count.status === 'in_progress';
+        const isRecipe = item?.is_recipe === true;
+        const needsLive = isRecipe && (item?.cost_per_unit == null || item?.cost_per_unit === 0);
+        const liveCpu = (ciIsCurrentInProgress && needsLive) ? recipeCosts?.get(ci.item_id) : undefined;
         const itemForValue = item ? {
           brand_item_id: item.brand_item_id,
-          cost_per_unit: item.cost_per_unit,
+          cost_per_unit: liveCpu ?? item.cost_per_unit,
           pack_quantity: item.pack_quantity,
           pack_quantity_override: item.pack_quantity_override,
           inner_pack_quantity: item.inner_pack_quantity,

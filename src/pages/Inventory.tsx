@@ -188,6 +188,11 @@ const Inventory = () => {
       // inner-pack items value identically to PeriodDetailPanel / COGSReport,
       // and multi-config items value identically to the Review screen.
       const statsMap: Record<string, { totalItems: number; countedItems: number; totalCost: number }> = {};
+      // Status-by-count map so the recipe live-cost override only fires for
+      // in_progress counts; completed counts honor cost_at_count snapshots.
+      const statusByCount = new Map<string, string>(
+        (data || []).map((c: any) => [c.id, c.status]),
+      );
       for (const ci of (countItems || [])) {
         if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems: 0, countedItems: 0, totalCost: 0 };
         statsMap[ci.count_id].totalItems++;
@@ -202,9 +207,17 @@ const Inventory = () => {
           const conversion = item?.brand_item_id
             ? conversionMap.get(item.brand_item_id) ?? null
             : null;
+          // Recipe live-cost fallback — mirrors InventoryCountView.tsx:263.
+          // Only override when: count is in_progress AND item is a recipe AND
+          // cost_per_unit is null/0. Completed counts read cost_at_count.
+          const isInProgress = statusByCount.get(ci.count_id) === 'in_progress';
+          const isRecipe = item?.is_recipe === true;
+          const needsLive = isRecipe && (item?.cost_per_unit == null || item?.cost_per_unit === 0);
+          const liveCpu = (isInProgress && needsLive) ? recipeCostMap?.get(ci.item_id) : undefined;
+          const itemForValue = liveCpu != null ? { ...item, cost_per_unit: liveCpu } : item;
           statsMap[ci.count_id].totalCost += getItemValueWithLegs(
             ci as any,
-            item,
+            itemForValue,
             conversion,
             { forceLiveData: false },
           );
