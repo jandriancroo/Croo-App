@@ -724,6 +724,7 @@ export type Database = {
       }
       brand_inventory_templates: {
         Row: {
+          archived_at: string | null
           auto_deploy_enabled: boolean
           brand_id: string
           category: string | null
@@ -767,6 +768,7 @@ export type Database = {
           vendor_source: string | null
         }
         Insert: {
+          archived_at?: string | null
           auto_deploy_enabled?: boolean
           brand_id: string
           category?: string | null
@@ -810,6 +812,7 @@ export type Database = {
           vendor_source?: string | null
         }
         Update: {
+          archived_at?: string | null
           auto_deploy_enabled?: boolean
           brand_id?: string
           category?: string | null
