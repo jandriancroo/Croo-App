@@ -11155,6 +11155,7 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       end_promo_tracker_by_title: { Args: { _title: string }; Returns: number }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
