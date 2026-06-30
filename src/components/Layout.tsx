@@ -1433,8 +1433,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       
       {/* Footer - desktop only */}
       <footer className={`items-center justify-center py-6 border-t border-border/20 text-muted-foreground gap-3 ${isMobile ? 'hidden' : 'flex'}`}>
-        <span className="text-base">Powered by</span>
-        <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
+        <span className="text-sm">Powered by</span>
+        <img src={crooLogo} alt="Croo" className="h-10 w-auto" />
       </footer>
       {!roleLoading && typeof document !== 'undefined' && createPortal(
         <nav className={`mobile-dock-container ${isMobile ? '' : 'hidden'}`}>
