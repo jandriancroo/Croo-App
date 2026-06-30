@@ -257,10 +257,11 @@ export function PrepListComplete({
     [submissionId, itemId, locationId, businessDate, userId],
   );
 
-  // Also mirror "filled" state into checklist_responses so the master completion calc treats it as answered
+  // Mirror "started" state into checklist_responses so completion calc + overdue
+  // scan see partial progress. Sentinel string differentiates partial vs complete.
   useEffect(() => {
     if (!submissionId || !userId) return;
-    const sentinel = allFilled ? 'prep_list_complete' : '';
+    const sentinel = allFilled ? 'prep_list_complete' : (anyFilled ? 'prep_list_in_progress' : '');
     const handle = setTimeout(async () => {
       const { data: existing } = await supabase
         .from('checklist_responses')
@@ -268,7 +269,7 @@ export function PrepListComplete({
         .eq('submission_id', submissionId)
         .eq('item_id', itemId)
         .maybeSingle();
-      if (allFilled) {
+      if (anyFilled) {
         if (existing?.id) {
           await supabase
             .from('checklist_responses')
@@ -287,7 +288,7 @@ export function PrepListComplete({
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [allFilled, submissionId, itemId, userId]);
+  }, [allFilled, anyFilled, submissionId, itemId, userId]);
 
   const handleOnHand = (row: PrepRowDef, raw: string) => {
     setValues((prev) => ({ ...prev, [row.id]: { on_hand: raw, note: prev[row.id]?.note || '' } }));
