@@ -17,10 +17,25 @@ export function BillingActivationBanner() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      // Get all locations user can access that have billing initiated
+
+      // Only show banner for orgs where THIS user is an org admin.
+      // Super admin alone is not enough — they share access but aren't the billing owner.
+      const { data: adminOrgs, error: orgErr } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .eq('org_role', 'admin');
+      if (orgErr) {
+        console.error('[billing-banner] org admin lookup', orgErr);
+        return [];
+      }
+      const orgIds = (adminOrgs || []).map((o) => o.organization_id);
+      if (orgIds.length === 0) return [];
+
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name, billing_initiated_at')
+        .select('id, name, billing_initiated_at, organization_id')
+        .in('organization_id', orgIds)
         .not('billing_initiated_at', 'is', null);
       if (error) {
         console.error('[billing-banner]', error);
