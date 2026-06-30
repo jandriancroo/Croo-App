@@ -75,19 +75,19 @@ export default function Auth() {
       {season === 'winter' && <WinterSnowfall />}
       
       <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-6 relative z-10 bg-gradient-to-br from-background via-primary/15 to-accent/25">
-        {/* Powered by Croo branding with large logo */}
+        {/* Powered by Croo branding */}
         <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center justify-center gap-3">
-            <span className="text-base text-muted-foreground font-medium">Powered by</span>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm text-muted-foreground font-medium">Powered by</span>
             <img 
               src={crooLogo} 
               alt="Croo" 
-              width={140}
-              height={56}
-              className="h-14 w-auto"
+              width={100}
+              height={40}
+              className="h-8 w-auto"
             />
           </div>
-          <p className="font-vansans text-xl font-medium text-[#E67E22] tracking-tight drop-shadow-sm">
+          <p className="font-sans text-sm italic font-medium text-primary tracking-tight">
             Built for operators, by operators
           </p>
         </div>
