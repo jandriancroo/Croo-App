@@ -16,14 +16,22 @@ export interface LibraryDoc {
   description: string | null;
   body: any;
   steps: any;
+  step_photos: any;
   photo_url: string | null;
   file_url: string | null;
   file_type: string | null;
   tags: string[];
   category: string | null;
+  yield_qty: number | null;
+  yield_unit: string | null;
+  servings: number | null;
+  prep_time_min: number | null;
+  cook_time_min: number | null;
+  video_url: string | null;
   created_at: string;
   updated_at: string;
 }
+
 
 export interface LibraryIngredient {
   id: string;
