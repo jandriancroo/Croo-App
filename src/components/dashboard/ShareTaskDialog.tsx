@@ -164,7 +164,7 @@ export function ShareTaskDialog({
 
       const chatName = chat.is_group 
         ? chat.title 
-        : `${chat.otherMember?.first_name} ${chat.otherMember?.last_name}`;
+        : chat.otherMember?.full_name || "Unknown";
       
       toast.success(`Shared to ${chatName}`);
       onOpenChange(false);
@@ -180,9 +180,7 @@ export function ShareTaskDialog({
     if (chat.is_group) {
       return chat.title || "Group Chat";
     }
-    return chat.otherMember 
-      ? `${chat.otherMember.first_name} ${chat.otherMember.last_name}`
-      : "Unknown";
+    return chat.otherMember?.full_name || "Unknown";
   };
 
   const getAvatarContent = (chat: Chat) => {
@@ -192,11 +190,13 @@ export function ShareTaskDialog({
         fallback: <Users className="h-4 w-4" />,
       };
     }
+    const parts = (chat.otherMember?.full_name || "").trim().split(/\s+/);
+    const initials = parts.length
+      ? `${parts[0]?.[0] || ""}${parts[parts.length - 1]?.[0] || ""}`
+      : "";
     return {
       src: chat.otherMember?.avatar_url,
-      fallback: chat.otherMember 
-        ? `${chat.otherMember.first_name?.[0] || ""}${chat.otherMember.last_name?.[0] || ""}`
-        : <User className="h-4 w-4" />,
+      fallback: initials || <User className="h-4 w-4" />,
     };
   };
 
