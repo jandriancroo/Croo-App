@@ -14,6 +14,7 @@ import { compressImage } from '@/utils/imageCompression';
 import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
+import { LibraryEnableSection } from '@/components/library/LibraryEnableSection';
 
 export default function BrandManagement() {
   const navigate = useNavigate();
