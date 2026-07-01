@@ -169,7 +169,7 @@ export default function Auth() {
         <Card className="w-full max-w-md shadow-2xl border-2 bg-card/80 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
           <CardHeader className="text-center pb-0 pt-8 space-y-0.5">
             {/* Croo branding — now inside the card */}
-            <div className="flex flex-col items-center gap-0.5">
+            <div className="flex flex-col items-center gap-0">
               <div className="flex items-center justify-center">
                 <img
                   src={crooLogo}
@@ -179,7 +179,7 @@ export default function Auth() {
                   className="h-10 w-auto"
                 />
               </div>
-              <p className="font-sans text-lg italic font-medium text-primary tracking-tight">
+              <p className="font-sans text-lg italic font-medium text-primary tracking-tight leading-tight">
                 Built for operators, by operators
               </p>
             </div>
