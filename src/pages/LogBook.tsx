@@ -92,6 +92,7 @@ export default function LogBook() {
               <TabsList>
                 <TabsTrigger value="search">Recent Logs</TabsTrigger>
                 <TabsTrigger value="catering">Catering Orders</TabsTrigger>
+                <TabsTrigger value="library">Library</TabsTrigger>
               </TabsList>
             </Tabs>
             {isAdmin && (
