@@ -1649,9 +1649,10 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                     const cupc = outer * (inner ?? 1);
                     const cost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
                     const ov = laneOverride[r.id] ?? {};
-                    const showPacks = ov.packs ?? ((inner ?? 0) > 1);
-                    const showCases = ov.cases ?? true;
-                    const showCommon = ov.common ?? false;
+                    // Fallback chain: local pending edit → persisted DB flag → sensible default.
+                    const showPacks = ov.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+                    const showCases = ov.cases ?? (r.show_cases ?? true);
+                    const showCommon = ov.common ?? (r.show_common_unit ?? false);
                     const previewLanes = computeCountLanes({
                       item: {
                         is_recipe: false,
