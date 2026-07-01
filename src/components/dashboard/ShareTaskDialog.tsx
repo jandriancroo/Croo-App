@@ -16,8 +16,7 @@ interface Chat {
   is_group: boolean;
   group_image_url: string | null;
   otherMember?: {
-    first_name: string;
-    last_name: string;
+    full_name: string | null;
     avatar_url: string | null;
   };
 }
