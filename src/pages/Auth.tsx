@@ -185,11 +185,6 @@ export default function Auth() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-8 flex justify-center">
-              <h2 className="inline-flex items-center rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary tracking-wide">
-                Sign In
-              </h2>
-            </div>
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
