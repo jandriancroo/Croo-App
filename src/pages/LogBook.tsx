@@ -34,10 +34,12 @@ export default function LogBook() {
 
   const searchCategoryOptions: string[] = [
     ...((categories || []).map((c: any) => c.name).filter(Boolean)),
+    'Catering Orders',
     'Employee Write-Up',
     'Read & Sign',
     ...((isAdmin || isManager) ? ['Performance Review'] : []),
   ];
+
 
   // Color palette for badges (deterministic by name hash)
   const badgePalette = [
