@@ -940,6 +940,9 @@ export type Database = {
           label: string | null
           outer_qty: number
           outer_type: string
+          show_cases: boolean
+          show_common_unit: boolean
+          show_inner_packs: boolean
           source: string | null
           source_evidence: Json
           status: string
@@ -959,6 +962,9 @@ export type Database = {
           label?: string | null
           outer_qty: number
           outer_type: string
+          show_cases?: boolean
+          show_common_unit?: boolean
+          show_inner_packs?: boolean
           source?: string | null
           source_evidence?: Json
           status?: string
@@ -978,6 +984,9 @@ export type Database = {
           label?: string | null
           outer_qty?: number
           outer_type?: string
+          show_cases?: boolean
+          show_common_unit?: boolean
+          show_inner_packs?: boolean
           source?: string | null
           source_evidence?: Json
           status?: string
