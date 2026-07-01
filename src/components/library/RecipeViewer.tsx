@@ -78,6 +78,11 @@ export function RecipeViewer({ open, onOpenChange, recipeId, canEdit, onEdit }: 
                   <Button size="icon" variant="ghost" onClick={handlePrint} title="Print">
                     <Printer className="h-4 w-4" />
                   </Button>
+                  {recipeId && (
+                    <Button size="icon" variant="ghost" onClick={() => setHistoryOpen(true)} title="Version history">
+                      <History className="h-4 w-4" />
+                    </Button>
+                  )}
                   {canEdit && onEdit && (
                     <Button size="sm" variant="outline" onClick={onEdit}>
                       <Pencil className="h-4 w-4 mr-1" />Edit
