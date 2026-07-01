@@ -1137,11 +1137,15 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
         common_unit: r.common_unit, count_units_per_case: r.count_units_per_case,
         cost_per_common_unit: r.cost_per_common_unit, label: r.label,
       };
+      const ovUpd = laneOverride[r.id] ?? {};
       const after = {
         outer_qty: outer, outer_type: d.outer_type,
         inner_qty: inner, inner_type: d.inner_type || null,
         common_unit: d.common_unit, count_units_per_case,
         cost_per_common_unit: lensCost, label: d.label || null,
+        show_cases: ovUpd.cases ?? (r.show_cases ?? true),
+        show_inner_packs: ovUpd.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1)),
+        show_common_unit: ovUpd.common ?? (r.show_common_unit ?? false),
       };
       const newEv = {
         ...prevEv,
