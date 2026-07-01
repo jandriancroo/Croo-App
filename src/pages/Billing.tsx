@@ -173,6 +173,17 @@ export default function Billing() {
             {/* Pricing cards — show when a location is selected */}
             {selectedLocationId && (
               <div className="space-y-3">
+                {isSuperAdmin && (
+                  <div className="flex items-center justify-between rounded-md border border-dashed border-amber-500/50 bg-amber-500/5 p-3">
+                    <div>
+                      <Label htmlFor="skip-trial" className="text-sm font-medium">Skip free trial (Super Admin)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Bills the card immediately. Use for locations that already consumed their trial.
+                      </p>
+                    </div>
+                    <Switch id="skip-trial" checked={skipTrial} onCheckedChange={setSkipTrial} />
+                  </div>
+                )}
                 <h2 className="text-lg font-semibold">
                   Choose a plan for {billableLocations.find(l => l.id === selectedLocationId)?.name}
                 </h2>
