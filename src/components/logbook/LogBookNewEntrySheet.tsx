@@ -786,7 +786,9 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                   if (!aIsCash && bIsCash) return -1;
                   return (a.display_order || 0) - (b.display_order || 0);
                 }),
+                { id: 'catering-order', name: 'Catering Order', __synthetic: true },
                 { id: 'cash-count-tool', name: 'Cash Count Tool', __synthetic: true },
+
               ]
                 .map((category: any) => {
                   const isCashHandling = ['drawer', 'safe', 'bank', 'deposit', 'cash count tool'].some(term => category.name.toLowerCase().includes(term));
