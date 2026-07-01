@@ -19,6 +19,8 @@ import { ReadAndSignForm } from "@/components/logbook/ReadAndSignForm";
 import { PerformanceReviewForm } from "@/components/logbook/PerformanceReviewForm";
 import { WasteLogForm, type WasteLogData } from "@/components/logbook/WasteLogForm";
 import { CashCountTool } from "@/components/logbook/CashCountTool";
+import { CateringOrderUploadInline } from "@/components/logbook/CateringOrderUploadInline";
+
 import type { DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 import type { BankDepositData } from "@/components/logbook/BankDepositForm";
