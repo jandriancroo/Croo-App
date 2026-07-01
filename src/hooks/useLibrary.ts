@@ -314,3 +314,117 @@ export async function uploadLibraryImage(file: File, scope: LibraryScope): Promi
   if (sErr) throw sErr;
   return signed.signedUrl;
 }
+
+/** List version snapshots for a recipe (newest first). */
+export function useRecipeVersions(recipeId: string | null) {
+  return useQuery({
+    queryKey: ["library-doc-versions", recipeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("library_document_versions" as any)
+        .select("id, created_at, editor_name, created_by, snapshot")
+        .eq("document_id", recipeId!)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!recipeId,
+  });
+}
+
+/** Save a snapshot of the recipe's current state (doc + ingredients + links). */
+export async function snapshotRecipeVersion(recipeId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const [docRes, ingsRes, linksRes, profileRes] = await Promise.all([
+    supabase.from("library_documents" as any).select("*").eq("id", recipeId).maybeSingle(),
+    supabase.from("library_recipe_ingredients" as any)
+      .select("ingredient_id, quantity, unit, sort_order, ingredient:library_ingredients(name)")
+      .eq("recipe_id", recipeId).order("sort_order"),
+    supabase.from("library_recipe_links" as any).select("to_recipe_id").eq("from_recipe_id", recipeId),
+    user ? supabase.from("profiles" as any).select("full_name").eq("id", user.id).maybeSingle() : Promise.resolve({ data: null } as any),
+  ]);
+  const editorName = (profileRes as any).data?.full_name || user?.email || null;
+  const snapshot = {
+    doc: (docRes as any).data,
+    ingredients: (ingsRes as any).data ?? [],
+    links: (linksRes as any).data ?? [],
+  };
+  const { error } = await supabase.from("library_document_versions" as any).insert({
+    document_id: recipeId,
+    snapshot,
+    created_by: user?.id ?? null,
+    editor_name: editorName,
+  });
+  if (error) throw error;
+}
+
+/** Restore a recipe to a saved snapshot. */
+export function useRestoreRecipeVersion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ recipeId, versionId }: { recipeId: string; versionId: string }) => {
+      // Snapshot current state first so the restore itself is undoable
+      await snapshotRecipeVersion(recipeId);
+      const { data: ver, error: vErr } = await supabase
+        .from("library_document_versions" as any)
+        .select("snapshot")
+        .eq("id", versionId)
+        .maybeSingle();
+      if (vErr) throw vErr;
+      const snap = (ver as any)?.snapshot;
+      if (!snap?.doc) throw new Error("Snapshot missing");
+      const d = snap.doc;
+      const { error: uErr } = await supabase.from("library_documents" as any).update({
+        title: d.title,
+        description: d.description,
+        category: d.category,
+        tags: d.tags,
+        photo_url: d.photo_url,
+        video_url: d.video_url,
+        yield_qty: d.yield_qty,
+        yield_unit: d.yield_unit,
+        servings: d.servings,
+        prep_time_min: d.prep_time_min,
+        cook_time_min: d.cook_time_min,
+        steps: d.steps,
+        step_photos: d.step_photos,
+        updated_at: new Date().toISOString(),
+      }).eq("id", recipeId);
+      if (uErr) throw uErr;
+      // Rewrite ingredients
+      await supabase.from("library_recipe_ingredients" as any).delete().eq("recipe_id", recipeId);
+      const ingRows = (snap.ingredients ?? [])
+        .filter((r: any) => r.ingredient_id)
+        .map((r: any, i: number) => ({
+          recipe_id: recipeId,
+          ingredient_id: r.ingredient_id,
+          quantity: r.quantity,
+          unit: r.unit,
+          sort_order: r.sort_order ?? i,
+        }));
+      if (ingRows.length) {
+        const { error } = await supabase.from("library_recipe_ingredients" as any).insert(ingRows);
+        if (error) throw error;
+      }
+      // Rewrite links
+      await supabase.from("library_recipe_links" as any).delete().eq("from_recipe_id", recipeId);
+      const linkRows = (snap.links ?? []).map((l: any) => ({
+        from_recipe_id: recipeId,
+        to_recipe_id: l.to_recipe_id,
+      }));
+      if (linkRows.length) {
+        const { error } = await supabase.from("library_recipe_links" as any).insert(linkRows);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["library-document", v.recipeId] });
+      qc.invalidateQueries({ queryKey: ["library-recipe-ingredients", v.recipeId] });
+      qc.invalidateQueries({ queryKey: ["library-recipe-links", v.recipeId] });
+      qc.invalidateQueries({ queryKey: ["library-doc-versions", v.recipeId] });
+      qc.invalidateQueries({ queryKey: ["library-documents"] });
+    },
+  });
+}
+

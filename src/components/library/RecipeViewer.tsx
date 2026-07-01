@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, ExternalLink, Star, Printer, Clock, Users, ChefHat, Video } from "lucide-react";
+import { Pencil, ExternalLink, Star, Printer, Clock, Users, ChefHat, Video, History } from "lucide-react";
 import {
   useLibraryDocument,
   useRecipeIngredients,
@@ -10,6 +10,7 @@ import {
   useMyFavorites,
   useToggleFavorite,
 } from "@/hooks/useLibrary";
+import { RecipeVersionHistorySheet } from "./RecipeVersionHistorySheet";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,7 @@ export function RecipeViewer({ open, onOpenChange, recipeId, canEdit, onEdit }: 
   const { data: favs } = useMyFavorites();
   const toggleFav = useToggleFavorite();
   const [stackedId, setStackedId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const isFav = !!(recipeId && favs?.has(recipeId));
   const stepsArr: string[] = useMemo(
@@ -76,6 +78,11 @@ export function RecipeViewer({ open, onOpenChange, recipeId, canEdit, onEdit }: 
                   <Button size="icon" variant="ghost" onClick={handlePrint} title="Print">
                     <Printer className="h-4 w-4" />
                   </Button>
+                  {recipeId && (
+                    <Button size="icon" variant="ghost" onClick={() => setHistoryOpen(true)} title="Version history">
+                      <History className="h-4 w-4" />
+                    </Button>
+                  )}
                   {canEdit && onEdit && (
                     <Button size="sm" variant="outline" onClick={onEdit}>
                       <Pencil className="h-4 w-4 mr-1" />Edit
@@ -214,6 +221,13 @@ export function RecipeViewer({ open, onOpenChange, recipeId, canEdit, onEdit }: 
           canEdit={false}
         />
       )}
+
+      <RecipeVersionHistorySheet
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        recipeId={recipeId}
+        canRestore={canEdit}
+      />
     </>
   );
 }

@@ -17,6 +17,7 @@ import {
   useRecipeLinks,
   useLibraryDocuments,
   uploadLibraryImage,
+  snapshotRecipeVersion,
 } from "@/hooks/useLibrary";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -185,11 +186,14 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
         );
         if (error) throw error;
       }
+      // Snapshot version (best-effort, don't block save on failure)
+      try { if (id) await snapshotRecipeVersion(id); } catch (e) { console.warn("version snapshot failed", e); }
       toast.success("Recipe saved");
       qc.invalidateQueries({ queryKey: ["library-documents"] });
       qc.invalidateQueries({ queryKey: ["library-document", id] });
       qc.invalidateQueries({ queryKey: ["library-recipe-ingredients", id] });
       qc.invalidateQueries({ queryKey: ["library-recipe-links", id] });
+      qc.invalidateQueries({ queryKey: ["library-doc-versions", id] });
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message ?? "Save failed");
