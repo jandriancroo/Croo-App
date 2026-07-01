@@ -132,10 +132,13 @@ export async function fetchBrandUnpricedIngredients(
   }
 
   const unpricedTemplateIds = refIds.filter((tid) => {
+    // Skip intentionally free ingredients (Water, Ice, etc.)
+    if ((tplById.get(tid) as any)?.is_free === true) return false;
     const items = deploymentsByTemplate.get(tid) || [];
     // unpriced if there are no priced deployments (includes 0-deployment case)
     return !items.some((iid) => pricedItemIds.has(iid));
   });
+
 
   if (unpricedTemplateIds.length === 0) return [];
 
