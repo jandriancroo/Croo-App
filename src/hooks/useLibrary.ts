@@ -256,3 +256,61 @@ export async function ensureIngredient(
   if (error) throw error;
   return (data as any).id;
 }
+
+/** All recipe IDs the current user has favorited. */
+export function useMyFavorites() {
+  return useQuery({
+    queryKey: ["library-favorites"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return new Set<string>();
+      const { data, error } = await supabase
+        .from("library_recipe_favorites" as any)
+        .select("recipe_id")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return new Set<string>((data ?? []).map((r: any) => r.recipe_id));
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useToggleFavorite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ recipeId, on }: { recipeId: string; on: boolean }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sign in required");
+      if (on) {
+        const { error } = await supabase
+          .from("library_recipe_favorites" as any)
+          .insert({ user_id: user.id, recipe_id: recipeId });
+        if (error && !String(error.message).includes("duplicate")) throw error;
+      } else {
+        const { error } = await supabase
+          .from("library_recipe_favorites" as any)
+          .delete()
+          .eq("user_id", user.id)
+          .eq("recipe_id", recipeId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["library-favorites"] }),
+  });
+}
+
+/** Upload an image to library-assets and return a long-lived signed URL. */
+export async function uploadLibraryImage(file: File, scope: LibraryScope): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `${scope}/images/${crypto.randomUUID()}.${ext}`;
+  const { error: upErr } = await supabase.storage.from("library-assets").upload(path, file, {
+    cacheControl: "31536000",
+    contentType: file.type || "image/jpeg",
+  });
+  if (upErr) throw upErr;
+  const { data: signed, error: sErr } = await supabase.storage
+    .from("library-assets")
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+  if (sErr) throw sErr;
+  return signed.signedUrl;
+}
