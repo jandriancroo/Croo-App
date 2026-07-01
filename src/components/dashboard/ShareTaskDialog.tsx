@@ -87,7 +87,7 @@ export function ShareTaskDialog({
           // Get the other member for DMs
           const { data: members } = await supabase
             .from("chat_members")
-            .select("user_id, profiles:user_id(first_name, last_name, avatar_url)")
+            .select("user_id, profiles:user_id(full_name, profile_photo_url)")
             .eq("chat_id", chat.id)
             .neq("user_id", user.id)
             .limit(1);
@@ -96,9 +96,8 @@ export function ShareTaskDialog({
           chatList.push({
             ...chat,
             otherMember: otherMember ? {
-              first_name: otherMember.first_name,
-              last_name: otherMember.last_name,
-              avatar_url: otherMember.avatar_url,
+              full_name: otherMember.full_name,
+              avatar_url: otherMember.profile_photo_url,
             } : undefined,
           });
         }
