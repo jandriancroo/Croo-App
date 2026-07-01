@@ -407,19 +407,36 @@ const StartCountDialog = ({
     }
   }, [open, preselectedPeriodType, preselectedPeriodEndDate, periodOptions]);
 
-  // Auto-sync when entering sync step
+  // Auto-sync when entering sync step.
+  // Skip the heavy PFG re-pull if the scheduled 8h price sync (or a prior
+  // manual sync) touched items in the last 8 hours — prices are already fresh.
   useEffect(() => {
     if (step === "sync" && !autoSyncTriggered) {
       setAutoSyncTriggered(true);
-      // Auto-trigger syncs
-      if (pfgIntegration) {
+
+      const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+      const lastUpdated = lastSyncInfo?.lastUpdated
+        ? new Date(lastSyncInfo.lastUpdated).getTime()
+        : 0;
+      const pfgFresh = lastUpdated && Date.now() - lastUpdated < EIGHT_HOURS_MS;
+
+      if (pfgIntegration && !pfgFresh) {
         syncFromPFG();
+      } else if (pfgIntegration && pfgFresh) {
+        // Skip network call — mark PFG done so the flow proceeds.
+        setSyncProgress({
+          phase: `Prices fresh (synced ${formatDistanceToNow(new Date(lastSyncInfo!.lastUpdated!), { addSuffix: true })}) — skipped`,
+          current: 100,
+          total: 100,
+        });
+        setSyncComplete(true);
       }
+
       if (paIntegration && !pfgIntegration) {
         syncFromPA();
       }
     }
-  }, [step, autoSyncTriggered, pfgIntegration, paIntegration]);
+  }, [step, autoSyncTriggered, pfgIntegration, paIntegration, lastSyncInfo]);
 
   // Auto-trigger PA after PFG completes
   useEffect(() => {
