@@ -2891,6 +2891,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   outer_type: cfg.outer_type,
                   inner_qty: cfg.inner_qty,
                   inner_type: cfg.inner_type,
+                  show_cases: (cfg as any).show_cases ?? null,
+                  show_inner_packs: (cfg as any).show_inner_packs ?? null,
+                  show_common_unit: (cfg as any).show_common_unit ?? null,
                 } as any,
                 lensEnabled: true,
               });
