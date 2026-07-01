@@ -1695,9 +1695,9 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                     const ov = laneOverride[r.id] ?? {};
                     const innerN = d.inner_qty == null ? null : Number(d.inner_qty);
                     const defaults = {
-                      cases: ov.cases ?? true,
-                      packs: ov.packs ?? ((innerN ?? 0) > 1),
-                      common: ov.common ?? false,
+                      cases: ov.cases ?? (r.show_cases ?? true),
+                      packs: ov.packs ?? (r.show_inner_packs ?? ((innerN ?? 0) > 1)),
+                      common: ov.common ?? (r.show_common_unit ?? false),
                     };
                     const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
                       setLaneOverride((m) => ({ ...m, [r.id]: { ...defaults, [key]: v } }));
