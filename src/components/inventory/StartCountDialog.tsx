@@ -432,6 +432,11 @@ const StartCountDialog = ({
           total: 100,
         });
         setSyncComplete(true);
+        setSyncAutoSkipped(true);
+      } else if (!pfgIntegration && !paIntegration) {
+        // Nothing to sync at all — skip straight through.
+        setSyncComplete(true);
+        setSyncAutoSkipped(true);
       }
 
       if (paIntegration && !pfgIntegration) {
@@ -439,6 +444,32 @@ const StartCountDialog = ({
       }
     }
   }, [step, autoSyncTriggered, pfgIntegration, paIntegration, lastSyncInfo]);
+
+  // Auto-advance past the sync step when everything was fresh/skipped and
+  // there's nothing for the user to review. The nightly 8h price sync owns
+  // pricing, so the sync screen is just noise in the happy path.
+  useEffect(() => {
+    if (
+      step !== "sync" ||
+      !syncAutoSkipped ||
+      isSyncing ||
+      isSyncingPA ||
+      lastSyncErrors.length > 0
+    ) return;
+    if (paIntegration && !paSyncComplete) return;
+    if (pfgIntegration && !syncComplete) return;
+    handleContinueToOrders();
+  }, [
+    step,
+    syncAutoSkipped,
+    syncComplete,
+    paSyncComplete,
+    isSyncing,
+    isSyncingPA,
+    lastSyncErrors.length,
+    pfgIntegration,
+    paIntegration,
+  ]);
 
   // Auto-trigger PA after PFG completes
   useEffect(() => {
