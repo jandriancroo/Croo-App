@@ -1,11 +1,19 @@
 // Runs every 8h via pg_cron. Refreshes prices/pack info for mapped PFG items
-// across every location with an active PFG integration. Per-location retry
-// with exponential backoff so a transient PFG outage on one store doesn't
-// blow up the whole run. Server-side mirror of the PFG price-sync block that
-// used to live in StartCountDialog.tsx.
+// across every location with an active PFG integration.
 //
-// Never creates new inventory_items (vendor gate). Skips image backfill and
-// gap-alert writes — those belong to the nightly vendor-gap-scan job.
+// Best-practice notes:
+//  - Concurrency pool (POOL_SIZE): processes multiple locations in parallel
+//    while capping simultaneous load on the PFG endpoint.
+//  - Per-location jitter: spreads outbound calls across the run window so
+//    PFG doesn't see a synchronized burst at t=0.
+//  - Retry with exponential backoff + jitter: avoids thundering-herd retries
+//    on transient PFG failures.
+//  - Idempotency guard: skips a location whose items were freshly synced
+//    inside FRESHNESS_WINDOW_MS. Safe if cron overlaps or is triggered
+//    manually right after a scheduled run.
+//  - Per-location isolation: one location's failure never blocks others.
+//  - Never creates new inventory_items. Skips image backfill + gap alerts
+//    (those belong to the nightly vendor-gap-scan job).
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -19,18 +27,33 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const POOL_SIZE = 5;                       // parallel locations per tick
 const MAX_ATTEMPTS = 3;
-const BACKOFF_MS = [2_000, 5_000, 15_000];
-const THROTTLE_BETWEEN_LOCATIONS_MS = 750;
+const BACKOFF_MS = [2_000, 5_000, 15_000]; // base backoff per attempt
+const JITTER_MAX_MS = 15_000;              // per-location start jitter
+const THROTTLE_MIN_MS = 250;               // spacing between pool tasks
+const FRESHNESS_WINDOW_MS = 6 * 60 * 60 * 1000; // skip if synced <6h ago
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const rand = (max: number) => Math.floor(Math.random() * max);
+
+// Stable hash → deterministic per-location jitter (same store starts at
+// roughly the same slot each run, avoiding starvation of any one store).
+function hashToMs(id: string, max: number): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h) % max;
+}
 
 interface LocationResult {
   location_id: string;
   location_name: string;
-  status: "completed" | "failed" | "skipped";
+  status: "completed" | "failed" | "skipped_fresh" | "skipped_config";
   attempts: number;
   items_updated: number;
+  duration_ms: number;
   error?: string;
 }
 
@@ -38,17 +61,41 @@ async function syncOneLocation(
   supabase: ReturnType<typeof createClient>,
   loc: { id: string; name: string; credentials: any },
 ): Promise<Omit<LocationResult, "location_id" | "location_name">> {
+  const startedAt = Date.now();
   const productListHeaderId = loc.credentials?.product_list_header_id;
   const customerId = loc.credentials?.customer_id;
 
   if (!productListHeaderId || !customerId) {
     return {
-      status: "skipped",
+      status: "skipped_config",
       attempts: 0,
       items_updated: 0,
+      duration_ms: Date.now() - startedAt,
       error: "missing product_list_header_id or customer_id",
     };
   }
+
+  // Idempotency guard — if any item at this location was updated inside the
+  // freshness window, don't hammer PFG again.
+  const freshCutoff = new Date(Date.now() - FRESHNESS_WINDOW_MS).toISOString();
+  const { data: freshRow } = await supabase
+    .from("inventory_items")
+    .select("id")
+    .eq("location_id", loc.id)
+    .gt("last_synced_at", freshCutoff)
+    .limit(1)
+    .maybeSingle();
+  if (freshRow) {
+    return {
+      status: "skipped_fresh",
+      attempts: 0,
+      items_updated: 0,
+      duration_ms: Date.now() - startedAt,
+    };
+  }
+
+  // Per-location start jitter so all pool workers don't hit PFG simultaneously.
+  await sleep(hashToMs(loc.id, JITTER_MAX_MS));
 
   let attempt = 0;
   let lastErr: string | undefined;
@@ -56,7 +103,6 @@ async function syncOneLocation(
   while (attempt < MAX_ATTEMPTS) {
     attempt++;
     try {
-      // Call pfg-service via internal invoke (service-role auth)
       const { data, error } = await supabase.functions.invoke("pfg-service", {
         body: {
           locationId: loc.id,
@@ -71,10 +117,15 @@ async function syncOneLocation(
 
       const categories = data?.data?.categories || [];
       if (categories.length === 0) {
-        return { status: "completed", attempts: attempt, items_updated: 0 };
+        return {
+          status: "completed",
+          attempts: attempt,
+          items_updated: 0,
+          duration_ms: Date.now() - startedAt,
+        };
       }
 
-      // Pre-fetch PFG brand mappings + local items (same match chain as StartCountDialog)
+      // Match chain (same as StartCountDialog): item_number → brand mapping.
       const [mappingRes, itemsRes] = await Promise.all([
         supabase
           .from("brand_vendor_mappings")
@@ -110,7 +161,7 @@ async function syncOneLocation(
             const tId = pfgSkuToTemplate.get(product.itemNumber);
             if (tId) existing = byBrandItemId.get(tId) || null;
           }
-          if (!existing) continue; // vendor gate — do not create; gap-scan handles this
+          if (!existing) continue; // vendor gate — never create locally
 
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
@@ -129,14 +180,21 @@ async function syncOneLocation(
         }
       }
 
-      return { status: "completed", attempts: attempt, items_updated: itemsUpdated };
+      return {
+        status: "completed",
+        attempts: attempt,
+        items_updated: itemsUpdated,
+        duration_ms: Date.now() - startedAt,
+      };
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
       console.error(
         `[pfg-scheduled-price-sync] ${loc.name} attempt ${attempt}/${MAX_ATTEMPTS} failed: ${lastErr}`,
       );
       if (attempt < MAX_ATTEMPTS) {
-        await sleep(BACKOFF_MS[attempt - 1] ?? 15_000);
+        // Backoff + jitter (avoid synchronized retries across the pool)
+        const base = BACKOFF_MS[attempt - 1] ?? 15_000;
+        await sleep(base + rand(1_000));
       }
     }
   }
@@ -145,8 +203,30 @@ async function syncOneLocation(
     status: "failed",
     attempts: attempt,
     items_updated: 0,
+    duration_ms: Date.now() - startedAt,
     error: lastErr,
   };
+}
+
+// Bounded-concurrency worker pool. Each worker grabs the next location off
+// the shared queue until drained.
+async function runPool<T, R>(
+  items: T[],
+  size: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(size, items.length) }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= items.length) return;
+      results[idx] = await worker(items[idx]);
+      await sleep(THROTTLE_MIN_MS);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 Deno.serve(async (req) => {
@@ -154,11 +234,10 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const startedAt = new Date().toISOString();
+  const runStartedAt = new Date().toISOString();
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
   try {
-    // Discover PFG-active locations
     const { data: integrations, error: intErr } = await supabase
       .from("location_integrations")
       .select("location_id, credentials, locations(name)")
@@ -173,34 +252,51 @@ Deno.serve(async (req) => {
       credentials: r.credentials || {},
     }));
 
-    const results: LocationResult[] = [];
-    for (const loc of targets) {
-      const res = await syncOneLocation(supabase, loc);
-      results.push({ location_id: loc.id, location_name: loc.name, ...res });
+    const results: LocationResult[] = await runPool(
+      targets,
+      POOL_SIZE,
+      async (loc) => {
+        const res = await syncOneLocation(supabase, loc);
+        const row: LocationResult = {
+          location_id: loc.id,
+          location_name: loc.name,
+          ...res,
+        };
 
-      // Persist per-location log (mirrors StartCountDialog's inventory_sync_logs shape)
-      await supabase.from("inventory_sync_logs").insert({
-        location_id: loc.id,
-        sync_source: "pfg",
-        sync_type: "scheduled_price_sync",
-        started_at: startedAt,
-        completed_at: new Date().toISOString(),
-        status: res.status === "completed" ? "completed" : res.status,
-        items_synced: res.items_updated,
-        orders_processed: 0,
-        errors: res.error ? [`${res.error} (after ${res.attempts} attempts)`] : [],
-      });
+        // Write per-location log inside the worker so we don't lose the
+        // record if a later location times out the whole function.
+        await supabase.from("inventory_sync_logs").insert({
+          location_id: loc.id,
+          sync_source: "pfg",
+          sync_type: "scheduled_price_sync",
+          started_at: runStartedAt,
+          completed_at: new Date().toISOString(),
+          status:
+            row.status === "completed"
+              ? "completed"
+              : row.status === "failed"
+                ? "failed"
+                : "skipped",
+          items_synced: row.items_updated,
+          orders_processed: 0,
+          errors: row.error
+            ? [`${row.error} (after ${row.attempts} attempts)`]
+            : [],
+        });
 
-      await sleep(THROTTLE_BETWEEN_LOCATIONS_MS);
-    }
+        return row;
+      },
+    );
 
     const summary = {
-      started_at: startedAt,
+      started_at: runStartedAt,
       finished_at: new Date().toISOString(),
+      pool_size: POOL_SIZE,
       locations: results.length,
       completed: results.filter((r) => r.status === "completed").length,
       failed: results.filter((r) => r.status === "failed").length,
-      skipped: results.filter((r) => r.status === "skipped").length,
+      skipped_fresh: results.filter((r) => r.status === "skipped_fresh").length,
+      skipped_config: results.filter((r) => r.status === "skipped_config").length,
       items_updated: results.reduce((s, r) => s + r.items_updated, 0),
       results,
     };
