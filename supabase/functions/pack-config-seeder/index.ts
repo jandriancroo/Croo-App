@@ -890,6 +890,14 @@ Deno.serve(async (req) => {
         approvedBySkuKey.set(skuK, { ...legacyRow, source_evidence: merged });
         continue;
       }
+      // Default lane visibility for new proposals — mirrors the backfill rule:
+      //   cases: always countable
+      //   inner packs: only when there's a real middle tier (inner_qty > 1)
+      //   loose common unit: only when there's no meaningful middle tier
+      // Approvers can flip any of these in BrandPackConfigApprovals before approving.
+      const innerN = Number(c.inner_qty ?? 0) || 0;
+      const defaultShowInnerPacks = innerN > 1;
+      const defaultShowCommonUnit = innerN <= 1;
       const { error: insErr } = await supabase.from("brand_pack_configs").insert({
         brand_template_id: c.brand_template_id,
         outer_qty: c.outer_qty,
@@ -903,6 +911,9 @@ Deno.serve(async (req) => {
         source: c.source,
         source_evidence: c.source_evidence,
         status: 'proposed',
+        show_cases: true,
+        show_inner_packs: defaultShowInnerPacks,
+        show_common_unit: defaultShowCommonUnit,
       });
       if (insErr) { skipped++; continue; }
       inserted++;
