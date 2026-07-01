@@ -135,7 +135,12 @@ export function LibraryPanel() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {docs.map((d) => (
-            <Card key={d.id} className="cursor-pointer hover:border-primary/50 transition" onClick={() => setViewingId(d.id)}>
+            <Card key={d.id} className="cursor-pointer hover:border-primary/50 transition overflow-hidden" onClick={() => setViewingId(d.id)}>
+              {d.photo_url && (
+                <div className="w-full aspect-video bg-muted overflow-hidden">
+                  <img src={d.photo_url} alt={d.title} className="w-full h-full object-cover" loading="lazy" />
+                </div>
+              )}
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -144,7 +149,10 @@ export function LibraryPanel() {
                       <span>{d.doc_type === "recipe" ? "Recipe" : "Document"}</span>
                       {d.category && <><span>•</span><span>{d.category}</span></>}
                     </div>
-                    <h3 className="font-semibold truncate">{d.title}</h3>
+                    <h3 className="font-semibold truncate flex items-center gap-1.5">
+                      {favs?.has(d.id) && <Star className="h-3.5 w-3.5 fill-primary text-primary shrink-0" />}
+                      <span className="truncate">{d.title}</span>
+                    </h3>
                     {d.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{d.description}</p>}
                   </div>
                   {canEdit && (
@@ -161,6 +169,7 @@ export function LibraryPanel() {
               </CardContent>
             </Card>
           ))}
+
         </div>
       )}
 
