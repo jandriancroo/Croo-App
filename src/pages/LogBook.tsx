@@ -12,6 +12,7 @@ import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSectio
 import { LogBookNewEntrySheet } from "@/components/logbook/LogBookNewEntrySheet";
 import { LogBookEntryList } from "@/components/logbook/LogBookEntryList";
 import { useLogBookData } from "@/hooks/useLogBookData";
+import { LibraryPanel } from "@/components/library/LibraryPanel";
 
 export default function LogBook() {
   const data = useLogBookData();
