@@ -91,6 +91,24 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
       );
     }
 
+    if (isCateringOrder) {
+      return (
+        <CateringOrderUploadInline
+          onDone={() => {
+            setShowNewEntrySheet(false);
+            setActiveTab('search');
+            queryClient.invalidateQueries({ queryKey: ['catering-orders'] });
+          }}
+          currentLocationId={currentLocation!.id}
+          currentLocationName={currentLocation?.name || 'Location'}
+          userId={user!.id}
+          timezone={locationSettings?.timezone || 'America/Los_Angeles'}
+          toast={toast}
+        />
+      );
+    }
+
+
     if (isPerformanceReview) {
       return (
         <div className="space-y-4">
