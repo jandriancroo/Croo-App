@@ -92,6 +92,7 @@ const StartCountDialog = ({
   const [paSyncComplete, setPaSyncComplete] = useState(false);
   const [lastSyncErrors, setLastSyncErrors] = useState<string[]>([]);
   const [autoSyncTriggered, setAutoSyncTriggered] = useState(false);
+  const [syncAutoSkipped, setSyncAutoSkipped] = useState(false);
   // Temp count ID for order binding (created before counting starts)
   const [tempCountId, setTempCountId] = useState<string | null>(null);
   const [lateCloseNotes, setLateCloseNotes] = useState("");
