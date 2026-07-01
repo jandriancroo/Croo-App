@@ -46,14 +46,25 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
     setCategory(doc?.category ?? "");
     setTags((doc?.tags ?? []).join(", "));
     setSteps(Array.isArray(doc?.steps) ? (doc!.steps as string[]).join("\n") : (typeof doc?.steps === "string" ? doc!.steps : ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, recipeId, doc?.id]);
+
+  useEffect(() => {
+    if (!open) return;
     setIngs(existingIngs.map((r: any) => ({
       key: r.id,
       name: r.ingredient?.name ?? "",
       quantity: r.quantity != null ? String(r.quantity) : "",
       unit: r.unit ?? "",
     })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, recipeId, existingIngs.length]);
+
+  useEffect(() => {
+    if (!open) return;
     setLinks(existingLinks.map((l: any) => l.to_recipe_id));
-  }, [open, doc, existingIngs, existingLinks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, recipeId, existingLinks.length]);
 
   const addIng = () => setIngs((s) => [...s, { key: crypto.randomUUID(), name: "", quantity: "", unit: "" }]);
   const rmIng = (key: string) => setIngs((s) => s.filter((r) => r.key !== key));
