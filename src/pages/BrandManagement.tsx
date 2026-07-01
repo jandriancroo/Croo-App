@@ -344,6 +344,12 @@ export default function BrandManagement() {
                     </Button>
                   )}
                 </div>
+
+                {editingBrand?.id && (
+                  <LibraryEnableSection brandId={editingBrand.id} />
+                )}
+
+
                 
                 <Button onClick={handleSave} disabled={isSaving} className="w-full">
                   <Save className="h-4 w-4 mr-2" />
