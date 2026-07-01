@@ -12,6 +12,9 @@ import { SUBSCRIPTION_TIERS } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { useUserRole } from '@/hooks/useUserRole';
 
 
 const ICONS_BY_KEY: Record<string, React.ReactNode> = {
@@ -34,9 +37,11 @@ export default function Billing() {
   } = useSubscription();
   const { locations, organizationId: currentOrgId } = useAppLocation();
   const { plans } = usePlans();
+  const { isSuperAdmin } = useUserRole();
   const visiblePlans: PlanRow[] = plans.filter((p) => p.is_visible);
   const [searchParams] = useSearchParams();
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [skipTrial, setSkipTrial] = useState(false);
 
   // Filter to current org's locations, exclude sandbox
   const billableLocations = locations.filter(l => 
@@ -56,8 +61,8 @@ export default function Billing() {
 
   const handleCheckout = async (priceId: string, locationId: string) => {
     try {
-      toast.info('Opening checkout…');
-      await startCheckout(priceId, false, locationId);
+      toast.info(skipTrial && isSuperAdmin ? 'Opening checkout (trial skipped)…' : 'Opening checkout…');
+      await startCheckout(priceId, skipTrial && isSuperAdmin, locationId);
     } catch (err: any) {
       toast.error(err.message || 'Failed to start checkout');
     }
@@ -168,6 +173,17 @@ export default function Billing() {
             {/* Pricing cards — show when a location is selected */}
             {selectedLocationId && (
               <div className="space-y-3">
+                {isSuperAdmin && (
+                  <div className="flex items-center justify-between rounded-md border border-dashed border-amber-500/50 bg-amber-500/5 p-3">
+                    <div>
+                      <Label htmlFor="skip-trial" className="text-sm font-medium">Skip free trial (Super Admin)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Bills the card immediately. Use for locations that already consumed their trial.
+                      </p>
+                    </div>
+                    <Switch id="skip-trial" checked={skipTrial} onCheckedChange={setSkipTrial} />
+                  </div>
+                )}
                 <h2 className="text-lg font-semibold">
                   Choose a plan for {billableLocations.find(l => l.id === selectedLocationId)?.name}
                 </h2>

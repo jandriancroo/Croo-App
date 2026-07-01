@@ -39,10 +39,23 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    const { priceId, organizationId, locationId } = await req.json();
+    const { priceId, organizationId, locationId, skipTrial } = await req.json();
     if (!priceId) throw new Error("priceId is required");
     if (!locationId) throw new Error("locationId is required");
-    logStep("Request params", { priceId, organizationId, locationId });
+    logStep("Request params", { priceId, organizationId, locationId, skipTrial: !!skipTrial });
+
+    // Gate skipTrial to super_admin only
+    let allowSkipTrial = false;
+    if (skipTrial) {
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "super_admin")
+        .maybeSingle();
+      allowSkipTrial = !!roleRow;
+      if (!allowSkipTrial) logStep("skipTrial requested but user is not super_admin — ignoring");
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
@@ -106,6 +119,11 @@ serve(async (req) => {
         created_by_user_id: user.id,
       },
     };
+
+    if (allowSkipTrial) {
+      // Override any plan-default trial period
+      subscriptionData.trial_end = "now";
+    }
 
     // Per-location billing: quantity is always 1
     const session = await stripe.checkout.sessions.create({
