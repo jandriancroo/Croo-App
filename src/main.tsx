@@ -22,6 +22,36 @@ if (isStandaloneMode) {
   document.documentElement.setAttribute('data-standalone', 'true');
 }
 
+// Emergency SW cleanup: a stale PWA service worker can intercept auth/token
+// requests and surface as Safari/Chrome "Load failed", leaving login stuck.
+// We are disabling browser SW control for now; push registration is only useful
+// after auth is stable and can be reintroduced behind an explicit opt-in.
+const disableServiceWorkers = async () => {
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    if (!registrations.length) return;
+
+    console.warn(`[SW] Removing ${registrations.length} stale service worker registration(s)`);
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    }
+
+    const reloadKey = 'sw_cleanup_reload_attempted';
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, 'true');
+      window.location.reload();
+    }
+  } catch (error) {
+    console.warn('[SW] Cleanup failed', error);
+  }
+};
+
+disableServiceWorkers();
 
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
@@ -78,55 +108,6 @@ window.addEventListener('vite:preloadError', (event) => {
     performDeferrableReload(() => window.location.reload());
   }
 });
-
-// PWA: Register a minimal service worker for push notifications.
-// Required for web push to work in both PWA and browser mode.
-// No precaching = no stale version issues. Browser/CDN cache handles freshness.
-try {
-  const isStandalone =
-    window.matchMedia?.('(display-mode: standalone)')?.matches ||
-    (window.navigator as any).standalone === true;
-
-  if ('serviceWorker' in navigator) {
-    // Register SW for push notifications in both PWA and browser mode
-    navigator.serviceWorker.register('/sw.js').then((registration) => {
-      console.log('[SW] Service worker registered for push notifications');
-      
-      if (isStandalone) {
-        // PWA mode: also set up update detection
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New version ready - notify the app
-                console.log('[PWA] New version available');
-                (window as any).__PWA_UPDATE_READY__ = true;
-                window.dispatchEvent(new CustomEvent('pwa:update-available'));
-              }
-            });
-          }
-        });
-
-        // Check for updates periodically (every 5 min)
-        setInterval(() => {
-          registration.update();
-        }, 5 * 60 * 1000);
-
-        // Check on visibility change (app comes to foreground)
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
-            registration.update();
-          }
-        });
-      }
-    }).catch((error) => {
-      console.warn('[SW] SW registration failed:', error);
-    });
-  }
-} catch (e) {
-  console.warn('[SW] SW init skipped', e);
-}
 
 const rootElement = document.getElementById("root");
 
