@@ -159,13 +159,16 @@ export async function fetchBlueprintCosts(
   // A0: track which brand templates are archived so the engine can flag them
   // separately from "missing" (no deployment) and "unpriced" (data gap).
   const archivedTemplateIds = new Set<string>();
+  // Templates flagged as intentionally free (Water, Ice, etc.) — $0 cost is valid,
+  // do NOT flag the recipe as unpriced/partial when these are ingredients.
+  const freeTemplateIds = new Set<string>();
 
   if (brandTemplateIds.length > 0) {
     // A0: pull template status alongside the deployment lookup so we can
     // distinguish archived ingredients from data-gap and missing ingredients.
     const { data: templateStatuses, error: tplErr } = await supabase
       .from("brand_inventory_templates")
-      .select("id, status")
+      .select("id, status, is_free")
       .in("id", brandTemplateIds);
     if (tplErr) throw tplErr;
     for (const t of templateStatuses || []) {
@@ -174,7 +177,11 @@ export async function fetchBlueprintCosts(
       if ((t as any).status === "archived") {
         archivedTemplateIds.add((t as any).id);
       }
+      if ((t as any).is_free === true) {
+        freeTemplateIds.add((t as any).id);
+      }
     }
+
 
     // Resolve brand templates → local inventory items via deployments
     const { data: deployments, error: depErr } = await supabase
@@ -278,10 +285,16 @@ export async function fetchBlueprintCosts(
 
         const caseCost = vendor.blended_price ?? vendor.cost_per_unit ?? 0;
         if (caseCost === 0) {
+          // Intentionally free ingredient (Water, Ice, etc.) — $0 is valid, contributes
+          // nothing to batch cost and does NOT flag the recipe as unpriced.
+          if (freeTemplateIds.has(ing.vendor_item_id)) {
+            continue;
+          }
           // A0: item exists & is active but has no resolvable price — flag as data gap.
           unpricedItems.push(ing.vendor_item_id);
           continue;
         }
+
 
         // Expand embedded-size units like "bottle(20oz-fl)", "#10can", "pack(9.6lb)"
         // into a base qty + canonical unit before any branch logic. Plain units pass through.

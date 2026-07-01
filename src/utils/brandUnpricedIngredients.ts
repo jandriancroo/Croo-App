@@ -32,8 +32,9 @@ export async function fetchBrandUnpricedIngredients(
   // 1. All active brand templates for this brand
   const { data: templates, error: tplErr } = await supabase
     .from("brand_inventory_templates")
-    .select("id, common_name, product_name, category, status")
+    .select("id, common_name, product_name, category, status, is_free")
     .eq("brand_id", brandId);
+
   if (tplErr) throw tplErr;
 
   const activeTemplates = (templates || []).filter(
@@ -131,10 +132,13 @@ export async function fetchBrandUnpricedIngredients(
   }
 
   const unpricedTemplateIds = refIds.filter((tid) => {
+    // Skip intentionally free ingredients (Water, Ice, etc.)
+    if ((tplById.get(tid) as any)?.is_free === true) return false;
     const items = deploymentsByTemplate.get(tid) || [];
     // unpriced if there are no priced deployments (includes 0-deployment case)
     return !items.some((iid) => pricedItemIds.has(iid));
   });
+
 
   if (unpricedTemplateIds.length === 0) return [];
 
