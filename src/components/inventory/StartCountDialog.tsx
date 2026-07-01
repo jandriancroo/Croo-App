@@ -120,6 +120,7 @@ const StartCountDialog = ({
       setSyncProgress(null);
       setLastSyncErrors([]);
       setAutoSyncTriggered(false);
+      setSyncAutoSkipped(false);
       setTempCountId(null);
       setLateCloseNotes("");
     }
