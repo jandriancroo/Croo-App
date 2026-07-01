@@ -256,6 +256,15 @@ export default function OrganizationProfile() {
           </CardContent>
         </Card>
 
+        {/* Library toggle */}
+        {!isNew && id && (
+          <Card>
+            <CardContent className="pt-6">
+              <OrgLibraryEnableSection organizationId={id} />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Organization Members */}
         {!isNew && id && (
           <OrganizationMembersSection organizationId={id} />
