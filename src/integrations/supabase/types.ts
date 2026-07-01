@@ -734,6 +734,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_free: boolean
           is_recipe: boolean
           is_weight_based: boolean
           item_number: string | null
@@ -778,6 +779,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_free?: boolean
           is_recipe?: boolean
           is_weight_based?: boolean
           item_number?: string | null
@@ -822,6 +824,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_free?: boolean
           is_recipe?: boolean
           is_weight_based?: boolean
           item_number?: string | null
