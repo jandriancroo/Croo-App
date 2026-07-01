@@ -70,10 +70,12 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
   const isWeeklySummary = currentCategoryName === 'weekly summary';
   const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
   const isCashCountTool = selectedCategory === 'cash-count-tool';
+  const isCateringOrder = selectedCategory === 'catering-order';
   const isEmployeeWriteUp = ['employee write-up', 'employee writeup', 'employee write up', 'write-up', 'writeup', 'write up'].includes(currentCategoryName || '');
   const isReadAndSign = ['read & sign', 'read and sign', 'read-and-sign'].includes(currentCategoryName || '');
   const isPerformanceReview = ['performance review', 'performance-review'].includes(currentCategoryName || '');
   const isWasteLog = ['waste log', 'waste', 'waste report'].includes(currentCategoryName || '');
+
 
   const renderFormContent = () => {
     if (isCashCountTool) {
