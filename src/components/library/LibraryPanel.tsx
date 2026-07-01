@@ -34,12 +34,16 @@ export function LibraryPanel() {
   const activeScope: LibraryScope = scopes.includes(scope) ? scope : (scopes[0] ?? "brand");
 
   const [query, setQuery] = useState("");
-  const { data: docs = [], isLoading } = useLibraryDocuments({
+  const [favOnly, setFavOnly] = useState(false);
+  const { data: favs } = useMyFavorites();
+  const { data: allDocs = [], isLoading } = useLibraryDocuments({
     scope: activeScope,
     brandId: settings?.brandId ?? null,
     organizationId: settings?.organizationId ?? null,
     search: query,
   });
+  const docs = favOnly ? allDocs.filter((d) => favs?.has(d.id)) : allDocs;
+
 
   const canEdit = activeScope === "brand"
     ? (isSuperAdmin || isBrandAdmin)
