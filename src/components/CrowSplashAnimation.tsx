@@ -117,31 +117,6 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
           ))}
         </motion.div>
 
-        {/* Welcome text - GPU accelerated */}
-        <motion.div 
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ 
-            willChange: 'transform, opacity',
-            transform: 'translateZ(0)',
-            backfaceVisibility: 'hidden',
-          }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={phase !== 'loading' ? { 
-            opacity: 1, 
-            scale: 1,
-          } : {
-            opacity: 0,
-            scale: 0.9,
-          }}
-          transition={{ 
-            duration: 0.4, 
-            ease: [0.25, 0.1, 0.25, 1],
-          }}
-        >
-          <span className="font-pacifico text-5xl md:text-6xl text-primary drop-shadow-sm">
-            welcome
-          </span>
-        </motion.div>
       </div>
     </motion.div>
   );
