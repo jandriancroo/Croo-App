@@ -143,13 +143,11 @@ export function ShareTaskDialog({
         // Get sender's name
         const { data: senderProfile } = await supabase
           .from("profiles")
-          .select("first_name, last_name")
+          .select("full_name")
           .eq("id", user.id)
           .single();
 
-        const senderName = senderProfile 
-          ? `${(senderProfile as any).first_name} ${(senderProfile as any).last_name}` 
-          : "Someone";
+        const senderName = (senderProfile as any)?.full_name || "Someone";
 
         await supabase.functions.invoke("send-push-notification", {
           body: {
