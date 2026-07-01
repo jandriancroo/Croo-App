@@ -269,7 +269,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       const { data, error } = await supabase
         .from("brand_pack_configs")
         .select(
-          "id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, label, source, source_evidence, status"
+          "id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, label, source, source_evidence, status, show_cases, show_inner_packs, show_common_unit"
         )
         .in("status", statusFilter)
         .in("brand_template_id", tplIds)
