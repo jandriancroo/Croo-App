@@ -1715,9 +1715,10 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                     const formLocked = isApproved && !editingApproved[r.id];
                     const ov = laneOverride[r.id] ?? {};
                     const innerN = d.inner_qty == null ? null : Number(d.inner_qty);
+                    const outerN = Number(d.outer_qty) || 0;
                     const defaults = {
                       cases: ov.cases ?? (r.show_cases ?? true),
-                      packs: ov.packs ?? (r.show_inner_packs ?? ((innerN ?? 0) > 1)),
+                      packs: ov.packs ?? (r.show_inner_packs ?? (outerN > 1)),
                       common: ov.common ?? (r.show_common_unit ?? false),
                     };
                     const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
