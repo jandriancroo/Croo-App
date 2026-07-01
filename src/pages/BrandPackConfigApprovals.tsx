@@ -889,7 +889,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       log("info", `${tag} STEP 1: updating brand_pack_configs row ${r.id} → status=approved`);
       const ovAppr = laneOverride[r.id] ?? {};
       const showCasesAppr = ovAppr.cases ?? (r.show_cases ?? true);
-      const showPacksAppr = ovAppr.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+      const showPacksAppr = ovAppr.packs ?? (outer > 1);
       const showCommonAppr = ovAppr.common ?? (r.show_common_unit ?? false);
       const { error: updErr, data: updData } = await supabase
         .from("brand_pack_configs")
