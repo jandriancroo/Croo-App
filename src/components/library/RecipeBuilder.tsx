@@ -186,6 +186,8 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
         );
         if (error) throw error;
       }
+      // Snapshot version (best-effort, don't block save on failure)
+      try { if (id) await snapshotRecipeVersion(id); } catch (e) { console.warn("version snapshot failed", e); }
       toast.success("Recipe saved");
       qc.invalidateQueries({ queryKey: ["library-documents"] });
       qc.invalidateQueries({ queryKey: ["library-document", id] });
