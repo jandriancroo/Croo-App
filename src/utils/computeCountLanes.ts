@@ -245,11 +245,19 @@ export function computeCountLanes({
     innerLabel,
     innerSubLabel,
     unitsLabel: (() => {
-      const u = (item.unit ?? "").trim().toLowerCase();
-      if (!u || u === "ea" || u === "each" || u === "unit" || u === "units" || u === "cs" || u === "case" || u === "cases" || u === "ct" || u === "count") return "Units";
-      return u.endsWith("s") ? u.toUpperCase() : `${u.toUpperCase()}S`;
+      // Prefer resolved lens common_unit (e.g. "oz"/"lb") over local template
+      // unit (which is often the generic "ea"). Falls back to item.unit only
+      // when the lens didn't supply a meaningful atomic unit.
+      const lensUnit = (shape.unit ?? "").trim().toLowerCase();
+      const localUnit = (item.unit ?? "").trim().toLowerCase();
+      const isGeneric = (u: string) =>
+        !u || u === "ea" || u === "each" || u === "unit" || u === "units" ||
+        u === "cs" || u === "case" || u === "cases" || u === "ct" || u === "count";
+      const chosen = !isGeneric(lensUnit) ? lensUnit : (!isGeneric(localUnit) ? localUnit : "");
+      if (!chosen) return "Units";
+      return chosen.endsWith("s") ? chosen.toUpperCase() : `${chosen.toUpperCase()}S`;
     })(),
-    unitsSubLabel: "(ea)",
+    unitsSubLabel: commonUnitToken ? `(${commonUnitToken})` : "(ea)",
     packQty: shape.packQty,
     innerPackQty,
     costPerCase,
