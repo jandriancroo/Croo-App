@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, BookOpen, FileText, Trash2 } from "lucide-react";
-import { useLibrarySettings, useLibraryDocuments, LibraryScope } from "@/hooks/useLibrary";
+import { Search, Plus, BookOpen, FileText, Trash2, Star } from "lucide-react";
+import { useLibrarySettings, useLibraryDocuments, useMyFavorites, LibraryScope } from "@/hooks/useLibrary";
+
 import { useUserRole } from "@/hooks/useUserRole";
 import { RecipeBuilder } from "./RecipeBuilder";
 import { RecipeViewer } from "./RecipeViewer";
