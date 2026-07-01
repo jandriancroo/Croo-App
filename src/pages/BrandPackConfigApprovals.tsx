@@ -775,7 +775,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       }
       const ov = laneOverride[r.id] ?? {};
       const showCases = ov.cases ?? (r.show_cases ?? true);
-      const showPacks = ov.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+      const showPacks = ov.packs ?? (outer > 1);
       const showCommon = ov.common ?? (r.show_common_unit ?? false);
       const { error } = await supabase
         .from("brand_pack_configs")
