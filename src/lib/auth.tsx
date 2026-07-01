@@ -15,6 +15,32 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_TIMEOUT_MS = 15_000;
+
+const authNetworkError = (message = 'Login request timed out. Please check your connection and try again.') => ({
+  name: 'AuthNetworkError',
+  message,
+});
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMessage?: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(authNetworkError(timeoutMessage)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const normalizeAuthError = (error: unknown) => {
+  if (error && typeof error === 'object' && 'message' in error) return error;
+  return authNetworkError('Login failed before reaching the auth server. Please refresh and try again.');
+};
+
 // Check if this is the user's first login and update last_login_at
 // Returns true if this is the user's first login
 const checkFirstLogin = async (userId: string): Promise<boolean> => {
@@ -85,30 +111,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    // Check for existing session. Do not let a failed/blocked refresh token request
+    // keep the whole app stuck in auth loading forever.
+    withTimeout(
+      supabase.auth.getSession(),
+      AUTH_TIMEOUT_MS,
+      'Session check timed out. Please refresh and try again.'
+    )
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
 
-      // Also check first login for existing sessions
-      if (session?.user && !checkedFirstLoginRef.current.has(session.user.id)) {
-        checkedFirstLoginRef.current.add(session.user.id);
-        setTimeout(() => {
-          checkFirstLogin(session.user.id);
-        }, 0);
-      }
-    });
+        // Also check first login for existing sessions
+        if (session?.user && !checkedFirstLoginRef.current.has(session.user.id)) {
+          checkedFirstLoginRef.current.add(session.user.id);
+          setTimeout(() => {
+            checkFirstLogin(session.user.id);
+          }, 0);
+        }
+      })
+      .catch((error) => {
+        console.warn('Initial auth session check failed:', error);
+        setSession(null);
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email,
+          password,
+        }),
+        AUTH_TIMEOUT_MS,
+        'Login is not reaching the auth server. Please refresh and try again.'
+      );
+
+      if (!error && data.session) {
+        setSession(data.session);
+        setUser(data.user ?? null);
+      }
+
+      return { error };
+    } catch (error) {
+      console.error('Sign in failed:', error);
+      return { error: normalizeAuthError(error) };
+    }
   };
 
   const signUp = async (email: string, password: string, fullName: string, profilePhotoUrl?: string) => {

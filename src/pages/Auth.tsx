@@ -125,14 +125,19 @@ export default function Auth() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      toast.error(error.message);
+    try {
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        toast.error(error.message || 'Unable to sign in. Please try again.');
+        setLoading(false);
+      } else {
+        setShowCrowAnimation(true);
+      }
+    } catch (error: any) {
+      console.error('Unexpected sign in error:', error);
+      toast.error(error?.message || 'Unable to sign in. Please try again.');
       setLoading(false);
-    } else {
-      setShowCrowAnimation(true);
     }
   };
 
