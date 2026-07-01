@@ -1,0 +1,250 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useLocation } from "@/hooks/useLocation";
+import { useEffect, useState } from "react";
+import { resolveBrandId } from "@/utils/resolveBrandId";
+
+export type LibraryScope = "brand" | "org";
+
+export interface LibraryDoc {
+  id: string;
+  scope: LibraryScope;
+  brand_id: string | null;
+  organization_id: string | null;
+  doc_type: "recipe" | "document";
+  title: string;
+  description: string | null;
+  body: any;
+  steps: any;
+  photo_url: string | null;
+  file_url: string | null;
+  file_type: string | null;
+  tags: string[];
+  category: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LibraryIngredient {
+  id: string;
+  scope: LibraryScope;
+  brand_id: string | null;
+  organization_id: string | null;
+  name: string;
+}
+
+/** Resolve current brand_id from the location's org chain. */
+export function useCurrentBrandId(): string | null {
+  const { currentLocation } = useLocation();
+  const [brandId, setBrandId] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!currentLocation?.id) { setBrandId(null); return; }
+    resolveBrandId(currentLocation.id).then((b) => { if (alive) setBrandId(b); });
+    return () => { alive = false; };
+  }, [currentLocation?.id]);
+  return brandId;
+}
+
+/** Library settings for the active brand + org. */
+export function useLibrarySettings() {
+  const { organizationId } = useLocation();
+  const brandId = useCurrentBrandId();
+
+  return useQuery({
+    queryKey: ["library-settings", brandId, organizationId],
+    queryFn: async () => {
+      const [brandRes, orgRes] = await Promise.all([
+        brandId
+          ? supabase.from("library_settings" as any).select("*").eq("brand_id", brandId).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        organizationId
+          ? supabase.from("library_settings" as any).select("*").eq("organization_id", organizationId).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+      ]);
+      const brand = (brandRes as any).data;
+      const org = (orgRes as any).data;
+      return {
+        brandEnabled: !!brand?.brand_library_enabled,
+        orgEnabled: !!org?.org_library_enabled,
+        brandId,
+        organizationId: organizationId ?? null,
+      };
+    },
+    enabled: !!(brandId || organizationId),
+    staleTime: 60_000,
+  });
+}
+
+/** Upsert brand-scope library settings (brand admin only). */
+export function useSaveBrandLibrarySettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ brandId, enabled }: { brandId: string; enabled: boolean }) => {
+      const { data: existing } = await supabase
+        .from("library_settings" as any)
+        .select("id")
+        .eq("brand_id", brandId)
+        .maybeSingle();
+      if (existing) {
+        const { error } = await supabase
+          .from("library_settings" as any)
+          .update({ brand_library_enabled: enabled, updated_at: new Date().toISOString() })
+          .eq("id", (existing as any).id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("library_settings" as any)
+          .insert({ brand_id: brandId, brand_library_enabled: enabled } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["library-settings"] }),
+  });
+}
+
+/** Upsert org-scope library settings. */
+export function useSaveOrgLibrarySettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ organizationId, enabled }: { organizationId: string; enabled: boolean }) => {
+      const { data: existing } = await supabase
+        .from("library_settings" as any)
+        .select("id")
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+      if (existing) {
+        const { error } = await supabase
+          .from("library_settings" as any)
+          .update({ org_library_enabled: enabled, updated_at: new Date().toISOString() })
+          .eq("id", (existing as any).id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("library_settings" as any)
+          .insert({ organization_id: organizationId, org_library_enabled: enabled } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["library-settings"] }),
+  });
+}
+
+interface DocFilter {
+  scope: LibraryScope;
+  brandId: string | null;
+  organizationId: string | null;
+  search?: string;
+}
+
+export function useLibraryDocuments({ scope, brandId, organizationId, search }: DocFilter) {
+  return useQuery({
+    queryKey: ["library-documents", scope, brandId, organizationId, search ?? ""],
+    queryFn: async () => {
+      let q = supabase
+        .from("library_documents" as any)
+        .select("*")
+        .eq("scope", scope)
+        .order("updated_at", { ascending: false })
+        .limit(200);
+      if (scope === "brand" && brandId) q = q.eq("brand_id", brandId);
+      if (scope === "org" && organizationId) q = q.eq("organization_id", organizationId);
+      if (search && search.trim()) {
+        const term = search.trim().replace(/'/g, "''");
+        q = q.textSearch("search_tsv", term, { type: "websearch" });
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as LibraryDoc[];
+    },
+    enabled: scope === "brand" ? !!brandId : !!organizationId,
+  });
+}
+
+export function useLibraryDocument(id: string | null) {
+  return useQuery({
+    queryKey: ["library-document", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("library_documents" as any)
+        .select("*")
+        .eq("id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as LibraryDoc | null;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useRecipeIngredients(recipeId: string | null) {
+  return useQuery({
+    queryKey: ["library-recipe-ingredients", recipeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("library_recipe_ingredients" as any)
+        .select("*, ingredient:library_ingredients(id,name)")
+        .eq("recipe_id", recipeId!)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!recipeId,
+  });
+}
+
+export function useRecipeLinks(recipeId: string | null) {
+  return useQuery({
+    queryKey: ["library-recipe-links", recipeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("library_recipe_links" as any)
+        .select("id, to_recipe_id, to:library_documents!library_recipe_links_to_recipe_id_fkey(id,title,doc_type)")
+        .eq("from_recipe_id", recipeId!);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!recipeId,
+  });
+}
+
+export function useIngredientSearch(scope: LibraryScope, brandId: string | null, organizationId: string | null, query: string) {
+  return useQuery({
+    queryKey: ["library-ingredients", scope, brandId, organizationId, query],
+    queryFn: async () => {
+      let q = supabase
+        .from("library_ingredients" as any)
+        .select("id, name, scope, brand_id, organization_id")
+        .eq("scope", scope)
+        .order("name")
+        .limit(20);
+      if (scope === "brand" && brandId) q = q.eq("brand_id", brandId);
+      if (scope === "org" && organizationId) q = q.eq("organization_id", organizationId);
+      if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as LibraryIngredient[];
+    },
+    enabled: scope === "brand" ? !!brandId : !!organizationId,
+  });
+}
+
+export async function ensureIngredient(
+  name: string,
+  scope: LibraryScope,
+  brandId: string | null,
+  organizationId: string | null,
+): Promise<string> {
+  const trimmed = name.trim();
+  let q = supabase.from("library_ingredients" as any).select("id").ilike("name", trimmed).eq("scope", scope).limit(1);
+  if (scope === "brand" && brandId) q = q.eq("brand_id", brandId);
+  if (scope === "org" && organizationId) q = q.eq("organization_id", organizationId);
+  const { data: existing } = await q.maybeSingle();
+  if (existing) return (existing as any).id;
+  const payload: any = { name: trimmed, scope };
+  if (scope === "brand") payload.brand_id = brandId;
+  if (scope === "org") payload.organization_id = organizationId;
+  const { data, error } = await supabase.from("library_ingredients" as any).insert(payload).select("id").single();
+  if (error) throw error;
+  return (data as any).id;
+}
