@@ -887,6 +887,10 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
 
       // (1) finalize the config row
       log("info", `${tag} STEP 1: updating brand_pack_configs row ${r.id} → status=approved`);
+      const ovAppr = laneOverride[r.id] ?? {};
+      const showCasesAppr = ovAppr.cases ?? (r.show_cases ?? true);
+      const showPacksAppr = ovAppr.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+      const showCommonAppr = ovAppr.common ?? (r.show_common_unit ?? false);
       const { error: updErr, data: updData } = await supabase
         .from("brand_pack_configs")
         .update({
@@ -898,6 +902,9 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
           count_units_per_case,
           cost_per_common_unit: d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit),
           label: d.label || null,
+          show_cases: showCasesAppr,
+          show_inner_packs: showPacksAppr,
+          show_common_unit: showCommonAppr,
           status: "approved",
           approved_by: uid,
           approved_at: new Date().toISOString(),
