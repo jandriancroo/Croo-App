@@ -27,6 +27,7 @@ export function RecipeViewer({ open, onOpenChange, recipeId, canEdit, onEdit }: 
   const { data: favs } = useMyFavorites();
   const toggleFav = useToggleFavorite();
   const [stackedId, setStackedId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const isFav = !!(recipeId && favs?.has(recipeId));
   const stepsArr: string[] = useMemo(
