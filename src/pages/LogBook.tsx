@@ -12,6 +12,7 @@ import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSectio
 import { LogBookNewEntrySheet } from "@/components/logbook/LogBookNewEntrySheet";
 import { LogBookEntryList } from "@/components/logbook/LogBookEntryList";
 import { useLogBookData } from "@/hooks/useLogBookData";
+import { LibraryPanel } from "@/components/library/LibraryPanel";
 
 export default function LogBook() {
   const data = useLogBookData();
@@ -70,12 +71,26 @@ export default function LogBook() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [searchFocused]);
 
-  // Don't render if role is still loading or user doesn't have access
-  if (roleLoading || (!isAdmin && !isManager && !isShiftManager)) {
+  const hasLogAccess = isAdmin || isManager || isShiftManager;
+
+  // While role loads
+  if (roleLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
           <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Team members without log access: show Library only (if it's enabled).
+  if (!hasLogAccess) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          <h1 className="text-3xl font-bold">Library</h1>
+          <LibraryPanel />
         </div>
       </Layout>
     );
@@ -91,6 +106,7 @@ export default function LogBook() {
               <TabsList>
                 <TabsTrigger value="search">Recent Logs</TabsTrigger>
                 <TabsTrigger value="catering">Catering Orders</TabsTrigger>
+                <TabsTrigger value="library">Library</TabsTrigger>
               </TabsList>
             </Tabs>
             {isAdmin && (
@@ -231,6 +247,12 @@ export default function LogBook() {
             />
           </div>
         )}
+        {activeTab === "library" && (
+          <div style={{ marginTop: "1rem" }}>
+            <LibraryPanel />
+          </div>
+        )}
+
 
         {isAdmin && (
           <ManageCategoriesDialog

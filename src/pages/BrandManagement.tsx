@@ -14,6 +14,7 @@ import { compressImage } from '@/utils/imageCompression';
 import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
+import { LibraryEnableSection } from '@/components/library/LibraryEnableSection';
 
 export default function BrandManagement() {
   const navigate = useNavigate();
@@ -343,6 +344,12 @@ export default function BrandManagement() {
                     </Button>
                   )}
                 </div>
+
+                {editingBrand?.id && (
+                  <LibraryEnableSection brandId={editingBrand.id} />
+                )}
+
+
                 
                 <Button onClick={handleSave} disabled={isSaving} className="w-full">
                   <Save className="h-4 w-4 mr-2" />

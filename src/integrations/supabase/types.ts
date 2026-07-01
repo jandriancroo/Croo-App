@@ -5532,6 +5532,264 @@ export type Database = {
           },
         ]
       }
+      library_documents: {
+        Row: {
+          body: Json | null
+          brand_id: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          doc_type: string
+          file_type: string | null
+          file_url: string | null
+          id: string
+          organization_id: string | null
+          photo_url: string | null
+          scope: string
+          search_tsv: unknown
+          steps: Json | null
+          tags: string[]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body?: Json | null
+          brand_id?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          doc_type: string
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          organization_id?: string | null
+          photo_url?: string | null
+          scope: string
+          search_tsv?: unknown
+          steps?: Json | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body?: Json | null
+          brand_id?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          doc_type?: string
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          organization_id?: string | null
+          photo_url?: string | null
+          scope?: string
+          search_tsv?: unknown
+          steps?: Json | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_documents_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_ingredients: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          organization_id: string | null
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          organization_id?: string | null
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          organization_id?: string | null
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_ingredients_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_ingredients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_recipe_ingredients: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient_id: string
+          note: string | null
+          quantity: number | null
+          recipe_id: string
+          sort_order: number
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_id: string
+          note?: string | null
+          quantity?: number | null
+          recipe_id: string
+          sort_order?: number
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient_id?: string
+          note?: string | null
+          quantity?: number | null
+          recipe_id?: string
+          sort_order?: number
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_recipe_ingredients_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "library_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_recipe_ingredients_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "library_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_recipe_links: {
+        Row: {
+          created_at: string
+          from_recipe_id: string
+          id: string
+          to_recipe_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_recipe_id: string
+          id?: string
+          to_recipe_id: string
+        }
+        Update: {
+          created_at?: string
+          from_recipe_id?: string
+          id?: string
+          to_recipe_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_recipe_links_from_recipe_id_fkey"
+            columns: ["from_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "library_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_recipe_links_to_recipe_id_fkey"
+            columns: ["to_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "library_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_settings: {
+        Row: {
+          brand_id: string | null
+          brand_library_enabled: boolean
+          created_at: string
+          id: string
+          org_library_enabled: boolean
+          organization_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          brand_library_enabled?: boolean
+          created_at?: string
+          id?: string
+          org_library_enabled?: boolean
+          organization_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          brand_library_enabled?: boolean
+          created_at?: string
+          id?: string
+          org_library_enabled?: boolean
+          organization_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_settings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_hours: {
         Row: {
           close_time: string | null

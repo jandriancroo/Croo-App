@@ -1,52 +1,116 @@
-# Persist "Counters see" toggles on pack configs
+# Playbook Library — Implementation Plan
 
-## Problem
+A searchable knowledge/recipe portal that lives inside the **Logs** page as a new section ("Library"), scoped either to a **Brand** or an **Organization**, with a lightweight recipe builder, reusable ingredient repository, and cross-recipe linking.
 
-On the pack-config approval screen, each config has a "Counters see: Cases · Bags · Loose oz" toggle row. Approvers uncheck lanes they don't want on the count screen (e.g. Pita Chips → Cases + Bags only, no Loose oz).
+---
 
-Today those toggles only live in local component state (`laneOverride` in `src/pages/BrandPackConfigApprovals.tsx`). They drive the little preview underneath the form, but **nothing is written to the database**, so the count screen has no signal and shows every lane the pack shape supports. Result: approved "2-lane" config still renders 3 lanes at count time.
+## 1. Placement & Navigation
 
-## Fix
+- Add a **Library** tab/section on the existing `LogBook.tsx` page (no new top-level nav item).
+- Inside Library, a scope switcher shows two subsections when both are enabled:
+  - **Brand Library** — visible to everyone at any location under the brand.
+  - **Org Library** — visible to everyone in the organization.
+- If only one scope is enabled, no switcher — just that library.
 
-Store the toggle state on `brand_pack_configs` and read it on the count screen.
+## 2. Enabling the Library
 
-### 1. Database
+- On the **Brand Settings** page (Edit Brand dialog), add a new section: **Library**
+  - Checkbox: **Enable Brand Library** — content authored once per brand, visible to all orgs/locations under it. Editable only by `brand_admin` + `super_admin`.
+  - Checkbox: **Enable Org Library** — each organization under the brand gets its own library. Editable only by `org_admin` and above.
+- Both can be enabled independently.
 
-Add three booleans to `brand_pack_configs`:
+## 3. Permissions
 
-- `show_cases`         default `true`
-- `show_inner_packs`   default `true`
-- `show_common_unit`   default `false`
+| Action | Brand Library | Org Library |
+|---|---|---|
+| View | Anyone in brand | Anyone in org |
+| Create / Edit / Delete | `brand_admin`, `super_admin` | `org_admin`, `brand_admin`, `super_admin` |
 
-Backfill existing rows: derive from current shape (cases always on; inner-packs on when `inner_qty > 1`; common-unit off — matches today's approval defaults).
+Enforced in RLS and reflected in UI (edit buttons hidden for non-editors).
 
-### 2. Approval screen (`src/pages/BrandPackConfigApprovals.tsx`)
+## 4. Content Types
 
-- Seed `laneOverride[r.id]` from the row's persisted flags instead of hard-coded defaults.
-- On Save Draft / Approve, include the three flags in the payload.
-- Preview keeps working as-is (already reads `laneOverride`).
+Two document types in a unified searchable index:
 
-### 3. Count screen wiring
+**A. Document** — uploaded PDF/image or rich-text page (SOPs, training, allergen sheets).
 
-`computeCountLanes` already accepts a `count_by` mode but it's an enum (`cases_and_units` / `cases_only` / `units_only`) and can't express "cases + packs, no loose units." Extend it minimally:
+**B. Recipe** — structured builder:
+- Title, description, photo, tags, category
+- **Ingredient list** — each row: `ingredient_id` (from repository) + `quantity` + `unit`
+- Steps (ordered rich text)
+- **Recipe links** — tag other recipes; render as clickable chips that open a stacked preview overlay above the current page
 
-- Add optional `laneOverrides?: { showCases?: boolean; showInnerPacks?: boolean; showCommonUnit?: boolean }` on the args.
-- When present, apply them after the resolver's default visibility (same pattern the approval preview already uses locally at lines 1674-1679).
+## 5. Ingredient Repository
 
-Then in the count-screen data path (the lens loader used by `InventoryCountSession.tsx`), pass the three flags from the active `brand_pack_config` through to `computeCountLanes`. No behavior change for items with no override.
+- New table `library_ingredients` scoped to the same brand/org as its parent library.
+- When creating a recipe, ingredient field is a **searchable combobox**: pick existing or type new → new ingredients auto-created on save.
+- Ingredients page (admin-only) to rename, merge, or archive.
+- Not linked to `inventory_items` for now (deliberate — Library is standalone).
 
-### 4. Revert the cosmetic label change
+## 6. Search & Indexing
 
-Roll back the "UNITS → OZS" rename in `src/utils/computeCountLanes.ts` from the previous turn. With lane hiding in place the Loose-oz lane won't render for Pita Chips / Pesto anyway, and the user didn't ask for the label change.
+- Full-text search across title, description, tags, steps, ingredient names, and document text.
+- Postgres `tsvector` column on `library_documents` with a GIN index; updated via trigger on insert/update.
+- Frontend: debounced search box at top of Library; results grouped by type (Recipes / Documents).
+- Ingredients also searchable within the recipe builder combobox.
 
-## Verification
+## 7. Recipe Viewer
 
-- Pita Chips (SKU 788408): count screen renders **Cases | Bags** only.
-- Sundried Tomato Pesto (SKU 976777): count screen renders **Cases | Jugs** only.
-- Any config where approver leaves "Loose oz" checked continues to show 3 lanes.
-- Approval-screen preview stays in lockstep because both paths use the same resolver + override pass.
+- Clean read-mode layout optimized for prep cooks on mobile — big type, photo hero, ingredient table, numbered steps.
+- Tapping a linked recipe chip opens it as a **stacked sheet** over the current viewer (Radix Dialog on top of Dialog) — closing returns to the original recipe.
 
-## Out of scope
+## 8. Technical Details
 
-- No changes to `location_pack_selections`, seeder, or pricing logic.
-- No UI redesign of the toggle row itself.
+### New Tables (all in `public`)
+
+```text
+library_settings          — brand_id, org_id, brand_library_enabled, org_library_enabled
+library_documents         — id, scope ('brand'|'org'), brand_id, org_id, type ('recipe'|'document'),
+                            title, description, body (jsonb), photo_url, file_url, tags text[],
+                            category, search_tsv (tsvector), created_by, updated_at
+library_ingredients       — id, scope, brand_id, org_id, name (unique per scope), created_by
+library_recipe_ingredients— recipe_id, ingredient_id, quantity numeric, unit text, sort_order
+library_recipe_links      — from_recipe_id, to_recipe_id
+```
+
+- GRANT statements + RLS on every table (per project standards).
+- GIN index on `search_tsv` and `tags`.
+- Trigger to keep `search_tsv` current.
+
+### Frontend Files
+
+```text
+src/pages/LogBook.tsx                            — add "Library" tab
+src/components/library/LibraryPanel.tsx          — scope switcher + search + list
+src/components/library/RecipeBuilder.tsx         — create/edit recipe
+src/components/library/RecipeViewer.tsx          — read view with stacked links
+src/components/library/DocumentUploader.tsx      — upload PDFs/images
+src/components/library/IngredientCombobox.tsx    — searchable + create-on-fly
+src/components/library/LibraryEnableSection.tsx  — inside Brand Settings edit dialog
+src/hooks/useLibrary.ts                          — queries + mutations
+```
+
+### Storage
+
+- New `library-assets` bucket (private) for recipe photos and uploaded documents. RLS via signed URLs.
+
+## 9. Out of Scope (for now)
+
+- Kiosk / shared-device mode
+- Sub-recipes / nested recipes (only flat ingredient lists + link-to-recipe chips)
+- Inventory integration (no `brand_item_id` linking yet — can layer on later)
+- Version history / draft workflow
+
+---
+
+## Build Order
+
+1. Migration: tables, GRANTs, RLS, tsvector trigger, storage bucket.
+2. Brand Settings toggle UI.
+3. Library tab shell inside LogBook + scope switcher + search.
+4. Ingredient repository + combobox.
+5. Recipe builder + viewer + stacked link preview.
+6. Document upload + viewer.
+7. Search wiring end-to-end.
+
+Approve and I'll start with the migration.

@@ -15,6 +15,7 @@ import { RoleManagementSection } from '@/components/settings/RoleManagementSecti
 
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { useUserRole } from '@/hooks/useUserRole';
+import { OrgLibraryEnableSection } from '@/components/library/OrgLibraryEnableSection';
 
 export default function OrganizationProfile() {
   const { id } = useParams<{ id: string }>();
@@ -254,6 +255,15 @@ export default function OrganizationProfile() {
             )}
           </CardContent>
         </Card>
+
+        {/* Library toggle */}
+        {!isNew && id && (
+          <Card>
+            <CardContent className="pt-6">
+              <OrgLibraryEnableSection organizationId={id} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Organization Members */}
         {!isNew && id && (
