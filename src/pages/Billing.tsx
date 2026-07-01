@@ -37,9 +37,11 @@ export default function Billing() {
   } = useSubscription();
   const { locations, organizationId: currentOrgId } = useAppLocation();
   const { plans } = usePlans();
+  const { isSuperAdmin } = useUserRole();
   const visiblePlans: PlanRow[] = plans.filter((p) => p.is_visible);
   const [searchParams] = useSearchParams();
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [skipTrial, setSkipTrial] = useState(false);
 
   // Filter to current org's locations, exclude sandbox
   const billableLocations = locations.filter(l => 
