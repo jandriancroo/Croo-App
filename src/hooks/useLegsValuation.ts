@@ -50,6 +50,9 @@ export type LegsConfigRow = {
   common_unit: string | null;
   count_units_per_case: number | null;
   cost_per_common_unit: number | null;
+  show_cases: boolean | null;
+  show_inner_packs: boolean | null;
+  show_common_unit: boolean | null;
 };
 
 export type LegsValuationContext = {
@@ -174,7 +177,7 @@ async function fetchLegsConfigs(
   const { data, error } = await supabase
     .from("location_pack_selections" as any)
     .select(
-      "brand_template_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, status)"
+      "brand_template_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, status, show_cases, show_inner_packs, show_common_unit)"
     )
     .eq("location_id", locationId);
   if (error) throw error;
@@ -196,6 +199,9 @@ async function fetchLegsConfigs(
       common_unit: bpc.common_unit ?? null,
       count_units_per_case: bpc.count_units_per_case ?? null,
       cost_per_common_unit: bpc.cost_per_common_unit ?? null,
+      show_cases: bpc.show_cases ?? null,
+      show_inner_packs: bpc.show_inner_packs ?? null,
+      show_common_unit: bpc.show_common_unit ?? null,
     };
     const list = configsByBrandItemId.get(row.brand_template_id) ?? [];
     list.push(entry);

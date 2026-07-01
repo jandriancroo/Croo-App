@@ -28,6 +28,10 @@ export interface PackConfigLens {
   common_unit?: string | null;
   /** Optional — number of middle-tier containers per case (e.g. 6 sleeves). */
   outer_qty?: number | null;
+  /** Optional per-lane visibility overrides sourced from brand_pack_configs. */
+  show_cases?: boolean | null;
+  show_inner_packs?: boolean | null;
+  show_common_unit?: boolean | null;
 }
 
 export interface PackQtySource {

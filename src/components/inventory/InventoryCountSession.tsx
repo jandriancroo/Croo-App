@@ -473,7 +473,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: async () => {
       const { data, error } = await supabase
         .from("brand_pack_configs" as any)
-        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, outer_qty, outer_type, inner_qty, inner_type, status")
+        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, outer_qty, outer_type, inner_qty, inner_type, status, show_cases, show_inner_packs, show_common_unit")
         .eq("status", "approved");
       if (error) throw error;
       const map = new Map<string, {
@@ -484,6 +484,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         outer_type: string | null;
         inner_qty: number | null;
         inner_type: string | null;
+        show_cases: boolean | null;
+        show_inner_packs: boolean | null;
+        show_common_unit: boolean | null;
       }>();
       for (const row of (data as any[]) || []) {
         if (!row?.brand_template_id) continue;
@@ -495,6 +498,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           outer_type: row.outer_type,
           inner_qty: row.inner_qty,
           inner_type: row.inner_type,
+          show_cases: row.show_cases ?? null,
+          show_inner_packs: row.show_inner_packs ?? null,
+          show_common_unit: row.show_common_unit ?? null,
         });
       }
       return map;
@@ -2885,6 +2891,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   outer_type: cfg.outer_type,
                   inner_qty: cfg.inner_qty,
                   inner_type: cfg.inner_type,
+                  show_cases: (cfg as any).show_cases ?? null,
+                  show_inner_packs: (cfg as any).show_inner_packs ?? null,
+                  show_common_unit: (cfg as any).show_common_unit ?? null,
                 } as any,
                 lensEnabled: true,
               });

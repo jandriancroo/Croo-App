@@ -196,6 +196,17 @@ export function computeCountLanes({
     showCases = false;
     showUnits = true;
   }
+  // Apply persisted per-lane overrides from the pack config (approver toggles).
+  // These win over the resolver's default visibility so "Counters see" on the
+  // approval screen is authoritative on the count screen.
+  let showInnerPacksFinal = showInnerPacks;
+  if (effectiveLens) {
+    if (effectiveLens.show_cases != null) showCases = !!effectiveLens.show_cases;
+    if (effectiveLens.show_inner_packs != null) {
+      showInnerPacksFinal = showInnerPacksFinal && !!effectiveLens.show_inner_packs;
+    }
+    if (effectiveLens.show_common_unit != null) showUnits = !!effectiveLens.show_common_unit;
+  }
 
   const innerLabelRaw = shape.innerLabel ?? "";
   const innerLabel = innerLabelRaw ? pluralizeLabel(innerLabelRaw) : "Packs";
@@ -238,25 +249,13 @@ export function computeCountLanes({
   return {
     isRecipe: false,
     showCases,
-    showInnerPacks,
+    showInnerPacks: showInnerPacksFinal,
     showUnits,
     casesLabel,
     casesNounToken,
     innerLabel,
     innerSubLabel,
-    unitsLabel: (() => {
-      // Prefer resolved lens common_unit (e.g. "oz"/"lb") over local template
-      // unit (which is often the generic "ea"). Falls back to item.unit only
-      // when the lens didn't supply a meaningful atomic unit.
-      const lensUnit = (shape.unit ?? "").trim().toLowerCase();
-      const localUnit = (item.unit ?? "").trim().toLowerCase();
-      const isGeneric = (u: string) =>
-        !u || u === "ea" || u === "each" || u === "unit" || u === "units" ||
-        u === "cs" || u === "case" || u === "cases" || u === "ct" || u === "count";
-      const chosen = !isGeneric(lensUnit) ? lensUnit : (!isGeneric(localUnit) ? localUnit : "");
-      if (!chosen) return "Units";
-      return chosen.endsWith("s") ? chosen.toUpperCase() : `${chosen.toUpperCase()}S`;
-    })(),
+    unitsLabel: "Units",
     unitsSubLabel: commonUnitToken ? `(${commonUnitToken})` : "(ea)",
     packQty: shape.packQty,
     innerPackQty,
@@ -264,7 +263,7 @@ export function computeCountLanes({
     costPerPack,
     costPerUnit,
     unitToken: commonUnitToken,
-    innerNounToken: showInnerPacks ? innerNounToken : null,
+    innerNounToken: showInnerPacksFinal ? innerNounToken : null,
     caseTierSource: lensApplies ? "lens" : "local",
   };
 }

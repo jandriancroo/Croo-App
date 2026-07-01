@@ -1,45 +1,52 @@
-## Stations Phase 2 — Schedule grouping + drag-to-assign
+# Persist "Counters see" toggles on pack configs
 
-### What the user will see
-On the weekly schedule, when **Stations are enabled** for the location:
-- Outer sections become **Stations** (e.g. *Infants*, *Toddlers*, *Pre-K*) plus a trailing **Unassigned** bucket.
-- Inside each station, people are sub-grouped by **role** (Super Admins → Org Admins → Managers → Team).
-- Every person starts in **Unassigned** until they're placed.
-- Admins/managers can **drag a person row** from one station section into another to set their primary station for this location. Setting persists immediately.
-- The header gets a small "Stations" indicator and station counts (e.g. `Toddlers (3 employees)`).
+## Problem
 
-When Stations are **disabled**, the schedule looks exactly like it does today (role-only grouping). Zero behavior change.
+On the pack-config approval screen, each config has a "Counters see: Cases · Bags · Loose oz" toggle row. Approvers uncheck lanes they don't want on the count screen (e.g. Pita Chips → Cases + Bags only, no Loose oz).
 
-### Where it lives
-- `MobileScheduleView.tsx` — primary view (the screenshot)
-- Desktop weekly schedule (whichever component renders the grid the user sees on wider viewports)
-- The same grouping is used by the printable Day Timeline export, so stations show up there too
+Today those toggles only live in local component state (`laneOverride` in `src/pages/BrandPackConfigApprovals.tsx`). They drive the little preview underneath the form, but **nothing is written to the database**, so the count screen has no signal and shows every lane the pack shape supports. Result: approved "2-lane" config still renders 3 lanes at count time.
 
-### Technical plan
+## Fix
 
-1. **DB** — store the per-location assignment, not on the global profile:
-   - Add `primary_station_id uuid NULL references location_stations(id) ON DELETE SET NULL` to `user_locations`.
-   - Index on `(location_id, primary_station_id)`.
-   - No RLS changes needed (existing `user_locations` policies cover it).
+Store the toggle state on `brand_pack_configs` and read it on the count screen.
 
-2. **Hook** — `useUserStationAssignments(locationId)`:
-   - Returns `Map<user_id, station_id|null>` for the current location.
-   - Mutation `assignUserToStation(userId, stationId|null)` that updates the row and invalidates.
+### 1. Database
 
-3. **Grouping util** — `groupRosterByStationThenRole(users, stations, assignments)`:
-   - Returns `[{station, roleSections: [{role, users}]}, …, {station: null /* Unassigned */, roleSections}]`.
-   - Stations honor `sort_order`; empty stations still render (so you have a drop target).
+Add three booleans to `brand_pack_configs`:
 
-4. **Schedule view changes** (gated on `stations_enabled` + `stations.length > 0`):
-   - Replace the current role-only section loop with the new nested structure.
-   - Station headers show name + color dot + employee count.
-   - Each person row becomes a `dnd-kit` draggable; station headers are drop zones.
-   - On drop → call `assignUserToStation`.
-   - Permission gate: only admins/managers see drag handles; team members see read-only grouping.
+- `show_cases`         default `true`
+- `show_inner_packs`   default `true`
+- `show_common_unit`   default `false`
 
-5. **Day Timeline print** — pass the same grouping into `exportDayTimelinePrint` so the PDF roster mirrors the on-screen layout.
+Backfill existing rows: derive from current shape (cases always on; inner-packs on when `inner_qty > 1`; common-unit off — matches today's approval defaults).
 
-### Out of scope (can do later, just say the word)
-- Per-shift station overrides (the Hybrid model we discussed) — this plan only does the *person's primary station*. A shift inherits its assignee's station for now.
-- Drag a shift block onto a station header to override that one shift.
-- Employee "qualified for multiple stations" picker on the profile.
+### 2. Approval screen (`src/pages/BrandPackConfigApprovals.tsx`)
+
+- Seed `laneOverride[r.id]` from the row's persisted flags instead of hard-coded defaults.
+- On Save Draft / Approve, include the three flags in the payload.
+- Preview keeps working as-is (already reads `laneOverride`).
+
+### 3. Count screen wiring
+
+`computeCountLanes` already accepts a `count_by` mode but it's an enum (`cases_and_units` / `cases_only` / `units_only`) and can't express "cases + packs, no loose units." Extend it minimally:
+
+- Add optional `laneOverrides?: { showCases?: boolean; showInnerPacks?: boolean; showCommonUnit?: boolean }` on the args.
+- When present, apply them after the resolver's default visibility (same pattern the approval preview already uses locally at lines 1674-1679).
+
+Then in the count-screen data path (the lens loader used by `InventoryCountSession.tsx`), pass the three flags from the active `brand_pack_config` through to `computeCountLanes`. No behavior change for items with no override.
+
+### 4. Revert the cosmetic label change
+
+Roll back the "UNITS → OZS" rename in `src/utils/computeCountLanes.ts` from the previous turn. With lane hiding in place the Loose-oz lane won't render for Pita Chips / Pesto anyway, and the user didn't ask for the label change.
+
+## Verification
+
+- Pita Chips (SKU 788408): count screen renders **Cases | Bags** only.
+- Sundried Tomato Pesto (SKU 976777): count screen renders **Cases | Jugs** only.
+- Any config where approver leaves "Loose oz" checked continues to show 3 lanes.
+- Approval-screen preview stays in lockstep because both paths use the same resolver + override pass.
+
+## Out of scope
+
+- No changes to `location_pack_selections`, seeder, or pricing logic.
+- No UI redesign of the toggle row itself.
