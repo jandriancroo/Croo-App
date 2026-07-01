@@ -5537,6 +5537,7 @@ export type Database = {
           body: Json | null
           brand_id: string | null
           category: string | null
+          cook_time_min: number | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -5546,18 +5547,25 @@ export type Database = {
           id: string
           organization_id: string | null
           photo_url: string | null
+          prep_time_min: number | null
           scope: string
           search_tsv: unknown
+          servings: number | null
+          step_photos: Json
           steps: Json | null
           tags: string[]
           title: string
           updated_at: string
           updated_by: string | null
+          video_url: string | null
+          yield_qty: number | null
+          yield_unit: string | null
         }
         Insert: {
           body?: Json | null
           brand_id?: string | null
           category?: string | null
+          cook_time_min?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -5567,18 +5575,25 @@ export type Database = {
           id?: string
           organization_id?: string | null
           photo_url?: string | null
+          prep_time_min?: number | null
           scope: string
           search_tsv?: unknown
+          servings?: number | null
+          step_photos?: Json
           steps?: Json | null
           tags?: string[]
           title: string
           updated_at?: string
           updated_by?: string | null
+          video_url?: string | null
+          yield_qty?: number | null
+          yield_unit?: string | null
         }
         Update: {
           body?: Json | null
           brand_id?: string | null
           category?: string | null
+          cook_time_min?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -5588,13 +5603,19 @@ export type Database = {
           id?: string
           organization_id?: string | null
           photo_url?: string | null
+          prep_time_min?: number | null
           scope?: string
           search_tsv?: unknown
+          servings?: number | null
+          step_photos?: Json
           steps?: Json | null
           tags?: string[]
           title?: string
           updated_at?: string
           updated_by?: string | null
+          video_url?: string | null
+          yield_qty?: number | null
+          yield_unit?: string | null
         }
         Relationships: [
           {
@@ -5657,6 +5678,35 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_recipe_favorites: {
+        Row: {
+          created_at: string
+          id: string
+          recipe_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          recipe_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          recipe_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_recipe_favorites_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "library_documents"
             referencedColumns: ["id"]
           },
         ]
