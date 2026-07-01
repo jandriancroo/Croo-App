@@ -773,6 +773,10 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       if (!outer || !d.outer_type || !d.common_unit) {
         throw new Error("outer_qty, outer_type, and common_unit are required");
       }
+      const ov = laneOverride[r.id] ?? {};
+      const showCases = ov.cases ?? (r.show_cases ?? true);
+      const showPacks = ov.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+      const showCommon = ov.common ?? (r.show_common_unit ?? false);
       const { error } = await supabase
         .from("brand_pack_configs")
         .update({
@@ -784,6 +788,9 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
           count_units_per_case,
           cost_per_common_unit: d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit),
           label: d.label || null,
+          show_cases: showCases,
+          show_inner_packs: showPacks,
+          show_common_unit: showCommon,
         })
         .eq("id", r.id)
         .eq("status", "proposed");
