@@ -221,6 +221,13 @@ export function RecipeViewer({ open, onOpenChange, recipeId, canEdit, onEdit }: 
           canEdit={false}
         />
       )}
+
+      <RecipeVersionHistorySheet
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        recipeId={recipeId}
+        canRestore={canEdit}
+      />
     </>
   );
 }
