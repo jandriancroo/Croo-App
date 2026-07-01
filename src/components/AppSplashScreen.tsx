@@ -26,9 +26,9 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
   // Dots with disperse directions - pre-calculated for GPU
   const dots = [
     { color: 'hsl(var(--primary))', exitX: -40, exitY: -30 },
-    { color: 'hsl(var(--accent))', exitX: -15, exitY: -40 },
+    { color: 'hsl(var(--primary-light))', exitX: -15, exitY: -40 },
     { color: 'hsl(var(--primary))', exitX: 15, exitY: -40 },
-    { color: 'hsl(var(--accent))', exitX: 40, exitY: -30 },
+    { color: 'hsl(var(--primary-light))', exitX: 40, exitY: -30 },
   ];
 
   return (
