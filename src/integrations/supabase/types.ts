@@ -5532,6 +5532,41 @@ export type Database = {
           },
         ]
       }
+      library_document_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_id: string
+          editor_name: string | null
+          id: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_id: string
+          editor_name?: string | null
+          id?: string
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_id?: string
+          editor_name?: string | null
+          id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "library_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_documents: {
         Row: {
           body: Json | null
