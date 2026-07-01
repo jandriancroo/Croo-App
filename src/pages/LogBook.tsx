@@ -209,51 +209,40 @@ export default function LogBook() {
             </div>
 
             <div className="space-y-6">
-              <LogBookEntryList data={data} />
-              {hasMoreRecentEntries && !searchQuery && !searchDateFilter && (
-                <div className="flex justify-center py-2">
-                  <Button
-                    variant="outline"
-                    onClick={loadMoreRecentEntries}
-                    disabled={isFetchingRecentEntries}
-                    className="w-full sm:w-auto"
-                  >
-                    {isFetchingRecentEntries ? "Loading..." : "Load more"}
-                  </Button>
-                </div>
+              {searchCategoryName === 'Catering Orders' ? (
+                <CateringOrdersSection
+                  showHeader={false}
+                  externalUploadOpen={showCateringUpload}
+                  onExternalUploadChange={setShowCateringUpload}
+                  searchQuery={searchQuery}
+                />
+              ) : (
+                <>
+                  <LogBookEntryList data={data} />
+                  {hasMoreRecentEntries && !searchQuery && !searchDateFilter && (
+                    <div className="flex justify-center py-2">
+                      <Button
+                        variant="outline"
+                        onClick={loadMoreRecentEntries}
+                        disabled={isFetchingRecentEntries}
+                        className="w-full sm:w-auto"
+                      >
+                        {isFetchingRecentEntries ? "Loading..." : "Load more"}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         )}
 
-        {/* Catering Orders Tab */}
-        {activeTab === "catering" && (
-          <div className="space-y-4" style={{ marginTop: "1rem" }}>
-            <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search orders..."
-                value={cateringSearchQuery}
-                onChange={(e) => setCateringSearchQuery(e.target.value)}
-                className="flex-1"
-              />
-              <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <CateringOrdersSection
-              showHeader={false}
-              externalUploadOpen={showCateringUpload}
-              onExternalUploadChange={setShowCateringUpload}
-              searchQuery={cateringSearchQuery}
-            />
-          </div>
-        )}
         {activeTab === "library" && (
           <div style={{ marginTop: "1rem" }}>
             <LibraryPanel />
           </div>
         )}
+
 
 
         {isAdmin && (
