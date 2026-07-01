@@ -186,6 +186,9 @@ type ProposalRow = {
   source: string | null;
   source_evidence: any;
   status: string;
+  show_cases: boolean | null;
+  show_inner_packs: boolean | null;
+  show_common_unit: boolean | null;
   template?: {
     id: string;
     product_name: string;
