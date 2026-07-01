@@ -1144,7 +1144,10 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
         common_unit: d.common_unit, count_units_per_case,
         cost_per_common_unit: lensCost, label: d.label || null,
         show_cases: ovUpd.cases ?? (r.show_cases ?? true),
-        show_inner_packs: ovUpd.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1)),
+        // Packs lane exists when there are multiple packs per case (outer > 1).
+        // On structural edits, if the user didn't explicitly toggle, re-derive
+        // from the NEW outer_qty so adding a middle tier auto-exposes the lane.
+        show_inner_packs: ovUpd.packs ?? (outer > 1),
         show_common_unit: ovUpd.common ?? (r.show_common_unit ?? false),
       };
       const newEv = {
