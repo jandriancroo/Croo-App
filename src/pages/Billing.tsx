@@ -12,6 +12,9 @@ import { SUBSCRIPTION_TIERS } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { useUserRole } from '@/hooks/useUserRole';
 
 
 const ICONS_BY_KEY: Record<string, React.ReactNode> = {
