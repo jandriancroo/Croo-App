@@ -37,10 +37,9 @@ serve(async (req) => {
     });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  // Supabase client is created inside the background processor to avoid
+  // blocking the fast ack path.
+
 
   const rawBody = await req.text();
   const eventType = req.headers.get("x-qu-event") || req.headers.get("x-event-type") || "unknown";
