@@ -19,6 +19,8 @@ import { ReadAndSignForm } from "@/components/logbook/ReadAndSignForm";
 import { PerformanceReviewForm } from "@/components/logbook/PerformanceReviewForm";
 import { WasteLogForm, type WasteLogData } from "@/components/logbook/WasteLogForm";
 import { CashCountTool } from "@/components/logbook/CashCountTool";
+import { CateringOrderUploadInline } from "@/components/logbook/CateringOrderUploadInline";
+
 import type { DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 import type { BankDepositData } from "@/components/logbook/BankDepositForm";
@@ -70,10 +72,12 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
   const isWeeklySummary = currentCategoryName === 'weekly summary';
   const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
   const isCashCountTool = selectedCategory === 'cash-count-tool';
+  const isCateringOrder = selectedCategory === 'catering-order';
   const isEmployeeWriteUp = ['employee write-up', 'employee writeup', 'employee write up', 'write-up', 'writeup', 'write up'].includes(currentCategoryName || '');
   const isReadAndSign = ['read & sign', 'read and sign', 'read-and-sign'].includes(currentCategoryName || '');
   const isPerformanceReview = ['performance review', 'performance-review'].includes(currentCategoryName || '');
   const isWasteLog = ['waste log', 'waste', 'waste report'].includes(currentCategoryName || '');
+
 
   const renderFormContent = () => {
     if (isCashCountTool) {
@@ -88,6 +92,24 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
         </div>
       );
     }
+
+    if (isCateringOrder) {
+      return (
+        <CateringOrderUploadInline
+          onDone={() => {
+            setShowNewEntrySheet(false);
+            setActiveTab('search');
+            queryClient.invalidateQueries({ queryKey: ['catering-orders'] });
+          }}
+          currentLocationId={currentLocation!.id}
+          currentLocationName={currentLocation?.name || 'Location'}
+          userId={user!.id}
+          timezone={locationSettings?.timezone || 'America/Los_Angeles'}
+          toast={toast}
+        />
+      );
+    }
+
 
     if (isPerformanceReview) {
       return (
@@ -764,7 +786,9 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                   if (!aIsCash && bIsCash) return -1;
                   return (a.display_order || 0) - (b.display_order || 0);
                 }),
+                { id: 'catering-order', name: 'Catering Order', __synthetic: true },
                 { id: 'cash-count-tool', name: 'Cash Count Tool', __synthetic: true },
+
               ]
                 .map((category: any) => {
                   const isCashHandling = ['drawer', 'safe', 'bank', 'deposit', 'cash count tool'].some(term => category.name.toLowerCase().includes(term));
@@ -794,7 +818,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <SheetTitle className="!mt-0">
-                {selectedCategory === 'bank-deposit' ? 'Bank Deposit' : selectedCategory === 'cash-count-tool' ? 'Cash Count Tool' : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
+                {selectedCategory === 'bank-deposit' ? 'Bank Deposit' : selectedCategory === 'cash-count-tool' ? 'Cash Count Tool' : selectedCategory === 'catering-order' ? 'Catering Order' : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
               </SheetTitle>
             </SheetHeader>
             <div className="mt-4 space-y-4">
