@@ -233,6 +233,12 @@ export default function LogBook() {
             />
           </div>
         )}
+        {activeTab === "library" && (
+          <div style={{ marginTop: "1rem" }}>
+            <LibraryPanel />
+          </div>
+        )}
+
 
         {isAdmin && (
           <ManageCategoriesDialog
