@@ -50,6 +50,9 @@ export type LegsConfigRow = {
   common_unit: string | null;
   count_units_per_case: number | null;
   cost_per_common_unit: number | null;
+  show_cases: boolean | null;
+  show_inner_packs: boolean | null;
+  show_common_unit: boolean | null;
 };
 
 export type LegsValuationContext = {
