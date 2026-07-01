@@ -179,12 +179,17 @@ export default function Dashboard() {
     queryKey: ['kiosk-metrics', currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation?.id) return null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) return null;
       const { data, error } = await supabase.functions.invoke('kiosk-metrics', {
         body: { location_id: currentLocation.id },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (error) return null;
       return data ?? null;
     },
+
     enabled: !!currentLocation?.id,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
