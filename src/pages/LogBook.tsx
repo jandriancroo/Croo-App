@@ -71,12 +71,26 @@ export default function LogBook() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [searchFocused]);
 
-  // Don't render if role is still loading or user doesn't have access
-  if (roleLoading || (!isAdmin && !isManager && !isShiftManager)) {
+  const hasLogAccess = isAdmin || isManager || isShiftManager;
+
+  // While role loads
+  if (roleLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
           <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Team members without log access: show Library only (if it's enabled).
+  if (!hasLogAccess) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          <h1 className="text-3xl font-bold">Library</h1>
+          <LibraryPanel />
         </div>
       </Layout>
     );
