@@ -775,7 +775,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       }
       const ov = laneOverride[r.id] ?? {};
       const showCases = ov.cases ?? (r.show_cases ?? true);
-      const showPacks = ov.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+      const showPacks = ov.packs ?? (outer > 1);
       const showCommon = ov.common ?? (r.show_common_unit ?? false);
       const { error } = await supabase
         .from("brand_pack_configs")
@@ -889,7 +889,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       log("info", `${tag} STEP 1: updating brand_pack_configs row ${r.id} → status=approved`);
       const ovAppr = laneOverride[r.id] ?? {};
       const showCasesAppr = ovAppr.cases ?? (r.show_cases ?? true);
-      const showPacksAppr = ovAppr.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+      const showPacksAppr = ovAppr.packs ?? (outer > 1);
       const showCommonAppr = ovAppr.common ?? (r.show_common_unit ?? false);
       const { error: updErr, data: updData } = await supabase
         .from("brand_pack_configs")
@@ -1144,7 +1144,10 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
         common_unit: d.common_unit, count_units_per_case,
         cost_per_common_unit: lensCost, label: d.label || null,
         show_cases: ovUpd.cases ?? (r.show_cases ?? true),
-        show_inner_packs: ovUpd.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1)),
+        // Packs lane exists when there are multiple packs per case (outer > 1).
+        // On structural edits, if the user didn't explicitly toggle, re-derive
+        // from the NEW outer_qty so adding a middle tier auto-exposes the lane.
+        show_inner_packs: ovUpd.packs ?? (outer > 1),
         show_common_unit: ovUpd.common ?? (r.show_common_unit ?? false),
       };
       const newEv = {
@@ -1668,7 +1671,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                     const cost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
                     const ov = laneOverride[r.id] ?? {};
                     // Fallback chain: local pending edit → persisted DB flag → sensible default.
-                    const showPacks = ov.packs ?? (r.show_inner_packs ?? ((inner ?? 0) > 1));
+                    const showPacks = ov.packs ?? (r.show_inner_packs ?? (outer > 1));
                     const showCases = ov.cases ?? (r.show_cases ?? true);
                     const showCommon = ov.common ?? (r.show_common_unit ?? false);
                     const previewLanes = computeCountLanes({
@@ -1712,9 +1715,10 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                     const formLocked = isApproved && !editingApproved[r.id];
                     const ov = laneOverride[r.id] ?? {};
                     const innerN = d.inner_qty == null ? null : Number(d.inner_qty);
+                    const outerN = Number(d.outer_qty) || 0;
                     const defaults = {
                       cases: ov.cases ?? (r.show_cases ?? true),
-                      packs: ov.packs ?? (r.show_inner_packs ?? ((innerN ?? 0) > 1)),
+                      packs: ov.packs ?? (r.show_inner_packs ?? (outerN > 1)),
                       common: ov.common ?? (r.show_common_unit ?? false),
                     };
                     const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
