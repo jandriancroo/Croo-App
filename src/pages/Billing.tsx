@@ -251,7 +251,7 @@ export default function Billing() {
                               disabled={!plan.stripe_price_id}
                               onClick={() => plan.stripe_price_id && handleCheckout(plan.stripe_price_id, selectedLocationId)}
                             >
-                              {isFounder ? 'Claim Founder Rate' : 'Start Trial'}
+                              {skipTrial ? 'Subscribe Now' : 'Start Trial'}
                               <ExternalLink className="h-3 w-3 ml-1 flex-shrink-0" />
                             </Button>
                           </CardContent>
