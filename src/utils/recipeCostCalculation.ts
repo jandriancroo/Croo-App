@@ -233,7 +233,21 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         const subBatchCost = calculateBatchCost(ing.ingredient_item_id, new Set(visited));
         const subYield = ingItem.recipe_yield_qty || 1;
         const costPerYieldUnit = subBatchCost / subYield;
-        totalBatchCost += costPerYieldUnit * ing.quantity;
+
+        // Convert the ingredient quantity into the sub-recipe's yield unit when they differ
+        // (e.g. sub-recipe yields in "lb" but ingredient calls for "oz"). Without this bridge,
+        // 17 oz of a lb-yielding dough would be treated as 17 lb and inflate cost ~16x.
+        const expanded = expandEmbeddedUnit(Number(ing.quantity) || 0, ing.unit);
+        const ingQty = expanded.qty;
+        const ingUnit = normalizeUnit(expanded.unit);
+        const yieldUnit = normalizeUnit(ingItem.recipe_yield_unit || "");
+
+        let qtyInYieldUnits = ingQty;
+        if (ingUnit && yieldUnit && ingUnit !== yieldUnit && TO_OZ[ingUnit] && TO_OZ[yieldUnit]) {
+          qtyInYieldUnits = (ingQty * TO_OZ[ingUnit]) / TO_OZ[yieldUnit];
+        }
+
+        totalBatchCost += costPerYieldUnit * qtyInYieldUnits;
       } else {
         // Raw ingredient: determine proper divisor based on unit.
         // Expand embedded-size units first ("bottle(20oz-fl)" → 20 oz, "#10can" → 104 oz, "cn"→"ea")
