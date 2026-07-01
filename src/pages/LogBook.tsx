@@ -107,10 +107,10 @@ export default function LogBook() {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
                 <TabsTrigger value="search">Recent Logs</TabsTrigger>
-                <TabsTrigger value="catering">Catering Orders</TabsTrigger>
                 <TabsTrigger value="library">Library</TabsTrigger>
               </TabsList>
             </Tabs>
+
             {isAdmin && (
               <Button
                 size="icon"
