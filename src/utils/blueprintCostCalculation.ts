@@ -285,10 +285,16 @@ export async function fetchBlueprintCosts(
 
         const caseCost = vendor.blended_price ?? vendor.cost_per_unit ?? 0;
         if (caseCost === 0) {
+          // Intentionally free ingredient (Water, Ice, etc.) — $0 is valid, contributes
+          // nothing to batch cost and does NOT flag the recipe as unpriced.
+          if (freeTemplateIds.has(ing.vendor_item_id)) {
+            continue;
+          }
           // A0: item exists & is active but has no resolvable price — flag as data gap.
           unpricedItems.push(ing.vendor_item_id);
           continue;
         }
+
 
         // Expand embedded-size units like "bottle(20oz-fl)", "#10can", "pack(9.6lb)"
         // into a base qty + canonical unit before any branch logic. Plain units pass through.
