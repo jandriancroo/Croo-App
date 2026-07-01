@@ -91,6 +91,14 @@ export function LibraryPanel() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
+        <Button
+          size="icon"
+          variant={favOnly ? "default" : "outline"}
+          onClick={() => setFavOnly((v) => !v)}
+          title="Show favorites only"
+        >
+          <Star className={`h-4 w-4 ${favOnly ? "fill-current" : ""}`} />
+        </Button>
         {canEdit && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -106,6 +114,7 @@ export function LibraryPanel() {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+
       </div>
 
       {scopes.length > 1 && (
