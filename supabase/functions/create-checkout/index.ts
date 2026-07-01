@@ -120,6 +120,11 @@ serve(async (req) => {
       },
     };
 
+    if (allowSkipTrial) {
+      // Override any plan-default trial period
+      subscriptionData.trial_end = "now";
+    }
+
     // Per-location billing: quantity is always 1
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
