@@ -16,8 +16,7 @@ interface Chat {
   is_group: boolean;
   group_image_url: string | null;
   otherMember?: {
-    first_name: string;
-    last_name: string;
+    full_name: string | null;
     avatar_url: string | null;
   };
 }
@@ -88,7 +87,7 @@ export function ShareTaskDialog({
           // Get the other member for DMs
           const { data: members } = await supabase
             .from("chat_members")
-            .select("user_id, profiles:user_id(first_name, last_name, avatar_url)")
+            .select("user_id, profiles:user_id(full_name, profile_photo_url)")
             .eq("chat_id", chat.id)
             .neq("user_id", user.id)
             .limit(1);
@@ -97,9 +96,8 @@ export function ShareTaskDialog({
           chatList.push({
             ...chat,
             otherMember: otherMember ? {
-              first_name: otherMember.first_name,
-              last_name: otherMember.last_name,
-              avatar_url: otherMember.avatar_url,
+              full_name: otherMember.full_name,
+              avatar_url: otherMember.profile_photo_url,
             } : undefined,
           });
         }
@@ -145,13 +143,11 @@ export function ShareTaskDialog({
         // Get sender's name
         const { data: senderProfile } = await supabase
           .from("profiles")
-          .select("first_name, last_name")
+          .select("full_name")
           .eq("id", user.id)
           .single();
 
-        const senderName = senderProfile 
-          ? `${(senderProfile as any).first_name} ${(senderProfile as any).last_name}` 
-          : "Someone";
+        const senderName = (senderProfile as any)?.full_name || "Someone";
 
         await supabase.functions.invoke("send-push-notification", {
           body: {
@@ -168,7 +164,7 @@ export function ShareTaskDialog({
 
       const chatName = chat.is_group 
         ? chat.title 
-        : `${chat.otherMember?.first_name} ${chat.otherMember?.last_name}`;
+        : chat.otherMember?.full_name || "Unknown";
       
       toast.success(`Shared to ${chatName}`);
       onOpenChange(false);
@@ -184,9 +180,7 @@ export function ShareTaskDialog({
     if (chat.is_group) {
       return chat.title || "Group Chat";
     }
-    return chat.otherMember 
-      ? `${chat.otherMember.first_name} ${chat.otherMember.last_name}`
-      : "Unknown";
+    return chat.otherMember?.full_name || "Unknown";
   };
 
   const getAvatarContent = (chat: Chat) => {
@@ -196,11 +190,13 @@ export function ShareTaskDialog({
         fallback: <Users className="h-4 w-4" />,
       };
     }
+    const parts = (chat.otherMember?.full_name || "").trim().split(/\s+/);
+    const initials = parts.length
+      ? `${parts[0]?.[0] || ""}${parts[parts.length - 1]?.[0] || ""}`
+      : "";
     return {
       src: chat.otherMember?.avatar_url,
-      fallback: chat.otherMember 
-        ? `${chat.otherMember.first_name?.[0] || ""}${chat.otherMember.last_name?.[0] || ""}`
-        : <User className="h-4 w-4" />,
+      fallback: initials || <User className="h-4 w-4" />,
     };
   };
 

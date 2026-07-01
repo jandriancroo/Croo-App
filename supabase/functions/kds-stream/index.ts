@@ -37,102 +37,97 @@ serve(async (req) => {
     });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  // Supabase client is created inside the background processor to avoid
+  // blocking the fast ack path.
 
-  try {
-    const rawBody = await req.text();
-    const eventType = req.headers.get("x-qu-event") || req.headers.get("x-event-type") || "unknown";
-    const signature = req.headers.get("x-qu-signature") || req.headers.get("x-signature") || "";
 
-    // ──────────────────────────────────────────────────
-    // PHASE 1: Log everything for field mapping
-    // ──────────────────────────────────────────────────
-    console.log(`[kds-stream] Event: ${eventType}`);
-    console.log(`[kds-stream] Headers: ${JSON.stringify(Object.fromEntries(req.headers.entries()))}`);
-    console.log(`[kds-stream] Body (first 2000): ${rawBody.slice(0, 2000)}`);
-    if (rawBody.length > 2000) {
-      console.log(`[kds-stream] Body (2000-4000): ${rawBody.slice(2000, 4000)}`);
-    }
+  const rawBody = await req.text();
+  const eventType = req.headers.get("x-qu-event") || req.headers.get("x-event-type") || "unknown";
+  const signature = req.headers.get("x-qu-signature") || req.headers.get("x-signature") || "";
 
-    // Also persist the raw event to a log table for offline analysis
-    await supabase.from("kds_stream_events").insert({
-      event_type: eventType,
-      payload: rawBody,
-      headers: JSON.stringify({ signature, eventType }),
-    }).then(({ error }) => {
-      if (error) console.log(`[kds-stream] Log insert error: ${error.message}`);
-    });
-
-    // ──────────────────────────────────────────────────
-    // PHASE 2: Attempt to parse and hydrate KDS orders
-    // ──────────────────────────────────────────────────
-    let data: any;
+  // Early SNS handshake detection — must ack the URL BEFORE we return, or SNS retries
+  const snsMessageTypeHeader = req.headers.get("x-amz-sns-message-type");
+  if (snsMessageTypeHeader === "SubscriptionConfirmation" || snsMessageTypeHeader === "UnsubscribeConfirmation") {
     try {
-      data = JSON.parse(rawBody);
-    } catch {
-      console.log("[kds-stream] Non-JSON payload, skipping parse");
-      return new Response(JSON.stringify({ received: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ──────────────────────────────────────────────────
-    // AWS SNS handshake — discriminate via x-amz-sns-message-type
-    // header (Qu's reference impl) with body Type as fallback.
-    // ──────────────────────────────────────────────────
-    const snsMessageType =
-      req.headers.get("x-amz-sns-message-type") ||
-      (data && typeof data === "object" ? data.Type : null);
-
-    if (snsMessageType === "SubscriptionConfirmation" || snsMessageType === "UnsubscribeConfirmation") {
+      const data = JSON.parse(rawBody);
       const subscribeUrl = data?.SubscribeURL;
-      console.log(`[kds-stream] ${snsMessageType} received. SubscribeURL: ${subscribeUrl}`);
+      console.log(`[kds-stream] ${snsMessageTypeHeader} received. SubscribeURL: ${subscribeUrl}`);
       if (subscribeUrl) {
+        const confirmRes = await fetch(subscribeUrl, { method: "GET" });
+        console.log(`[kds-stream] Confirmation response ${confirmRes.status}`);
+        await confirmRes.text();
+      }
+    } catch (e) {
+      console.error(`[kds-stream] Handshake error: ${e}`);
+    }
+    return new Response("OK", { status: 200, headers: corsHeaders });
+  }
+
+  // ACKNOWLEDGE IMMEDIATELY, then process asynchronously via EdgeRuntime.waitUntil.
+  // This prevents 504/503 timeouts at the Cloudflare edge when DB writes are slow.
+  const processInBackground = async () => {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    try {
+      console.log(`[kds-stream] Event: ${eventType}`);
+      console.log(`[kds-stream] Body (first 2000): ${rawBody.slice(0, 2000)}`);
+
+      // Fire-and-forget raw log (don't await — was causing CF 522 timeouts)
+      supabase.from("kds_stream_events").insert({
+        event_type: eventType,
+        payload: rawBody,
+        headers: JSON.stringify({ signature, eventType }),
+      }).then(({ error }) => {
+        if (error) console.log(`[kds-stream] Log insert error: ${error.message?.slice(0, 200)}`);
+      });
+
+      let data: any;
+      try {
+        data = JSON.parse(rawBody);
+      } catch {
+        return;
+      }
+
+      const snsMessageType = snsMessageTypeHeader ||
+        (data && typeof data === "object" ? data.Type : null);
+
+      let eventsSource: any = data;
+      if (snsMessageType === "Notification" && typeof data?.Message === "string") {
         try {
-          const confirmRes = await fetch(subscribeUrl, { method: "GET" });
-          const confirmText = await confirmRes.text();
-          console.log(`[kds-stream] Confirmation response ${confirmRes.status}: ${confirmText.slice(0, 500)}`);
-        } catch (e) {
-          console.error(`[kds-stream] Failed to confirm subscription: ${e}`);
+          eventsSource = JSON.parse(data.Message);
+        } catch {
+          eventsSource = data.Message;
         }
       }
-      return new Response("OK", { status: 200, headers: corsHeaders });
-    }
 
-    // SNS Notification wrapper — actual event payload is in data.Message (JSON string)
-    let eventsSource: any = data;
-    if (snsMessageType === "Notification" && typeof data?.Message === "string") {
-      try {
-        eventsSource = JSON.parse(data.Message);
-      } catch {
-        eventsSource = data.Message;
+      const events = Array.isArray(eventsSource) ? eventsSource : [eventsSource];
+      for (const event of events) {
+        try {
+          await processOrderEvent(supabase, event, eventType);
+        } catch (e) {
+          console.log(`[kds-stream] Process error: ${e}`);
+        }
       }
+    } catch (e) {
+      console.error(`[kds-stream] Background error: ${e}`);
     }
+  };
 
-    // Handle both single events and batched arrays
-    const events = Array.isArray(eventsSource) ? eventsSource : [eventsSource];
-
-    for (const event of events) {
-      try {
-        await processOrderEvent(supabase, event, eventType);
-      } catch (e) {
-        console.log(`[kds-stream] Process error: ${e}`);
-      }
-    }
-
-    return new Response(JSON.stringify({ received: true, count: events.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    console.error(`[kds-stream] Fatal error: ${error}`);
-    return new Response(JSON.stringify({ error: "Internal error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  // @ts-ignore — EdgeRuntime.waitUntil is available in Supabase edge runtime
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(processInBackground());
+  } else {
+    // Fallback: kick off without awaiting
+    processInBackground();
   }
+
+  return new Response(JSON.stringify({ received: true }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 });
 
 async function processOrderEvent(supabase: any, event: any, headerEventType: string) {

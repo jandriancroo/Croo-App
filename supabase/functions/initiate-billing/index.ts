@@ -53,10 +53,10 @@ serve(async (req) => {
     // Initiator name
     const { data: initProfile } = await supabase
       .from("profiles")
-      .select("first_name, last_name")
+      .select("full_name")
       .eq("id", user.id)
       .maybeSingle();
-    const initiated_by_name = [initProfile?.first_name, initProfile?.last_name].filter(Boolean).join(" ") || null;
+    const initiated_by_name = initProfile?.full_name || null;
 
     // Flag the location
     const { error: updErr } = await supabase
