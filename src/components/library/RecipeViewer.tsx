@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, ExternalLink, Star, Printer, Clock, Users, ChefHat, Video } from "lucide-react";
+import { Pencil, ExternalLink, Star, Printer, Clock, Users, ChefHat, Video, History } from "lucide-react";
 import {
   useLibraryDocument,
   useRecipeIngredients,
@@ -10,6 +10,7 @@ import {
   useMyFavorites,
   useToggleFavorite,
 } from "@/hooks/useLibrary";
+import { RecipeVersionHistorySheet } from "./RecipeVersionHistorySheet";
 
 interface Props {
   open: boolean;
