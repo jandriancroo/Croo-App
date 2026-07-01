@@ -196,6 +196,17 @@ export function computeCountLanes({
     showCases = false;
     showUnits = true;
   }
+  // Apply persisted per-lane overrides from the pack config (approver toggles).
+  // These win over the resolver's default visibility so "Counters see" on the
+  // approval screen is authoritative on the count screen.
+  let showInnerPacksFinal = showInnerPacks;
+  if (effectiveLens) {
+    if (effectiveLens.show_cases != null) showCases = !!effectiveLens.show_cases;
+    if (effectiveLens.show_inner_packs != null) {
+      showInnerPacksFinal = showInnerPacksFinal && !!effectiveLens.show_inner_packs;
+    }
+    if (effectiveLens.show_common_unit != null) showUnits = !!effectiveLens.show_common_unit;
+  }
 
   const innerLabelRaw = shape.innerLabel ?? "";
   const innerLabel = innerLabelRaw ? pluralizeLabel(innerLabelRaw) : "Packs";
