@@ -32,8 +32,9 @@ export async function fetchBrandUnpricedIngredients(
   // 1. All active brand templates for this brand
   const { data: templates, error: tplErr } = await supabase
     .from("brand_inventory_templates")
-    .select("id, common_name, product_name, category, status")
+    .select("id, common_name, product_name, category, status, is_free")
     .eq("brand_id", brandId);
+
   if (tplErr) throw tplErr;
 
   const activeTemplates = (templates || []).filter(
