@@ -243,7 +243,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
     };
     // Single source of truth — see src/utils/countItemValue.ts
-    // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
+    // Completed COGS reports must honor frozen count snapshots. Live pack/lens
+    // values are only for active counting/edit input, not submitted history.
     // Recipes bypass legs (never multi-config) and stay on calculateCountItemValue
     // directly. Non-recipes route through getItemValueWithLegs for leg awareness.
     const getCountItemLineValue = (ci: any) => {
@@ -261,13 +262,13 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
         recipe_yield_unit: (item as any).recipe_yield_unit,
       } : undefined;
       if ((item as any)?.is_recipe === true) {
-        return calculateCountItemValue(ci, itemForValue, conversion || null, true);
+        return calculateCountItemValue(ci, itemForValue, conversion || null, false);
       }
       if (legsHelper) {
-        return legsHelper(ci, itemForValue, conversion || null, { forceLiveData: true });
+        return legsHelper(ci, itemForValue, conversion || null, { forceLiveData: false });
       }
       // Fallback before legs context resolves — keeps numbers stable, no legs awareness yet.
-      return calculateCountItemValue(ci, itemForValue, conversion || null, true);
+      return calculateCountItemValue(ci, itemForValue, conversion || null, false);
     };
 
     // Beginning inventory value
