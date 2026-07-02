@@ -2382,6 +2382,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </div>
         </div>
       )}
+
+      {isLite && (
+        <LiteInvoiceUploadDialog
+          open={showLiteUploadDialog}
+          onOpenChange={setShowLiteUploadDialog}
+          locationId={locationId}
+        />
+      )}
     </>
   );
 };
