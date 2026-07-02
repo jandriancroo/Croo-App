@@ -312,17 +312,22 @@ serve(async (req) => {
       if (linesErr) console.error("[Lite] insert invoice items failed:", linesErr);
     }
 
-    // Apply price updates
+    // Apply price updates (and backfill pack_size on matched items missing one)
     let priceUpdateCount = 0;
     for (const p of pending) {
       if (p.priceUpdate) {
+        const patch: Record<string, unknown> = { cost_per_unit: p.priceUpdate.cost };
+        if (!p.priceUpdate.existingPackSize && p.priceUpdate.pack_size) {
+          patch.pack_size = p.priceUpdate.pack_size;
+        }
         await admin
           .from("lite_inventory_items")
-          .update({ cost_per_unit: p.priceUpdate.cost })
+          .update(patch)
           .eq("id", p.priceUpdate.id);
         priceUpdateCount++;
       }
     }
+
 
     const matchedCount = insertLines.filter((l) => l.match_status === "matched").length;
     const fuzzyCount = insertLines.filter((l) => l.match_status === "fuzzy").length;
