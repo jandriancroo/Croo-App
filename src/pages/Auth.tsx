@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.webp';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
+import { PWAInstallTutorial } from '@/components/PWAInstallTutorial';
 import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
 import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
 import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
