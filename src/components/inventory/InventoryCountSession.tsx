@@ -144,6 +144,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [editReason, setEditReason] = useState("");
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const originalCounts = useRef<Record<string, number>>({});
+  const editTouchedKeysRef = useRef<Set<string>>(new Set());
 
   const HEMET_LOCATION_ID = '12c977c7-1786-4131-90f5-1eef3f96e2c6';
   const SPINACH_BRAND_ITEM_ID = 'bfa8d2a6-f544-4695-ae2b-f610a66d5c91';
@@ -156,8 +157,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   const exitEditMode = useCallback(() => {
     setShowEditConfirm(false);
+    editTouchedKeysRef.current.clear();
     navigate(`/inventory/${locationId}/count/${countId}`);
   }, [navigate, locationId, countId]);
+
+  const markEditTouched = useCallback((key: string) => {
+    if (!isEditing || !key) return;
+    editTouchedKeysRef.current.add(key.split("::leg::")[0]);
+  }, [isEditing]);
 
   // Fetch storage locations
   const { data: storageLocations } = useQuery({
@@ -854,8 +861,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       : null;
     return resolveItemPackShape(
       {
-        pack_quantity_at_count: item.pack_quantity_at_count ?? null,
-        inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? null,
+        pack_quantity_at_count: item.pack_quantity_at_count ?? item._packQuantityAtCount ?? null,
+        inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? item._innerPackQuantityAtCount ?? null,
         pack_quantity: item.pack_quantity ?? null,
         pack_quantity_override: item.pack_quantity_override ?? null,
         _rawPackQuantity: item._rawPackQuantity ?? null,
@@ -1363,6 +1370,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const effectivePackQty = resolveItemPackQty(item);
       const newQuantity = getItemTotalIncludingLegs(item, key, effectivePackQty, resolveInnerPackQtyForTotal(item));
       const originalQuantity = originalCounts.current[key] ?? 0;
+      const wasTouchedInEdit = editTouchedKeysRef.current.has(key);
+      if (!wasTouchedInEdit) {
+        continue;
+      }
       const storedQuantity = Number(extendedItem._existingQuantity ?? 0);
       const brandItemId = (item as any).brand_item_id;
       const isMultiConfig =
@@ -1398,7 +1409,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           enteredInnerPacks: liveCounts.innerPacks || 0,
           panInputs: livePan && Object.keys(livePan).length > 0 ? livePan : null,
           costAtCount: item.cost_per_unit ?? null,
-          packQuantityAtCount: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+          packQuantityAtCount: extendedItem._packQuantityAtCount ?? effectivePackQty ?? null,
           innerPackQuantityAtCount: innerPackQty,
           itemNameAtCount: item.item_name,
           unitAtCount: (item as any).unit ?? null,
@@ -1606,7 +1617,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       }
 
       // Separate into updates vs inserts, and skip unchanged items
-      const toUpdate: { id: string; quantity: number; entered_cases: number; entered_units: number; entered_inner_packs: number }[] = [];
+      const toUpdate: { id: string; quantity: number; entered_cases: number; entered_units: number; entered_inner_packs: number; cost_at_count: number | null; pack_quantity_at_count: number | null; inner_pack_quantity_at_count: number | null; item_name_at_count: string | null; unit_at_count: string | null; pan_sizes_at_count: any | null }[] = [];
       const toInsert: any[] = [];
 
       for (const ic of itemCounts) {
@@ -1648,6 +1659,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
             entered_inner_packs: innerPacksVal,
+            cost_at_count: ic.cost_at_count ?? null,
+            pack_quantity_at_count: ic.pack_quantity_at_count ?? null,
+            inner_pack_quantity_at_count: ic.inner_pack_quantity_at_count ?? null,
+            item_name_at_count: ic.item_name_at_count ?? null,
+            unit_at_count: ic.unit_at_count ?? null,
+            pan_sizes_at_count: ic.pan_sizes_at_count ?? null,
             pan_inputs: ic._pan_inputs ?? null,
           } as any);
         } else {
@@ -1718,7 +1735,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
           const { error } = await supabase
             .from("inventory_count_items")
-            .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units, entered_inner_packs: upd.entered_inner_packs, pan_inputs: (upd as any).pan_inputs ?? null } as any)
+            .update({
+              quantity: upd.quantity,
+              entered_cases: upd.entered_cases,
+              entered_units: upd.entered_units,
+              entered_inner_packs: upd.entered_inner_packs,
+              cost_at_count: upd.cost_at_count,
+              pack_quantity_at_count: upd.pack_quantity_at_count,
+              inner_pack_quantity_at_count: upd.inner_pack_quantity_at_count,
+              item_name_at_count: upd.item_name_at_count,
+              unit_at_count: upd.unit_at_count,
+              pan_sizes_at_count: upd.pan_sizes_at_count,
+              pan_inputs: (upd as any).pan_inputs ?? null,
+            } as any)
             .eq("id", upd.id);
           if (error) throw error;
           const key = findKeyForUpd(upd.id);
@@ -2214,6 +2243,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const updateCases = (itemId: string, delta: number) => {
+    markEditTouched(itemId);
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.cases || 0) + delta) * 100) / 100);
       if (itemId.includes('::leg::')) {
@@ -2239,6 +2269,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const updatePanCount = (itemId: string, panKey: string, delta: number) => {
+    markEditTouched(itemId);
     setPanCounts(prev => {
       const itemPans = prev[itemId] || {};
       const newVal = Math.max(0, Math.round(((itemPans[panKey] || 0) + delta) * 2) / 2);
@@ -2248,10 +2279,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const handlePanInput = (itemId: string, panKey: string, value: string) => {
+    markEditTouched(itemId);
     setRawPanInputs(prev => ({ ...prev, [itemId]: { ...prev[itemId], [panKey]: value } }));
   };
 
   const handlePanBlur = (itemId: string, panKey: string) => {
+    markEditTouched(itemId);
     const raw = rawPanInputs[itemId]?.[panKey] ?? '';
     const parsed = parseFloat(raw);
     const finalVal = isNaN(parsed) ? 0 : Math.max(0, Math.round(parsed * 2) / 2);
@@ -2260,6 +2293,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const updateUnits = (itemId: string, delta: number) => {
+    markEditTouched(itemId);
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.units || 0) + delta) * 100) / 100);
       if (itemId.includes('::leg::')) {
@@ -2285,6 +2319,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Phase 4: third counting tier (Sleeves / Bundles / Inner Boxes / Inner Packs)
   const updateInnerPacks = (itemId: string, delta: number) => {
+    markEditTouched(itemId);
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.innerPacks || 0) + delta) * 100) / 100);
       if (itemId.includes('::leg::')) {
@@ -2310,6 +2345,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Handle raw input for cases - allows typing decimals like ".5"
   const handleCasesInput = (itemId: string, inputValue: string) => {
+    markEditTouched(itemId);
     setRawInputs(prev => ({
       ...prev,
       [itemId]: { ...prev[itemId], cases: inputValue, units: prev[itemId]?.units || '' }
@@ -2318,6 +2354,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Process cases input on blur - just store the decimal value
   const handleCasesBlur = (itemId: string) => {
+    markEditTouched(itemId);
     const rawValue = rawInputs[itemId]?.cases || '';
     const value = parseFloat(rawValue);
     
@@ -2346,6 +2383,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Handle raw input for units
   const handleUnitsInput = (itemId: string, inputValue: string) => {
+    markEditTouched(itemId);
     setRawInputs(prev => ({
       ...prev,
       [itemId]: { ...prev[itemId], units: inputValue, cases: prev[itemId]?.cases || '' }
@@ -2354,6 +2392,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Process units input on blur
   const handleUnitsBlur = (itemId: string) => {
+    markEditTouched(itemId);
     const rawValue = rawInputs[itemId]?.units || '';
     const value = parseFloat(rawValue);
     
@@ -2382,6 +2421,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Phase 4: inner pack input handlers
   const handleInnerPacksInput = (itemId: string, inputValue: string) => {
+    markEditTouched(itemId);
     setRawInputs(prev => ({
       ...prev,
       [itemId]: { ...prev[itemId], innerPacks: inputValue, cases: prev[itemId]?.cases || '', units: prev[itemId]?.units || '' }
@@ -2389,6 +2429,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const handleInnerPacksBlur = (itemId: string) => {
+    markEditTouched(itemId);
     const rawValue = rawInputs[itemId]?.innerPacks || '';
     const value = parseFloat(rawValue);
     const finalValue = isNaN(value) ? 0 : Math.max(0, value);
@@ -2431,6 +2472,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           continue;
         }
 
+        markEditTouched(itemId);
         setCounts(prev => ({ ...prev, [itemId]: { cases, units } }));
         setRawInputs(prev => ({ ...prev, [itemId]: { cases: String(cases), units: String(units) } }));
 
@@ -2459,7 +2501,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       toast.warning(`Couldn't understand: "${transcript}"`);
       playError();
     }
-  }, [currentItems, playSuccess, playError]);
+  }, [currentItems, playSuccess, playError, markEditTouched]);
 
   // Voice input handler — text-based path (Chrome/Android native speech)
   const handleVoiceTranscript = useCallback(async (transcript: string) => {
