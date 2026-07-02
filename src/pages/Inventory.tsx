@@ -567,7 +567,7 @@ const Inventory = () => {
         <SandboxPostDeployBanner />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full ${isLite ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <TabsList className={`grid w-full grid-cols-3`}>
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -576,13 +576,19 @@ const Inventory = () => {
               <Package className="h-4 w-4" />
               <span>Items</span>
             </TabsTrigger>
-            {!isLite && (
+            {isLite ? (
+              <TabsTrigger value="invoices" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Invoices</span>
+              </TabsTrigger>
+            ) : (
               <TabsTrigger value="pricing" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
                 <span>Genius</span>
               </TabsTrigger>
             )}
           </TabsList>
+
 
           <TabsContent value="count" className="mt-4 space-y-4">
             <SandboxCountsPanel locationId={locationId!} />
