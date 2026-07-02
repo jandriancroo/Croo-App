@@ -42,6 +42,29 @@ interface LastInvoiceLine {
 export default function LiteInventoryItemsList({ locationId }: LiteInventoryItemsListProps) {
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const qc = useQueryClient();
+
+  /**
+   * Update pack_size on the CURRENT item only. This never touches
+   * lite_vendor_invoice_items — those are immutable historical records of
+   * what the original invoice said. Correcting a stale/wrong value here is
+   * a going-forward change to the live item record only.
+   */
+  const savePackSize = async (itemId: string, next: string | null) => {
+    const { error } = await supabase
+      .from("lite_inventory_items" as any)
+      .update({ pack_size: next })
+      .eq("id", itemId);
+    if (error) {
+      toast.error("Couldn't save pack size", { description: error.message });
+      throw error;
+    }
+    qc.setQueryData<LiteItem[]>(
+      ["lite-inventory-items", locationId],
+      (prev) => prev?.map((i) => (i.id === itemId ? { ...i, pack_size: next } : i)) || prev,
+    );
+    toast.success(next ? "Pack size updated" : "Pack size cleared");
+  };
 
   const { data: items, isLoading } = useQuery({
     queryKey: ["lite-inventory-items", locationId],
