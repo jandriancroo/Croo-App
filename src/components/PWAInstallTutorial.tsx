@@ -19,11 +19,11 @@ export function PWAInstallTutorial() {
       window.matchMedia?.('(display-mode: standalone)')?.matches ||
       (window.navigator as any).standalone === true;
     if (isStandalone) return;
-    if (sessionStorage.getItem('pwa-tutorial-dismissed')) return;
 
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setPlatform(iOS ? 'ios' : 'android');
     setHidden(false);
+
 
     const handler = (e: Event) => {
       e.preventDefault();
