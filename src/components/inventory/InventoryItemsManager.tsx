@@ -17,8 +17,10 @@ import paLogo from "@/assets/pa-logo.png";
 import { useAuth } from "@/lib/auth";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
+import { useInventoryMode } from "@/hooks/useInventoryMode";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
+
 
 import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
@@ -84,6 +86,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const { user } = useAuth();
   const { timezone } = useLocationTimezone(locationId);
   const { canEditCategories, canTriggerSync } = useInventoryPermissions();
+  const { isLite } = useInventoryMode(locationId);
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
   const [isDailyTracked, setIsDailyTracked] = useState(false);
@@ -1102,7 +1106,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <InventoryScheduleSettings locationId={locationId} />
 
-        {(pfgIntegration || paIntegration) && (
+        {!isLite && (pfgIntegration || paIntegration) && (
           <Card>
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-2 font-semibold text-sm">
