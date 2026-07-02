@@ -591,6 +591,44 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
               {step === 0 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
+                    <Label>Inventory Mode *</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInventoryMode('brand')}
+                        className={cn(
+                          'rounded-lg border p-3 text-left transition-all',
+                          inventoryMode === 'brand'
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                            : 'border-border hover:bg-muted/50'
+                        )}
+                      >
+                        <p className="text-sm font-semibold">Brand</p>
+                        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                          Full inventory: brand templates, pack config, recipes, vendor sync.
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInventoryMode('lite')}
+                        className={cn(
+                          'rounded-lg border p-3 text-left transition-all',
+                          inventoryMode === 'lite'
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                            : 'border-border hover:bg-muted/50'
+                        )}
+                      >
+                        <p className="text-sm font-semibold">Lite</p>
+                        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                          Invoice check-in + flat count sheet + COGS by category only.
+                        </p>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Cannot be changed after creation. Choose carefully.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
                     <Label>Organization *</Label>
                     <Select value={orgId} onValueChange={setOrgId}>
                       <SelectTrigger>
