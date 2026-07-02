@@ -53,11 +53,11 @@ export function PWAInstallTutorial() {
           className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-primary/10 transition-colors"
         >
           <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-            <Share className="h-5 w-5 text-white" />
+            <Share className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold leading-tight text-white">Install CrooHQ</p>
-            <p className="text-[11px] text-white/80 leading-tight">
+            <p className="text-sm font-bold leading-tight text-foreground">Install CrooHQ</p>
+            <p className="text-[11px] text-muted-foreground leading-tight">
               Add to home screen for the full app experience
             </p>
           </div>
@@ -70,12 +70,12 @@ export function PWAInstallTutorial() {
               }}
               className="h-8 text-xs gap-1 mr-1"
             >
-              <Download className="h-3.5 w-3.5 text-white" />
+              <Download className="h-3.5 w-3.5" />
               Install
             </Button>
           )}
           <ChevronDown
-            className={`h-5 w-5 text-white transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`h-5 w-5 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
           />
         </button>
 
