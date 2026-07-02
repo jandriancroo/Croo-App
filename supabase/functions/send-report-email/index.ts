@@ -14,10 +14,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { recipients, reportTitle, period, author, pdfBase64, fileName } = await req.json();
+    const { recipients, reportTitle, period, author, pdfBase64, fileName, path: providedPath } = await req.json();
 
-    if (!Array.isArray(recipients) || recipients.length === 0 || !pdfBase64) {
-      return new Response(JSON.stringify({ error: "recipients and pdfBase64 required" }), {
+    if (!Array.isArray(recipients) || recipients.length === 0 || (!pdfBase64 && !providedPath)) {
+      return new Response(JSON.stringify({ error: "recipients and (path or pdfBase64) required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -25,16 +25,18 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Upload PDF to reports bucket
-    const safeName = (fileName || `report_${Date.now()}.pdf`).replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}_${safeName}`;
-    const bytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
-
-    const { error: upErr } = await supabase.storage.from("reports").upload(path, bytes, {
-      contentType: "application/pdf",
-      upsert: false,
-    });
-    if (upErr) throw upErr;
+    let path = providedPath as string | undefined;
+    if (!path) {
+      // Legacy base64 fallback (small PDFs only)
+      const safeName = (fileName || `report_${Date.now()}.pdf`).replace(/[^a-zA-Z0-9._-]/g, "_");
+      path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}_${safeName}`;
+      const bytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
+      const { error: upErr } = await supabase.storage.from("reports").upload(path, bytes, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+    }
 
     const { data: signed, error: signErr } = await supabase.storage
       .from("reports")

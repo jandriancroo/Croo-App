@@ -850,11 +850,18 @@ export default function Reporting() {
         pdf.addImage(imgData, 'PNG', 20, position, imgW, imgH);
         heightLeft -= (pageH - 40);
       }
-      const pdfBase64 = pdf.output('datauristring').split(',')[1];
+      const pdfBlob = pdf.output('blob');
       const fileName = `${config.reportTitle.replace(/\s+/g, '_')}_${format(range.from, 'yyyyMMdd')}-${format(range.to, 'yyyyMMdd')}.pdf`;
       const period = `${format(range.from, 'MMM d, yyyy')} – ${format(range.to, 'MMM d, yyyy')}`;
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const uploadPath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}_${safeName}`;
+      toast.info('Uploading PDF…');
+      const { error: upErr } = await supabase.storage.from('reports').upload(uploadPath, pdfBlob, {
+        contentType: 'application/pdf', upsert: false,
+      });
+      if (upErr) throw upErr;
       const { error } = await supabase.functions.invoke('send-report-email', {
-        body: { recipients: recips, reportTitle: config.reportTitle, period, author: config.author, pdfBase64, fileName },
+        body: { recipients: recips, reportTitle: config.reportTitle, period, author: config.author, path: uploadPath, fileName },
       });
       if (error) throw error;
       toast.success(`Sent to ${recips.length} recipient${recips.length > 1 ? 's' : ''}`);
