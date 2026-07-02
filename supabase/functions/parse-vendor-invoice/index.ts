@@ -104,10 +104,18 @@ serve(async (req) => {
           {
             role: "system",
             content: `You are an invoice parser. Extract all line items from this vendor invoice image.
+
+CRITICAL — VENDOR IDENTIFICATION:
+- vendor_name MUST be the SELLER / DISTRIBUTOR / SUPPLIER — the company that issued the invoice and is being paid.
+- Look for labels like "Remit To", "From", "Sold By", "Vendor", the letterhead/logo at the top, or a "Please make checks payable to" line.
+- NEVER use the "Sold To", "Bill To", "Ship To", "Customer", or "Deliver To" party — that is the buyer (the restaurant/store).
+- If the letterhead shows a beer/beverage distributor, produce house, or broadline supplier, that is the vendor.
+- If unsure between two names, pick the one with the remit address, phone number for orders, or account/customer number formatted as "Customer #".
+
 For each line item extract: product_name, item_number (vendor/distributor SKU if visible), pa_product_id (ONLY the value from a column literally labeled PA Product ID or equivalent), quantity, unit (case/each/lb/etc), unit_price, total_price.
 If the invoice has multiple code columns (for example Dist Item, Item, and PA Product ID), keep the PA Product ID in pa_product_id and keep the other vendor/distributor code in item_number.
 For Worldwide Produce / Produce Alliance style invoices, prefer the human-readable Description column for product_name and capture the PA Product ID exactly as shown.
-Also extract: vendor_name, invoice_number, invoice_date (YYYY-MM-DD), delivery_date (YYYY-MM-DD if shown), total_amount.
+Also extract: invoice_number, invoice_date (YYYY-MM-DD), delivery_date (YYYY-MM-DD if shown), total_amount.
 Return ONLY valid JSON, no markdown.`,
           },
           {
