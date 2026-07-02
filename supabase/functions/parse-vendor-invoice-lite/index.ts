@@ -197,7 +197,7 @@ serve(async (req) => {
     interface Pending {
       lineDraft: any;
       newItemRow: any | null;
-      priceUpdate: { id: string; cost: number } | null;
+      priceUpdate: { id: string; cost: number; pack_size: string | null; existingPackSize: string | null } | null;
     }
     const pending: Pending[] = [];
 
@@ -207,6 +207,8 @@ serve(async (req) => {
       );
       const stableCode = vendorItemNumber
         || (li.product_name ? generateItemId(parsed.vendor_name || "", li.product_name) : null);
+
+      const packSize = firstNonEmpty((li as any).pack_size, (li as any).packSize, (li as any).pack);
 
       let match: any = null;
       let matchStatus: "matched" | "fuzzy" | "new" = "new";
@@ -251,22 +253,29 @@ serve(async (req) => {
           item_number: stableCode,
           vendor_name_normalized: normalizedVendor || null,
           unit: li.unit || null,
+          pack_size: packSize,
           cost_per_unit: li.unit_price && li.unit_price > 0 ? li.unit_price : 0,
           is_active: true,
           match_status: "new",
         };
       }
 
-      // Reorder price update
+      // Reorder price update — also backfills pack_size when the item is missing one.
       const priceUpdate =
         match && matchStatus === "matched" && li.unit_price && li.unit_price > 0
-          ? { id: match.id, cost: li.unit_price }
+          ? {
+              id: match.id,
+              cost: li.unit_price,
+              pack_size: packSize,
+              existingPackSize: match.pack_size || null,
+            }
           : null;
 
       const lineDraft = {
         invoice_id: invoiceId,
         product_name: li.product_name,
         item_number: stableCode,
+        pack_size: packSize,
         quantity: li.quantity || null,
         unit: li.unit || null,
         unit_price: li.unit_price || null,
@@ -279,6 +288,7 @@ serve(async (req) => {
 
       pending.push({ lineDraft, newItemRow, priceUpdate });
     }
+
 
     // Insert auto-created items first, then attach their ids to the draft lines.
     const newItemBundles = pending.filter((p) => p.newItemRow);
