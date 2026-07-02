@@ -144,6 +144,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [editReason, setEditReason] = useState("");
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const originalCounts = useRef<Record<string, number>>({});
+  const editTouchedKeysRef = useRef<Set<string>>(new Set());
 
   const HEMET_LOCATION_ID = '12c977c7-1786-4131-90f5-1eef3f96e2c6';
   const SPINACH_BRAND_ITEM_ID = 'bfa8d2a6-f544-4695-ae2b-f610a66d5c91';
@@ -156,8 +157,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   const exitEditMode = useCallback(() => {
     setShowEditConfirm(false);
+    editTouchedKeysRef.current.clear();
     navigate(`/inventory/${locationId}/count/${countId}`);
   }, [navigate, locationId, countId]);
+
+  const markEditTouched = useCallback((key: string) => {
+    if (!isEditing || !key) return;
+    editTouchedKeysRef.current.add(key.split("::leg::")[0]);
+  }, [isEditing]);
 
   // Fetch storage locations
   const { data: storageLocations } = useQuery({
@@ -855,7 +862,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return resolveItemPackShape(
       {
         pack_quantity_at_count: item.pack_quantity_at_count ?? null,
-        inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? null,
+        pack_quantity_at_count: item.pack_quantity_at_count ?? item._packQuantityAtCount ?? null,
+        inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? item._innerPackQuantityAtCount ?? null,
         pack_quantity: item.pack_quantity ?? null,
         pack_quantity_override: item.pack_quantity_override ?? null,
         _rawPackQuantity: item._rawPackQuantity ?? null,
