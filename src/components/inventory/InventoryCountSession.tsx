@@ -861,7 +861,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       : null;
     return resolveItemPackShape(
       {
-        pack_quantity_at_count: item.pack_quantity_at_count ?? null,
         pack_quantity_at_count: item.pack_quantity_at_count ?? item._packQuantityAtCount ?? null,
         inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? item._innerPackQuantityAtCount ?? null,
         pack_quantity: item.pack_quantity ?? null,
