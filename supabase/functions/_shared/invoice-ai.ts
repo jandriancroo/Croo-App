@@ -33,11 +33,13 @@ CRITICAL — VENDOR IDENTIFICATION:
 - If the letterhead shows a beer/beverage distributor, produce house, or broadline supplier, that is the vendor.
 - If unsure between two names, pick the one with the remit address, phone number for orders, or account/customer number formatted as "Customer #".
 
-For each line item extract: product_name, item_number (vendor/distributor SKU if visible), pa_product_id (ONLY the value from a column literally labeled PA Product ID or equivalent), quantity, unit (case/each/lb/etc), unit_price, total_price.
+For each line item extract: product_name, item_number (vendor/distributor SKU if visible), pa_product_id (ONLY the value from a column literally labeled PA Product ID or equivalent), pack_size, quantity, unit (case/each/lb/etc), unit_price, total_price.
+pack_size is the verbatim pack/case breakdown text as printed on the invoice line — e.g. "2/1 LB", "24/12 OZ", "4/1 GAL", "6/#10". Copy it EXACTLY as shown, preserving the slash and units. If a line has no visible pack-size text, omit the field. Do NOT guess or fabricate one.
 If the invoice has multiple code columns (for example Dist Item, Item, and PA Product ID), keep the PA Product ID in pa_product_id and keep the other vendor/distributor code in item_number.
 For Worldwide Produce / Produce Alliance style invoices, prefer the human-readable Description column for product_name and capture the PA Product ID exactly as shown.
 Also extract: invoice_number, invoice_date (YYYY-MM-DD), delivery_date (YYYY-MM-DD if shown), total_amount.
 Return ONLY valid JSON, no markdown.`;
+
 
 const TOOL_SCHEMA = {
   type: "function" as const,
