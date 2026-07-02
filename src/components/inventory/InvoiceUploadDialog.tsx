@@ -110,26 +110,19 @@ export default function InvoiceUploadDialog({
         .upload(path, file);
       if (uploadErr) throw uploadErr;
 
-      const { data: invoice, error: insertErr } = await supabase
-        .from("vendor_invoices")
-        .insert({
-          location_id: locationId,
-          vendor_name: "Unknown",
-          image_url: `vendor-invoices/${path}`,
-          uploaded_by: user?.id,
-          inventory_count_id: countId || null,
-          status: "pending",
-        } as any)
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
-
       setUploading(false);
       setParsing(true);
 
+      // Edge function creates the vendor_invoices row (service role — avoids stale-JWT RLS issues)
       const { data: parseData, error: parseErr } = await supabase.functions.invoke(
         "parse-vendor-invoice",
-        { body: { invoiceId: (invoice as any).id } }
+        {
+          body: {
+            storagePath: path,
+            locationId,
+            countId: countId || null,
+          },
+        }
       );
 
       if (parseErr) throw new Error(parseErr.message || "Parsing failed");
