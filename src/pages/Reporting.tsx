@@ -833,7 +833,6 @@ export default function Reporting() {
     setEmailSending(true);
     try {
       toast.info('Generating PDF…');
-      // Wait for fonts so html2canvas doesn't collapse letter spacing
       if ((document as any).fonts?.ready) { try { await (document as any).fonts.ready; } catch {} }
       const canvas = await html2canvas(previewRef.current, {
         scale: 2,
@@ -842,6 +841,21 @@ export default function Reporting() {
         letterRendering: true,
         windowWidth: previewRef.current.scrollWidth,
         windowHeight: previewRef.current.scrollHeight,
+        onclone: (doc: Document) => {
+          const style = doc.createElement('style');
+          style.textContent = `
+            * {
+              font-family: Arial, Helvetica, sans-serif !important;
+              letter-spacing: normal !important;
+              word-spacing: normal !important;
+              font-kerning: none !important;
+              font-feature-settings: normal !important;
+              font-variant-ligatures: none !important;
+              text-rendering: geometricPrecision !important;
+            }
+          `;
+          doc.head.appendChild(style);
+        },
       } as any);
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: config.orientation, unit: 'pt', format: 'letter' });
