@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus, FileText } from "lucide-react";
 import TransferDialog from "@/components/inventory/TransferDialog";
 import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
