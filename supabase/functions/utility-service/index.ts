@@ -661,7 +661,12 @@ async function handleFlushInventoryCount(req: Request, supabaseAdmin: any): Prom
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
             entered_inner_packs: ic.entered_inner_packs ?? null,
+            cost_at_count: ic.cost_at_count ?? null,
+            pack_quantity_at_count: ic.pack_quantity_at_count ?? null,
             inner_pack_quantity_at_count: ic.inner_pack_quantity_at_count ?? null,
+            item_name_at_count: ic.item_name_at_count ?? null,
+            unit_at_count: ic.unit_at_count ?? null,
+            pan_sizes_at_count: ic.pan_sizes_at_count ?? null,
           })
           .eq("id", match.id);
       } else {
@@ -675,7 +680,12 @@ async function handleFlushInventoryCount(req: Request, supabaseAdmin: any): Prom
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
             entered_inner_packs: ic.entered_inner_packs ?? null,
+            cost_at_count: ic.cost_at_count ?? null,
+            pack_quantity_at_count: ic.pack_quantity_at_count ?? null,
             inner_pack_quantity_at_count: ic.inner_pack_quantity_at_count ?? null,
+            item_name_at_count: ic.item_name_at_count ?? null,
+            unit_at_count: ic.unit_at_count ?? null,
+            pan_sizes_at_count: ic.pan_sizes_at_count ?? null,
           });
       }
     }
