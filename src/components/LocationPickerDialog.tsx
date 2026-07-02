@@ -195,17 +195,17 @@ export function LocationPickerDialog({
       }
 
       // 5. One final fetch with full hierarchy for rendering
-      //    Select locations.brand_id directly (prefer over org chain during rollout)
+      //    Select locations.brand_id scalar directly; brand row still hydrated via org chain
       const { data: fullLocs } = await supabase
         .from('locations')
-        .select('*, brand:brand_id(id, name, logo_url), organizations(id, name, brand_name, logo_url, brand_id, brands(id, name, logo_url))')
+        .select('*, organizations(id, name, brand_name, logo_url, brand_id, brands(id, name, logo_url))')
         .in('id', locationIds)
         .neq('is_active', false)
         .order('name');
 
       const locs: Location[] = (fullLocs || []).map((loc: any) => ({
         ...loc,
-        org_name: loc.organizations?.brand_name || loc.brand?.name || loc.organizations?.brands?.name || loc.organizations?.name,
+        org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
         org_raw_name: loc.organizations?.name,
       }));
 
@@ -218,17 +218,18 @@ export function LocationPickerDialog({
           orgMap.set(o.id, {
             id: o.id,
             name: o.name,
-            brand_name: o.brand_name || loc.brand?.name || o.brands?.name || null,
-            logo_url: o.logo_url || loc.brand?.logo_url || o.brands?.logo_url || null,
+            brand_name: o.brand_name || o.brands?.name || null,
+            logo_url: o.logo_url || o.brands?.logo_url || null,
+            // Prefer locations.brand_id, fall back to org.brand_id
             brand_id: loc.brand_id || o.brand_id || null,
           });
         }
-        // Prefer the brand attached to the location; fall back to org chain
-        const b = loc.brand || o?.brands;
+        const b = o?.brands;
         if (b && !brandMap.has(b.id)) {
           brandMap.set(b.id, { id: b.id, name: b.name, logo_url: b.logo_url });
         }
       });
+
 
 
       // Merge super_admin's full brand catalog on top of derived brands
