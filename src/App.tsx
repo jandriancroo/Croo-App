@@ -146,7 +146,7 @@ const AppWithSplash = () => {
       <ForceReloadHandler />
       {showSplash && <AppSplashScreen onComplete={handleSplashComplete} />}
       <AppContent />
-      <PWAInstallTutorial />
+      
     </>
   );
 };
