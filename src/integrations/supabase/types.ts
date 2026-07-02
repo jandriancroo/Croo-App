@@ -5875,6 +5875,107 @@ export type Database = {
           },
         ]
       }
+      lite_inventory_count_items: {
+        Row: {
+          count_id: string
+          counted_at: string
+          counted_by: string | null
+          created_at: string
+          id: string
+          item_id: string
+          quantity: number
+          storage_id_at_count: string | null
+          unit_value_at_count: number
+          updated_at: string
+        }
+        Insert: {
+          count_id: string
+          counted_at?: string
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          item_id: string
+          quantity?: number
+          storage_id_at_count?: string | null
+          unit_value_at_count?: number
+          updated_at?: string
+        }
+        Update: {
+          count_id?: string
+          counted_at?: string
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          quantity?: number
+          storage_id_at_count?: string | null
+          unit_value_at_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lite_inventory_count_items_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "lite_inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lite_inventory_count_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "lite_inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lite_inventory_counts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          period_end: string
+          period_start: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          period_end: string
+          period_start: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lite_inventory_counts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lite_inventory_items: {
         Row: {
           cost_per_unit: number | null
@@ -5886,6 +5987,7 @@ export type Database = {
           match_status: string
           name: string
           pack_size: string | null
+          storage_id: string | null
           unit: string | null
           updated_at: string
           vendor_name_normalized: string | null
@@ -5900,6 +6002,7 @@ export type Database = {
           match_status?: string
           name: string
           pack_size?: string | null
+          storage_id?: string | null
           unit?: string | null
           updated_at?: string
           vendor_name_normalized?: string | null
@@ -5914,6 +6017,7 @@ export type Database = {
           match_status?: string
           name?: string
           pack_size?: string | null
+          storage_id?: string | null
           unit?: string | null
           updated_at?: string
           vendor_name_normalized?: string | null
@@ -5921,6 +6025,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lite_inventory_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lite_inventory_items_storage_id_fkey"
+            columns: ["storage_id"]
+            isOneToOne: false
+            referencedRelation: "lite_storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lite_storage_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          location_id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lite_storage_locations_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
