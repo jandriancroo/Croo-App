@@ -309,8 +309,14 @@ Return ONLY valid JSON, no markdown.`,
           (match?.brand_item_id as string | undefined) ||
           (paProductId ? templateByPaId.get(normalizeKey(paProductId))?.id : null) ||
           (li.item_number ? templateByItemNumber.get(normalizeKey(li.item_number))?.id : null) ||
+          (li.item_number ? templateIdByAnyVendorSku.get(normalizeKey(li.item_number)) : null) ||
           (li.product_name ? templateByName.get(normalizeKey(li.product_name))?.id : null) ||
           null;
+      }
+      // Final fallback: if we resolved a brand template but haven't found a local item yet,
+      // link to the location's inventory row for that template so we can stamp cost.
+      if (!match && matchedTemplateId) {
+        match = localByBrandItemId.get(matchedTemplateId) || null;
       }
 
       const itemRow: any = {
