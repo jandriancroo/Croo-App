@@ -208,7 +208,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
 
   const canProceed = () => {
     if (step === 0) return name.trim().length > 0 && orgId.length > 0 && address.trim().length > 0;
-    if (step === 2) return skipVendorSetup; // Must acknowledge vendor gate
+    // Lite locations have no vendor sync — auto-pass the vendor gate
+    if (step === 2) return inventoryMode === 'lite' ? true : skipVendorSetup;
     return true;
   };
 
@@ -440,8 +441,16 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       refetchLocations();
       setDeployComplete(true);
 
-      // 8. Auto-trigger initial vendor syncs
-      runInitialSync(locationId);
+      // 8. Auto-trigger initial vendor syncs — Brand mode only.
+      // Lite tenants have no PFG/PA integration; mark both as skipped.
+      if (inventoryMode === 'lite') {
+        setSyncResult({
+          pfg: { status: 'skipped', message: 'Not used in Lite mode' },
+          pa: { status: 'skipped', message: 'Not used in Lite mode' },
+        });
+      } else {
+        runInitialSync(locationId);
+      }
 
       toast.success(`${name} deployed successfully!`);
     } catch (error: any) {
