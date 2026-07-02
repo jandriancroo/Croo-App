@@ -47,7 +47,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
     queryFn: async (): Promise<LiteItem[]> => {
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
-        .select("id, name, item_number, vendor_name_normalized, unit, cost_per_unit, match_status, updated_at")
+        .select("id, name, item_number, vendor_name_normalized, unit, pack_size, cost_per_unit, match_status, updated_at")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -55,6 +55,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
       return (data as any) || [];
     },
   });
+
 
   // Pull the most recent invoice date per item for the "Last invoice" column.
   const { data: lastInvoiceMap } = useQuery({
