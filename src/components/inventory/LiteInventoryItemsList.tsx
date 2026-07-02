@@ -163,8 +163,13 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
                   className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium truncate">{item.name}</span>
+                      {item.pack_size && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-mono">
+                          {item.pack_size}
+                        </Badge>
+                      )}
                       {item.match_status === "new" && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           new
@@ -177,6 +182,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
                       {lastInvoice ? ` • last invoice ${lastInvoice}` : ""}
                     </div>
                   </div>
+
                   <div className="text-right shrink-0">
                     <div className="text-sm font-semibold tabular-nums">
                       {formatCost(item.cost_per_unit)}
