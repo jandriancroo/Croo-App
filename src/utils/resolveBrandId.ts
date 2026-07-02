@@ -1,16 +1,21 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Resolves the brand_id for a given location via location → organization → brand chain.
- * Returns null if the chain is broken.
+ * Resolves the brand_id for a given location.
+ * Prefers the direct locations.brand_id column (populated by the deploy wizard
+ * and the 14-row backfill). Falls back to the legacy location → organization →
+ * brand chain for safety during Group 1 rollout; the fallback will be removed
+ * after Group 2/3 land.
  */
 export async function resolveBrandId(locationId: string): Promise<string | null> {
   const { data: loc } = await supabase
     .from("locations")
-    .select("organization_id")
+    .select("brand_id, organization_id")
     .eq("id", locationId)
     .maybeSingle();
-  if (!loc?.organization_id) return null;
+  if (!loc) return null;
+  if (loc.brand_id) return loc.brand_id;
+  if (!loc.organization_id) return null;
 
   const { data: org } = await supabase
     .from("organizations")
@@ -19,6 +24,7 @@ export async function resolveBrandId(locationId: string): Promise<string | null>
     .maybeSingle();
   return org?.brand_id || null;
 }
+
 
 /**
  * Fetches blueprints for a location using inheritance merge:
