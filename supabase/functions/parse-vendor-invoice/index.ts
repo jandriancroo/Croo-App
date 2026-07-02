@@ -246,11 +246,14 @@ Return ONLY valid JSON, no markdown.`,
     }
 
     const templateIdByVendorKey = new Map<string, string>();
+    const templateIdByAnyVendorSku = new Map<string, string>();
     for (const mapping of existingVendorMappings) {
       const vendorItemId = String(mapping.vendor_item_id || "").trim();
       const vendor = String((mapping as any).vendor || "").trim().toLowerCase();
       if (!vendorItemId) continue;
       templateIdByVendorKey.set(`${vendor}:${normalizeKey(vendorItemId)}`, mapping.brand_template_id);
+      // Vendor-agnostic fallback: invoice OCR often misreads the vendor header (e.g. picks up the buyer name)
+      templateIdByAnyVendorSku.set(normalizeKey(vendorItemId), mapping.brand_template_id);
     }
 
     // Generate a deterministic ID for items without a vendor SKU
