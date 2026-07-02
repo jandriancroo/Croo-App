@@ -28,6 +28,7 @@ import InventoryItemsManager from "@/components/inventory/InventoryItemsManager"
 import SandboxCountsPanel from "@/components/inventory/SandboxCountsPanel";
 import { SandboxPostDeployBanner } from "@/components/inventory/SandboxPostDeployBanner";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { useInventoryMode } from "@/hooks/useInventoryMode";
 
 const StartCountDialog = lazyWithRetry(() => import("@/components/inventory/StartCountDialog"));
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
@@ -48,6 +49,7 @@ const Inventory = () => {
   const { timezone } = useLocationTimezone();
   const permissionsLoading = roleLoading || permsLoading;
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
+  const { isLite } = useInventoryMode(locationId);
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [preselectedPeriod, setPreselectedPeriod] = useState<{ type: string; endDate: string } | null>(null);
@@ -561,7 +563,7 @@ const Inventory = () => {
         <SandboxPostDeployBanner />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full ${isLite ? 'grid-cols-2' : 'grid-cols-3'}`}>
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -570,10 +572,12 @@ const Inventory = () => {
               <Package className="h-4 w-4" />
               <span>Items</span>
             </TabsTrigger>
-            <TabsTrigger value="pricing" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span>Genius</span>
-            </TabsTrigger>
+            {!isLite && (
+              <TabsTrigger value="pricing" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                <span>Genius</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="count" className="mt-4 space-y-4">
@@ -597,10 +601,12 @@ const Inventory = () => {
             <InventoryItemsManager locationId={locationId!} mode="items" />
           </TabsContent>
 
-          <TabsContent value="pricing" className="mt-4 space-y-4">
-            <MenuPricingCard locationId={locationId!} />
-            <RecipeGeniusCard locationId={locationId!} />
-          </TabsContent>
+          {!isLite && (
+            <TabsContent value="pricing" className="mt-4 space-y-4">
+              <MenuPricingCard locationId={locationId!} />
+              <RecipeGeniusCard locationId={locationId!} />
+            </TabsContent>
+          )}
 
         </Tabs>
       </div>
