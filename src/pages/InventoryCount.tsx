@@ -30,6 +30,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { useInventoryMode } from "@/hooks/useInventoryMode";
+import LiteInventoryCountPage from "./LiteInventoryCount";
+
 const InventoryCount = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSaveExitDialog, setShowSaveExitDialog] = useState(false);
@@ -41,6 +44,22 @@ const InventoryCount = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin: isAdminRole } = useUserRole();
+  const { isLite, isLoading: modeLoading } = useInventoryMode(locationId);
+
+  // Lite locations get an entirely separate count page — no Brand tables,
+  // no Actual vs Theo tab, no delivery reconciliation. Mode is immutable
+  // after location creation so this branch never flips mid-session.
+  if (modeLoading) {
+    return (
+      <Layout>
+        <div className="p-4 md:p-6 flex items-center justify-center min-h-[50vh]">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
+  if (isLite) return <LiteInventoryCountPage />;
+
   
   // Check if edit or continue mode from query param
   const editMode = searchParams.get("edit") === "true";
