@@ -178,9 +178,10 @@ serve(async (req) => {
     // Load existing Lite items for this location.
     const { data: liteItems } = await admin
       .from("lite_inventory_items")
-      .select("id, name, item_number, vendor_name_normalized, cost_per_unit")
+      .select("id, name, item_number, vendor_name_normalized, cost_per_unit, pack_size")
       .eq("location_id", invoice.location_id)
       .eq("is_active", true);
+
 
     const normalizedVendor = normalizeKey(parsed.vendor_name);
 
