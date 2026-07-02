@@ -106,4 +106,9 @@ verify_jwt = false
 [functions.pack-selection-backfill]
 verify_jwt = false
 
+[functions.parse-vendor-invoice-lite]
+verify_jwt = true
+
+
+
 

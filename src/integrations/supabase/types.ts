@@ -3731,7 +3731,6 @@ export type Database = {
           linked_item_id: string | null
           location_id: string | null
           manually_activated: boolean
-          match_status: string | null
           name: string
           pa_item_id: string | null
           pack_quantity: number | null
@@ -3748,7 +3747,6 @@ export type Database = {
           unit: string
           updated_at: string
           user_hidden: boolean
-          vendor_name_normalized: string | null
           vendor_source: string | null
         }
         Insert: {
@@ -3782,7 +3780,6 @@ export type Database = {
           linked_item_id?: string | null
           location_id?: string | null
           manually_activated?: boolean
-          match_status?: string | null
           name: string
           pa_item_id?: string | null
           pack_quantity?: number | null
@@ -3799,7 +3796,6 @@ export type Database = {
           unit?: string
           updated_at?: string
           user_hidden?: boolean
-          vendor_name_normalized?: string | null
           vendor_source?: string | null
         }
         Update: {
@@ -3833,7 +3829,6 @@ export type Database = {
           linked_item_id?: string | null
           location_id?: string | null
           manually_activated?: boolean
-          match_status?: string | null
           name?: string
           pa_item_id?: string | null
           pack_quantity?: number | null
@@ -3850,7 +3845,6 @@ export type Database = {
           unit?: string
           updated_at?: string
           user_hidden?: boolean
-          vendor_name_normalized?: string | null
           vendor_source?: string | null
         }
         Relationships: [
@@ -5877,6 +5871,182 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lite_inventory_items: {
+        Row: {
+          cost_per_unit: number | null
+          created_at: string
+          id: string
+          is_active: boolean
+          item_number: string | null
+          location_id: string
+          match_status: string
+          name: string
+          unit: string | null
+          updated_at: string
+          vendor_name_normalized: string | null
+        }
+        Insert: {
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_number?: string | null
+          location_id: string
+          match_status?: string
+          name: string
+          unit?: string | null
+          updated_at?: string
+          vendor_name_normalized?: string | null
+        }
+        Update: {
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_number?: string | null
+          location_id?: string
+          match_status?: string
+          name?: string
+          unit?: string | null
+          updated_at?: string
+          vendor_name_normalized?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lite_inventory_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lite_vendor_invoice_items: {
+        Row: {
+          candidate_item_id: string | null
+          created_at: string
+          fuzzy_score: number | null
+          id: string
+          invoice_id: string
+          item_number: string | null
+          match_status: string
+          matched_item_id: string | null
+          product_name: string
+          quantity: number | null
+          total_price: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          candidate_item_id?: string | null
+          created_at?: string
+          fuzzy_score?: number | null
+          id?: string
+          invoice_id: string
+          item_number?: string | null
+          match_status: string
+          matched_item_id?: string | null
+          product_name: string
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          candidate_item_id?: string | null
+          created_at?: string
+          fuzzy_score?: number | null
+          id?: string
+          invoice_id?: string
+          item_number?: string | null
+          match_status?: string
+          matched_item_id?: string | null
+          product_name?: string
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lite_vendor_invoice_items_candidate_item_id_fkey"
+            columns: ["candidate_item_id"]
+            isOneToOne: false
+            referencedRelation: "lite_inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lite_vendor_invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "lite_vendor_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lite_vendor_invoice_items_matched_item_id_fkey"
+            columns: ["matched_item_id"]
+            isOneToOne: false
+            referencedRelation: "lite_inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lite_vendor_invoices: {
+        Row: {
+          created_at: string
+          delivery_date: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          location_id: string
+          parsed_at: string | null
+          status: string
+          storage_path: string | null
+          total_amount: number | null
+          updated_at: string
+          uploaded_by: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          location_id: string
+          parsed_at?: string | null
+          status?: string
+          storage_path?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          location_id?: string
+          parsed_at?: string | null
+          status?: string
+          storage_path?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lite_vendor_invoices_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -10868,7 +11038,6 @@ export type Database = {
       }
       vendor_invoice_items: {
         Row: {
-          candidate_item_id: string | null
           created_at: string
           id: string
           invoice_id: string
@@ -10883,7 +11052,6 @@ export type Database = {
           unit_price: number | null
         }
         Insert: {
-          candidate_item_id?: string | null
           created_at?: string
           id?: string
           invoice_id: string
@@ -10898,7 +11066,6 @@ export type Database = {
           unit_price?: number | null
         }
         Update: {
-          candidate_item_id?: string | null
           created_at?: string
           id?: string
           invoice_id?: string
@@ -10913,13 +11080,6 @@ export type Database = {
           unit_price?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "vendor_invoice_items_candidate_item_id_fkey"
-            columns: ["candidate_item_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_items"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "vendor_invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]

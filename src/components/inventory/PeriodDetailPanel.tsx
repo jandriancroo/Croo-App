@@ -32,6 +32,8 @@ import { calculateCountItemValue } from "@/utils/countItemValue";
 import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
 // VarianceReport moved to Review screen tabs (InventoryCountView → Actual vs Theo).
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
+import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
+import { useInventoryMode } from "@/hooks/useInventoryMode";
 import SalesDateEditor from "./SalesDateEditor";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
@@ -52,6 +54,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const _stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
+  const { isLite } = useInventoryMode(locationId);
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [showInvoiceUpload, setShowInvoiceUpload] = useState(false);
   const [realCountId, setRealCountId] = useState<string | null>(null);
@@ -890,12 +893,20 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         </DialogContent>
       </Dialog>
 
-      <InvoiceUploadDialog
-        open={showInvoiceUpload}
-        onOpenChange={setShowInvoiceUpload}
-        locationId={locationId}
-        countId={realCountId || count.id}
-      />
+      {isLite ? (
+        <LiteInvoiceUploadDialog
+          open={showInvoiceUpload}
+          onOpenChange={setShowInvoiceUpload}
+          locationId={locationId}
+        />
+      ) : (
+        <InvoiceUploadDialog
+          open={showInvoiceUpload}
+          onOpenChange={setShowInvoiceUpload}
+          locationId={locationId}
+          countId={realCountId || count.id}
+        />
+      )}
     </motion.div>
   );
 }
