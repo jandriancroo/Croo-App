@@ -593,20 +593,27 @@ const Inventory = () => {
 
 
           <TabsContent value="count" className="mt-4 space-y-4">
-            <SandboxCountsPanel locationId={locationId!} />
-            <InventoryCountTab
-              locationId={locationId!}
-              inProgressCount={inProgressCount}
-              recentCounts={recentCounts}
-              onStartCount={handleStartCount}
-              onDeleteCount={handleDeleteClick}
-              onCreateCountForPeriod={(periodType, periodEndDate) => {
-                setPreselectedPeriod({ type: periodType, endDate: periodEndDate });
-                setShowStartDialog(true);
-              }}
-              onStartDailyCount={() => setShowDailyCount(true)}
-            />
+            {isLite ? (
+              <LiteCountTab locationId={locationId!} timezone={timezone} />
+            ) : (
+              <>
+                <SandboxCountsPanel locationId={locationId!} />
+                <InventoryCountTab
+                  locationId={locationId!}
+                  inProgressCount={inProgressCount}
+                  recentCounts={recentCounts}
+                  onStartCount={handleStartCount}
+                  onDeleteCount={handleDeleteClick}
+                  onCreateCountForPeriod={(periodType, periodEndDate) => {
+                    setPreselectedPeriod({ type: periodType, endDate: periodEndDate });
+                    setShowStartDialog(true);
+                  }}
+                  onStartDailyCount={() => setShowDailyCount(true)}
+                />
+              </>
+            )}
           </TabsContent>
+
 
 
           <TabsContent value="items" className="mt-4 space-y-4">
