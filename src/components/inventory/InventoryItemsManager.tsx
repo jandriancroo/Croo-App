@@ -1106,7 +1106,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <InventoryScheduleSettings locationId={locationId} />
 
-        {(pfgIntegration || paIntegration) && (
+        {!isLite && (pfgIntegration || paIntegration) && (
           <Card>
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-2 font-semibold text-sm">
