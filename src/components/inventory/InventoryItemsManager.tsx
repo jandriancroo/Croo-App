@@ -86,6 +86,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const { user } = useAuth();
   const { timezone } = useLocationTimezone(locationId);
   const { canEditCategories, canTriggerSync } = useInventoryPermissions();
+  const { isLite } = useInventoryMode(locationId);
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
   const [isDailyTracked, setIsDailyTracked] = useState(false);
