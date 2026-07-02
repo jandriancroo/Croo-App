@@ -1,227 +1,143 @@
-# Inventory Lite — Isolation Rebuild (Dry Run)
+# Sprint A — Lite Inventory Counts (Dry Run)
 
-Goal: **Lite stops touching Brand-governed tables entirely.** `locations`, `organizations`, and the stateless AI vision call remain shared; everything else forks.
+Goal: make `/inventory/{loc}/count/{countId}` work end-to-end for Lite locations, without touching any Brand-governed table. Same isolation standard as the Phase 2 rebuild — everything Lite-specific lives under `lite_*`.
 
----
+## Scope changes from the gap list
 
-## Step 1 — Revert Brand-shared changes
-
-### 1a. Restore governance triggers
-
-Reset both functions to their pre-Lite bodies (no `loc_mode` lookup, no Lite branch).
-
-```sql
--- enforce_inventory_item_brand_link — pre-Lite
-CREATE OR REPLACE FUNCTION public.enforce_inventory_item_brand_link()
-RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $$
-BEGIN
-  IF NEW.is_active = true AND NEW.brand_item_id IS NULL THEN
-    RAISE EXCEPTION
-      'inventory_items.brand_item_id is required when is_active = true (Brand Catalog governance: row %, name %)',
-      NEW.id, NEW.name
-      USING ERRCODE = 'check_violation';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
--- trg_validate_active_brand_link — pre-Lite
-CREATE OR REPLACE FUNCTION public.trg_validate_active_brand_link()
-RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $$
-DECLARE tmpl_status text;
-BEGIN
-  IF NEW.is_active = true THEN
-    IF NEW.brand_item_id IS NULL THEN
-      RAISE EXCEPTION 'Active inventory items must have a brand_item_id';
-    END IF;
-    SELECT status INTO tmpl_status FROM public.brand_inventory_templates WHERE id = NEW.brand_item_id;
-    IF tmpl_status IS NULL THEN
-      RAISE EXCEPTION 'Active inventory item % references a missing brand template %', NEW.id, NEW.brand_item_id;
-    END IF;
-    IF tmpl_status <> 'live' THEN
-      RAISE EXCEPTION 'Cannot activate inventory_item % — brand template % is %, not live', NEW.id, NEW.brand_item_id, tmpl_status;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-```
-
-### 1b. Drop the three Lite-added columns
-
-```sql
-ALTER TABLE public.inventory_items       DROP COLUMN IF EXISTS vendor_name_normalized;
-ALTER TABLE public.inventory_items       DROP COLUMN IF EXISTS match_status;
-ALTER TABLE public.vendor_invoice_items  DROP COLUMN IF EXISTS candidate_item_id;
-```
-
-**Important call-out:** `vendor_invoice_items.match_status` **stays** — it predates Lite and is written by the Brand parser (values: `matched`, `matched_brand`, `unmatched`) and read by `InvoiceUploadDialog.tsx`. Only `candidate_item_id` was added for Lite.
-
-### 1c. Delete Lite QA smoke rows
-
-```sql
-DELETE FROM public.vendor_invoice_items WHERE invoice_id = '9a5c1e00-2222-4000-8000-000000000001';
-DELETE FROM public.vendor_invoices      WHERE id         = '9a5c1e00-2222-4000-8000-000000000001';
-DELETE FROM public.inventory_items      WHERE location_id = '9a5c1e00-0000-4000-8000-000000000002';
--- Also delete the negative-test row from Hemet that raised (row was rejected but I'll double-check)
-DELETE FROM public.inventory_items      WHERE name = '__NEGATIVE_TEST_SHOULD_FAIL__';
-```
-
-### 1d. Evidence
-
-- **Diff:** side-by-side of both triggers' current body vs restored body.
-- **Negative test rerun** on Hemet (production, brand-mode): insert active item without `brand_item_id` → confirm `enforce_inventory_item_brand_link` still raises.
-- **Production-store row-count parity:** `SELECT count(*)` on `inventory_items` and `vendor_invoice_items` for Hemet, Sparks, South Meadows, Palm Springs, Palm Desert before/after — expect zero delta.
+- **AvT tab is a scope leak, not a future sprint.** Gate it off for Lite mode alongside Genius / PFG-sync empty states. Remove from roadmap.
+- **Storage locations are single-assignment.** Nullable `storage_id` column on `lite_inventory_items`. No join table. Multi-storage can come later if ever needed.
 
 ---
 
-## Step 2 — Isolated Lite schema
+## 1. Database — one migration, four steps
 
-Fully separate tables, RLS + GRANTs, no FKs to any Brand-governance table, no triggers copied from Brand.
-
-```sql
--- lite_inventory_items
-CREATE TABLE public.lite_inventory_items (
-  id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  location_id            uuid NOT NULL REFERENCES public.locations(id) ON DELETE CASCADE,
-  name                   text NOT NULL,
-  item_number            text,
-  vendor_name_normalized text,
-  unit                   text,
-  cost_per_unit          numeric(12,4) DEFAULT 0,
-  is_active              boolean NOT NULL DEFAULT true,
-  match_status           text NOT NULL DEFAULT 'new',   -- matched | fuzzy | new
-  created_at             timestamptz NOT NULL DEFAULT now(),
-  updated_at             timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ON public.lite_inventory_items (location_id);
-CREATE INDEX ON public.lite_inventory_items (location_id, vendor_name_normalized, item_number);
-CREATE INDEX ON public.lite_inventory_items (location_id, lower(name));
-
--- lite_vendor_invoices
-CREATE TABLE public.lite_vendor_invoices (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  location_id     uuid NOT NULL REFERENCES public.locations(id) ON DELETE CASCADE,
-  vendor_name     text,
-  invoice_number  text,
-  invoice_date    date,
-  delivery_date   date,
-  total_amount    numeric(12,2),
-  status          text NOT NULL DEFAULT 'parsed',
-  storage_path    text,
-  parsed_at       timestamptz,
-  uploaded_by     uuid,
-  created_at      timestamptz NOT NULL DEFAULT now(),
-  updated_at      timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ON public.lite_vendor_invoices (location_id, invoice_date DESC);
-
--- lite_vendor_invoice_items
-CREATE TABLE public.lite_vendor_invoice_items (
-  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_id         uuid NOT NULL REFERENCES public.lite_vendor_invoices(id) ON DELETE CASCADE,
-  product_name       text NOT NULL,
-  item_number        text,
-  quantity           numeric(12,4),
-  unit               text,
-  unit_price         numeric(12,4),
-  total_price        numeric(12,2),
-  match_status       text NOT NULL,                                       -- matched | fuzzy | new
-  matched_item_id    uuid REFERENCES public.lite_inventory_items(id) ON DELETE SET NULL,
-  candidate_item_id  uuid REFERENCES public.lite_inventory_items(id) ON DELETE SET NULL,
-  fuzzy_score        numeric(4,3),
-  created_at         timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ON public.lite_vendor_invoice_items (invoice_id);
-CREATE INDEX ON public.lite_vendor_invoice_items (matched_item_id);
-
--- GRANTs (required)
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.lite_inventory_items       TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.lite_vendor_invoices       TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.lite_vendor_invoice_items  TO authenticated;
-GRANT ALL ON public.lite_inventory_items      TO service_role;
-GRANT ALL ON public.lite_vendor_invoices      TO service_role;
-GRANT ALL ON public.lite_vendor_invoice_items TO service_role;
-
--- RLS: mirror the location-scoped pattern used by Brand vendor_invoices
-ALTER TABLE public.lite_inventory_items       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lite_vendor_invoices       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lite_vendor_invoice_items  ENABLE ROW LEVEL SECURITY;
-
--- Policies: user must have access to the location (has_location_access(auth.uid(), location_id))
--- Full policy text in the migration.
-
--- updated_at triggers (local, not brand governance)
-CREATE TRIGGER lite_inventory_items_updated_at BEFORE UPDATE ON public.lite_inventory_items
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE TRIGGER lite_vendor_invoices_updated_at BEFORE UPDATE ON public.lite_vendor_invoices
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-```
-
-**Zero Brand-governance surface:** no `brand_item_id`, no `matched_template_id`, no `enforce_inventory_item_brand_link` trigger, no `trg_validate_active_brand_link` trigger, no FK to `brand_inventory_templates` / `brand_pack_configs` / `vendor_gap_alerts`.
-
----
-
-## Step 3 — Edge function fork
-
-### 3a. Extract shared AI vision helper
-
-New file `supabase/functions/_shared/invoice-ai.ts` exporting `extractInvoiceFromImage(base64, mime) → ParsedInvoice`. Currently the Gemini call lives inline in `parse-vendor-invoice/index.ts` — move it out. Brand parser imports it. **No matching logic moves — only the vision call.**
-
-### 3b. Restore `parse-vendor-invoice` (Brand) to pre-Lite
-
-Strip lines 236–402 (the Lite branch + `inventory_mode` lookup). File becomes byte-identical to its pre-Phase-1 state except for the extracted-helper import. Verified by diff against Phase-1 baseline.
-
-### 3c. Create `parse-vendor-invoice-lite`
-
-Same request/response contract as Brand parser (`storagePath`, `locationId`, preview + confirm flow). Uses the shared helper for extraction. Matching cascade queries and writes exclusively `lite_*`:
+Order matters: storages exist before items reference them, items exist before counts snapshot them.
 
 ```text
-per line item:
-  1. composite: lite_inventory_items where location_id=$ and vendor_name_normalized=$ and item_number=$
-  2. exact:     lite_inventory_items where location_id=$ and lower(name)=lower($)
-  3. fuzzy:     pg_trgm similarity >= FUZZY_MATCH_THRESHOLD (0.7)  → candidate_item_id, match_status='fuzzy'
-  4. auto-create in lite_inventory_items, match_status='new'
-insert into lite_vendor_invoice_items
+lite_storage_locations
+        │
+        ▼ (nullable FK)
+lite_inventory_items ──────┐
+                           │
+                           ▼
+                lite_inventory_counts
+                           │
+                           ▼
+             lite_inventory_count_items
+             (snapshots cost + storage at count time)
 ```
 
-No touch to `inventory_items`, `vendor_invoice_items`, `brand_*`, `vendor_gap_alerts`, or any governance trigger surface.
+### 1a. `lite_storage_locations`
+- `id`, `location_id → locations`, `name`, `sort_order int`, `is_active bool default true`, timestamps
+- Unique `(location_id, lower(name))` to prevent dupes
+- RLS: `has_location_access(auth.uid(), location_id)` on all four verbs
+- GRANTs: `authenticated` + `service_role`
+
+### 1b. Add columns to `lite_inventory_items`
+- `storage_id uuid null references lite_storage_locations(id) on delete set null`
+- No backfill — existing items sit in "Unassigned" bucket until moved
+- Index on `(location_id, storage_id)` for count-session grouping
+
+### 1c. `lite_inventory_counts`
+- `id`, `location_id`, `period_start date`, `period_end date`, `status text default 'draft'` (`draft` | `submitted`), `submitted_by`, `submitted_at`, `created_by`, timestamps
+- Unique `(location_id, period_end)` — one weekly count per location per week
+- RLS + GRANTs same pattern as above
+
+### 1d. `lite_inventory_count_items`
+- `id`, `count_id → lite_inventory_counts on delete cascade`, `item_id → lite_inventory_items on delete restrict`
+- `quantity numeric(12,3)`, `unit_value_at_count numeric(12,4)`, `storage_id_at_count uuid null`, `counted_by`, `counted_at`, timestamps
+- Unique `(count_id, item_id)` — one row per item per count
+- Snapshot fields (`unit_value_at_count`, `storage_id_at_count`) are the immutability guarantee — same principle as `cost_at_count` on Brand
+- RLS + GRANTs
+
+**Non-negotiable:** every CREATE TABLE followed by GRANTs, then RLS enable, then policies. Same four-step structure Phase 2 used.
 
 ---
 
-## Step 4 — Frontend rewiring
+## 2. Archive/unarchive (item #1)
 
-- New `LiteInvoiceUploadDialog.tsx` (fork of `InvoiceUploadDialog.tsx`) — queries `lite_vendor_invoices` / `lite_vendor_invoice_items`, invokes `parse-vendor-invoice-lite`.
-- `Inventory.tsx` / `InventoryItemsManager.tsx`: when `useInventoryMode(locationId).isLite`, render the Lite dialog and a Lite items list backed by `lite_inventory_items`. Brand mode continues to use the existing dialog and tables.
-- `useInventoryMode` hook unchanged (already reads `locations.inventory_mode`).
+- Add "Archive" action to `LiteInventoryItemsList` row menu → `update({ is_active: false })`
+- Add "Include archived" toggle at top of list — when off (default), keep existing `.eq("is_active", true)` filter
+- Archived items are excluded from count sessions automatically
 
----
-
-## Evidence before merge
-
-1. **Trigger revert proof:**
-   - `pg_get_functiondef` output for both functions matches pre-Lite bodies verbatim.
-   - Negative test on Hemet: insert active item without `brand_item_id` → raises `enforce_inventory_item_brand_link` error.
-2. **Column revert proof:** `information_schema.columns` shows the 3 columns are gone; production row counts unchanged on all 5 stores.
-3. **Isolation proof:**
-   - `SELECT conname, confrelid::regclass FROM pg_constraint WHERE conrelid IN ('lite_inventory_items','lite_vendor_invoices','lite_vendor_invoice_items'::regclass) AND contype='f'` → shows FKs only to `locations` and other `lite_*` tables.
-   - `SELECT tgname FROM pg_trigger WHERE tgrelid = 'lite_inventory_items'::regclass` → shows only `updated_at`, no governance triggers.
-4. **Cascade proof:** re-run 4-branch smoke against `lite_*` tables. Report row counts + `match_status` distribution identical in shape to Phase 1.
-5. **Cross-contamination scan:**
-   `rg -n "inventory_items|vendor_invoice_items|brand_|vendor_gap_alerts" supabase/functions/parse-vendor-invoice-lite/ src/components/inventory/LiteInvoiceUploadDialog.tsx` → expect zero hits on Brand-governed table names (only `lite_*`, `locations`, `organizations`).
+No schema change — column already exists.
 
 ---
 
-## What is NOT changing
+## 3. Storage locations UI
 
-- Brand parser matching logic
-- Brand governance triggers (post-revert)
-- `locations`, `organizations`, `useInventoryMode`, guards on Genius tab / Vendor Sync / Deploy wizard (all Phase 1 wins)
-- Gemini vision prompt (moves file, keeps content)
+- New settings screen: `LiteStorageLocationsManager` — list + add/rename/reorder/archive
+- Per-item picker: single `<Select>` on the item row (or in an edit sheet) writing `storage_id`
+- "Unassigned" is a virtual bucket rendered when `storage_id IS NULL`, always sorts last
 
-## Risks & mitigations
+---
 
-- **Types regen:** dropping columns will regen `src/integrations/supabase/types.ts` and could break Brand components that reference the dropped columns. Only `match_status` on `vendor_invoice_items` has Brand consumers, and we're keeping that one. `vendor_name_normalized`, `match_status` on `inventory_items`, and `candidate_item_id` on `vendor_invoice_items` are Lite-only in current code — dropping is safe.
-- **Storage bucket:** invoice uploads currently land in the existing `vendor-invoices` bucket. Lite will reuse the same bucket (path scoped by `location_id`); no new bucket needed.
+## 4. Count session (item #5)
 
-Awaiting approval before touching anything.
+New component: `LiteCountSession` (mirrors Brand `InventoryCountSession` conceptually, isolated code).
+
+- Route detection: in `InventoryCount.tsx`, branch on `useInventoryMode(locationId).isLite` → render `LiteCountSession`
+- Reads active `lite_inventory_items` for the location, groups by `storage_id` (joined to `lite_storage_locations.name`), Unassigned last
+- Per-row quantity input; on blur/enter, upsert into `lite_inventory_count_items` with `unit_value_at_count = item.cost_per_unit` and `storage_id_at_count = item.storage_id` (snapshot at write time)
+- Progress = counted rows / total active rows
+- Total Value = Σ(qty × unit_value_at_count)
+- Submit: `update lite_inventory_counts set status='submitted', submitted_by, submitted_at`
+- Continue Counting: navigates back to the session with `?continue=true`
+
+Snapshot rule: once a row is written, editing quantity leaves `unit_value_at_count` and `storage_id_at_count` alone. If cost or storage on the item changes later, the count row keeps what was true when it was counted. Matches every other snapshot table (`inventory_count_items.cost_at_count`, invoice line vs item pack_size split we shipped tonight).
+
+---
+
+## 5. Count creation entry point
+
+- `Inventory.tsx` "New Count" button — when Lite, insert into `lite_inventory_counts` (period = current week Sun–Sat, `America/Los_Angeles`) and navigate to `/inventory/{loc}/count/{id}`
+- Brand path unchanged
+
+---
+
+## 6. AvT tab gate
+
+- In the Lite inventory shell, hide the "Actual vs Theo" tab entirely — same pattern as the Genius tab hide for Lite
+- If someone reaches the route directly, render the Lite empty state ("Actual vs Theo needs recipes — available in Brand Mode.")
+- Remove from any Lite settings/roadmap surface
+
+---
+
+## 7. Files touched
+
+**New**
+- Migration (all schema in one file)
+- `src/components/inventory/LiteStorageLocationsManager.tsx`
+- `src/components/inventory/LiteCountSession.tsx`
+- `src/hooks/useLiteCount.ts` (data hook for session state)
+
+**Edited**
+- `src/pages/InventoryCount.tsx` — Lite branch
+- `src/pages/Inventory.tsx` — Lite "New Count" insert path, hide AvT tab
+- `src/components/inventory/LiteInventoryItemsList.tsx` — archive action, storage picker column, "include archived" toggle
+
+**Untouched**
+- All Brand tables and components
+- `parse-vendor-invoice-lite` edge function (unless we tack fee-filter on separately in Sprint B)
+- `useInventoryMode`
+
+---
+
+## 8. Verification before shipping
+
+- Migration diff: only new `lite_*` tables + one column on `lite_inventory_items`; no ALTER on any Brand table
+- `SELECT conname, confrelid::regclass FROM pg_constraint WHERE conrelid::regclass::text LIKE 'lite_%' AND contype='f'` → FKs only point at `locations` or other `lite_*` tables
+- Grep proof: `rg "inventory_items|inventory_counts|inventory_count_items" src/components/inventory/Lite*` returns zero hits on Brand names
+- Manual smoke on `5ce2f74e…` (Lite): create 2 storages, assign 5 items across them + leave 3 unassigned, start count, enter quantities, submit → row count and totals match hand math
+- Brand-store regression: create + submit a count on a Brand location (e.g. Hemet) → unchanged flow
+
+---
+
+## Out of scope for Sprint A (explicit)
+
+- Fee-line filter + duplicate collapse (Sprint B)
+- Categories (Sprint B, if wanted — text column, not a table)
+- Waste/transfers/usage rates (not planned)
+- AvT for Lite (removed from roadmap)
+- Multi-storage per item (may never happen)
+- `lite_inventory_count_item_legs` (per-storage split counts — defer until asked for)
