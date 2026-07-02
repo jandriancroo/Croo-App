@@ -1592,6 +1592,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 );
               })()}
             </div>
+          ) : isLite ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+              <Package className="h-8 w-8 text-muted-foreground/60" />
+              <p className="text-muted-foreground text-sm max-w-sm">
+                No items yet. Upload a vendor invoice to import items, prices, and pack sizes automatically.
+              </p>
+              <Button onClick={() => setShowLiteUploadDialog(true)} className="gap-2">
+                <Package className="h-4 w-4" />
+                Upload Invoice
+              </Button>
+            </div>
           ) : (
             <p className="text-muted-foreground text-center py-4">
               No items yet. Click "Sync with PFG" to import.
