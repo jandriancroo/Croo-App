@@ -185,6 +185,7 @@ function InvoiceDetailSheet({
   invoice: LiteInvoice | null;
   onClose: () => void;
 }) {
+  const qc = useQueryClient();
   const { data: lines, isLoading } = useQuery({
     queryKey: ["lite-invoice-lines", invoice?.id],
     enabled: !!invoice,
@@ -192,7 +193,7 @@ function InvoiceDetailSheet({
       const { data, error } = await supabase
         .from("lite_vendor_invoice_items" as any)
         .select(
-          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status"
+          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status, matched_item_id, candidate_item_id"
         )
         .eq("invoice_id", invoice!.id)
         .order("product_name");
@@ -200,6 +201,47 @@ function InvoiceDetailSheet({
       return (data as any) || [];
     },
   });
+
+  /**
+   * Save pack_size on an invoice line. If the line is matched (or has a
+   * candidate) to a lite_inventory_items row that is currently empty, backfill
+   * that item's pack_size too — same forward-flow behavior as the parser's
+   * initial match. Existing item pack_sizes are NEVER overwritten from here
+   * (Items list edit is the tool for correcting a stale current value).
+   */
+  const savePackSize = async (line: LiteInvoiceLine, next: string | null) => {
+    const { error } = await supabase
+      .from("lite_vendor_invoice_items" as any)
+      .update({ pack_size: next })
+      .eq("id", line.id);
+    if (error) {
+      toast.error("Couldn't save pack size", { description: error.message });
+      throw error;
+    }
+
+    const itemId = line.matched_item_id || line.candidate_item_id;
+    if (itemId && next) {
+      const { data: item } = await supabase
+        .from("lite_inventory_items" as any)
+        .select("id, pack_size")
+        .eq("id", itemId)
+        .maybeSingle();
+      if (item && !(item as any).pack_size) {
+        await supabase
+          .from("lite_inventory_items" as any)
+          .update({ pack_size: next })
+          .eq("id", itemId);
+        qc.invalidateQueries({ queryKey: ["lite-inventory-items"] });
+      }
+    }
+
+    qc.setQueryData<LiteInvoiceLine[]>(
+      ["lite-invoice-lines", invoice!.id],
+      (prev) => prev?.map((l) => (l.id === line.id ? { ...l, pack_size: next } : l)) || prev,
+    );
+    toast.success(next ? "Pack size saved" : "Pack size cleared");
+  };
+
 
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const openPdf = async () => {
