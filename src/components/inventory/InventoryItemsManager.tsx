@@ -29,6 +29,7 @@ import type { PanSizesConfig } from "./PanSizesSection";
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import ShortcutConfigSheet from "./ShortcutConfigSheet";
 import StorageLocationManager from "./StorageLocationManager";
+import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import { fetchBlueprintCosts, getBlueprintUnitCost } from "@/utils/blueprintCostCalculation";
 import { fetchBlueprintsForLocation } from "@/utils/resolveBrandId";
@@ -132,6 +133,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [searchQuery, setSearchQuery] = useState("");
   const [selectionContext, setSelectionContext] = useState<'active' | 'deactivated' | null>(null);
   const [deactivatedCollapsed, setDeactivatedCollapsed] = useState(false);
+  const [showLiteUploadDialog, setShowLiteUploadDialog] = useState(false);
 
   // Optimistic reorder state: maps storageLocId -> ordered item id list
   const [optimisticOrder, setOptimisticOrder] = useState<Record<string, string[]>>({});
@@ -1590,6 +1592,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 );
               })()}
             </div>
+          ) : isLite ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+              <Package className="h-8 w-8 text-muted-foreground/60" />
+              <p className="text-muted-foreground text-sm max-w-sm">
+                No items yet. Upload a vendor invoice to import items, prices, and pack sizes automatically.
+              </p>
+              <Button onClick={() => setShowLiteUploadDialog(true)} className="gap-2">
+                <Package className="h-4 w-4" />
+                Upload Invoice
+              </Button>
+            </div>
           ) : (
             <p className="text-muted-foreground text-center py-4">
               No items yet. Click "Sync with PFG" to import.
@@ -2368,6 +2381,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             </Button>
           </div>
         </div>
+      )}
+
+      {isLite && (
+        <LiteInvoiceUploadDialog
+          open={showLiteUploadDialog}
+          onOpenChange={setShowLiteUploadDialog}
+          locationId={locationId}
+        />
       )}
     </>
   );
