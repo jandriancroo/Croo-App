@@ -78,6 +78,19 @@ serve(async (req) => {
       return null;
     };
 
+    // Deterministic ID for items with no vendor SKU (used by both Brand and Lite paths).
+    function generateItemId(vendorName: string, productName: string): string {
+      const slug = (vendorName || "unknown").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
+      let hash = 0;
+      const normalized = productName.toLowerCase().trim();
+      for (let i = 0; i < normalized.length; i++) {
+        hash = ((hash << 5) - hash + normalized.charCodeAt(i)) | 0;
+      }
+      const hexHash = Math.abs(hash).toString(16).slice(0, 6);
+      return `INV-${slug}-${hexHash}`;
+    }
+
+
     // Call Lovable AI with vision to extract line items
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
