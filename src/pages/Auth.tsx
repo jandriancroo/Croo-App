@@ -166,6 +166,7 @@ export default function Auth() {
         onTouchEnd={onTouchEnd}
         className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10"
       >
+        <PWAInstallTutorial />
         <Card className="w-full max-w-md shadow-2xl border-2 bg-card/80 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
           <CardHeader className="text-center pb-0 pt-8 space-y-0.5">
             {/* Croo branding — now inside the card */}
