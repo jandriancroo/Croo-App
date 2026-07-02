@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.webp';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
+import { PWAInstallTutorial } from '@/components/PWAInstallTutorial';
 import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
 import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
 import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
@@ -166,6 +167,7 @@ export default function Auth() {
         onTouchEnd={onTouchEnd}
         className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10"
       >
+        <PWAInstallTutorial />
         <Card className="w-full max-w-md shadow-2xl border-2 bg-card/80 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
           <CardHeader className="text-center pb-0 pt-8 space-y-0.5">
             {/* Croo branding — now inside the card */}

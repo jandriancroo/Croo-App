@@ -19,7 +19,7 @@ import { useForceReload } from "@/hooks/useForceReload";
 import { AppSplashScreen } from "@/components/AppSplashScreen";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { usePrefetchDashboard } from "@/hooks/usePrefetchDashboard";
-import { PWAInstallTutorial } from "@/components/PWAInstallTutorial";
+
 
 // Critical routes - loaded eagerly (auth flow)
 import Auth from "./pages/Auth";
@@ -146,7 +146,7 @@ const AppWithSplash = () => {
       <ForceReloadHandler />
       {showSplash && <AppSplashScreen onComplete={handleSplashComplete} />}
       <AppContent />
-      <PWAInstallTutorial />
+      
     </>
   );
 };
