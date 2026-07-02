@@ -115,8 +115,16 @@ export async function extractInvoiceFromImage(
         {
           role: "user",
           content: [
-            { type: "image_url", image_url: { url: `data:${contentType};base64,${base64Image}` } },
-            { type: "text", text: "Parse this invoice. Extract all line items and invoice metadata." },
+            contentType.includes("pdf")
+              ? {
+                  type: "file",
+                  file: {
+                    filename: "invoice.pdf",
+                    file_data: `data:${contentType};base64,${base64Image}`,
+                  },
+                }
+              : { type: "image_url", image_url: { url: `data:${contentType};base64,${base64Image}` } },
+            { type: "text", text: "Parse this invoice. Extract all line items and invoice metadata. For pack_size, look carefully at the rightmost columns for a 'Pack UM' or 'Pack/Size' column — values look like '10/12 CT', '6/5 LB BAG', '136 / 4 OZ EA'. Read every line." },
           ],
         },
       ],
