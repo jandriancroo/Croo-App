@@ -27,6 +27,8 @@ import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import LiteInventoryItemsList from "@/components/inventory/LiteInventoryItemsList";
 import LiteInvoicesList from "@/components/inventory/LiteInvoicesList";
+import LiteCountTab from "@/components/inventory/LiteCountTab";
+import LiteStorageLocationsManager from "@/components/inventory/LiteStorageLocationsManager";
 
 import SandboxCountsPanel from "@/components/inventory/SandboxCountsPanel";
 import { SandboxPostDeployBanner } from "@/components/inventory/SandboxPostDeployBanner";
