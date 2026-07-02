@@ -62,10 +62,18 @@ export function OvationReviewsCube() {
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const scrollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get brand_id from organization
+  // Get brand_id — prefer locations.brand_id, fall back to org
   const { data: brandId } = useQuery({
-    queryKey: ['org-brand-id', organizationId],
+    queryKey: ['location-brand-id', currentLocation?.id, organizationId],
     queryFn: async () => {
+      if (currentLocation?.id) {
+        const { data: loc } = await supabase
+          .from('locations')
+          .select('brand_id')
+          .eq('id', currentLocation.id)
+          .maybeSingle();
+        if ((loc as any)?.brand_id) return (loc as any).brand_id as string;
+      }
       if (!organizationId) return null;
       const { data } = await supabase
         .from('organizations')
@@ -74,9 +82,10 @@ export function OvationReviewsCube() {
         .single();
       return data?.brand_id || null;
     },
-    enabled: !!organizationId,
+    enabled: !!organizationId || !!currentLocation?.id,
     staleTime: 60 * 60 * 1000,
   });
+
 
 
   // Fetch reviews for the current location

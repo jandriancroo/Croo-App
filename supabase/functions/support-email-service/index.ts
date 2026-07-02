@@ -363,15 +363,18 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     return new Response(JSON.stringify({ error: "Location not found", success: false }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  // Fetch brand logo via organization → brand
+  // Fetch brand logo — prefer locations.brand_id, fall back to organization → brand
   let brandLogoUrl: string | null = null;
-  if (location.organization_id) {
+  let brandIdForLogo: string | null = (location as any)?.brand_id ?? null;
+  if (!brandIdForLogo && location.organization_id) {
     const { data: org } = await supabase.from("organizations").select("brand_id").eq("id", location.organization_id).maybeSingle();
-    if (org?.brand_id) {
-      const { data: brand } = await supabase.from("brands").select("logo_url").eq("id", org.brand_id).maybeSingle();
-      brandLogoUrl = brand?.logo_url || null;
-    }
+    brandIdForLogo = org?.brand_id ?? null;
   }
+  if (brandIdForLogo) {
+    const { data: brand } = await supabase.from("brands").select("logo_url").eq("id", brandIdForLogo).maybeSingle();
+    brandLogoUrl = brand?.logo_url || null;
+  }
+
 
   // Get cash handling logbook entry values
   const cashCategories = ["Drawer Count", "Safe Count", "Bank Deposit"];
@@ -982,15 +985,18 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     return new Response(JSON.stringify({ error: "Location not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  // Brand logo
+  // Brand logo — prefer locations.brand_id, fall back to organization → brand
   let brandLogoUrl: string | null = null;
-  if (location.organization_id) {
+  let brandIdForLogo: string | null = (location as any)?.brand_id ?? null;
+  if (!brandIdForLogo && location.organization_id) {
     const { data: org } = await supabase.from("organizations").select("brand_id").eq("id", location.organization_id).maybeSingle();
-    if (org?.brand_id) {
-      const { data: brand } = await supabase.from("brands").select("logo_url").eq("id", org.brand_id).maybeSingle();
-      brandLogoUrl = brand?.logo_url || null;
-    }
+    brandIdForLogo = org?.brand_id ?? null;
   }
+  if (brandIdForLogo) {
+    const { data: brand } = await supabase.from("brands").select("logo_url").eq("id", brandIdForLogo).maybeSingle();
+    brandLogoUrl = brand?.logo_url || null;
+  }
+
 
   // ---- Aggregate Sales ----
   let totalSales = 0;

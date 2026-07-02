@@ -571,7 +571,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       
       const { data: locationData } = await supabase
         .from('locations')
-        .select('organization_id')
+        .select('brand_id, organization_id')
         .eq('id', currentLocation.id)
         .single();
       
@@ -585,12 +585,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       
       if (!orgData) return null;
       
-      // If org has a brand_id, fetch the brand logo
-      if (orgData.brand_id) {
+      // Prefer locations.brand_id, fall back to org's brand_id
+      const effectiveBrandId = (locationData as any)?.brand_id ?? orgData.brand_id ?? null;
+      if (effectiveBrandId) {
         const { data: brandData } = await supabase
           .from('brands')
           .select('logo_url, name')
-          .eq('id', orgData.brand_id)
+          .eq('id', effectiveBrandId)
           .single();
         
         // Use brand logo if available, otherwise fall back to org logo
@@ -608,6 +609,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     enabled: !!currentLocation?.id,
     staleTime: 5 * 60 * 1000, // 5 min — matches prefetch, logo rarely changes
   });
+
 
   // Cache the brand logo URL for instant load on next visit
   useEffect(() => {

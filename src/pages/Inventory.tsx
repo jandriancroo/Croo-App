@@ -79,20 +79,21 @@ const Inventory = () => {
     enabled: !!locationId
   });
 
-  // Get brand ID for this location
+  // Get brand ID for this location — prefer locations.brand_id, fall back to org chain
   const { data: brandInfo } = useQuery({
     queryKey: ["location-brand", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("locations")
-        .select("organization_id, organizations(brand_id)")
+        .select("brand_id, organization_id, organizations(brand_id)")
         .eq("id", locationId)
         .single();
       if (error) throw error;
-      return (data?.organizations as any)?.brand_id as string | null;
+      return ((data as any)?.brand_id ?? (data?.organizations as any)?.brand_id ?? null) as string | null;
     },
     enabled: !!locationId,
   });
+
 
   const brandId = brandInfo ?? null;
   const { conversionMap } = useBrandConversions(brandId);

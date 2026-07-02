@@ -109,10 +109,12 @@ export function LocationPickerDialog({
       const brandIdSet = new Set<string>();
 
       // (a) Direct user_locations assignments — applies to everyone
+      //     Read brand_id from the location row directly (with org chain fallback)
       const userLocsPromise = supabase
         .from('user_locations')
-        .select('location_id, locations(organization_id, organizations(brand_id))')
+        .select('location_id, locations(brand_id, organization_id, organizations(brand_id))')
         .eq('user_id', user.id);
+
 
       // (b) Organization memberships
       //   - all_locations_enabled OR org-level role → every location in those orgs
@@ -193,6 +195,7 @@ export function LocationPickerDialog({
       }
 
       // 5. One final fetch with full hierarchy for rendering
+      //    Select locations.brand_id scalar directly; brand row still hydrated via org chain
       const { data: fullLocs } = await supabase
         .from('locations')
         .select('*, organizations(id, name, brand_name, logo_url, brand_id, brands(id, name, logo_url))')
@@ -217,7 +220,8 @@ export function LocationPickerDialog({
             name: o.name,
             brand_name: o.brand_name || o.brands?.name || null,
             logo_url: o.logo_url || o.brands?.logo_url || null,
-            brand_id: o.brand_id || null,
+            // Prefer locations.brand_id, fall back to org.brand_id
+            brand_id: loc.brand_id || o.brand_id || null,
           });
         }
         const b = o?.brands;
@@ -225,6 +229,8 @@ export function LocationPickerDialog({
           brandMap.set(b.id, { id: b.id, name: b.name, logo_url: b.logo_url });
         }
       });
+
+
 
       // Merge super_admin's full brand catalog on top of derived brands
       brandsList.forEach(b => { if (!brandMap.has(b.id)) brandMap.set(b.id, b); });

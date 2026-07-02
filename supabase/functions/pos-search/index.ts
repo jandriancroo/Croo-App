@@ -54,15 +54,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Resolve brand: location → organization → brand
+    // Resolve brand: prefer locations.brand_id, fall back to location → organization → brand
     const { data: loc } = await supabase
       .from("locations")
-      .select("organization_id")
+      .select("brand_id, organization_id")
       .eq("id", locationId)
       .single();
 
-    let brandId: string | null = null;
-    if (loc?.organization_id) {
+    let brandId: string | null = (loc as any)?.brand_id ?? null;
+    if (!brandId && loc?.organization_id) {
       const { data: org } = await supabase
         .from("organizations")
         .select("brand_id")
@@ -70,6 +70,7 @@ serve(async (req) => {
         .single();
       brandId = org?.brand_id || null;
     }
+
 
     // Collect ALL QU location IDs across the brand
     let quLocationIds: number[] = [];
