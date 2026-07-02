@@ -167,8 +167,64 @@ export default function Auth() {
         onTouchEnd={onTouchEnd}
         className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10"
       >
-        <PWAInstallTutorial />
         <Card className="w-full max-w-md shadow-2xl border-2 bg-card/80 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
+          <CardHeader className="text-center pb-0 pt-8 space-y-0.5">
+            {/* Croo branding — now inside the card */}
+            <div className="flex flex-col items-center gap-0">
+              <div className="flex items-center justify-center">
+                <img
+                  src={crooLogo}
+                  alt="Croo"
+                  width={100}
+                  height={40}
+                  className="h-10 w-auto"
+                />
+              </div>
+              <p className="font-sans text-lg italic font-medium text-primary tracking-tight leading-tight">
+                Built for operators, by operators
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@restaurant.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-sm text-muted-foreground hover:text-primary underline"
+                >
+                  Forgot your password?
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <PWAInstallTutorial />
           <CardHeader className="text-center pb-0 pt-8 space-y-0.5">
             {/* Croo branding — now inside the card */}
             <div className="flex flex-col items-center gap-0">
