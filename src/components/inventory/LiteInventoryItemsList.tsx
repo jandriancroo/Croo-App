@@ -75,7 +75,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         .in("invoice_id", invoiceIds);
 
       const byItem = new Map<string, string>();
-      (lines as LastInvoiceLine[] | null)?.forEach((ln) => {
+      (lines as unknown as LastInvoiceLine[] | null)?.forEach((ln) => {
         const itemId = ln.matched_item_id || ln.candidate_item_id;
         if (!itemId) return;
         const d = invById.get(ln.invoice_id);
