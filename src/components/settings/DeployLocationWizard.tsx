@@ -106,6 +106,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const [lng, setLng] = useState('');
   const [orgId, setOrgId] = useState('');
   const [timezone, setTimezone] = useState('America/Los_Angeles');
+  const [inventoryMode, setInventoryMode] = useState<'brand' | 'lite'>('brand');
 
   // Step 2: Hours
   const [hours, setHours] = useState<DayHours[]>(
@@ -173,6 +174,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setLng('');
       setOrgId('');
       setTimezone('America/Los_Angeles');
+      setInventoryMode('brand');
       setHours(DAYS_OF_WEEK.map(d => ({
         day_of_week: d.value,
         open_time: '10:00',
@@ -206,7 +208,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
 
   const canProceed = () => {
     if (step === 0) return name.trim().length > 0 && orgId.length > 0 && address.trim().length > 0;
-    if (step === 2) return skipVendorSetup; // Must acknowledge vendor gate
+    // Lite locations have no vendor sync — auto-pass the vendor gate
+    if (step === 2) return inventoryMode === 'lite' ? true : skipVendorSetup;
     return true;
   };
 
@@ -284,7 +287,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           organization_id: orgId || null,
           store_number: storeNumber.trim() || null,
           vendor_territory: vendorTerritory.trim() || null,
-        })
+          inventory_mode: inventoryMode,
+        } as any)
         .select('id')
         .single();
 
@@ -437,8 +441,16 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       refetchLocations();
       setDeployComplete(true);
 
-      // 8. Auto-trigger initial vendor syncs
-      runInitialSync(locationId);
+      // 8. Auto-trigger initial vendor syncs — Brand mode only.
+      // Lite tenants have no PFG/PA integration; mark both as skipped.
+      if (inventoryMode === 'lite') {
+        setSyncResult({
+          pfg: { status: 'skipped', message: 'Not used in Lite mode' },
+          pa: { status: 'skipped', message: 'Not used in Lite mode' },
+        });
+      } else {
+        runInitialSync(locationId);
+      }
 
       toast.success(`${name} deployed successfully!`);
     } catch (error: any) {
@@ -579,6 +591,44 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
               {step === 0 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
+                    <Label>Inventory Mode *</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInventoryMode('brand')}
+                        className={cn(
+                          'rounded-lg border p-3 text-left transition-all',
+                          inventoryMode === 'brand'
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                            : 'border-border hover:bg-muted/50'
+                        )}
+                      >
+                        <p className="text-sm font-semibold">Brand</p>
+                        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                          Full inventory: brand templates, pack config, recipes, vendor sync.
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInventoryMode('lite')}
+                        className={cn(
+                          'rounded-lg border p-3 text-left transition-all',
+                          inventoryMode === 'lite'
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                            : 'border-border hover:bg-muted/50'
+                        )}
+                      >
+                        <p className="text-sm font-semibold">Lite</p>
+                        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                          Invoice check-in + flat count sheet + COGS by category only.
+                        </p>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Cannot be changed after creation. Choose carefully.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
                     <Label>Organization *</Label>
                     <Select value={orgId} onValueChange={setOrgId}>
                       <SelectTrigger>
@@ -708,6 +758,16 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
               {/* Step 3: Vendor Integration Gate */}
               {step === 2 && (
                 <div className="space-y-4">
+                  {inventoryMode === 'lite' ? (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                      <p className="text-sm font-semibold">Lite mode — no vendor integrations needed</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        PFG and Produce Alliance sync are Brand-mode features. Lite tenants use manual invoice
+                        upload for pricing and check-in. You can continue.
+                      </p>
+                    </div>
+                  ) : (
+                  <>
                   <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 space-y-3">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
@@ -759,6 +819,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                       </label>
                     </div>
                   </div>
+                  </>
+                  )}
                 </div>
               )}
 
