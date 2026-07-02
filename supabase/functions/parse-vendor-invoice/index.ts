@@ -185,25 +185,206 @@ Return ONLY valid JSON, no markdown.`,
       status: "parsed",
     }).eq("id", invoiceId);
 
-    // Now match line items against location inventory
+    // ─────────────────────────────────────────────────────────────
+    // TENANT MODE FORK — Brand path is byte-identical to prior behavior.
+    // Lite path skips brand templates, vendor mappings, and gap alerts.
+    // ─────────────────────────────────────────────────────────────
+    const { data: locationRow } = await admin
+      .from("locations")
+      .select("id, organization_id, inventory_mode")
+      .eq("id", invoice.location_id)
+      .single();
+
+    const inventoryMode: "brand" | "lite" =
+      (locationRow as any)?.inventory_mode === "lite" ? "lite" : "brand";
+
+    // Fetch location items — needed by both paths.
     const { data: locationItems } = await admin
       .from("inventory_items")
-      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit")
+      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit, vendor_name_normalized")
       .eq("location_id", invoice.location_id)
       .eq("status", "active");
 
+    // ═════════════════════ LITE PATH ═════════════════════
+    if (inventoryMode === "lite") {
+      // Fuzzy match threshold — tune after real invoice testing.
+      const FUZZY_MATCH_THRESHOLD = 0.7;
+
+      // Simple trigram-like similarity (Dice coefficient on bigrams).
+      const bigrams = (s: string): Set<string> => {
+        const t = ` ${s.toLowerCase().trim()} `;
+        const out = new Set<string>();
+        for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
+        return out;
+      };
+      const similarity = (a: string, b: string): number => {
+        if (!a || !b) return 0;
+        const A = bigrams(a);
+        const B = bigrams(b);
+        if (A.size === 0 || B.size === 0) return 0;
+        let inter = 0;
+        for (const g of A) if (B.has(g)) inter++;
+        return (2 * inter) / (A.size + B.size);
+      };
+
+      const normalizedVendor = normalizeKey(parsed.vendor_name);
+
+      // Build Lite lookup indexes — only local items, no brand tables touched.
+      const liteByComposite = new Map<string, any>();
+      const liteByName = new Map<string, any>();
+      for (const item of locationItems || []) {
+        const vNorm = (item as any).vendor_name_normalized || "";
+        const num = normalizeKey(item.item_number || "");
+        if (vNorm && num) liteByComposite.set(`${vNorm}::${num}`, item);
+        if (item.name) liteByName.set(normalizeKey(item.name), item);
+      }
+
+      const liteInsertLines: any[] = [];
+      const liteNewItems: Array<{ line: any; row: any }> = [];
+      const litePriceUpdates: { id: string; cost: number }[] = [];
+
+      for (const li of parsed.line_items || []) {
+        const vendorItemNumber = firstNonEmpty(
+          li.item_number, li.dist_item_number, li.distributor_item_number, li.item_code
+        );
+        // Fall back to deterministic hash for handwritten local invoices with no vendor code.
+        const stableCode = vendorItemNumber
+          || (li.product_name ? generateItemId(parsed.vendor_name, li.product_name) : null);
+        li.item_number = stableCode;
+
+        let match: any = null;
+        let matchStatus: "matched" | "fuzzy" | "new" = "new";
+        let candidateItemId: string | null = null;
+
+        // (a) Composite key — normalized vendor + item_number. Never item_number alone.
+        if (normalizedVendor && stableCode) {
+          match = liteByComposite.get(`${normalizedVendor}::${normalizeKey(stableCode)}`) || null;
+          if (match) matchStatus = "matched";
+        }
+
+        // (b) Exact normalized product name.
+        if (!match && li.product_name) {
+          match = liteByName.get(normalizeKey(li.product_name)) || null;
+          if (match) matchStatus = "matched";
+        }
+
+        // (c) Fuzzy name — do NOT auto-merge. Phase 2 UI resolves.
+        if (!match && li.product_name) {
+          let best: { item: any; score: number } | null = null;
+          for (const [name, item] of liteByName) {
+            const score = similarity(li.product_name, name);
+            if (score >= FUZZY_MATCH_THRESHOLD && (!best || score > best.score)) {
+              best = { item, score };
+            }
+          }
+          if (best) {
+            matchStatus = "fuzzy";
+            candidateItemId = best.item.id;
+          }
+        }
+
+        // (d) No match → auto-create item.
+        let newItemRow: any = null;
+        if (!match && matchStatus !== "fuzzy") {
+          matchStatus = "new";
+          newItemRow = {
+            location_id: invoice.location_id,
+            brand_item_id: null,
+            name: li.product_name,
+            item_number: stableCode,
+            vendor_name_normalized: normalizedVendor || null,
+            cost_per_unit: li.unit_price && li.unit_price > 0 ? li.unit_price : null,
+            status: "active",
+            match_status: "new",
+          };
+        }
+
+        // Reorder path — matched (a/b) lines update cost.
+        if (match && matchStatus === "matched" && li.unit_price && li.unit_price > 0) {
+          litePriceUpdates.push({ id: match.id, cost: li.unit_price });
+        }
+
+        const line: any = {
+          invoice_id: invoiceId,
+          product_name: li.product_name,
+          item_number: stableCode,
+          quantity: li.quantity || null,
+          unit: li.unit || null,
+          unit_price: li.unit_price || null,
+          total_price: li.total_price || null,
+          match_status: matchStatus,
+          matched_item_id: match?.id || null,
+          matched_template_id: null,
+          candidate_item_id: candidateItemId,
+        };
+
+        if (newItemRow) {
+          liteNewItems.push({ line, row: newItemRow });
+        } else {
+          liteInsertLines.push(line);
+        }
+      }
+
+      // Insert new inventory_items first so we can attach their ids to invoice lines.
+      if (liteNewItems.length > 0) {
+        const { data: inserted, error: newItemsErr } = await admin
+          .from("inventory_items")
+          .insert(liteNewItems.map((x) => x.row))
+          .select("id, item_number, name");
+        if (newItemsErr) console.error("Lite: error inserting new items:", newItemsErr);
+
+        // Map inserted rows back to their lines (by index — insert preserves order).
+        (inserted || []).forEach((row, idx) => {
+          const bundle = liteNewItems[idx];
+          if (bundle) {
+            bundle.line.matched_item_id = row.id;
+            liteInsertLines.push(bundle.line);
+          }
+        });
+      }
+
+      if (liteInsertLines.length > 0) {
+        const { error: linesErr } = await admin
+          .from("vendor_invoice_items")
+          .insert(liteInsertLines);
+        if (linesErr) console.error("Lite: error inserting invoice items:", linesErr);
+      }
+
+      // Reorder price updates.
+      for (const upd of litePriceUpdates) {
+        await admin.from("inventory_items").update({ cost_per_unit: upd.cost }).eq("id", upd.id);
+      }
+
+      const matchedCount = liteInsertLines.filter((l) => l.match_status === "matched").length;
+      const fuzzyCount = liteInsertLines.filter((l) => l.match_status === "fuzzy").length;
+      const newCount = liteInsertLines.filter((l) => l.match_status === "new").length;
+
+      console.log(`[Lite] parsed ${liteInsertLines.length} lines: ${matchedCount} matched, ${fuzzyCount} fuzzy, ${newCount} new`);
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "lite",
+        vendor_name: parsed.vendor_name,
+        total_items: liteInsertLines.length,
+        matched: matchedCount,
+        fuzzy: fuzzyCount,
+        unmatched: 0,
+        new_gap_alerts: 0,
+        new_items_created: newCount,
+        price_updates: litePriceUpdates.length,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ═════════════════════ BRAND PATH (unchanged) ═════════════════════
     // Get location's brand_id for draft creation (via organization)
-    const { data: location } = await admin
-      .from("locations")
-      .select("organization_id")
-      .eq("id", invoice.location_id)
-      .single();
     let brandId: string | null = null;
-    if (location?.organization_id) {
+    if (locationRow?.organization_id) {
       const { data: org } = await admin
         .from("organizations")
         .select("brand_id")
-        .eq("id", location.organization_id)
+        .eq("id", locationRow.organization_id)
         .single();
       brandId = org?.brand_id || null;
     }
@@ -254,19 +435,6 @@ Return ONLY valid JSON, no markdown.`,
       templateIdByVendorKey.set(`${vendor}:${normalizeKey(vendorItemId)}`, mapping.brand_template_id);
       // Vendor-agnostic fallback: invoice OCR often misreads the vendor header (e.g. picks up the buyer name)
       templateIdByAnyVendorSku.set(normalizeKey(vendorItemId), mapping.brand_template_id);
-    }
-
-    // Generate a deterministic ID for items without a vendor SKU
-    function generateItemId(vendorName: string, productName: string): string {
-      const slug = (vendorName || "unknown").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
-      // Simple hash from product name
-      let hash = 0;
-      const normalized = productName.toLowerCase().trim();
-      for (let i = 0; i < normalized.length; i++) {
-        hash = ((hash << 5) - hash + normalized.charCodeAt(i)) | 0;
-      }
-      const hexHash = Math.abs(hash).toString(16).slice(0, 6);
-      return `INV-${slug}-${hexHash}`;
     }
 
     const insertItems: any[] = [];
@@ -395,6 +563,7 @@ Return ONLY valid JSON, no markdown.`,
 
     return new Response(JSON.stringify({
       success: true,
+      mode: "brand",
       vendor_name: parsed.vendor_name,
       total_items: insertItems.length,
       matched: matchedCount,
