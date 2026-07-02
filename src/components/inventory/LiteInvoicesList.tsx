@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { FileText, Upload, Loader2, ExternalLink, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
+import PackSizeInlineEdit from "./PackSizeInlineEdit";
 
 interface Props {
   locationId: string;
@@ -35,6 +37,8 @@ interface LiteInvoiceLine {
   unit_price: number | null;
   total_price: number | null;
   match_status: string;
+  matched_item_id: string | null;
+  candidate_item_id: string | null;
 }
 
 /**
@@ -181,6 +185,7 @@ function InvoiceDetailSheet({
   invoice: LiteInvoice | null;
   onClose: () => void;
 }) {
+  const qc = useQueryClient();
   const { data: lines, isLoading } = useQuery({
     queryKey: ["lite-invoice-lines", invoice?.id],
     enabled: !!invoice,
@@ -188,7 +193,7 @@ function InvoiceDetailSheet({
       const { data, error } = await supabase
         .from("lite_vendor_invoice_items" as any)
         .select(
-          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status"
+          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status, matched_item_id, candidate_item_id"
         )
         .eq("invoice_id", invoice!.id)
         .order("product_name");
@@ -196,6 +201,47 @@ function InvoiceDetailSheet({
       return (data as any) || [];
     },
   });
+
+  /**
+   * Save pack_size on an invoice line. If the line is matched (or has a
+   * candidate) to a lite_inventory_items row that is currently empty, backfill
+   * that item's pack_size too — same forward-flow behavior as the parser's
+   * initial match. Existing item pack_sizes are NEVER overwritten from here
+   * (Items list edit is the tool for correcting a stale current value).
+   */
+  const savePackSize = async (line: LiteInvoiceLine, next: string | null) => {
+    const { error } = await supabase
+      .from("lite_vendor_invoice_items" as any)
+      .update({ pack_size: next })
+      .eq("id", line.id);
+    if (error) {
+      toast.error("Couldn't save pack size", { description: error.message });
+      throw error;
+    }
+
+    const itemId = line.matched_item_id || line.candidate_item_id;
+    if (itemId && next) {
+      const { data: item } = await supabase
+        .from("lite_inventory_items" as any)
+        .select("id, pack_size")
+        .eq("id", itemId)
+        .maybeSingle();
+      if (item && !(item as any).pack_size) {
+        await supabase
+          .from("lite_inventory_items" as any)
+          .update({ pack_size: next })
+          .eq("id", itemId);
+        qc.invalidateQueries({ queryKey: ["lite-inventory-items"] });
+      }
+    }
+
+    qc.setQueryData<LiteInvoiceLine[]>(
+      ["lite-invoice-lines", invoice!.id],
+      (prev) => prev?.map((l) => (l.id === line.id ? { ...l, pack_size: next } : l)) || prev,
+    );
+    toast.success(next ? "Pack size saved" : "Pack size cleared");
+  };
+
 
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const openPdf = async () => {
@@ -274,14 +320,10 @@ function InvoiceDetailSheet({
                             <span className="text-sm font-medium">
                               {ln.product_name}
                             </span>
-                            {ln.pack_size && (
-                              <Badge
-                                variant="secondary"
-                                className="text-[10px] h-4 px-1.5 font-mono"
-                              >
-                                {ln.pack_size}
-                              </Badge>
-                            )}
+                            <PackSizeInlineEdit
+                              value={ln.pack_size}
+                              onSave={(next) => savePackSize(ln, next)}
+                            />
                           </div>
                           <div className="text-[11px] text-muted-foreground">
                             {ln.item_number ? `#${ln.item_number} • ` : ""}

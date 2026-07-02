@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Package, Search, Upload, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
+import PackSizeInlineEdit from "./PackSizeInlineEdit";
 
 interface LiteInventoryItemsListProps {
   locationId: string;
@@ -40,6 +42,29 @@ interface LastInvoiceLine {
 export default function LiteInventoryItemsList({ locationId }: LiteInventoryItemsListProps) {
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const qc = useQueryClient();
+
+  /**
+   * Update pack_size on the CURRENT item only. This never touches
+   * lite_vendor_invoice_items — those are immutable historical records of
+   * what the original invoice said. Correcting a stale/wrong value here is
+   * a going-forward change to the live item record only.
+   */
+  const savePackSize = async (itemId: string, next: string | null) => {
+    const { error } = await supabase
+      .from("lite_inventory_items" as any)
+      .update({ pack_size: next })
+      .eq("id", itemId);
+    if (error) {
+      toast.error("Couldn't save pack size", { description: error.message });
+      throw error;
+    }
+    qc.setQueryData<LiteItem[]>(
+      ["lite-inventory-items", locationId],
+      (prev) => prev?.map((i) => (i.id === itemId ? { ...i, pack_size: next } : i)) || prev,
+    );
+    toast.success(next ? "Pack size updated" : "Pack size cleared");
+  };
 
   const { data: items, isLoading } = useQuery({
     queryKey: ["lite-inventory-items", locationId],
@@ -165,11 +190,10 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium truncate">{item.name}</span>
-                      {item.pack_size && (
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-mono">
-                          {item.pack_size}
-                        </Badge>
-                      )}
+                      <PackSizeInlineEdit
+                        value={item.pack_size}
+                        onSave={(next) => savePackSize(item.id, next)}
+                      />
                       {item.match_status === "new" && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           new
