@@ -210,13 +210,16 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     onOpenChange(o);
   };
 
-  // Fetch available locations (same brand, excluding source)
+  // Fetch available locations (same brand, excluding source).
+  // Lite locations are filtered out — they have no brand-template lens infrastructure
+  // (no pan sizes, no product groups, no recipe scaffolding), so pushing a pack config
+  // onto them would land bad rows with nowhere to attach.
   const { data: locations } = useQuery({
     queryKey: ["brand-locations", brandId, sourceLocationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("locations")
-        .select("id, name, organization_id")
+        .select("id, name, organization_id, inventory_mode")
         .neq("id", sourceLocationId)
         .eq("is_active", true);
       if (error) throw error;
@@ -225,10 +228,11 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         .select("id")
         .eq("brand_id", brandId);
       const orgIds = new Set(orgs?.map(o => o.id) ?? []);
-      return data.filter(l => orgIds.has(l.organization_id));
+      return data.filter(l => orgIds.has(l.organization_id) && (l as any).inventory_mode !== 'lite');
     },
     enabled: open,
   });
+
 
   // Vendor integration status for the *target* location.
   // Deploy is blocked unless both PFG and PA are connected — without them, post-deploy
