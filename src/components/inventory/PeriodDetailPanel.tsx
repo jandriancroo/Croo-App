@@ -892,12 +892,20 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         </DialogContent>
       </Dialog>
 
-      <InvoiceUploadDialog
-        open={showInvoiceUpload}
-        onOpenChange={setShowInvoiceUpload}
-        locationId={locationId}
-        countId={realCountId || count.id}
-      />
+      {isLite ? (
+        <LiteInvoiceUploadDialog
+          open={showInvoiceUpload}
+          onOpenChange={setShowInvoiceUpload}
+          locationId={locationId}
+        />
+      ) : (
+        <InvoiceUploadDialog
+          open={showInvoiceUpload}
+          onOpenChange={setShowInvoiceUpload}
+          locationId={locationId}
+          countId={realCountId || count.id}
+        />
+      )}
     </motion.div>
   );
 }
