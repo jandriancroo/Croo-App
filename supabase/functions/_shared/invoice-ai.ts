@@ -6,12 +6,14 @@ export interface ParsedInvoiceLine {
   product_name: string;
   item_number?: string;
   pa_product_id?: string;
+  pack_size?: string;
   quantity?: number;
   unit?: string;
   unit_price?: number;
   total_price?: number;
   [k: string]: unknown;
 }
+
 
 export interface ParsedInvoice {
   vendor_name?: string;
