@@ -615,7 +615,11 @@ const Inventory = () => {
             )}
           </TabsContent>
 
-          {!isLite && (
+          {isLite ? (
+            <TabsContent value="invoices" className="mt-4 space-y-4">
+              <LiteInvoicesList locationId={locationId!} />
+            </TabsContent>
+          ) : (
             <TabsContent value="pricing" className="mt-4 space-y-4">
               <MenuPricingCard locationId={locationId!} />
               <RecipeGeniusCard locationId={locationId!} />
@@ -623,6 +627,7 @@ const Inventory = () => {
           )}
 
         </Tabs>
+
       </div>
 
       {/* Settings Slide-over */}
