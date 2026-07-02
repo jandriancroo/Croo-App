@@ -146,7 +146,8 @@ export async function calculateVarianceReport(
   const getItemValueWithLegs = makeGetItemValueWithLegs(legsCtx);
 
   // Single source of truth — see src/utils/countItemValue.ts
-  // PHASE 1: forceLiveData=true. Standard contract: full item shape + Pipeline 1 conversion.
+  // Completed variance reports must honor frozen count snapshots. Live pack/lens
+  // values are only for active counting/edit input, not submitted history.
   // Recipes bypass legs (never multi-config) and stay on calculateCountItemValue directly;
   // non-recipes route through getItemValueWithLegs for leg awareness.
   const getCountItemLineValue = (ci: any) => {
@@ -164,9 +165,9 @@ export async function calculateVarianceReport(
       recipe_yield_unit: item.recipe_yield_unit,
     } : undefined;
     if (item?.is_recipe === true) {
-      return calculateCountItemValue(ci, itemForValue, conversion || null, true);
+      return calculateCountItemValue(ci, itemForValue, conversion || null, false);
     }
-    return getItemValueWithLegs(ci, itemForValue, conversion || null, { forceLiveData: true });
+    return getItemValueWithLegs(ci, itemForValue, conversion || null, { forceLiveData: false });
   };
 
   const getItemCategory = (itemId: string) => {
