@@ -159,9 +159,15 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
   const ranking = rpcResult?.rows || [];
 
-  const activeItemRef = trackedItemRefs.includes(selectedItemRef) ? selectedItemRef : trackedItemRefs[0] || '';
+  const ALL_ITEMS = '__ALL__';
+  // Include a synthetic "All Items" option when tracking more than one item so users can see combined ranking.
+  const itemSwitchOptions = trackedItemRefs.length > 1 ? [ALL_ITEMS, ...trackedItemRefs] : trackedItemRefs;
+  const activeItemRef = itemSwitchOptions.includes(selectedItemRef)
+    ? selectedItemRef
+    : itemSwitchOptions[0] || '';
+  const isAllItems = activeItemRef === ALL_ITEMS;
   const getMetricValue = (store: StoreRankRow, metric: TrackerSortMetric) => {
-    if (!activeItemRef) return store[metric];
+    if (!activeItemRef || isAllItems) return store[metric];
     return store.itemStats[activeItemRef]?.[metric] || 0;
   };
 
@@ -174,15 +180,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const totalLocationCount = sortedRanking.length;
   const isPending = isLoading || isFetching || !currentLocation?.id || !rpcResult;
   const rankChipLabel = isPending ? '#--/--' : `#${myStore?.rank ?? '-'}/${totalLocationCount || '-'}`;
-  const myVisibleStats = activeItemRef
-    ? myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 }
-    : { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 };
+  const myVisibleStats = !activeItemRef || isAllItems
+    ? { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 }
+    : myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 };
   const rankMetrics = tracker.trackerRankMetrics?.length ? tracker.trackerRankMetrics : ['units', 'sales', 'pmix'];
   const canExpand = tracker.trackerDisplayMode === 'expandable';
   const promoImageUrl = tracker.trackerPromoImageUrl?.trim();
 
-  const itemSwitchOptions = trackedItemRefs;
-  const activeItemLabel = activeItemRef || 'Promo item';
+  const activeItemLabel = isAllItems ? 'All Items' : (activeItemRef || 'Promo item');
   const activePeriodLabel = PERIOD_LABELS[period];
 
   const cyclePeriod = (direction: 'prev' | 'next') => {
