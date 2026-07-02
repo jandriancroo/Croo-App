@@ -46,17 +46,17 @@ export function PWAInstallTutorial() {
   if (hidden) return null;
 
   return (
-    <div className="w-full max-w-md mb-3">
-      <div className="rounded-2xl border border-border bg-card/80 backdrop-blur-xl shadow-lg overflow-hidden">
+    <div className="w-full max-w-md mt-4">
+      <div className="rounded-2xl border-2 border-primary/30 bg-primary/10 backdrop-blur-xl shadow-xl overflow-hidden ring-1 ring-primary/20">
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-primary/10 transition-colors"
         >
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Smartphone className="h-4 w-4 text-primary" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
+            <Share className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold leading-tight">Install CrooHQ</p>
+            <p className="text-sm font-bold leading-tight text-foreground">Install CrooHQ</p>
             <p className="text-[11px] text-muted-foreground leading-tight">
               Add to home screen for the full app experience
             </p>
@@ -68,14 +68,14 @@ export function PWAInstallTutorial() {
                 e.stopPropagation();
                 handleInstall();
               }}
-              className="h-7 text-xs gap-1 mr-1"
+              className="h-8 text-xs gap-1 mr-1"
             >
-              <Download className="h-3 w-3" />
+              <Download className="h-3.5 w-3.5" />
               Install
             </Button>
           )}
           <ChevronDown
-            className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`h-5 w-5 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
           />
         </button>
 
