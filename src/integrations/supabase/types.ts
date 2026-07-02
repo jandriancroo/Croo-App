@@ -3731,6 +3731,7 @@ export type Database = {
           linked_item_id: string | null
           location_id: string | null
           manually_activated: boolean
+          match_status: string | null
           name: string
           pa_item_id: string | null
           pack_quantity: number | null
@@ -3747,6 +3748,7 @@ export type Database = {
           unit: string
           updated_at: string
           user_hidden: boolean
+          vendor_name_normalized: string | null
           vendor_source: string | null
         }
         Insert: {
@@ -3780,6 +3782,7 @@ export type Database = {
           linked_item_id?: string | null
           location_id?: string | null
           manually_activated?: boolean
+          match_status?: string | null
           name: string
           pa_item_id?: string | null
           pack_quantity?: number | null
@@ -3796,6 +3799,7 @@ export type Database = {
           unit?: string
           updated_at?: string
           user_hidden?: boolean
+          vendor_name_normalized?: string | null
           vendor_source?: string | null
         }
         Update: {
@@ -3829,6 +3833,7 @@ export type Database = {
           linked_item_id?: string | null
           location_id?: string | null
           manually_activated?: boolean
+          match_status?: string | null
           name?: string
           pa_item_id?: string | null
           pack_quantity?: number | null
@@ -3845,6 +3850,7 @@ export type Database = {
           unit?: string
           updated_at?: string
           user_hidden?: boolean
+          vendor_name_normalized?: string | null
           vendor_source?: string | null
         }
         Relationships: [
@@ -6290,6 +6296,7 @@ export type Database = {
           fresh_kds_location_id: string | null
           id: string
           inventory_enabled: boolean
+          inventory_mode: string
           is_active: boolean
           last_deployed_at: string | null
           latitude: number | null
@@ -6316,6 +6323,7 @@ export type Database = {
           fresh_kds_location_id?: string | null
           id?: string
           inventory_enabled?: boolean
+          inventory_mode?: string
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
@@ -6342,6 +6350,7 @@ export type Database = {
           fresh_kds_location_id?: string | null
           id?: string
           inventory_enabled?: boolean
+          inventory_mode?: string
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
@@ -10859,6 +10868,7 @@ export type Database = {
       }
       vendor_invoice_items: {
         Row: {
+          candidate_item_id: string | null
           created_at: string
           id: string
           invoice_id: string
@@ -10873,6 +10883,7 @@ export type Database = {
           unit_price: number | null
         }
         Insert: {
+          candidate_item_id?: string | null
           created_at?: string
           id?: string
           invoice_id: string
@@ -10887,6 +10898,7 @@ export type Database = {
           unit_price?: number | null
         }
         Update: {
+          candidate_item_id?: string | null
           created_at?: string
           id?: string
           invoice_id?: string
@@ -10901,6 +10913,13 @@ export type Database = {
           unit_price?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "vendor_invoice_items_candidate_item_id_fkey"
+            columns: ["candidate_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vendor_invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
