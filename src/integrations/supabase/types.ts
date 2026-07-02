@@ -5885,6 +5885,7 @@ export type Database = {
           location_id: string
           match_status: string
           name: string
+          pack_size: string | null
           unit: string | null
           updated_at: string
           vendor_name_normalized: string | null
@@ -5898,6 +5899,7 @@ export type Database = {
           location_id: string
           match_status?: string
           name: string
+          pack_size?: string | null
           unit?: string | null
           updated_at?: string
           vendor_name_normalized?: string | null
@@ -5911,6 +5913,7 @@ export type Database = {
           location_id?: string
           match_status?: string
           name?: string
+          pack_size?: string | null
           unit?: string | null
           updated_at?: string
           vendor_name_normalized?: string | null
@@ -5935,6 +5938,7 @@ export type Database = {
           item_number: string | null
           match_status: string
           matched_item_id: string | null
+          pack_size: string | null
           product_name: string
           quantity: number | null
           total_price: number | null
@@ -5950,6 +5954,7 @@ export type Database = {
           item_number?: string | null
           match_status: string
           matched_item_id?: string | null
+          pack_size?: string | null
           product_name: string
           quantity?: number | null
           total_price?: number | null
@@ -5965,6 +5970,7 @@ export type Database = {
           item_number?: string | null
           match_status?: string
           matched_item_id?: string | null
+          pack_size?: string | null
           product_name?: string
           quantity?: number | null
           total_price?: number | null

@@ -18,10 +18,12 @@ interface LiteItem {
   item_number: string | null;
   vendor_name_normalized: string | null;
   unit: string | null;
+  pack_size: string | null;
   cost_per_unit: number | null;
   match_status: string | null;
   updated_at: string;
 }
+
 
 interface LastInvoiceLine {
   matched_item_id: string | null;
@@ -45,7 +47,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
     queryFn: async (): Promise<LiteItem[]> => {
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
-        .select("id, name, item_number, vendor_name_normalized, unit, cost_per_unit, match_status, updated_at")
+        .select("id, name, item_number, vendor_name_normalized, unit, pack_size, cost_per_unit, match_status, updated_at")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -53,6 +55,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
       return (data as any) || [];
     },
   });
+
 
   // Pull the most recent invoice date per item for the "Last invoice" column.
   const { data: lastInvoiceMap } = useQuery({
@@ -160,8 +163,13 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
                   className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium truncate">{item.name}</span>
+                      {item.pack_size && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-mono">
+                          {item.pack_size}
+                        </Badge>
+                      )}
                       {item.match_status === "new" && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           new
@@ -174,6 +182,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
                       {lastInvoice ? ` • last invoice ${lastInvoice}` : ""}
                     </div>
                   </div>
+
                   <div className="text-right shrink-0">
                     <div className="text-sm font-semibold tabular-nums">
                       {formatCost(item.cost_per_unit)}

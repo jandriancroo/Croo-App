@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus, FileText } from "lucide-react";
 import TransferDialog from "@/components/inventory/TransferDialog";
 import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
@@ -26,6 +26,8 @@ import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import LiteInventoryItemsList from "@/components/inventory/LiteInventoryItemsList";
+import LiteInvoicesList from "@/components/inventory/LiteInvoicesList";
+
 import SandboxCountsPanel from "@/components/inventory/SandboxCountsPanel";
 import { SandboxPostDeployBanner } from "@/components/inventory/SandboxPostDeployBanner";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
@@ -565,7 +567,7 @@ const Inventory = () => {
         <SandboxPostDeployBanner />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full ${isLite ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <TabsList className={`grid w-full grid-cols-3`}>
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -574,13 +576,19 @@ const Inventory = () => {
               <Package className="h-4 w-4" />
               <span>Items</span>
             </TabsTrigger>
-            {!isLite && (
+            {isLite ? (
+              <TabsTrigger value="invoices" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Invoices</span>
+              </TabsTrigger>
+            ) : (
               <TabsTrigger value="pricing" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
                 <span>Genius</span>
               </TabsTrigger>
             )}
           </TabsList>
+
 
           <TabsContent value="count" className="mt-4 space-y-4">
             <SandboxCountsPanel locationId={locationId!} />
@@ -607,7 +615,11 @@ const Inventory = () => {
             )}
           </TabsContent>
 
-          {!isLite && (
+          {isLite ? (
+            <TabsContent value="invoices" className="mt-4 space-y-4">
+              <LiteInvoicesList locationId={locationId!} />
+            </TabsContent>
+          ) : (
             <TabsContent value="pricing" className="mt-4 space-y-4">
               <MenuPricingCard locationId={locationId!} />
               <RecipeGeniusCard locationId={locationId!} />
@@ -615,6 +627,7 @@ const Inventory = () => {
           )}
 
         </Tabs>
+
       </div>
 
       {/* Settings Slide-over */}
