@@ -701,17 +701,18 @@ async function fetchAllInventoryItems(locationId: string) {
 async function fetchBrandConversionsForLocation(locationId: string) {
   const { data: loc } = await supabase
     .from("locations")
-    .select("organization_id")
+    .select("brand_id, organization_id")
     .eq("id", locationId)
     .maybeSingle();
-  const orgId = loc?.organization_id;
-  if (!orgId) return new Map<string, any>();
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("brand_id")
-    .eq("id", orgId)
-    .maybeSingle();
-  const brandId = org?.brand_id;
+  let brandId: string | null = loc?.brand_id ?? null;
+  if (!brandId && loc?.organization_id) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("brand_id")
+      .eq("id", loc.organization_id)
+      .maybeSingle();
+    brandId = org?.brand_id ?? null;
+  }
   if (!brandId) return new Map<string, any>();
   const { data, error } = await supabase
     .from("item_conversions")
@@ -724,23 +725,24 @@ async function fetchBrandConversionsForLocation(locationId: string) {
   return m;
 }
 
+
 async function fetchPosMappings(locationId: string) {
-  // Resolve brand_id via location → org → brand chain
+  // Prefer locations.brand_id, fall back to location → org → brand chain
   const { data: loc } = await supabase
     .from("locations")
-    .select("organization_id")
+    .select("brand_id, organization_id")
     .eq("id", locationId)
     .maybeSingle();
-  const orgId = loc?.organization_id;
-  let brandId: string | null = null;
-  if (orgId) {
+  let brandId: string | null = loc?.brand_id ?? null;
+  if (!brandId && loc?.organization_id) {
     const { data: org } = await supabase
       .from("organizations")
       .select("brand_id")
-      .eq("id", orgId)
+      .eq("id", loc.organization_id)
       .maybeSingle();
     brandId = org?.brand_id || null;
   }
+
 
   // Fetch brand-level mappings as the base
   let brandMappings: any[] = [];
@@ -869,22 +871,24 @@ async function fetchDeployments(locationId: string) {
 async function fetchBrandPosFilters(locationId: string): Promise<{ excludedCategories: string[]; includedOverrides: string[] }> {
   const { data: loc } = await supabase
     .from("locations")
-    .select("organization_id")
+    .select("brand_id, organization_id")
     .eq("id", locationId)
     .maybeSingle();
-  if (!loc?.organization_id) return { excludedCategories: [], includedOverrides: [] };
-
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("brand_id")
-    .eq("id", loc.organization_id)
-    .maybeSingle();
-  if (!org?.brand_id) return { excludedCategories: [], includedOverrides: [] };
+  let brandId: string | null = loc?.brand_id ?? null;
+  if (!brandId && loc?.organization_id) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("brand_id")
+      .eq("id", loc.organization_id)
+      .maybeSingle();
+    brandId = org?.brand_id ?? null;
+  }
+  if (!brandId) return { excludedCategories: [], includedOverrides: [] };
 
   const { data: brand } = await supabase
     .from("brands")
     .select("pos_excluded_categories, pos_included_overrides")
-    .eq("id", org.brand_id)
+    .eq("id", brandId)
     .maybeSingle();
 
   return {
@@ -892,6 +896,7 @@ async function fetchBrandPosFilters(locationId: string): Promise<{ excludedCateg
     includedOverrides: (brand as any)?.pos_included_overrides || [],
   };
 }
+
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;

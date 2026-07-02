@@ -64,33 +64,34 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
       staleTime: 10 * 60 * 1000,
     });
 
-    // Prefetch org logo (for header)
+    // Prefetch org logo (for header) — prefer locations.brand_id, fall back to org chain
     queryClient.prefetchQuery({
       queryKey: ['org-logo', locationId],
       queryFn: async () => {
         const { data: locationData } = await supabase
           .from('locations')
-          .select('organization_id')
+          .select('brand_id, organization_id')
           .eq('id', locationId)
           .single();
-        
+
         if (!locationData?.organization_id) return null;
-        
+
         const { data: orgData } = await supabase
           .from('organizations')
           .select('logo_url, name, brand_name, brand_id')
           .eq('id', locationData.organization_id)
           .single();
-        
+
         if (!orgData) return null;
-        
-        if (orgData.brand_id) {
+
+        const effectiveBrandId = (locationData as any)?.brand_id ?? orgData.brand_id ?? null;
+        if (effectiveBrandId) {
           const { data: brandData } = await supabase
             .from('brands')
             .select('logo_url, name')
-            .eq('id', orgData.brand_id)
+            .eq('id', effectiveBrandId)
             .single();
-          
+
           if (brandData?.logo_url) {
             return {
               logo_url: brandData.logo_url,
@@ -99,10 +100,11 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
             };
           }
         }
-        
+
         return orgData;
       },
       staleTime: 5 * 60 * 1000,
+
     });
 
     // Prefetch today's sales from cache (fast DB query, not edge function)

@@ -188,14 +188,14 @@ export async function calculateUsageRates(
     }
 
     // 6. Get product groups with POS category mappings (merge brand + location)
-    // Resolve brand_id
+    // Resolve brand_id — prefer locations.brand_id, fall back to org chain
     const { data: locData } = await supabase
       .from("locations")
-      .select("organization_id")
+      .select("brand_id, organization_id")
       .eq("id", locationId)
       .maybeSingle();
-    let brandId: string | null = null;
-    if (locData?.organization_id) {
+    let brandId: string | null = (locData as any)?.brand_id ?? null;
+    if (!brandId && locData?.organization_id) {
       const { data: orgData } = await supabase
         .from("organizations")
         .select("brand_id")
@@ -203,6 +203,7 @@ export async function calculateUsageRates(
         .maybeSingle();
       brandId = orgData?.brand_id || null;
     }
+
 
     let brandGroups: any[] = [];
     if (brandId) {

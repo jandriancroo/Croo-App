@@ -238,12 +238,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId
   });
 
-  // OvationUp — get brand_id from location's organization, then fetch integration
+  // OvationUp — prefer locations.brand_id, fall back to org chain
   const { data: ovationBrandId } = useQuery({
     queryKey: ['location-brand-id', locationId],
     queryFn: async () => {
       if (!locationId) return null;
-      const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single();
+      const { data: loc } = await supabase.from('locations').select('brand_id, organization_id').eq('id', locationId).single();
+      if ((loc as any)?.brand_id) return (loc as any).brand_id as string;
       if (!loc?.organization_id) return null;
       const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single();
       return org?.brand_id || null;
@@ -251,6 +252,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId,
     staleTime: 60 * 60 * 1000,
   });
+
 
   const { data: ovationIntegration, isLoading: ovationIsLoading } = useQuery({
     queryKey: ['ovation-integration', ovationBrandId],
