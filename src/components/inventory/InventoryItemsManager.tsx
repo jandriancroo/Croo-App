@@ -17,8 +17,10 @@ import paLogo from "@/assets/pa-logo.png";
 import { useAuth } from "@/lib/auth";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
+import { useInventoryMode } from "@/hooks/useInventoryMode";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
+
 
 import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
