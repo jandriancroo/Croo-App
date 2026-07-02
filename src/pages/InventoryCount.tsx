@@ -30,7 +30,33 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { useInventoryMode } from "@/hooks/useInventoryMode";
+import LiteInventoryCountPage from "./LiteInventoryCount";
+
+/**
+ * Router wrapper — inventory_mode is immutable per location, so this branches
+ * once at mount and delegates to the correct page. This avoids Rules of Hooks
+ * violations that would arise from branching inside BrandInventoryCountPage
+ * itself (which has its own useQuery / useMutation calls below).
+ */
 const InventoryCount = () => {
+  const { locationId } = useParams();
+  const { isLite, isLoading: modeLoading } = useInventoryMode(locationId);
+
+  if (modeLoading) {
+    return (
+      <Layout>
+        <div className="p-4 md:p-6 flex items-center justify-center min-h-[50vh]">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
+  if (isLite) return <LiteInventoryCountPage />;
+  return <BrandInventoryCountPage />;
+};
+
+const BrandInventoryCountPage = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSaveExitDialog, setShowSaveExitDialog] = useState(false);
   const [historicalAcknowledged, setHistoricalAcknowledged] = useState(false);
@@ -41,6 +67,8 @@ const InventoryCount = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin: isAdminRole } = useUserRole();
+
+
   
   // Check if edit or continue mode from query param
   const editMode = searchParams.get("edit") === "true";

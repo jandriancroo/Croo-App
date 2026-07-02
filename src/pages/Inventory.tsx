@@ -27,6 +27,8 @@ import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import LiteInventoryItemsList from "@/components/inventory/LiteInventoryItemsList";
 import LiteInvoicesList from "@/components/inventory/LiteInvoicesList";
+import LiteCountTab from "@/components/inventory/LiteCountTab";
+import LiteStorageLocationsManager from "@/components/inventory/LiteStorageLocationsManager";
 
 import SandboxCountsPanel from "@/components/inventory/SandboxCountsPanel";
 import { SandboxPostDeployBanner } from "@/components/inventory/SandboxPostDeployBanner";
@@ -591,20 +593,27 @@ const Inventory = () => {
 
 
           <TabsContent value="count" className="mt-4 space-y-4">
-            <SandboxCountsPanel locationId={locationId!} />
-            <InventoryCountTab
-              locationId={locationId!}
-              inProgressCount={inProgressCount}
-              recentCounts={recentCounts}
-              onStartCount={handleStartCount}
-              onDeleteCount={handleDeleteClick}
-              onCreateCountForPeriod={(periodType, periodEndDate) => {
-                setPreselectedPeriod({ type: periodType, endDate: periodEndDate });
-                setShowStartDialog(true);
-              }}
-              onStartDailyCount={() => setShowDailyCount(true)}
-            />
+            {isLite ? (
+              <LiteCountTab locationId={locationId!} timezone={timezone} />
+            ) : (
+              <>
+                <SandboxCountsPanel locationId={locationId!} />
+                <InventoryCountTab
+                  locationId={locationId!}
+                  inProgressCount={inProgressCount}
+                  recentCounts={recentCounts}
+                  onStartCount={handleStartCount}
+                  onDeleteCount={handleDeleteClick}
+                  onCreateCountForPeriod={(periodType, periodEndDate) => {
+                    setPreselectedPeriod({ type: periodType, endDate: periodEndDate });
+                    setShowStartDialog(true);
+                  }}
+                  onStartDailyCount={() => setShowDailyCount(true)}
+                />
+              </>
+            )}
           </TabsContent>
+
 
 
           <TabsContent value="items" className="mt-4 space-y-4">
@@ -640,7 +649,11 @@ const Inventory = () => {
             <h2 className="text-lg font-semibold">Settings</h2>
           </div>
           <div className="p-4 space-y-4">
-            <InventoryItemsManager locationId={locationId!} mode="setup" />
+            {isLite ? (
+              <LiteStorageLocationsManager locationId={locationId!} />
+            ) : (
+              <InventoryItemsManager locationId={locationId!} mode="setup" />
+            )}
           </div>
         </SheetContent>
       </Sheet>
