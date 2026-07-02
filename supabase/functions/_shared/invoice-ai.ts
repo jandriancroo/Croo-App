@@ -34,7 +34,7 @@ CRITICAL — VENDOR IDENTIFICATION:
 - If unsure between two names, pick the one with the remit address, phone number for orders, or account/customer number formatted as "Customer #".
 
 For each line item extract: product_name, item_number (vendor/distributor SKU if visible), pa_product_id (ONLY the value from a column literally labeled PA Product ID or equivalent), pack_size, quantity, unit (case/each/lb/etc), unit_price, total_price.
-pack_size is the verbatim pack/case breakdown text as printed on the invoice line. On McLane invoices it appears in the column labeled "Pack UM" (or similar: "Pack", "Pack/Size", "Size", "UM"). Common formats: "10/12 CT", "136 / 4 OZ EA", "6/2.5 LB BC", "6/5 LB BAG", "6/#10", "24/12 OZ", "4/1 GAL". Copy it EXACTLY as printed including any trailing unit code (BC, BAG, CT, EA, CS, etc.) and preserving slashes/spaces. If a line truly has no visible pack/size text in any of those columns, omit the field — but do not skip a value that IS printed. Do NOT guess or fabricate.
+pack_size is REQUIRED on every line. It is the verbatim pack/case breakdown text printed on the invoice line, typically in a column labeled "Pack UM" (also: "Pack", "Pack/Size", "Size", "UM"). Common formats: "10/12 CT", "136 / 4 OZ EA", "6/2.5 LB BC", "6/5 LB BAG", "6/#10", "24/12 OZ", "4/1 GAL". Copy it EXACTLY as printed including any trailing unit code (BC, BAG, CT, EA, CS, etc.) and preserving slashes/spaces. If — and ONLY if — the line genuinely has no pack/size text printed anywhere on the row, return the literal string "NOT_VISIBLE". Never omit this field. Do NOT guess or fabricate values, but do NOT skip values that ARE printed.
 If the invoice has multiple code columns (for example Dist Item, Item, and PA Product ID), keep the PA Product ID in pa_product_id and keep the other vendor/distributor code in item_number.
 For Worldwide Produce / Produce Alliance style invoices, prefer the human-readable Description column for product_name and capture the PA Product ID exactly as shown.
 Also extract: invoice_number, invoice_date (YYYY-MM-DD), delivery_date (YYYY-MM-DD if shown), total_amount.
@@ -62,13 +62,13 @@ const TOOL_SCHEMA = {
               product_name: { type: "string" },
               item_number: { type: "string" },
               pa_product_id: { type: "string" },
-              pack_size: { type: "string", description: "Verbatim value from the Pack UM / Pack / Size column, e.g. \"10/12 CT\", \"6/5 LB BAG\", \"136 / 4 OZ EA\". Include trailing unit codes. Do not fabricate." },
+              pack_size: { type: "string", description: "REQUIRED. Verbatim value from the Pack UM / Pack / Size column, e.g. \"10/12 CT\", \"6/5 LB BAG\", \"136 / 4 OZ EA\". Include trailing unit codes exactly as printed. If the line genuinely has no pack text printed, return the literal string \"NOT_VISIBLE\". Never omit. Do not fabricate." },
               quantity: { type: "number" },
               unit: { type: "string" },
               unit_price: { type: "number" },
               total_price: { type: "number" },
             },
-            required: ["product_name"],
+            required: ["product_name", "pack_size"],
 
           },
         },

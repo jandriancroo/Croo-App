@@ -227,7 +227,8 @@ serve(async (req) => {
       const stableCode = vendorItemNumber
         || (li.product_name ? generateItemId(parsed.vendor_name || "", li.product_name) : null);
 
-      const packSize = firstNonEmpty((li as any).pack_size, (li as any).packSize, (li as any).pack);
+      const rawPackSize = firstNonEmpty((li as any).pack_size, (li as any).packSize, (li as any).pack);
+      const packSize = rawPackSize && rawPackSize.trim().toUpperCase() === "NOT_VISIBLE" ? null : rawPackSize;
 
       let match: any = null;
       let matchStatus: "matched" | "fuzzy" | "new" = "new";
