@@ -276,6 +276,20 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const handleDeploy = async () => {
     setDeploying(true);
     try {
+      // 0. Resolve brand_id for Brand-mode locations via their organization.
+      //    Lite-mode stays NULL. Orgs without a brand link also stay NULL
+      //    (do not fabricate — org may legitimately be brand-less).
+      let resolvedBrandId: string | null = null;
+      if (inventoryMode === 'brand' && orgId) {
+        const { data: orgRow, error: orgErr } = await supabase
+          .from('organizations')
+          .select('brand_id')
+          .eq('id', orgId)
+          .maybeSingle();
+        if (orgErr) throw orgErr;
+        resolvedBrandId = orgRow?.brand_id ?? null;
+      }
+
       // 1. Create the location
       const { data: location, error: locError } = await supabase
         .from('locations')
@@ -285,6 +299,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           latitude: lat ? parseFloat(lat) : null,
           longitude: lng ? parseFloat(lng) : null,
           organization_id: orgId || null,
+          brand_id: resolvedBrandId,
           store_number: storeNumber.trim() || null,
           vendor_territory: vendorTerritory.trim() || null,
           inventory_mode: inventoryMode,
