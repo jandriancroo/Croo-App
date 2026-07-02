@@ -34,7 +34,7 @@ CRITICAL — VENDOR IDENTIFICATION:
 - If unsure between two names, pick the one with the remit address, phone number for orders, or account/customer number formatted as "Customer #".
 
 For each line item extract: product_name, item_number (vendor/distributor SKU if visible), pa_product_id (ONLY the value from a column literally labeled PA Product ID or equivalent), pack_size, quantity, unit (case/each/lb/etc), unit_price, total_price.
-pack_size is the verbatim pack/case breakdown text as printed on the invoice line — e.g. "2/1 LB", "24/12 OZ", "4/1 GAL", "6/#10". Copy it EXACTLY as shown, preserving the slash and units. If a line has no visible pack-size text, omit the field. Do NOT guess or fabricate one.
+pack_size is the verbatim pack/case breakdown text as printed on the invoice line. On McLane invoices it appears in the column labeled "Pack UM" (or similar: "Pack", "Pack/Size", "Size", "UM"). Common formats: "10/12 CT", "136 / 4 OZ EA", "6/2.5 LB BC", "6/5 LB BAG", "6/#10", "24/12 OZ", "4/1 GAL". Copy it EXACTLY as printed including any trailing unit code (BC, BAG, CT, EA, CS, etc.) and preserving slashes/spaces. If a line truly has no visible pack/size text in any of those columns, omit the field — but do not skip a value that IS printed. Do NOT guess or fabricate.
 If the invoice has multiple code columns (for example Dist Item, Item, and PA Product ID), keep the PA Product ID in pa_product_id and keep the other vendor/distributor code in item_number.
 For Worldwide Produce / Produce Alliance style invoices, prefer the human-readable Description column for product_name and capture the PA Product ID exactly as shown.
 Also extract: invoice_number, invoice_date (YYYY-MM-DD), delivery_date (YYYY-MM-DD if shown), total_amount.
