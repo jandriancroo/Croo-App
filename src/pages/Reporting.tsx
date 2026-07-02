@@ -833,7 +833,16 @@ export default function Reporting() {
     setEmailSending(true);
     try {
       toast.info('Generating PDF…');
-      const canvas = await html2canvas(previewRef.current, { scale: 2, backgroundColor: '#ffffff' });
+      // Wait for fonts so html2canvas doesn't collapse letter spacing
+      if ((document as any).fonts?.ready) { try { await (document as any).fonts.ready; } catch {} }
+      const canvas = await html2canvas(previewRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        letterRendering: true,
+        windowWidth: previewRef.current.scrollWidth,
+        windowHeight: previewRef.current.scrollHeight,
+      } as any);
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: config.orientation, unit: 'pt', format: 'letter' });
       const pageW = pdf.internal.pageSize.getWidth();
