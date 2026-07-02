@@ -320,14 +320,10 @@ function InvoiceDetailSheet({
                             <span className="text-sm font-medium">
                               {ln.product_name}
                             </span>
-                            {ln.pack_size && (
-                              <Badge
-                                variant="secondary"
-                                className="text-[10px] h-4 px-1.5 font-mono"
-                              >
-                                {ln.pack_size}
-                              </Badge>
-                            )}
+                            <PackSizeInlineEdit
+                              value={ln.pack_size}
+                              onSave={(next) => savePackSize(ln, next)}
+                            />
                           </div>
                           <div className="text-[11px] text-muted-foreground">
                             {ln.item_number ? `#${ln.item_number} • ` : ""}
