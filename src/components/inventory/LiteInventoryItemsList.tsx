@@ -190,11 +190,10 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium truncate">{item.name}</span>
-                      {item.pack_size && (
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-mono">
-                          {item.pack_size}
-                        </Badge>
-                      )}
+                      <PackSizeInlineEdit
+                        value={item.pack_size}
+                        onSave={(next) => savePackSize(item.id, next)}
+                      />
                       {item.match_status === "new" && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           new
