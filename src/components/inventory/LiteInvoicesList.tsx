@@ -37,6 +37,8 @@ interface LiteInvoiceLine {
   unit_price: number | null;
   total_price: number | null;
   match_status: string;
+  matched_item_id: string | null;
+  candidate_item_id: string | null;
 }
 
 /**
