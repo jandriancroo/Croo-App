@@ -39,6 +39,23 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Symmetric guard: this endpoint writes to Brand governance tables
+    // (vendor_invoices, inventory_items, vendor_gap_alerts). Refuse if the
+    // target location is Lite mode — those uploads must go through
+    // parse-vendor-invoice-lite and stay in lite_* tables.
+    if (locationId) {
+      const { data: loc } = await admin
+        .from("locations")
+        .select("id, inventory_mode")
+        .eq("id", locationId)
+        .single();
+      if ((loc as any)?.inventory_mode === "lite") {
+        return new Response(JSON.stringify({ error: "Location is in Lite inventory mode — use parse-vendor-invoice-lite" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Allow client to skip pre-inserting vendor_invoices row (bypasses RLS friction on stale sessions).
     if (!invoiceId && storagePath && locationId) {
       const { data: created, error: createErr } = await admin
