@@ -28,14 +28,35 @@ serve(async (req) => {
       });
     }
 
-    const { invoiceId } = await req.json();
+    const body = await req.json();
+    let { invoiceId, storagePath, locationId, countId } = body || {};
+
+    const admin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // NEW: allow client to skip pre-inserting vendor_invoices row (bypasses RLS friction on stale sessions).
+    // If storagePath + locationId are supplied and no invoiceId, create the row here with service role.
+    if (!invoiceId && storagePath && locationId) {
+      const { data: created, error: createErr } = await admin
+        .from("vendor_invoices")
+        .insert({
+          location_id: locationId,
+          vendor_name: "Unknown",
+          image_url: `vendor-invoices/${storagePath}`,
+          uploaded_by: user.id,
+          inventory_count_id: countId || null,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (createErr || !created) throw new Error("Failed to create invoice record: " + (createErr?.message || "unknown"));
+      invoiceId = created.id;
+    }
+
     if (!invoiceId) {
-      return new Response(JSON.stringify({ error: "invoiceId required" }), {
+      return new Response(JSON.stringify({ error: "invoiceId or (storagePath+locationId) required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const admin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get invoice record
     const { data: invoice, error: invErr } = await admin
