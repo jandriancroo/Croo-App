@@ -600,7 +600,11 @@ const Inventory = () => {
 
 
           <TabsContent value="items" className="mt-4 space-y-4">
-            <InventoryItemsManager locationId={locationId!} mode="items" />
+            {isLite ? (
+              <LiteInventoryItemsList locationId={locationId!} />
+            ) : (
+              <InventoryItemsManager locationId={locationId!} mode="items" />
+            )}
           </TabsContent>
 
           {!isLite && (
