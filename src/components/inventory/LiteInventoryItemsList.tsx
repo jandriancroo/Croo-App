@@ -18,10 +18,12 @@ interface LiteItem {
   item_number: string | null;
   vendor_name_normalized: string | null;
   unit: string | null;
+  pack_size: string | null;
   cost_per_unit: number | null;
   match_status: string | null;
   updated_at: string;
 }
+
 
 interface LastInvoiceLine {
   matched_item_id: string | null;
