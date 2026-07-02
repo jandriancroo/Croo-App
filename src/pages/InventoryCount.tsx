@@ -33,22 +33,16 @@ import {
 import { useInventoryMode } from "@/hooks/useInventoryMode";
 import LiteInventoryCountPage from "./LiteInventoryCount";
 
+/**
+ * Router wrapper — inventory_mode is immutable per location, so this branches
+ * once at mount and delegates to the correct page. This avoids Rules of Hooks
+ * violations that would arise from branching inside BrandInventoryCountPage
+ * itself (which has its own useQuery / useMutation calls below).
+ */
 const InventoryCount = () => {
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showSaveExitDialog, setShowSaveExitDialog] = useState(false);
-  const [historicalAcknowledged, setHistoricalAcknowledged] = useState(false);
-  const [reconciliationComplete, setReconciliationComplete] = useState(false);
-  const saveRef = useRef<{ save: () => Promise<void>; isSaving: boolean } | null>(null);
-  const { locationId, countId } = useParams();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { isAdmin: isAdminRole } = useUserRole();
+  const { locationId } = useParams();
   const { isLite, isLoading: modeLoading } = useInventoryMode(locationId);
 
-  // Lite locations get an entirely separate count page — no Brand tables,
-  // no Actual vs Theo tab, no delivery reconciliation. Mode is immutable
-  // after location creation so this branch never flips mid-session.
   if (modeLoading) {
     return (
       <Layout>
@@ -59,6 +53,21 @@ const InventoryCount = () => {
     );
   }
   if (isLite) return <LiteInventoryCountPage />;
+  return <BrandInventoryCountPage />;
+};
+
+const BrandInventoryCountPage = () => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSaveExitDialog, setShowSaveExitDialog] = useState(false);
+  const [historicalAcknowledged, setHistoricalAcknowledged] = useState(false);
+  const [reconciliationComplete, setReconciliationComplete] = useState(false);
+  const saveRef = useRef<{ save: () => Promise<void>; isSaving: boolean } | null>(null);
+  const { locationId, countId } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { isAdmin: isAdminRole } = useUserRole();
+
 
   
   // Check if edit or continue mode from query param
