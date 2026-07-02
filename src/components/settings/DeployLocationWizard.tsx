@@ -766,9 +766,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                         upload for pricing and check-in. You can continue.
                       </p>
                     </div>
-                  ) : (<>
-                  </>)}
-                  {inventoryMode === 'brand' && (<></>)}
+                  ) : (
+                  <>
                   <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 space-y-3">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
@@ -820,6 +819,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                       </label>
                     </div>
                   </div>
+                  </>
+                  )}
                 </div>
               )}
 
