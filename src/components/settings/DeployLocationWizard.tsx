@@ -106,6 +106,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const [lng, setLng] = useState('');
   const [orgId, setOrgId] = useState('');
   const [timezone, setTimezone] = useState('America/Los_Angeles');
+  const [inventoryMode, setInventoryMode] = useState<'brand' | 'lite'>('brand');
 
   // Step 2: Hours
   const [hours, setHours] = useState<DayHours[]>(
@@ -173,6 +174,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setLng('');
       setOrgId('');
       setTimezone('America/Los_Angeles');
+      setInventoryMode('brand');
       setHours(DAYS_OF_WEEK.map(d => ({
         day_of_week: d.value,
         open_time: '10:00',
@@ -284,7 +286,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           organization_id: orgId || null,
           store_number: storeNumber.trim() || null,
           vendor_territory: vendorTerritory.trim() || null,
-        })
+          inventory_mode: inventoryMode,
+        } as any)
         .select('id')
         .single();
 
