@@ -2501,7 +2501,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       toast.warning(`Couldn't understand: "${transcript}"`);
       playError();
     }
-  }, [currentItems, playSuccess, playError]);
+  }, [currentItems, playSuccess, playError, markEditTouched]);
 
   // Voice input handler — text-based path (Chrome/Android native speech)
   const handleVoiceTranscript = useCallback(async (transcript: string) => {
