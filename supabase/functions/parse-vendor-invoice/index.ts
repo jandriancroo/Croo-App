@@ -246,11 +246,14 @@ Return ONLY valid JSON, no markdown.`,
     }
 
     const templateIdByVendorKey = new Map<string, string>();
+    const templateIdByAnyVendorSku = new Map<string, string>();
     for (const mapping of existingVendorMappings) {
       const vendorItemId = String(mapping.vendor_item_id || "").trim();
       const vendor = String((mapping as any).vendor || "").trim().toLowerCase();
       if (!vendorItemId) continue;
       templateIdByVendorKey.set(`${vendor}:${normalizeKey(vendorItemId)}`, mapping.brand_template_id);
+      // Vendor-agnostic fallback: invoice OCR often misreads the vendor header (e.g. picks up the buyer name)
+      templateIdByAnyVendorSku.set(normalizeKey(vendorItemId), mapping.brand_template_id);
     }
 
     // Generate a deterministic ID for items without a vendor SKU
@@ -306,8 +309,14 @@ Return ONLY valid JSON, no markdown.`,
           (match?.brand_item_id as string | undefined) ||
           (paProductId ? templateByPaId.get(normalizeKey(paProductId))?.id : null) ||
           (li.item_number ? templateByItemNumber.get(normalizeKey(li.item_number))?.id : null) ||
+          (li.item_number ? templateIdByAnyVendorSku.get(normalizeKey(li.item_number)) : null) ||
           (li.product_name ? templateByName.get(normalizeKey(li.product_name))?.id : null) ||
           null;
+      }
+      // Final fallback: if we resolved a brand template but haven't found a local item yet,
+      // link to the location's inventory row for that template so we can stamp cost.
+      if (!match && matchedTemplateId) {
+        match = localByBrandItemId.get(matchedTemplateId) || null;
       }
 
       const itemRow: any = {
