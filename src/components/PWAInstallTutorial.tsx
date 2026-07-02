@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Share, Download, Smartphone } from 'lucide-react';
+import { ChevronDown, Share, Download, Smartphone, Apple } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,161 +9,135 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function PWAInstallTutorial() {
-  const [visible, setVisible] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [hidden, setHidden] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [platform, setPlatform] = useState<'ios' | 'android'>('android');
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
-    // Already running as PWA — never show
     const isStandalone =
       window.matchMedia?.('(display-mode: standalone)')?.matches ||
       (window.navigator as any).standalone === true;
-
     if (isStandalone) return;
-
-    // Dismissed this session already
     if (sessionStorage.getItem('pwa-tutorial-dismissed')) return;
 
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    setIsIOS(iOS);
+    setPlatform(iOS ? 'ios' : 'android');
+    setHidden(false);
 
-    // Small delay so it doesn't flash on load
-    const timer = setTimeout(() => setVisible(true), 2000);
-
-    // Listen for Android install prompt
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
     window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => setHidden(true));
 
-    window.addEventListener('appinstalled', () => {
-      setVisible(false);
-    });
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('beforeinstallprompt', handler);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const dismiss = () => {
-    setVisible(false);
-    sessionStorage.setItem('pwa-tutorial-dismissed', '1');
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setHidden(true);
+    setDeferredPrompt(null);
   };
 
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setVisible(false);
-      }
-      setDeferredPrompt(null);
-    }
-  };
+  if (hidden) return null;
 
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ opacity: 0, y: 80 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 80 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed bottom-20 left-3 right-3 z-[9999] sm:left-auto sm:right-4 sm:max-w-sm"
+    <div className="w-full max-w-md mb-3">
+      <div className="rounded-2xl border border-border bg-card/80 backdrop-blur-xl shadow-lg overflow-hidden">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors"
         >
-          <div className="relative rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
-            {/* Top accent bar */}
-            <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
-
-            <button
-              onClick={dismiss}
-              className="absolute top-3 right-3 p-1 rounded-full hover:bg-muted transition-colors"
-              aria-label="Dismiss"
+          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Smartphone className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold leading-tight">Install CrooHQ</p>
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              Add to home screen for the full app experience
+            </p>
+          </div>
+          {deferredPrompt && (
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleInstall();
+              }}
+              className="h-7 text-xs gap-1 mr-1"
             >
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
+              <Download className="h-3 w-3" />
+              Install
+            </Button>
+          )}
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
+          />
+        </button>
 
-            <div className="p-4 pt-3">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Smartphone className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-card-foreground leading-tight">
-                    Install CrooHQ
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Get the full app experience
-                  </p>
-                </div>
-              </div>
-
-              {isIOS ? (
-                <div className="space-y-2 mb-3">
-                  <Step n={1}>
-                    Tap <Share className="h-3.5 w-3.5 inline -mt-0.5" /> <strong>Share</strong> in Safari
-                  </Step>
-                  <Step n={2}>
-                    Scroll &amp; tap <strong>"Add to Home Screen"</strong>
-                  </Step>
-                  <Step n={3}>
-                    Tap <strong>"Add"</strong> to confirm
-                  </Step>
-                </div>
-              ) : (
-                <div className="space-y-2 mb-3">
-                  {deferredPrompt ? (
-                    <p className="text-xs text-muted-foreground">
-                      Install CrooHQ for quick access, push notifications, and offline support.
-                    </p>
-                  ) : (
-                    <>
-                      <Step n={1}>
-                        Tap <strong>⋮</strong> menu in your browser
-                      </Step>
-                      <Step n={2}>
-                        Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>
-                      </Step>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={dismiss}
-                  className="flex-1 text-xs h-8"
-                >
-                  Not now
-                </Button>
-                {deferredPrompt && !isIOS ? (
-                  <Button
-                    size="sm"
-                    onClick={handleInstall}
-                    className="flex-1 text-xs h-8 gap-1.5"
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-3 pb-3 pt-1 border-t border-border/60 space-y-3">
+                {/* Platform toggle */}
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-muted/60">
+                  <button
+                    onClick={() => setPlatform('ios')}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      platform === 'ios' ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                    }`}
                   >
-                    <Download className="h-3.5 w-3.5" />
-                    Install
-                  </Button>
+                    <Apple className="h-3.5 w-3.5" /> iOS
+                  </button>
+                  <button
+                    onClick={() => setPlatform('android')}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      platform === 'android' ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                    }`}
+                  >
+                    <Smartphone className="h-3.5 w-3.5" /> Android
+                  </button>
+                </div>
+
+                {platform === 'ios' ? (
+                  <div className="space-y-1.5">
+                    <Step n={1}>
+                      Tap <Share className="h-3.5 w-3.5 inline -mt-0.5" /> <strong>Share</strong> in Safari
+                    </Step>
+                    <Step n={2}>
+                      Scroll &amp; tap <strong>"Add to Home Screen"</strong>
+                    </Step>
+                    <Step n={3}>
+                      Tap <strong>"Add"</strong> to confirm
+                    </Step>
+                  </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    onClick={dismiss}
-                    className="flex-1 text-xs h-8"
-                  >
-                    Got it
-                  </Button>
+                  <div className="space-y-1.5">
+                    <Step n={1}>
+                      Tap <strong>⋮</strong> menu in your browser
+                    </Step>
+                    <Step n={2}>
+                      Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>
+                    </Step>
+                    <Step n={3}>Tap <strong>"Install"</strong> to confirm</Step>
+                  </div>
                 )}
               </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
