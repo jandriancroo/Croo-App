@@ -62,7 +62,7 @@ const TOOL_SCHEMA = {
               product_name: { type: "string" },
               item_number: { type: "string" },
               pa_product_id: { type: "string" },
-              pack_size: { type: "string", description: "Verbatim pack/case breakdown like \"2/1 LB\" — do not fabricate" },
+              pack_size: { type: "string", description: "Verbatim value from the Pack UM / Pack / Size column, e.g. \"10/12 CT\", \"6/5 LB BAG\", \"136 / 4 OZ EA\". Include trailing unit codes. Do not fabricate." },
               quantity: { type: "number" },
               unit: { type: "string" },
               unit_price: { type: "number" },
