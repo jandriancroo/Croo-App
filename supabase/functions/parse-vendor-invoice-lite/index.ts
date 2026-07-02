@@ -165,8 +165,20 @@ serve(async (req) => {
 
     const effectiveDeliveryDate = parsed.delivery_date || parsed.invoice_date || null;
 
+    // Vendor name: prefer the longer / more complete value already on record.
+    // Prevents a shorter re-parse (e.g. "MCLANE") from clobbering "McLane Foodservice, Inc.".
+    const incomingVendor = (parsed.vendor_name || "").trim();
+    const existingVendor = (invoice.vendor_name || "").trim();
+    const keepVendor =
+      !incomingVendor ||
+      existingVendor.toLowerCase() === incomingVendor.toLowerCase() ||
+      (existingVendor && existingVendor.length >= incomingVendor.length && existingVendor !== "Unknown");
+    const finalVendorName = keepVendor && existingVendor && existingVendor !== "Unknown"
+      ? existingVendor
+      : incomingVendor || existingVendor;
+
     await admin.from("lite_vendor_invoices").update({
-      vendor_name: parsed.vendor_name || invoice.vendor_name,
+      vendor_name: finalVendorName,
       invoice_number: parsed.invoice_number || invoice.invoice_number,
       invoice_date: parsed.invoice_date || null,
       delivery_date: effectiveDeliveryDate,
@@ -174,6 +186,13 @@ serve(async (req) => {
       parsed_at: new Date().toISOString(),
       status: "parsed",
     }).eq("id", invoiceId);
+
+    // Idempotent re-parse: wipe any previously-inserted line items for this invoice
+    // before writing the new set. Without this, re-runs duplicate lines.
+    await admin
+      .from("lite_vendor_invoice_items")
+      .delete()
+      .eq("invoice_id", invoiceId);
 
     // Load existing Lite items for this location.
     const { data: liteItems } = await admin
