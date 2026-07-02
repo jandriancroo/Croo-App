@@ -649,7 +649,11 @@ const Inventory = () => {
             <h2 className="text-lg font-semibold">Settings</h2>
           </div>
           <div className="p-4 space-y-4">
-            <InventoryItemsManager locationId={locationId!} mode="setup" />
+            {isLite ? (
+              <LiteStorageLocationsManager locationId={locationId!} />
+            ) : (
+              <InventoryItemsManager locationId={locationId!} mode="setup" />
+            )}
           </div>
         </SheetContent>
       </Sheet>
