@@ -1040,6 +1040,7 @@ function EditTemplateForm({
           <span className="text-[10px] text-muted-foreground font-mono">ID:</span>
           <span className="text-[10px] text-muted-foreground font-mono select-all truncate">{template.id}</span>
         </div>
+        <VendorInvoiceNameHint itemNumber={template.item_number} vendorSource={template.vendor_source} />
       </div>
 
       {/* Recipe badge */}
