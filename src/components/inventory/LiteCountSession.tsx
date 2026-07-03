@@ -51,7 +51,7 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
     queryFn: async (): Promise<Item[]> => {
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
-        .select("id, name, unit, pack_size, cost_per_unit, storage_id")
+        .select("id, name, unit, pack_size, cost_per_unit, storage_id, display_order")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
