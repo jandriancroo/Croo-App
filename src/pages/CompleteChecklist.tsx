@@ -1371,7 +1371,7 @@ export default function CompleteChecklist() {
                             className="relative cursor-pointer group/ref" 
                             onClick={() => setPreviewImage(item.reference_image_url!)}
                           >
-                            <img src={item.reference_image_url} alt="Reference standard" className="rounded max-h-36 object-cover border border-primary/20 shadow-sm" />
+                            <img src={item.reference_image_url} alt="Reference standard" loading="lazy" decoding="async" className="rounded max-h-36 object-cover border border-primary/20 shadow-sm" />
                             <div className="absolute inset-0 bg-black/0 group-hover/ref:bg-black/10 transition-colors rounded flex items-center justify-center">
                               <Eye className="h-5 w-5 text-white opacity-0 group-hover/ref:opacity-80 transition-opacity drop-shadow" />
                             </div>
