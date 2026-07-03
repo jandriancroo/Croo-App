@@ -427,37 +427,54 @@ All colors MUST be HSL.
   --chart-6: 24 10% 35%;                 /* char light */
 }
 
-/* Playa Theme - Playa Bowls tropical: teal ocean, sunny yellow, açaí purple, sand */
+/* Playa Bowls Theme — muted ocean teal, coral, mango on sand; no purple */
 [data-theme="playa"] {
   --background: 39 41% 93%;
-  --foreground: 204 38% 16%;
+  --foreground: 176 31% 14%;
   --card: 210 17% 98%;
-  --card-foreground: 204 38% 16%;
+  --card-foreground: 176 31% 14%;
   --popover: 210 17% 98%;
-  --popover-foreground: 204 38% 16%;
-  --primary: 177 100% 35%;
+  --popover-foreground: 176 31% 14%;
+
+  /* Primary — brand teal (Weekly Sales, rings, nav accents) */
+  --primary: 176 30% 42%;                /* #4a8a86 */
   --primary-foreground: 0 0% 100%;
-  --secondary: 48 100% 50%;
-  --secondary-foreground: 204 38% 16%;
+  --primary-light: 176 30% 58%;
+
+  /* Secondary — mango (badges, tertiary/highlight, system chip) */
+  --secondary: 39 65% 58%;               /* #d9a94e */
+  --secondary-foreground: 176 31% 14%;
+
   --muted: 39 30% 88%;
-  --muted-foreground: 204 20% 35%;
-  --accent: 287 47% 33%;
+  --muted-foreground: 176 20% 32%;
+
+  /* Accent — muted coral (Payment Breakdown cube, user chip) */
+  --accent: 3 47% 60%;                   /* #c96f6a */
   --accent-foreground: 0 0% 100%;
-  --destructive: 336 100% 60%;
+
+  --destructive: 3 65% 50%;
   --destructive-foreground: 0 0% 100%;
   --border: 39 25% 80%;
   --input: 39 28% 88%;
-  --ring: 177 100% 35%;
+  --ring: 176 30% 42%;
   --glass-background: 210 17% 100% / 0.6;
-  --glass-border: 177 60% 50% / 0.3;
-  --glass-shadow: 204 38% 16% / 0.08;
+  --glass-border: 176 30% 50% / 0.3;
+  --glass-shadow: 176 31% 14% / 0.08;
 
-  --chart-1: 177 100% 35%;
-  --chart-2: 48 100% 50%;
-  --chart-3: 287 47% 33%;
-  --chart-4: 145 39% 49%;
-  --chart-5: 32 100% 55%;
-  --chart-6: 336 100% 71%;
+  /* Deep accent — header + bottom nav chrome */
+  --header-bg: 176 31% 27%;              /* #2f5a57 */
+  --header-fg: 39 41% 96%;
+
+  /* Quick Task chip semantics — user=coral, system=teal (2-hue split) */
+  --quick-task-user: 3 47% 60%;          /* coral */
+  --quick-task-system: 176 30% 42%;      /* teal */
+
+  --chart-1: 176 30% 42%;                /* teal */
+  --chart-2: 3 47% 60%;                  /* coral */
+  --chart-3: 39 65% 58%;                 /* mango */
+  --chart-4: 176 31% 27%;                /* deep teal */
+  --chart-5: 3 40% 45%;                  /* deep coral */
+  --chart-6: 39 45% 45%;                 /* deep mango */
 }
 
 
