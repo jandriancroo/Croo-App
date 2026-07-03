@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ShieldCheck, DollarSign, CircleCheck, LucideIcon } from "lucide-react";
+import { ShieldCheck, DollarSign, LucideIcon } from "lucide-react";
+import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatInTimeZone } from "date-fns-tz";
