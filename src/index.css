@@ -853,6 +853,20 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
     color: hsl(var(--muted-foreground));
   }
 
+  /* Photo-backed dashboard themes: lift labels off the imagery with white +
+     soft shadow so they stay legible on beach/playa/blaze backgrounds. */
+  html[data-theme="beach"] body.beach-dashboard .dash-section-title__label,
+  html[data-theme="beach"] body.beach-dashboard .dash-section-title__action,
+  html[data-theme="playa"] body.playa-dashboard .dash-section-title__label,
+  html[data-theme="playa"] body.playa-dashboard .dash-section-title__action,
+  html[data-theme="blaze"] body.blaze-dashboard .dash-section-title__label,
+  html[data-theme="blaze"] body.blaze-dashboard .dash-section-title__action {
+    color: hsl(0 0% 100% / 0.95);
+    text-shadow:
+      0 1px 2px hsl(0 0% 0% / 0.55),
+      0 0 12px hsl(0 0% 0% / 0.25);
+  }
+
   /* Hide the QUICK TASKS title (and section) when there is no content */
   .quick-task-section:not(:has(.quick-task-content > *)) {
     display: none;
