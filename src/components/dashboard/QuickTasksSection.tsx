@@ -19,23 +19,26 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
   timezone 
 }: QuickTasksSectionProps) {
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="quick-task-section flex flex-col gap-2 w-full">
       <UnreadAnnouncementsAlert />
       <PinMigrationTask />
       <PendingDocumentsCard />
       <I9UploadCard />
       <OpusBackgroundSync />
-      <AssignedTemporaryTasks
-        compact
-        includeEventTasks
-        afterEventsContent={
-          <>
-            <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
-            <DailySpotCheckTask locationHours={locationSettings} timezone={timezone} />
-          </>
-        }
-      />
+      <div className="quick-task-dock">
+        <AssignedTemporaryTasks
+          compact
+          includeEventTasks
+          afterEventsContent={
+            <>
+              <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
+              <DailySpotCheckTask locationHours={locationSettings} timezone={timezone} />
+            </>
+          }
+        />
+      </div>
       <CateringOrdersAlert />
+      <div className="quick-task-divider" aria-hidden="true" />
     </div>
   );
 });
