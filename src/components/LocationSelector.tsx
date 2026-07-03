@@ -27,7 +27,7 @@ export const LocationSelector = () => {
       >
         <MapPin className="h-4 w-4" />
         <span className="hidden sm:inline">{formatLocationName(currentLocation.name, currentLocation.store_number)}</span>
-        <InventoryModeBadge mode={mode} />
+        {isConfigured && <InventoryModeBadge mode={mode} />}
       </Button>
 
       <LocationPickerDialog
