@@ -256,11 +256,11 @@ export function TemporaryTasksSection() {
                 return (
                   <div
                     key={task.id}
-                    className="group flex items-center gap-2.5 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
+                    className="group flex items-center gap-2 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
                     style={{
                       backgroundColor: accent,
                       borderRadius: 12,
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       boxShadow: `0 1px 2px ${accent}55, inset 0 1px 0 rgba(255,255,255,0.12)`,
                     }}
                     onClick={() => setSelectedTask(task)}
@@ -268,25 +268,25 @@ export function TemporaryTasksSection() {
                     <div
                       className="flex items-center justify-center shrink-0"
                       style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 8,
+                        width: 24,
+                        height: 24,
+                        borderRadius: 7,
                         backgroundColor: "rgba(255,255,255,0.22)",
                       }}
                     >
                       {task.task_style === 'alarm' ? (
-                        <AlarmClock style={{ width: 16, height: 16, color: '#fff' }} strokeWidth={2.25} />
+                        <AlarmClock style={{ width: 14, height: 14, color: '#fff' }} strokeWidth={2.25} />
                       ) : task.is_qr_triggered ? (
-                        <QrCode style={{ width: 16, height: 16, color: '#fff' }} strokeWidth={2.25} />
+                        <QrCode style={{ width: 14, height: 14, color: '#fff' }} strokeWidth={2.25} />
                       ) : (
-                        <ClipboardList style={{ width: 16, height: 16, color: '#fff' }} strokeWidth={2.25} />
+                        <ClipboardList style={{ width: 14, height: 14, color: '#fff' }} strokeWidth={2.25} />
                       )}
                     </div>
-                    <span className="flex-1 min-w-0 truncate" style={{ color: '#fff', fontSize: 14, fontWeight: 500 }}>
+                    <span className="flex-1 min-w-0 truncate" style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>
                       {task.title}
                     </span>
                     {hasSubtasks && (
-                      <span className="shrink-0 tabular-nums text-right" style={{ color: countColor, fontSize: 13, fontWeight: 500 }}>
+                      <span className="shrink-0 tabular-nums text-right" style={{ color: countColor, fontSize: 12, fontWeight: 500 }}>
                         {completedSubtasks}/{totalSubtasks}
                       </span>
                     )}
@@ -294,12 +294,12 @@ export function TemporaryTasksSection() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
-                            className="h-7 w-7 flex items-center justify-center rounded-md shrink-0 hover:bg-white/20 transition-colors"
+                            className="h-6 w-6 flex items-center justify-center rounded-md shrink-0 hover:bg-white/20 transition-colors"
                             style={{ color: '#fff' }}
                             onClick={(e) => e.stopPropagation()}
                             aria-label="Edit task"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-3 w-3" />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

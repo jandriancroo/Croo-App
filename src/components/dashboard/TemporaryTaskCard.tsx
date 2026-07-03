@@ -62,11 +62,11 @@ export function TemporaryTaskCard({
   return (
     <>
       <div
-        className="quick-task-card group flex items-center gap-2.5 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
+        className="quick-task-card group flex items-center gap-2 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
         style={{
           backgroundColor: accentColor,
           borderRadius: 12,
-          padding: "10px 12px",
+          padding: "8px 10px",
           boxShadow: `0 1px 2px ${accentColor}55, inset 0 1px 0 rgba(255,255,255,0.12)`,
         }}
         onClick={onAction}
@@ -76,29 +76,29 @@ export function TemporaryTaskCard({
         <div
           className="flex items-center justify-center shrink-0"
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
+            width: 24,
+            height: 24,
+            borderRadius: 7,
             backgroundColor: "rgba(255,255,255,0.22)",
           }}
         >
           {isOpusTask ? (
-            <img src={opusLogo} alt="OPUS" className="h-4 w-auto" loading="lazy" />
+            <img src={opusLogo} alt="OPUS" className="h-3.5 w-auto" loading="lazy" />
           ) : (
-            <Icon style={{ width: 16, height: 16, color: "#fff" }} strokeWidth={2.25} />
+            <Icon style={{ width: 14, height: 14, color: "#fff" }} strokeWidth={2.25} />
           )}
         </div>
 
         <span
           className="flex-1 min-w-0 truncate"
-          style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}
+          style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}
         >
           {title}
         </span>
 
         {taskStyle === "alarm" && (
           <span
-            className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+            className="shrink-0 px-1 py-0.5 rounded text-[10px] font-semibold"
             style={{
               backgroundColor: "rgba(255,255,255,0.22)",
               color: "#fff",
@@ -112,14 +112,14 @@ export function TemporaryTaskCard({
         {hasSubtasks ? (
           <span
             className="shrink-0 tabular-nums text-right"
-            style={{ color: countColor, fontSize: 13, fontWeight: 500 }}
+            style={{ color: countColor, fontSize: 12, fontWeight: 500 }}
           >
             {subtasksCompleted}/{subtasksTotal}
           </span>
         ) : badge ? (
           <span
             className="shrink-0 text-right"
-            style={{ color: countColor, fontSize: 13, fontWeight: 500 }}
+            style={{ color: countColor, fontSize: 12, fontWeight: 500 }}
           >
             {badge.label}
           </span>
@@ -129,20 +129,20 @@ export function TemporaryTaskCard({
           <Button
             size="icon"
             variant="ghost"
-            className="h-6 w-6 shrink-0 hover:bg-white/15"
+            className="h-5 w-5 shrink-0 hover:bg-white/15"
             style={{ color: "#fff" }}
             onClick={(e) => {
               e.stopPropagation();
               setShareOpen(true);
             }}
           >
-            <Send className="h-3.5 w-3.5" />
+            <Send className="h-3 w-3" />
           </Button>
         )}
 
         <ChevronRight
           className="shrink-0 transition-transform group-hover:translate-x-0.5"
-          style={{ width: 16, height: 16, color: countColor, opacity: 0.85 }}
+          style={{ width: 14, height: 14, color: countColor, opacity: 0.85 }}
           aria-hidden
         />
       </div>
