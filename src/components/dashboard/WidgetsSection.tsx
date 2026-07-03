@@ -558,50 +558,93 @@ export const WidgetsSection = memo(function WidgetsSection({
 
   const renderSection = (section: string) => {
     switch (section) {
-      case 'data-cubes':
-        if (dataCubes.length === 0) return null;
+      case 'data-cubes': {
+        if (dataCubes.length === 0 && trackerCubes.length === 0) return null;
         return (
-          <DndContext
-            key="data-cubes"
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={dataCubes.map(cube => cube.id)}
-              strategy={rectSortingStrategy}
-            >
-              <div className="grid grid-cols-2 gap-3" data-tour="dashboard-cubes">
-                {dataCubes.map(cube => (
-                  <SortableDataCube
-                    key={cube.id}
-                    cube={cube}
-                    salesData={salesData}
-                    isLoading={isLoadingSales}
-                    locationSettings={locationSettings}
-                    isReorderMode={isReorderMode}
-                    onSalesDataChange={onSalesDataChange}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <div key="data-cubes" className="flex flex-col gap-2">
+            {dataCubes.length > 0 && (
+              <>
+                <DashSectionTitle>Cubes</DashSectionTitle>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={dataCubes.map(cube => cube.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 gap-3" data-tour="dashboard-cubes">
+                      {dataCubes.map(cube => (
+                        <SortableDataCube
+                          key={cube.id}
+                          cube={cube}
+                          salesData={salesData}
+                          isLoading={isLoadingSales}
+                          locationSettings={locationSettings}
+                          isReorderMode={isReorderMode}
+                          onSalesDataChange={onSalesDataChange}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </>
+            )}
+            {trackerCubes.length > 0 && (
+              <>
+                <DashSectionTitle>Promo</DashSectionTitle>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={trackerCubes.map(cube => cube.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 gap-3" data-tour="dashboard-promo">
+                      {trackerCubes.map(cube => (
+                        <SortableDataCube
+                          key={cube.id}
+                          cube={cube}
+                          salesData={salesData}
+                          isLoading={isLoadingSales}
+                          locationSettings={locationSettings}
+                          isReorderMode={isReorderMode}
+                          onSalesDataChange={onSalesDataChange}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </>
+            )}
+          </div>
         );
+      }
       case 'checklists':
         if (!checklistsContent) return null;
-        return <div key="checklists" className="w-full">{checklistsContent}</div>;
+        return (
+          <div key="checklists" className="w-full flex flex-col gap-2">
+            <DashSectionTitle>Checklists</DashSectionTitle>
+            {checklistsContent}
+          </div>
+        );
       case 'sales-chart':
         if (!salesChart) return null;
         return (
-          <SortableDataCube
-            key={salesChart.id}
-            cube={salesChart}
-            salesData={salesData}
-            isLoading={isLoadingSales}
-            locationSettings={locationSettings}
-            isReorderMode={isReorderMode}
-            onSalesDataChange={onSalesDataChange}
-          />
+          <div key="sales-chart" className="flex flex-col gap-2">
+            <DashSectionTitle>Summary</DashSectionTitle>
+            <SortableDataCube
+              cube={salesChart}
+              salesData={salesData}
+              isLoading={isLoadingSales}
+              locationSettings={locationSettings}
+              isReorderMode={isReorderMode}
+              onSalesDataChange={onSalesDataChange}
+            />
+          </div>
         );
       default:
         return null;
