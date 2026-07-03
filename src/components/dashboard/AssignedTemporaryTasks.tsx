@@ -442,13 +442,13 @@ export function AssignedTemporaryTasks({
     return (
       <>
         {beforeContent.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {beforeContent.map(renderPill)}
           </div>
         )}
         {afterEventsContent}
         {afterContent.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {afterContent.map(renderPill)}
           </div>
         )}
