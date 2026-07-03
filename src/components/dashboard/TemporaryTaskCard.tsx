@@ -66,19 +66,23 @@ export function TemporaryTaskCard({
   const [shareOpen, setShareOpen] = useState(false);
   const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
 
-  // Theme-locked colors when `variant` is set — pulls from CSS vars so every
-  // active theme automatically supplies the correct hue. Legacy hex path
-  // preserved for callers that still pass raw `accentColor` (e.g. completed
-  // states rendered in green).
-  const themeVar =
-    variant === "user" ? "--accent" : variant === "system" ? "--primary" : null;
-  const bg = themeVar ? `hsl(var(${themeVar}))` : accentColor;
-  const shadowColor = themeVar
-    ? `hsl(var(${themeVar}) / 0.33)`
+  // Theme-locked colors when `variant` is set. Prefers the theme-specific
+  // `--quick-task-*` token, falling back to `--accent` (user) or `--primary`
+  // (system) so themes without the override still work.
+  const themeVarExpr =
+    variant === "user"
+      ? "var(--quick-task-user, var(--accent))"
+      : variant === "system"
+      ? "var(--quick-task-system, var(--primary))"
+      : null;
+  const bg = themeVarExpr ? `hsl(${themeVarExpr})` : accentColor;
+  const shadowColor = themeVarExpr
+    ? `hsl(${themeVarExpr} / 0.33)`
     : `${accentColor}55`;
-  const countColor = themeVar
+  const countColor = themeVarExpr
     ? "rgba(255,255,255,0.78)"
     : lightenHexTowardWhite(accentColor, 0.8);
+
 
 
   return (
