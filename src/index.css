@@ -47,8 +47,10 @@ All colors MUST be HSL.
 
   /* iOS 26/27 PWA paints the status-bar bleed from the body's top pixel,
      not from <html>. Overlay a fixed band in the safe-area-inset-top region
-     so the notch/dynamic-island area matches --header-bg on every theme. */
-  body::before {
+     so the notch/dynamic-island area matches --header-bg on every theme.
+     Attached to html (not body) because body has overflow-x:hidden, which on
+     iOS PWA traps position:fixed children below the safe-area. */
+  html::before {
     content: "";
     position: fixed;
     top: 0;
@@ -59,6 +61,7 @@ All colors MUST be HSL.
     z-index: 9999;
     pointer-events: none;
   }
+
 
 
 
