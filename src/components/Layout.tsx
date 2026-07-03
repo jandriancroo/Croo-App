@@ -1286,7 +1286,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                             className="justify-start gap-2 h-9 px-3"
                           >
                             <Icon className="h-4 w-4" />
-                            <span className="text-sm">{item.label}</span>
+                            <span className="text-sm flex-1">{item.label}</span>
+                            {item.path.startsWith('/inventory') && (
+                              <InventoryModeBadge mode={currentInventoryMode} />
+                            )}
                           </Button>
                         );
                       })}
