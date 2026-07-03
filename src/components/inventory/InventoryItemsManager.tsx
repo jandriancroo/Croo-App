@@ -608,6 +608,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       unit: item.unit || null,
       pack_size: item.pack_size || null,
       brand_item_id: item.brand_item_id || null,
+      item_number: item.item_number || null,
+      vendor_source: item.vendor_source || null,
     });
     setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
