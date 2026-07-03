@@ -33,6 +33,7 @@ import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
 import TheoMappingTab from '@/components/brand/TheoMappingTab';
 import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 import LocationActivationList from '@/components/brand/LocationActivationList';
+import { VendorInvoiceNameHint } from '@/components/inventory/VendorInvoiceNameHint';
 import VendorHealthDashboard from '@/components/brand/VendorHealthDashboard';
 import BrandPackConfigApprovals from '@/pages/BrandPackConfigApprovals';
 import BrandUnpricedIngredients from '@/pages/BrandUnpricedIngredients';
