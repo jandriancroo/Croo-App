@@ -54,7 +54,7 @@ All colors MUST be HSL.
     top: 0;
     left: 0;
     right: 0;
-    height: max(env(safe-area-inset-top, 0px), 64px);
+    height: env(safe-area-inset-top, 0px);
     background-color: hsl(var(--header-bg));
     z-index: 9999;
     pointer-events: none;
@@ -837,14 +837,6 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
   body {
     @apply bg-background text-foreground font-manrope;
-    background-image: linear-gradient(
-      to bottom,
-      hsl(var(--header-bg)) 0,
-      hsl(var(--header-bg)) max(env(safe-area-inset-top, 0px), 64px),
-      hsl(var(--background)) max(env(safe-area-inset-top, 0px), 64px),
-      hsl(var(--background)) 100%
-    );
-    background-attachment: fixed;
     font-weight: 500;
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
