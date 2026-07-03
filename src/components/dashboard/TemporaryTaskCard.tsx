@@ -75,10 +75,13 @@ export function TemporaryTaskCard({
       : variant === "system"
       ? "var(--quick-task-system, var(--primary))"
       : null;
-  const bg = themeVarExpr ? `hsl(${themeVarExpr})` : accentColor;
+  const bg = themeVarExpr
+    ? `hsl(${themeVarExpr} / var(--quick-task-alpha, 1))`
+    : accentColor;
   const shadowColor = themeVarExpr
     ? `hsl(${themeVarExpr} / 0.33)`
     : `${accentColor}55`;
+
   const countColor = themeVarExpr
     ? "rgba(255,255,255,0.78)"
     : lightenHexTowardWhite(accentColor, 0.8);
