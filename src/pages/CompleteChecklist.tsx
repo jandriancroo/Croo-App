@@ -1304,31 +1304,51 @@ export default function CompleteChecklist() {
                             type="button"
                             onClick={() => handleUndoClick(item.id)}
                             aria-label="Undo completion"
-                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-full bg-green-600 text-white shadow-md active:scale-95 transition-transform"
+                            className="flex-1 flex items-center gap-2 min-w-0 rounded-md px-2 py-1 -ml-2 active:bg-muted/50 transition-colors text-left"
                           >
-                            <Check className="h-6 w-6" strokeWidth={3} />
+                            <div className="shrink-0">
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            </div>
+                            {completerInfo && (
+                              <>
+                                <Avatar className="h-7 w-7 shrink-0">
+                                  <AvatarImage src={completerInfo.profilePhoto || undefined} />
+                                  <AvatarFallback className="text-[10px]">
+                                    {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm font-medium truncate">
+                                  {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                                </span>
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                                </span>
+                              </>
+                            )}
                           </button>
                         ) : (
-                          <div className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-full bg-green-600 text-white shadow-md">
-                            <Check className="h-6 w-6" strokeWidth={3} />
+                          <div className="flex-1 flex items-center gap-2 min-w-0">
+                            <div className="shrink-0">
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            </div>
+                            {completerInfo && (
+                              <>
+                                <Avatar className="h-7 w-7 shrink-0">
+                                  <AvatarImage src={completerInfo.profilePhoto || undefined} />
+                                  <AvatarFallback className="text-[10px]">
+                                    {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm font-medium truncate">
+                                  {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                                </span>
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                                </span>
+                              </>
+                            )}
                           </div>
                         )}
-                      {completerInfo && (
-                        <>
-                          <Avatar className="h-7 w-7 shrink-0">
-                            <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                            <AvatarFallback className="text-[10px]">
-                              {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium truncate">
-                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                          </span>
-                          <span className="text-[10px] text-muted-foreground ml-auto">
-                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                          </span>
-                        </>
-                      )}
                     </div>
                   </CardContent>
                 ) : (
