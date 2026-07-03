@@ -303,6 +303,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           store_number: storeNumber.trim() || null,
           vendor_territory: vendorTerritory.trim() || null,
           inventory_mode: inventoryMode,
+          inventory_configured: true,
         } as any)
         .select('id')
         .single();
