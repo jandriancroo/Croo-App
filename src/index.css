@@ -469,6 +469,9 @@ All colors MUST be HSL.
   --quick-task-user: 3 47% 60%;          /* coral */
   --quick-task-system: 176 30% 42%;      /* teal */
 
+  /* Chip transparency — lets the background photo peek through subtly */
+  --quick-task-alpha: 0.9;
+
   --chart-1: 176 30% 42%;                /* teal */
   --chart-2: 3 47% 60%;                  /* coral */
   --chart-3: 39 65% 58%;                 /* mango */
