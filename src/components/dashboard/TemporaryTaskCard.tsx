@@ -86,11 +86,12 @@ export function TemporaryTaskCard({
       <div
         className="quick-task-card group flex items-center gap-2 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
         style={{
-          backgroundColor: accentColor,
+          backgroundColor: bg,
           borderRadius: 12,
           padding: "8px 10px",
-          boxShadow: `0 1px 2px ${accentColor}55, inset 0 1px 0 rgba(255,255,255,0.12)`,
+          boxShadow: `0 1px 2px ${shadowColor}, inset 0 1px 0 rgba(255,255,255,0.12)`,
         }}
+
         onClick={onAction}
         role="button"
         tabIndex={0}
