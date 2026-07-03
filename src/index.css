@@ -168,47 +168,66 @@ All colors MUST be HSL.
   }
 }
 
-/* Dark Mode - Batman cape grey, optimized for visibility */
+/* Dark Mode — muted ink palette (palette C): quiet pine/stone/slate on
+   deep neutral ink. Everything sits in the same low-saturation register so
+   nothing pops sharply at 11pm. */
 [data-theme="oled"] {
-  --background: 220 18% 9%;
-  --foreground: 215 15% 88%;
-  --card: 220 22% 15%;
-  --card-foreground: 215 15% 88%;
-  --popover: 220 18% 12%;
-  --popover-foreground: 215 15% 88%;
-  --primary: 189 50% 48%;
-  --primary-foreground: 220 18% 6%;
-  --primary-light: 189 55% 68%;
+  --background: 225 8% 10%;            /* #17181b page ink */
+  --foreground: 225 6% 87%;            /* #dcdde0 body text */
+  --card: 220 9% 14%;                  /* #202226 raised surfaces (clearly lighter) */
+  --card-foreground: 225 6% 87%;
+  --popover: 220 9% 14%;
+  --popover-foreground: 225 6% 87%;
 
-  --secondary: 220 16% 19%;
-  --secondary-foreground: 215 15% 80%;
-  --muted: 220 14% 17%;
-  --muted-foreground: 215 10% 52%;
-  --accent: 22 75% 58%;
-  --accent-foreground: 220 18% 6%;
-  --destructive: 0 65% 50%;
+  /* Primary — muted pine (Weekly Sales cube, rings, progress bars, nav) */
+  --primary: 160 16% 37%;              /* #4f6d63 */
+  --primary-foreground: 156 17% 94%;   /* #eef3f1 near-white on pine */
+  --primary-light: 160 18% 52%;
+
+  /* Secondary — muted stone (used by badges and secondary surfaces) */
+  --secondary: 29 14% 37%;             /* #6d5f52 */
+  --secondary-foreground: 40 26% 93%;  /* #f2efe9 near-white on stone */
+
+  --muted: 220 9% 18%;
+  --muted-foreground: 225 8% 62%;
+
+  /* Accent — stone (Payment Breakdown cube) */
+  --accent: 29 14% 37%;                /* #6d5f52 */
+  --accent-foreground: 40 26% 93%;     /* #f2efe9 */
+
+  --destructive: 0 55% 48%;
   --destructive-foreground: 0 0% 100%;
-  --border: 220 14% 22%;
-  --input: 220 14% 19%;
-  --ring: 189 50% 48%;
-  --sidebar-background: 220 18% 9%;
-  --sidebar-foreground: 215 15% 88%;
-  --sidebar-primary: 189 50% 48%;
-  --sidebar-primary-foreground: 220 18% 6%;
-  --sidebar-accent: 220 14% 17%;
-  --sidebar-accent-foreground: 215 15% 83%;
-  --sidebar-border: 220 14% 22%;
-  --sidebar-ring: 189 50% 48%;
-  --glass-background: 220 18% 11% / 0.9;
-  --glass-border: 215 15% 100% / 0.08;
-  --glass-shadow: 0 0% 0% / 0.25;
-  
-  --chart-1: 189 50% 48%;
-  --chart-2: 22 75% 58%;
-  --chart-3: 160 40% 50%;
-  --chart-4: 280 40% 55%;
-  --chart-5: 45 70% 55%;
-  --chart-6: 340 50% 55%;
+
+  --border: 223 7% 21%;                /* #313338 */
+  --input: 223 7% 21%;
+  --ring: 160 16% 37%;
+
+  --sidebar-background: 225 8% 10%;
+  --sidebar-foreground: 225 6% 87%;
+  --sidebar-primary: 160 16% 37%;
+  --sidebar-primary-foreground: 156 17% 94%;
+  --sidebar-accent: 220 9% 18%;
+  --sidebar-accent-foreground: 225 6% 87%;
+  --sidebar-border: 223 7% 21%;
+  --sidebar-ring: 160 16% 37%;
+
+  --glass-background: 220 9% 14% / 0.9;
+  --glass-border: 225 6% 100% / 0.06;
+  --glass-shadow: 0 0% 0% / 0.4;
+
+  /* Quick Task chip semantics — restore two-color differentiation.
+     User chip → pine (primary), System chip → slate (tertiary). */
+  --quick-task-user: 160 16% 37%;      /* pine  #4f6d63 */
+  --quick-task-user-fg: 156 17% 94%;   /* #eef3f1 */
+  --quick-task-system: 226 11% 40%;    /* slate #5a5f70 */
+  --quick-task-system-fg: 220 21% 95%; /* #eef0f4 */
+
+  --chart-1: 160 16% 37%;   /* pine */
+  --chart-2: 29 14% 37%;    /* stone */
+  --chart-3: 226 11% 40%;   /* slate */
+  --chart-4: 160 12% 52%;   /* pine light */
+  --chart-5: 29 12% 55%;    /* stone light */
+  --chart-6: 226 10% 58%;   /* slate light */
 }
 
 /* Warm Earth Theme — terracotta, clay, sage, deep bark on warm sand */
