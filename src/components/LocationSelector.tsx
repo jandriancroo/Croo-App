@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
+import { useInventoryMode } from "@/hooks/useInventoryMode";
 import { MapPin } from "lucide-react";
 import { LocationPickerDialog } from "./LocationPickerDialog";
+import { InventoryModeBadge } from "./inventory/InventoryModeBadge";
 import { formatLocationName } from "@/utils/locationUtils";
 import { toast } from "sonner";
 
 export const LocationSelector = () => {
   const { currentLocation, setCurrentLocation } = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { mode } = useInventoryMode(currentLocation?.id);
 
   if (!currentLocation) {
     return null;
@@ -24,6 +27,7 @@ export const LocationSelector = () => {
       >
         <MapPin className="h-4 w-4" />
         <span className="hidden sm:inline">{formatLocationName(currentLocation.name, currentLocation.store_number)}</span>
+        <InventoryModeBadge mode={mode} />
       </Button>
 
       <LocationPickerDialog
