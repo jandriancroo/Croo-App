@@ -1232,8 +1232,8 @@ export default function CompleteChecklist() {
                     <button
                       type="button"
                       onClick={() => handleUndoClick(item.id)}
-                      aria-label="Undo completion"
-                      className="flex-1 flex items-center gap-2 min-w-0 rounded-md px-2 py-1 -ml-2 active:bg-muted/50 transition-colors text-left"
+                      aria-label={`Undo completion${completerInfo ? ` by ${completerInfo.fullName}` : ''}`}
+                      className="inline-flex items-center gap-2 min-w-0 max-w-full rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 px-2 py-1 active:scale-95 transition-transform"
                     >
                       <div className="shrink-0">
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -1249,14 +1249,14 @@ export default function CompleteChecklist() {
                           <span className="text-sm font-medium truncate">
                             {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
                           </span>
-                          <span className="text-[10px] text-muted-foreground ml-auto">
+                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
                             {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
                           </span>
                         </>
                       )}
                     </button>
                   ) : (
-                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                    <div className="inline-flex items-center gap-2 min-w-0 max-w-full rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 px-2 py-1">
                       <div className="shrink-0">
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
                       </div>
@@ -1271,7 +1271,7 @@ export default function CompleteChecklist() {
                           <span className="text-sm font-medium truncate">
                             {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
                           </span>
-                          <span className="text-[10px] text-muted-foreground ml-auto">
+                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
                             {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
                           </span>
                         </>
