@@ -690,6 +690,26 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
   background: hsl(205 65% 62%);
 }
 
+/* Playa Bowls / Blaze / Default (Croo) — header + bottom nav use deep chrome */
+[data-theme="playa"] header.bg-primary,
+[data-theme="blaze"] header.bg-primary,
+:root header.bg-primary {
+  background: hsl(var(--header-bg)) !important;
+  color: hsl(var(--header-fg));
+}
+[data-theme="playa"] .nav-bar-unified,
+[data-theme="blaze"] .nav-bar-unified {
+  background: hsl(var(--header-bg));
+  color: hsl(var(--header-fg));
+}
+[data-theme="playa"] header.bg-primary *,
+[data-theme="blaze"] header.bg-primary *,
+:root:not([data-theme]) header.bg-primary *,
+[data-theme="playa"] .nav-bar-unified *,
+[data-theme="blaze"] .nav-bar-unified * {
+  color: hsl(var(--header-fg));
+}
+
 /* Beach wave keyframes for dock */
 @keyframes beachDockWave {
   0%   { background-position: 0% 50%, 50% 50%; }
