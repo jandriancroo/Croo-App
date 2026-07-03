@@ -59,18 +59,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 25% 5%;
 
-    --primary: 189 45% 42%;
+    --primary: 192 33% 45%;              /* #4e8b9a tightened teal */
     --primary-foreground: 0 0% 100%;
-    --primary-light: 189 60% 62%;
+    --primary-light: 192 45% 62%;
 
 
-     --secondary: 189 45% 88%;
-     --secondary-foreground: 189 60% 18%;
+     --secondary: 37 32% 70%;             /* #cbb89a tan (badges, tertiary) */
+     --secondary-foreground: 30 25% 18%;
 
      --muted: 220 18% 90%;
      --muted-foreground: 220 20% 35%;
 
-     --accent: 22 80% 58%;
+     --accent: 23 61% 60%;                /* #d78b5b tightened orange */
      --accent-foreground: 0 0% 100%;
 
      --destructive: 0 90% 55%;
@@ -78,7 +78,11 @@ All colors MUST be HSL.
 
      --border: 220 25% 78%;
      --input: 220 25% 85%;
-     --ring: 189 45% 38%;
+     --ring: 192 33% 45%;
+
+     /* Deep accent — used for dark chrome / bottom-nav dock accents */
+     --header-bg: 193 34% 28%;            /* #2f5560 */
+     --header-fg: 40 33% 96%;
 
      --radius: 0.75rem;
 
@@ -86,7 +90,7 @@ All colors MUST be HSL.
 
      --sidebar-foreground: 220 20% 15%;
 
-     --sidebar-primary: 189 45% 38%;
+     --sidebar-primary: 192 33% 45%;
 
      --sidebar-primary-foreground: 0 0% 100%;
 
@@ -96,7 +100,7 @@ All colors MUST be HSL.
 
      --sidebar-border: 220 20% 82%;
 
-     --sidebar-ring: 189 45% 38%;
+     --sidebar-ring: 192 33% 45%;
     
     --role-admin: 215 40% 30%;
     --role-manager: 215 35% 42%;
@@ -362,85 +366,121 @@ All colors MUST be HSL.
 /* Blaze Pizza Theme - Blaze Orange, Fire Red, Charcoal, Cream (official brand palette) */
 [data-theme="blaze"] {
   --background: 32 52% 94%;
-  --foreground: 0 0% 17%;
+  --foreground: 24 13% 15%;
 
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 17%;
+  --card-foreground: 24 13% 15%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 17%;
+  --popover-foreground: 24 13% 15%;
 
-  --primary: 0 0% 17%;
+  /* Primary — ember (Weekly Sales cube, rings, nav accents) */
+  --primary: 20 53% 51%;                 /* #c46a3e */
   --primary-foreground: 32 52% 96%;
 
-  --secondary: 32 40% 88%;
-  --secondary-foreground: 0 0% 17%;
+  /* Secondary — warm char (dark chrome, sidebar, deep surfaces) */
+  --secondary: 24 13% 15%;               /* #2c2622 */
+  --secondary-foreground: 32 52% 96%;
 
   --muted: 32 30% 90%;
-  --muted-foreground: 0 0% 33%;
+  --muted-foreground: 24 10% 33%;
 
-  --accent: 23 100% 50%;
-  --accent-foreground: 0 0% 100%;
+  /* Accent — crust gold (Payment Breakdown cube) */
+  --accent: 42 59% 63%;                  /* #d9b76a */
+  --accent-foreground: 24 13% 15%;
 
   --destructive: 5 79% 54%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 32 30% 82%;
-  --input: 32 30% 88%;
-  --ring: 0 0% 17%;
+  --border: 32 22% 82%;
+  --input: 32 22% 88%;
+  --ring: 20 53% 51%;
 
-  --sidebar-background: 0 0% 17%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-primary: 23 100% 50%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 5 79% 54%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 0 0% 25%;
-  --sidebar-ring: 23 100% 50%;
+  --sidebar-background: 24 13% 15%;
+  --sidebar-foreground: 32 52% 96%;
+  --sidebar-primary: 20 53% 51%;
+  --sidebar-primary-foreground: 32 52% 96%;
+  --sidebar-accent: 24 13% 22%;
+  --sidebar-accent-foreground: 32 52% 96%;
+  --sidebar-border: 24 13% 25%;
+  --sidebar-ring: 20 53% 51%;
 
   --glass-background: 0 0% 100% / 0.85;
-  --glass-border: 23 100% 50% / 0.22;
-  --glass-shadow: 0 0% 10% / 0.10;
+  --glass-border: 20 53% 51% / 0.22;
+  --glass-shadow: 24 13% 10% / 0.12;
 
-  --chart-1: 23 100% 50%;
-  --chart-2: 5 79% 54%;
-  --chart-3: 48 100% 50%;
-  --chart-4: 0 0% 17%;
-  --chart-5: 0 0% 33%;
-  --chart-6: 15 85% 58%;
+  /* Deep chrome — header + bottom nav */
+  --header-bg: 24 13% 15%;               /* #2c2622 char */
+  --header-fg: 32 52% 96%;
+
+  /* Quick Task chip semantics — user=ember, system=char (max differentiation) */
+  --quick-task-user: 20 53% 51%;         /* ember */
+  --quick-task-user-fg: 32 52% 96%;
+  --quick-task-system: 24 13% 15%;       /* char */
+  --quick-task-system-fg: 32 52% 96%;
+
+  /* Chip transparency — lets the background photo peek through subtly */
+  --quick-task-alpha: 0.9;
+
+  --chart-1: 20 53% 51%;                 /* ember */
+  --chart-2: 42 59% 63%;                 /* gold */
+  --chart-3: 24 13% 15%;                 /* char */
+  --chart-4: 20 45% 62%;                 /* ember light */
+  --chart-5: 42 45% 50%;                 /* gold deep */
+  --chart-6: 24 10% 35%;                 /* char light */
 }
 
-/* Playa Theme - Playa Bowls tropical: teal ocean, sunny yellow, açaí purple, sand */
+/* Playa Bowls Theme — muted ocean teal, coral, mango on sand; no purple */
 [data-theme="playa"] {
   --background: 39 41% 93%;
-  --foreground: 204 38% 16%;
+  --foreground: 176 31% 14%;
   --card: 210 17% 98%;
-  --card-foreground: 204 38% 16%;
+  --card-foreground: 176 31% 14%;
   --popover: 210 17% 98%;
-  --popover-foreground: 204 38% 16%;
-  --primary: 177 100% 35%;
+  --popover-foreground: 176 31% 14%;
+
+  /* Primary — brand teal (Weekly Sales, rings, nav accents) */
+  --primary: 176 30% 42%;                /* #4a8a86 */
   --primary-foreground: 0 0% 100%;
-  --secondary: 48 100% 50%;
-  --secondary-foreground: 204 38% 16%;
+  --primary-light: 176 30% 58%;
+
+  /* Secondary — mango (badges, tertiary/highlight, system chip) */
+  --secondary: 39 65% 58%;               /* #d9a94e */
+  --secondary-foreground: 176 31% 14%;
+
   --muted: 39 30% 88%;
-  --muted-foreground: 204 20% 35%;
-  --accent: 287 47% 33%;
+  --muted-foreground: 176 20% 32%;
+
+  /* Accent — muted coral (Payment Breakdown cube, user chip) */
+  --accent: 3 47% 60%;                   /* #c96f6a */
   --accent-foreground: 0 0% 100%;
-  --destructive: 336 100% 60%;
+
+  --destructive: 3 65% 50%;
   --destructive-foreground: 0 0% 100%;
   --border: 39 25% 80%;
   --input: 39 28% 88%;
-  --ring: 177 100% 35%;
+  --ring: 176 30% 42%;
   --glass-background: 210 17% 100% / 0.6;
-  --glass-border: 177 60% 50% / 0.3;
-  --glass-shadow: 204 38% 16% / 0.08;
+  --glass-border: 176 30% 50% / 0.3;
+  --glass-shadow: 176 31% 14% / 0.08;
 
-  --chart-1: 177 100% 35%;
-  --chart-2: 48 100% 50%;
-  --chart-3: 287 47% 33%;
-  --chart-4: 145 39% 49%;
-  --chart-5: 32 100% 55%;
-  --chart-6: 336 100% 71%;
+  /* Deep accent — header + bottom nav chrome */
+  --header-bg: 176 31% 27%;              /* #2f5a57 */
+  --header-fg: 39 41% 96%;
+
+  /* Quick Task chip semantics — user=coral, system=teal (2-hue split) */
+  --quick-task-user: 3 47% 60%;          /* coral */
+  --quick-task-system: 176 30% 42%;      /* teal */
+
+  /* Chip transparency — lets the background photo peek through subtly */
+  --quick-task-alpha: 0.9;
+
+  --chart-1: 176 30% 42%;                /* teal */
+  --chart-2: 3 47% 60%;                  /* coral */
+  --chart-3: 39 65% 58%;                 /* mango */
+  --chart-4: 176 31% 27%;                /* deep teal */
+  --chart-5: 3 40% 45%;                  /* deep coral */
+  --chart-6: 39 45% 45%;                 /* deep mango */
 }
 
 
@@ -571,13 +611,13 @@ html[data-theme="playa"] body.playa-dashboard .bg-background {
 }
 
 html[data-theme="playa"] body.playa-dashboard .bg-card {
-  background-color: hsl(210 17% 98% / 0.88) !important;
+  background-color: hsl(var(--card) / 0.9) !important;
 }
 
 html[data-theme="playa"] body.playa-dashboard .dashboard-task-pill {
-  background-color: hsl(var(--card) / 0.94) !important;
+  background-color: hsl(var(--card) / 0.92) !important;
   border: 1px solid hsl(var(--border) / 0.45);
-  box-shadow: 0 8px 20px hsl(287 47% 25% / 0.18);
+  box-shadow: 0 8px 20px hsl(var(--header-bg) / 0.18);
 }
 
 html[data-theme="playa"] body.playa-dashboard .dashboard-task-pill span {
@@ -620,7 +660,17 @@ html[data-theme="blaze"] body.blaze-dashboard .bg-background {
 }
 
 html[data-theme="blaze"] body.blaze-dashboard .bg-card {
-  background-color: hsl(0 0% 100% / 0.9) !important;
+  background-color: hsl(var(--card) / 0.9) !important;
+}
+
+html[data-theme="blaze"] body.blaze-dashboard .dashboard-task-pill {
+  background-color: hsl(var(--card) / 0.92) !important;
+  border: 1px solid hsl(var(--border) / 0.45);
+  box-shadow: 0 8px 20px hsl(var(--header-bg) / 0.18);
+}
+
+html[data-theme="blaze"] body.blaze-dashboard .dashboard-task-pill span {
+  text-shadow: 0 1px 2px hsl(0 0% 100% / 0.35);
 }
 
 html[data-theme="blaze"] body.blaze-dashboard [data-radix-popper-content-wrapper] *,
@@ -644,6 +694,26 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
 [data-theme="beach"] .nav-bar-unified {
   background: hsl(205 65% 62%);
+}
+
+/* Playa Bowls / Blaze / Default (Croo) — header + bottom nav use deep chrome */
+[data-theme="playa"] header.bg-primary,
+[data-theme="blaze"] header.bg-primary,
+:root header.bg-primary {
+  background: hsl(var(--header-bg)) !important;
+  color: hsl(var(--header-fg));
+}
+[data-theme="playa"] .nav-bar-unified,
+[data-theme="blaze"] .nav-bar-unified {
+  background: hsl(var(--header-bg));
+  color: hsl(var(--header-fg));
+}
+[data-theme="playa"] header.bg-primary *,
+[data-theme="blaze"] header.bg-primary *,
+:root:not([data-theme]) header.bg-primary *,
+[data-theme="playa"] .nav-bar-unified *,
+[data-theme="blaze"] .nav-bar-unified * {
+  color: hsl(var(--header-fg));
 }
 
 /* Beach wave keyframes for dock */
