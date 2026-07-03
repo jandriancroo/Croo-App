@@ -72,52 +72,45 @@ export function useIsMobile() {
   React.useEffect(() => {
     const phone = isPhoneDevice();
     const tablet = isTabletDevice();
-    const viewportMobile = hasMobileViewport();
-    
-    // A phone-sized iframe/window should render mobile chrome even when the
-    // underlying device is an iPad requesting desktop/tablet mode.
-    if (viewportMobile && !isLargePhoneLandscape()) {
-      setIsMobile(true);
-      return;
-    }
-    
+
     // Tablets: always desktop, no listener needed
     if (tablet) {
       setIsMobile(false);
       return;
     }
-    
+
+    // Small phones (screen < 390): always mobile, no listener needed
     if (phone) {
       const screenMin = Math.min(window.screen.width, window.screen.height);
       const isLargePhone = screenMin >= LARGE_PHONE_MIN_SCREEN;
-      
+
       if (!isLargePhone) {
-        // Small phone: always mobile
         setIsMobile(true);
         return;
       }
-      
+
       // Large phone: switch based on orientation
       const updateOrientation = () => {
         const landscape = window.innerWidth > window.innerHeight;
         setIsMobile(!landscape);
       };
-      
+
       updateOrientation();
-      
-      // Listen for orientation changes
+
       const mql = window.matchMedia('(orientation: landscape)');
       const onChange = () => updateOrientation();
       mql.addEventListener('change', onChange);
       window.addEventListener('resize', onChange);
-      
+
       return () => {
         mql.removeEventListener('change', onChange);
         window.removeEventListener('resize', onChange);
       };
     }
-    
-    // Desktop browsers: debounced resize with hysteresis
+
+    // Desktop/laptop (and editor preview iframe): debounced resize with hysteresis.
+    // Always attach the listener so the layout can flip back to desktop when the
+    // window/iframe widens past the breakpoint.
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let currentIsMobile = window.innerWidth < MOBILE_BREAKPOINT;
     setIsMobile(currentIsMobile);
