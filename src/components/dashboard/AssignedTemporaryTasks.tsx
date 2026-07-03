@@ -513,6 +513,7 @@ export function AssignedTemporaryTasks({
           subtitle={task.event_time}
           icon={CalendarCheck}
           accentColor={task.category?.color || "#6366f1"}
+          variant="user"
           onAction={() => handleEventTaskComplete(task.id)}
           isLoading={completingEventTask === task.id}
           iconStyle="minimal"
@@ -532,6 +533,7 @@ export function AssignedTemporaryTasks({
             subtitle={task.description || undefined}
             icon={getIconComponent(task.icon_name === "opus_logo" ? "GraduationCap" : (task.icon_name || "ClipboardList"))}
             accentColor={task.accent_color || "#8B5CF6"}
+            variant="user"
             buttonLabel={task.write_up_id ? "Sign" : undefined}
             onAction={() => setSelectedTask(task)}
             taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
@@ -552,6 +554,7 @@ export function AssignedTemporaryTasks({
           subtitle={`Pickup: ${formatTime(order.pickup_time)}`}
           icon={ChefHat}
           accentColor={ORANGE_COLOR}
+          variant="system"
           buttonLabel="Done"
           onAction={() => setSelectedOrder(order)}
           badge={{ label: `${order.items.length} items` }}
