@@ -857,13 +857,13 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
   .quick-task-section:has(> :not(.quick-task-divider)) .quick-task-divider {
     display: block;
-    margin: 0.25rem auto;
+    margin: 0.5rem auto;
     width: 80%;
     height: 1px;
     background: linear-gradient(
       to right,
       transparent,
-      hsl(var(--accent) / 0.25),
+      hsl(var(--accent) / 0.35),
       transparent
     );
   }
