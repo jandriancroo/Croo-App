@@ -6623,6 +6623,7 @@ export type Database = {
           fresh_kds_active: boolean
           fresh_kds_location_id: string | null
           id: string
+          inventory_configured: boolean
           inventory_enabled: boolean
           inventory_mode: string
           is_active: boolean
@@ -6650,6 +6651,7 @@ export type Database = {
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
+          inventory_configured?: boolean
           inventory_enabled?: boolean
           inventory_mode?: string
           is_active?: boolean
@@ -6677,6 +6679,7 @@ export type Database = {
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
+          inventory_configured?: boolean
           inventory_enabled?: boolean
           inventory_mode?: string
           is_active?: boolean
