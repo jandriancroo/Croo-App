@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { GripVertical } from 'lucide-react';
 import { useIsOledTheme } from '@/hooks/useIsOledTheme';
+import { DashSectionTitle } from './DashSectionTitle';
 
 // Sales chart accent color - teal to match the chart bars, dark blue for OLED
 const SALES_CHART_COLOR = '#0D9488';
