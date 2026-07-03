@@ -11,7 +11,7 @@ import { toast } from "sonner";
 export const LocationSelector = () => {
   const { currentLocation, setCurrentLocation } = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { mode } = useInventoryMode(currentLocation?.id);
+  const { mode, isConfigured } = useInventoryMode(currentLocation?.id);
 
   if (!currentLocation) {
     return null;
