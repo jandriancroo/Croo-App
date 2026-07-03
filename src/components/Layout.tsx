@@ -21,6 +21,8 @@ import { useState, useEffect } from 'react';
 import crooLogo from '@/assets/croo-logo.webp';
 import { LocationSwitchOverlay } from './LocationSwitchOverlay';
 import { LocationPickerDialog } from './LocationPickerDialog';
+import { InventoryModeBadge } from '@/components/inventory/InventoryModeBadge';
+import { useInventoryMode } from '@/hooks/useInventoryMode';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
@@ -335,6 +337,7 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo, locations: allUserLocations } = useAppLocation();
+  const { mode: currentInventoryMode } = useInventoryMode(currentLocation?.id);
   
   
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
@@ -1031,7 +1034,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       {(isManager || hasPermission('manage_inventory')) && (
                       <DropdownMenuItem onClick={() => navigate(currentLocation?.id ? `/inventory/${currentLocation.id}` : '/')} className="gap-2 cursor-pointer">
                         <Package className="h-4 w-4" />
-                        Inventory
+                        <span className="flex-1">Inventory</span>
+                        <InventoryModeBadge mode={currentInventoryMode} />
                       </DropdownMenuItem>
                       )}
                     </>
