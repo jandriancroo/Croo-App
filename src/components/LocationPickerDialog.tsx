@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { formatLocationName } from '@/utils/locationUtils';
+import { InventoryModeBadge } from '@/components/inventory/InventoryModeBadge';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Organization {
@@ -34,6 +35,7 @@ interface Location {
   org_name?: string;
   org_raw_name?: string;
   store_number?: string | null;
+  inventory_mode?: string | null;
 }
 
 interface LocationPickerDialogProps {
@@ -447,8 +449,9 @@ export function LocationPickerDialog({
         />
       </button>
       <div className="flex-1 min-w-0">
-        <div className={`text-sm ${loc.id === currentLocationId ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-          {formatLocationName(loc.name, loc.store_number)}
+        <div className={`text-sm flex items-center gap-1.5 ${loc.id === currentLocationId ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+          <span className="truncate">{formatLocationName(loc.name, loc.store_number)}</span>
+          <InventoryModeBadge mode={loc.inventory_mode} />
         </div>
         {loc.location_type === 'checklist_only' && (
           <div className="text-[10px] text-muted-foreground">Checklist Only</div>
