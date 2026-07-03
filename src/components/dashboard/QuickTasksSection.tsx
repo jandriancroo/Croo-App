@@ -8,24 +8,26 @@ import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { PinMigrationTask } from '@/components/dashboard/PinMigrationTask';
+import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 
 interface QuickTasksSectionProps {
   locationSettings: { hours_open: string; hours_close: string } | null | undefined;
   timezone: string;
 }
 
-export const QuickTasksSection = React.memo(function QuickTasksSection({ 
-  locationSettings, 
-  timezone 
+export const QuickTasksSection = React.memo(function QuickTasksSection({
+  locationSettings,
+  timezone,
 }: QuickTasksSectionProps) {
   return (
     <div className="quick-task-section flex flex-col gap-2 w-full">
-      <UnreadAnnouncementsAlert />
-      <PinMigrationTask />
-      <PendingDocumentsCard />
-      <I9UploadCard />
-      <OpusBackgroundSync />
-      <div className="quick-task-dock">
+      <DashSectionTitle>Quick Tasks</DashSectionTitle>
+      <div className="quick-task-content flex flex-col gap-2 w-full">
+        <UnreadAnnouncementsAlert />
+        <PinMigrationTask />
+        <PendingDocumentsCard />
+        <I9UploadCard />
+        <OpusBackgroundSync />
         <AssignedTemporaryTasks
           compact
           includeEventTasks
@@ -36,9 +38,8 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
             </>
           }
         />
+        <CateringOrdersAlert />
       </div>
-      <CateringOrdersAlert />
-      <div className="quick-task-divider" aria-hidden="true" />
     </div>
   );
 });
