@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_inv_count_audit_lookup ON public.inventory_count_audit_log (count_id, table_name, operation, logged_at DESC);

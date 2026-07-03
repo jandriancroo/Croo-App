@@ -382,7 +382,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       
       if (error) throw error;
       return data;
-    }
+    },
+    enabled: !!locationId,
+    staleTime: 60_000,
+    retry: 2,
   });
 
 
