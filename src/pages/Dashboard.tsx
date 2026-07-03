@@ -642,10 +642,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           ) : (
-            <>
+            <div className="space-y-3">
               {quickTasksContent}
               {dashboardContent}
-            </>
+            </div>
           )}
         </div>
         
