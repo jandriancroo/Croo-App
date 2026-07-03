@@ -556,73 +556,101 @@ export const WidgetsSection = memo(function WidgetsSection({
     );
   }
 
+  // Decide whether Promo renders before or after the Cubes section, based on
+  // the user's order in Edit Dashboard (localCubes is sorted by display_order).
+  const firstTrackerIdx = localCubes.findIndex(c => c.cubeType === 'tracker');
+  const firstDataIdx = localCubes.findIndex(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+  const promoBeforeCubes =
+    trackerCubes.length > 0 &&
+    (firstDataIdx === -1 || (firstTrackerIdx !== -1 && firstTrackerIdx < firstDataIdx));
+
+  const renderCubesBlock = () => {
+    if (dataCubes.length === 0) return null;
+    return (
+      <div key="cubes-block" className="flex flex-col gap-2">
+        <DashSectionTitle>Cubes</DashSectionTitle>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={dataCubes.map(cube => cube.id)}
+            strategy={rectSortingStrategy}
+          >
+            <div className="grid grid-cols-2 gap-3" data-tour="dashboard-cubes">
+              {dataCubes.map(cube => (
+                <SortableDataCube
+                  key={cube.id}
+                  cube={cube}
+                  salesData={salesData}
+                  isLoading={isLoadingSales}
+                  locationSettings={locationSettings}
+                  isReorderMode={isReorderMode}
+                  onSalesDataChange={onSalesDataChange}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+    );
+  };
+
+  const renderPromoBlock = () => {
+    if (trackerCubes.length === 0) return null;
+    return (
+      <div key="promo-block" className="flex flex-col gap-2">
+        <DashSectionTitle>Promo</DashSectionTitle>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={trackerCubes.map(cube => cube.id)}
+            strategy={rectSortingStrategy}
+          >
+            <div className="grid grid-cols-2 gap-3" data-tour="dashboard-promo">
+              {trackerCubes.map(cube => (
+                <SortableDataCube
+                  key={cube.id}
+                  cube={cube}
+                  salesData={salesData}
+                  isLoading={isLoadingSales}
+                  locationSettings={locationSettings}
+                  isReorderMode={isReorderMode}
+                  onSalesDataChange={onSalesDataChange}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+    );
+  };
+
   const renderSection = (section: string) => {
     switch (section) {
       case 'data-cubes': {
         if (dataCubes.length === 0 && trackerCubes.length === 0) return null;
         return (
-          <div key="data-cubes" className="flex flex-col gap-2">
-            {dataCubes.length > 0 && (
+          <div key="data-cubes" className="flex flex-col gap-2.5">
+            {promoBeforeCubes ? (
               <>
-                <DashSectionTitle>Cubes</DashSectionTitle>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={dataCubes.map(cube => cube.id)}
-                    strategy={rectSortingStrategy}
-                  >
-                    <div className="grid grid-cols-2 gap-3" data-tour="dashboard-cubes">
-                      {dataCubes.map(cube => (
-                        <SortableDataCube
-                          key={cube.id}
-                          cube={cube}
-                          salesData={salesData}
-                          isLoading={isLoadingSales}
-                          locationSettings={locationSettings}
-                          isReorderMode={isReorderMode}
-                          onSalesDataChange={onSalesDataChange}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                {renderPromoBlock()}
+                {renderCubesBlock()}
               </>
-            )}
-            {trackerCubes.length > 0 && (
+            ) : (
               <>
-                <DashSectionTitle>Promo</DashSectionTitle>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={trackerCubes.map(cube => cube.id)}
-                    strategy={rectSortingStrategy}
-                  >
-                    <div className="grid grid-cols-2 gap-3" data-tour="dashboard-promo">
-                      {trackerCubes.map(cube => (
-                        <SortableDataCube
-                          key={cube.id}
-                          cube={cube}
-                          salesData={salesData}
-                          isLoading={isLoadingSales}
-                          locationSettings={locationSettings}
-                          isReorderMode={isReorderMode}
-                          onSalesDataChange={onSalesDataChange}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                {renderCubesBlock()}
+                {renderPromoBlock()}
               </>
             )}
           </div>
         );
       }
+
       case 'checklists':
         if (!checklistsContent) return null;
         return (
