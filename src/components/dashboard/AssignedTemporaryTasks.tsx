@@ -370,6 +370,7 @@ export function AssignedTemporaryTasks({
       id: string;
       label: string;
       color: string;
+      variant?: 'user' | 'system';
       progress?: string;
       onClick: () => void;
       isEvent?: boolean;
