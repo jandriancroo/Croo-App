@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatInTimeZone } from "date-fns-tz";
-import { ClipboardCheck, CircleCheck, Loader2 } from "lucide-react";
+import { ClipboardCheck, Loader2 } from "lucide-react";
+import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import {
   Drawer,
   DrawerContent,
