@@ -19,6 +19,7 @@ interface Item {
   pack_size: string | null;
   cost_per_unit: number | null;
   storage_id: string | null;
+  display_order: number | null;
 }
 
 interface Storage {
