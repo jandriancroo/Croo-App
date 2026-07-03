@@ -626,8 +626,7 @@ export const WidgetsSection = memo(function WidgetsSection({
       case 'checklists':
         if (!checklistsContent) return null;
         return (
-          <div key="checklists" className="w-full flex flex-col gap-2">
-            <DashSectionTitle>Checklists</DashSectionTitle>
+          <div key="checklists" className="w-full">
             {checklistsContent}
           </div>
         );
