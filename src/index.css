@@ -90,7 +90,7 @@ All colors MUST be HSL.
 
      --sidebar-foreground: 220 20% 15%;
 
-     --sidebar-primary: 192 33% 45%;
+     --sidebar-primary: 190 62% 40%;
 
      --sidebar-primary-foreground: 0 0% 100%;
 
@@ -100,7 +100,7 @@ All colors MUST be HSL.
 
      --sidebar-border: 220 20% 82%;
 
-     --sidebar-ring: 192 33% 45%;
+     --sidebar-ring: 190 62% 40%;
     
     --role-admin: 215 40% 30%;
     --role-manager: 215 35% 42%;
