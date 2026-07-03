@@ -1281,25 +1281,17 @@ export default function CompleteChecklist() {
                   <CardContent className="py-2">
                     <div className="flex items-center gap-2">
                         {canUndoItems ? (
-                          <div className="flex items-center gap-2">
-                            <div className="shrink-0 inline-flex items-center gap-1.5 h-8 pl-1.5 pr-2.5 rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400">
-                              <CheckCircle2 className="h-5 w-5" />
-                              <span className="text-xs font-semibold uppercase tracking-wide">Done</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleUndoClick(item.id)}
-                              aria-label="Undo completion"
-                              className="shrink-0 inline-flex items-center gap-1.5 h-8 pl-1.5 pr-2.5 rounded-full border border-destructive/60 bg-destructive/10 text-destructive active:scale-95 transition-all shadow-sm"
-                            >
-                              <Undo2 className="h-5 w-5" />
-                              <span className="text-xs font-semibold uppercase tracking-wide">Undo</span>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleUndoClick(item.id)}
+                            aria-label="Undo completion"
+                            className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-full bg-green-600 text-white shadow-md active:scale-95 transition-transform"
+                          >
+                            <Check className="h-6 w-6" strokeWidth={3} />
+                          </button>
                         ) : (
-                          <div className="shrink-0 inline-flex items-center gap-1.5 h-8 pl-1.5 pr-2.5 rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400">
-                            <CheckCircle2 className="h-5 w-5" />
-                            <span className="text-xs font-semibold uppercase tracking-wide">Done</span>
+                          <div className="shrink-0 h-10 w-10 inline-flex items-center justify-center rounded-full bg-green-600 text-white shadow-md">
+                            <Check className="h-6 w-6" strokeWidth={3} />
                           </div>
                         )}
                       {completerInfo && (
