@@ -1,45 +1,44 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CircleCheck, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
+import { LucideIcon, Send } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
 import opusLogo from "@/assets/opus-logo.png";
 
 export interface TemporaryTaskCardProps {
-  /** Unique identifier for the task */
   id: string;
-  /** Main title of the task */
   title: string;
-  /** Subtitle/description text */
   subtitle?: string;
-  /** Icon component to display */
   icon: LucideIcon;
-  /** Accent color for the left border and icon background (hex or HSL) */
+  /** Accent color for the chip container (hex, e.g. #cd7a4a) */
   accentColor: string;
-  /** Button label - defaults to "Done" */
   buttonLabel?: string;
-  /** Whether the action is in progress */
   isLoading?: boolean;
-  /** Callback when button is clicked */
   onAction: () => void;
-  /** Optional badge/tag to display */
-  badge?: {
-    label: string;
-    color?: string;
-  };
-  /** Task style - standard or alarm */
+  badge?: { label: string; color?: string };
   taskStyle?: "standard" | "alarm";
-  /** Icon style - default has colored background, minimal is just the icon */
   iconStyle?: "default" | "minimal";
-  /** Whether to show share button */
   showShare?: boolean;
-  /** Custom share details (defaults to title) */
   shareDetails?: string;
-  /** Subtask progress - completed count */
   subtasksCompleted?: number;
-  /** Subtask progress - total count */
   subtasksTotal?: number;
-  /** Whether this is an OPUS training task (shows OPUS logo) */
   isOpusTask?: boolean;
+}
+
+/** Parse a #rrggbb / #rgb hex string to [r,g,b]. Returns null on failure. */
+function parseHex(hex: string): [number, number, number] | null {
+  if (!hex) return null;
+  let h = hex.trim().replace(/^#/, "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/** Lighten a hex color toward white by `amount` (0..1). 0.8 ≈ near-white tint. */
+export function lightenHexTowardWhite(hex: string, amount = 0.8): string {
+  const rgb = parseHex(hex);
+  if (!rgb) return hex;
+  const [r, g, b] = rgb.map((c) => Math.round(c + (255 - c) * amount));
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export function TemporaryTaskCard({
@@ -47,12 +46,9 @@ export function TemporaryTaskCard({
   subtitle,
   icon: Icon,
   accentColor,
-  buttonLabel,
-  isLoading = false,
   onAction,
   badge,
   taskStyle = "standard",
-  iconStyle = "default",
   showShare = false,
   shareDetails,
   subtasksCompleted,
@@ -61,67 +57,85 @@ export function TemporaryTaskCard({
 }: TemporaryTaskCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
-  const isBeachDashboard =
-    typeof document !== "undefined" &&
-    document.documentElement.dataset.theme === "beach" &&
-    document.body.classList.contains("beach-dashboard");
-  
+  const countColor = lightenHexTowardWhite(accentColor, 0.8);
+
   return (
     <>
       <div
-        className="quick-task-card flex items-center gap-2.5 rounded-xl overflow-hidden cursor-pointer active:opacity-80 transition-opacity"
-        style={isBeachDashboard
-          ? {
-              backgroundColor: "hsl(var(--card) / 0.96)",
-              border: "1px solid hsl(var(--border) / 0.55)",
-              boxShadow: "0 8px 24px hsl(195 35% 30% / 0.12)",
-            }
-          : { backgroundColor: `${accentColor}10` }}
+        className="quick-task-card flex items-center gap-3 cursor-pointer active:opacity-90 transition-opacity"
+        style={{
+          backgroundColor: accentColor,
+          borderRadius: 12,
+          padding: "15px 16px",
+        }}
+        onClick={onAction}
       >
-        {/* Inset rounded accent stripe */}
-        <div 
-          className="w-1 self-stretch rounded-full shrink-0 my-1 ml-2"
-          style={{ backgroundColor: accentColor }}
-        />
-        <div className="flex-1 flex items-center gap-2 py-2 pr-2.5 min-w-0">
+        <div
+          className="flex items-center justify-center shrink-0"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 9,
+            backgroundColor: "rgba(255,255,255,0.22)",
+          }}
+        >
           {isOpusTask ? (
-            <img src={opusLogo} alt="OPUS" className="h-7 w-auto shrink-0" loading="lazy" />
+            <img src={opusLogo} alt="OPUS" className="h-5 w-auto" loading="lazy" />
           ) : (
-            <span className="font-medium text-sm truncate flex-1">{title}</span>
-          )}
-          {taskStyle === "alarm" && (
-            <span 
-              className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
-              style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-            >
-              RECURRING
-            </span>
-          )}
-          {hasSubtasks && (
-            <span className="text-xs text-muted-foreground font-medium shrink-0">
-              {subtasksCompleted}/{subtasksTotal}
-            </span>
-          )}
-          {badge && !hasSubtasks && (
-            <span className="text-xs text-muted-foreground shrink-0">
-              {badge.label}
-            </span>
-          )}
-      <CircleCheck className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-          {showShare && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 text-muted-foreground hover:text-primary shrink-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShareOpen(true);
-              }}
-            >
-              <Send className="h-3.5 w-3.5" />
-            </Button>
+            <Icon style={{ width: 19, height: 19, color: "#fff" }} strokeWidth={2.25} />
           )}
         </div>
+
+        <span
+          className="flex-1 min-w-0 truncate"
+          style={{ color: "#fff", fontSize: 15, fontWeight: 500 }}
+        >
+          {title}
+        </span>
+
+        {taskStyle === "alarm" && (
+          <span
+            className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.22)",
+              color: "#fff",
+              letterSpacing: 0.3,
+            }}
+          >
+            RECURRING
+          </span>
+        )}
+
+        {hasSubtasks ? (
+          <span
+            className="shrink-0 tabular-nums text-right"
+            style={{ color: countColor, fontSize: 14, fontWeight: 500 }}
+          >
+            {subtasksCompleted}/{subtasksTotal}
+          </span>
+        ) : badge ? (
+          <span
+            className="shrink-0 text-right"
+            style={{ color: countColor, fontSize: 14, fontWeight: 500 }}
+          >
+            {badge.label}
+          </span>
+        ) : null}
+
+        {showShare && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0 hover:bg-white/15"
+            style={{ color: "#fff" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShareOpen(true);
+            }}
+          >
+            <Send className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
       <ShareTaskDialog
