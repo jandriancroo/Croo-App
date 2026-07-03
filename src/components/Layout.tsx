@@ -337,7 +337,7 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo, locations: allUserLocations } = useAppLocation();
-  const { mode: currentInventoryMode } = useInventoryMode(currentLocation?.id);
+  const { mode: currentInventoryMode, isConfigured: inventoryConfigured } = useInventoryMode(currentLocation?.id);
   
   
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
