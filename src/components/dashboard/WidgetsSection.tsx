@@ -500,11 +500,12 @@ export const WidgetsSection = memo(function WidgetsSection({
     }
   };
 
-  // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
+  // Separate cubes, trackers (promo), checklists, and sales chart for stacked layout
+  const trackerCubes = localCubes.filter(c => c.cubeType === 'tracker');
   const dataCubes = localCubes.filter(c =>
     trackersOnly
-      ? c.cubeType === 'tracker'
-      : (c.cubeType === 'data-3d' || c.cubeType === 'data' || c.cubeType === 'tracker')
+      ? false
+      : (c.cubeType === 'data-3d' || c.cubeType === 'data')
   );
   const salesChart = trackersOnly ? undefined : localCubes.find(c => c.cubeType === 'sales-chart');
 
