@@ -868,7 +868,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       label: 'Hiring',
       icon: Briefcase
     }] : []),
-    ...((isManager || hasPermission('manage_inventory')) ? [{
+    ...(((isManager || hasPermission('manage_inventory')) && inventoryConfigured) ? [{
       path: currentLocation?.id ? `/inventory/${currentLocation.id}` : '/inventory',
       label: 'Inventory',
       icon: Package
