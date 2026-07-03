@@ -1285,15 +1285,11 @@ export default function CompleteChecklist() {
                         <button
                           type="button"
                           onClick={() => handleUndoClick(item.id)}
-                          aria-label="Tap to undo completion"
-                          className="group/undo shrink-0 inline-flex items-center gap-1.5 h-8 pl-1.5 pr-2.5 rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all shadow-sm"
+                          aria-label="Undo completion"
+                          className="shrink-0 inline-flex items-center gap-1.5 h-8 pl-1.5 pr-2.5 rounded-full border border-destructive/60 bg-destructive/10 text-destructive active:scale-95 transition-all shadow-sm"
                         >
-                          <CheckCircle2 className="h-5 w-5 group-hover/undo:hidden" />
-                          <Undo2 className="h-5 w-5 hidden group-hover/undo:block" />
-                          <span className="text-xs font-semibold uppercase tracking-wide">
-                            <span className="group-hover/undo:hidden">Done</span>
-                            <span className="hidden group-hover/undo:inline">Undo</span>
-                          </span>
+                          <Undo2 className="h-5 w-5" />
+                          <span className="text-xs font-semibold uppercase tracking-wide">Undo</span>
                         </button>
                       ) : (
                         <div className="shrink-0">
