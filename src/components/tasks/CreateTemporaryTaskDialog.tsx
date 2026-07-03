@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, QrCode, Send, Users } from "lucide-react";
+import { AccentColorPicker } from "./AccentColorPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
@@ -608,30 +609,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
 
                 <div className="space-y-2">
                   <Label>Accent Color</Label>
-                  <Select value={accentColor} onValueChange={setAccentColor}>
-                    <SelectTrigger>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-4 h-4 rounded-full" 
-                          style={{ backgroundColor: accentColor }}
-                        />
-                        <SelectValue />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ACCENT_COLORS.map(color => (
-                        <SelectItem key={color.value} value={color.value}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-4 h-4 rounded-full" 
-                              style={{ backgroundColor: color.value }}
-                            />
-                            {color.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <AccentColorPicker value={accentColor} onChange={setAccentColor} />
                 </div>
               </div>
 
@@ -758,30 +736,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
               {/* Accent Color for Alarm */}
               <div className="space-y-2">
                 <Label>Accent Color</Label>
-                <Select value={accentColor} onValueChange={setAccentColor}>
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCENT_COLORS.map(color => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <AccentColorPicker value={accentColor} onChange={setAccentColor} />
               </div>
 
               {/* Only Working Toggle */}
@@ -873,30 +828,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
               {/* Accent Color */}
               <div className="space-y-2">
                 <Label>Accent Color</Label>
-                <Select value={accentColor} onValueChange={setAccentColor}>
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCENT_COLORS.map(color => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <AccentColorPicker value={accentColor} onChange={setAccentColor} />
               </div>
             </>
           )}
@@ -932,24 +864,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
 
               <div className="space-y-2">
                 <Label>Accent Color</Label>
-                <Select value={accentColor} onValueChange={setAccentColor}>
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: accentColor }} />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCENT_COLORS.map(color => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.value }} />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <AccentColorPicker value={accentColor} onChange={setAccentColor} />
               </div>
 
               <div className="flex items-center justify-between">

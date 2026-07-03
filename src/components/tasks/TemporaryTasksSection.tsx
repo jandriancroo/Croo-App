@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText } from "lucide-react";
+import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lightenHexTowardWhite } from "@/components/dashboard/TemporaryTaskCard";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -244,72 +245,93 @@ export function TemporaryTasksSection() {
               No active quick tasks. Create one to assign temporary tasks to employees.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {tasks.map((task: any) => {
                 const completedSubtasks = task.subtasks?.filter((s: any) => s.completed_at).length || 0;
                 const totalSubtasks = task.subtasks?.length || 0;
                 const hasSubtasks = totalSubtasks > 0;
-                
+                const accent = task.accent_color || '#8B5CF6';
+                const countColor = lightenHexTowardWhite(accent, 0.8);
+
                 return (
                   <div
                     key={task.id}
-                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
-                    style={{ backgroundColor: `${task.accent_color || '#8B5CF6'}10` }}
+                    className="group flex items-center gap-2.5 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
+                    style={{
+                      backgroundColor: accent,
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      boxShadow: `0 1px 2px ${accent}55, inset 0 1px 0 rgba(255,255,255,0.12)`,
+                    }}
                     onClick={() => setSelectedTask(task)}
                   >
-                    <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: task.accent_color || '#8B5CF6' }} />
-                    <span className="text-xs font-medium truncate flex-1">{task.title}</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {task.task_style === 'alarm' && (
-                        <AlarmClock className="h-3 w-3 text-muted-foreground" />
-                      )}
-                      {task.is_qr_triggered && (
-                        <QrCode className="h-3 w-3 text-muted-foreground" />
-                      )}
-                      {hasSubtasks && (
-                        <span className="text-[10px] text-muted-foreground">{completedSubtasks}/{totalSubtasks}</span>
-                      )}
-                      {effectiveCanCreateTasks && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-background/80"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Pencil className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditTask(task); }}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(task); }}>
-                              <Copy className="h-4 w-4 mr-2" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSaveAsTemplateTask(task); }}>
-                              <Save className="h-4 w-4 mr-2" />
-                              Save as Template
-                            </DropdownMenuItem>
-                            {task.is_qr_triggered && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setQrDialogTask(task); }}>
-                                <QrCode className="h-4 w-4 mr-2" />
-                                View QR Code
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={(e) => { e.stopPropagation(); setDeleteTaskId(task.id); }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 8,
+                        backgroundColor: "rgba(255,255,255,0.22)",
+                      }}
+                    >
+                      {task.task_style === 'alarm' ? (
+                        <AlarmClock style={{ width: 16, height: 16, color: '#fff' }} strokeWidth={2.25} />
+                      ) : task.is_qr_triggered ? (
+                        <QrCode style={{ width: 16, height: 16, color: '#fff' }} strokeWidth={2.25} />
+                      ) : (
+                        <ClipboardList style={{ width: 16, height: 16, color: '#fff' }} strokeWidth={2.25} />
                       )}
                     </div>
+                    <span className="flex-1 min-w-0 truncate" style={{ color: '#fff', fontSize: 14, fontWeight: 500 }}>
+                      {task.title}
+                    </span>
+                    {hasSubtasks && (
+                      <span className="shrink-0 tabular-nums text-right" style={{ color: countColor, fontSize: 13, fontWeight: 500 }}>
+                        {completedSubtasks}/{totalSubtasks}
+                      </span>
+                    )}
+                    {effectiveCanCreateTasks && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="h-7 w-7 flex items-center justify-center rounded-md shrink-0 hover:bg-white/20 transition-colors"
+                            style={{ color: '#fff' }}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Edit task"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditTask(task); }}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(task); }}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSaveAsTemplateTask(task); }}>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save as Template
+                          </DropdownMenuItem>
+                          {task.is_qr_triggered && (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setQrDialogTask(task); }}>
+                              <QrCode className="h-4 w-4 mr-2" />
+                              View QR Code
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => { e.stopPropagation(); setDeleteTaskId(task.id); }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 );
               })}
