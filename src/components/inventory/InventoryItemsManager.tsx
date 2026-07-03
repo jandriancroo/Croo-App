@@ -28,6 +28,7 @@ import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import ShortcutConfigSheet from "./ShortcutConfigSheet";
+import { VendorInvoiceNameHint } from "./VendorInvoiceNameHint";
 import StorageLocationManager from "./StorageLocationManager";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import { fetchBlueprintCosts, getBlueprintUnitCost } from "@/utils/blueprintCostCalculation";
@@ -66,6 +67,8 @@ interface EditingItem {
   unit: string | null;
   pack_size: string | null;
   brand_item_id: string | null;
+  item_number?: string | null;
+  vendor_source?: string | null;
 }
 
 const INVENTORY_CATEGORIES = [
@@ -605,6 +608,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       unit: item.unit || null,
       pack_size: item.pack_size || null,
       brand_item_id: item.brand_item_id || null,
+      item_number: item.item_number || null,
+      vendor_source: item.vendor_source || null,
     });
     setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
@@ -1704,7 +1709,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                      </SelectContent>
                    </Select>
                  </div>
+                 <VendorInvoiceNameHint itemNumber={editingItem.item_number} vendorSource={editingItem.vendor_source} />
               </div>
+
 
               {/* Storage Location */}
               <div className="space-y-2">

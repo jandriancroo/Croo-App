@@ -33,6 +33,7 @@ import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
 import TheoMappingTab from '@/components/brand/TheoMappingTab';
 import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 import LocationActivationList from '@/components/brand/LocationActivationList';
+import { VendorInvoiceNameHint } from '@/components/inventory/VendorInvoiceNameHint';
 import VendorHealthDashboard from '@/components/brand/VendorHealthDashboard';
 import BrandPackConfigApprovals from '@/pages/BrandPackConfigApprovals';
 import BrandUnpricedIngredients from '@/pages/BrandUnpricedIngredients';
@@ -1040,6 +1041,7 @@ function EditTemplateForm({
           <span className="text-[10px] text-muted-foreground font-mono">ID:</span>
           <span className="text-[10px] text-muted-foreground font-mono select-all truncate">{template.id}</span>
         </div>
+        <VendorInvoiceNameHint itemNumber={template.item_number} vendorSource={template.vendor_source} />
       </div>
 
       {/* Recipe badge */}
