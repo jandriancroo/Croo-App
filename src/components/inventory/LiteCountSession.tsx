@@ -107,6 +107,15 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
     const storageOrder = (storages || []).map((s) => s.id);
     const nameFor = (id: string | null) =>
       id === null ? "Unassigned" : storages?.find((s) => s.id === id)?.name || "Unknown";
+    // Within each storage section: display_order NULLS LAST, then name (walk-the-shelf order)
+    const shelfSort = (a: Item, b: Item) => {
+      const ao = a.display_order;
+      const bo = b.display_order;
+      if (ao != null && bo != null && ao !== bo) return ao - bo;
+      if (ao != null && bo == null) return -1;
+      if (ao == null && bo != null) return 1;
+      return a.name.localeCompare(b.name);
+    };
     return Array.from(byStorage.entries())
       .sort(([a], [b]) => {
         if (a === null) return 1;
@@ -116,7 +125,7 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
       .map(([storageId, list]) => ({
         storageId,
         name: nameFor(storageId),
-        items: list,
+        items: list.slice().sort(shelfSort),
       }));
   }, [items, storages]);
 
