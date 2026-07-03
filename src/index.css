@@ -366,52 +366,65 @@ All colors MUST be HSL.
 /* Blaze Pizza Theme - Blaze Orange, Fire Red, Charcoal, Cream (official brand palette) */
 [data-theme="blaze"] {
   --background: 32 52% 94%;
-  --foreground: 0 0% 17%;
+  --foreground: 24 13% 15%;
 
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 17%;
+  --card-foreground: 24 13% 15%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 17%;
+  --popover-foreground: 24 13% 15%;
 
-  --primary: 0 0% 17%;
+  /* Primary — ember (Weekly Sales cube, rings, nav accents) */
+  --primary: 20 53% 51%;                 /* #c46a3e */
   --primary-foreground: 32 52% 96%;
 
-  --secondary: 32 40% 88%;
-  --secondary-foreground: 0 0% 17%;
+  /* Secondary — warm char (dark chrome, sidebar, deep surfaces) */
+  --secondary: 24 13% 15%;               /* #2c2622 */
+  --secondary-foreground: 32 52% 96%;
 
   --muted: 32 30% 90%;
-  --muted-foreground: 0 0% 33%;
+  --muted-foreground: 24 10% 33%;
 
-  --accent: 23 100% 50%;
-  --accent-foreground: 0 0% 100%;
+  /* Accent — crust gold (Payment Breakdown cube) */
+  --accent: 42 59% 63%;                  /* #d9b76a */
+  --accent-foreground: 24 13% 15%;
 
   --destructive: 5 79% 54%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 32 30% 82%;
-  --input: 32 30% 88%;
-  --ring: 0 0% 17%;
+  --border: 32 22% 82%;
+  --input: 32 22% 88%;
+  --ring: 20 53% 51%;
 
-  --sidebar-background: 0 0% 17%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-primary: 23 100% 50%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 5 79% 54%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 0 0% 25%;
-  --sidebar-ring: 23 100% 50%;
+  --sidebar-background: 24 13% 15%;
+  --sidebar-foreground: 32 52% 96%;
+  --sidebar-primary: 20 53% 51%;
+  --sidebar-primary-foreground: 32 52% 96%;
+  --sidebar-accent: 24 13% 22%;
+  --sidebar-accent-foreground: 32 52% 96%;
+  --sidebar-border: 24 13% 25%;
+  --sidebar-ring: 20 53% 51%;
 
   --glass-background: 0 0% 100% / 0.85;
-  --glass-border: 23 100% 50% / 0.22;
-  --glass-shadow: 0 0% 10% / 0.10;
+  --glass-border: 20 53% 51% / 0.22;
+  --glass-shadow: 24 13% 10% / 0.12;
 
-  --chart-1: 23 100% 50%;
-  --chart-2: 5 79% 54%;
-  --chart-3: 48 100% 50%;
-  --chart-4: 0 0% 17%;
-  --chart-5: 0 0% 33%;
-  --chart-6: 15 85% 58%;
+  /* Deep chrome — header + bottom nav */
+  --header-bg: 24 13% 15%;               /* #2c2622 char */
+  --header-fg: 32 52% 96%;
+
+  /* Quick Task chip semantics — user=ember, system=char (max differentiation) */
+  --quick-task-user: 20 53% 51%;         /* ember */
+  --quick-task-user-fg: 32 52% 96%;
+  --quick-task-system: 24 13% 15%;       /* char */
+  --quick-task-system-fg: 32 52% 96%;
+
+  --chart-1: 20 53% 51%;                 /* ember */
+  --chart-2: 42 59% 63%;                 /* gold */
+  --chart-3: 24 13% 15%;                 /* char */
+  --chart-4: 20 45% 62%;                 /* ember light */
+  --chart-5: 42 45% 50%;                 /* gold deep */
+  --chart-6: 24 10% 35%;                 /* char light */
 }
 
 /* Playa Theme - Playa Bowls tropical: teal ocean, sunny yellow, açaí purple, sand */
