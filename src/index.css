@@ -45,18 +45,16 @@ All colors MUST be HSL.
     background-color: hsl(var(--header-bg));
   }
 
-  /* iOS 26/27 PWA paints the status-bar bleed from the body's top pixel,
-     not from <html>. Overlay a fixed band in the safe-area-inset-top region
-     so the notch/dynamic-island area matches --header-bg on every theme.
-     Attached to html (not body) because body has overflow-x:hidden, which on
-     iOS PWA traps position:fixed children below the safe-area. */
+  /* iOS 26/27 PWA samples the installed app chrome from the page's root/top
+     paint before React is fully rendered. Keep that pixel and the safe-area
+     overlay pinned to the current header color instead of the page background. */
   html::before {
     content: "";
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: env(safe-area-inset-top, 0px);
+    height: max(env(safe-area-inset-top, 0px), 64px);
     background-color: hsl(var(--header-bg));
     z-index: 9999;
     pointer-events: none;
@@ -839,6 +837,14 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
   body {
     @apply bg-background text-foreground font-manrope;
+    background-image: linear-gradient(
+      to bottom,
+      hsl(var(--header-bg)) 0,
+      hsl(var(--header-bg)) max(env(safe-area-inset-top, 0px), 64px),
+      hsl(var(--background)) max(env(safe-area-inset-top, 0px), 64px),
+      hsl(var(--background)) 100%
+    );
+    background-attachment: fixed;
     font-weight: 500;
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
