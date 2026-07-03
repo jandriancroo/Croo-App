@@ -1703,6 +1703,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                        ))}
                      </SelectContent>
+                   </Select>
                  </div>
                  <VendorInvoiceNameHint itemNumber={editingItem.item_number} vendorSource={editingItem.vendor_source} />
               </div>
