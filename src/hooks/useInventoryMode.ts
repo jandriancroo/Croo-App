@@ -13,27 +13,38 @@ export type InventoryMode = "brand" | "lite";
  * Returns 'brand' as a safe fallback while loading or on error, so existing
  * behavior stays untouched during Phase 1 rollout.
  */
+interface InventoryModeResult {
+  mode: InventoryMode;
+  configured: boolean;
+}
+
 export function useInventoryMode(locationId: string | null | undefined) {
   const query = useQuery({
     queryKey: ["location-inventory-mode", locationId],
-    queryFn: async (): Promise<InventoryMode> => {
-      if (!locationId) return "brand";
+    queryFn: async (): Promise<InventoryModeResult> => {
+      if (!locationId) return { mode: "brand", configured: false };
       const { data, error } = await supabase
         .from("locations")
-        .select("inventory_mode")
+        .select("inventory_mode, inventory_configured")
         .eq("id", locationId)
         .maybeSingle();
       if (error) throw error;
-      return ((data as any)?.inventory_mode as InventoryMode) || "brand";
+      return {
+        mode: (((data as any)?.inventory_mode as InventoryMode) || "brand"),
+        configured: !!(data as any)?.inventory_configured,
+      };
     },
     enabled: !!locationId,
-    staleTime: 5 * 60 * 1000, // 5 min — mode is immutable after creation in v1
+    staleTime: 5 * 60 * 1000,
   });
 
+  const mode = query.data?.mode ?? "brand";
+  const configured = query.data?.configured ?? false;
   return {
-    mode: query.data ?? "brand",
-    isLite: query.data === "lite",
-    isBrand: query.data !== "lite",
+    mode,
+    isLite: mode === "lite",
+    isBrand: mode !== "lite",
+    isConfigured: configured,
     isLoading: query.isLoading,
   };
 }
