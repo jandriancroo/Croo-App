@@ -59,18 +59,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 25% 5%;
 
-    --primary: 192 33% 45%;              /* #4e8b9a tightened teal */
+    --primary: 190 62% 40%;              /* #268da5 vivid teal */
     --primary-foreground: 0 0% 100%;
-    --primary-light: 192 45% 62%;
+    --primary-light: 190 65% 60%;
 
 
-     --secondary: 37 32% 70%;             /* #cbb89a tan (badges, tertiary) */
+     --secondary: 37 45% 66%;             /* #d4b581 warmer tan */
      --secondary-foreground: 30 25% 18%;
 
      --muted: 220 18% 90%;
      --muted-foreground: 220 20% 35%;
 
-     --accent: 23 61% 60%;                /* #d78b5b tightened orange */
+     --accent: 22 88% 56%;                /* #ef7f34 vivid orange */
      --accent-foreground: 0 0% 100%;
 
      --destructive: 0 90% 55%;
@@ -78,7 +78,7 @@ All colors MUST be HSL.
 
      --border: 220 25% 78%;
      --input: 220 25% 85%;
-     --ring: 192 33% 45%;
+     --ring: 190 62% 40%;
 
      /* Deep accent — used for dark chrome / bottom-nav dock accents */
      --header-bg: 193 34% 28%;            /* #2f5560 */
