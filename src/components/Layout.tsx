@@ -1031,7 +1031,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         Hiring
                       </DropdownMenuItem>
                       )}
-                      {(isManager || hasPermission('manage_inventory')) && (
+                      {(isManager || hasPermission('manage_inventory')) && inventoryConfigured && (
                       <DropdownMenuItem onClick={() => navigate(currentLocation?.id ? `/inventory/${currentLocation.id}` : '/')} className="gap-2 cursor-pointer">
                         <Package className="h-4 w-4" />
                         <span className="flex-1">Inventory</span>
