@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatInTimeZone } from "date-fns-tz";
-import { ClipboardCheck, CircleCheck, Loader2 } from "lucide-react";
+import { ClipboardCheck, Loader2 } from "lucide-react";
+import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import {
   Drawer,
   DrawerContent,
@@ -92,16 +93,13 @@ export function DailySpotCheckTask({ locationHours, timezone = "America/Los_Ange
 
   return (
     <>
-      <div
-        onClick={() => setDrawerOpen(true)}
-        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
-        style={{ backgroundColor: `${TEAL_COLOR}10` }}
-      >
-        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: TEAL_COLOR }} />
-        <ClipboardCheck className="h-3.5 w-3.5 shrink-0" style={{ color: TEAL_COLOR }} />
-        <span className="text-xs font-medium truncate flex-1">Daily Spot Check</span>
-        <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-      </div>
+      <TemporaryTaskCard
+        id="daily-spot-check"
+        title="Daily Spot Check"
+        icon={ClipboardCheck}
+        accentColor={TEAL_COLOR}
+        onAction={() => setDrawerOpen(true)}
+      />
 
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DrawerContent className="max-h-[90vh]">
