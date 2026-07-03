@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText } from "lucide-react";
+import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lightenHexTowardWhite } from "@/components/dashboard/TemporaryTaskCard";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
