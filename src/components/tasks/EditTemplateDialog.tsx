@@ -337,20 +337,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
           {/* Accent Color */}
           <div className="space-y-2">
             <Label>Color</Label>
-            <div className="flex gap-2 flex-wrap">
-              {ACCENT_COLORS.map(color => (
-                <button
-                  key={color.value}
-                  type="button"
-                  className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                    accentColor === color.value ? "scale-110 border-foreground" : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: color.value }}
-                  onClick={() => setAccentColor(color.value)}
-                  title={color.label}
-                />
-              ))}
-            </div>
+            <AccentColorPicker value={accentColor} onChange={setAccentColor} />
           </div>
 
           {/* Alarm Task Settings */}
