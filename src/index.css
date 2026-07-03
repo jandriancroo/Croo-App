@@ -1127,27 +1127,29 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
   }
   
   [data-theme="oled"] .nav-bar-unified {
-    background: hsl(220 22% 15%);
+    background: hsl(var(--card));
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
-    color: hsl(215 12% 75%);
+    color: hsl(var(--foreground));
+    border-top: 1px solid hsl(var(--border));
   }
 
   [data-theme="oled"] .nav-bar-unified * {
     color: inherit;
   }
-  
+
   [data-theme="oled"] .nav-bar-unified svg {
-    color: hsl(215 12% 75%);
+    color: hsl(var(--foreground));
   }
 
-  /* OLED mobile header — match dock Batman grey */
+  /* Dark Mode mobile header — matches raised card surface */
   [data-theme="oled"] header.bg-primary {
-    background: hsl(220 22% 15%) !important;
-    color: hsl(215 12% 75%);
+    background: hsl(var(--card)) !important;
+    color: hsl(var(--foreground));
+    border-bottom: 1px solid hsl(var(--border));
   }
 
   [data-theme="oled"] header.bg-primary * {
-    color: hsl(215 12% 75%);
+    color: hsl(var(--foreground));
   }
 
   [data-theme="oled"] header.bg-primary .nav-logo-inline {
@@ -1157,7 +1159,7 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
   [data-theme="oled"] .nav-logo-bulge::before {
     background: linear-gradient(
       180deg,
-      hsl(220 20% 30% / 0.1) 0%,
+      hsl(var(--muted) / 0.4) 0%,
       transparent 100%
     );
   }
