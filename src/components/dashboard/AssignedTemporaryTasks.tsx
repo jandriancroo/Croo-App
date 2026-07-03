@@ -366,7 +366,17 @@ export function AssignedTemporaryTasks({
   // Compact badge-style rendering for mobile Today tab
   if (compact) {
     // Collect all items into a unified badge list
-    const badgeItems: { id: string; label: string; color: string; progress?: string; onClick: () => void; isEvent?: boolean }[] = [];
+    const badgeItems: {
+      id: string;
+      label: string;
+      color: string;
+      progress?: string;
+      onClick: () => void;
+      isEvent?: boolean;
+      icon: any;
+      subtasksCompleted?: number;
+      subtasksTotal?: number;
+    }[] = [];
 
     // Events first, sorted by earliest time
     [...incompleteEventTasks]
@@ -379,18 +389,20 @@ export function AssignedTemporaryTasks({
         progress: formatTime(task.event_time),
         onClick: () => handleEventTaskComplete(task.id),
         isEvent: true,
+        icon: CalendarDays,
       });
     });
 
     incompleteTasks.forEach(task => {
       const counts = subtaskCounts[task.id];
-      const progress = counts && counts.total > 0 ? `${counts.completed}/${counts.total}` : undefined;
       badgeItems.push({
         id: task.id,
         label: task.title,
         color: task.accent_color || '#8B5CF6',
-        progress,
         onClick: () => setSelectedTask(task),
+        icon: getIconComponent(task.icon_name || "ClipboardList"),
+        subtasksCompleted: counts?.completed,
+        subtasksTotal: counts?.total,
       });
     });
 
@@ -401,6 +413,7 @@ export function AssignedTemporaryTasks({
         color: ORANGE_COLOR,
         progress: formatTime(order.pickup_time),
         onClick: () => setSelectedOrder(order),
+        icon: ChefHat,
       });
     });
 
@@ -408,56 +421,34 @@ export function AssignedTemporaryTasks({
 
     const eventItems = badgeItems.filter(i => i.isEvent);
     const otherItems = badgeItems.filter(i => !i.isEvent);
-
-    const renderRow = (item: typeof badgeItems[0]) => (
-      <div
-        key={item.id}
-        onClick={item.onClick}
-        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm"
-        style={{ backgroundColor: `${item.color}10` }}
-      >
-        {/* Inset rounded accent stripe */}
-        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-        
-        <span className="text-xs font-medium truncate flex-1">{item.label}</span>
-        {item.progress && (
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
-        )}
-        <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-      </div>
-    );
-
-    const allItems = [...eventItems, ...otherItems];
-    // Split: items before afterEventsContent (events) and after (tasks)
     const beforeContent = eventItems;
     const afterContent = otherItems;
 
     const renderPill = (item: typeof badgeItems[0]) => (
-      <div
+      <TemporaryTaskCard
         key={item.id}
-        onClick={item.onClick}
-        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm min-w-[calc(50%-4px)] max-w-full flex-grow"
-        style={{ backgroundColor: `${item.color}10` }}
-      >
-        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-        {item.isEvent ? <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} /> : <CircleCheck className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
-        <span className="text-xs font-medium truncate flex-1">{item.label}</span>
-        {item.progress && (
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
-        )}
-      </div>
+        id={item.id}
+        title={item.label}
+        icon={item.icon}
+        accentColor={item.color}
+        onAction={item.onClick}
+        subtasksCompleted={item.subtasksCompleted}
+        subtasksTotal={item.subtasksTotal}
+        badge={item.progress ? { label: item.progress } : undefined}
+      />
     );
+
 
     return (
       <>
         {beforeContent.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {beforeContent.map(renderPill)}
           </div>
         )}
         {afterEventsContent}
         {afterContent.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {afterContent.map(renderPill)}
           </div>
         )}
