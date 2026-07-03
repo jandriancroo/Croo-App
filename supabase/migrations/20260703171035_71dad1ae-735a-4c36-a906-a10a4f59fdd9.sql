@@ -1,0 +1,1 @@
+ALTER TABLE public.lite_inventory_items ADD COLUMN IF NOT EXISTS category text;
