@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { formatLocationName } from '@/utils/locationUtils';
-import { InventoryModeBadge } from '@/components/inventory/InventoryModeBadge';
+
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Organization {
