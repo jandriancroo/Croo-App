@@ -563,47 +563,63 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     enabled: !!user?.id,
   });
 
-  // Fetch organization logo based on current location (with brand fallback)
+  // Fetch brand/org logo based on current location.
+  // Priority: location.brand_id -> org.brand_id -> org.logo_url.
+  // A location may have brand_id set directly with no organization_id
+  // (Lite / brand-direct locations), so we must NOT early-return on missing org.
   const { data: orgLogo, isLoading: orgLogoLoading } = useQuery({
     queryKey: ['org-logo', currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation?.id) return null;
-      
+
       const { data: locationData } = await supabase
         .from('locations')
         .select('brand_id, organization_id')
         .eq('id', currentLocation.id)
         .single();
-      
-      if (!locationData?.organization_id) return null;
-      
-      const { data: orgData } = await supabase
-        .from('organizations')
-        .select('logo_url, name, brand_name, brand_id')
-        .eq('id', locationData.organization_id)
-        .single();
-      
-      if (!orgData) return null;
-      
-      // Prefer locations.brand_id, fall back to org's brand_id
-      const effectiveBrandId = (locationData as any)?.brand_id ?? orgData.brand_id ?? null;
-      if (effectiveBrandId) {
-        const { data: brandData } = await supabase
+
+      if (!locationData) return null;
+
+      // Load org (if any) in parallel with a direct brand lookup
+      const [orgRes, directBrandRes] = await Promise.all([
+        locationData.organization_id
+          ? supabase
+              .from('organizations')
+              .select('logo_url, name, brand_name, brand_id')
+              .eq('id', locationData.organization_id)
+              .single()
+          : Promise.resolve({ data: null as any }),
+        locationData.brand_id
+          ? supabase
+              .from('brands')
+              .select('logo_url, name')
+              .eq('id', locationData.brand_id)
+              .single()
+          : Promise.resolve({ data: null as any }),
+      ]);
+
+      const orgData = orgRes.data;
+      let brandData = directBrandRes.data;
+
+      // Fall back to org's brand_id when the location has no direct brand link
+      if (!brandData?.logo_url && orgData?.brand_id) {
+        const { data } = await supabase
           .from('brands')
           .select('logo_url, name')
-          .eq('id', effectiveBrandId)
+          .eq('id', orgData.brand_id)
           .single();
-        
-        // Use brand logo if available, otherwise fall back to org logo
-        if (brandData?.logo_url) {
-          return {
-            logo_url: brandData.logo_url,
-            name: orgData.name,
-            brand_name: brandData.name
-          };
-        }
+        if (data?.logo_url) brandData = data;
       }
-      
+
+      // Brand logo wins whenever present — every brand has one
+      if (brandData?.logo_url) {
+        return {
+          logo_url: brandData.logo_url,
+          name: orgData?.name || brandData.name,
+          brand_name: brandData.name,
+        };
+      }
+
       return orgData;
     },
     enabled: !!currentLocation?.id,
