@@ -104,6 +104,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       return data || [];
     },
     enabled: !!locationId,
+    staleTime: 60_000,
+    retry: 2,
   });
 
   // Fetch purchases (PFG + PA orders) within the week
