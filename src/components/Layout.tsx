@@ -21,6 +21,8 @@ import { useState, useEffect } from 'react';
 import crooLogo from '@/assets/croo-logo.webp';
 import { LocationSwitchOverlay } from './LocationSwitchOverlay';
 import { LocationPickerDialog } from './LocationPickerDialog';
+import { InventoryModeBadge } from '@/components/inventory/InventoryModeBadge';
+import { useInventoryMode } from '@/hooks/useInventoryMode';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
