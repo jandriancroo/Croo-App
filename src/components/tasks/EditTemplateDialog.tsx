@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, QrCode, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { AccentColorPicker } from "./AccentColorPicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
