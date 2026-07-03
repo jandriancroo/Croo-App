@@ -1224,7 +1224,10 @@ export default function CompleteChecklist() {
               <div className="border-t border-border" />
               
               {/* Card with content */}
-              <Card className="overflow-hidden relative">
+              <Card
+                className="overflow-hidden relative"
+                style={isImageItem ? { contentVisibility: 'auto', containIntrinsicSize: '1px 320px' } as React.CSSProperties : undefined}
+              >
               {/* For completed image items — bottom bar with completion info (no blur overlay) */}
               {hasResponse && isImageItem && (
                 <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
