@@ -1224,7 +1224,10 @@ export default function CompleteChecklist() {
               <div className="border-t border-border" />
               
               {/* Card with content */}
-              <Card className="overflow-hidden relative">
+              <Card
+                className="overflow-hidden relative"
+                style={isImageItem ? { contentVisibility: 'auto', containIntrinsicSize: '1px 320px' } as React.CSSProperties : undefined}
+              >
               {/* For completed image items — bottom bar with completion info (no blur overlay) */}
               {hasResponse && isImageItem && (
                 <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
@@ -1368,7 +1371,7 @@ export default function CompleteChecklist() {
                             className="relative cursor-pointer group/ref" 
                             onClick={() => setPreviewImage(item.reference_image_url!)}
                           >
-                            <img src={item.reference_image_url} alt="Reference standard" className="rounded max-h-36 object-cover border border-primary/20 shadow-sm" />
+                            <img src={item.reference_image_url} alt="Reference standard" loading="lazy" decoding="async" className="rounded max-h-36 object-cover border border-primary/20 shadow-sm" />
                             <div className="absolute inset-0 bg-black/0 group-hover/ref:bg-black/10 transition-colors rounded flex items-center justify-center">
                               <Eye className="h-5 w-5 text-white opacity-0 group-hover/ref:opacity-80 transition-opacity drop-shadow" />
                             </div>
@@ -1435,6 +1438,8 @@ export default function CompleteChecklist() {
                                 <img 
                                   src={item.reference_image_url} 
                                   alt="Reference standard" 
+                                  loading="lazy"
+                                  decoding="async"
                                   className="w-full aspect-square object-cover" 
                                 />
                                 <button
@@ -1463,6 +1468,7 @@ export default function CompleteChecklist() {
                                     alt="Your photo"
                                     className="w-full aspect-square object-cover"
                                     loading="lazy"
+                                    decoding="async"
                                   />
                                   <button
                                     type="button"
@@ -1497,6 +1503,7 @@ export default function CompleteChecklist() {
                                   alt={`Checklist photo ${idx + 1}`}
                                   className={`object-cover w-full rounded ${isMultiPhoto ? 'border aspect-square' : 'h-32 sm:h-48 max-h-[240px]'}`}
                                   loading="lazy"
+                                  decoding="async"
                                 />
                                 {isMultiPhoto && (
                                   <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
