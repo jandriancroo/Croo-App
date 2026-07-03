@@ -5978,6 +5978,7 @@ export type Database = {
       }
       lite_inventory_items: {
         Row: {
+          category: string | null
           cost_per_unit: number | null
           created_at: string
           id: string
@@ -5993,6 +5994,7 @@ export type Database = {
           vendor_name_normalized: string | null
         }
         Insert: {
+          category?: string | null
           cost_per_unit?: number | null
           created_at?: string
           id?: string
@@ -6008,6 +6010,7 @@ export type Database = {
           vendor_name_normalized?: string | null
         }
         Update: {
+          category?: string | null
           cost_per_unit?: number | null
           created_at?: string
           id?: string
