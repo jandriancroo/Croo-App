@@ -829,6 +829,44 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
   .dark .glass-button:hover {
     background: hsl(220 25% 16% / 0.8);
   }
+
+  /* Quick Task floating dock — sun-drenched glass separation before data cubes */
+  .quick-task-section:not(:has(> :not(.quick-task-divider))) {
+    display: none;
+  }
+
+  .quick-task-dock:has(> *) {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary-foreground) / 0.42),
+      hsl(var(--primary-foreground) / 0.22)
+    );
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid hsl(var(--primary-foreground) / 0.5);
+    border-radius: 1.25rem;
+    padding: 0.75rem;
+    box-shadow:
+      0 12px 36px hsl(var(--accent) / 0.15),
+      inset 0 1px 0 hsl(var(--primary-foreground) / 0.4);
+  }
+
+  .quick-task-divider {
+    display: none;
+  }
+
+  .quick-task-section:has(> :not(.quick-task-divider)) .quick-task-divider {
+    display: block;
+    margin: 0.5rem auto;
+    width: 80%;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      hsl(var(--accent) / 0.35),
+      transparent
+    );
+  }
   
   /* Mobile dock - frosted glass style (all themes) */
   .glass-dock {
