@@ -14,6 +14,27 @@ document.documentElement.setAttribute('data-theme', savedTheme);
 const savedTextSize = localStorage.getItem('app-text-size') || 'default';
 document.documentElement.setAttribute('data-text-size', savedTextSize);
 
+// Keep <meta name="theme-color"> (Android PWA status-bar bleed) in sync with
+// the current theme's --header-bg. iOS PWA uses the html background-color set
+// in index.css for the same effect.
+const syncThemeColorMeta = () => {
+  try {
+    const hsl = getComputedStyle(document.documentElement)
+      .getPropertyValue('--header-bg')
+      .trim();
+    if (!hsl) return;
+    const color = `hsl(${hsl})`;
+    document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
+      el.setAttribute('content', color);
+    });
+  } catch {
+    /* ignore */
+  }
+};
+syncThemeColorMeta();
+(window as any).__syncThemeColorMeta = syncThemeColorMeta;
+
+
 // Mark standalone mode on html element for CSS targeting (iOS fallback)
 const isStandaloneMode =
   window.matchMedia?.('(display-mode: standalone)')?.matches ||
