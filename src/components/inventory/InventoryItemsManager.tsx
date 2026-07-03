@@ -67,6 +67,8 @@ interface EditingItem {
   unit: string | null;
   pack_size: string | null;
   brand_item_id: string | null;
+  item_number?: string | null;
+  vendor_source?: string | null;
 }
 
 const INVENTORY_CATEGORIES = [
