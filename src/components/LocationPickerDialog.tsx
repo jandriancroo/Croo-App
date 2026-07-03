@@ -36,6 +36,7 @@ interface Location {
   org_raw_name?: string;
   store_number?: string | null;
   inventory_mode?: string | null;
+  inventory_configured?: boolean | null;
 }
 
 interface LocationPickerDialogProps {
