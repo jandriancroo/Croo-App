@@ -1468,6 +1468,7 @@ export default function CompleteChecklist() {
                                     alt="Your photo"
                                     className="w-full aspect-square object-cover"
                                     loading="lazy"
+                                    decoding="async"
                                   />
                                   <button
                                     type="button"
