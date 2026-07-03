@@ -28,6 +28,7 @@ import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import ShortcutConfigSheet from "./ShortcutConfigSheet";
+import { VendorInvoiceNameHint } from "./VendorInvoiceNameHint";
 import StorageLocationManager from "./StorageLocationManager";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import { fetchBlueprintCosts, getBlueprintUnitCost } from "@/utils/blueprintCostCalculation";
