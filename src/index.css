@@ -45,6 +45,22 @@ All colors MUST be HSL.
     background-color: hsl(var(--header-bg));
   }
 
+  /* iOS 26/27 PWA paints the status-bar bleed from the body's top pixel,
+     not from <html>. Overlay a fixed band in the safe-area-inset-top region
+     so the notch/dynamic-island area matches --header-bg on every theme. */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background-color: hsl(var(--header-bg));
+    z-index: 9999;
+    pointer-events: none;
+  }
+
+
 
   /* Text size scaling - applied to html element */
   html[data-text-size="small"] { font-size: 14px; }
