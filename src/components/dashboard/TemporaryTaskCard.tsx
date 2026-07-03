@@ -9,8 +9,15 @@ export interface TemporaryTaskCardProps {
   title: string;
   subtitle?: string;
   icon: LucideIcon;
-  /** Accent color for the chip container (hex, e.g. #cd7a4a) */
+  /** Accent color for the chip container (hex, e.g. #cd7a4a). Ignored when `variant` is set. */
   accentColor: string;
+  /**
+   * Theme-driven color rule:
+   * - "user"   → uses `hsl(var(--accent))` (user-generated tasks)
+   * - "system" → uses `hsl(var(--primary))` (system-generated tasks)
+   * When omitted, `accentColor` is used as-is (legacy).
+   */
+  variant?: "user" | "system";
   buttonLabel?: string;
   isLoading?: boolean;
   onAction: () => void;
@@ -46,6 +53,7 @@ export function TemporaryTaskCard({
   subtitle,
   icon: Icon,
   accentColor,
+  variant,
   onAction,
   badge,
   taskStyle = "standard",
@@ -57,18 +65,33 @@ export function TemporaryTaskCard({
 }: TemporaryTaskCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
-  const countColor = lightenHexTowardWhite(accentColor, 0.8);
+
+  // Theme-locked colors when `variant` is set — pulls from CSS vars so every
+  // active theme automatically supplies the correct hue. Legacy hex path
+  // preserved for callers that still pass raw `accentColor` (e.g. completed
+  // states rendered in green).
+  const themeVar =
+    variant === "user" ? "--accent" : variant === "system" ? "--primary" : null;
+  const bg = themeVar ? `hsl(var(${themeVar}))` : accentColor;
+  const shadowColor = themeVar
+    ? `hsl(var(${themeVar}) / 0.33)`
+    : `${accentColor}55`;
+  const countColor = themeVar
+    ? "rgba(255,255,255,0.78)"
+    : lightenHexTowardWhite(accentColor, 0.8);
+
 
   return (
     <>
       <div
         className="quick-task-card group flex items-center gap-2 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
         style={{
-          backgroundColor: accentColor,
+          backgroundColor: bg,
           borderRadius: 12,
           padding: "8px 10px",
-          boxShadow: `0 1px 2px ${accentColor}55, inset 0 1px 0 rgba(255,255,255,0.12)`,
+          boxShadow: `0 1px 2px ${shadowColor}, inset 0 1px 0 rgba(255,255,255,0.12)`,
         }}
+
         onClick={onAction}
         role="button"
         tabIndex={0}

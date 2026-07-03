@@ -98,6 +98,7 @@ export function DailySpotCheckTask({ locationHours, timezone = "America/Los_Ange
         title="Daily Spot Check"
         icon={ClipboardCheck}
         accentColor={TEAL_COLOR}
+        variant="system"
         onAction={() => setDrawerOpen(true)}
       />
 

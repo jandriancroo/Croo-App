@@ -157,6 +157,7 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
           subtitle={task.event_time}
           icon={CalendarCheck}
           accentColor={task.category?.color || "#6366f1"}
+          variant="user"
           onAction={() => handleComplete(task.id)}
           isLoading={completing === task.id}
           iconStyle="minimal"
