@@ -1283,10 +1283,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                                 setMenuOpen(false);
                               }
                             }}
-                            className="justify-start gap-2 h-9 px-3"
+                            className="justify-between h-9 px-3"
                           >
-                            <Icon className="h-4 w-4" />
-                            <span className="text-sm flex-1">{item.label}</span>
+                            <span className="flex items-center gap-2">
+                              <Icon className="h-4 w-4" />
+                              <span className="text-sm">{item.label}</span>
+                            </span>
                             {item.path.startsWith('/inventory') && (
                               <InventoryModeBadge mode={currentInventoryMode} />
                             )}
