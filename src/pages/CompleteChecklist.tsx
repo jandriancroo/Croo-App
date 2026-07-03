@@ -1438,6 +1438,8 @@ export default function CompleteChecklist() {
                                 <img 
                                   src={item.reference_image_url} 
                                   alt="Reference standard" 
+                                  loading="lazy"
+                                  decoding="async"
                                   className="w-full aspect-square object-cover" 
                                 />
                                 <button
