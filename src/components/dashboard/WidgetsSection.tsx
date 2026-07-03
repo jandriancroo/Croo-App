@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { GripVertical } from 'lucide-react';
 import { useIsOledTheme } from '@/hooks/useIsOledTheme';
+import { DashSectionTitle } from './DashSectionTitle';
 
 // Sales chart accent color - teal to match the chart bars, dark blue for OLED
 const SALES_CHART_COLOR = '#0D9488';
@@ -500,11 +501,12 @@ export const WidgetsSection = memo(function WidgetsSection({
     }
   };
 
-  // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
+  // Separate cubes, trackers (promo), checklists, and sales chart for stacked layout
+  const trackerCubes = localCubes.filter(c => c.cubeType === 'tracker');
   const dataCubes = localCubes.filter(c =>
     trackersOnly
-      ? c.cubeType === 'tracker'
-      : (c.cubeType === 'data-3d' || c.cubeType === 'data' || c.cubeType === 'tracker')
+      ? false
+      : (c.cubeType === 'data-3d' || c.cubeType === 'data')
   );
   const salesChart = trackersOnly ? undefined : localCubes.find(c => c.cubeType === 'sales-chart');
 
@@ -556,50 +558,93 @@ export const WidgetsSection = memo(function WidgetsSection({
 
   const renderSection = (section: string) => {
     switch (section) {
-      case 'data-cubes':
-        if (dataCubes.length === 0) return null;
+      case 'data-cubes': {
+        if (dataCubes.length === 0 && trackerCubes.length === 0) return null;
         return (
-          <DndContext
-            key="data-cubes"
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={dataCubes.map(cube => cube.id)}
-              strategy={rectSortingStrategy}
-            >
-              <div className="grid grid-cols-2 gap-3" data-tour="dashboard-cubes">
-                {dataCubes.map(cube => (
-                  <SortableDataCube
-                    key={cube.id}
-                    cube={cube}
-                    salesData={salesData}
-                    isLoading={isLoadingSales}
-                    locationSettings={locationSettings}
-                    isReorderMode={isReorderMode}
-                    onSalesDataChange={onSalesDataChange}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <div key="data-cubes" className="flex flex-col gap-2">
+            {dataCubes.length > 0 && (
+              <>
+                <DashSectionTitle>Cubes</DashSectionTitle>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={dataCubes.map(cube => cube.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 gap-3" data-tour="dashboard-cubes">
+                      {dataCubes.map(cube => (
+                        <SortableDataCube
+                          key={cube.id}
+                          cube={cube}
+                          salesData={salesData}
+                          isLoading={isLoadingSales}
+                          locationSettings={locationSettings}
+                          isReorderMode={isReorderMode}
+                          onSalesDataChange={onSalesDataChange}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </>
+            )}
+            {trackerCubes.length > 0 && (
+              <>
+                <DashSectionTitle>Promo</DashSectionTitle>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={trackerCubes.map(cube => cube.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 gap-3" data-tour="dashboard-promo">
+                      {trackerCubes.map(cube => (
+                        <SortableDataCube
+                          key={cube.id}
+                          cube={cube}
+                          salesData={salesData}
+                          isLoading={isLoadingSales}
+                          locationSettings={locationSettings}
+                          isReorderMode={isReorderMode}
+                          onSalesDataChange={onSalesDataChange}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </>
+            )}
+          </div>
         );
+      }
       case 'checklists':
         if (!checklistsContent) return null;
-        return <div key="checklists" className="w-full">{checklistsContent}</div>;
+        return (
+          <div key="checklists" className="w-full flex flex-col gap-2">
+            <DashSectionTitle>Checklists</DashSectionTitle>
+            {checklistsContent}
+          </div>
+        );
       case 'sales-chart':
         if (!salesChart) return null;
         return (
-          <SortableDataCube
-            key={salesChart.id}
-            cube={salesChart}
-            salesData={salesData}
-            isLoading={isLoadingSales}
-            locationSettings={locationSettings}
-            isReorderMode={isReorderMode}
-            onSalesDataChange={onSalesDataChange}
-          />
+          <div key="sales-chart" className="flex flex-col gap-2">
+            <DashSectionTitle>Summary</DashSectionTitle>
+            <SortableDataCube
+              cube={salesChart}
+              salesData={salesData}
+              isLoading={isLoadingSales}
+              locationSettings={locationSettings}
+              isReorderMode={isReorderMode}
+              onSalesDataChange={onSalesDataChange}
+            />
+          </div>
         );
       default:
         return null;
