@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LucideIcon, Send } from "lucide-react";
+import { ChevronRight, LucideIcon, Send } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
 import opusLogo from "@/assets/opus-logo.png";
 
