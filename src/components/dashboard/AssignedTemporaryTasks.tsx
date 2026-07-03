@@ -386,6 +386,7 @@ export function AssignedTemporaryTasks({
         id: `event-${task.id}`,
         label: task.event_name,
         color: task.category?.color || '#8B5CF6',
+        variant: 'user' as const,
         progress: formatTime(task.event_time),
         onClick: () => handleEventTaskComplete(task.id),
         isEvent: true,
@@ -399,6 +400,7 @@ export function AssignedTemporaryTasks({
         id: task.id,
         label: task.title,
         color: task.accent_color || '#8B5CF6',
+        variant: 'user' as const,
         onClick: () => setSelectedTask(task),
         icon: getIconComponent(task.icon_name || "ClipboardList"),
         subtasksCompleted: counts?.completed,
@@ -411,6 +413,7 @@ export function AssignedTemporaryTasks({
         id: `catering-${order.id}`,
         label: order.customer_name,
         color: ORANGE_COLOR,
+        variant: 'system' as const,
         progress: formatTime(order.pickup_time),
         onClick: () => setSelectedOrder(order),
         icon: ChefHat,
@@ -431,6 +434,7 @@ export function AssignedTemporaryTasks({
         title={item.label}
         icon={item.icon}
         accentColor={item.color}
+        variant={item.variant}
         onAction={item.onClick}
         subtasksCompleted={item.subtasksCompleted}
         subtasksTotal={item.subtasksTotal}
@@ -442,13 +446,13 @@ export function AssignedTemporaryTasks({
     return (
       <>
         {beforeContent.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
             {beforeContent.map(renderPill)}
           </div>
         )}
         {afterEventsContent}
         {afterContent.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
             {afterContent.map(renderPill)}
           </div>
         )}
