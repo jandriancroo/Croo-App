@@ -80,9 +80,9 @@ All colors MUST be HSL.
      --input: 220 25% 85%;
      --ring: 190 54% 40%;
 
-     /* Deep accent — used for dark chrome / bottom-nav dock accents */
-     --header-bg: 193 34% 28%;            /* #2f5560 */
-     --header-fg: 40 33% 96%;
+     /* Deep accent — header bar; matches the lighter teal ring tone used in checklist progress */
+     --header-bg: 190 38% 45%;            /* #4a899b */
+     --header-fg: 38 38% 97%;
 
      --radius: 0.75rem;
 
