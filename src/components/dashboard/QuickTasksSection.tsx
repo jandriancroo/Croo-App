@@ -20,9 +20,10 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
   timezone,
 }: QuickTasksSectionProps) {
   return (
-    <div className="quick-task-section flex flex-col gap-1.5 w-full">
+    <div className="quick-task-section flex flex-col gap-1 w-full">
       <DashSectionTitle>Quick Tasks</DashSectionTitle>
-      <div className="quick-task-content flex flex-col gap-1.5 w-full">
+      <div className="quick-task-content flex flex-col gap-1 w-full">
+
 
         <UnreadAnnouncementsAlert />
         <PinMigrationTask />
