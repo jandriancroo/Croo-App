@@ -1249,9 +1249,6 @@ export default function CompleteChecklist() {
                           <span className="text-sm font-medium truncate">
                             {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
                           </span>
-                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                          </span>
                         </>
                       )}
                     </button>
@@ -1271,12 +1268,14 @@ export default function CompleteChecklist() {
                           <span className="text-sm font-medium truncate">
                             {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
                           </span>
-                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                          </span>
                         </>
                       )}
                     </div>
+                  )}
+                  {completerInfo && (
+                    <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                      {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                    </span>
                   )}
 
                   {/* Temperature badge inline */}
