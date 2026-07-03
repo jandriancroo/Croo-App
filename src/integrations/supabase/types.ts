@@ -5981,6 +5981,7 @@ export type Database = {
           category: string | null
           cost_per_unit: number | null
           created_at: string
+          display_order: number | null
           id: string
           is_active: boolean
           item_number: string | null
@@ -5997,6 +5998,7 @@ export type Database = {
           category?: string | null
           cost_per_unit?: number | null
           created_at?: string
+          display_order?: number | null
           id?: string
           is_active?: boolean
           item_number?: string | null
@@ -6013,6 +6015,7 @@ export type Database = {
           category?: string | null
           cost_per_unit?: number | null
           created_at?: string
+          display_order?: number | null
           id?: string
           is_active?: boolean
           item_number?: string | null
