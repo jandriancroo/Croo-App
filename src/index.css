@@ -50,7 +50,7 @@ All colors MUST be HSL.
   html[data-text-size="extra-large"] { font-size: 20px; }
 
   :root {
-    --background: 40 33% 94%;
+    --background: 38 38% 93%;
     --foreground: 220 25% 5%;
 
     --card: 0 0% 100%;
@@ -59,18 +59,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 25% 5%;
 
-    --primary: 190 62% 40%;              /* #268da5 vivid teal */
+    --primary: 190 54% 40%;              /* #2a8399 muted teal */
     --primary-foreground: 0 0% 100%;
-    --primary-light: 190 65% 60%;
+    --primary-light: 190 57% 60%;
 
 
-     --secondary: 37 45% 66%;             /* #d4b581 warmer tan */
+     --secondary: 37 37% 66%;             /* #cab286 muted tan */
      --secondary-foreground: 30 25% 18%;
 
      --muted: 220 18% 90%;
      --muted-foreground: 220 20% 35%;
 
-     --accent: 22 88% 56%;                /* #ef7f34 vivid orange */
+     --accent: 22 80% 56%;                /* #eb7d3c muted orange */
      --accent-foreground: 0 0% 100%;
 
      --destructive: 0 90% 55%;
@@ -78,7 +78,7 @@ All colors MUST be HSL.
 
      --border: 220 25% 78%;
      --input: 220 25% 85%;
-     --ring: 190 62% 40%;
+     --ring: 190 54% 40%;
 
      /* Deep accent — used for dark chrome / bottom-nav dock accents */
      --header-bg: 193 34% 28%;            /* #2f5560 */
@@ -90,7 +90,7 @@ All colors MUST be HSL.
 
      --sidebar-foreground: 220 20% 15%;
 
-     --sidebar-primary: 190 62% 40%;
+     --sidebar-primary: 190 54% 40%;
 
      --sidebar-primary-foreground: 0 0% 100%;
 
@@ -100,19 +100,19 @@ All colors MUST be HSL.
 
      --sidebar-border: 220 20% 82%;
 
-     --sidebar-ring: 190 62% 40%;
+     --sidebar-ring: 190 54% 40%;
     
     --role-admin: 215 40% 30%;
     --role-manager: 215 35% 42%;
     --role-team-member: 215 30% 55%;
     
-    --croo-orange: 22 84% 58%;
-    --dock-orange: 26 92% 52%;
-    --croo-beige: 40 33% 94%;
+    --croo-orange: 22 76% 58%;
+    --dock-orange: 26 84% 52%;
+    --croo-beige: 38 38% 93%;
     
     /* Liquid Glass UI */
-    --glass-background: 40 33% 94% / 0.85;
-    --glass-border: 40 33% 88% / 0.5;
+    --glass-background: 38 38% 93% / 0.85;
+    --glass-border: 38 30% 88% / 0.5;
     --glass-shadow: 220 25% 10% / 0.08;
     --glass-blur: 20px;
   }
