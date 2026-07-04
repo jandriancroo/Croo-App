@@ -501,8 +501,7 @@ export default function LiteCountSession({
   const activeSubtotal = active
     ? active.items.reduce((sum, it) => {
         const row = rowByItem.get(it.id);
-        if (!row) return sum;
-        return sum + Number(row.quantity) * Number(row.unit_value_at_count);
+        return row ? sum + lineValue(row) : sum;
       }, 0)
     : 0;
   const isLast = activeIdx >= grouped.length - 1;
