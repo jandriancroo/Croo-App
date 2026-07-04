@@ -116,7 +116,7 @@ export default function LiteCountSession({
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
         .select(
-          "id, name, unit, pack_size, cost_per_unit, storage_id, display_order, category",
+          "id, name, unit, pack_size, cost_per_unit, storage_id, display_order, category, count_mode, case_qty, unit_label, cost_per_inner_unit",
         )
         .eq("location_id", locationId)
         .eq("is_active", true)
