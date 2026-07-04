@@ -42,7 +42,7 @@ All colors MUST be HSL.
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     /* Match iOS/Android status-bar bleed area to current theme header */
-    background-color: hsl(var(--header-bg));
+    background-color: var(--chrome-bg, hsl(var(--header-bg)));
   }
 
   /* Text size scaling - applied to html element */
