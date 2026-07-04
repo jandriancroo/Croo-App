@@ -1006,6 +1006,10 @@ function toEditable(item: LiteItem): LiteEditableItem {
     cost_per_unit: item.cost_per_unit,
     vendor_name_normalized: item.vendor_name_normalized,
     item_number: item.item_number,
+    count_mode: item.count_mode,
+    case_qty: item.case_qty,
+    unit_label: item.unit_label,
+    cost_per_inner_unit: item.cost_per_inner_unit,
   };
 }
 
