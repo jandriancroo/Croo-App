@@ -387,10 +387,21 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
             <Package className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Items ({activeCount})</h3>
           </div>
-          <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2">
-            <Upload className="h-4 w-4" />
-            Upload Invoice
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setStorageManagerOpen(true)}
+              className="gap-1.5"
+            >
+              <Settings2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Locations</span>
+            </Button>
+            <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2">
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Upload Invoice</span>
+            </Button>
+          </div>
         </div>
 
         <div className="p-3 border-b border-border/50">
