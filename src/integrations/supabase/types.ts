@@ -5935,6 +5935,7 @@ export type Database = {
           created_by: string | null
           id: string
           location_id: string
+          manual_sales_total: number | null
           period_end: string
           period_start: string
           status: string
@@ -5947,6 +5948,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           location_id: string
+          manual_sales_total?: number | null
           period_end: string
           period_start: string
           status?: string
@@ -5959,6 +5961,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           location_id?: string
+          manual_sales_total?: number | null
           period_end?: string
           period_start?: string
           status?: string
