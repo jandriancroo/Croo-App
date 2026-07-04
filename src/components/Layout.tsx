@@ -418,9 +418,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     setTheme(value);
     localStorage.setItem('app-theme', value);
     document.documentElement.setAttribute('data-theme', value);
-    (window as any).__syncThemeColorMeta?.();
+    syncChromeColor();
     toast('Theme updated');
   };
+
 
 
   const textSizes = [
