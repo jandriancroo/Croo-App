@@ -1213,36 +1213,7 @@ header.bg-primary *,
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.25);
   }
   
-  [data-theme="oled"] .nav-bar-unified {
-    background: hsl(var(--card));
-    box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
-    color: hsl(var(--foreground));
-    border-top: 1px solid hsl(var(--border));
-  }
-
-  [data-theme="oled"] .nav-bar-unified * {
-    color: inherit;
-  }
-
-  [data-theme="oled"] .nav-bar-unified svg {
-    color: hsl(var(--foreground));
-  }
-
-  /* Dark Mode mobile header — matches raised card surface */
-  [data-theme="oled"] header.bg-primary {
-    background: hsl(var(--card)) !important;
-    color: hsl(var(--foreground));
-    border-bottom: 1px solid hsl(var(--border));
-  }
-
-  [data-theme="oled"] header.bg-primary * {
-    color: hsl(var(--foreground));
-  }
-
-  [data-theme="oled"] header.bg-primary .nav-logo-inline {
-    color: initial;
-  }
-
+  /* OLED header/nav chrome is driven by the universal rule via --chrome-bg / --header-fg. */
   [data-theme="oled"] .nav-logo-bulge::before {
     background: linear-gradient(
       180deg,
