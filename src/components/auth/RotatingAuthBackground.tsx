@@ -29,7 +29,6 @@ export default function RotatingAuthBackground({ images, index, isDay }: Props) 
           src={src}
           alt=""
           decoding="async"
-          fetchPriority={i === activeIndex ? 'high' : 'auto'}
           className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[2000ms] ease-in-out"
           style={{ opacity: i === activeIndex ? 1 : 0 }}
         />
