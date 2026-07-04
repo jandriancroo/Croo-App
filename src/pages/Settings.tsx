@@ -127,6 +127,7 @@ export default function Settings() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    syncChromeColor();
   }, [theme]);
 
   useEffect(() => {

@@ -42,7 +42,7 @@ All colors MUST be HSL.
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     /* Match iOS/Android status-bar bleed area to current theme header */
-    background-color: hsl(var(--header-bg));
+    background-color: var(--chrome-bg, hsl(var(--header-bg)));
   }
 
   /* Text size scaling - applied to html element */
@@ -117,6 +117,13 @@ All colors MUST be HSL.
     --glass-border: 38 30% 88% / 0.5;
     --glass-shadow: 220 25% 10% / 0.08;
     --glass-blur: 20px;
+
+    /* Quick Task chip semantics — user=accent, system=primary */
+    --quick-task-user: 22 80% 56%;
+    --quick-task-user-fg: 0 0% 100%;
+    --quick-task-system: 190 54% 40%;
+    --quick-task-system-fg: 0 0% 100%;
+    --quick-task-alpha: 1;
   }
 
   .dark {
@@ -174,6 +181,12 @@ All colors MUST be HSL.
 
      --header-bg: 189 45% 50%;
      --header-fg: 220 28% 4%;
+
+     --quick-task-user: 22 80% 62%;
+     --quick-task-user-fg: 220 28% 4%;
+     --quick-task-system: 189 45% 50%;
+     --quick-task-system-fg: 220 28% 4%;
+     --quick-task-alpha: 1;
   }
 }
 
@@ -277,14 +290,25 @@ All colors MUST be HSL.
   --glass-border: 35 20% 72% / 0.35;
   --glass-shadow: 32 24% 20% / 0.1;
 
-  /* Quick Task chip semantics — user vs system differentiation.
-     Other themes fall back to --accent / --primary via the component. */
+  /* Quick Task chip semantics — user vs system differentiation. */
   --quick-task-user: 25 48% 57%;       /* clay #c68a5e */
+  --quick-task-user-fg: 0 0% 100%;
   --quick-task-system: 91 13% 54%;     /* sage #8a9a7b */
+  --quick-task-system-fg: 0 0% 100%;
+  --quick-task-alpha: 1;
 
   /* Deep accent — header bar + dark chrome elements */
   --header-bg: 32 24% 34%;             /* #6b5842 */
   --header-fg: 37 41% 94%;
+
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 30 25% 14%;
+  --sidebar-primary: 18 48% 47%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 37 22% 86%;
+  --sidebar-accent-foreground: 30 25% 14%;
+  --sidebar-border: 35 20% 78%;
+  --sidebar-ring: 18 48% 47%;
 
   --chart-1: 18 48% 47%;   /* terracotta */
   --chart-2: 25 48% 57%;   /* clay */
@@ -294,16 +318,6 @@ All colors MUST be HSL.
   --chart-6: 15 50% 50%;
 }
 
-/* Warm Earth — header bar + bottom nav use the deep-bark chrome */
-[data-theme="earth"] header.bg-primary,
-[data-theme="earth"] .nav-bar-unified {
-  background: hsl(var(--header-bg)) !important;
-  color: hsl(var(--header-fg));
-}
-[data-theme="earth"] header.bg-primary *,
-[data-theme="earth"] .nav-bar-unified * {
-  color: hsl(var(--header-fg));
-}
 
 /* Beach Theme - Kihei ocean blues, sky, and sand */
 [data-theme="beach"] {
@@ -315,6 +329,7 @@ All colors MUST be HSL.
   --popover-foreground: 210 35% 15%;
   --primary: 195 70% 42%;
   --primary-foreground: 0 0% 100%;
+  --primary-light: 195 70% 60%;
   --secondary: 42 45% 72%;
   --secondary-foreground: 210 35% 15%;
   --muted: 200 18% 86%;
@@ -332,6 +347,21 @@ All colors MUST be HSL.
 
   --header-bg: 205 65% 62%;
   --header-fg: 0 0% 100%;
+
+  --sidebar-background: 42 30% 96%;
+  --sidebar-foreground: 210 35% 15%;
+  --sidebar-primary: 195 70% 42%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 200 18% 86%;
+  --sidebar-accent-foreground: 210 35% 15%;
+  --sidebar-border: 195 20% 78%;
+  --sidebar-ring: 195 70% 42%;
+
+  --quick-task-user: 170 60% 38%;        /* teal accent */
+  --quick-task-user-fg: 0 0% 100%;
+  --quick-task-system: 195 70% 42%;      /* ocean primary */
+  --quick-task-system-fg: 0 0% 100%;
+  --quick-task-alpha: 1;
 
   --chart-1: 195 70% 42%;
   --chart-2: 170 60% 38%;
@@ -351,6 +381,7 @@ All colors MUST be HSL.
   --popover-foreground: 340 20% 15%;
   --primary: 340 45% 52%;
   --primary-foreground: 0 0% 100%;
+  --primary-light: 340 55% 68%;
   --secondary: 350 35% 90%;
   --secondary-foreground: 340 40% 32%;
   --muted: 340 20% 90%;
@@ -369,6 +400,21 @@ All colors MUST be HSL.
   --header-bg: 340 45% 52%;
   --header-fg: 0 0% 100%;
 
+  --sidebar-background: 340 30% 98%;
+  --sidebar-foreground: 340 20% 15%;
+  --sidebar-primary: 340 45% 52%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 340 20% 90%;
+  --sidebar-accent-foreground: 340 20% 15%;
+  --sidebar-border: 340 22% 82%;
+  --sidebar-ring: 340 45% 52%;
+
+  --quick-task-user: 340 45% 52%;        /* pink primary */
+  --quick-task-user-fg: 0 0% 100%;
+  --quick-task-system: 15 55% 58%;       /* warm accent */
+  --quick-task-system-fg: 0 0% 100%;
+  --quick-task-alpha: 1;
+
   --chart-1: 340 45% 55%;
   --chart-2: 15 55% 60%;
   --chart-3: 355 40% 62%;
@@ -379,6 +425,7 @@ All colors MUST be HSL.
 
 /* Blaze Pizza Theme - Blaze Orange, Fire Red, Charcoal, Cream (official brand palette) */
 [data-theme="blaze"] {
+  --primary-light: 20 55% 66%;
   --background: 32 52% 94%;
   --foreground: 24 13% 15%;
 
@@ -482,9 +529,20 @@ All colors MUST be HSL.
   --header-bg: 176 31% 27%;              /* #2f5a57 */
   --header-fg: 39 41% 96%;
 
+  --sidebar-background: 210 17% 98%;
+  --sidebar-foreground: 176 31% 14%;
+  --sidebar-primary: 176 30% 42%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 39 30% 88%;
+  --sidebar-accent-foreground: 176 31% 14%;
+  --sidebar-border: 39 25% 80%;
+  --sidebar-ring: 176 30% 42%;
+
   /* Quick Task chip semantics — user=coral, system=teal (2-hue split) */
   --quick-task-user: 3 47% 60%;          /* coral */
+  --quick-task-user-fg: 0 0% 100%;
   --quick-task-system: 176 30% 42%;      /* teal */
+  --quick-task-system-fg: 0 0% 100%;
 
   /* Chip transparency — lets the background photo peek through subtly */
   --quick-task-alpha: 0.9;
@@ -701,10 +759,12 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
 
 
-/* All themes — header, safe-area bleed, and unified nav share one chrome color. */
+/* All themes — header, safe-area bleed, and unified nav share ONE chrome color
+   sourced from --chrome-bg (set by syncChrome() in JS from --header-bg, iOS-clamped).
+   The hsl(var(--header-bg)) fallback covers the pre-JS first paint. */
 header.bg-primary,
 .nav-bar-unified {
-  background: hsl(var(--header-bg)) !important;
+  background: var(--chrome-bg, hsl(var(--header-bg))) !important;
   color: hsl(var(--header-fg));
 }
 
@@ -1213,36 +1273,7 @@ header.bg-primary *,
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.25);
   }
   
-  [data-theme="oled"] .nav-bar-unified {
-    background: hsl(var(--card));
-    box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
-    color: hsl(var(--foreground));
-    border-top: 1px solid hsl(var(--border));
-  }
-
-  [data-theme="oled"] .nav-bar-unified * {
-    color: inherit;
-  }
-
-  [data-theme="oled"] .nav-bar-unified svg {
-    color: hsl(var(--foreground));
-  }
-
-  /* Dark Mode mobile header — matches raised card surface */
-  [data-theme="oled"] header.bg-primary {
-    background: hsl(var(--card)) !important;
-    color: hsl(var(--foreground));
-    border-bottom: 1px solid hsl(var(--border));
-  }
-
-  [data-theme="oled"] header.bg-primary * {
-    color: hsl(var(--foreground));
-  }
-
-  [data-theme="oled"] header.bg-primary .nav-logo-inline {
-    color: initial;
-  }
-
+  /* OLED header/nav chrome is driven by the universal rule via --chrome-bg / --header-fg. */
   [data-theme="oled"] .nav-logo-bulge::before {
     background: linear-gradient(
       180deg,

@@ -2,8 +2,8 @@
   "name": "CrooHQ",
   "short_name": "CrooHQ",
   "description": "Built for operators, by operators",
-  "theme_color": "#4a899b",
-  "background_color": "#4a899b",
+  "theme_color": "#417f8e",
+  "background_color": "#417f8e",
   "display": "standalone",
   "start_url": "/",
   "scope": "/",
@@ -28,4 +28,3 @@
     }
   ]
 }
-
