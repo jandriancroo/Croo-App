@@ -702,6 +702,18 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         categorySuggestions={categorySuggestions}
       />
 
+      <Dialog open={storageManagerOpen} onOpenChange={setStorageManagerOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto p-0">
+          <DialogHeader className="px-4 pt-4">
+            <DialogTitle>Storage Locations</DialogTitle>
+          </DialogHeader>
+          <div className="p-2">
+            <LiteStorageLocationsManager locationId={locationId} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Bulk Move dialog */}
       <Dialog open={showBulkMoveDialog} onOpenChange={setShowBulkMoveDialog}>
         <DialogContent className="sm:max-w-md">
