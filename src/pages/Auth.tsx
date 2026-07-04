@@ -164,6 +164,7 @@ export default function Auth() {
       <RotatingAuthBackground images={images} index={index} isDay={isDay} />
       <div
         ref={containerRef}
+        data-auth-content
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         className="flex min-h-dvh flex-col items-center justify-center p-4 relative z-10"
