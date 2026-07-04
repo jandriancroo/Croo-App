@@ -109,8 +109,12 @@ export default function LiteCountSession({
   submitPending = false,
 }: Props) {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
+  const { setDockContent } = useDockToast();
   const [activeIdx, setActiveIdx] = useState(0);
   const [mode, setMode] = useState<"count" | "review">("count");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ["lite-inventory-items-count", locationId],
