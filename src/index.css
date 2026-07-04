@@ -482,9 +482,20 @@ All colors MUST be HSL.
   --header-bg: 176 31% 27%;              /* #2f5a57 */
   --header-fg: 39 41% 96%;
 
+  --sidebar-background: 210 17% 98%;
+  --sidebar-foreground: 176 31% 14%;
+  --sidebar-primary: 176 30% 42%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 39 30% 88%;
+  --sidebar-accent-foreground: 176 31% 14%;
+  --sidebar-border: 39 25% 80%;
+  --sidebar-ring: 176 30% 42%;
+
   /* Quick Task chip semantics — user=coral, system=teal (2-hue split) */
   --quick-task-user: 3 47% 60%;          /* coral */
+  --quick-task-user-fg: 0 0% 100%;
   --quick-task-system: 176 30% 42%;      /* teal */
+  --quick-task-system-fg: 0 0% 100%;
 
   /* Chip transparency — lets the background photo peek through subtly */
   --quick-task-alpha: 0.9;
