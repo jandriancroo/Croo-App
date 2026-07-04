@@ -30,11 +30,13 @@ import {
   X,
   Power,
   PowerOff,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { arrayMove } from "@dnd-kit/sortable";
 import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
 import LiteItemEditSheet, { type LiteEditableItem } from "./LiteItemEditSheet";
+import LiteStorageLocationsManager from "./LiteStorageLocationsManager";
 
 interface LiteInventoryItemsListProps {
   locationId: string;
@@ -83,6 +85,7 @@ function shelfSort(a: LiteItem, b: LiteItem) {
 export default function LiteInventoryItemsList({ locationId }: LiteInventoryItemsListProps) {
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [storageManagerOpen, setStorageManagerOpen] = useState(false);
   const [editItem, setEditItem] = useState<LiteEditableItem | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     [DEACTIVATED_KEY]: true,
@@ -384,10 +387,21 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
             <Package className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Items ({activeCount})</h3>
           </div>
-          <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2">
-            <Upload className="h-4 w-4" />
-            Upload Invoice
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setStorageManagerOpen(true)}
+              className="gap-1.5"
+            >
+              <Settings2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Locations</span>
+            </Button>
+            <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2">
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Upload Invoice</span>
+            </Button>
+          </div>
         </div>
 
         <div className="p-3 border-b border-border/50">
@@ -687,6 +701,18 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         storages={storages || []}
         categorySuggestions={categorySuggestions}
       />
+
+      <Dialog open={storageManagerOpen} onOpenChange={setStorageManagerOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto p-0">
+          <DialogHeader className="px-4 pt-4">
+            <DialogTitle>Storage Locations</DialogTitle>
+          </DialogHeader>
+          <div className="p-2">
+            <LiteStorageLocationsManager locationId={locationId} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Bulk Move dialog */}
       <Dialog open={showBulkMoveDialog} onOpenChange={setShowBulkMoveDialog}>
