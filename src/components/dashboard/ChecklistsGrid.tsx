@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
+import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 
 interface ChecklistItem {
   id: string;
@@ -54,44 +55,43 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   };
 
   return (
-    <Card className="border-0 overflow-hidden p-0">
-      <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between">
-        <h3 className="text-sm font-bold tracking-tight">Checklists</h3>
-        <span className="text-xs text-muted-foreground">
-          {remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${dailyChecklists.length} remaining`}
-        </span>
-      </div>
-      <div className="divide-y divide-border/30">
-        {checklists.map(checklist => {
-          const { expected, completed } = getCompletionData(checklist.id);
-          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-          const isComplete = completionRate === 100;
+    <div className="flex flex-col gap-1 w-full">
+      <DashSectionTitle action={remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${dailyChecklists.length} remaining`}>
+        Checklists
+      </DashSectionTitle>
+      <Card className="border-0 overflow-hidden p-0">
+        <div className="divide-y divide-border/30">
+          {checklists.map(checklist => {
+            const { expected, completed } = getCompletionData(checklist.id);
+            const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
+            const isComplete = completionRate === 100;
 
-          const isOverdue = !isComplete && !!checklist.due_by_time && (() => {
-            const [dueH, dueM] = checklist.due_by_time!.split(':').map(Number);
-            return nowMinutes > dueH * 60 + dueM;
-          })();
+            const isOverdue = !isComplete && !!checklist.due_by_time && (() => {
+              const [dueH, dueM] = checklist.due_by_time!.split(':').map(Number);
+              return nowMinutes > dueH * 60 + dueM;
+            })();
 
-          const isLocked = !!checklist.lock_until_time && (() => {
-            const [lH, lM, lS] = checklist.lock_until_time!.split(':').map(Number);
-            return nowSeconds < lH * 3600 + lM * 60 + (lS || 0);
-          })();
+            const isLocked = !!checklist.lock_until_time && (() => {
+              const [lH, lM, lS] = checklist.lock_until_time!.split(':').map(Number);
+              return nowSeconds < lH * 3600 + lM * 60 + (lS || 0);
+            })();
 
-          return (
-            <ChecklistCard
-              key={checklist.id}
-              checklistId={checklist.id}
-              title={checklist.title}
-              completed={completed}
-              expected={expected}
-              isOverdue={isOverdue}
-              isLocked={isLocked}
-              lockUntilTime={isLocked && checklist.lock_until_time ? formatLockTime(checklist.lock_until_time) : undefined}
-              variant="row"
-            />
-          );
-        })}
-      </div>
-    </Card>
+            return (
+              <ChecklistCard
+                key={checklist.id}
+                checklistId={checklist.id}
+                title={checklist.title}
+                completed={completed}
+                expected={expected}
+                isOverdue={isOverdue}
+                isLocked={isLocked}
+                lockUntilTime={isLocked && checklist.lock_until_time ? formatLockTime(checklist.lock_until_time) : undefined}
+                variant="row"
+              />
+            );
+          })}
+        </div>
+      </Card>
+    </div>
   );
 });
