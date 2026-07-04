@@ -558,6 +558,32 @@ export default function LiteCountSession({
         <div className="divide-y divide-border/50">
           {active?.items.map((it) => {
             const row = rowByItem.get(it.id);
+            const isDual = it.count_mode === "case_and_unit";
+            if (isDual) {
+              return (
+                <DualStepperRow
+                  key={it.id}
+                  item={it}
+                  currentCases={row ? Number(row.case_quantity ?? 0) : null}
+                  currentInner={row ? Number(row.inner_quantity ?? 0) : null}
+                  disabled={upsert.isPending}
+                  onCommitCases={(q) =>
+                    upsert.mutate({
+                      item: it,
+                      caseQuantity: q,
+                      innerQuantity: row ? Number(row.inner_quantity ?? 0) : 0,
+                    })
+                  }
+                  onCommitInner={(q) =>
+                    upsert.mutate({
+                      item: it,
+                      caseQuantity: row ? Number(row.case_quantity ?? 0) : 0,
+                      innerQuantity: q,
+                    })
+                  }
+                />
+              );
+            }
             return (
               <StepperRow
                 key={it.id}
