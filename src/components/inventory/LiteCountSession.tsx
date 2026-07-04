@@ -758,3 +758,143 @@ function StepperRow({
     </div>
   );
 }
+
+/** Two-stepper row for items opted into count_mode='case_and_unit'. Second
+ *  stepper is labeled with the item's actual unit_label (e.g. "1 LB Packs"),
+ *  not a generic "Units". */
+function DualStepperRow({
+  item,
+  currentCases,
+  currentInner,
+  disabled,
+  onCommitCases,
+  onCommitInner,
+}: {
+  item: Item;
+  currentCases: number | null;
+  currentInner: number | null;
+  disabled: boolean;
+  onCommitCases: (q: number) => void;
+  onCommitInner: (q: number) => void;
+}) {
+  const innerLabel = item.unit_label || item.unit || "unit";
+  const pluralInner = /s$/i.test(innerLabel) ? innerLabel : `${innerLabel}s`;
+  const derivedInner =
+    item.cost_per_inner_unit != null
+      ? Number(item.cost_per_inner_unit)
+      : item.case_qty && item.case_qty > 0 && item.cost_per_unit != null
+      ? Number(item.cost_per_unit) / item.case_qty
+      : 0;
+
+  return (
+    <div className="px-3 py-2 space-y-2">
+      <div className="min-w-0">
+        <div className="text-sm font-medium truncate">{item.name}</div>
+        <div className="text-[11px] text-muted-foreground">
+          {item.case_qty ? `${item.case_qty} ${pluralInner} per case • ` : ""}
+          Case ${Number(item.cost_per_unit ?? 0).toFixed(2)} • {innerLabel} $
+          {derivedInner.toFixed(2)}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <MiniStepper
+          label="Cases"
+          value={currentCases}
+          disabled={disabled}
+          onCommit={onCommitCases}
+        />
+        <MiniStepper
+          label={pluralInner}
+          value={currentInner}
+          disabled={disabled}
+          onCommit={onCommitInner}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MiniStepper({
+  label,
+  value,
+  disabled,
+  onCommit,
+}: {
+  label: string;
+  value: number | null;
+  disabled: boolean;
+  onCommit: (q: number) => void;
+}) {
+  const [draft, setDraft] = useState<string>(value != null ? String(value) : "");
+  useEffect(() => {
+    setDraft(value != null ? String(value) : "");
+  }, [value]);
+
+  const commitRaw = (raw: string) => {
+    const parsed = raw.trim() === "" ? 0 : Number(raw);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setDraft(value != null ? String(value) : "");
+      return;
+    }
+    if (value !== null && parsed === value) return;
+    if (value === null && parsed === 0) return;
+    onCommit(parsed);
+  };
+
+  const step = (delta: number) => {
+    const base = value ?? 0;
+    const next = Math.max(0, base + delta);
+    if (next === base) return;
+    onCommit(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground text-center">
+        {label}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => step(-1)}
+          disabled={disabled || (value ?? 0) <= 0}
+          aria-label={`Decrement ${label}`}
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commitRaw(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          disabled={disabled}
+          className="flex-1 min-w-0 h-9 text-center tabular-nums px-1"
+          placeholder="0"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => step(1)}
+          disabled={disabled}
+          aria-label={`Increment ${label}`}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
