@@ -701,10 +701,12 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
 
 
-/* All themes — header, safe-area bleed, and unified nav share one chrome color. */
+/* All themes — header, safe-area bleed, and unified nav share ONE chrome color
+   sourced from --chrome-bg (set by syncChrome() in JS from --header-bg, iOS-clamped).
+   The hsl(var(--header-bg)) fallback covers the pre-JS first paint. */
 header.bg-primary,
 .nav-bar-unified {
-  background: hsl(var(--header-bg)) !important;
+  background: var(--chrome-bg, hsl(var(--header-bg))) !important;
   color: hsl(var(--header-fg));
 }
 
