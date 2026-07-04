@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { syncChromeColor } from "./utils/syncChrome";
 
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
@@ -10,40 +11,12 @@ if (THEME_MIGRATION[savedTheme]) {
   localStorage.setItem('app-theme', savedTheme);
 }
 document.documentElement.setAttribute('data-theme', savedTheme);
+syncChromeColor();
 
 const savedTextSize = localStorage.getItem('app-text-size') || 'default';
 document.documentElement.setAttribute('data-text-size', savedTextSize);
 
-// Keep <meta name="theme-color"> (Android PWA status-bar bleed) in sync with
-// the current theme's --header-bg. iOS PWA uses the html background-color set
-// in index.css for the same effect.
-const syncThemeColorMeta = () => {
-  try {
-    const hsl = getComputedStyle(document.documentElement)
-      .getPropertyValue('--header-bg')
-      .trim();
-    if (!hsl) return;
-    const color = `hsl(${hsl})`;
-    document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
-      el.setAttribute('content', color);
-    });
-  } catch {
-    /* ignore */
-  }
-};
-syncThemeColorMeta();
-(window as any).__syncThemeColorMeta = syncThemeColorMeta;
 
-// Re-sync whenever the active theme changes so the PWA status-bar bleed
-// tracks each theme's --header-bg (default, beach, dark, etc).
-try {
-  new MutationObserver(syncThemeColorMeta).observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['data-theme'],
-  });
-} catch {
-  /* ignore */
-}
 
 
 // Mark standalone mode on html element for CSS targeting (iOS fallback)
