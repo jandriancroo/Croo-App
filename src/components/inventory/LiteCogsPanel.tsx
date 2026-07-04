@@ -73,7 +73,7 @@ export default function LiteCogsPanel({
       const { data: rows, error: rowsErr } = await supabase
         .from("lite_inventory_count_items" as any)
         .select(
-          "quantity, unit_value_at_count, item:lite_inventory_items!lite_inventory_count_items_item_id_fkey(category)",
+          "quantity, unit_value_at_count, case_quantity, inner_quantity, count_mode_at_count, cost_per_inner_unit_at_count, item:lite_inventory_items!lite_inventory_count_items_item_id_fkey(category)",
         )
         .eq("count_id", countId);
       if (rowsErr) throw rowsErr;
