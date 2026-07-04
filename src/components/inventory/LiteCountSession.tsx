@@ -18,6 +18,8 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useDockToast } from "@/contexts/DockToastContext";
 
 interface Props {
   countId: string;
