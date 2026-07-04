@@ -40,6 +40,7 @@ interface Item {
   storage_id: string | null;
   display_order: number | null;
   category: string | null;
+  item_number: string | null;
   count_mode: "single" | "case_and_unit" | null;
   case_qty: number | null;
   unit_label: string | null;
