@@ -54,10 +54,11 @@ All colors MUST be HSL.
     top: 0;
     left: 0;
     right: 0;
-    height: env(safe-area-inset-top, 0px);
+    height: calc(env(safe-area-inset-top) + 44px);
     background-color: hsl(var(--header-bg));
     z-index: 9999;
     pointer-events: none;
+    -webkit-backdrop-filter: blur(0);
   }
 
 
