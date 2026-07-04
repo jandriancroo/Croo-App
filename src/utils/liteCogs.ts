@@ -94,7 +94,7 @@ export function categoryBreakdown(
   const totals = new Map<string, number>();
   for (const r of rows) {
     const cat = (r.item?.category?.trim() || "Uncategorized");
-    const value = Number(r.quantity || 0) * Number(r.unit_value_at_count || 0);
+    const value = countItemValue(r);
     totals.set(cat, (totals.get(cat) || 0) + value);
   }
   const endingTotal = Array.from(totals.values()).reduce((a, b) => a + b, 0);
