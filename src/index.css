@@ -277,14 +277,25 @@ All colors MUST be HSL.
   --glass-border: 35 20% 72% / 0.35;
   --glass-shadow: 32 24% 20% / 0.1;
 
-  /* Quick Task chip semantics — user vs system differentiation.
-     Other themes fall back to --accent / --primary via the component. */
+  /* Quick Task chip semantics — user vs system differentiation. */
   --quick-task-user: 25 48% 57%;       /* clay #c68a5e */
+  --quick-task-user-fg: 0 0% 100%;
   --quick-task-system: 91 13% 54%;     /* sage #8a9a7b */
+  --quick-task-system-fg: 0 0% 100%;
+  --quick-task-alpha: 1;
 
   /* Deep accent — header bar + dark chrome elements */
   --header-bg: 32 24% 34%;             /* #6b5842 */
   --header-fg: 37 41% 94%;
+
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 30 25% 14%;
+  --sidebar-primary: 18 48% 47%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 37 22% 86%;
+  --sidebar-accent-foreground: 30 25% 14%;
+  --sidebar-border: 35 20% 78%;
+  --sidebar-ring: 18 48% 47%;
 
   --chart-1: 18 48% 47%;   /* terracotta */
   --chart-2: 25 48% 57%;   /* clay */
@@ -294,16 +305,6 @@ All colors MUST be HSL.
   --chart-6: 15 50% 50%;
 }
 
-/* Warm Earth — header bar + bottom nav use the deep-bark chrome */
-[data-theme="earth"] header.bg-primary,
-[data-theme="earth"] .nav-bar-unified {
-  background: hsl(var(--header-bg)) !important;
-  color: hsl(var(--header-fg));
-}
-[data-theme="earth"] header.bg-primary *,
-[data-theme="earth"] .nav-bar-unified * {
-  color: hsl(var(--header-fg));
-}
 
 /* Beach Theme - Kihei ocean blues, sky, and sand */
 [data-theme="beach"] {
