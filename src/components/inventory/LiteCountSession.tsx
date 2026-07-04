@@ -463,7 +463,7 @@ export default function LiteCountSession({
             <div className="divide-y divide-border/50">
               {groupItems.map((it) => {
                 const row = rowByItem.get(it.id);
-                const qty = row ? Number(row.quantity) : 0;
+                const isDual = row?.count_mode_at_count === "case_and_unit";
                 return (
                   <div
                     key={it.id}
@@ -473,7 +473,18 @@ export default function LiteCountSession({
                       <div className="font-medium truncate">{it.name}</div>
                     </div>
                     <div className="text-right tabular-nums shrink-0">
-                      {qty} {it.unit || "unit"}
+                      {isDual ? (
+                        <>
+                          {Number(row?.case_quantity ?? 0)} case
+                          {Number(row?.case_quantity ?? 0) === 1 ? "" : "s"} +{" "}
+                          {Number(row?.inner_quantity ?? 0)}{" "}
+                          {row?.unit_label_at_count || it.unit_label || "unit"}
+                        </>
+                      ) : (
+                        <>
+                          {row ? Number(row.quantity) : 0} {it.unit || "unit"}
+                        </>
+                      )}
                     </div>
                   </div>
                 );
