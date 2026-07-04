@@ -315,6 +315,7 @@ All colors MUST be HSL.
   --popover-foreground: 210 35% 15%;
   --primary: 195 70% 42%;
   --primary-foreground: 0 0% 100%;
+  --primary-light: 195 70% 60%;
   --secondary: 42 45% 72%;
   --secondary-foreground: 210 35% 15%;
   --muted: 200 18% 86%;
@@ -332,6 +333,21 @@ All colors MUST be HSL.
 
   --header-bg: 205 65% 62%;
   --header-fg: 0 0% 100%;
+
+  --sidebar-background: 42 30% 96%;
+  --sidebar-foreground: 210 35% 15%;
+  --sidebar-primary: 195 70% 42%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 200 18% 86%;
+  --sidebar-accent-foreground: 210 35% 15%;
+  --sidebar-border: 195 20% 78%;
+  --sidebar-ring: 195 70% 42%;
+
+  --quick-task-user: 170 60% 38%;        /* teal accent */
+  --quick-task-user-fg: 0 0% 100%;
+  --quick-task-system: 195 70% 42%;      /* ocean primary */
+  --quick-task-system-fg: 0 0% 100%;
+  --quick-task-alpha: 1;
 
   --chart-1: 195 70% 42%;
   --chart-2: 170 60% 38%;
