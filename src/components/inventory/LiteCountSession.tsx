@@ -1,15 +1,34 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Package, DollarSign } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import {
+  Loader2,
+  Package,
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Save,
+  ArrowLeft,
+  Minus,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
   countId: string;
   locationId: string;
   readOnly?: boolean;
+  /** Called from the review screen's Submit button. */
+  onSubmit?: () => void;
+  /** Called from Save & Exit. Parent should route out (progress stays saved). */
+  onExit?: () => void;
+  /** Whether parent's submit mutation is currently pending. */
+  submitPending?: boolean;
 }
 
 interface Item {
@@ -20,6 +39,7 @@ interface Item {
   cost_per_unit: number | null;
   storage_id: string | null;
   display_order: number | null;
+  category: string | null;
 }
 
 interface Storage {
@@ -37,21 +57,35 @@ interface CountRow {
 }
 
 /**
- * Lite counting session. One row per active item, grouped by storage area
- * ("Unassigned" bucket last). Quantity edits upsert into
- * lite_inventory_count_items with cost + storage snapshotted at write time —
- * never overwritten on later edits.
+ * Lite counting session — Brand-parity structure (paginated per-storage nav,
+ * sticky stats, review-before-submit, save/exit lock) scoped to Lite tables.
+ *
+ * Locking model: while draft (`!readOnly`) and in counting mode (not review),
+ * a `beforeunload` handler guards against tab close/refresh. Parent hides its
+ * back arrow in the same window and shows Save & Exit instead — so in-app
+ * navigation is only possible via Save & Exit or Submit.
  */
-export default function LiteCountSession({ countId, locationId, readOnly = false }: Props) {
+export default function LiteCountSession({
+  countId,
+  locationId,
+  readOnly = false,
+  onSubmit,
+  onExit,
+  submitPending = false,
+}: Props) {
   const qc = useQueryClient();
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [mode, setMode] = useState<"count" | "review">("count");
 
   const { data: items, isLoading: itemsLoading } = useQuery({
-    queryKey: ["lite-inventory-items", locationId],
+    queryKey: ["lite-inventory-items-count", locationId],
     enabled: !!locationId,
     queryFn: async (): Promise<Item[]> => {
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
-        .select("id, name, unit, pack_size, cost_per_unit, storage_id, display_order")
+        .select(
+          "id, name, unit, pack_size, cost_per_unit, storage_id, display_order, category",
+        )
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -106,7 +140,6 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
     const storageOrder = (storages || []).map((s) => s.id);
     const nameFor = (id: string | null) =>
       id === null ? "Unassigned" : storages?.find((s) => s.id === id)?.name || "Unknown";
-    // Within each storage section: display_order NULLS LAST, then name (walk-the-shelf order)
     const shelfSort = (a: Item, b: Item) => {
       const ao = a.display_order;
       const bo = b.display_order;
@@ -128,11 +161,17 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
       }));
   }, [items, storages]);
 
+  // Keep activeIdx in bounds if items change.
+  useEffect(() => {
+    if (activeIdx >= grouped.length && grouped.length > 0) {
+      setActiveIdx(Math.max(0, grouped.length - 1));
+    }
+  }, [grouped.length, activeIdx]);
+
   const upsert = useMutation({
     mutationFn: async ({ item, quantity }: { item: Item; quantity: number }) => {
       const existing = rowByItem.get(item.id);
       if (existing) {
-        // Snapshot fields stay put — only quantity changes.
         const { error } = await supabase
           .from("lite_inventory_count_items" as any)
           .update({ quantity, counted_at: new Date().toISOString() })
@@ -168,15 +207,57 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
     },
   });
 
+  // ---- Save & Exit lock (draft + counting mode only) ------------------------
+  // Scoped narrowly: only armed when session is draft AND not on review AND not
+  // during submit. Disarms in the same tick as submit or Save & Exit before
+  // parent navigates, so nothing traps the user post-submit.
+  const locked = !readOnly && mode === "count" && !submitPending;
+  const lockedRef = useRef(locked);
+  useEffect(() => {
+    lockedRef.current = locked;
+  }, [locked]);
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!lockedRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+  // --------------------------------------------------------------------------
+
   const totalItems = items?.length ?? 0;
   const countedItems = useMemo(
     () => (rows || []).filter((r) => Number(r.quantity) > 0).length,
     [rows],
   );
   const totalValue = useMemo(
-    () => (rows || []).reduce((sum, r) => sum + Number(r.quantity) * Number(r.unit_value_at_count), 0),
+    () =>
+      (rows || []).reduce(
+        (sum, r) => sum + Number(r.quantity) * Number(r.unit_value_at_count),
+        0,
+      ),
     [rows],
   );
+  const progressPct = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
+
+  // Swipe handling for the active storage view.
+  const touchStartX = useRef<number | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 60) return;
+    if (dx < 0) goNext();
+    else goPrev();
+  };
+
+  const goPrev = () => setActiveIdx((i) => Math.max(0, i - 1));
+  const goNext = () => setActiveIdx((i) => Math.min(grouped.length - 1, i + 1));
 
   if (itemsLoading) {
     return (
@@ -191,63 +272,293 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
       <Card className="p-6 text-center space-y-2">
         <Package className="h-8 w-8 mx-auto text-muted-foreground/60" />
         <p className="text-sm text-muted-foreground">
-          No active items yet. Upload a vendor invoice to build your item list, then start counting.
+          No active items yet. Add items from the Invoices tab, then start counting.
         </p>
       </Card>
     );
   }
 
+  // ---- REVIEW MODE ---------------------------------------------------------
+  if (mode === "review") {
+    const uncounted = totalItems - countedItems;
+    return (
+      <div className="space-y-4">
+        <StatsBar
+          countedItems={countedItems}
+          totalItems={totalItems}
+          totalValue={totalValue}
+          progressPct={progressPct}
+          label="Review before submit"
+        />
+
+        {grouped.map(({ storageId, name, items: groupItems }) => {
+          const subtotal = groupItems.reduce((sum, it) => {
+            const row = rowByItem.get(it.id);
+            if (!row) return sum;
+            return sum + Number(row.quantity) * Number(row.unit_value_at_count);
+          }, 0);
+          return (
+            <Card key={storageId ?? "unassigned"} className="overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-muted/30">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {name}{" "}
+                  <span className="text-muted-foreground/70">({groupItems.length})</span>
+                </h3>
+                <span className="text-xs tabular-nums font-semibold">
+                  ${subtotal.toFixed(2)}
+                </span>
+              </div>
+              <div className="divide-y divide-border/50">
+                {groupItems.map((it) => {
+                  const row = rowByItem.get(it.id);
+                  const qty = row ? Number(row.quantity) : 0;
+                  const lineValue = row
+                    ? qty * Number(row.unit_value_at_count)
+                    : 0;
+                  return (
+                    <div
+                      key={it.id}
+                      className="flex items-center gap-3 px-4 py-2 text-sm"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{it.name}</div>
+                        <div className="text-[11px] text-muted-foreground tabular-nums">
+                          {qty} {it.unit || "unit"} × $
+                          {Number(row?.unit_value_at_count ?? it.cost_per_unit ?? 0).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="text-right tabular-nums font-semibold shrink-0">
+                        ${lineValue.toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          );
+        })}
+
+        {uncounted > 0 && (
+          <Card className="p-3 border-amber-500/30 bg-amber-500/5">
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {uncounted} item{uncounted === 1 ? "" : "s"} not counted — they'll be
+              treated as $0 on this count.
+            </p>
+          </Card>
+        )}
+
+        <div className="sticky bottom-0 z-20 flex gap-2 bg-background/95 backdrop-blur border-t border-border/60 -mx-4 px-4 py-3 md:mx-0 md:rounded-lg md:border">
+          <Button variant="outline" onClick={() => setMode("count")} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to counting
+          </Button>
+          <Button
+            className="flex-1 gap-2"
+            onClick={() => onSubmit?.()}
+            disabled={submitPending || !onSubmit}
+          >
+            {submitPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            Submit Count
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- READ-ONLY (post-submit) — flat list, no nav ------------------------
+  if (readOnly) {
+    return (
+      <div className="space-y-4">
+        <StatsBar
+          countedItems={countedItems}
+          totalItems={totalItems}
+          totalValue={totalValue}
+          progressPct={progressPct}
+          label="Submitted"
+        />
+        {grouped.map(({ storageId, name, items: groupItems }) => (
+          <Card key={storageId ?? "unassigned"} className="overflow-hidden">
+            <div className="px-4 py-2 border-b border-border/50 bg-muted/30">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {name}{" "}
+                <span className="text-muted-foreground/70">({groupItems.length})</span>
+              </h3>
+            </div>
+            <div className="divide-y divide-border/50">
+              {groupItems.map((it) => {
+                const row = rowByItem.get(it.id);
+                const qty = row ? Number(row.quantity) : 0;
+                return (
+                  <div
+                    key={it.id}
+                    className="flex items-center gap-3 px-4 py-2 text-sm"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{it.name}</div>
+                    </div>
+                    <div className="text-right tabular-nums shrink-0">
+                      {qty} {it.unit || "unit"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  // ---- COUNTING MODE (paginated) ------------------------------------------
+  const active = grouped[activeIdx];
+  const activeSubtotal = active
+    ? active.items.reduce((sum, it) => {
+        const row = rowByItem.get(it.id);
+        if (!row) return sum;
+        return sum + Number(row.quantity) * Number(row.unit_value_at_count);
+      }, 0)
+    : 0;
+  const isLast = activeIdx >= grouped.length - 1;
+
   return (
-    <div className="space-y-4">
-      <Card className="p-4">
+    <div className="space-y-3">
+      <StatsBar
+        countedItems={countedItems}
+        totalItems={totalItems}
+        totalValue={totalValue}
+        progressPct={progressPct}
+      />
+
+      {/* Sticky storage nav */}
+      <div className="sticky top-16 md:top-20 z-10 -mx-4 md:mx-0">
+        <Card className="mx-4 md:mx-0 flex items-center gap-2 px-2 py-2 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goPrev}
+            disabled={activeIdx === 0}
+            aria-label="Previous storage"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0 text-center">
+            <div className="text-sm font-semibold truncate">
+              {active?.name || "—"}{" "}
+              <span className="text-muted-foreground font-normal">
+                ({active?.items.length ?? 0})
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground tabular-nums">
+              Subtotal ${activeSubtotal.toFixed(2)} • {activeIdx + 1}/{grouped.length}
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goNext}
+            disabled={isLast}
+            aria-label="Next storage"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </Card>
+      </div>
+
+      <Card
+        className="overflow-hidden"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="divide-y divide-border/50">
+          {active?.items.map((it) => {
+            const row = rowByItem.get(it.id);
+            return (
+              <StepperRow
+                key={it.id}
+                item={it}
+                currentQty={row ? Number(row.quantity) : null}
+                disabled={upsert.isPending}
+                onCommit={(q) => upsert.mutate({ item: it, quantity: q })}
+              />
+            );
+          })}
+        </div>
+      </Card>
+
+      <div className="sticky bottom-0 z-20 flex gap-2 bg-background/95 backdrop-blur border-t border-border/60 -mx-4 px-4 py-3 md:mx-0 md:rounded-lg md:border">
+        <Button variant="outline" onClick={() => onExit?.()} className="gap-2">
+          <Save className="h-4 w-4" />
+          Save & Exit
+        </Button>
+        {isLast ? (
+          <Button className="flex-1 gap-2" onClick={() => setMode("review")}>
+            Review
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button className="flex-1 gap-2" onClick={goNext}>
+            Next storage
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatsBar({
+  countedItems,
+  totalItems,
+  totalValue,
+  progressPct,
+  label,
+}: {
+  countedItems: number;
+  totalItems: number;
+  totalValue: number;
+  progressPct: number;
+  label?: string;
+}) {
+  return (
+    <div className="sticky top-0 z-20 -mx-4 md:mx-0">
+      <Card className="mx-4 md:mx-0 p-3 shadow-sm">
+        {label && (
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
+            {label}
+          </div>
+        )}
+        <Progress value={progressPct} className="h-1.5 mb-2" />
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
-            <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mb-1">
-              <Package className="h-3.5 w-3.5" />
-              Items
+            <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px] mb-0.5">
+              <Package className="h-3 w-3" /> Items
             </div>
-            <p className="text-2xl font-bold">{countedItems}/{totalItems}</p>
+            <p className="text-lg font-bold tabular-nums">
+              {countedItems}/{totalItems}
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                ({progressPct}%)
+              </span>
+            </p>
           </div>
           <div>
-            <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mb-1">
-              <DollarSign className="h-3.5 w-3.5" />
-              Total Value
+            <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px] mb-0.5">
+              <DollarSign className="h-3 w-3" /> Total Value
             </div>
-            <p className="text-2xl font-bold text-primary">
+            <p className="text-lg font-bold tabular-nums text-primary">
               ${totalValue.toFixed(2)}
             </p>
           </div>
         </div>
       </Card>
-
-      {grouped.map(({ storageId, name, items: groupItems }) => (
-        <Card key={storageId ?? "unassigned"} className="overflow-hidden">
-          <div className="px-4 py-2 border-b border-border/50 bg-muted/30">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {name} <span className="text-muted-foreground/70">({groupItems.length})</span>
-            </h3>
-          </div>
-          <div className="divide-y divide-border/50">
-            {groupItems.map((it) => {
-              const row = rowByItem.get(it.id);
-              return (
-                <ItemCountRow
-                  key={it.id}
-                  item={it}
-                  currentQty={row ? Number(row.quantity) : null}
-                  disabled={readOnly || upsert.isPending}
-                  onCommit={(q) => upsert.mutate({ item: it, quantity: q })}
-                />
-              );
-            })}
-          </div>
-        </Card>
-      ))}
     </div>
   );
 }
 
-function ItemCountRow({
+function StepperRow({
   item,
   currentQty,
   disabled,
@@ -258,37 +569,84 @@ function ItemCountRow({
   disabled: boolean;
   onCommit: (q: number) => void;
 }) {
-  const commit = (raw: string) => {
+  // Local input value — lets user type freely before commit on blur/Enter.
+  const [draft, setDraft] = useState<string>(
+    currentQty != null ? String(currentQty) : "",
+  );
+  // Reflect external updates (optimistic cache writes from +/− taps).
+  useEffect(() => {
+    setDraft(currentQty != null ? String(currentQty) : "");
+  }, [currentQty]);
+
+  const commitRaw = (raw: string) => {
     const parsed = raw.trim() === "" ? 0 : Number(raw);
-    if (Number.isNaN(parsed) || parsed < 0) return;
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setDraft(currentQty != null ? String(currentQty) : "");
+      return;
+    }
     if (currentQty !== null && parsed === currentQty) return;
     if (currentQty === null && parsed === 0) return;
     onCommit(parsed);
   };
 
+  const step = (delta: number) => {
+    const base = currentQty ?? 0;
+    const next = Math.max(0, base + delta);
+    if (next === base) return;
+    onCommit(next);
+  };
+
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
+    <div className="flex items-center gap-2 px-3 py-2">
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">{item.name}</div>
         <div className="text-[11px] text-muted-foreground">
-          {item.pack_size ? `${item.pack_size} • ` : ""}
-          ${Number(item.cost_per_unit ?? 0).toFixed(2)} / {item.unit || "unit"}
+          {item.pack_size ? `${item.pack_size} • ` : ""}$
+          {Number(item.cost_per_unit ?? 0).toFixed(2)} / {item.unit || "unit"}
         </div>
       </div>
-      <Input
-        type="number"
-        inputMode="decimal"
-        min={0}
-        step="0.01"
-        defaultValue={currentQty ?? ""}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
-        }}
-        disabled={disabled}
-        className="w-24 h-9 text-right tabular-nums"
-        placeholder="0"
-      />
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          onClick={() => step(-1)}
+          disabled={disabled || (currentQty ?? 0) <= 0}
+          aria-label="Decrement"
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commitRaw(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          disabled={disabled}
+          className="w-16 h-9 text-center tabular-nums px-1"
+          placeholder="0"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          onClick={() => step(1)}
+          disabled={disabled}
+          aria-label="Increment"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
