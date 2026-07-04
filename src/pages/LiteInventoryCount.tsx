@@ -5,10 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DateTime } from "luxon";
 import LiteCountSession from "@/components/inventory/LiteCountSession";
+import LiteCogsPanel from "@/components/inventory/LiteCogsPanel";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 
 interface LiteCount {
@@ -21,12 +22,12 @@ interface LiteCount {
 }
 
 /**
- * Lite inventory count page. Renders under the same route as the Brand count
- * page (`/inventory/:locationId/count/:countId`) — the parent InventoryCount
- * page branches on inventory_mode and mounts this instead.
+ * Lite inventory count page.
  *
- * No AvT tab (theoretical usage is out of Lite scope), no delivery
- * reconciliation, no edit-history sidecar. Just count → submit.
+ * Draft mode: session owns Submit (from the Review screen) and Save & Exit —
+ * top-nav Back is hidden so nav-out only happens through those two paths.
+ *
+ * Submitted mode: read-only session summary + the Lite COGS panel.
  */
 export default function LiteInventoryCountPage() {
   const { locationId, countId } = useParams();
@@ -42,6 +43,20 @@ export default function LiteInventoryCountPage() {
         .from("lite_inventory_counts" as any)
         .select("id, location_id, period_start, period_end, status, submitted_at")
         .eq("id", countId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) || null;
+    },
+  });
+
+  const { data: location } = useQuery({
+    queryKey: ["location-name", locationId],
+    enabled: !!locationId,
+    queryFn: async (): Promise<{ name: string } | null> => {
+      const { data, error } = await supabase
+        .from("locations")
+        .select("name")
+        .eq("id", locationId!)
         .maybeSingle();
       if (error) throw error;
       return (data as any) || null;
@@ -116,16 +131,39 @@ export default function LiteInventoryCountPage() {
   const submitted = count.status === "submitted";
   const label = `${DateTime.fromFormat(count.period_start, "yyyy-MM-dd").toFormat("LLL d")} – ${DateTime.fromFormat(count.period_end, "yyyy-MM-dd").toFormat("LLL d, yyyy")}`;
 
+  const exitToList = () => navigate(`/inventory/${locationId}`);
+
   return (
     <Layout>
       <div className="space-y-4 md:max-w-3xl md:mx-auto md:p-6 p-4">
         <div className="flex items-center justify-between gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/inventory/${locationId}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </Button>
-          <Badge variant={submitted ? "default" : "secondary"}>
-            {submitted ? "Submitted" : "Draft"}
-          </Badge>
+          {submitted ? (
+            <Button variant="ghost" size="sm" onClick={exitToList}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+          ) : (
+            // Draft mode: no Back button — Save & Exit / Submit inside the
+            // session are the only nav-out paths.
+            <span className="text-[11px] text-muted-foreground">
+              Locked while counting — use Save & Exit below
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <Badge variant={submitted ? "default" : "secondary"}>
+              {submitted ? "Submitted" : "Draft"}
+            </Badge>
+            {!submitted && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowDelete(true)}
+                className="text-muted-foreground hover:text-destructive h-8 w-8"
+                aria-label="Delete count"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         <div>
@@ -133,32 +171,23 @@ export default function LiteInventoryCountPage() {
           <p className="text-xs text-muted-foreground">Weekly count</p>
         </div>
 
-        {!submitted && (
-          <div className="flex gap-2">
-            <Button
-              className="flex-1 gap-2"
-              onClick={() => submit.mutate()}
-              disabled={submit.isPending}
-            >
-              {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Submit Count
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowDelete(true)}
-              className="text-muted-foreground hover:text-destructive"
-              aria-label="Delete count"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+        {submitted && (
+          <LiteCogsPanel
+            countId={countId!}
+            locationId={locationId!}
+            periodStart={count.period_start}
+            periodEnd={count.period_end}
+            locationName={location?.name || "Location"}
+          />
         )}
 
         <LiteCountSession
           countId={countId!}
           locationId={locationId!}
           readOnly={submitted}
+          onSubmit={() => submit.mutate()}
+          onExit={exitToList}
+          submitPending={submit.isPending}
         />
       </div>
 
