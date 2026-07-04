@@ -515,87 +515,71 @@ export default function LiteCountSession({
         progressPct={progressPct}
       />
 
-      {/* Sticky storage nav */}
-      <div className="sticky top-16 md:top-20 z-10 -mx-4 md:mx-0">
-        <Card className="mx-4 md:mx-0 flex items-center gap-2 px-2 py-2 shadow-sm">
-          <Button
-            variant="ghost"
-            size="icon"
+      {/* Sticky storage-page nav — Brand-parity pill */}
+      <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] md:top-[8.5rem] z-20 mt-2 bg-primary/95 backdrop-blur-md text-primary-foreground rounded-md px-2 py-2 shadow-md overflow-hidden border border-white/10">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={goPrev}
             disabled={activeIdx === 0}
             aria-label="Previous storage"
           >
             <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1 min-w-0 text-center">
-            <div className="text-sm font-semibold truncate">
-              {active?.name || "—"}{" "}
-              <span className="text-muted-foreground font-normal">
-                ({active?.items.length ?? 0})
-              </span>
-            </div>
-            <div className="text-[11px] text-muted-foreground tabular-nums">
-              Subtotal ${activeSubtotal.toFixed(2)} • {activeIdx + 1}/{grouped.length}
-            </div>
+          </button>
+          <div className="text-center flex-1 min-w-0">
+            <p className="font-semibold text-sm text-primary-foreground truncate leading-tight">
+              {active?.name || "—"} ({active?.items.length ?? 0}) — ${activeSubtotal.toFixed(2)}
+            </p>
+            <p className="text-[11px] text-primary-foreground/70 tabular-nums leading-tight">
+              Page {activeIdx + 1}/{grouped.length}
+            </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={goNext}
             disabled={isLast}
             aria-label="Next storage"
           >
             <ChevronRight className="h-5 w-5" />
-          </Button>
-        </Card>
+          </button>
+        </div>
       </div>
 
-      <Card
-        className="overflow-hidden"
+      {/* Item cards — Brand-parity card-per-item */}
+      <div
+        className="space-y-3"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <div className="divide-y divide-border/50">
-          {active?.items.map((it) => {
-            const row = rowByItem.get(it.id);
-            const isDual = it.count_mode === "case_and_unit";
-            if (isDual) {
-              return (
-                <DualStepperRow
-                  key={it.id}
-                  item={it}
-                  currentCases={row ? Number(row.case_quantity ?? 0) : null}
-                  currentInner={row ? Number(row.inner_quantity ?? 0) : null}
-                  disabled={upsert.isPending}
-                  onCommitCases={(q) =>
-                    upsert.mutate({
-                      item: it,
-                      caseQuantity: q,
-                      innerQuantity: row ? Number(row.inner_quantity ?? 0) : 0,
-                    })
-                  }
-                  onCommitInner={(q) =>
-                    upsert.mutate({
-                      item: it,
-                      caseQuantity: row ? Number(row.case_quantity ?? 0) : 0,
-                      innerQuantity: q,
-                    })
-                  }
-                />
-              );
-            }
-            return (
-              <StepperRow
-                key={it.id}
-                item={it}
-                currentQty={row ? Number(row.quantity) : null}
-                disabled={upsert.isPending}
-                onCommit={(q) => upsert.mutate({ item: it, quantity: q })}
-              />
-            );
-          })}
-        </div>
-      </Card>
+        {active?.items.map((it) => {
+          const row = rowByItem.get(it.id);
+          return (
+            <ItemCard
+              key={it.id}
+              item={it}
+              row={row}
+              disabled={upsert.isPending}
+              onCommitSingle={(q) => upsert.mutate({ item: it, quantity: q })}
+              onCommitCases={(q) =>
+                upsert.mutate({
+                  item: it,
+                  caseQuantity: q,
+                  innerQuantity: row ? Number(row.inner_quantity ?? 0) : 0,
+                })
+              }
+              onCommitInner={(q) =>
+                upsert.mutate({
+                  item: it,
+                  caseQuantity: row ? Number(row.case_quantity ?? 0) : 0,
+                  innerQuantity: q,
+                })
+              }
+            />
+          );
+        })}
+      </div>
 
       <div className="sticky bottom-0 z-20 flex gap-2 bg-background/95 backdrop-blur border-t border-border/60 -mx-4 px-4 py-3 md:mx-0 md:rounded-lg md:border">
         <Button variant="outline" onClick={() => onExit?.()} className="gap-2">
@@ -617,6 +601,7 @@ export default function LiteCountSession({
     </div>
   );
 }
+
 
 function StatsBar({
   countedItems,
