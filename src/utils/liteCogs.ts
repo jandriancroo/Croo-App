@@ -22,7 +22,23 @@
 export interface LiteCountItemRow {
   quantity: number;
   unit_value_at_count: number;
+  case_quantity?: number | null;
+  inner_quantity?: number | null;
+  count_mode_at_count?: "single" | "case_and_unit" | null;
+  cost_per_inner_unit_at_count?: number | null;
   item?: { category: string | null } | null;
+}
+
+/** Snapshotted value of a single count row. Dual-mode rows use their
+ *  case + inner snapshot; single-mode rows use quantity × unit_value_at_count. */
+export function countItemValue(r: LiteCountItemRow): number {
+  if (r.count_mode_at_count === "case_and_unit") {
+    return (
+      Number(r.case_quantity || 0) * Number(r.unit_value_at_count || 0) +
+      Number(r.inner_quantity || 0) * Number(r.cost_per_inner_unit_at_count || 0)
+    );
+  }
+  return Number(r.quantity || 0) * Number(r.unit_value_at_count || 0);
 }
 
 export interface LiteInvoiceRow {
@@ -50,10 +66,7 @@ export interface CogsBreakdown {
 
 export function sumCountItems(rows: LiteCountItemRow[] | null | undefined): number {
   if (!rows || !rows.length) return 0;
-  return rows.reduce(
-    (sum, r) => sum + Number(r.quantity || 0) * Number(r.unit_value_at_count || 0),
-    0,
-  );
+  return rows.reduce((sum, r) => sum + countItemValue(r), 0);
 }
 
 export function filterInvoicesInWindow(
@@ -81,7 +94,7 @@ export function categoryBreakdown(
   const totals = new Map<string, number>();
   for (const r of rows) {
     const cat = (r.item?.category?.trim() || "Uncategorized");
-    const value = Number(r.quantity || 0) * Number(r.unit_value_at_count || 0);
+    const value = countItemValue(r);
     totals.set(cat, (totals.get(cat) || 0) + value);
   }
   const endingTotal = Array.from(totals.values()).reduce((a, b) => a + b, 0);

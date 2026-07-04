@@ -5877,38 +5877,56 @@ export type Database = {
       }
       lite_inventory_count_items: {
         Row: {
+          case_qty_at_count: number | null
+          case_quantity: number | null
+          cost_per_inner_unit_at_count: number | null
           count_id: string
+          count_mode_at_count: string
           counted_at: string
           counted_by: string | null
           created_at: string
           id: string
+          inner_quantity: number | null
           item_id: string
           quantity: number
           storage_id_at_count: string | null
+          unit_label_at_count: string | null
           unit_value_at_count: number
           updated_at: string
         }
         Insert: {
+          case_qty_at_count?: number | null
+          case_quantity?: number | null
+          cost_per_inner_unit_at_count?: number | null
           count_id: string
+          count_mode_at_count?: string
           counted_at?: string
           counted_by?: string | null
           created_at?: string
           id?: string
+          inner_quantity?: number | null
           item_id: string
           quantity?: number
           storage_id_at_count?: string | null
+          unit_label_at_count?: string | null
           unit_value_at_count?: number
           updated_at?: string
         }
         Update: {
+          case_qty_at_count?: number | null
+          case_quantity?: number | null
+          cost_per_inner_unit_at_count?: number | null
           count_id?: string
+          count_mode_at_count?: string
           counted_at?: string
           counted_by?: string | null
           created_at?: string
           id?: string
+          inner_quantity?: number | null
           item_id?: string
           quantity?: number
           storage_id_at_count?: string | null
+          unit_label_at_count?: string | null
           unit_value_at_count?: number
           updated_at?: string
         }
@@ -5981,8 +5999,11 @@ export type Database = {
       }
       lite_inventory_items: {
         Row: {
+          case_qty: number | null
           category: string | null
+          cost_per_inner_unit: number | null
           cost_per_unit: number | null
+          count_mode: string
           created_at: string
           display_order: number | null
           id: string
@@ -5994,12 +6015,16 @@ export type Database = {
           pack_size: string | null
           storage_id: string | null
           unit: string | null
+          unit_label: string | null
           updated_at: string
           vendor_name_normalized: string | null
         }
         Insert: {
+          case_qty?: number | null
           category?: string | null
+          cost_per_inner_unit?: number | null
           cost_per_unit?: number | null
+          count_mode?: string
           created_at?: string
           display_order?: number | null
           id?: string
@@ -6011,12 +6036,16 @@ export type Database = {
           pack_size?: string | null
           storage_id?: string | null
           unit?: string | null
+          unit_label?: string | null
           updated_at?: string
           vendor_name_normalized?: string | null
         }
         Update: {
+          case_qty?: number | null
           category?: string | null
+          cost_per_inner_unit?: number | null
           cost_per_unit?: number | null
+          count_mode?: string
           created_at?: string
           display_order?: number | null
           id?: string
@@ -6028,6 +6057,7 @@ export type Database = {
           pack_size?: string | null
           storage_id?: string | null
           unit?: string | null
+          unit_label?: string | null
           updated_at?: string
           vendor_name_normalized?: string | null
         }

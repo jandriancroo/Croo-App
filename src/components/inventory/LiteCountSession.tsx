@@ -40,6 +40,10 @@ interface Item {
   storage_id: string | null;
   display_order: number | null;
   category: string | null;
+  count_mode: "single" | "case_and_unit" | null;
+  case_qty: number | null;
+  unit_label: string | null;
+  cost_per_inner_unit: number | null;
 }
 
 interface Storage {
@@ -54,6 +58,34 @@ interface CountRow {
   quantity: number;
   unit_value_at_count: number;
   storage_id_at_count: string | null;
+  case_quantity: number | null;
+  inner_quantity: number | null;
+  count_mode_at_count: "single" | "case_and_unit" | null;
+  case_qty_at_count: number | null;
+  unit_label_at_count: string | null;
+  cost_per_inner_unit_at_count: number | null;
+}
+
+/** Line value = (cases × case cost) + (inner units × per-inner cost) for dual,
+ *  or (quantity × unit cost) for single. Uses the row's snapshotted values so
+ *  the number never changes after later item edits. */
+function lineValue(row: CountRow): number {
+  if (row.count_mode_at_count === "case_and_unit") {
+    const caseVal = Number(row.case_quantity ?? 0) * Number(row.unit_value_at_count ?? 0);
+    const innerVal =
+      Number(row.inner_quantity ?? 0) * Number(row.cost_per_inner_unit_at_count ?? 0);
+    return caseVal + innerVal;
+  }
+  return Number(row.quantity) * Number(row.unit_value_at_count);
+}
+
+/** Is this row "counted" (contributes to progress)? Dual-mode counts if either
+ *  cases or inner units are entered. */
+function rowIsCounted(row: CountRow): boolean {
+  if (row.count_mode_at_count === "case_and_unit") {
+    return Number(row.case_quantity ?? 0) > 0 || Number(row.inner_quantity ?? 0) > 0;
+  }
+  return Number(row.quantity) > 0;
 }
 
 /**
@@ -84,7 +116,7 @@ export default function LiteCountSession({
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
         .select(
-          "id, name, unit, pack_size, cost_per_unit, storage_id, display_order, category",
+          "id, name, unit, pack_size, cost_per_unit, storage_id, display_order, category, count_mode, case_qty, unit_label, cost_per_inner_unit",
         )
         .eq("location_id", locationId)
         .eq("is_active", true)
@@ -115,7 +147,7 @@ export default function LiteCountSession({
     queryFn: async (): Promise<CountRow[]> => {
       const { data, error } = await supabase
         .from("lite_inventory_count_items" as any)
-        .select("id, item_id, quantity, unit_value_at_count, storage_id_at_count")
+        .select("id, item_id, quantity, unit_value_at_count, storage_id_at_count, case_quantity, inner_quantity, count_mode_at_count, case_qty_at_count, unit_label_at_count, cost_per_inner_unit_at_count")
         .eq("count_id", countId);
       if (error) throw error;
       return (data as any) || [];
@@ -169,28 +201,65 @@ export default function LiteCountSession({
   }, [grouped.length, activeIdx]);
 
   const upsert = useMutation({
-    mutationFn: async ({ item, quantity }: { item: Item; quantity: number }) => {
+    mutationFn: async ({
+      item,
+      quantity,
+      caseQuantity,
+      innerQuantity,
+    }: {
+      item: Item;
+      quantity?: number;
+      caseQuantity?: number;
+      innerQuantity?: number;
+    }) => {
+      const isDual = item.count_mode === "case_and_unit";
       const existing = rowByItem.get(item.id);
       if (existing) {
+        const patch: Record<string, any> = {
+          counted_at: new Date().toISOString(),
+        };
+        if (isDual) {
+          if (caseQuantity !== undefined) patch.case_quantity = caseQuantity;
+          if (innerQuantity !== undefined) patch.inner_quantity = innerQuantity;
+        } else if (quantity !== undefined) {
+          patch.quantity = quantity;
+        }
         const { error } = await supabase
           .from("lite_inventory_count_items" as any)
-          .update({ quantity, counted_at: new Date().toISOString() })
+          .update(patch)
           .eq("id", existing.id);
         if (error) throw error;
-        return { ...existing, quantity };
+        return { ...existing, ...patch };
       }
       const { data: userData } = await supabase.auth.getUser();
+      // Snapshot the counting shape onto the row so future item edits never
+      // rewrite historical counts.
+      const derivedInner =
+        item.cost_per_inner_unit != null
+          ? Number(item.cost_per_inner_unit)
+          : item.case_qty && item.case_qty > 0 && item.cost_per_unit != null
+          ? Number(item.cost_per_unit) / item.case_qty
+          : 0;
+      const insertPayload: Record<string, any> = {
+        count_id: countId,
+        item_id: item.id,
+        quantity: isDual ? 0 : quantity ?? 0,
+        unit_value_at_count: item.cost_per_unit ?? 0,
+        storage_id_at_count: item.storage_id,
+        counted_by: userData.user?.id ?? null,
+        count_mode_at_count: isDual ? "case_and_unit" : "single",
+        case_quantity: isDual ? caseQuantity ?? 0 : null,
+        inner_quantity: isDual ? innerQuantity ?? 0 : null,
+        case_qty_at_count: isDual ? item.case_qty : null,
+        unit_label_at_count: isDual ? item.unit_label : null,
+        cost_per_inner_unit_at_count: isDual ? derivedInner : null,
+      };
       const { data, error } = await supabase
         .from("lite_inventory_count_items" as any)
-        .insert({
-          count_id: countId,
-          item_id: item.id,
-          quantity,
-          unit_value_at_count: item.cost_per_unit ?? 0,
-          storage_id_at_count: item.storage_id,
-          counted_by: userData.user?.id ?? null,
-        })
-        .select("id, item_id, quantity, unit_value_at_count, storage_id_at_count")
+        .insert(insertPayload)
+        .select(
+          "id, item_id, quantity, unit_value_at_count, storage_id_at_count, case_quantity, inner_quantity, count_mode_at_count, case_qty_at_count, unit_label_at_count, cost_per_inner_unit_at_count",
+        )
         .single();
       if (error) throw error;
       return data as any;
@@ -229,15 +298,11 @@ export default function LiteCountSession({
 
   const totalItems = items?.length ?? 0;
   const countedItems = useMemo(
-    () => (rows || []).filter((r) => Number(r.quantity) > 0).length,
+    () => (rows || []).filter(rowIsCounted).length,
     [rows],
   );
   const totalValue = useMemo(
-    () =>
-      (rows || []).reduce(
-        (sum, r) => sum + Number(r.quantity) * Number(r.unit_value_at_count),
-        0,
-      ),
+    () => (rows || []).reduce((sum, r) => sum + lineValue(r), 0),
     [rows],
   );
   const progressPct = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
@@ -294,8 +359,7 @@ export default function LiteCountSession({
         {grouped.map(({ storageId, name, items: groupItems }) => {
           const subtotal = groupItems.reduce((sum, it) => {
             const row = rowByItem.get(it.id);
-            if (!row) return sum;
-            return sum + Number(row.quantity) * Number(row.unit_value_at_count);
+            return row ? sum + lineValue(row) : sum;
           }, 0);
           return (
             <Card key={storageId ?? "unassigned"} className="overflow-hidden">
@@ -311,10 +375,8 @@ export default function LiteCountSession({
               <div className="divide-y divide-border/50">
                 {groupItems.map((it) => {
                   const row = rowByItem.get(it.id);
-                  const qty = row ? Number(row.quantity) : 0;
-                  const lineValue = row
-                    ? qty * Number(row.unit_value_at_count)
-                    : 0;
+                  const val = row ? lineValue(row) : 0;
+                  const isDual = row?.count_mode_at_count === "case_and_unit";
                   return (
                     <div
                       key={it.id}
@@ -323,12 +385,22 @@ export default function LiteCountSession({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{it.name}</div>
                         <div className="text-[11px] text-muted-foreground tabular-nums">
-                          {qty} {it.unit || "unit"} × $
-                          {Number(row?.unit_value_at_count ?? it.cost_per_unit ?? 0).toFixed(2)}
+                          {isDual ? (
+                            <>
+                              {Number(row?.case_quantity ?? 0)} case{Number(row?.case_quantity ?? 0) === 1 ? "" : "s"}
+                              {" + "}
+                              {Number(row?.inner_quantity ?? 0)} {row?.unit_label_at_count || it.unit_label || "unit"}
+                            </>
+                          ) : (
+                            <>
+                              {row ? Number(row.quantity) : 0} {it.unit || "unit"} × $
+                              {Number(row?.unit_value_at_count ?? it.cost_per_unit ?? 0).toFixed(2)}
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="text-right tabular-nums font-semibold shrink-0">
-                        ${lineValue.toFixed(2)}
+                        ${val.toFixed(2)}
                       </div>
                     </div>
                   );
@@ -391,7 +463,7 @@ export default function LiteCountSession({
             <div className="divide-y divide-border/50">
               {groupItems.map((it) => {
                 const row = rowByItem.get(it.id);
-                const qty = row ? Number(row.quantity) : 0;
+                const isDual = row?.count_mode_at_count === "case_and_unit";
                 return (
                   <div
                     key={it.id}
@@ -401,7 +473,18 @@ export default function LiteCountSession({
                       <div className="font-medium truncate">{it.name}</div>
                     </div>
                     <div className="text-right tabular-nums shrink-0">
-                      {qty} {it.unit || "unit"}
+                      {isDual ? (
+                        <>
+                          {Number(row?.case_quantity ?? 0)} case
+                          {Number(row?.case_quantity ?? 0) === 1 ? "" : "s"} +{" "}
+                          {Number(row?.inner_quantity ?? 0)}{" "}
+                          {row?.unit_label_at_count || it.unit_label || "unit"}
+                        </>
+                      ) : (
+                        <>
+                          {row ? Number(row.quantity) : 0} {it.unit || "unit"}
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -418,8 +501,7 @@ export default function LiteCountSession({
   const activeSubtotal = active
     ? active.items.reduce((sum, it) => {
         const row = rowByItem.get(it.id);
-        if (!row) return sum;
-        return sum + Number(row.quantity) * Number(row.unit_value_at_count);
+        return row ? sum + lineValue(row) : sum;
       }, 0)
     : 0;
   const isLast = activeIdx >= grouped.length - 1;
@@ -476,6 +558,32 @@ export default function LiteCountSession({
         <div className="divide-y divide-border/50">
           {active?.items.map((it) => {
             const row = rowByItem.get(it.id);
+            const isDual = it.count_mode === "case_and_unit";
+            if (isDual) {
+              return (
+                <DualStepperRow
+                  key={it.id}
+                  item={it}
+                  currentCases={row ? Number(row.case_quantity ?? 0) : null}
+                  currentInner={row ? Number(row.inner_quantity ?? 0) : null}
+                  disabled={upsert.isPending}
+                  onCommitCases={(q) =>
+                    upsert.mutate({
+                      item: it,
+                      caseQuantity: q,
+                      innerQuantity: row ? Number(row.inner_quantity ?? 0) : 0,
+                    })
+                  }
+                  onCommitInner={(q) =>
+                    upsert.mutate({
+                      item: it,
+                      caseQuantity: row ? Number(row.case_quantity ?? 0) : 0,
+                      innerQuantity: q,
+                    })
+                  }
+                />
+              );
+            }
             return (
               <StepperRow
                 key={it.id}
@@ -643,6 +751,146 @@ function StepperRow({
           onClick={() => step(1)}
           disabled={disabled}
           aria-label="Increment"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Two-stepper row for items opted into count_mode='case_and_unit'. Second
+ *  stepper is labeled with the item's actual unit_label (e.g. "1 LB Packs"),
+ *  not a generic "Units". */
+function DualStepperRow({
+  item,
+  currentCases,
+  currentInner,
+  disabled,
+  onCommitCases,
+  onCommitInner,
+}: {
+  item: Item;
+  currentCases: number | null;
+  currentInner: number | null;
+  disabled: boolean;
+  onCommitCases: (q: number) => void;
+  onCommitInner: (q: number) => void;
+}) {
+  const innerLabel = item.unit_label || item.unit || "unit";
+  const pluralInner = /s$/i.test(innerLabel) ? innerLabel : `${innerLabel}s`;
+  const derivedInner =
+    item.cost_per_inner_unit != null
+      ? Number(item.cost_per_inner_unit)
+      : item.case_qty && item.case_qty > 0 && item.cost_per_unit != null
+      ? Number(item.cost_per_unit) / item.case_qty
+      : 0;
+
+  return (
+    <div className="px-3 py-2 space-y-2">
+      <div className="min-w-0">
+        <div className="text-sm font-medium truncate">{item.name}</div>
+        <div className="text-[11px] text-muted-foreground">
+          {item.case_qty ? `${item.case_qty} ${pluralInner} per case • ` : ""}
+          Case ${Number(item.cost_per_unit ?? 0).toFixed(2)} • {innerLabel} $
+          {derivedInner.toFixed(2)}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <MiniStepper
+          label="Cases"
+          value={currentCases}
+          disabled={disabled}
+          onCommit={onCommitCases}
+        />
+        <MiniStepper
+          label={pluralInner}
+          value={currentInner}
+          disabled={disabled}
+          onCommit={onCommitInner}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MiniStepper({
+  label,
+  value,
+  disabled,
+  onCommit,
+}: {
+  label: string;
+  value: number | null;
+  disabled: boolean;
+  onCommit: (q: number) => void;
+}) {
+  const [draft, setDraft] = useState<string>(value != null ? String(value) : "");
+  useEffect(() => {
+    setDraft(value != null ? String(value) : "");
+  }, [value]);
+
+  const commitRaw = (raw: string) => {
+    const parsed = raw.trim() === "" ? 0 : Number(raw);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setDraft(value != null ? String(value) : "");
+      return;
+    }
+    if (value !== null && parsed === value) return;
+    if (value === null && parsed === 0) return;
+    onCommit(parsed);
+  };
+
+  const step = (delta: number) => {
+    const base = value ?? 0;
+    const next = Math.max(0, base + delta);
+    if (next === base) return;
+    onCommit(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground text-center">
+        {label}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => step(-1)}
+          disabled={disabled || (value ?? 0) <= 0}
+          aria-label={`Decrement ${label}`}
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commitRaw(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          disabled={disabled}
+          className="flex-1 min-w-0 h-9 text-center tabular-nums px-1"
+          placeholder="0"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => step(1)}
+          disabled={disabled}
+          aria-label={`Increment ${label}`}
         >
           <Plus className="h-4 w-4" />
         </Button>

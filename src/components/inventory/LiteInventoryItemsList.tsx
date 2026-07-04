@@ -56,6 +56,10 @@ interface LiteItem {
   category: string | null;
   display_order: number | null;
   updated_at: string;
+  count_mode: "single" | "case_and_unit" | null;
+  case_qty: number | null;
+  unit_label: string | null;
+  cost_per_inner_unit: number | null;
 }
 
 interface Storage {
@@ -164,7 +168,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
         .select(
-          "id, name, item_number, vendor_name_normalized, unit, pack_size, cost_per_unit, match_status, is_active, storage_id, category, display_order, updated_at",
+          "id, name, item_number, vendor_name_normalized, unit, pack_size, cost_per_unit, match_status, is_active, storage_id, category, display_order, updated_at, count_mode, case_qty, unit_label, cost_per_inner_unit",
         )
         .eq("location_id", locationId)
         .order("name");
@@ -1002,6 +1006,10 @@ function toEditable(item: LiteItem): LiteEditableItem {
     cost_per_unit: item.cost_per_unit,
     vendor_name_normalized: item.vendor_name_normalized,
     item_number: item.item_number,
+    count_mode: item.count_mode,
+    case_qty: item.case_qty,
+    unit_label: item.unit_label,
+    cost_per_inner_unit: item.cost_per_inner_unit,
   };
 }
 
