@@ -56,6 +56,10 @@ interface LiteItem {
   category: string | null;
   display_order: number | null;
   updated_at: string;
+  count_mode: "single" | "case_and_unit" | null;
+  case_qty: number | null;
+  unit_label: string | null;
+  cost_per_inner_unit: number | null;
 }
 
 interface Storage {
