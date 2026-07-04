@@ -66,10 +66,7 @@ export interface CogsBreakdown {
 
 export function sumCountItems(rows: LiteCountItemRow[] | null | undefined): number {
   if (!rows || !rows.length) return 0;
-  return rows.reduce(
-    (sum, r) => sum + Number(r.quantity || 0) * Number(r.unit_value_at_count || 0),
-    0,
-  );
+  return rows.reduce((sum, r) => sum + countItemValue(r), 0);
 }
 
 export function filterInvoicesInWindow(
