@@ -147,7 +147,7 @@ export default function LiteCountSession({
     queryFn: async (): Promise<CountRow[]> => {
       const { data, error } = await supabase
         .from("lite_inventory_count_items" as any)
-        .select("id, item_id, quantity, unit_value_at_count, storage_id_at_count")
+        .select("id, item_id, quantity, unit_value_at_count, storage_id_at_count, case_quantity, inner_quantity, count_mode_at_count, case_qty_at_count, unit_label_at_count, cost_per_inner_unit_at_count")
         .eq("count_id", countId);
       if (error) throw error;
       return (data as any) || [];
