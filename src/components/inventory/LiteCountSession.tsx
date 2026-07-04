@@ -18,6 +18,8 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useDockToast } from "@/contexts/DockToastContext";
 
 interface Props {
   countId: string;
@@ -107,8 +109,12 @@ export default function LiteCountSession({
   submitPending = false,
 }: Props) {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
+  const { setDockContent } = useDockToast();
   const [activeIdx, setActiveIdx] = useState(0);
   const [mode, setMode] = useState<"count" | "review">("count");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ["lite-inventory-items-count", locationId],
@@ -271,11 +277,20 @@ export default function LiteCountSession({
         next.push(row);
         return next;
       });
+      setLastSavedAt(new Date());
     },
     onError: (err: any) => {
       toast.error("Couldn't save count", { description: err?.message });
     },
   });
+
+  // Elapsed timer — only while actively counting a draft.
+  useEffect(() => {
+    if (readOnly || mode !== "count") return;
+    const t = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [readOnly, mode]);
+
 
   // ---- Save & Exit lock (draft + counting mode only) ------------------------
   // Scoped narrowly: only armed when session is draft AND not on review AND not
@@ -307,6 +322,43 @@ export default function LiteCountSession({
     [rows],
   );
   const progressPct = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
+
+  // Sticky mobile dock — reuses the shared Layout dock (same one Brand uses).
+  // Voice input is intentionally omitted for Lite: no onToggleVoice and
+  // isVoiceSupported:false. Layout only renders the mic when both are
+  // truthy, so it is not rendered — not hidden, not disabled.
+  useEffect(() => {
+    if (!isMobile || readOnly || mode !== "count") {
+      setDockContent(null);
+      return;
+    }
+    setDockContent({
+      type: "inventory-count",
+      totalValue,
+      countedItems,
+      totalItems,
+      isSaving: upsert.isPending,
+      isListening: false,
+      isVoiceSupported: false,
+      isEditing: false,
+      elapsedSeconds,
+      lastSavedAt,
+      onSave: () => onExit?.(),
+    });
+    return () => setDockContent(null);
+  }, [
+    isMobile,
+    readOnly,
+    mode,
+    totalValue,
+    countedItems,
+    totalItems,
+    upsert.isPending,
+    elapsedSeconds,
+    lastSavedAt,
+    onExit,
+    setDockContent,
+  ]);
 
   // Swipe handling for the active storage view.
   const touchStartX = useRef<number | null>(null);
@@ -508,7 +560,7 @@ export default function LiteCountSession({
   const isLast = activeIdx >= grouped.length - 1;
 
   return (
-    <div className="space-y-3">
+    <div className={isMobile ? "space-y-3 pb-32" : "space-y-3"}>
       <StatsBar
         countedItems={countedItems}
         totalItems={totalItems}
