@@ -40,6 +40,10 @@ interface Item {
   storage_id: string | null;
   display_order: number | null;
   category: string | null;
+  count_mode: "single" | "case_and_unit" | null;
+  case_qty: number | null;
+  unit_label: string | null;
+  cost_per_inner_unit: number | null;
 }
 
 interface Storage {
@@ -54,6 +58,34 @@ interface CountRow {
   quantity: number;
   unit_value_at_count: number;
   storage_id_at_count: string | null;
+  case_quantity: number | null;
+  inner_quantity: number | null;
+  count_mode_at_count: "single" | "case_and_unit" | null;
+  case_qty_at_count: number | null;
+  unit_label_at_count: string | null;
+  cost_per_inner_unit_at_count: number | null;
+}
+
+/** Line value = (cases × case cost) + (inner units × per-inner cost) for dual,
+ *  or (quantity × unit cost) for single. Uses the row's snapshotted values so
+ *  the number never changes after later item edits. */
+function lineValue(row: CountRow): number {
+  if (row.count_mode_at_count === "case_and_unit") {
+    const caseVal = Number(row.case_quantity ?? 0) * Number(row.unit_value_at_count ?? 0);
+    const innerVal =
+      Number(row.inner_quantity ?? 0) * Number(row.cost_per_inner_unit_at_count ?? 0);
+    return caseVal + innerVal;
+  }
+  return Number(row.quantity) * Number(row.unit_value_at_count);
+}
+
+/** Is this row "counted" (contributes to progress)? Dual-mode counts if either
+ *  cases or inner units are entered. */
+function rowIsCounted(row: CountRow): boolean {
+  if (row.count_mode_at_count === "case_and_unit") {
+    return Number(row.case_quantity ?? 0) > 0 || Number(row.inner_quantity ?? 0) > 0;
+  }
+  return Number(row.quantity) > 0;
 }
 
 /**
