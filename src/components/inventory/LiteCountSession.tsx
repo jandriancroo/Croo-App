@@ -359,8 +359,7 @@ export default function LiteCountSession({
         {grouped.map(({ storageId, name, items: groupItems }) => {
           const subtotal = groupItems.reduce((sum, it) => {
             const row = rowByItem.get(it.id);
-            if (!row) return sum;
-            return sum + Number(row.quantity) * Number(row.unit_value_at_count);
+            return row ? sum + lineValue(row) : sum;
           }, 0);
           return (
             <Card key={storageId ?? "unassigned"} className="overflow-hidden">
@@ -376,10 +375,8 @@ export default function LiteCountSession({
               <div className="divide-y divide-border/50">
                 {groupItems.map((it) => {
                   const row = rowByItem.get(it.id);
-                  const qty = row ? Number(row.quantity) : 0;
-                  const lineValue = row
-                    ? qty * Number(row.unit_value_at_count)
-                    : 0;
+                  const val = row ? lineValue(row) : 0;
+                  const isDual = row?.count_mode_at_count === "case_and_unit";
                   return (
                     <div
                       key={it.id}
@@ -388,12 +385,22 @@ export default function LiteCountSession({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{it.name}</div>
                         <div className="text-[11px] text-muted-foreground tabular-nums">
-                          {qty} {it.unit || "unit"} × $
-                          {Number(row?.unit_value_at_count ?? it.cost_per_unit ?? 0).toFixed(2)}
+                          {isDual ? (
+                            <>
+                              {Number(row?.case_quantity ?? 0)} case{Number(row?.case_quantity ?? 0) === 1 ? "" : "s"}
+                              {" + "}
+                              {Number(row?.inner_quantity ?? 0)} {row?.unit_label_at_count || it.unit_label || "unit"}
+                            </>
+                          ) : (
+                            <>
+                              {row ? Number(row.quantity) : 0} {it.unit || "unit"} × $
+                              {Number(row?.unit_value_at_count ?? it.cost_per_unit ?? 0).toFixed(2)}
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="text-right tabular-nums font-semibold shrink-0">
-                        ${lineValue.toFixed(2)}
+                        ${val.toFixed(2)}
                       </div>
                     </div>
                   );
