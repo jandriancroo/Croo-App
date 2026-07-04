@@ -1114,7 +1114,7 @@ function ItemRow({
         <div className="text-sm font-semibold tabular-nums">
           {formatCost(item.cost_per_unit)}
         </div>
-        <div className="text-[10px] text-muted-foreground">per {item.unit || "unit"}</div>
+        <div className="text-[10px] text-muted-foreground">per {expandUnit(item.unit)}</div>
       </div>
     </div>
   );
