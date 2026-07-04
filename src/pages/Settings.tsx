@@ -14,6 +14,7 @@ import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { syncChromeColor } from '@/utils/syncChrome';
 
 // Lazy-load heavy sub-panels — only fetched when their section is opened.
 // Prior to this, all panels (~5,000+ lines combined) shipped in the Settings chunk.
@@ -174,9 +175,10 @@ export default function Settings() {
     setTheme(value);
     localStorage.setItem('app-theme', value);
     document.documentElement.setAttribute('data-theme', value);
-    (window as any).__syncThemeColorMeta?.();
+    syncChromeColor();
     toast('Theme updated');
   };
+
 
 
   const handleTextSizeChange = (value: string) => {
