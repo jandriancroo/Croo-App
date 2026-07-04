@@ -40,6 +40,7 @@ interface Item {
   storage_id: string | null;
   display_order: number | null;
   category: string | null;
+  item_number: string | null;
   count_mode: "single" | "case_and_unit" | null;
   case_qty: number | null;
   unit_label: string | null;
@@ -116,7 +117,7 @@ export default function LiteCountSession({
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
         .select(
-          "id, name, unit, pack_size, cost_per_unit, storage_id, display_order, category, count_mode, case_qty, unit_label, cost_per_inner_unit",
+          "id, name, unit, pack_size, cost_per_unit, storage_id, display_order, category, item_number, count_mode, case_qty, unit_label, cost_per_inner_unit",
         )
         .eq("location_id", locationId)
         .eq("is_active", true)
@@ -515,87 +516,71 @@ export default function LiteCountSession({
         progressPct={progressPct}
       />
 
-      {/* Sticky storage nav */}
-      <div className="sticky top-16 md:top-20 z-10 -mx-4 md:mx-0">
-        <Card className="mx-4 md:mx-0 flex items-center gap-2 px-2 py-2 shadow-sm">
-          <Button
-            variant="ghost"
-            size="icon"
+      {/* Sticky storage-page nav — Brand-parity pill */}
+      <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] md:top-[8.5rem] z-20 mt-2 bg-primary/95 backdrop-blur-md text-primary-foreground rounded-md px-2 py-2 shadow-md overflow-hidden border border-white/10">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={goPrev}
             disabled={activeIdx === 0}
             aria-label="Previous storage"
           >
             <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1 min-w-0 text-center">
-            <div className="text-sm font-semibold truncate">
-              {active?.name || "—"}{" "}
-              <span className="text-muted-foreground font-normal">
-                ({active?.items.length ?? 0})
-              </span>
-            </div>
-            <div className="text-[11px] text-muted-foreground tabular-nums">
-              Subtotal ${activeSubtotal.toFixed(2)} • {activeIdx + 1}/{grouped.length}
-            </div>
+          </button>
+          <div className="text-center flex-1 min-w-0">
+            <p className="font-semibold text-sm text-primary-foreground truncate leading-tight">
+              {active?.name || "—"} ({active?.items.length ?? 0}) — ${activeSubtotal.toFixed(2)}
+            </p>
+            <p className="text-[11px] text-primary-foreground/70 tabular-nums leading-tight">
+              Page {activeIdx + 1}/{grouped.length}
+            </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={goNext}
             disabled={isLast}
             aria-label="Next storage"
           >
             <ChevronRight className="h-5 w-5" />
-          </Button>
-        </Card>
+          </button>
+        </div>
       </div>
 
-      <Card
-        className="overflow-hidden"
+      {/* Item cards — Brand-parity card-per-item */}
+      <div
+        className="space-y-3"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <div className="divide-y divide-border/50">
-          {active?.items.map((it) => {
-            const row = rowByItem.get(it.id);
-            const isDual = it.count_mode === "case_and_unit";
-            if (isDual) {
-              return (
-                <DualStepperRow
-                  key={it.id}
-                  item={it}
-                  currentCases={row ? Number(row.case_quantity ?? 0) : null}
-                  currentInner={row ? Number(row.inner_quantity ?? 0) : null}
-                  disabled={upsert.isPending}
-                  onCommitCases={(q) =>
-                    upsert.mutate({
-                      item: it,
-                      caseQuantity: q,
-                      innerQuantity: row ? Number(row.inner_quantity ?? 0) : 0,
-                    })
-                  }
-                  onCommitInner={(q) =>
-                    upsert.mutate({
-                      item: it,
-                      caseQuantity: row ? Number(row.case_quantity ?? 0) : 0,
-                      innerQuantity: q,
-                    })
-                  }
-                />
-              );
-            }
-            return (
-              <StepperRow
-                key={it.id}
-                item={it}
-                currentQty={row ? Number(row.quantity) : null}
-                disabled={upsert.isPending}
-                onCommit={(q) => upsert.mutate({ item: it, quantity: q })}
-              />
-            );
-          })}
-        </div>
-      </Card>
+        {active?.items.map((it) => {
+          const row = rowByItem.get(it.id);
+          return (
+            <ItemCard
+              key={it.id}
+              item={it}
+              row={row}
+              disabled={upsert.isPending}
+              onCommitSingle={(q) => upsert.mutate({ item: it, quantity: q })}
+              onCommitCases={(q) =>
+                upsert.mutate({
+                  item: it,
+                  caseQuantity: q,
+                  innerQuantity: row ? Number(row.inner_quantity ?? 0) : 0,
+                })
+              }
+              onCommitInner={(q) =>
+                upsert.mutate({
+                  item: it,
+                  caseQuantity: row ? Number(row.case_quantity ?? 0) : 0,
+                  innerQuantity: q,
+                })
+              }
+            />
+          );
+        })}
+      </div>
 
       <div className="sticky bottom-0 z-20 flex gap-2 bg-background/95 backdrop-blur border-t border-border/60 -mx-4 px-4 py-3 md:mx-0 md:rounded-lg md:border">
         <Button variant="outline" onClick={() => onExit?.()} className="gap-2">
@@ -617,6 +602,7 @@ export default function LiteCountSession({
     </div>
   );
 }
+
 
 function StatsBar({
   countedItems,
@@ -666,235 +652,222 @@ function StatsBar({
   );
 }
 
-function StepperRow({
-  item,
-  currentQty,
-  disabled,
-  onCommit,
-}: {
-  item: Item;
-  currentQty: number | null;
-  disabled: boolean;
-  onCommit: (q: number) => void;
-}) {
-  // Local input value — lets user type freely before commit on blur/Enter.
-  const [draft, setDraft] = useState<string>(
-    currentQty != null ? String(currentQty) : "",
-  );
-  // Reflect external updates (optimistic cache writes from +/− taps).
-  useEffect(() => {
-    setDraft(currentQty != null ? String(currentQty) : "");
-  }, [currentQty]);
+// ─── Brand-parity Item Card ──────────────────────────────────────────────────
+// White bordered card per item with:
+//   • bold name top-left
+//   • cost-breakdown subtitle (pack_size · #item_number · $/cs · $/unit)
+//   • orange price badge top-right (live line value + counted-units label)
+//   • one lane per active count method:
+//       single mode → 1 lane (item.unit or "Units")
+//       case_and_unit → 2 lanes (Cases + unit_label)
+// Each lane: uppercase label header, large centered number, coral(down)/mint(up) buttons.
 
-  const commitRaw = (raw: string) => {
-    const parsed = raw.trim() === "" ? 0 : Number(raw);
-    if (Number.isNaN(parsed) || parsed < 0) {
-      setDraft(currentQty != null ? String(currentQty) : "");
-      return;
-    }
-    if (currentQty !== null && parsed === currentQty) return;
-    if (currentQty === null && parsed === 0) return;
-    onCommit(parsed);
-  };
-
-  const step = (delta: number) => {
-    const base = currentQty ?? 0;
-    const next = Math.max(0, base + delta);
-    if (next === base) return;
-    onCommit(next);
-  };
-
-  return (
-    <div className="flex items-center gap-2 px-3 py-2">
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{item.name}</div>
-        <div className="text-[11px] text-muted-foreground">
-          {item.pack_size ? `${item.pack_size} • ` : ""}$
-          {Number(item.cost_per_unit ?? 0).toFixed(2)} / {item.unit || "unit"}
-        </div>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => step(-1)}
-          disabled={disabled || (currentQty ?? 0) <= 0}
-          aria-label="Decrement"
-        >
-          <Minus className="h-4 w-4" />
-        </Button>
-        <Input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step="0.01"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => commitRaw(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          disabled={disabled}
-          className="w-16 h-9 text-center tabular-nums px-1"
-          placeholder="0"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => step(1)}
-          disabled={disabled}
-          aria-label="Increment"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
+interface LaneSpec {
+  key: string;
+  label: string;
+  value: number;
+  onCommit: (n: number) => void;
 }
 
-/** Two-stepper row for items opted into count_mode='case_and_unit'. Second
- *  stepper is labeled with the item's actual unit_label (e.g. "1 LB Packs"),
- *  not a generic "Units". */
-function DualStepperRow({
+function ItemCard({
   item,
-  currentCases,
-  currentInner,
+  row,
   disabled,
+  onCommitSingle,
   onCommitCases,
   onCommitInner,
 }: {
   item: Item;
-  currentCases: number | null;
-  currentInner: number | null;
+  row: CountRow | undefined;
   disabled: boolean;
+  onCommitSingle: (q: number) => void;
   onCommitCases: (q: number) => void;
   onCommitInner: (q: number) => void;
 }) {
-  const innerLabel = item.unit_label || item.unit || "unit";
-  const pluralInner = /s$/i.test(innerLabel) ? innerLabel : `${innerLabel}s`;
+  const isDual = item.count_mode === "case_and_unit";
+
+  // Cost breakdown subtitle mirrors Brand's header format.
+  const caseCost = Number(item.cost_per_unit ?? 0);
   const derivedInner =
     item.cost_per_inner_unit != null
       ? Number(item.cost_per_inner_unit)
       : item.case_qty && item.case_qty > 0 && item.cost_per_unit != null
-      ? Number(item.cost_per_unit) / item.case_qty
+      ? caseCost / item.case_qty
       : 0;
+  const innerLabel = item.unit_label || item.unit || "Unit";
+  const pluralInner = /s$/i.test(innerLabel) ? innerLabel : `${innerLabel}s`;
+
+  const bits: string[] = [];
+  if (item.pack_size) bits.push(item.pack_size);
+  if (item.item_number) bits.push(`#${item.item_number}`);
+  if (caseCost > 0) bits.push(`$${caseCost.toFixed(2)}/${isDual ? "case" : item.unit || "unit"}`);
+  if (isDual && derivedInner > 0) bits.push(`$${derivedInner.toFixed(2)}/${innerLabel}`);
+  const subtitle = bits.join(" · ");
+
+  // Live line value + counted-units label (identical to Brand pattern).
+  const liveValue = row ? lineValue(row) : 0;
+  let unitsCount = 0;
+  let unitsLabel = "";
+  if (isDual) {
+    const cases = row ? Number(row.case_quantity ?? 0) : 0;
+    const inner = row ? Number(row.inner_quantity ?? 0) : 0;
+    const perCase = item.case_qty ?? row?.case_qty_at_count ?? 0;
+    unitsCount = cases * perCase + inner;
+    unitsLabel = unitsCount === 1 ? innerLabel : pluralInner;
+  } else {
+    unitsCount = row ? Number(row.quantity) : 0;
+    unitsLabel = (item.unit || "unit") + (unitsCount === 1 ? "" : "s");
+  }
+
+  const lanes: LaneSpec[] = isDual
+    ? [
+        {
+          key: "cases",
+          label: "Cases",
+          value: row ? Number(row.case_quantity ?? 0) : 0,
+          onCommit: onCommitCases,
+        },
+        {
+          key: "inner",
+          label: pluralInner,
+          value: row ? Number(row.inner_quantity ?? 0) : 0,
+          onCommit: onCommitInner,
+        },
+      ]
+    : [
+        {
+          key: "units",
+          label: (item.unit || "Units").toString(),
+          value: row ? Number(row.quantity) : 0,
+          onCommit: onCommitSingle,
+        },
+      ];
+
+  const gridColsClass = lanes.length === 2 ? "grid-cols-2" : "grid-cols-1";
 
   return (
-    <div className="px-3 py-2 space-y-2">
-      <div className="min-w-0">
-        <div className="text-sm font-medium truncate">{item.name}</div>
-        <div className="text-[11px] text-muted-foreground">
-          {item.case_qty ? `${item.case_qty} ${pluralInner} per case • ` : ""}
-          Case ${Number(item.cost_per_unit ?? 0).toFixed(2)} • {innerLabel} $
-          {derivedInner.toFixed(2)}
+    <div className="bg-card rounded-lg border border-border/60 overflow-hidden relative">
+      {/* Header: name + subtitle + orange live-value badge */}
+      <div className="relative px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
+        <div
+          className="absolute top-0 right-0 text-white text-center leading-tight"
+          style={{
+            backgroundColor: "#e85d04",
+            padding: "6px 11px",
+            borderTopRightRadius: "calc(0.5rem - 1px)",
+            borderBottomLeftRadius: "0.5rem",
+          }}
+        >
+          <p className="text-[15px] sm:text-base font-semibold tabular-nums tracking-tight">
+            ${liveValue.toFixed(2)}
+          </p>
+          <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.85)" }}>
+            {unitsCount} {unitsLabel}
+          </p>
+        </div>
+        <div style={{ paddingRight: 76 }}>
+          <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight">
+            {item.name}
+          </p>
+          {subtitle && (
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate">
+              {subtitle}
+            </p>
+          )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <MiniStepper
-          label="Cases"
-          value={currentCases}
-          disabled={disabled}
-          onCommit={onCommitCases}
-        />
-        <MiniStepper
-          label={pluralInner}
-          value={currentInner}
-          disabled={disabled}
-          onCommit={onCommitInner}
-        />
+
+      {/* Lane grid: equal-width columns, one per active lane */}
+      <div className={`grid ${gridColsClass}`}>
+        {lanes.map((lane, i) => (
+          <LaneColumn
+            key={lane.key}
+            lane={lane}
+            disabled={disabled}
+            withDivider={i < lanes.length - 1}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-function MiniStepper({
-  label,
-  value,
+function LaneColumn({
+  lane,
   disabled,
-  onCommit,
+  withDivider,
 }: {
-  label: string;
-  value: number | null;
+  lane: LaneSpec;
   disabled: boolean;
-  onCommit: (q: number) => void;
+  withDivider: boolean;
 }) {
-  const [draft, setDraft] = useState<string>(value != null ? String(value) : "");
+  const [draft, setDraft] = useState<string>(String(lane.value));
   useEffect(() => {
-    setDraft(value != null ? String(value) : "");
-  }, [value]);
+    setDraft(String(lane.value));
+  }, [lane.value]);
 
   const commitRaw = (raw: string) => {
     const parsed = raw.trim() === "" ? 0 : Number(raw);
     if (Number.isNaN(parsed) || parsed < 0) {
-      setDraft(value != null ? String(value) : "");
+      setDraft(String(lane.value));
       return;
     }
-    if (value !== null && parsed === value) return;
-    if (value === null && parsed === 0) return;
-    onCommit(parsed);
+    if (parsed === lane.value) return;
+    lane.onCommit(parsed);
   };
 
   const step = (delta: number) => {
-    const base = value ?? 0;
-    const next = Math.max(0, base + delta);
-    if (next === base) return;
-    onCommit(next);
+    const next = Math.max(0, lane.value + delta);
+    if (next === lane.value) return;
+    lane.onCommit(next);
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground text-center">
-        {label}
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
+    <div
+      className={`flex flex-col items-center gap-1.5 py-3 px-2 ${
+        withDivider ? "border-r border-border/60" : ""
+      }`}
+    >
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {lane.label}
+      </p>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commitRaw(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        disabled={disabled}
+        className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
+        style={{ fontSize: 40, minHeight: 0 }}
+      />
+      <div className="flex items-center gap-4">
+        <button
           type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 shrink-0"
           onClick={() => step(-1)}
-          disabled={disabled || (value ?? 0) <= 0}
-          aria-label={`Decrement ${label}`}
+          disabled={disabled || lane.value <= 0}
+          aria-label={`Decrement ${lane.label}`}
+          className="h-[42px] w-[42px] flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform disabled:opacity-40"
         >
-          <Minus className="h-4 w-4" />
-        </Button>
-        <Input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step="0.01"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => commitRaw(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          disabled={disabled}
-          className="flex-1 min-w-0 h-9 text-center tabular-nums px-1"
-          placeholder="0"
-        />
-        <Button
+          <Minus className="h-[18px] w-[18px]" strokeWidth={2.25} />
+        </button>
+        <button
           type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 shrink-0"
           onClick={() => step(1)}
           disabled={disabled}
-          aria-label={`Increment ${label}`}
+          aria-label={`Increment ${lane.label}`}
+          className="h-[42px] w-[42px] flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform disabled:opacity-40"
         >
-          <Plus className="h-4 w-4" />
-        </Button>
+          <Plus className="h-[18px] w-[18px]" strokeWidth={2.25} />
+        </button>
       </div>
     </div>
   );
 }
+
