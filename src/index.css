@@ -117,6 +117,13 @@ All colors MUST be HSL.
     --glass-border: 38 30% 88% / 0.5;
     --glass-shadow: 220 25% 10% / 0.08;
     --glass-blur: 20px;
+
+    /* Quick Task chip semantics — user=accent, system=primary */
+    --quick-task-user: 22 80% 56%;
+    --quick-task-user-fg: 0 0% 100%;
+    --quick-task-system: 190 54% 40%;
+    --quick-task-system-fg: 0 0% 100%;
+    --quick-task-alpha: 1;
   }
 
   .dark {
