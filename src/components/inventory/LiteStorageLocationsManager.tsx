@@ -240,7 +240,8 @@ export default function LiteStorageLocationsManager({ locationId }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Unassign items (single-assignment model), then soft-archive the storage
+      // Single-assignment model: unassign items first, then hard-delete
+      // the storage row — mirrors StorageLocationManager.tsx exactly.
       const { error: unassignError } = await supabase
         .from("lite_inventory_items" as any)
         .update({ storage_id: null })
@@ -248,7 +249,7 @@ export default function LiteStorageLocationsManager({ locationId }: Props) {
       if (unassignError) throw unassignError;
       const { error } = await supabase
         .from("lite_storage_locations" as any)
-        .update({ is_active: false })
+        .delete()
         .eq("id", id);
       if (error) throw error;
     },
@@ -256,8 +257,9 @@ export default function LiteStorageLocationsManager({ locationId }: Props) {
       qc.invalidateQueries({ queryKey: ["lite-storages", locationId] });
       qc.invalidateQueries({ queryKey: ["lite-inventory-items", locationId] });
       qc.invalidateQueries({ queryKey: ["lite-storage-item-counts", locationId] });
-      toast.success("Removed, items moved to Unassigned");
+      toast.success("Storage deleted, items moved to Unassigned");
     },
+
     onError: (e: any) => toast.error("Couldn't remove", { description: e.message }),
   });
 
