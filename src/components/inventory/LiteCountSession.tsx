@@ -298,15 +298,11 @@ export default function LiteCountSession({
 
   const totalItems = items?.length ?? 0;
   const countedItems = useMemo(
-    () => (rows || []).filter((r) => Number(r.quantity) > 0).length,
+    () => (rows || []).filter(rowIsCounted).length,
     [rows],
   );
   const totalValue = useMemo(
-    () =>
-      (rows || []).reduce(
-        (sum, r) => sum + Number(r.quantity) * Number(r.unit_value_at_count),
-        0,
-      ),
+    () => (rows || []).reduce((sum, r) => sum + lineValue(r), 0),
     [rows],
   );
   const progressPct = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
