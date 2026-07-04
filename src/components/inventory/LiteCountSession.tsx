@@ -323,6 +323,43 @@ export default function LiteCountSession({
   );
   const progressPct = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
 
+  // Sticky mobile dock — reuses the shared Layout dock (same one Brand uses).
+  // Voice input is intentionally omitted for Lite: no onToggleVoice and
+  // isVoiceSupported:false. Layout only renders the mic when both are
+  // truthy, so it is not rendered — not hidden, not disabled.
+  useEffect(() => {
+    if (!isMobile || readOnly || mode !== "count") {
+      setDockContent(null);
+      return;
+    }
+    setDockContent({
+      type: "inventory-count",
+      totalValue,
+      countedItems,
+      totalItems,
+      isSaving: upsert.isPending,
+      isListening: false,
+      isVoiceSupported: false,
+      isEditing: false,
+      elapsedSeconds,
+      lastSavedAt,
+      onSave: () => onExit?.(),
+    });
+    return () => setDockContent(null);
+  }, [
+    isMobile,
+    readOnly,
+    mode,
+    totalValue,
+    countedItems,
+    totalItems,
+    upsert.isPending,
+    elapsedSeconds,
+    lastSavedAt,
+    onExit,
+    setDockContent,
+  ]);
+
   // Swipe handling for the active storage view.
   const touchStartX = useRef<number | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
