@@ -34,6 +34,17 @@ const syncThemeColorMeta = () => {
 syncThemeColorMeta();
 (window as any).__syncThemeColorMeta = syncThemeColorMeta;
 
+// Re-sync whenever the active theme changes so the PWA status-bar bleed
+// tracks each theme's --header-bg (default, beach, dark, etc).
+try {
+  new MutationObserver(syncThemeColorMeta).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  });
+} catch {
+  /* ignore */
+}
+
 
 // Mark standalone mode on html element for CSS targeting (iOS fallback)
 const isStandaloneMode =
