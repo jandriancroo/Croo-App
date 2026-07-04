@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { arrayMove } from "@dnd-kit/sortable";
-import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
+
 import LiteItemEditSheet, { type LiteEditableItem } from "./LiteItemEditSheet";
 import LiteStorageLocationsManager from "./LiteStorageLocationsManager";
 
