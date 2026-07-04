@@ -351,6 +351,7 @@ All colors MUST be HSL.
   --popover-foreground: 340 20% 15%;
   --primary: 340 45% 52%;
   --primary-foreground: 0 0% 100%;
+  --primary-light: 340 55% 68%;
   --secondary: 350 35% 90%;
   --secondary-foreground: 340 40% 32%;
   --muted: 340 20% 90%;
@@ -368,6 +369,21 @@ All colors MUST be HSL.
 
   --header-bg: 340 45% 52%;
   --header-fg: 0 0% 100%;
+
+  --sidebar-background: 340 30% 98%;
+  --sidebar-foreground: 340 20% 15%;
+  --sidebar-primary: 340 45% 52%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 340 20% 90%;
+  --sidebar-accent-foreground: 340 20% 15%;
+  --sidebar-border: 340 22% 82%;
+  --sidebar-ring: 340 45% 52%;
+
+  --quick-task-user: 340 45% 52%;        /* pink primary */
+  --quick-task-user-fg: 0 0% 100%;
+  --quick-task-system: 15 55% 58%;       /* warm accent */
+  --quick-task-system-fg: 0 0% 100%;
+  --quick-task-alpha: 1;
 
   --chart-1: 340 45% 55%;
   --chart-2: 15 55% 60%;
