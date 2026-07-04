@@ -30,6 +30,7 @@ import {
   X,
   Power,
   PowerOff,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { arrayMove } from "@dnd-kit/sortable";
