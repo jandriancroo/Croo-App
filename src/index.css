@@ -379,6 +379,7 @@ All colors MUST be HSL.
 
 /* Blaze Pizza Theme - Blaze Orange, Fire Red, Charcoal, Cream (official brand palette) */
 [data-theme="blaze"] {
+  --primary-light: 20 55% 66%;
   --background: 32 52% 94%;
   --foreground: 24 13% 15%;
 
