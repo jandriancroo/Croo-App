@@ -174,6 +174,12 @@ All colors MUST be HSL.
 
      --header-bg: 189 45% 50%;
      --header-fg: 220 28% 4%;
+
+     --quick-task-user: 22 80% 62%;
+     --quick-task-user-fg: 220 28% 4%;
+     --quick-task-system: 189 45% 50%;
+     --quick-task-system-fg: 220 28% 4%;
+     --quick-task-alpha: 1;
   }
 }
 
