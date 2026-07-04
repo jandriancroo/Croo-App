@@ -679,11 +679,6 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         )}
       </Card>
 
-      <LiteInvoiceUploadDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        locationId={locationId}
-      />
 
       <LiteItemEditSheet
         open={!!editItem}
