@@ -21,7 +21,7 @@ import {
 import {
   Package,
   Search,
-  Upload,
+  
   Loader2,
   ChevronDown,
   ChevronUp,
@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { arrayMove } from "@dnd-kit/sortable";
-import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
+
 import LiteItemEditSheet, { type LiteEditableItem } from "./LiteItemEditSheet";
 import LiteStorageLocationsManager from "./LiteStorageLocationsManager";
 
@@ -73,6 +73,42 @@ interface LastInvoiceLine {
 const UNASSIGNED_KEY = "__unassigned__";
 const DEACTIVATED_KEY = "__deactivated__";
 
+const UNIT_LABELS: Record<string, string> = {
+  CA: "Case", CS: "Case", CASE: "Case",
+  EA: "Each", EACH: "Each",
+  LB: "Pound", LBS: "Pound", POUND: "Pound",
+  OZ: "Ounce", OUNCE: "Ounce",
+  FLOZ: "Fluid Ounce", "FL OZ": "Fluid Ounce",
+  GAL: "Gallon", GL: "Gallon", GALLON: "Gallon",
+  QT: "Quart", PT: "Pint",
+  L: "Liter", LT: "Liter", LTR: "Liter", LITER: "Liter",
+  ML: "Milliliter",
+  KG: "Kilogram", G: "Gram", GR: "Gram", GRAM: "Gram",
+  BG: "Bag", BAG: "Bag",
+  BX: "Box", BOX: "Box",
+  BT: "Bottle", BTL: "Bottle", BOTTLE: "Bottle",
+  CN: "Can", CAN: "Can",
+  CT: "Count", CTN: "Carton", CARTON: "Carton",
+  DZ: "Dozen", DOZ: "Dozen", DOZEN: "Dozen",
+  PK: "Pack", PKG: "Package", PACK: "Pack",
+  PC: "Piece", PCS: "Piece", PIECE: "Piece",
+  HD: "Head", HEAD: "Head",
+  BCH: "Bunch", BUNCH: "Bunch",
+  JR: "Jar", JAR: "Jar",
+  TUB: "Tub", TB: "Tub",
+  RL: "Roll", ROLL: "Roll",
+  SLV: "Sleeve", SLEEVE: "Sleeve",
+  TR: "Tray", TRAY: "Tray",
+  UNIT: "Unit",
+};
+
+function expandUnit(u: string | null | undefined): string {
+  if (!u) return "unit";
+  const key = u.trim().toUpperCase();
+  return UNIT_LABELS[key] || u;
+}
+
+
 function shelfSort(a: LiteItem, b: LiteItem) {
   const ao = a.display_order;
   const bo = b.display_order;
@@ -84,7 +120,7 @@ function shelfSort(a: LiteItem, b: LiteItem) {
 
 export default function LiteInventoryItemsList({ locationId }: LiteInventoryItemsListProps) {
   const [search, setSearch] = useState("");
-  const [uploadOpen, setUploadOpen] = useState(false);
+  
   const [storageManagerOpen, setStorageManagerOpen] = useState(false);
   const [editItem, setEditItem] = useState<LiteEditableItem | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
@@ -397,10 +433,6 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Locations</span>
             </Button>
-            <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Upload Invoice</span>
-            </Button>
           </div>
         </div>
 
@@ -428,13 +460,9 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center px-4">
             <Package className="h-8 w-8 text-muted-foreground/60" />
             <p className="text-sm text-muted-foreground max-w-sm">
-              No items yet. Upload a vendor invoice and we'll pull items, prices,
-              and pack sizes from it automatically.
+              No items yet. Head to the Invoices tab to upload a vendor invoice — we'll pull
+              items, prices, and pack sizes from it automatically.
             </p>
-            <Button onClick={() => setUploadOpen(true)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              Upload Invoice
-            </Button>
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
@@ -687,11 +715,6 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         )}
       </Card>
 
-      <LiteInvoiceUploadDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        locationId={locationId}
-      />
 
       <LiteItemEditSheet
         open={!!editItem}
@@ -1091,7 +1114,7 @@ function ItemRow({
         <div className="text-sm font-semibold tabular-nums">
           {formatCost(item.cost_per_unit)}
         </div>
-        <div className="text-[10px] text-muted-foreground">per {item.unit || "unit"}</div>
+        <div className="text-[10px] text-muted-foreground">per {expandUnit(item.unit)}</div>
       </div>
     </div>
   );
