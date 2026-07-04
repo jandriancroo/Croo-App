@@ -953,6 +953,29 @@ header.bg-primary *,
     padding-top: env(safe-area-inset-top, 0);
   }
 
+  /* iOS PWA status-bar strip: blurred passthrough of chrome color with a
+     bottom mask that fades to transparent — no hard seam, no compositor
+     mismatch, no reliance on solid header fill in the safe area. */
+  @supports (padding: env(safe-area-inset-top)) {
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: env(safe-area-inset-top);
+      z-index: 60;
+      pointer-events: none;
+      background: var(--chrome-bg, hsl(var(--header-bg)));
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    }
+  }
+
+
+
   /* Safe-area aware horizontal gutters (prevents right-edge clipping on iOS notch devices)
      - Mobile: at least 1rem, or the device safe-area inset if larger
      - Desktop: match existing md:px-6 gutters (1.5rem)
