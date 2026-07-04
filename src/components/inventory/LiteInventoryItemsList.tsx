@@ -142,7 +142,6 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         .from("lite_storage_locations" as any)
         .select("id, name")
         .eq("location_id", locationId)
-        .eq("is_active", true)
         .order("sort_order")
         .order("name");
       if (error) throw error;

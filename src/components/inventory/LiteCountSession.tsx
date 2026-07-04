@@ -68,7 +68,6 @@ export default function LiteCountSession({ countId, locationId, readOnly = false
         .from("lite_storage_locations" as any)
         .select("id, name, sort_order")
         .eq("location_id", locationId)
-        .eq("is_active", true)
         .order("sort_order")
         .order("name");
       if (error) throw error;
