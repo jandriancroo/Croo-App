@@ -38,6 +38,7 @@ import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
 import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel, useOvationData } from '@/components/dashboard/OvationScorePopover';
+import { syncChromeColor } from '@/utils/syncChrome';
 
 interface LayoutProps {
   children: ReactNode;
