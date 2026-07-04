@@ -560,7 +560,7 @@ export default function LiteCountSession({
   const isLast = activeIdx >= grouped.length - 1;
 
   return (
-    <div className="space-y-3">
+    <div className={isMobile ? "space-y-3 pb-32" : "space-y-3"}>
       <StatsBar
         countedItems={countedItems}
         totalItems={totalItems}
