@@ -201,28 +201,65 @@ export default function LiteCountSession({
   }, [grouped.length, activeIdx]);
 
   const upsert = useMutation({
-    mutationFn: async ({ item, quantity }: { item: Item; quantity: number }) => {
+    mutationFn: async ({
+      item,
+      quantity,
+      caseQuantity,
+      innerQuantity,
+    }: {
+      item: Item;
+      quantity?: number;
+      caseQuantity?: number;
+      innerQuantity?: number;
+    }) => {
+      const isDual = item.count_mode === "case_and_unit";
       const existing = rowByItem.get(item.id);
       if (existing) {
+        const patch: Record<string, any> = {
+          counted_at: new Date().toISOString(),
+        };
+        if (isDual) {
+          if (caseQuantity !== undefined) patch.case_quantity = caseQuantity;
+          if (innerQuantity !== undefined) patch.inner_quantity = innerQuantity;
+        } else if (quantity !== undefined) {
+          patch.quantity = quantity;
+        }
         const { error } = await supabase
           .from("lite_inventory_count_items" as any)
-          .update({ quantity, counted_at: new Date().toISOString() })
+          .update(patch)
           .eq("id", existing.id);
         if (error) throw error;
-        return { ...existing, quantity };
+        return { ...existing, ...patch };
       }
       const { data: userData } = await supabase.auth.getUser();
+      // Snapshot the counting shape onto the row so future item edits never
+      // rewrite historical counts.
+      const derivedInner =
+        item.cost_per_inner_unit != null
+          ? Number(item.cost_per_inner_unit)
+          : item.case_qty && item.case_qty > 0 && item.cost_per_unit != null
+          ? Number(item.cost_per_unit) / item.case_qty
+          : 0;
+      const insertPayload: Record<string, any> = {
+        count_id: countId,
+        item_id: item.id,
+        quantity: isDual ? 0 : quantity ?? 0,
+        unit_value_at_count: item.cost_per_unit ?? 0,
+        storage_id_at_count: item.storage_id,
+        counted_by: userData.user?.id ?? null,
+        count_mode_at_count: isDual ? "case_and_unit" : "single",
+        case_quantity: isDual ? caseQuantity ?? 0 : null,
+        inner_quantity: isDual ? innerQuantity ?? 0 : null,
+        case_qty_at_count: isDual ? item.case_qty : null,
+        unit_label_at_count: isDual ? item.unit_label : null,
+        cost_per_inner_unit_at_count: isDual ? derivedInner : null,
+      };
       const { data, error } = await supabase
         .from("lite_inventory_count_items" as any)
-        .insert({
-          count_id: countId,
-          item_id: item.id,
-          quantity,
-          unit_value_at_count: item.cost_per_unit ?? 0,
-          storage_id_at_count: item.storage_id,
-          counted_by: userData.user?.id ?? null,
-        })
-        .select("id, item_id, quantity, unit_value_at_count, storage_id_at_count")
+        .insert(insertPayload)
+        .select(
+          "id, item_id, quantity, unit_value_at_count, storage_id_at_count, case_quantity, inner_quantity, count_mode_at_count, case_qty_at_count, unit_label_at_count, cost_per_inner_unit_at_count",
+        )
         .single();
       if (error) throw error;
       return data as any;
