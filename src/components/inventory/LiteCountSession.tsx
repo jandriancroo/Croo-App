@@ -291,41 +291,6 @@ export default function LiteCountSession({
     return () => clearInterval(t);
   }, [readOnly, mode]);
 
-  // Sticky mobile dock — reuses the shared Layout dock (same one Brand uses).
-  // Voice input is intentionally omitted for Lite: no onToggleVoice, and
-  // isVoiceSupported:false. The Layout dock only renders the mic when both
-  // are truthy, so it is not rendered, not hidden.
-  useEffect(() => {
-    if (!isMobile || readOnly) {
-      setDockContent(null);
-      return;
-    }
-    setDockContent({
-      type: "inventory-count",
-      totalValue,
-      countedItems,
-      totalItems,
-      isSaving: upsert.isPending,
-      isListening: false,
-      isVoiceSupported: false,
-      isEditing: false,
-      elapsedSeconds,
-      lastSavedAt,
-      onSave: () => onExit?.(),
-    });
-    return () => setDockContent(null);
-  }, [
-    isMobile,
-    readOnly,
-    totalValue,
-    countedItems,
-    totalItems,
-    upsert.isPending,
-    elapsedSeconds,
-    lastSavedAt,
-    onExit,
-    setDockContent,
-  ]);
 
   // ---- Save & Exit lock (draft + counting mode only) ------------------------
   // Scoped narrowly: only armed when session is draft AND not on review AND not
