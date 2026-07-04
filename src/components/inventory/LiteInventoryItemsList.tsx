@@ -424,13 +424,9 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center px-4">
             <Package className="h-8 w-8 text-muted-foreground/60" />
             <p className="text-sm text-muted-foreground max-w-sm">
-              No items yet. Upload a vendor invoice and we'll pull items, prices,
-              and pack sizes from it automatically.
+              No items yet. Head to the Invoices tab to upload a vendor invoice — we'll pull
+              items, prices, and pack sizes from it automatically.
             </p>
-            <Button onClick={() => setUploadOpen(true)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              Upload Invoice
-            </Button>
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
