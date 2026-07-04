@@ -972,6 +972,9 @@ header.bg-primary *,
       -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
       mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
     }
+  }
+
+
 
   /* Safe-area aware horizontal gutters (prevents right-edge clipping on iOS notch devices)
      - Mobile: at least 1rem, or the device safe-area inset if larger
