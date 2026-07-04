@@ -7,23 +7,30 @@ interface Props {
 }
 
 export default function RotatingAuthBackground({ images, index, isDay }: Props) {
+  const activeIndex = images.length ? index % images.length : 0;
+
   useEffect(() => {
+    if (!images.length) return;
     const next = images[(index + 1) % images.length];
     const img = new Image();
     img.src = next;
   }, [index, images]);
 
+  if (!images.length) {
+    return <div data-auth-background className="fixed inset-0 z-0 overflow-hidden bg-background" aria-hidden />;
+  }
+
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-background">
+    <div data-auth-background className="fixed inset-0 z-0 overflow-hidden bg-background pointer-events-none" aria-hidden>
       {images.map((src, i) => (
-        <div
+        <img
           key={src}
-          aria-hidden
-          className="absolute inset-0 transition-opacity duration-[2000ms] ease-in-out bg-cover bg-center"
-          style={{
-            backgroundImage: `url(${src})`,
-            opacity: i === index ? 1 : 0,
-          }}
+          data-auth-bg-slide
+          src={src}
+          alt=""
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[2000ms] ease-in-out"
+          style={{ opacity: i === activeIndex ? 1 : 0 }}
         />
       ))}
       <div

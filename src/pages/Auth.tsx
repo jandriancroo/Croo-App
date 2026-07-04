@@ -67,6 +67,7 @@ export default function Auth() {
   const [isDay, setIsDay] = useState(isDaytime());
   const images = useMemo(() => getActiveImages(isDay), [isDay]);
   const [index, setIndex] = useState(() => Math.floor(Math.random() * images.length));
+  const activeIndex = images.length ? index % images.length : 0;
   const touchStartX = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -163,9 +164,10 @@ export default function Auth() {
       <RotatingAuthBackground images={images} index={index} isDay={isDay} />
       <div
         ref={containerRef}
+        data-auth-content
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        className="flex min-h-screen flex-col items-center justify-center p-4 relative z-10"
+        className="flex min-h-dvh flex-col items-center justify-center p-4 relative z-10"
       >
         <Card className="w-full max-w-md shadow-2xl border-2 bg-card/80 backdrop-blur-xl hover:shadow-3xl transition-all duration-300 relative overflow-visible">
           <CardHeader className="text-center pb-0 pt-8 space-y-0.5">
@@ -227,17 +229,19 @@ export default function Auth() {
         <PWAInstallTutorial />
 
         {/* Background image switcher */}
-        <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-2 z-20">
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1.25rem)] left-0 right-0 flex items-center justify-center gap-2 z-30">
           {images.map((src, i) => (
             <button
               key={src}
               type="button"
+              data-auth-bg-dot
               aria-label={`Show background ${i + 1}`}
+              aria-current={i === activeIndex ? 'true' : undefined}
               onClick={() => goTo(i)}
               className={`h-2.5 rounded-full transition-all duration-300 ${
-                i === index
-                  ? 'w-6 bg-primary'
-                  : 'w-2.5 bg-white/60 hover:bg-white/90'
+                i === activeIndex
+                  ? 'w-6 bg-primary shadow-sm'
+                  : 'w-2.5 bg-card/75 hover:bg-card shadow-sm'
               }`}
             />
           ))}

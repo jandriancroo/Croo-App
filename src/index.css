@@ -45,24 +45,6 @@ All colors MUST be HSL.
     background-color: hsl(var(--header-bg));
   }
 
-  /* iOS 26/27 PWA samples the installed app chrome from the page's root/top
-     paint before React is fully rendered. Keep that pixel and the safe-area
-     overlay pinned to the current header color instead of the page background. */
-  html::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: calc(env(safe-area-inset-top) + 1px);
-    background-color: hsl(var(--header-bg));
-    z-index: 9999;
-    pointer-events: none;
-  }
-
-
-
-
   /* Text size scaling - applied to html element */
   html[data-text-size="small"] { font-size: 14px; }
   html[data-text-size="default"] { font-size: 16px; }
@@ -189,6 +171,9 @@ All colors MUST be HSL.
     --glass-border: 0 0% 100% / 0.1;
     --glass-shadow: 0 0% 0% / 0.3;
     --glass-blur: 20px;
+
+     --header-bg: 189 45% 50%;
+     --header-fg: 220 28% 4%;
   }
 }
 
@@ -238,6 +223,9 @@ All colors MUST be HSL.
   --glass-background: 220 9% 14% / 0.9;
   --glass-border: 225 6% 100% / 0.06;
   --glass-shadow: 0 0% 0% / 0.4;
+
+  --header-bg: 220 9% 14%;
+  --header-fg: 225 6% 87%;
 
   /* Quick Task chip semantics — restore two-color differentiation.
      User chip → pine (primary), System chip → slate (tertiary). */
@@ -342,6 +330,9 @@ All colors MUST be HSL.
   --glass-border: 195 20% 65% / 0.3;
   --glass-shadow: 210 35% 15% / 0.08;
 
+  --header-bg: 205 65% 62%;
+  --header-fg: 0 0% 100%;
+
   --chart-1: 195 70% 42%;
   --chart-2: 170 60% 38%;
   --chart-3: 42 45% 60%;
@@ -374,6 +365,9 @@ All colors MUST be HSL.
   --glass-background: 340 30% 100% / 0.6;
   --glass-border: 340 22% 80% / 0.3;
   --glass-shadow: 340 20% 15% / 0.08;
+
+  --header-bg: 340 45% 52%;
+  --header-fg: 0 0% 100%;
 
   --chart-1: 340 45% 55%;
   --chart-2: 15 55% 60%;
@@ -707,32 +701,15 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
 
 
-/* Beach mobile header — sky blue */
-[data-theme="beach"] header.bg-primary {
-  background: hsl(205 65% 62%) !important;
-}
-
-[data-theme="beach"] .nav-bar-unified {
-  background: hsl(205 65% 62%);
-}
-
-/* Playa Bowls / Blaze / Default (Croo) — header + bottom nav use deep chrome */
-[data-theme="playa"] header.bg-primary,
-[data-theme="blaze"] header.bg-primary,
-:root header.bg-primary {
+/* All themes — header, safe-area bleed, and unified nav share one chrome color. */
+header.bg-primary,
+.nav-bar-unified {
   background: hsl(var(--header-bg)) !important;
   color: hsl(var(--header-fg));
 }
-[data-theme="playa"] .nav-bar-unified,
-[data-theme="blaze"] .nav-bar-unified {
-  background: hsl(var(--header-bg));
-  color: hsl(var(--header-fg));
-}
-[data-theme="playa"] header.bg-primary *,
-[data-theme="blaze"] header.bg-primary *,
-:root:not([data-theme]) header.bg-primary *,
-[data-theme="playa"] .nav-bar-unified *,
-[data-theme="blaze"] .nav-bar-unified * {
+
+header.bg-primary *,
+.nav-bar-unified * {
   color: hsl(var(--header-fg));
 }
 
