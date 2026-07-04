@@ -55,7 +55,7 @@ All colors MUST be HSL.
     left: 0;
     right: 0;
     height: env(safe-area-inset-top);
-    background-color: hsl(var(--header-bg));
+    background-color: #03adbb;
     z-index: 9999;
     pointer-events: none;
   }
