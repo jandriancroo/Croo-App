@@ -85,6 +85,7 @@ function shelfSort(a: LiteItem, b: LiteItem) {
 export default function LiteInventoryItemsList({ locationId }: LiteInventoryItemsListProps) {
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [storageManagerOpen, setStorageManagerOpen] = useState(false);
   const [editItem, setEditItem] = useState<LiteEditableItem | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     [DEACTIVATED_KEY]: true,
