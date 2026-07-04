@@ -397,10 +397,6 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Locations</span>
             </Button>
-            <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Upload Invoice</span>
-            </Button>
           </div>
         </div>
 
