@@ -13,6 +13,7 @@ interface PostCardProps {
   currentUserId: string | null;
   canModerate: boolean;
   onOpen: (post: FeedPost) => void;
+  onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
 }
