@@ -5,6 +5,13 @@
 // Brand guard: hard-refuses any location whose organization is not Playa Bowls.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  fetchHistoricalDataFromCache,
+  generateHourlyProjections,
+  generateProjections,
+  getCurrentHourInTimezone,
+  getCurrentMinutesInTimezone,
+} from "../_shared/projections.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -402,6 +409,140 @@ async function syncOneDay(
     }
   } catch (e) {
     console.warn(`[clover-sync] YOY seed skipped for ${date}:`, e);
+  }
+
+  // ── Shared projection + pace engine (POS-agnostic) ─────────────────────
+  // Only runs for "today" — historical days already have net_sales/hourly
+  // frozen and don't need a live pace number.
+  try {
+    const todayLocal = todayInTz(tz);
+    if (date === todayLocal) {
+      // Fetch hours-open / hours-close (defaults 10–22 if unset).
+      let hoursOpen = 10;
+      let hoursClose = 22;
+      try {
+        const { data: hoursRow } = await supabase
+          .from("location_settings")
+          .select("business_hours_open, business_hours_close")
+          .eq("location_id", locationId)
+          .maybeSingle();
+        if (hoursRow?.business_hours_open != null) hoursOpen = Number(hoursRow.business_hours_open);
+        if (hoursRow?.business_hours_close != null) hoursClose = Number(hoursRow.business_hours_close);
+      } catch {}
+
+      const hist = await fetchHistoricalDataFromCache(supabase, locationId, date);
+
+      // Weekly / monthly breakdowns from sales_cache for orchestrator inputs.
+      const [{ data: weekRows }, { data: monthRows }] = await Promise.all([
+        supabase.from("sales_cache")
+          .select("sale_date, net_sales")
+          .eq("location_id", locationId)
+          .gte("sale_date", (() => {
+            const d = new Date(date + "T12:00:00");
+            const dow = d.getDay();
+            const diff = dow === 0 ? 6 : dow - 1;
+            d.setDate(d.getDate() - diff);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          })())
+          .lte("sale_date", date),
+        supabase.from("sales_cache")
+          .select("sale_date, net_sales")
+          .eq("location_id", locationId)
+          .gte("sale_date", `${date.slice(0, 7)}-01`)
+          .lte("sale_date", date),
+      ]);
+
+      const weeklyBreakdown = (weekRows || []).map((r: any) => ({
+        date: r.sale_date, sales: Number(r.net_sales) || 0,
+      }));
+      const monthlyBreakdown = (monthRows || []).map((r: any) => ({
+        date: r.sale_date, sales: Number(r.net_sales) || 0,
+      }));
+      const weeklySales = weeklyBreakdown.reduce((s, r) => s + r.sales, 0);
+      const monthlySales = monthlyBreakdown.reduce((s, r) => s + r.sales, 0);
+
+      // Provisional daily projection to shape hourly curve, then run pace.
+      const provisionalDaily =
+        (hist.fourWeekAverage?.avgDailyByDayOfWeek.find(
+          (d) => d.dayOfWeek === new Date(date + "T12:00:00").getDay(),
+        )?.avgSales) ||
+        hist.lastYearData?.sameDay ||
+        agg.netSales ||
+        0;
+
+      const hourlyProjections = generateHourlyProjections(
+        agg.hourly,
+        hoursOpen,
+        hoursClose,
+        date,
+        locationId,
+        provisionalDaily,
+        hist.fourWeekHourlyPattern,
+        hist.lastYearData?.hourlyData,
+      );
+
+      const currentHour = getCurrentHourInTimezone(tz);
+      const currentMinutes = getCurrentMinutesInTimezone(tz);
+
+      const projections = generateProjections(
+        agg.netSales,
+        weeklySales,
+        monthlySales,
+        weeklyBreakdown,
+        monthlyBreakdown,
+        currentHour,
+        currentMinutes,
+        hoursOpen,
+        hoursClose,
+        date,
+        locationId,
+        hourlyProjections,
+        hist.lastYearData
+          ? {
+              sameDay: hist.lastYearData.sameDay,
+              sameWeek: hist.lastYearData.sameWeek,
+              sameMonth: hist.lastYearData.sameMonth,
+              weeklyBreakdown: hist.lastYearData.weeklyBreakdown,
+              yoyHourlyData: hist.lastYearData.hourlyData,
+            }
+          : undefined,
+        hist.fourWeekAverage,
+        hist.holidayContext,
+      );
+
+      // Persist: living_projection = today's target (refresh each sync),
+      // initial_projection = seed if empty, pace_adjusted_projection = live pace.
+      const paceUpdate: Record<string, any> = {
+        pace_adjusted_projection: projections.todayPaceAdjusted,
+        pace_calculated_at: new Date().toISOString(),
+      };
+      if (projections.todayProjected > 0) {
+        paceUpdate.living_projection = projections.todayProjected;
+        // Only seed initial if missing (respect the "first projection wins" rule).
+        const { data: seedCheck } = await supabase
+          .from("sales_cache")
+          .select("initial_projection")
+          .eq("location_id", locationId)
+          .eq("sale_date", date)
+          .maybeSingle();
+        if (!seedCheck?.initial_projection || Number(seedCheck.initial_projection) <= 0) {
+          paceUpdate.initial_projection = projections.todayProjected;
+        }
+      }
+      await supabase
+        .from("sales_cache")
+        .update(paceUpdate)
+        .eq("location_id", locationId)
+        .eq("sale_date", date);
+
+      console.log(
+        `[clover-sync] pace for ${locationId} ${date}: ` +
+        `actual=$${agg.netSales.toFixed(0)}, target=$${projections.todayProjected.toFixed(0)}, ` +
+        `pace=$${projections.todayPaceAdjusted}`,
+      );
+    }
+  } catch (e) {
+    console.warn(`[clover-sync] pace calc skipped for ${date}:`, e);
   }
 
   return {

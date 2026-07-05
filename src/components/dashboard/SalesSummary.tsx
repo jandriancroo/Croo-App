@@ -504,6 +504,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       projections: {
         todayProjected: cached ? (resolveProjection(cached as any).value || 0) : 0,
         todaySource: cached ? resolveProjection(cached as any).source : null,
+        // Live pace value written by the POS adapter (clover-sync / qu sync).
+        // Absent for very old rows; UI falls back to actual sales when undefined.
+        todayPaceAdjusted: cached && (cached as any).pace_adjusted_projection
+          ? Number((cached as any).pace_adjusted_projection)
+          : undefined,
         weekProjected: weeklyProjected,
         monthProjected: monthlyProjected
       },

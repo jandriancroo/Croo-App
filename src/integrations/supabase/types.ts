@@ -9508,6 +9508,8 @@ export type Database = {
           override_at: string | null
           override_by: string | null
           override_projection: number | null
+          pace_adjusted_projection: number | null
+          pace_calculated_at: string | null
           payments_data: Json | null
           pizza_count: number
           pos_source: string
@@ -9536,6 +9538,8 @@ export type Database = {
           override_at?: string | null
           override_by?: string | null
           override_projection?: number | null
+          pace_adjusted_projection?: number | null
+          pace_calculated_at?: string | null
           payments_data?: Json | null
           pizza_count?: number
           pos_source?: string
@@ -9564,6 +9568,8 @@ export type Database = {
           override_at?: string | null
           override_by?: string | null
           override_projection?: number | null
+          pace_adjusted_projection?: number | null
+          pace_calculated_at?: string | null
           payments_data?: Json | null
           pizza_count?: number
           pos_source?: string
