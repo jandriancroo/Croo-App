@@ -218,7 +218,7 @@ export default function Messages() {
           <div className="flex-1 overflow-x-auto scrollbar-hide">
             <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           </div>
-          <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-10 w-10 rounded-full shrink-0">
+          <Button size="icon" onClick={handlePlusClick} className="h-10 w-10 rounded-full shrink-0">
             <Plus className="h-5 w-5" />
           </Button>
         </div>
