@@ -30,7 +30,7 @@ export function AnnouncementFeed() {
   const channelTabs = [{ id: 'all' as const, name: 'All', color: null as string | null }, ...channels.map(c => ({ id: c.id, name: c.name, color: c.color }))];
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-card">
+    <div className="flex flex-col h-full min-h-0 bg-muted/30">
       {/* Channel tabs */}
       {channelTabs.length > 1 && (
         <div className="shrink-0 px-3 pt-2 pb-2 border-b border-border overflow-x-auto scrollbar-hide">
