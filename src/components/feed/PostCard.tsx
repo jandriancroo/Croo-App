@@ -170,10 +170,14 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
           <MessageCircle className="h-3.5 w-3.5" />
           {post.comment_count} {post.comment_count === 1 ? 'comment' : 'comments'}
         </button>
-        <div className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onOpenSeenBy(post)}
+          className="inline-flex items-center gap-1.5 hover:text-foreground"
+        >
           <Eye className="h-3.5 w-3.5" />
           {post.seen_count} seen
-        </div>
+        </button>
       </div>
 
       {/* Reactions */}
