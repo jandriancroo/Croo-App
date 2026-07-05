@@ -3,10 +3,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Eye, Pin, MoreHorizontal, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { ReactionBar } from './ReactionBar';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { InlineComments } from './InlineComments';
 
 interface PostCardProps {
   post: FeedPost;
