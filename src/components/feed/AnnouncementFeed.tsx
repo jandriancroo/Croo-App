@@ -18,6 +18,7 @@ export function AnnouncementFeed() {
   const [activeChannel, setActiveChannel] = useState<string | 'all'>('all');
   const [composerOpen, setComposerOpen] = useState(false);
   const [openPost, setOpenPost] = useState<FeedPost | null>(null);
+  const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
   const { posts, channels, isLoading, toggleReaction, createPost, deletePost, markSeen } = useAnnouncementFeed(activeChannel);
 
