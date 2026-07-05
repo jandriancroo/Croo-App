@@ -47,7 +47,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
 
   return (
     <article
-      className="bg-accent/60 border border-border/60 rounded-2xl overflow-hidden shadow-sm transition-colors hover:bg-accent/80"
+      className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-colors hover:bg-muted/50"
     >
       {/* Header */}
       <header className="flex items-start gap-3 px-4 pt-4 pb-2">
