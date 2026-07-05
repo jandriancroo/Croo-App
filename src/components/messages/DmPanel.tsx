@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, MessageCircle, Briefcase, Headphones, Users, ArrowLeft, Plus } from 'lucide-react';
@@ -27,11 +27,23 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
     showHiringTab, showSupportTab,
     chats, selectedChatId, setSelectedChatId,
     isNewChatOpen, setIsNewChatOpen,
-    filteredChats, loading, searchQuery,
+    loading,
     selectedHiringConversation, setSelectedHiringConversation,
     pendingHiringApplicationId, setPendingHiringApplicationId,
-    fetchChats, handleSearch, handleTogglePin,
+    fetchChats, handleTogglePin,
   } = data;
+
+  // DM-scoped search, independent of feed viewMode
+  const [dmSearch, setDmSearch] = useState('');
+  const dmChats = useMemo(() => {
+    const base = chats.filter(c => !c.is_announcement);
+    const q = dmSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(c =>
+      (c.title ?? '').toLowerCase().includes(q) ||
+      (c.messagePreview ?? '').toLowerCase().includes(q)
+    );
+  }, [chats, dmSearch]);
 
   const steps: { id: Step; label: string; icon: any }[] = [
     { id: 'dms', label: 'Direct messages', icon: MessageCircle },
@@ -59,16 +71,16 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
   const dmListPanel = (
     <div className="relative flex-1 min-h-0 flex flex-col">
       <ChatList
-        chats={filteredChats.filter(c => !c.is_announcement)}
+        chats={dmChats}
         selectedChatId={selectedChatId}
         onSelectChat={setSelectedChatId}
         onTogglePin={handleTogglePin}
         loading={loading}
-        searchQuery={searchQuery}
+        searchQuery={dmSearch}
         currentUserId={currentUserId}
       />
       <div className="p-2 border-t border-border">
-        <ChatSearch onSearch={handleSearch} placeholder="Search chats..." />
+        <ChatSearch onSearch={setDmSearch} placeholder="Search chats..." />
       </div>
       <Button
         size="icon"
