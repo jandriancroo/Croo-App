@@ -106,6 +106,7 @@ export interface FeedChannel {
   color: string | null;
   icon: string | null;
   sort_order: number;
+  audience_type: 'everyone' | 'managers' | string;
 }
 
 const POSTS_KEY = (locationId: string | null) => ['announcement-feed', locationId];
@@ -128,7 +129,7 @@ export function useAnnouncementFeed(
     queryFn: async (): Promise<FeedChannel[]> => {
       const { data, error } = await supabase
         .from('announcement_channels')
-        .select('id, name, slug, color, icon, sort_order')
+        .select('id, name, slug, color, icon, sort_order, audience_type')
         .or(`location_id.eq.${locationId},and(location_id.is.null,brand_id.not.is.null)`)
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
@@ -301,13 +302,15 @@ export function useAnnouncementFeed(
       }).select().single();
       if (error) throw error;
 
-      // Push notification to location members (excluding author)
+      // Push notification to users who qualify for this channel's audience (excluding author)
       try {
-        const { data: locUsers } = await supabase
-          .from('user_locations')
-          .select('user_id')
-          .eq('location_id', locationId);
-        const recipients = (locUsers ?? []).map((u: any) => u.user_id).filter((id: string) => id !== user.id);
+        const { data: audienceRows } = await supabase.rpc('feed_channel_audience_recipients', {
+          _location_id: locationId,
+          _channel_id: channelId,
+        });
+        const recipients = ((audienceRows as any[]) ?? [])
+          .map((r: any) => r.user_id ?? r)
+          .filter((id: string) => id && id !== user.id);
         if (recipients.length) {
           const { data: prof } = await supabase
             .from('profiles')
@@ -322,7 +325,7 @@ export function useAnnouncementFeed(
               title: isAnnouncement ? `📢 ${senderName}` : senderName,
               body: (body || 'Shared a post').substring(0, 140),
               notification_type: isAnnouncement ? 'announcements' : 'chat_messages',
-              data: { post_id: (data as any)?.id, location_id: locationId, type: isAnnouncement ? 'announcement' : 'feed_post' },
+              data: { post_id: (data as any)?.id, location_id: locationId, channel_id: channelId ?? null, type: isAnnouncement ? 'announcement' : 'feed_post' },
             },
           });
         }
@@ -442,18 +445,28 @@ export function useAnnouncementComments(postId: string | null, opts?: { subscrib
       });
       if (error) throw error;
 
-      // Notify post author + prior commenters (excluding self)
+      // Notify post author + prior commenters, filtered to post's channel audience (excluding self)
       try {
         const [{ data: post }, { data: priors }, { data: prof }] = await Promise.all([
-          supabase.from('announcement_posts').select('author_id, body, location_id').eq('id', postId).maybeSingle(),
+          supabase.from('announcement_posts').select('author_id, body, location_id, channel_id').eq('id', postId).maybeSingle(),
           supabase.from('announcement_comments').select('author_id').eq('post_id', postId).is('deleted_at', null),
           supabase.from('profiles').select('full_name, nickname').eq('id', user.id).maybeSingle(),
         ]);
-        const recipientSet = new Set<string>();
-        if ((post as any)?.author_id) recipientSet.add((post as any).author_id);
-        for (const c of priors ?? []) recipientSet.add((c as any).author_id);
-        recipientSet.delete(user.id);
-        const recipients = Array.from(recipientSet);
+        const candidateSet = new Set<string>();
+        if ((post as any)?.author_id) candidateSet.add((post as any).author_id);
+        for (const c of priors ?? []) candidateSet.add((c as any).author_id);
+        candidateSet.delete(user.id);
+        let recipients = Array.from(candidateSet);
+
+        if (recipients.length && (post as any)?.location_id) {
+          const { data: audienceRows } = await supabase.rpc('feed_channel_audience_recipients', {
+            _location_id: (post as any).location_id,
+            _channel_id: (post as any).channel_id ?? null,
+          });
+          const allowed = new Set(((audienceRows as any[]) ?? []).map((r: any) => r.user_id ?? r));
+          recipients = recipients.filter(id => allowed.has(id));
+        }
+
         if (recipients.length) {
           const senderName = (prof as any)?.nickname || (prof as any)?.full_name || 'Someone';
           await supabase.functions.invoke('send-push-notification', {
