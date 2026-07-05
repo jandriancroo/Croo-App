@@ -27,11 +27,23 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
     showHiringTab, showSupportTab,
     chats, selectedChatId, setSelectedChatId,
     isNewChatOpen, setIsNewChatOpen,
-    filteredChats, loading, searchQuery,
+    loading,
     selectedHiringConversation, setSelectedHiringConversation,
     pendingHiringApplicationId, setPendingHiringApplicationId,
-    fetchChats, handleSearch, handleTogglePin,
+    fetchChats, handleTogglePin,
   } = data;
+
+  // DM-scoped search, independent of feed viewMode
+  const [dmSearch, setDmSearch] = useState('');
+  const dmChats = useMemo(() => {
+    const base = chats.filter(c => !c.is_announcement);
+    const q = dmSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(c =>
+      (c.title ?? '').toLowerCase().includes(q) ||
+      (c.messagePreview ?? '').toLowerCase().includes(q)
+    );
+  }, [chats, dmSearch]);
 
   const steps: { id: Step; label: string; icon: any }[] = [
     { id: 'dms', label: 'Direct messages', icon: MessageCircle },
