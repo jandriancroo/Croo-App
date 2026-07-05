@@ -119,6 +119,10 @@ export function AnnouncementFeed() {
         onOpenChange={(o) => { if (!o) setOpenPost(null); }}
         onToggleReaction={toggleReaction}
         onMarkSeen={markSeen}
+      <SeenByDialog
+        post={seenByPost}
+        canRemind={canPost}
+        onOpenChange={(o) => { if (!o) setSeenByPost(null); }}
       />
     </div>
   );
