@@ -214,7 +214,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
       <PostComposer
         open={composerOpen}
         onOpenChange={setComposerOpen}
-        channels={[]}
+        channels={composerChannels}
         badges={badges}
         canAnnounce={canAnnounce}
         canCreateBadges={canCreateBadges}
