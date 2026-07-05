@@ -83,7 +83,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
             <div className="flex justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : posts.length === 0 ? (
+          ) : posts.length === 0 && openShiftOffers.length === 0 ? (
             <div className="text-center py-16 px-6">
               <div className="inline-flex h-14 w-14 rounded-2xl bg-primary/10 items-center justify-center mb-4">
                 <Megaphone className="h-7 w-7 text-primary" />
