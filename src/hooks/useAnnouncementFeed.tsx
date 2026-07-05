@@ -155,7 +155,7 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
       const authorMap = new Map((authors ?? []).map((a: any) => [a.id, a]));
       const channelMap = new Map((channels ?? []).map((c: any) => [c.id, c]));
 
-      return posts.map(p => {
+      const built = posts.map(p => {
         const rxs = (reactions ?? []).filter((r: any) => r.post_id === p.id);
         const grouped: Record<string, { count: number; mine: boolean }> = {};
         for (const r of rxs) {
@@ -175,6 +175,13 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
           seen_by_me: postReads.some((r: any) => r.user_id === user!.id),
         } as FeedPost;
       });
+
+      // Sign private storage URLs so <img>/<a> tags can load them.
+      await Promise.all(built.map(async (post) => {
+        post.media = await signMediaUrls(post.media);
+      }));
+
+      return built;
     },
   });
 
