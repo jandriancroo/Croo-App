@@ -14,9 +14,54 @@ export interface FeedAuthor {
 
 export interface FeedMedia {
   url: string;
-  type: 'image';
+  type: 'image' | 'file';
+  name?: string;
+  mime?: string;
   width?: number;
   height?: number;
+}
+
+// --- Private storage URL signing ---
+// Legacy attachments point at private buckets via /object/public/ URLs which 404.
+// Re-sign them so <img>/<a> tags can load them.
+const PRIVATE_BUCKETS = new Set(['message-attachments', 'announcement-media']);
+const signedCache = new Map<string, { url: string; exp: number }>();
+
+function parseStorageUrl(url: string): { bucket: string; path: string } | null {
+  const m = url.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+?)(\?.*)?$/);
+  if (!m) return null;
+  return { bucket: m[1], path: decodeURIComponent(m[2]) };
+}
+
+async function signMediaUrls(media: FeedMedia[]): Promise<FeedMedia[]> {
+  if (!media?.length) return media;
+  const now = Date.now();
+  const byBucket = new Map<string, { idx: number; path: string }[]>();
+  const out = media.map(m => ({ ...m }));
+
+  out.forEach((m, idx) => {
+    const parsed = parseStorageUrl(m.url);
+    if (!parsed || !PRIVATE_BUCKETS.has(parsed.bucket)) return;
+    const cacheKey = `${parsed.bucket}/${parsed.path}`;
+    const hit = signedCache.get(cacheKey);
+    if (hit && hit.exp > now) { out[idx].url = hit.url; return; }
+    if (!byBucket.has(parsed.bucket)) byBucket.set(parsed.bucket, []);
+    byBucket.get(parsed.bucket)!.push({ idx, path: parsed.path });
+  });
+
+  const expiresIn = 60 * 60; // 1h
+  await Promise.all(Array.from(byBucket.entries()).map(async ([bucket, entries]) => {
+    const paths = entries.map(e => e.path);
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrls(paths, expiresIn);
+    if (error || !data) return;
+    data.forEach((row: any, i) => {
+      if (!row?.signedUrl) return;
+      out[entries[i].idx].url = row.signedUrl;
+      signedCache.set(`${bucket}/${entries[i].path}`, { url: row.signedUrl, exp: now + (expiresIn - 60) * 1000 });
+    });
+  }));
+
+  return out;
 }
 
 export interface FeedPost {
