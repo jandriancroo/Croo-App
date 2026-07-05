@@ -441,6 +441,35 @@ export function useAnnouncementComments(postId: string | null, opts?: { subscrib
         post_id: postId, author_id: user.id, body, parent_comment_id: parentId ?? null,
       });
       if (error) throw error;
+
+      // Notify post author + prior commenters (excluding self)
+      try {
+        const [{ data: post }, { data: priors }, { data: prof }] = await Promise.all([
+          supabase.from('announcement_posts').select('author_id, body, location_id').eq('id', postId).maybeSingle(),
+          supabase.from('announcement_comments').select('author_id').eq('post_id', postId).is('deleted_at', null),
+          supabase.from('profiles').select('full_name, nickname').eq('id', user.id).maybeSingle(),
+        ]);
+        const recipientSet = new Set<string>();
+        if ((post as any)?.author_id) recipientSet.add((post as any).author_id);
+        for (const c of priors ?? []) recipientSet.add((c as any).author_id);
+        recipientSet.delete(user.id);
+        const recipients = Array.from(recipientSet);
+        if (recipients.length) {
+          const senderName = (prof as any)?.nickname || (prof as any)?.full_name || 'Someone';
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: recipients,
+              sender_id: user.id,
+              title: `${senderName} commented`,
+              body: (body || '').substring(0, 140),
+              notification_type: 'chat_messages',
+              data: { post_id: postId, location_id: (post as any)?.location_id ?? null, type: 'feed_comment' },
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Feed comment push notification error:', err);
+      }
     },
     onError: (e: any) => toast.error(e.message ?? 'Comment failed'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] }),
