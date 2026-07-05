@@ -13,6 +13,7 @@ interface PostCardProps {
   currentUserId: string | null;
   canModerate: boolean;
   onOpen: (post: FeedPost) => void;
+  onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
 }
@@ -32,7 +33,7 @@ function friendlyFileName(m: { name?: string; url: string }) {
   } catch { return 'Attachment'; }
 }
 
-function PostCardImpl({ post, currentUserId, canModerate, onOpen, onToggleReaction, onDelete }: PostCardProps) {
+function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, onToggleReaction, onDelete }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
@@ -169,10 +170,14 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onToggleReacti
           <MessageCircle className="h-3.5 w-3.5" />
           {post.comment_count} {post.comment_count === 1 ? 'comment' : 'comments'}
         </button>
-        <div className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onOpenSeenBy(post)}
+          className="inline-flex items-center gap-1.5 hover:text-foreground"
+        >
           <Eye className="h-3.5 w-3.5" />
           {post.seen_count} seen
-        </div>
+        </button>
       </div>
 
       {/* Reactions */}
