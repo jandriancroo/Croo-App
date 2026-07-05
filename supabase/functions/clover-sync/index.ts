@@ -5,6 +5,13 @@
 // Brand guard: hard-refuses any location whose organization is not Playa Bowls.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  fetchHistoricalDataFromCache,
+  generateHourlyProjections,
+  generateProjections,
+  getCurrentHourInTimezone,
+  getCurrentMinutesInTimezone,
+} from "../_shared/projections.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
