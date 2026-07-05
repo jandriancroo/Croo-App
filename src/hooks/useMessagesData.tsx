@@ -53,7 +53,7 @@ export function useMessagesData() {
   const [showChatList, setShowChatList] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('announcements');
   const [isNewActionOpen, setIsNewActionOpen] = useState(false);
   const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
   const [pendingHiringApplicationId, setPendingHiringApplicationId] = useState<string | null>(null);
