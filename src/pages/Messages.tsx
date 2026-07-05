@@ -188,7 +188,12 @@ export default function Messages() {
           <div className="mb-2">
             <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           </div>
-          <div className="flex-1 min-h-0 border-r border-border bg-card rounded-lg p-4 flex flex-col">
+          <div className={cn(
+            "flex-1 min-h-0 flex flex-col",
+            viewMode === 'announcements'
+              ? "bg-transparent"
+              : "border-r border-border bg-card rounded-lg p-4"
+          )}>
             {chatListContent}
           </div>
         </div>
