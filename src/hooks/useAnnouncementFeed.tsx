@@ -287,7 +287,7 @@ export function useAnnouncementFeed(
       badgeId?: string | null; isAnnouncement?: boolean;
     }) => {
       if (!user || !locationId) throw new Error('Missing context');
-      const { data: locRow } = await supabase.from('locations').select('brand_id').eq('id', locationId).single();
+      const { data: locRow } = await supabase.from('locations').select('brand_id, name').eq('id', locationId).single();
       const { data, error } = await supabase.from('announcement_posts').insert({
         author_id: user.id,
         location_id: locationId,
@@ -300,6 +300,36 @@ export function useAnnouncementFeed(
         pinned: !!pinned,
       }).select().single();
       if (error) throw error;
+
+      // Push notification to location members (excluding author)
+      try {
+        const { data: locUsers } = await supabase
+          .from('user_locations')
+          .select('user_id')
+          .eq('location_id', locationId);
+        const recipients = (locUsers ?? []).map((u: any) => u.user_id).filter((id: string) => id !== user.id);
+        if (recipients.length) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('full_name, nickname')
+            .eq('id', user.id)
+            .single();
+          const senderName = (prof as any)?.nickname || (prof as any)?.full_name || 'Team';
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: recipients,
+              sender_id: user.id,
+              title: isAnnouncement ? `📢 ${senderName}` : senderName,
+              body: (body || 'Shared a post').substring(0, 140),
+              notification_type: isAnnouncement ? 'announcements' : 'chat_messages',
+              data: { post_id: (data as any)?.id, location_id: locationId, type: isAnnouncement ? 'announcement' : 'feed_post' },
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Feed post push notification error:', err);
+      }
+
       return data;
     },
     onSuccess: () => {
