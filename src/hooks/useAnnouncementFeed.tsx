@@ -64,12 +64,26 @@ async function signMediaUrls(media: FeedMedia[]): Promise<FeedMedia[]> {
   return out;
 }
 
+export interface FeedBadge {
+  id: string;
+  label: string;
+  tier: 'team' | 'manager';
+  color: string | null;
+  is_active: boolean;
+  sort_order: number;
+  location_id: string | null;
+  brand_id: string | null;
+  created_by: string | null;
+}
+
 export interface FeedPost {
   id: string;
   author_id: string;
   brand_id: string | null;
   location_id: string | null;
   channel_id: string | null;
+  badge_id: string | null;
+  is_announcement: boolean;
   body: string;
   media: FeedMedia[];
   pinned: boolean;
@@ -78,6 +92,7 @@ export interface FeedPost {
   edited_at: string | null;
   author: FeedAuthor | null;
   channel: { id: string; name: string; color: string | null } | null;
+  badge: FeedBadge | null;
   reactions: { emoji: string; count: number; mine: boolean }[];
   comment_count: number;
   seen_count: number;
@@ -95,6 +110,7 @@ export interface FeedChannel {
 
 const POSTS_KEY = (locationId: string | null) => ['announcement-feed', locationId];
 const CHANNELS_KEY = (locationId: string | null) => ['announcement-channels', locationId];
+const BADGES_KEY = (locationId: string | null) => ['feed-badges', locationId];
 
 export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
   const { user } = useAuth();
