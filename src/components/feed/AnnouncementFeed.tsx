@@ -7,6 +7,7 @@ import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed'
 import { PostCard } from './PostCard';
 import { PostComposer } from './PostComposer';
 import { PostDetailSheet } from './PostDetailSheet';
+import { SeenByDialog } from './SeenByDialog';
 
 export function AnnouncementFeed() {
   const { user } = useAuth();
