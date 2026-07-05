@@ -19,6 +19,7 @@ interface PostComposerProps {
 
 export function PostComposer({ open, onOpenChange, channels, onSubmit }: PostComposerProps) {
   const { user } = useAuth();
+  const photoRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState('');
   const [media, setMedia] = useState<FeedMedia[]>([]);
@@ -29,25 +30,37 @@ export function PostComposer({ open, onOpenChange, channels, onSubmit }: PostCom
 
   const reset = () => { setBody(''); setMedia([]); setChannelId(null); setPinned(false); };
 
-  const handleFiles = async (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null, kind: 'image' | 'file') => {
     if (!files || !user) return;
     setUploading(true);
     try {
       const uploaded: FeedMedia[] = [];
-      for (const file of Array.from(files).slice(0, 4 - media.length)) {
-        if (!file.type.startsWith('image/')) continue;
-        const ext = file.name.split('.').pop() || 'jpg';
-        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error } = await supabase.storage.from('announcement-media').upload(path, file, { upsert: false });
+      const remaining = Math.max(0, 8 - media.length);
+      for (const file of Array.from(files).slice(0, remaining)) {
+        if (kind === 'image' && !file.type.startsWith('image/')) continue;
+        if (file.size > 25 * 1024 * 1024) { toast.error(`${file.name} is over 25MB`); continue; }
+        const ext = file.name.split('.').pop() || (kind === 'image' ? 'jpg' : 'bin');
+        const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60);
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeBase}`;
+        const { error } = await supabase.storage.from('announcement-media').upload(path, file, { upsert: false, contentType: file.type || undefined });
         if (error) throw error;
         const { data: signed } = await supabase.storage.from('announcement-media').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-        if (signed?.signedUrl) uploaded.push({ url: signed.signedUrl, type: 'image' });
+        if (signed?.signedUrl) {
+          const isImage = kind === 'image' || file.type.startsWith('image/');
+          uploaded.push({
+            url: signed.signedUrl,
+            type: isImage ? 'image' : 'file',
+            name: file.name,
+            mime: file.type || undefined,
+          });
+        }
       }
       setMedia(m => [...m, ...uploaded]);
     } catch (e: any) {
       toast.error(e.message ?? 'Upload failed');
     } finally {
       setUploading(false);
+      if (photoRef.current) photoRef.current.value = '';
       if (fileRef.current) fileRef.current.value = '';
     }
   };
