@@ -180,6 +180,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                       onOpenSeenBy={setSeenByPost}
                       onToggleReaction={toggleReaction}
                       onDelete={(id) => deletePost(id)}
+                      onMarkSeen={markSeen}
                     />
                   ))}
                   {regularPosts.length > 0 && (
@@ -197,6 +198,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                   onOpenSeenBy={setSeenByPost}
                   onToggleReaction={toggleReaction}
                   onDelete={(id) => deletePost(id)}
+                  onMarkSeen={markSeen}
                 />
               ))}
             </>

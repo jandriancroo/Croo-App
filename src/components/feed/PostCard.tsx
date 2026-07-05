@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Eye, Pin, MoreHorizontal, Paperclip } from 'lucide-react';
@@ -16,6 +16,7 @@ interface PostCardProps {
   onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
+  onMarkSeen?: (postId: string) => void;
 }
 
 const BODY_TRUNCATE_CHARS = 320;
@@ -33,7 +34,7 @@ function friendlyFileName(m: { name?: string; url: string }) {
   } catch { return 'Attachment'; }
 }
 
-function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, onToggleReaction, onDelete }: PostCardProps) {
+function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, onToggleReaction, onDelete, onMarkSeen }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
@@ -45,8 +46,30 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
     ? post.body
     : post.body.slice(0, BODY_TRUNCATE_CHARS).replace(/\s+\S*$/, '') + '…';
 
+  // Mark as seen when scrolled into view (once per post per session)
+  const rootRef = useRef<HTMLElement | null>(null);
+  const markedRef = useRef(false);
+  useEffect(() => {
+    if (!onMarkSeen || post.seen_by_me || markedRef.current || isMine) return;
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting && e.intersectionRatio >= 0.5 && !markedRef.current) {
+          markedRef.current = true;
+          onMarkSeen(post.id);
+          io.disconnect();
+          break;
+        }
+      }
+    }, { threshold: [0.5] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [post.id, post.seen_by_me, isMine, onMarkSeen]);
+
   return (
     <article
+      ref={rootRef}
       className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-colors hover:bg-muted/50"
     >
       {/* Header */}
