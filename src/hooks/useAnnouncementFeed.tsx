@@ -121,7 +121,7 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
         const postReads = (reads ?? []).filter((r: any) => r.post_id === p.id);
         return {
           ...p,
-          media: (Array.isArray(p.media) ? p.media : []) as FeedMedia[],
+          media: (Array.isArray(p.media) ? p.media : []) as unknown as FeedMedia[],
           author: authorMap.get(p.author_id) ?? null,
           channel: p.channel_id ? channelMap.get(p.channel_id) ?? null : null,
           reactions: Object.entries(grouped).map(([emoji, v]) => ({ emoji, ...v })),
