@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Trash2, Loader2 } from 'lucide-react';
+import { Send, Trash2, Loader2, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ReactionBar } from './ReactionBar';
 import { useAnnouncementComments, type FeedPost } from '@/hooks/useAnnouncementFeed';
@@ -42,6 +42,12 @@ export function PostDetailSheet({ post, currentUserId, canModerate, onOpenChange
 
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const images = post.media.filter(m => m.type === 'image');
+  const files = post.media.filter(m => m.type !== 'image');
+  const friendlyFileName = (m: { name?: string; url: string }) => {
+    if (m.name) return decodeURIComponent(m.name);
+    try { return decodeURIComponent(new URL(m.url).pathname.split('/').pop() || 'Attachment'); }
+    catch { return 'Attachment'; }
+  };
 
   const handleSend = async () => {
     if (!draft.trim() || sending) return;
@@ -78,12 +84,29 @@ export function PostDetailSheet({ post, currentUserId, canModerate, onOpenChange
               </div>
             </div>
 
-            {post.body && <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words mb-3">{post.body}</div>}
-
             {images.length > 0 && (
-              <div className={cn('grid gap-1 rounded-lg overflow-hidden', images.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+              <div className={cn('grid gap-1 rounded-lg overflow-hidden mb-3', images.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
                 {images.map((m, i) => (
                   <img key={i} src={m.url} alt="" className="w-full aspect-square object-cover" loading="lazy" />
+                ))}
+              </div>
+            )}
+
+            {post.body && <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words mb-3">{post.body}</div>}
+
+            {files.length > 0 && (
+              <div className="flex flex-col gap-1.5 mb-3">
+                {files.map((m, i) => (
+                  <a
+                    key={i}
+                    href={m.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 hover:bg-muted px-3 py-2 text-sm min-w-0"
+                  >
+                    <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{friendlyFileName(m)}</span>
+                  </a>
                 ))}
               </div>
             )}
