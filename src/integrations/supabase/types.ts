@@ -12408,6 +12408,10 @@ export type Database = {
       set_pending_punch_pin: { Args: { p_pin: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      soft_delete_announcement_post: {
+        Args: { _post_id: string }
+        Returns: undefined
+      }
       toggle_widget_hidden_for_self: {
         Args: { _widget_id: string }
         Returns: boolean

@@ -262,14 +262,8 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
 
   const deletePost = useMutation({
     mutationFn: async (postId: string) => {
-      const { data, error } = await supabase
-        .from('announcement_posts')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', postId)
-        .select('id');
+      const { error } = await supabase.rpc('soft_delete_announcement_post', { _post_id: postId });
       if (error) throw error;
-      if (!data || data.length === 0) throw new Error('Not allowed to delete this post');
-      return data;
     },
     onSuccess: () => {
       toast.success('Post deleted');
