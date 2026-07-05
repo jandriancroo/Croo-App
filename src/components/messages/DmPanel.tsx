@@ -163,21 +163,21 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
           side={isMobile ? 'bottom' : 'right'}
           className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col'}
         >
-          <SheetHeader className="px-3 pt-4 pb-2 border-b border-border shrink-0">
-            <div className="flex items-center justify-between">
+          <SheetHeader className="px-3 pt-4 pb-2 pr-12 border-b border-border shrink-0">
+            <div className="flex items-center justify-between gap-2">
               {steps.length > 1 ? (
-                <Button variant="ghost" size="icon" onClick={goPrev} className="h-8 w-8">
+                <Button variant="ghost" size="icon" onClick={goPrev} className="h-8 w-8 shrink-0">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-              ) : <div className="h-8 w-8" />}
-              <SheetTitle className="flex items-center gap-2 text-base">
-                <Icon className="h-4 w-4" /> {current.label}
+              ) : <div className="h-8 w-8 shrink-0" />}
+              <SheetTitle className="flex items-center gap-2 text-base min-w-0 truncate">
+                <Icon className="h-4 w-4 shrink-0" /> <span className="truncate">{current.label}</span>
               </SheetTitle>
               {steps.length > 1 ? (
-                <Button variant="ghost" size="icon" onClick={goNext} className="h-8 w-8">
+                <Button variant="ghost" size="icon" onClick={goNext} className="h-8 w-8 shrink-0">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-              ) : <div className="h-8 w-8" />}
+              ) : <div className="h-8 w-8 shrink-0" />}
             </div>
             {steps.length > 1 && (
               <div className="flex items-center justify-center gap-1 pt-1">
