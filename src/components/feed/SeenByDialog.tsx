@@ -35,38 +35,25 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
     (async () => {
       setLoading(true);
       try {
-        const audienceQuery = post.location_id
-          ? supabase
-              .from('user_locations')
-              .select('user_id, profiles:profiles!inner(id, full_name, nickname, profile_photo_url)')
-              .eq('location_id', post.location_id)
-          : supabase
-              .from('brand_members')
-              .select('user_id, profiles:profiles!inner(id, full_name, nickname, profile_photo_url)')
-              .eq('brand_id', post.brand_id!);
+        const audienceRes = post.location_id
+          ? await supabase.from('user_locations').select('user_id').eq('location_id', post.location_id)
+          : await supabase.from('brand_members').select('user_id').eq('brand_id', post.brand_id!);
+        const userIds = Array.from(new Set((audienceRes.data ?? []).map((r: any) => r.user_id)));
 
-        const [audRes, readsRes] = await Promise.all([
-          audienceQuery,
-          supabase
-            .from('announcement_reads')
-            .select('user_id, opened_at')
-            .eq('post_id', post.id),
+        const [profilesRes, readsRes] = await Promise.all([
+          userIds.length
+            ? supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', userIds)
+            : Promise.resolve({ data: [] as any[] }),
+          supabase.from('announcement_reads').select('user_id, opened_at').eq('post_id', post.id),
         ]);
         if (cancelled) return;
 
-        const seen = new Map<string, Member>();
-        (audRes.data ?? []).forEach((r: any) => {
-          const p = r.profiles;
-          if (p && !seen.has(p.id)) {
-            seen.set(p.id, {
-              user_id: p.id,
-              full_name: p.full_name,
-              nickname: p.nickname,
-              profile_photo_url: p.profile_photo_url,
-            });
-          }
-        });
-        setMembers(Array.from(seen.values()));
+        setMembers(((profilesRes.data ?? []) as any[]).map(p => ({
+          user_id: p.id,
+          full_name: p.full_name,
+          nickname: p.nickname,
+          profile_photo_url: p.profile_photo_url,
+        })));
         const rmap: Record<string, string> = {};
         (readsRes.data ?? []).forEach((r: any) => { rmap[r.user_id] = r.opened_at; });
         setReads(rmap);
