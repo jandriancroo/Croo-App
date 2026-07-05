@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Plus, Megaphone, Loader2, Pin } from 'lucide-react';
+import { Megaphone, Loader2, Pin, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed';
@@ -10,19 +11,37 @@ import { PostComposer } from './PostComposer';
 import { PostDetailSheet } from './PostDetailSheet';
 import { SeenByDialog } from './SeenByDialog';
 import { ShiftOfferMessage } from '@/components/messages/ShiftOfferMessage';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface AnnouncementFeedProps {
   composerOpen?: boolean;
   onComposerOpenChange?: (open: boolean) => void;
 }
 
+function useCurrentProfile(userId: string | null) {
+  return useQuery({
+    queryKey: ['profile-mini', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, nickname, profile_photo_url')
+        .eq('id', userId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+}
+
 export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin } = useUserRole();
-  const canPost = isAdmin || isManager || isSuperAdmin;
+  const canAnnounce = isAdmin || isManager || isSuperAdmin;
+  const canCreateBadges = isAdmin || isManager || isSuperAdmin;
   const canModerate = isAdmin || isSuperAdmin;
 
-  const [activeChannel, setActiveChannel] = useState<string | 'all'>('all');
+  const [activeBadge, setActiveBadge] = useState<string | 'all'>('all');
   const [internalComposerOpen, setInternalComposerOpen] = useState(false);
   const composerOpen = composerOpenProp ?? internalComposerOpen;
   const setComposerOpen = (o: boolean) => {
@@ -32,8 +51,11 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   const [openPost, setOpenPost] = useState<FeedPost | null>(null);
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
-  const { posts, channels, isLoading, toggleReaction, createPost, deletePost, markSeen } = useAnnouncementFeed(activeChannel);
+  const {
+    posts, badges, isLoading, toggleReaction, createPost, createBadge, deletePost, markSeen,
+  } = useAnnouncementFeed('all', activeBadge);
   const { offers: openShiftOffers } = useOpenShiftOffers();
+  const { data: me } = useCurrentProfile(user?.id ?? null);
 
   const pinnedPosts = useMemo(() => posts.filter(p => p.pinned), [posts]);
   const regularPosts = useMemo(() => posts.filter(p => !p.pinned), [posts]);
@@ -44,41 +66,73 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
     return posts.find(p => p.id === openPost.id) ?? openPost;
   }, [openPost, posts]);
 
-  // If parent tries to open composer but user can't post, close it
   useEffect(() => {
-    if (composerOpen && !canPost) setComposerOpen(false);
+    // Everyone can post; keep this as a no-op guard in case parent triggers composer when unauthed.
+    if (composerOpen && !user) setComposerOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [composerOpen, canPost]);
+  }, [composerOpen, user]);
 
-  const channelTabs = [{ id: 'all' as const, name: 'All', color: null as string | null }, ...channels.map(c => ({ id: c.id, name: c.name, color: c.color }))];
+  const displayName = me?.nickname || me?.full_name || 'You';
+  const initials = displayName.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('') || '?';
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Channel tabs */}
-      {channelTabs.length > 1 && (
-        <div className="shrink-0 px-3 pt-2 pb-2 border-b border-border overflow-x-auto scrollbar-hide">
-          <div className="flex gap-1.5 min-w-max">
-            {channelTabs.map(t => {
-              const active = activeChannel === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveChannel(t.id as any)}
-                  className={`px-3 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                    active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  {t.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Feed list */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="px-0 py-2 space-y-2.5 md:py-3 md:space-y-3">
+        <div className="px-0 pt-2 pb-3 space-y-3 md:pt-3 md:space-y-3">
+          {/* Inline composer trigger */}
+          {user && (
+            <button
+              type="button"
+              onClick={() => setComposerOpen(true)}
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3 shadow-sm hover:bg-muted/60 transition-colors text-left"
+            >
+              <Avatar className="h-10 w-10 shrink-0">
+                <AvatarImage src={me?.profile_photo_url ?? undefined} alt={displayName} />
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
+              </Avatar>
+              <span className="flex-1 text-muted-foreground text-[15px]">Share something with the team…</span>
+              <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-primary text-primary-foreground shrink-0">
+                <Plus className="h-4 w-4" />
+              </span>
+            </button>
+          )}
+
+          {/* Badge filter row */}
+          {badges.length > 0 && (
+            <div className="-mx-1 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-1.5 min-w-max px-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveBadge('all')}
+                  className={`px-3 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    activeBadge === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  All
+                </button>
+                {badges.map(b => {
+                  const active = activeBadge === b.id;
+                  const color = b.color ?? '#3B82F6';
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setActiveBadge(b.id)}
+                      className="px-3 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-colors border"
+                      style={active
+                        ? { backgroundColor: color, color: 'white', borderColor: color }
+                        : { backgroundColor: `${color}14`, color, borderColor: 'transparent' }
+                      }
+                    >
+                      {b.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -90,18 +144,16 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
               </div>
               <h3 className="font-semibold text-lg mb-1">No posts yet</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                {canPost ? 'Share the first update with your team.' : 'Check back soon for team updates.'}
+                Share the first update with your team.
               </p>
-              {canPost && (
-                <Button onClick={() => setComposerOpen(true)}>
-                  <Plus className="h-4 w-4 mr-1" /> New post
-                </Button>
-              )}
+              <Button onClick={() => setComposerOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> New post
+              </Button>
             </div>
           ) : (
             <>
               {hasPinnedStrip && (
-                <div className="space-y-2.5 md:space-y-3">
+                <div className="space-y-3">
                   <div className="flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <Pin className="h-3 w-3" /> Pinned
                   </div>
@@ -156,8 +208,12 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
       <PostComposer
         open={composerOpen}
         onOpenChange={setComposerOpen}
-        channels={channels}
+        channels={[]}
+        badges={badges}
+        canAnnounce={canAnnounce}
+        canCreateBadges={canCreateBadges}
         onSubmit={createPost}
+        onCreateBadge={createBadge}
       />
 
       <PostDetailSheet
@@ -171,10 +227,9 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
 
       <SeenByDialog
         post={seenByPost}
-        canRemind={canPost}
+        canRemind={canAnnounce}
         onOpenChange={(o) => { if (!o) setSeenByPost(null); }}
       />
     </div>
   );
 }
-
