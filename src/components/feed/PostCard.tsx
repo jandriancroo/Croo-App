@@ -60,6 +60,19 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm">{authorName}</span>
+            {post.is_announcement && (
+              <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                Announcement
+              </span>
+            )}
+            {post.badge && (
+              <span
+                className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: `${post.badge.color ?? '#3B82F6'}22`, color: post.badge.color ?? '#3B82F6' }}
+              >
+                {post.badge.label}
+              </span>
+            )}
             {post.channel && (
               <span
                 className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
