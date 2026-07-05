@@ -12242,6 +12242,12 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      feed_channel_audience_recipients: {
+        Args: { _channel_id: string; _location_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       generate_unique_pin: { Args: never; Returns: string }
       get_active_conversion: {
         Args: { p_template_id: string }
@@ -12516,6 +12522,10 @@ export type Database = {
           _vendor_source: string
         }
         Returns: string
+      }
+      user_qualifies_for_channel_audience: {
+        Args: { _channel_id: string; _location_id: string; _user_id: string }
+        Returns: boolean
       }
       validate_6_digit_pin: { Args: { p_pin: string }; Returns: string }
     }
