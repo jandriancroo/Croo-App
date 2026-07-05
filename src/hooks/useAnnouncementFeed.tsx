@@ -112,7 +112,10 @@ const POSTS_KEY = (locationId: string | null) => ['announcement-feed', locationI
 const CHANNELS_KEY = (locationId: string | null) => ['announcement-channels', locationId];
 const BADGES_KEY = (locationId: string | null) => ['feed-badges', locationId];
 
-export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
+export function useAnnouncementFeed(
+  activeChannelId: string | 'all' = 'all',
+  activeBadgeId: string | 'all' = 'all',
+) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const queryClient = useQueryClient();
@@ -135,20 +138,41 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
     },
   });
 
+  // --- Badges (global + location + brand-scoped, active only) ---
+  const badgesQuery = useQuery({
+    queryKey: BADGES_KEY(locationId),
+    enabled: !!user,
+    queryFn: async (): Promise<FeedBadge[]> => {
+      let q = supabase
+        .from('feed_badges')
+        .select('id, label, tier, color, is_active, sort_order, location_id, brand_id, created_by')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('label', { ascending: true });
+      if (locationId) {
+        q = q.or(`location_id.eq.${locationId},and(location_id.is.null,brand_id.is.null)`);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as FeedBadge[];
+    },
+  });
+
   // --- Posts ---
   const postsQuery = useQuery({
-    queryKey: [...POSTS_KEY(locationId), activeChannelId],
+    queryKey: [...POSTS_KEY(locationId), activeChannelId, activeBadgeId],
     enabled: !!locationId && !!user,
     queryFn: async (): Promise<FeedPost[]> => {
       let q = supabase
         .from('announcement_posts')
-        .select('id, author_id, brand_id, location_id, channel_id, body, media, pinned, allow_comments, created_at, edited_at')
+        .select('id, author_id, brand_id, location_id, channel_id, badge_id, is_announcement, body, media, pinned, allow_comments, created_at, edited_at')
         .is('deleted_at', null)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(50);
       if (locationId) q = q.eq('location_id', locationId);
       if (activeChannelId !== 'all') q = q.eq('channel_id', activeChannelId);
+      if (activeBadgeId !== 'all') q = q.eq('badge_id', activeBadgeId);
       const { data: posts, error } = await q;
       if (error) throw error;
       if (!posts?.length) return [];
@@ -156,12 +180,16 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
       const postIds = posts.map(p => p.id);
       const authorIds = Array.from(new Set(posts.map(p => p.author_id)));
       const channelIds = Array.from(new Set(posts.map(p => p.channel_id).filter(Boolean))) as string[];
+      const badgeIds = Array.from(new Set(posts.map((p: any) => p.badge_id).filter(Boolean))) as string[];
 
-      const [{ data: authors }, { data: channels }, { data: reactions }, { data: comments }, { data: reads }] =
+      const [{ data: authors }, { data: channels }, { data: badges }, { data: reactions }, { data: comments }, { data: reads }] =
         await Promise.all([
           supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', authorIds),
           channelIds.length
             ? supabase.from('announcement_channels').select('id, name, color').in('id', channelIds)
+            : Promise.resolve({ data: [] as any[] }),
+          badgeIds.length
+            ? supabase.from('feed_badges').select('id, label, tier, color, is_active, sort_order, location_id, brand_id, created_by').in('id', badgeIds)
             : Promise.resolve({ data: [] as any[] }),
           supabase.from('announcement_reactions').select('post_id, user_id, emoji').in('post_id', postIds),
           supabase.from('announcement_comments').select('post_id').in('post_id', postIds).is('deleted_at', null),
@@ -170,8 +198,9 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
 
       const authorMap = new Map((authors ?? []).map((a: any) => [a.id, a]));
       const channelMap = new Map((channels ?? []).map((c: any) => [c.id, c]));
+      const badgeMap = new Map((badges ?? []).map((b: any) => [b.id, b]));
 
-      const built = posts.map(p => {
+      const built = posts.map((p: any) => {
         const rxs = (reactions ?? []).filter((r: any) => r.post_id === p.id);
         const grouped: Record<string, { count: number; mine: boolean }> = {};
         for (const r of rxs) {
@@ -185,6 +214,7 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
           media: (Array.isArray(p.media) ? p.media : []) as unknown as FeedMedia[],
           author: authorMap.get(p.author_id) ?? null,
           channel: p.channel_id ? channelMap.get(p.channel_id) ?? null : null,
+          badge: p.badge_id ? badgeMap.get(p.badge_id) ?? null : null,
           reactions: Object.entries(grouped).map(([emoji, v]) => ({ emoji, ...v })),
           comment_count: (comments ?? []).filter((c: any) => c.post_id === p.id).length,
           seen_count: postReads.length,
@@ -192,7 +222,6 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
         } as FeedPost;
       });
 
-      // Sign private storage URLs so <img>/<a> tags can load them.
       await Promise.all(built.map(async (post) => {
         post.media = await signMediaUrls(post.media);
       }));
@@ -201,7 +230,6 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
     },
   });
 
-  // --- Realtime ---
   useEffect(() => {
     if (!locationId) return;
     const channel = supabase
@@ -215,13 +243,13 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments' }, () => {
         queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_badges' }, () => {
+        queryClient.invalidateQueries({ queryKey: BADGES_KEY(locationId) });
+      })
       .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [locationId, queryClient]);
 
-  // --- Mark seen ---
   const markSeen = useCallback(async (postId: string) => {
     if (!user) return;
     await supabase
@@ -231,7 +259,6 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
     queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
   }, [user, queryClient, locationId]);
 
-  // --- Toggle reaction ---
   const toggleReaction = useMutation({
     mutationFn: async ({ postId, emoji, mine }: { postId: string; emoji: string; mine: boolean }) => {
       if (!user) throw new Error('Not signed in');
@@ -252,9 +279,13 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) }),
   });
 
-  // --- Create post ---
   const createPost = useMutation({
-    mutationFn: async ({ body, media, channelId, pinned }: { body: string; media: FeedMedia[]; channelId: string | null; pinned?: boolean }) => {
+    mutationFn: async ({
+      body, media, channelId, pinned, badgeId, isAnnouncement,
+    }: {
+      body: string; media: FeedMedia[]; channelId: string | null; pinned?: boolean;
+      badgeId?: string | null; isAnnouncement?: boolean;
+    }) => {
       if (!user || !locationId) throw new Error('Missing context');
       const { data: locRow } = await supabase.from('locations').select('brand_id').eq('id', locationId).single();
       const { data, error } = await supabase.from('announcement_posts').insert({
@@ -262,6 +293,8 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
         location_id: locationId,
         brand_id: (locRow as any)?.brand_id ?? null,
         channel_id: channelId,
+        badge_id: badgeId ?? null,
+        is_announcement: !!isAnnouncement,
         body,
         media: media as any,
         pinned: !!pinned,
@@ -274,6 +307,26 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
       queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
     },
     onError: (e: any) => toast.error(e.message ?? 'Post failed'),
+  });
+
+  const createBadge = useMutation({
+    mutationFn: async ({ label, color }: { label: string; color?: string | null }) => {
+      if (!user || !locationId) throw new Error('Missing context');
+      const { data, error } = await supabase.from('feed_badges').insert({
+        label: label.trim(),
+        tier: 'manager',
+        color: color ?? '#3B82F6',
+        location_id: locationId,
+        created_by: user.id,
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Badge created');
+      queryClient.invalidateQueries({ queryKey: BADGES_KEY(locationId) });
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Could not create badge'),
   });
 
   const deletePost = useMutation({
@@ -291,11 +344,13 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
   return {
     posts: postsQuery.data ?? [],
     channels: channelsQuery.data ?? [],
+    badges: badgesQuery.data ?? [],
     isLoading: postsQuery.isLoading,
     refetch: postsQuery.refetch,
     markSeen,
     toggleReaction: (postId: string, emoji: string, mine: boolean) => toggleReaction.mutate({ postId, emoji, mine }),
     createPost: createPost.mutateAsync,
+    createBadge: createBadge.mutateAsync,
     deletePost: deletePost.mutateAsync,
   };
 }
