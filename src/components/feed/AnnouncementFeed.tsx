@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Megaphone, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -9,14 +9,24 @@ import { PostComposer } from './PostComposer';
 import { PostDetailSheet } from './PostDetailSheet';
 import { SeenByDialog } from './SeenByDialog';
 
-export function AnnouncementFeed() {
+interface AnnouncementFeedProps {
+  composerOpen?: boolean;
+  onComposerOpenChange?: (open: boolean) => void;
+}
+
+export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin } = useUserRole();
   const canPost = isAdmin || isManager || isSuperAdmin;
   const canModerate = isAdmin || isSuperAdmin;
 
   const [activeChannel, setActiveChannel] = useState<string | 'all'>('all');
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [internalComposerOpen, setInternalComposerOpen] = useState(false);
+  const composerOpen = composerOpenProp ?? internalComposerOpen;
+  const setComposerOpen = (o: boolean) => {
+    if (onComposerOpenChange) onComposerOpenChange(o);
+    else setInternalComposerOpen(o);
+  };
   const [openPost, setOpenPost] = useState<FeedPost | null>(null);
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
@@ -26,6 +36,12 @@ export function AnnouncementFeed() {
     if (!openPost) return null;
     return posts.find(p => p.id === openPost.id) ?? openPost;
   }, [openPost, posts]);
+
+  // If parent tries to open composer but user can't post, close it
+  useEffect(() => {
+    if (composerOpen && !canPost) setComposerOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composerOpen, canPost]);
 
   const channelTabs = [{ id: 'all' as const, name: 'All', color: null as string | null }, ...channels.map(c => ({ id: c.id, name: c.name, color: c.color }))];
 
@@ -93,18 +109,6 @@ export function AnnouncementFeed() {
         </div>
       </div>
 
-      {/* Composer FAB */}
-      {canPost && (
-        <button
-          type="button"
-          onClick={() => setComposerOpen(true)}
-          className="fixed bottom-24 right-4 md:absolute md:bottom-6 md:right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition z-30"
-          aria-label="New post"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
-      )}
-
       <PostComposer
         open={composerOpen}
         onOpenChange={setComposerOpen}
@@ -129,3 +133,4 @@ export function AnnouncementFeed() {
     </div>
   );
 }
+

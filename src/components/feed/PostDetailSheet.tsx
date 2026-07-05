@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Trash2, Loader2, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { ReactionBar } from './ReactionBar';
 import { useAnnouncementComments, type FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
 
@@ -111,9 +110,6 @@ export function PostDetailSheet({ post, currentUserId, canModerate, onOpenChange
               </div>
             )}
 
-            <div className="mt-3">
-              <ReactionBar reactions={post.reactions} onToggle={(e, mine) => onToggleReaction(post.id, e, mine)} />
-            </div>
             <div className="mt-2 text-xs text-muted-foreground">
               {post.seen_count} seen · {post.comment_count} comments
             </div>

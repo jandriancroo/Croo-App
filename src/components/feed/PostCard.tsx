@@ -3,10 +3,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Eye, Pin, MoreHorizontal, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { ReactionBar } from './ReactionBar';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { InlineComments } from './InlineComments';
 
 interface PostCardProps {
   post: FeedPost;
@@ -98,32 +98,34 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
         )}
       </header>
 
-      {/* Media grid — ABOVE text */}
+      {/* Media grid — ABOVE text, rounded and inset */}
       {images.length > 0 && (
-        <button
-          type="button"
-          onClick={() => onOpen(post)}
-          className={cn(
-            'grid gap-0.5 w-full bg-muted mt-1',
-            images.length === 1 && 'grid-cols-1',
-            images.length === 2 && 'grid-cols-2',
-            images.length === 3 && 'grid-cols-2',
-            images.length === 4 && 'grid-cols-2',
-          )}
-        >
-          {images.map((m, i) => (
-            <div
-              key={i}
-              className={cn(
-                'relative overflow-hidden bg-muted',
-                images.length === 3 && i === 0 && 'row-span-2',
-                images.length === 1 ? 'aspect-video' : 'aspect-square',
-              )}
-            >
-              <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-            </div>
-          ))}
-        </button>
+        <div className="px-3 mt-1">
+          <button
+            type="button"
+            onClick={() => onOpen(post)}
+            className={cn(
+              'grid gap-0.5 w-full bg-muted rounded-xl overflow-hidden',
+              images.length === 1 && 'grid-cols-1',
+              images.length === 2 && 'grid-cols-2',
+              images.length === 3 && 'grid-cols-2',
+              images.length === 4 && 'grid-cols-2',
+            )}
+          >
+            {images.map((m, i) => (
+              <div
+                key={i}
+                className={cn(
+                  'relative overflow-hidden bg-muted',
+                  images.length === 3 && i === 0 && 'row-span-2',
+                  images.length === 1 ? 'aspect-video' : 'aspect-square',
+                )}
+              >
+                <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              </div>
+            ))}
+          </button>
+        </div>
       )}
 
       {/* Body */}
@@ -180,13 +182,14 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
         </button>
       </div>
 
-      {/* Reactions */}
-      <div className="px-3 pb-3 pt-1">
-        <ReactionBar
-          reactions={post.reactions}
-          onToggle={(emoji, mine) => onToggleReaction(post.id, emoji, mine)}
-        />
-      </div>
+      {/* Inline comments */}
+      <InlineComments
+        postId={post.id}
+        allowComments={post.allow_comments}
+        currentUserId={currentUserId}
+        canModerate={canModerate || post.author_id === currentUserId}
+        initialCount={post.comment_count}
+      />
     </article>
   );
 }

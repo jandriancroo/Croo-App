@@ -96,7 +96,13 @@ export default function Messages() {
     fetchChats, handleSearch, handleViewModeChange, handleTogglePin,
   } = data;
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [feedComposerOpen, setFeedComposerOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const handlePlusClick = () => {
+    if (viewMode === 'announcements') setFeedComposerOpen(true);
+    else setIsNewActionOpen(true);
+  };
 
   // Deep link from push notification: /messages?chat=<id>
   useEffect(() => {
@@ -130,7 +136,7 @@ export default function Messages() {
       autoSelectApplicationId={pendingHiringApplicationId}
     />
   ) : viewMode === 'support' ? null : viewMode === 'announcements' ? (
-    <div className="flex-1 min-h-0"><AnnouncementFeed /></div>
+    <div className="flex-1 min-h-0"><AnnouncementFeed composerOpen={feedComposerOpen} onComposerOpenChange={setFeedComposerOpen} /></div>
   ) : (
     <div className="relative flex-1 min-h-0 flex flex-col">
       <ChatList
@@ -182,7 +188,7 @@ export default function Messages() {
         <div className="w-80 flex flex-col">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-3xl font-bold">Chat</h1>
-            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
+            <Button size="icon" onClick={handlePlusClick} className="h-8 w-8">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -212,7 +218,7 @@ export default function Messages() {
           <div className="flex-1 overflow-x-auto scrollbar-hide">
             <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           </div>
-          <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-10 w-10 rounded-full shrink-0">
+          <Button size="icon" onClick={handlePlusClick} className="h-10 w-10 rounded-full shrink-0">
             <Plus className="h-5 w-5" />
           </Button>
         </div>
@@ -233,7 +239,7 @@ export default function Messages() {
                 autoSelectApplicationId={pendingHiringApplicationId}
               />
             ) : viewMode === 'announcements' ? (
-              <AnnouncementFeed />
+              <AnnouncementFeed composerOpen={feedComposerOpen} onComposerOpenChange={setFeedComposerOpen} />
             ) : (
               <ChatList
                 chats={filteredChats}

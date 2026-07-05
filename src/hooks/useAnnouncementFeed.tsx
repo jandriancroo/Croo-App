@@ -293,13 +293,15 @@ export interface FeedComment {
   author: FeedAuthor | null;
 }
 
-export function useAnnouncementComments(postId: string | null) {
+export function useAnnouncementComments(postId: string | null, opts?: { subscribe?: boolean; enabled?: boolean }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const subscribe = opts?.subscribe ?? true;
+  const enabled = (opts?.enabled ?? true) && !!postId;
 
   const query = useQuery({
     queryKey: ['announcement-comments', postId],
-    enabled: !!postId,
+    enabled,
     queryFn: async (): Promise<FeedComment[]> => {
       const { data, error } = await supabase
         .from('announcement_comments')
@@ -317,7 +319,7 @@ export function useAnnouncementComments(postId: string | null) {
   });
 
   useEffect(() => {
-    if (!postId) return;
+    if (!postId || !subscribe) return;
     const channel = supabase
       .channel(`ann-cmt-${postId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments', filter: `post_id=eq.${postId}` }, () => {
@@ -325,7 +327,7 @@ export function useAnnouncementComments(postId: string | null) {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [postId, queryClient]);
+  }, [postId, queryClient, subscribe]);
 
   const addComment = useMutation({
     mutationFn: async ({ body, parentId }: { body: string; parentId?: string | null }) => {
