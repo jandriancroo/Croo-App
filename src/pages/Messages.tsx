@@ -223,6 +223,8 @@ export default function Messages() {
                 selectedId={selectedHiringConversation?.id}
                 autoSelectApplicationId={pendingHiringApplicationId}
               />
+            ) : viewMode === 'announcements' ? (
+              <AnnouncementFeed />
             ) : (
               <ChatList
                 chats={filteredChats}
@@ -235,13 +237,14 @@ export default function Messages() {
               />
             )}
           </div>
-          {viewMode !== 'hiring' && viewMode !== 'support' && (
+          {viewMode !== 'hiring' && viewMode !== 'support' && viewMode !== 'announcements' && (
             <div className="px-3 pb-3 pt-1">
               <ChatSearch onSearch={handleSearch} placeholder="Search..." />
             </div>
           )}
         </div>
       </div>
+      
       
       {/* Mobile Full-Screen Chat Window */}
       {isMobile && !!selectedChatId && (
