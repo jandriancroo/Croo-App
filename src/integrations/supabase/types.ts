@@ -262,6 +262,7 @@ export type Database = {
         Row: {
           allow_comments: boolean
           author_id: string
+          badge_id: string | null
           body: string
           brand_id: string | null
           channel_id: string | null
@@ -270,6 +271,7 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          is_announcement: boolean
           location_id: string | null
           media: Json
           pinned: boolean
@@ -278,6 +280,7 @@ export type Database = {
         Insert: {
           allow_comments?: boolean
           author_id: string
+          badge_id?: string | null
           body?: string
           brand_id?: string | null
           channel_id?: string | null
@@ -286,6 +289,7 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_announcement?: boolean
           location_id?: string | null
           media?: Json
           pinned?: boolean
@@ -294,6 +298,7 @@ export type Database = {
         Update: {
           allow_comments?: boolean
           author_id?: string
+          badge_id?: string | null
           body?: string
           brand_id?: string | null
           channel_id?: string | null
@@ -302,12 +307,20 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_announcement?: boolean
           location_id?: string | null
           media?: Json
           pinned?: boolean
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "announcement_posts_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "feed_badges"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "announcement_posts_brand_id_fkey"
             columns: ["brand_id"]
@@ -3000,6 +3013,60 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "schedule_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feed_badges: {
+        Row: {
+          brand_id: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          label: string
+          location_id: string | null
+          sort_order: number
+          tier: string
+        }
+        Insert: {
+          brand_id?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          location_id?: string | null
+          sort_order?: number
+          tier: string
+        }
+        Update: {
+          brand_id?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          location_id?: string | null
+          sort_order?: number
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_badges_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feed_badges_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
