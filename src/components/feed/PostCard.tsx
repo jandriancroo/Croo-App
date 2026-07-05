@@ -16,6 +16,7 @@ interface PostCardProps {
   onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
+  onMarkSeen?: (postId: string) => void;
 }
 
 const BODY_TRUNCATE_CHARS = 320;
