@@ -1,7 +1,7 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye, Pin, MoreHorizontal } from 'lucide-react';
+import { MessageCircle, Eye, Pin, MoreHorizontal, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ReactionBar } from './ReactionBar';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
@@ -17,15 +17,32 @@ interface PostCardProps {
   onDelete: (postId: string) => void;
 }
 
+const BODY_TRUNCATE_CHARS = 320;
+
 function getInitials(name?: string | null) {
   if (!name) return '?';
   return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('') || '?';
+}
+
+function friendlyFileName(m: { name?: string; url: string }) {
+  if (m.name) return decodeURIComponent(m.name);
+  try {
+    const u = new URL(m.url);
+    return decodeURIComponent(u.pathname.split('/').pop() || 'Attachment');
+  } catch { return 'Attachment'; }
 }
 
 function PostCardImpl({ post, currentUserId, canModerate, onOpen, onToggleReaction, onDelete }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
+  const files = post.media.filter(m => m.type !== 'image');
+
+  const [expanded, setExpanded] = useState(false);
+  const shouldTruncate = post.body.length > BODY_TRUNCATE_CHARS;
+  const displayBody = !shouldTruncate || expanded
+    ? post.body
+    : post.body.slice(0, BODY_TRUNCATE_CHARS).replace(/\s+\S*$/, '') + '…';
 
   return (
     <article
@@ -80,24 +97,13 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onToggleReacti
         )}
       </header>
 
-      {/* Body */}
-      {post.body && (
-        <button
-          type="button"
-          onClick={() => onOpen(post)}
-          className="w-full text-left px-4 pb-3 text-[15px] leading-relaxed whitespace-pre-wrap break-words"
-        >
-          {post.body}
-        </button>
-      )}
-
-      {/* Media grid */}
+      {/* Media grid — ABOVE text */}
       {images.length > 0 && (
         <button
           type="button"
           onClick={() => onOpen(post)}
           className={cn(
-            'grid gap-0.5 w-full bg-muted',
+            'grid gap-0.5 w-full bg-muted mt-1',
             images.length === 1 && 'grid-cols-1',
             images.length === 2 && 'grid-cols-2',
             images.length === 3 && 'grid-cols-2',
@@ -117,6 +123,44 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onToggleReacti
             </div>
           ))}
         </button>
+      )}
+
+      {/* Body */}
+      {post.body && (
+        <div className="px-4 pt-3 pb-3 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+          {displayBody}
+          {shouldTruncate && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (expanded) setExpanded(false); else setExpanded(true);
+              }}
+              className="ml-1 text-primary text-sm font-medium hover:underline"
+            >
+              {expanded ? 'Show less' : 'Read more'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* File attachments */}
+      {files.length > 0 && (
+        <div className="px-4 pb-3 flex flex-col gap-1.5">
+          {files.map((m, i) => (
+            <a
+              key={i}
+              href={m.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 hover:bg-muted px-3 py-2 text-sm min-w-0"
+            >
+              <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">{friendlyFileName(m)}</span>
+            </a>
+          ))}
+        </div>
       )}
 
       {/* Meta bar */}
