@@ -302,13 +302,15 @@ export function useAnnouncementFeed(
       }).select().single();
       if (error) throw error;
 
-      // Push notification to location members (excluding author)
+      // Push notification to users who qualify for this channel's audience (excluding author)
       try {
-        const { data: locUsers } = await supabase
-          .from('user_locations')
-          .select('user_id')
-          .eq('location_id', locationId);
-        const recipients = (locUsers ?? []).map((u: any) => u.user_id).filter((id: string) => id !== user.id);
+        const { data: audienceRows } = await supabase.rpc('feed_channel_audience_recipients', {
+          _location_id: locationId,
+          _channel_id: channelId,
+        });
+        const recipients = ((audienceRows as any[]) ?? [])
+          .map((r: any) => r.user_id ?? r)
+          .filter((id: string) => id && id !== user.id);
         if (recipients.length) {
           const { data: prof } = await supabase
             .from('profiles')
@@ -323,7 +325,7 @@ export function useAnnouncementFeed(
               title: isAnnouncement ? `📢 ${senderName}` : senderName,
               body: (body || 'Shared a post').substring(0, 140),
               notification_type: isAnnouncement ? 'announcements' : 'chat_messages',
-              data: { post_id: (data as any)?.id, location_id: locationId, type: isAnnouncement ? 'announcement' : 'feed_post' },
+              data: { post_id: (data as any)?.id, location_id: locationId, channel_id: channelId ?? null, type: isAnnouncement ? 'announcement' : 'feed_post' },
             },
           });
         }
