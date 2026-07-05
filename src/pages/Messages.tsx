@@ -136,7 +136,7 @@ export default function Messages() {
       autoSelectApplicationId={pendingHiringApplicationId}
     />
   ) : viewMode === 'support' ? null : viewMode === 'announcements' ? (
-    <div className="flex-1 min-h-0"><AnnouncementFeed /></div>
+    <div className="flex-1 min-h-0"><AnnouncementFeed composerOpen={feedComposerOpen} onComposerOpenChange={setFeedComposerOpen} /></div>
   ) : (
     <div className="relative flex-1 min-h-0 flex flex-col">
       <ChatList
