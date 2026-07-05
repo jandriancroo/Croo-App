@@ -1,0 +1,304 @@
+import { useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { toast } from 'sonner';
+
+export interface FeedAuthor {
+  id: string;
+  full_name: string | null;
+  nickname: string | null;
+  profile_photo_url: string | null;
+}
+
+export interface FeedMedia {
+  url: string;
+  type: 'image';
+  width?: number;
+  height?: number;
+}
+
+export interface FeedPost {
+  id: string;
+  author_id: string;
+  brand_id: string | null;
+  location_id: string | null;
+  channel_id: string | null;
+  body: string;
+  media: FeedMedia[];
+  pinned: boolean;
+  allow_comments: boolean;
+  created_at: string;
+  edited_at: string | null;
+  author: FeedAuthor | null;
+  channel: { id: string; name: string; color: string | null } | null;
+  reactions: { emoji: string; count: number; mine: boolean }[];
+  comment_count: number;
+  seen_count: number;
+  seen_by_me: boolean;
+}
+
+export interface FeedChannel {
+  id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  icon: string | null;
+  sort_order: number;
+}
+
+const POSTS_KEY = (locationId: string | null) => ['announcement-feed', locationId];
+const CHANNELS_KEY = (locationId: string | null) => ['announcement-channels', locationId];
+
+export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
+  const { user } = useAuth();
+  const { currentLocation } = useAppLocation();
+  const queryClient = useQueryClient();
+  const locationId = currentLocation?.id ?? null;
+
+  // --- Channels ---
+  const channelsQuery = useQuery({
+    queryKey: CHANNELS_KEY(locationId),
+    enabled: !!locationId,
+    queryFn: async (): Promise<FeedChannel[]> => {
+      const { data, error } = await supabase
+        .from('announcement_channels')
+        .select('id, name, slug, color, icon, sort_order')
+        .or(`location_id.eq.${locationId},and(location_id.is.null,brand_id.not.is.null)`)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as FeedChannel[];
+    },
+  });
+
+  // --- Posts ---
+  const postsQuery = useQuery({
+    queryKey: [...POSTS_KEY(locationId), activeChannelId],
+    enabled: !!locationId && !!user,
+    queryFn: async (): Promise<FeedPost[]> => {
+      let q = supabase
+        .from('announcement_posts')
+        .select('id, author_id, brand_id, location_id, channel_id, body, media, pinned, allow_comments, created_at, edited_at')
+        .is('deleted_at', null)
+        .order('pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (locationId) q = q.eq('location_id', locationId);
+      if (activeChannelId !== 'all') q = q.eq('channel_id', activeChannelId);
+      const { data: posts, error } = await q;
+      if (error) throw error;
+      if (!posts?.length) return [];
+
+      const postIds = posts.map(p => p.id);
+      const authorIds = Array.from(new Set(posts.map(p => p.author_id)));
+      const channelIds = Array.from(new Set(posts.map(p => p.channel_id).filter(Boolean))) as string[];
+
+      const [{ data: authors }, { data: channels }, { data: reactions }, { data: comments }, { data: reads }] =
+        await Promise.all([
+          supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', authorIds),
+          channelIds.length
+            ? supabase.from('announcement_channels').select('id, name, color').in('id', channelIds)
+            : Promise.resolve({ data: [] as any[] }),
+          supabase.from('announcement_reactions').select('post_id, user_id, emoji').in('post_id', postIds),
+          supabase.from('announcement_comments').select('post_id').in('post_id', postIds).is('deleted_at', null),
+          supabase.from('announcement_reads').select('post_id, user_id').in('post_id', postIds),
+        ]);
+
+      const authorMap = new Map((authors ?? []).map((a: any) => [a.id, a]));
+      const channelMap = new Map((channels ?? []).map((c: any) => [c.id, c]));
+
+      return posts.map(p => {
+        const rxs = (reactions ?? []).filter((r: any) => r.post_id === p.id);
+        const grouped: Record<string, { count: number; mine: boolean }> = {};
+        for (const r of rxs) {
+          if (!grouped[r.emoji]) grouped[r.emoji] = { count: 0, mine: false };
+          grouped[r.emoji].count += 1;
+          if (r.user_id === user!.id) grouped[r.emoji].mine = true;
+        }
+        const postReads = (reads ?? []).filter((r: any) => r.post_id === p.id);
+        return {
+          ...p,
+          media: (Array.isArray(p.media) ? p.media : []) as unknown as FeedMedia[],
+          author: authorMap.get(p.author_id) ?? null,
+          channel: p.channel_id ? channelMap.get(p.channel_id) ?? null : null,
+          reactions: Object.entries(grouped).map(([emoji, v]) => ({ emoji, ...v })),
+          comment_count: (comments ?? []).filter((c: any) => c.post_id === p.id).length,
+          seen_count: postReads.length,
+          seen_by_me: postReads.some((r: any) => r.user_id === user!.id),
+        } as FeedPost;
+      });
+    },
+  });
+
+  // --- Realtime ---
+  useEffect(() => {
+    if (!locationId) return;
+    const channel = supabase
+      .channel(`ann-feed-${locationId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_posts', filter: `location_id=eq.${locationId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_reactions' }, () => {
+        queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments' }, () => {
+        queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [locationId, queryClient]);
+
+  // --- Mark seen ---
+  const markSeen = useCallback(async (postId: string) => {
+    if (!user) return;
+    await supabase
+      .from('announcement_reads')
+      .upsert({ post_id: postId, user_id: user.id, chat_id: null as any }, { onConflict: 'post_id,user_id' })
+      .select();
+    queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+  }, [user, queryClient, locationId]);
+
+  // --- Toggle reaction ---
+  const toggleReaction = useMutation({
+    mutationFn: async ({ postId, emoji, mine }: { postId: string; emoji: string; mine: boolean }) => {
+      if (!user) throw new Error('Not signed in');
+      if (mine) {
+        const { error } = await supabase
+          .from('announcement_reactions')
+          .delete()
+          .eq('post_id', postId).eq('user_id', user.id).eq('emoji', emoji);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('announcement_reactions')
+          .insert({ post_id: postId, user_id: user.id, emoji });
+        if (error) throw error;
+      }
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Reaction failed'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) }),
+  });
+
+  // --- Create post ---
+  const createPost = useMutation({
+    mutationFn: async ({ body, media, channelId, pinned }: { body: string; media: FeedMedia[]; channelId: string | null; pinned?: boolean }) => {
+      if (!user || !locationId) throw new Error('Missing context');
+      const { data: locRow } = await supabase.from('locations').select('brand_id').eq('id', locationId).single();
+      const { data, error } = await supabase.from('announcement_posts').insert({
+        author_id: user.id,
+        location_id: locationId,
+        brand_id: (locRow as any)?.brand_id ?? null,
+        channel_id: channelId,
+        body,
+        media: media as any,
+        pinned: !!pinned,
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Posted');
+      queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Post failed'),
+  });
+
+  const deletePost = useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase.from('announcement_posts').update({ deleted_at: new Date().toISOString() }).eq('id', postId);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) }),
+  });
+
+  return {
+    posts: postsQuery.data ?? [],
+    channels: channelsQuery.data ?? [],
+    isLoading: postsQuery.isLoading,
+    refetch: postsQuery.refetch,
+    markSeen,
+    toggleReaction: (postId: string, emoji: string, mine: boolean) => toggleReaction.mutate({ postId, emoji, mine }),
+    createPost: createPost.mutateAsync,
+    deletePost: deletePost.mutateAsync,
+  };
+}
+
+// --- Comments hook (per-post) ---
+
+export interface FeedComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  parent_comment_id: string | null;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+  author: FeedAuthor | null;
+}
+
+export function useAnnouncementComments(postId: string | null) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const query = useQuery({
+    queryKey: ['announcement-comments', postId],
+    enabled: !!postId,
+    queryFn: async (): Promise<FeedComment[]> => {
+      const { data, error } = await supabase
+        .from('announcement_comments')
+        .select('id, post_id, author_id, parent_comment_id, body, created_at, edited_at')
+        .eq('post_id', postId!)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      if (!data?.length) return [];
+      const ids = Array.from(new Set(data.map(d => d.author_id)));
+      const { data: authors } = await supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', ids);
+      const map = new Map((authors ?? []).map((a: any) => [a.id, a]));
+      return data.map(d => ({ ...d, author: map.get(d.author_id) ?? null })) as FeedComment[];
+    },
+  });
+
+  useEffect(() => {
+    if (!postId) return;
+    const channel = supabase
+      .channel(`ann-cmt-${postId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments', filter: `post_id=eq.${postId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [postId, queryClient]);
+
+  const addComment = useMutation({
+    mutationFn: async ({ body, parentId }: { body: string; parentId?: string | null }) => {
+      if (!user || !postId) throw new Error('Missing');
+      const { error } = await supabase.from('announcement_comments').insert({
+        post_id: postId, author_id: user.id, body, parent_comment_id: parentId ?? null,
+      });
+      if (error) throw error;
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Comment failed'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] }),
+  });
+
+  const deleteComment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('announcement_comments').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] }),
+  });
+
+  return {
+    comments: query.data ?? [],
+    isLoading: query.isLoading,
+    addComment: (body: string, parentId?: string | null) => addComment.mutateAsync({ body, parentId }),
+    deleteComment: deleteComment.mutateAsync,
+  };
+}

@@ -19,8 +19,8 @@ import {
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { SupportChatPanel } from '@/components/support/SupportChatPanel';
-
 import { useMessagesData, type ViewMode } from '@/hooks/useMessagesData';
+import { AnnouncementFeed } from '@/components/feed/AnnouncementFeed';
 
 // Shared filter chip bar component
 function FilterChipBar({ 
@@ -128,7 +128,9 @@ export default function Messages() {
       selectedId={selectedHiringConversation?.id}
       autoSelectApplicationId={pendingHiringApplicationId}
     />
-  ) : viewMode === 'support' ? null : (
+  ) : viewMode === 'support' ? null : viewMode === 'announcements' ? (
+    <div className="flex-1 min-h-0"><AnnouncementFeed /></div>
+  ) : (
     <div className="relative flex-1 min-h-0 flex flex-col">
       <ChatList
         chats={filteredChats}
@@ -221,6 +223,8 @@ export default function Messages() {
                 selectedId={selectedHiringConversation?.id}
                 autoSelectApplicationId={pendingHiringApplicationId}
               />
+            ) : viewMode === 'announcements' ? (
+              <AnnouncementFeed />
             ) : (
               <ChatList
                 chats={filteredChats}
@@ -233,13 +237,14 @@ export default function Messages() {
               />
             )}
           </div>
-          {viewMode !== 'hiring' && viewMode !== 'support' && (
+          {viewMode !== 'hiring' && viewMode !== 'support' && viewMode !== 'announcements' && (
             <div className="px-3 pb-3 pt-1">
               <ChatSearch onSearch={handleSearch} placeholder="Search..." />
             </div>
           )}
         </div>
       </div>
+      
       
       {/* Mobile Full-Screen Chat Window */}
       {isMobile && !!selectedChatId && (
