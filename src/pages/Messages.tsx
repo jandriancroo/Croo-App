@@ -19,8 +19,8 @@ import {
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { SupportChatPanel } from '@/components/support/SupportChatPanel';
-
 import { useMessagesData, type ViewMode } from '@/hooks/useMessagesData';
+import { AnnouncementFeed } from '@/components/feed/AnnouncementFeed';
 
 // Shared filter chip bar component
 function FilterChipBar({ 
