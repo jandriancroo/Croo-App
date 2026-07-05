@@ -96,7 +96,13 @@ export default function Messages() {
     fetchChats, handleSearch, handleViewModeChange, handleTogglePin,
   } = data;
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [feedComposerOpen, setFeedComposerOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const handlePlusClick = () => {
+    if (viewMode === 'announcements') setFeedComposerOpen(true);
+    else setIsNewActionOpen(true);
+  };
 
   // Deep link from push notification: /messages?chat=<id>
   useEffect(() => {
