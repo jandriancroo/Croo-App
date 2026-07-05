@@ -30,7 +30,7 @@ export function AnnouncementFeed() {
   const channelTabs = [{ id: 'all' as const, name: 'All', color: null as string | null }, ...channels.map(c => ({ id: c.id, name: c.name, color: c.color }))];
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-muted/30">
+    <div className="flex flex-col h-full min-h-0">
       {/* Channel tabs */}
       {channelTabs.length > 1 && (
         <div className="shrink-0 px-3 pt-2 pb-2 border-b border-border overflow-x-auto scrollbar-hide">
@@ -55,7 +55,7 @@ export function AnnouncementFeed() {
 
       {/* Feed list */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-2xl mx-auto p-3 space-y-3 md:p-4 md:space-y-4">
+        <div className="max-w-2xl mx-auto p-2 space-y-2.5 md:p-3 md:space-y-3">
           {isLoading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

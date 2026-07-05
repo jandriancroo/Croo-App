@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -188,7 +189,12 @@ export default function Messages() {
           <div className="mb-2">
             <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           </div>
-          <div className="flex-1 min-h-0 border-r border-border bg-card rounded-lg p-4 flex flex-col">
+          <div className={cn(
+            "flex-1 min-h-0 flex flex-col",
+            viewMode === 'announcements'
+              ? "bg-transparent"
+              : "border-r border-border bg-card rounded-lg p-4"
+          )}>
             {chatListContent}
           </div>
         </div>
@@ -211,7 +217,10 @@ export default function Messages() {
           </Button>
         </div>
 
-        <div className="flex-1 flex flex-col bg-card rounded-lg overflow-clip relative">
+        <div className={cn(
+          "flex-1 flex flex-col overflow-clip relative",
+          viewMode === 'announcements' ? "bg-transparent" : "bg-card rounded-lg"
+        )}>
           
           <div className="flex-1 min-h-0 overflow-y-auto px-1">
             {viewMode === 'support' ? <SupportChatPanel /> : viewMode === 'hiring' ? (
