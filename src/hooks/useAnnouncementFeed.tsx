@@ -106,6 +106,7 @@ export interface FeedChannel {
   color: string | null;
   icon: string | null;
   sort_order: number;
+  audience_type: 'everyone' | 'managers' | string;
 }
 
 const POSTS_KEY = (locationId: string | null) => ['announcement-feed', locationId];
