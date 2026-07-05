@@ -71,16 +71,16 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
   const dmListPanel = (
     <div className="relative flex-1 min-h-0 flex flex-col">
       <ChatList
-        chats={filteredChats.filter(c => !c.is_announcement)}
+        chats={dmChats}
         selectedChatId={selectedChatId}
         onSelectChat={setSelectedChatId}
         onTogglePin={handleTogglePin}
         loading={loading}
-        searchQuery={searchQuery}
+        searchQuery={dmSearch}
         currentUserId={currentUserId}
       />
       <div className="p-2 border-t border-border">
-        <ChatSearch onSearch={handleSearch} placeholder="Search chats..." />
+        <ChatSearch onSearch={setDmSearch} placeholder="Search chats..." />
       </div>
       <Button
         size="icon"
