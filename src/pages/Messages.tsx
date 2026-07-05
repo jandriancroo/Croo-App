@@ -128,7 +128,9 @@ export default function Messages() {
       selectedId={selectedHiringConversation?.id}
       autoSelectApplicationId={pendingHiringApplicationId}
     />
-  ) : viewMode === 'support' ? null : (
+  ) : viewMode === 'support' ? null : viewMode === 'announcements' ? (
+    <div className="flex-1 min-h-0"><AnnouncementFeed /></div>
+  ) : (
     <div className="relative flex-1 min-h-0 flex flex-col">
       <ChatList
         chats={filteredChats}
