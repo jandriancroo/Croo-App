@@ -262,10 +262,20 @@ export function useAnnouncementFeed(activeChannelId: string | 'all' = 'all') {
 
   const deletePost = useMutation({
     mutationFn: async (postId: string) => {
-      const { error } = await supabase.from('announcement_posts').update({ deleted_at: new Date().toISOString() }).eq('id', postId);
+      const { data, error } = await supabase
+        .from('announcement_posts')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', postId)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Not allowed to delete this post');
+      return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) }),
+    onSuccess: () => {
+      toast.success('Post deleted');
+      queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Delete failed'),
   });
 
   return {
