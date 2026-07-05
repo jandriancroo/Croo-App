@@ -100,20 +100,42 @@ export function PostComposer({ open, onOpenChange, channels, onSubmit }: PostCom
           />
 
           {media.length > 0 && (
-            <div className="grid grid-cols-2 gap-2">
-              {media.map((m, i) => (
-                <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-                  <img src={m.url} alt="" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setMedia(list => list.filter((_, idx) => idx !== i))}
-                    className="absolute top-1 right-1 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center"
-                    aria-label="Remove image"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+            <div className="space-y-2">
+              {media.some(m => m.type === 'image') && (
+                <div className="grid grid-cols-2 gap-2">
+                  {media.map((m, i) => m.type === 'image' && (
+                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                      <img src={m.url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setMedia(list => list.filter((_, idx) => idx !== i))}
+                        className="absolute top-1 right-1 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center"
+                        aria-label="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              {media.filter(m => m.type !== 'image').length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {media.map((m, i) => m.type !== 'image' && (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate flex-1 min-w-0">{m.name || 'Attachment'}</span>
+                      <button
+                        type="button"
+                        onClick={() => setMedia(list => list.filter((_, idx) => idx !== i))}
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                        aria-label="Remove file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -154,22 +176,41 @@ export function PostComposer({ open, onOpenChange, channels, onSubmit }: PostCom
 
         <div className="border-t border-border p-3 flex items-center gap-2 shrink-0 bg-background">
           <input
-            ref={fileRef}
+            ref={photoRef}
             type="file"
             accept="image/*"
             multiple
             hidden
-            onChange={e => handleFiles(e.target.files)}
+            onChange={e => handleFiles(e.target.files, 'image')}
+          />
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            hidden
+            onChange={e => handleFiles(e.target.files, 'file')}
           />
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading || media.length >= 4}
+            onClick={() => photoRef.current?.click()}
+            disabled={uploading || media.length >= 8}
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ImageIcon className="h-4 w-4 mr-2" />}
-            Add photo {media.length > 0 && `(${media.length}/4)`}
+            Photo
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading || media.length >= 8}
+          >
+            <Paperclip className="h-4 w-4 mr-2" />
+            File
+          </Button>
+          {media.length > 0 && (
+            <span className="text-xs text-muted-foreground ml-1">{media.length}/8</span>
+          )}
         </div>
       </SheetContent>
     </Sheet>
