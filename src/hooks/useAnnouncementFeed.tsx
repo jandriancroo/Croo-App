@@ -129,7 +129,7 @@ export function useAnnouncementFeed(
     queryFn: async (): Promise<FeedChannel[]> => {
       const { data, error } = await supabase
         .from('announcement_channels')
-        .select('id, name, slug, color, icon, sort_order')
+        .select('id, name, slug, color, icon, sort_order, audience_type')
         .or(`location_id.eq.${locationId},and(location_id.is.null,brand_id.not.is.null)`)
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
