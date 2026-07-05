@@ -198,7 +198,7 @@ export default function Messages() {
           <div className={cn(
             "flex-1 min-h-0 flex flex-col",
             viewMode === 'announcements'
-              ? "bg-transparent"
+              ? "bg-background"
               : "border-r border-border bg-card rounded-lg p-4"
           )}>
             {chatListContent}
@@ -225,10 +225,10 @@ export default function Messages() {
 
         <div className={cn(
           "flex-1 flex flex-col overflow-clip relative",
-          viewMode === 'announcements' ? "bg-transparent" : "bg-card rounded-lg"
+          viewMode === 'announcements' ? "bg-background" : "bg-card rounded-lg"
         )}>
           
-          <div className={cn("flex-1 min-h-0 overflow-y-auto", viewMode === 'announcements' ? "px-0" : "px-1")}>
+          <div className={cn("flex-1 min-h-0 overflow-y-auto overscroll-contain", viewMode === 'announcements' ? "px-0 bg-background" : "px-1")}>
             {viewMode === 'support' ? <SupportChatPanel /> : viewMode === 'hiring' ? (
               <HiringChatList
                 onSelectConversation={(conv) => {

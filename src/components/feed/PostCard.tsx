@@ -89,7 +89,12 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={(e) => { e.stopPropagation(); if (confirm('Delete this post?')) onDelete(post.id); }}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setTimeout(() => {
+                    if (window.confirm('Delete this post?')) onDelete(post.id);
+                  }, 50);
+                }}
               >
                 Delete post
               </DropdownMenuItem>
