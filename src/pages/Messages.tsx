@@ -222,7 +222,7 @@ export default function Messages() {
           viewMode === 'announcements' ? "bg-transparent" : "bg-card rounded-lg"
         )}>
           
-          <div className="flex-1 min-h-0 overflow-y-auto px-1">
+          <div className={cn("flex-1 min-h-0 overflow-y-auto", viewMode === 'announcements' ? "px-0" : "px-1")}>
             {viewMode === 'support' ? <SupportChatPanel /> : viewMode === 'hiring' ? (
               <HiringChatList
                 onSelectConversation={(conv) => {
