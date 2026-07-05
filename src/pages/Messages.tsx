@@ -198,7 +198,7 @@ export default function Messages() {
           <div className={cn(
             "flex-1 min-h-0 flex flex-col",
             viewMode === 'announcements'
-              ? "bg-transparent"
+              ? "bg-background"
               : "border-r border-border bg-card rounded-lg p-4"
           )}>
             {chatListContent}
