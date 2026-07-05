@@ -188,7 +188,7 @@ export default function Messages() {
         <div className="w-80 flex flex-col">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-3xl font-bold">Chat</h1>
-            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
+            <Button size="icon" onClick={handlePlusClick} className="h-8 w-8">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
