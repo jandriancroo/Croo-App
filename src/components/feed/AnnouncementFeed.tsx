@@ -53,7 +53,7 @@ export function AnnouncementFeed() {
 
       {/* Feed list */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-2xl mx-auto py-3 space-y-2 md:px-3 md:space-y-3">
+        <div className="max-w-2xl mx-auto p-3 space-y-3">
           {isLoading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
