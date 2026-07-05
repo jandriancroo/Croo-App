@@ -33,6 +33,11 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
   const { posts, channels, isLoading, toggleReaction, createPost, deletePost, markSeen } = useAnnouncementFeed(activeChannel);
+  const { offers: openShiftOffers } = useOpenShiftOffers();
+
+  const pinnedPosts = useMemo(() => posts.filter(p => p.pinned), [posts]);
+  const regularPosts = useMemo(() => posts.filter(p => !p.pinned), [posts]);
+  const hasPinnedStrip = pinnedPosts.length > 0 || openShiftOffers.length > 0;
 
   const openPostFresh = useMemo(() => {
     if (!openPost) return null;
