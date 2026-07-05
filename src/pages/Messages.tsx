@@ -239,7 +239,7 @@ export default function Messages() {
                 autoSelectApplicationId={pendingHiringApplicationId}
               />
             ) : viewMode === 'announcements' ? (
-              <AnnouncementFeed />
+              <AnnouncementFeed composerOpen={feedComposerOpen} onComposerOpenChange={setFeedComposerOpen} />
             ) : (
               <ChatList
                 chats={filteredChats}
