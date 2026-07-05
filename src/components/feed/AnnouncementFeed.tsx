@@ -99,18 +99,55 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
               )}
             </div>
           ) : (
-            posts.map(p => (
-              <PostCard
-                key={p.id}
-                post={p}
-                currentUserId={user?.id ?? null}
-                canModerate={canModerate}
-                onOpen={setOpenPost}
-                onOpenSeenBy={setSeenByPost}
-                onToggleReaction={toggleReaction}
-                onDelete={(id) => deletePost(id)}
-              />
-            ))
+            <>
+              {hasPinnedStrip && (
+                <div className="space-y-2.5 md:space-y-3">
+                  <div className="flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Pin className="h-3 w-3" /> Pinned
+                  </div>
+                  {openShiftOffers.map(o => (
+                    <div
+                      key={`offer-${o.id}`}
+                      className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm px-3 py-3"
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                          Shift Swap
+                        </span>
+                      </div>
+                      <ShiftOfferMessage offerId={o.id} messageId="" />
+                    </div>
+                  ))}
+                  {pinnedPosts.map(p => (
+                    <PostCard
+                      key={p.id}
+                      post={p}
+                      currentUserId={user?.id ?? null}
+                      canModerate={canModerate}
+                      onOpen={setOpenPost}
+                      onOpenSeenBy={setSeenByPost}
+                      onToggleReaction={toggleReaction}
+                      onDelete={(id) => deletePost(id)}
+                    />
+                  ))}
+                  {regularPosts.length > 0 && (
+                    <div className="pt-1 border-t border-border/60" />
+                  )}
+                </div>
+              )}
+              {regularPosts.map(p => (
+                <PostCard
+                  key={p.id}
+                  post={p}
+                  currentUserId={user?.id ?? null}
+                  canModerate={canModerate}
+                  onOpen={setOpenPost}
+                  onOpenSeenBy={setSeenByPost}
+                  onToggleReaction={toggleReaction}
+                  onDelete={(id) => deletePost(id)}
+                />
+              ))}
+            </>
           )}
           <div className="h-20" />
         </div>
