@@ -42,6 +42,12 @@ export function PostDetailSheet({ post, currentUserId, canModerate, onOpenChange
 
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const images = post.media.filter(m => m.type === 'image');
+  const files = post.media.filter(m => m.type !== 'image');
+  const friendlyFileName = (m: { name?: string; url: string }) => {
+    if (m.name) return decodeURIComponent(m.name);
+    try { return decodeURIComponent(new URL(m.url).pathname.split('/').pop() || 'Attachment'); }
+    catch { return 'Attachment'; }
+  };
 
   const handleSend = async () => {
     if (!draft.trim() || sending) return;
