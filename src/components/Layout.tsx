@@ -1070,7 +1070,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       <header
         ref={mobileHeaderRef}
         className={`fixed top-0 left-0 right-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`}
-        style={{ top: 'env(safe-area-inset-top)', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: 'none' }}
+        style={{ paddingTop: 'env(safe-area-inset-top)', background: 'var(--chrome-bg, hsl(var(--header-bg)))', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 16px hsl(0 0% 0% / 0.10)' }}
       >
         <div className="flex items-center relative h-14 px-4">
           <div className="flex items-center gap-2 flex-shrink-0">
