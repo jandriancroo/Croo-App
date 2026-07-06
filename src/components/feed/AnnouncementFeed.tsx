@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Megaphone, Loader2, Pin, Plus, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useAnnouncementFeed, useFeedBadges, type FeedPost } from '@/hooks/useAnnouncementFeed';
+import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed';
 import { useOpenShiftOffers } from '@/hooks/useOpenShiftOffers';
 import { PostCard } from './PostCard';
 import { PostComposer } from './PostComposer';
