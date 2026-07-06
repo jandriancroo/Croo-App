@@ -73,11 +73,13 @@ export const PageTitle = React.memo(function PageTitle({
         className="shrink-0 h-[0.7em] rounded-[2px]"
         style={{ width: 4, backgroundColor: barColor }}
       />
-      <Tag
-        className="font-apple-system text-[32px] font-bold leading-[1.05] tracking-tight"
-        style={{ backgroundColor: hexToRgba(barColor, 0.12) }}
-      >
-        <span className="rounded-xl px-4 py-1">{children}</span>
+      <Tag className="font-apple-system text-[32px] font-bold leading-[1.05] tracking-tight">
+        <span
+          className="rounded-xl px-4 py-1"
+          style={{ backgroundColor: hexToRgba(barColor, 0.12) }}
+        >
+          {children}
+        </span>
       </Tag>
     </div>
   );
