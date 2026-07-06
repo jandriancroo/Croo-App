@@ -45,33 +45,43 @@ interface PageTitleProps {
   color: PageTitleColor | string;
   className?: string;
   as?: 'h1' | 'h2';
+  action?: React.ReactNode;
 }
 
 /**
  * Standardized page title: bold text with a short vertical accent bar
- * matching the title's cap height. No chip/background.
+ * matching the title's cap height, plus an optional right-aligned action
+ * icon that is vertically centered and sized to match the title.
  */
 export const PageTitle = React.memo(function PageTitle({
   children,
   color,
   className,
   as: Tag = 'h1',
+  action,
 }: PageTitleProps) {
   const barColor = (COLOR_MAP as Record<string, string>)[color] ?? color;
   return (
     <div className={cn('mt-6 md:mt-4', className)}>
-      <Tag className="font-apple-system text-[29px] font-bold leading-none tracking-tight flex items-center gap-3">
-        <span
-          aria-hidden
-          className="inline-block shrink-0 rounded-[2px]"
-          style={{
-            width: '4px',
-            height: '0.72em',
-            backgroundColor: barColor,
-          }}
-        />
-        <span>{children}</span>
-      </Tag>
+      <div className="flex items-center justify-between gap-3">
+        <Tag className="font-apple-system text-[29px] font-bold leading-none tracking-tight flex items-center gap-3">
+          <span
+            aria-hidden
+            className="inline-block shrink-0 rounded-[2px]"
+            style={{
+              width: '4px',
+              height: '0.72em',
+              backgroundColor: barColor,
+            }}
+          />
+          <span>{children}</span>
+        </Tag>
+        {action && (
+          <div className="flex items-center shrink-0 [&_svg]:size-[23px]">
+            {action}
+          </div>
+        )}
+      </div>
     </div>
   );
 });
