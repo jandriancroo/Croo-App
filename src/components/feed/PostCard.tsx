@@ -194,41 +194,19 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
         </div>
       </header>
 
-      {/* Actions dialog (long-press) */}
+      {/* Actions popover (long-press) */}
       {canManage && (
-        <Dialog open={actionsOpen} onOpenChange={setActionsOpen}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Post actions</DialogTitle>
-              <DialogDescription>Choose what to do with this post.</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2 pt-2">
-              {isMine && onEdit && (
-                <Button
-                  variant="outline"
-                  className="justify-start"
-                  onClick={() => {
-                    setEditBody(post.body);
-                    setActionsOpen(false);
-                    setEditOpen(true);
-                  }}
-                >
-                  <Pencil className="h-4 w-4 mr-2" /> Edit post
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className="justify-start text-destructive hover:text-destructive"
-                onClick={() => {
-                  setActionsOpen(false);
-                  setConfirmDeleteOpen(true);
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Delete post
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <PostActionsPopover
+          open={actionsOpen}
+          onOpenChange={setActionsOpen}
+          triggerRef={headerRef}
+          canEdit={isMine && !!onEdit}
+          onEdit={() => {
+            setEditBody(post.body);
+            setEditOpen(true);
+          }}
+          onDelete={() => setConfirmDeleteOpen(true)}
+        />
       )}
 
       {/* Edit dialog */}
