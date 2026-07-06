@@ -1,0 +1,1 @@
+ALTER TABLE public.announcement_reads ALTER COLUMN chat_id DROP NOT NULL;

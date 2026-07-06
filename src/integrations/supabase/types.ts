@@ -385,21 +385,21 @@ export type Database = {
       }
       announcement_reads: {
         Row: {
-          chat_id: string
+          chat_id: string | null
           id: string
           opened_at: string
           post_id: string | null
           user_id: string
         }
         Insert: {
-          chat_id: string
+          chat_id?: string | null
           id?: string
           opened_at?: string
           post_id?: string | null
           user_id: string
         }
         Update: {
-          chat_id?: string
+          chat_id?: string | null
           id?: string
           opened_at?: string
           post_id?: string | null
