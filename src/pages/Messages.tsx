@@ -7,6 +7,7 @@ import { AnnouncementFeed } from '@/components/feed/AnnouncementFeed';
 import { DmPanel } from '@/components/messages/DmPanel';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { PageTitle } from '@/components/PageTitle';
 
 /**
  * Chat page = single-column Team Feed.
