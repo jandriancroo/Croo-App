@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
+import { PageTitle } from "@/components/PageTitle";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { formatInTimeZone } from "date-fns-tz";
 import { Clock, DollarSign, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
