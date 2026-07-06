@@ -288,6 +288,9 @@ export default function Settings() {
             </div>
           </div>
         );
+        }
+
+
 
       case 'notifications':
         return <UnifiedNotificationSettings />;
