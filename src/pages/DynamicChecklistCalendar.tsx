@@ -963,6 +963,7 @@ export default function DynamicChecklistCalendar() {
                     blackoutDates={blackoutDates}
                     onUpdateRefImage={handleUpdateRefImage}
                     onUpdateRefNotes={handleUpdateRefNotes}
+                    onOpenAssign={handleOpenAssign}
                   />
                 ))}
               </div>
