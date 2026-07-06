@@ -980,7 +980,7 @@ export default function PunchClock() {
     try {
     // HARD GUARD: never write a punch with NULL location_id
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     // Block if already clocked in
@@ -1104,7 +1104,7 @@ export default function PunchClock() {
     isPunchingRef.current = true;
     try {
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     // Use timezone-aware timestamp for punch recording
@@ -1189,7 +1189,7 @@ export default function PunchClock() {
     isPunchingRef.current = true;
     try {
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     if (!breakStatus?.canEnd) {
@@ -1241,7 +1241,7 @@ export default function PunchClock() {
     isPunchingRef.current = true;
     try {
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     // Use the open shift_id from the last punch (handles overnight shifts).
