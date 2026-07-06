@@ -394,6 +394,32 @@ export function useAnnouncementFeed(
   };
 }
 
+// --- Standalone badges hook (used for header filter) ---
+
+export function useFeedBadges() {
+  const { user } = useAuth();
+  const { currentLocation } = useAppLocation();
+  const locationId = currentLocation?.id ?? null;
+
+  return useQuery({
+    queryKey: BADGES_KEY(locationId),
+    enabled: !!user,
+    queryFn: async (): Promise<FeedBadge[]> => {
+      let q = supabase
+        .from('feed_badges')
+        .select('id, label, tier, color, is_active, sort_order, location_id, brand_id, created_by')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('label', { ascending: true });
+      if (locationId) {
+        q = q.or(`location_id.eq.${locationId},and(location_id.is.null,brand_id.is.null)`);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as FeedBadge[];
+    },
+  });
+}
 
 // --- Comments hook (per-post) ---
 

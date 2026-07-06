@@ -1,20 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Megaphone, Loader2, Pin, Plus, ChevronDown } from 'lucide-react';
+import { Megaphone, Loader2, Pin, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed';
 import { useOpenShiftOffers } from '@/hooks/useOpenShiftOffers';
 import { PostCard } from './PostCard';
 import { PostComposer } from './PostComposer';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 import { SeenByDialog } from './SeenByDialog';
 import { ShiftOfferMessage } from '@/components/messages/ShiftOfferMessage';
@@ -22,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
 interface AnnouncementFeedProps {
+  activeBadge?: string | 'all';
   composerOpen?: boolean;
   onComposerOpenChange?: (open: boolean) => void;
 }
@@ -41,14 +35,13 @@ function useCurrentProfile(userId: string | null) {
   });
 }
 
-export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
+export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin, isShiftManager } = useUserRole();
   const canAnnounce = isAdmin || isManager || isSuperAdmin;
   const canCreateBadges = isAdmin || isManager || isSuperAdmin;
   const canModerate = isAdmin || isSuperAdmin;
 
-  const [activeBadge, setActiveBadge] = useState<string | 'all'>('all');
   const [internalComposerOpen, setInternalComposerOpen] = useState(false);
   const composerOpen = composerOpenProp ?? internalComposerOpen;
   const setComposerOpen = (o: boolean) => {
@@ -102,48 +95,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                 <Plus className="h-4 w-4" />
               </span>
             </button>
-          )}
-
-          {/* Badge filter dropdown */}
-          {badges.length > 0 && (
-            <div className="px-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-colors border"
-                    style={
-                      activeBadge === 'all'
-                        ? { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderColor: 'hsl(var(--primary))' }
-                        : (() => {
-                            const b = badges.find(x => x.id === activeBadge);
-                            const color = b?.color ?? '#3B82F6';
-                            return { backgroundColor: color, color: 'white', borderColor: color };
-                          })()
-                    }
-                  >
-                    {activeBadge === 'all' ? 'All' : badges.find(b => b.id === activeBadge)?.label ?? 'All'}
-                    <ChevronDown className="h-3.5 w-3.5 opacity-80" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[160px]">
-                  <DropdownMenuRadioGroup value={activeBadge} onValueChange={(v) => setActiveBadge(v as string | 'all')}>
-                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                    {badges.map(b => (
-                      <DropdownMenuRadioItem key={b.id} value={b.id}>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full"
-                            style={{ backgroundColor: b.color ?? '#3B82F6' }}
-                          />
-                          {b.label}
-                        </span>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
           )}
 
           {isLoading ? (
