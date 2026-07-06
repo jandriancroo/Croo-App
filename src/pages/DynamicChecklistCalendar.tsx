@@ -28,6 +28,7 @@ interface ChecklistItem {
   requires_temperature_validation: boolean;
   reference_image_url: string | null;
   reference_notes: string | null;
+  manager_shift: 'am' | 'pm' | null;
 }
 
 interface Checklist {
