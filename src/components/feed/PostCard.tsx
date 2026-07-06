@@ -16,7 +16,7 @@ interface PostCardProps {
   onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
-  onMarkSeen?: (postId: string) => void;
+  onMarkSeen?: (postId: string) => boolean | Promise<boolean>;
 }
 
 const BODY_TRUNCATE_CHARS = 320;
@@ -59,10 +59,13 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
       for (const e of entries) {
         if (e.isIntersecting && !markedRef.current) {
           if (timer == null) {
-            timer = window.setTimeout(() => {
-              markedRef.current = true;
-              onMarkSeen(post.id);
-              io.disconnect();
+            timer = window.setTimeout(async () => {
+              const recorded = await onMarkSeen(post.id);
+              if (recorded) {
+                markedRef.current = true;
+                io.disconnect();
+              }
+              timer = null;
             }, 800);
           }
         } else if (timer != null) {

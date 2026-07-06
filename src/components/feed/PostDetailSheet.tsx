@@ -14,7 +14,7 @@ interface Props {
   canModerate: boolean;
   onOpenChange: (open: boolean) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
-  onMarkSeen: (postId: string) => void;
+  onMarkSeen: (postId: string) => boolean | Promise<boolean>;
 }
 
 function getInitials(name?: string | null) {

@@ -183,19 +183,29 @@ export function useAnnouncementFeed(
       const channelIds = Array.from(new Set(posts.map(p => p.channel_id).filter(Boolean))) as string[];
       const badgeIds = Array.from(new Set(posts.map((p: any) => p.badge_id).filter(Boolean))) as string[];
 
-      const [{ data: authors }, { data: channels }, { data: badges }, { data: reactions }, { data: comments }, { data: reads }] =
+      const [authorsRes, channelsRes, badgesRes, reactionsRes, commentsRes, readsRes] =
         await Promise.all([
           supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', authorIds),
           channelIds.length
             ? supabase.from('announcement_channels').select('id, name, color').in('id', channelIds)
-            : Promise.resolve({ data: [] as any[] }),
+            : Promise.resolve({ data: [] as any[], error: null }),
           badgeIds.length
             ? supabase.from('feed_badges').select('id, label, tier, color, is_active, sort_order, location_id, brand_id, created_by').in('id', badgeIds)
-            : Promise.resolve({ data: [] as any[] }),
+            : Promise.resolve({ data: [] as any[], error: null }),
           supabase.from('announcement_reactions').select('post_id, user_id, emoji').in('post_id', postIds),
           supabase.from('announcement_comments').select('post_id').in('post_id', postIds).is('deleted_at', null),
           supabase.from('announcement_reads').select('post_id, user_id').in('post_id', postIds),
         ]);
+
+      const loadError = authorsRes.error ?? channelsRes.error ?? badgesRes.error ?? reactionsRes.error ?? commentsRes.error ?? readsRes.error;
+      if (loadError) throw loadError;
+
+      const authors = authorsRes.data ?? [];
+      const channels = channelsRes.data ?? [];
+      const badges = badgesRes.data ?? [];
+      const reactions = reactionsRes.data ?? [];
+      const comments = commentsRes.data ?? [];
+      const reads = readsRes.data ?? [];
 
       const authorMap = new Map((authors ?? []).map((a: any) => [a.id, a]));
       const channelMap = new Map((channels ?? []).map((c: any) => [c.id, c]));
@@ -244,6 +254,9 @@ export function useAnnouncementFeed(
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments' }, () => {
         queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_reads' }, () => {
+        queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_badges' }, () => {
         queryClient.invalidateQueries({ queryKey: BADGES_KEY(locationId) });
       })
@@ -251,19 +264,21 @@ export function useAnnouncementFeed(
     return () => { supabase.removeChannel(channel); };
   }, [locationId, queryClient]);
 
-  const markSeen = useCallback(async (postId: string) => {
-    if (!user) return;
+  const markSeen = useCallback(async (postId: string): Promise<boolean> => {
+    if (!user) return false;
     const { error } = await supabase
       .from('announcement_reads')
-      .upsert(
-        { post_id: postId, user_id: user.id },
-        { onConflict: 'post_id,user_id', ignoreDuplicates: true },
-      );
+      .insert({ post_id: postId, user_id: user.id });
     if (error) {
+      if (error.code === '23505') {
+        queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+        return true;
+      }
       console.error('[markSeen] failed to record post read', { postId, error });
-      return;
+      return false;
     }
     queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+    return true;
   }, [user, queryClient, locationId]);
 
   const toggleReaction = useMutation({
