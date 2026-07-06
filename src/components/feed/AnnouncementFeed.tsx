@@ -49,7 +49,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
     else setInternalComposerOpen(o);
   };
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
-  const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
   const {
     posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, markSeen,
