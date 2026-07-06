@@ -546,6 +546,30 @@ export default function PunchClock() {
     }
   }, [currentUser, currentLocation?.id]);
 
+  // Self-heal: if the user PINs in but currentLocation is missing (e.g. the
+  // PWA went idle during a break and Supabase spuriously wiped auth state),
+  // proactively refetch locations instead of forcing them to log out.
+  useEffect(() => {
+    if (currentUser && !currentLocation?.id) {
+      console.warn('[PunchClock] currentLocation missing after PIN — refetching');
+      refetchLocations().catch(() => {});
+    }
+  }, [currentUser, currentLocation?.id, refetchLocations]);
+
+  // On tab becoming visible again (kiosk woken from sleep), if location is
+  // missing, refetch. This prevents the "Location not loaded yet" trap.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !currentLocation?.id) {
+        refetchLocations().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [currentLocation?.id, refetchLocations]);
+
+
+
   const checkAllBirthdays = async () => {
     try {
       if (!currentLocation?.id) return;
