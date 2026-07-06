@@ -229,8 +229,42 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
         </div>
       )}
 
+      {/* Reactions bar */}
+      {(() => {
+        const like = post.reactions.find(r => r.emoji === '👍');
+        const dislike = post.reactions.find(r => r.emoji === '👎');
+        return (
+          <div className="px-4 pt-2 flex items-center gap-2 border-t border-border/50">
+            <button
+              type="button"
+              onClick={() => onToggleReaction(post.id, '👍', !!like?.mine)}
+              className={cn(
+                'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-xs font-medium transition-colors',
+                like?.mine ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted',
+              )}
+              aria-pressed={!!like?.mine}
+            >
+              <ThumbsUp className="h-3.5 w-3.5" />
+              {like?.count ?? 0}
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggleReaction(post.id, '👎', !!dislike?.mine)}
+              className={cn(
+                'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-xs font-medium transition-colors',
+                dislike?.mine ? 'bg-destructive/15 text-destructive' : 'text-muted-foreground hover:bg-muted',
+              )}
+              aria-pressed={!!dislike?.mine}
+            >
+              <ThumbsDown className="h-3.5 w-3.5" />
+              {dislike?.count ?? 0}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Meta bar */}
-      <div className="px-4 py-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50">
+      <div className="px-4 py-2 flex items-center justify-between text-xs text-muted-foreground">
         <button
           type="button"
           onClick={() => {
