@@ -173,9 +173,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
             <>
               {hasPinnedStrip && (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Pin className="h-3 w-3" /> Pinned
-                  </div>
                   {openShiftOffers.map(o => (
                     <div
                       key={`offer-${o.id}`}
