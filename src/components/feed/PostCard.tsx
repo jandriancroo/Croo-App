@@ -34,7 +34,7 @@ function friendlyFileName(m: { name?: string; url: string }) {
   } catch { return 'Attachment'; }
 }
 
-function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, onToggleReaction, onDelete, onMarkSeen }: PostCardProps) {
+function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onMarkSeen }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
