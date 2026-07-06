@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Megaphone, Loader2, Pin, Plus, ChevronDown } from 'lucide-react';
+import { Megaphone, Loader2, Plus, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed';
@@ -173,9 +173,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
             <>
               {hasPinnedStrip && (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Pin className="h-3 w-3" /> Pinned
-                  </div>
                   {openShiftOffers.map(o => (
                     <div
                       key={`offer-${o.id}`}
