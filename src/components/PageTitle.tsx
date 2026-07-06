@@ -60,13 +60,13 @@ export const PageTitle = React.memo(function PageTitle({
 }: PageTitleProps) {
   const barColor = (COLOR_MAP as Record<string, string>)[color] ?? color;
   return (
-    <div className={cn('flex items-center gap-3', className)}>
+    <div className={cn('flex items-center gap-3 mt-4 md:mt-0', className)}>
       <span
         aria-hidden="true"
-        className="shrink-0 rounded-[2px]"
-        style={{ width: 4, height: 24, backgroundColor: barColor }}
+        className="shrink-0 self-stretch rounded-[2px] my-[0.15em]"
+        style={{ width: 4, backgroundColor: barColor }}
       />
-      <Tag className="text-[25px] font-semibold leading-none tracking-tight">
+      <Tag className="font-apple-system text-[28px] font-bold leading-[1.05] tracking-tight">
         {children}
       </Tag>
     </div>
