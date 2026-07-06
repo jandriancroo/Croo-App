@@ -156,9 +156,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* Media grid — ABOVE text, rounded and inset */}
       {images.length > 0 && (
         <div className="px-3 mt-1">
-          <button
-            type="button"
-            onClick={() => onOpen(post)}
+          <div
             className={cn(
               'grid gap-0.5 w-full bg-muted rounded-xl overflow-hidden',
               images.length === 1 && 'grid-cols-1',
@@ -179,9 +177,10 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
                 <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
               </div>
             ))}
-          </button>
+          </div>
         </div>
       )}
+
 
       {/* Body */}
       {post.body && (
