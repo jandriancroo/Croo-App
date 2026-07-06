@@ -13,6 +13,7 @@ import { formatTime12Hour } from "@/lib/utils";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { getDateDayOfWeekInTimezone } from "@/utils/dateUtils";
+import { PageTitle } from "@/components/PageTitle";
 import { useUserRole } from "@/hooks/useUserRole";
 import { CreateTicketDialog } from "@/components/support/CreateTicketDialog";
 import { Button } from "@/components/ui/button";
