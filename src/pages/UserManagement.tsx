@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { PageTitle } from '@/components/PageTitle';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
