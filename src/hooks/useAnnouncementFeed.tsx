@@ -389,6 +389,7 @@ export interface FeedComment {
   created_at: string;
   edited_at: string | null;
   author: FeedAuthor | null;
+  reactions: { emoji: string; count: number; mine: boolean }[];
 }
 
 export function useAnnouncementComments(postId: string | null, opts?: { subscribe?: boolean; enabled?: boolean }) {
@@ -410,9 +411,29 @@ export function useAnnouncementComments(postId: string | null, opts?: { subscrib
       if (error) throw error;
       if (!data?.length) return [];
       const ids = Array.from(new Set(data.map(d => d.author_id)));
-      const { data: authors } = await supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', ids);
-      const map = new Map((authors ?? []).map((a: any) => [a.id, a]));
-      return data.map(d => ({ ...d, author: map.get(d.author_id) ?? null })) as FeedComment[];
+      const commentIds = data.map(d => d.id);
+      const [authorsRes, reactionsRes] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', ids),
+        supabase.from('announcement_comment_reactions').select('comment_id, user_id, emoji').in('comment_id', commentIds),
+      ]);
+      const authorMap = new Map((authorsRes.data ?? []).map((a: any) => [a.id, a]));
+      const reactionsByComment = new Map<string, { emoji: string; count: number; mine: boolean }[]>();
+      for (const r of (reactionsRes.data ?? []) as any[]) {
+        const list = reactionsByComment.get(r.comment_id) ?? [];
+        const existing = list.find(x => x.emoji === r.emoji);
+        if (existing) {
+          existing.count += 1;
+          if (r.user_id === user?.id) existing.mine = true;
+        } else {
+          list.push({ emoji: r.emoji, count: 1, mine: r.user_id === user?.id });
+        }
+        reactionsByComment.set(r.comment_id, list);
+      }
+      return data.map(d => ({
+        ...d,
+        author: authorMap.get(d.author_id) ?? null,
+        reactions: reactionsByComment.get(d.id) ?? [],
+      })) as FeedComment[];
     },
   });
 
@@ -421,6 +442,9 @@ export function useAnnouncementComments(postId: string | null, opts?: { subscrib
     const channel = supabase
       .channel(`ann-cmt-${postId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments', filter: `post_id=eq.${postId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comment_reactions' }, () => {
         queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] });
       })
       .subscribe();
@@ -447,10 +471,33 @@ export function useAnnouncementComments(postId: string | null, opts?: { subscrib
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] }),
   });
 
+  const toggleCommentReaction = useMutation({
+    mutationFn: async ({ commentId, emoji, mine }: { commentId: string; emoji: string; mine: boolean }) => {
+      if (!user) throw new Error('Not signed in');
+      if (mine) {
+        const { error } = await supabase
+          .from('announcement_comment_reactions')
+          .delete()
+          .eq('comment_id', commentId).eq('user_id', user.id).eq('emoji', emoji);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('announcement_comment_reactions')
+          .insert({ comment_id: commentId, user_id: user.id, emoji });
+        if (error) throw error;
+      }
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Reaction failed'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] }),
+  });
+
   return {
     comments: query.data ?? [],
     isLoading: query.isLoading,
     addComment: (body: string, parentId?: string | null) => addComment.mutateAsync({ body, parentId }),
     deleteComment: deleteComment.mutateAsync,
+    toggleCommentReaction: (commentId: string, emoji: string, mine: boolean) =>
+      toggleCommentReaction.mutate({ commentId, emoji, mine }),
   };
 }
+
