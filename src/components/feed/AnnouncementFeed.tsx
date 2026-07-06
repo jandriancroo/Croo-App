@@ -217,14 +217,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
         onCreateBadge={createBadge}
       />
 
-      <PostDetailSheet
-        post={openPostFresh}
-        currentUserId={user?.id ?? null}
-        canModerate={canModerate}
-        onOpenChange={(o) => { if (!o) setOpenPost(null); }}
-        onToggleReaction={toggleReaction}
-        onMarkSeen={markSeen}
-      />
 
       <SeenByDialog
         post={seenByPost}
