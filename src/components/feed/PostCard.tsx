@@ -168,18 +168,23 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
               images.length === 4 && 'grid-cols-2',
             )}
           >
-            {images.map((m, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'relative overflow-hidden bg-muted',
-                  images.length === 3 && i === 0 && 'row-span-2',
-                  images.length === 1 ? 'aspect-video' : 'aspect-square',
-                )}
-              >
-                <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-              </div>
-            ))}
+            {images.map((m, i) => {
+              const idx = lightboxItems.indexOf(m);
+              return (
+                <button
+                  type="button"
+                  key={i}
+                  onClick={() => setLightboxIndex(idx >= 0 ? idx : 0)}
+                  className={cn(
+                    'relative overflow-hidden bg-muted focus:outline-none focus:ring-2 focus:ring-primary',
+                    images.length === 3 && i === 0 && 'row-span-2',
+                    images.length === 1 ? 'aspect-video' : 'aspect-square',
+                  )}
+                >
+                  <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
