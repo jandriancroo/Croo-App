@@ -415,7 +415,7 @@ function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onUpd
   );
 }
 
-function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage, onUpdateRefNotes }: { 
+function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage, onUpdateRefNotes, onOpenAssign }: { 
   dayIndex: number; 
   dayName: string; 
   tasks: ChecklistItem[];
@@ -423,6 +423,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpd
   blackoutDates: string[];
   onUpdateRefImage: (id: string, url: string | null) => void;
   onUpdateRefNotes: (id: string, notes: string | null) => void;
+  onOpenAssign: (task: ChecklistItem) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
