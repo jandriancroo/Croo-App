@@ -34,24 +34,27 @@ export default function Messages() {
     <Layout>
       <div className="mx-auto w-full max-w-[640px] pb-8">
         {/* Page header — Chats title + DM button */}
-        <header className="flex items-start justify-between">
-          <PageTitle color="orange">Chats</PageTitle>
-
-          <Button
-            variant="default"
-            size="icon"
-            onClick={() => setDmOpen(true)}
-            className="relative h-12 w-12 rounded-2xl shrink-0 bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm mt-3"
-            aria-label="Open direct messages"
-          >
-            <MessageCircle className="h-6 w-6" />
-            {dmBadge > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
-                {dmBadge > 99 ? '99+' : dmBadge}
-              </span>
-            )}
-          </Button>
-        </header>
+        <PageTitle
+          color="orange"
+          action={
+            <Button
+              variant="default"
+              size="icon"
+              onClick={() => setDmOpen(true)}
+              className="relative h-12 w-12 rounded-2xl shrink-0 bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
+              aria-label="Open direct messages"
+            >
+              <MessageCircle className="h-6 w-6" />
+              {dmBadge > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                  {dmBadge > 99 ? '99+' : dmBadge}
+                </span>
+              )}
+            </Button>
+          }
+        >
+          Chats
+        </PageTitle>
 
         {/* The feed itself */}
         <AnnouncementFeed
