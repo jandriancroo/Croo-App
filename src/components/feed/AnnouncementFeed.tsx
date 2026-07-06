@@ -88,11 +88,12 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
         <div className="px-0 pt-2 pb-3 space-y-3 md:pt-3 md:space-y-3">
           {/* Inline composer trigger */}
           {user && (
-            <button
-              type="button"
-              onClick={() => setComposerOpen(true)}
-              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3 shadow-sm hover:bg-muted/60 transition-colors text-left"
-            >
+            <>
+              <button
+                type="button"
+                onClick={() => setComposerOpen(true)}
+                className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3 shadow-sm hover:bg-muted/60 transition-colors text-left"
+              >
               <Avatar className="h-10 w-10 shrink-0">
                 <AvatarImage src={me?.profile_photo_url ?? undefined} alt={displayName} />
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
