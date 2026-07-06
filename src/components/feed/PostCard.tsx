@@ -212,19 +212,20 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* File attachments */}
       {files.length > 0 && (
         <div className="px-4 pb-3 flex flex-col gap-1.5">
-          {files.map((m, i) => (
-            <a
-              key={i}
-              href={m.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 hover:bg-muted px-3 py-2 text-sm min-w-0"
-            >
-              <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="truncate">{friendlyFileName(m)}</span>
-            </a>
-          ))}
+          {files.map((m, i) => {
+            const idx = lightboxItems.indexOf(m);
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setLightboxIndex(idx >= 0 ? idx : 0)}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 hover:bg-muted px-3 py-2 text-sm min-w-0 text-left w-full"
+              >
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{friendlyFileName(m)}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
