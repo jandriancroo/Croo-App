@@ -593,7 +593,7 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold">Dash</h1>
+                <PageTitle color="teal">Dash</PageTitle>
               </div>
               <div className="flex gap-2 items-center">
                 {/* Hide edit button for role-based cube users (cubes locked by Org Admin) */}
