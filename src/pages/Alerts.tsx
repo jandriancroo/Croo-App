@@ -508,7 +508,7 @@ export default function Alerts() {
               <div className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">Alert Feed</h1>
+              <PageTitle color="red">Alert Feed</PageTitle>
               <p className="text-muted-foreground">Live monitoring of all system alerts</p>
             </div>
           </div>
