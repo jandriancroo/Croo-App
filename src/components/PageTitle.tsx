@@ -40,13 +40,6 @@ const COLOR_MAP: Record<PageTitleColor, string> = {
   pink: '#ec4899',
 };
 
-function hexToRgba(hex: string, alpha: number) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 interface PageTitleProps {
   children: React.ReactNode;
   color: PageTitleColor | string;
@@ -55,9 +48,8 @@ interface PageTitleProps {
 }
 
 /**
- * Standardized page title with a soft tinted chip background.
- * Used across every top-level page that has an existing title.
- * Do NOT add this to pages that don't already have a title.
+ * Standardized page title: bold text with a short vertical accent bar
+ * matching the title's cap height. No chip/background.
  */
 export const PageTitle = React.memo(function PageTitle({
   children,
@@ -67,14 +59,18 @@ export const PageTitle = React.memo(function PageTitle({
 }: PageTitleProps) {
   const barColor = (COLOR_MAP as Record<string, string>)[color] ?? color;
   return (
-    <div className={cn('mt-4 md:mt-0', className)}>
-      <Tag className="font-apple-system text-[21px] font-extrabold leading-[1.05] tracking-tight">
+    <div className={cn('mt-6 md:mt-4', className)}>
+      <Tag className="font-apple-system text-[29px] font-bold leading-none tracking-tight flex items-center gap-3">
         <span
-          className="inline-flex items-center rounded-xl px-4 py-1"
-          style={{ backgroundColor: hexToRgba(barColor, 0.12) }}
-        >
-          {children}
-        </span>
+          aria-hidden
+          className="inline-block shrink-0 rounded-[2px]"
+          style={{
+            width: '4px',
+            height: '0.72em',
+            backgroundColor: barColor,
+          }}
+        />
+        <span>{children}</span>
       </Tag>
     </div>
   );
