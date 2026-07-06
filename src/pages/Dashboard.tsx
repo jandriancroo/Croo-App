@@ -31,6 +31,7 @@ import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
 import { getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
+import { PageTitle } from '@/components/PageTitle';
 
 
 // Lazy-loaded components (only needed conditionally)
