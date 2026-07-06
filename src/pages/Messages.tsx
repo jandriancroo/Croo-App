@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { MessagesSquare } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { AnnouncementFeed } from '@/components/feed/AnnouncementFeed';
 import { DmPanel } from '@/components/messages/DmPanel';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
@@ -40,13 +40,13 @@ export default function Messages() {
             </p>
           </div>
           <Button
-            variant="secondary"
+            variant="default"
             size="icon"
             onClick={() => setDmOpen(true)}
-            className="relative h-11 w-11 rounded-full shrink-0"
+            className="relative h-12 w-12 rounded-full shrink-0 bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
             aria-label="Open direct messages"
           >
-            <MessagesSquare className="h-5 w-5" />
+            <MessageCircle className="h-6 w-6" />
             {dmBadge > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
                 {dmBadge > 99 ? '99+' : dmBadge}
