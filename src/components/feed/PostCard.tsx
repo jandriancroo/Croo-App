@@ -98,7 +98,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
   const [editBody, setEditBody] = useState(post.body);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
-  const headerRef = useRef<HTMLElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimer.current != null) {
