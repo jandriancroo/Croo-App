@@ -62,7 +62,7 @@ export const PageTitle = React.memo(function PageTitle({
 }: PageTitleProps) {
   const barColor = (COLOR_MAP as Record<string, string>)[color] ?? color;
   return (
-    <div className={cn('mt-6 md:mt-4', className)}>
+    <div className={cn('mt-4 md:mt-3', className)}>
       <div className="flex items-center justify-between gap-3">
         <Tag className="font-apple-system text-[29px] font-bold leading-none tracking-tight flex items-center gap-3">
           <span
