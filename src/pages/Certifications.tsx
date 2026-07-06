@@ -331,7 +331,7 @@ export default function Certifications() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">Certifications</h1>
+              <PageTitle color="yellow">Certifications</PageTitle>
               <p className="text-muted-foreground">
                 Track food handlers cards and ServSafe certifications
               </p>
