@@ -98,7 +98,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                 <AvatarImage src={me?.profile_photo_url ?? undefined} alt={displayName} />
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
               </Avatar>
-              <span className="flex-1 text-muted-foreground text-[15px]">Share something with the team…</span>
+              <span className="flex-1 min-w-0 truncate text-muted-foreground text-[13px]">Share something with the team…</span>
               <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-primary text-primary-foreground shrink-0">
                 <Plus className="h-4 w-4" />
               </span>
