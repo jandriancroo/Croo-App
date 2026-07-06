@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { MessagesSquare } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { AnnouncementFeed } from '@/components/feed/AnnouncementFeed';
 import { DmPanel } from '@/components/messages/DmPanel';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
