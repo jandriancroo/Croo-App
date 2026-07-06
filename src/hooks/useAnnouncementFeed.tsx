@@ -253,10 +253,16 @@ export function useAnnouncementFeed(
 
   const markSeen = useCallback(async (postId: string) => {
     if (!user) return;
-    await supabase
+    const { error } = await supabase
       .from('announcement_reads')
-      .upsert({ post_id: postId, user_id: user.id, chat_id: null as any }, { onConflict: 'post_id,user_id' })
-      .select();
+      .upsert(
+        { post_id: postId, user_id: user.id },
+        { onConflict: 'post_id,user_id', ignoreDuplicates: true },
+      );
+    if (error) {
+      console.error('[markSeen] failed to record post read', { postId, error });
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
   }, [user, queryClient, locationId]);
 
