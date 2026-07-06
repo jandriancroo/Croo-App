@@ -767,8 +767,17 @@ const handler = async (req: Request): Promise<Response> => {
               if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`[${userName}] Web push FAILED: ${response.status} - ${errorText}`);
+                // Auto-prune dead subscriptions: 410 Gone = unsubscribed/expired, 404 = not found
+                if (response.status === 410 || response.status === 404) {
+                  console.log(`[${userName}] 🗑️ Pruning dead subscription (${response.status})`);
+                  await supabase
+                    .from('push_notification_tokens')
+                    .delete()
+                    .eq('token', token);
+                }
                 throw new Error(`Web push failed: ${response.status} - ${errorText}`);
               }
+
               
               console.log(`[${userName}] ✅ Web push sent successfully`);
               return { success: true, user: userName };
