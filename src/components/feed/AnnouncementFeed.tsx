@@ -51,7 +51,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
   const {
-    posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, markSeen,
+    posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, updatePost, markSeen,
   } = useAnnouncementFeed('all', activeBadge);
   const composerChannels = useMemo(
     () => channels.filter(c => c.audience_type === 'everyone' || isShiftManager),
