@@ -56,7 +56,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   };
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
   const [activeBadge, setActiveBadge] = useState<string | 'all'>('all');
-  const { data: badges = [] } = useFeedBadges();
 
   const {
     posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, updatePost, markSeen,
