@@ -46,25 +46,36 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
     ? post.body
     : post.body.slice(0, BODY_TRUNCATE_CHARS).replace(/\s+\S*$/, '') + '…';
 
-  // Mark as seen when scrolled into view (once per post per session)
+  // Mark as seen when scrolled into view for ~800ms (once per post per session).
+  // Uses a low threshold so tall posts on small viewports still register.
   const rootRef = useRef<HTMLElement | null>(null);
   const markedRef = useRef(false);
   useEffect(() => {
     if (!onMarkSeen || post.seen_by_me || markedRef.current || isMine) return;
     const el = rootRef.current;
     if (!el) return;
+    let timer: number | null = null;
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) {
-        if (e.isIntersecting && e.intersectionRatio >= 0.5 && !markedRef.current) {
-          markedRef.current = true;
-          onMarkSeen(post.id);
-          io.disconnect();
-          break;
+        if (e.isIntersecting && !markedRef.current) {
+          if (timer == null) {
+            timer = window.setTimeout(() => {
+              markedRef.current = true;
+              onMarkSeen(post.id);
+              io.disconnect();
+            }, 800);
+          }
+        } else if (timer != null) {
+          window.clearTimeout(timer);
+          timer = null;
         }
       }
-    }, { threshold: [0.5] });
+    }, { threshold: 0.15 });
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      if (timer != null) window.clearTimeout(timer);
+      io.disconnect();
+    };
   }, [post.id, post.seen_by_me, isMine, onMarkSeen]);
 
   return (
