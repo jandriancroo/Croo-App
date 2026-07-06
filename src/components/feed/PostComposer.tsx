@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -48,11 +48,21 @@ export function PostComposer({
   const [submitting, setSubmitting] = useState(false);
   const [badgeDialogOpen, setBadgeDialogOpen] = useState(false);
   const [newBadgeLabel, setNewBadgeLabel] = useState('');
+  const defaultChannelId = channels.find(c => c.slug === 'all')?.id
+    ?? channels.find(c => c.audience_type === 'everyone')?.id
+    ?? null;
 
   const reset = () => {
-    setBody(''); setMedia([]); setChannelId(null); setBadgeId(null);
+    setBody(''); setMedia([]); setChannelId(defaultChannelId); setBadgeId(null);
     setIsAnnouncement(false); setPinned(false);
   };
+
+  useEffect(() => {
+    if (!open) return;
+    if (!channelId || !channels.some(c => c.id === channelId)) {
+      setChannelId(defaultChannelId);
+    }
+  }, [open, channelId, channels, defaultChannelId]);
 
   const handleFiles = async (files: FileList | null, kind: 'image' | 'file') => {
     if (!files || !user) return;
@@ -97,7 +107,7 @@ export function PostComposer({
       await onSubmit({
         body: body.trim(),
         media,
-        channelId,
+        channelId: channelId ?? defaultChannelId,
         pinned: canAnnounce ? pinned : false,
         badgeId,
         isAnnouncement: canAnnounce ? isAnnouncement : false,
@@ -223,15 +233,8 @@ export function PostComposer({
 
               {channels.length > 0 && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Channel</Label>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Audience</Label>
                   <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setChannelId(null)}
-                      className={`px-3 h-8 rounded-full text-sm border ${channelId === null ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border'}`}
-                    >
-                      General
-                    </button>
                     {channels.map(c => (
                       <button
                         key={c.id}
