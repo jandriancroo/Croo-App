@@ -192,7 +192,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                   post={p}
                   currentUserId={user?.id ?? null}
                   canModerate={canModerate}
-                  onOpen={setOpenPost}
                   onOpenSeenBy={setSeenByPost}
                   onToggleReaction={toggleReaction}
                   onDelete={(id) => deletePost(id)}
