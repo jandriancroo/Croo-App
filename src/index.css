@@ -860,11 +860,11 @@ header.bg-primary *,
   }
 
   h1 {
-    font-size: 1rem !important;
-    line-height: 1.5rem !important;
-    font-weight: 500 !important;
-    margin-top: 0.5rem !important;
-    margin-bottom: 0.25rem !important;
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
   }
 
   /* Text size scaling */
