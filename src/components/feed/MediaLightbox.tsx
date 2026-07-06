@@ -72,7 +72,7 @@ export function MediaLightbox({ items, index, onOpenChange, onIndexChange }: Pro
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </a>
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 h-9 w-9" onClick={() => onOpenChange(false)}>
+            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/20 h-9 w-9" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
