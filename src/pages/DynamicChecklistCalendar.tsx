@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Plus, X, ImagePlus, Trash2, Eye, Camera } from "lucide-react";
+import { ArrowLeft, Save, Plus, X, ImagePlus, Trash2, Eye, Camera, CalendarDays, Sun, Moon } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
@@ -28,7 +28,32 @@ interface ChecklistItem {
   requires_temperature_validation: boolean;
   reference_image_url: string | null;
   reference_notes: string | null;
+  manager_shift: 'am' | 'pm' | null;
 }
+
+type DbChecklistItem = {
+  id: string;
+  question: string;
+  item_type: string;
+  order_index: number;
+  days_of_week: number[] | null;
+  requires_temperature_validation: boolean;
+  reference_image_url: string | null;
+  reference_notes: string | null;
+  manager_shift: string | null;
+};
+
+const normalizeItem = (row: DbChecklistItem): ChecklistItem => ({
+  id: row.id,
+  question: row.question,
+  item_type: row.item_type,
+  order_index: row.order_index,
+  days_of_week: row.days_of_week ?? null,
+  requires_temperature_validation: !!row.requires_temperature_validation,
+  reference_image_url: row.reference_image_url ?? null,
+  reference_notes: row.reference_notes ?? null,
+  manager_shift: row.manager_shift === 'am' || row.manager_shift === 'pm' ? row.manager_shift : null,
+});
 
 interface Checklist {
   id: string;
@@ -43,7 +68,7 @@ interface Holiday {
   holiday_type: string;
 }
 
-function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void; onUpdateRefNotes?: (id: string, notes: string | null) => void }) {
+function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes, onOpenAssign }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void; onUpdateRefNotes?: (id: string, notes: string | null) => void; onOpenAssign?: (task: ChecklistItem) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
@@ -136,12 +161,35 @@ function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes }: {
       style={style}
       className="p-2 bg-card border rounded group"
     >
-      <div className="flex items-center justify-between">
-        <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
-          <p className="text-sm">{task.question}</p>
+      <div className="flex items-center justify-between gap-1">
+        <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm truncate">{task.question}</p>
+            {task.manager_shift === 'am' && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700">
+                <Sun className="h-2.5 w-2.5" /> AM
+              </span>
+            )}
+            {task.manager_shift === 'pm' && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full border bg-indigo-900 text-indigo-100 border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                <Moon className="h-2.5 w-2.5" /> PM
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">{task.item_type}</p>
         </div>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 shrink-0">
+          {onOpenAssign && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-70 hover:opacity-100"
+              onClick={() => onOpenAssign(task)}
+              title="Assign days & shift"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+            </Button>
+          )}
           {onUpdateRefImage && (
             <Button
               variant="ghost"
@@ -293,11 +341,12 @@ function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes }: {
   );
 }
 
-function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onUpdateRefNotes, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
+function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onUpdateRefNotes, onOpenAssign, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
   unassignedItems: ChecklistItem[]; 
   onDelete: (id: string) => void; 
   onUpdateRefImage: (id: string, url: string | null) => void;
   onUpdateRefNotes: (id: string, notes: string | null) => void;
+  onOpenAssign: (task: ChecklistItem) => void;
   onQuickAdd: () => void;
   newQuestion: string;
   setNewQuestion: (value: string) => void;
@@ -359,14 +408,14 @@ function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onUpd
       </p>
       <div className="space-y-2">
         {unassignedItems.map((task) => (
-          <DraggableTask key={task.id} task={task} onDelete={onDelete} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} />
+          <DraggableTask key={task.id} task={task} onDelete={onDelete} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} onOpenAssign={onOpenAssign} />
         ))}
       </div>
     </Card>
   );
 }
 
-function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage, onUpdateRefNotes }: { 
+function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage, onUpdateRefNotes, onOpenAssign }: { 
   dayIndex: number; 
   dayName: string; 
   tasks: ChecklistItem[];
@@ -374,6 +423,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpd
   blackoutDates: string[];
   onUpdateRefImage: (id: string, url: string | null) => void;
   onUpdateRefNotes: (id: string, notes: string | null) => void;
+  onOpenAssign: (task: ChecklistItem) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
@@ -426,7 +476,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpd
       </div>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} />
+          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} onOpenAssign={onOpenAssign} />
         ))}
       </div>
     </div>
@@ -447,6 +497,10 @@ export default function DynamicChecklistCalendar() {
   const [activeTask, setActiveTask] = useState<ChecklistItem | null>(null);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
+  const [assignDialogTask, setAssignDialogTask] = useState<ChecklistItem | null>(null);
+  const [assignDialogDays, setAssignDialogDays] = useState<number[]>([]);
+  const [assignDialogShift, setAssignDialogShift] = useState<'am' | 'pm' | null>(null);
+  const [assignSaving, setAssignSaving] = useState(false);
   
   // Quick add form state
   const [newQuestion, setNewQuestion] = useState("");
@@ -581,13 +635,14 @@ export default function DynamicChecklistCalendar() {
         .order('order_index');
 
       if (itemsError) throw itemsError;
-      setItems(itemsData || []);
+      const normalized: ChecklistItem[] = (itemsData || []).map((r: any) => normalizeItem(r));
+      setItems(normalized);
 
       // Organize items by day assignment
       const unassigned: ChecklistItem[] = [];
       const byDay = new Map<number, ChecklistItem[]>();
 
-      itemsData?.forEach((item) => {
+      normalized.forEach((item) => {
         if (!item.days_of_week || item.days_of_week.length === 0) {
           unassigned.push(item);
         } else {
@@ -632,13 +687,7 @@ export default function DynamicChecklistCalendar() {
 
       if (error) throw error;
 
-      const newItem: ChecklistItem = {
-        ...data,
-        days_of_week: null,
-        requires_temperature_validation: data.requires_temperature_validation || false,
-        reference_image_url: data.reference_image_url || null,
-        reference_notes: data.reference_notes || null,
-      };
+      const newItem: ChecklistItem = normalizeItem({ ...(data as any), days_of_week: null });
 
       setItems([...items, newItem]);
       setUnassignedItems([...unassignedItems, newItem]);
@@ -809,6 +858,66 @@ export default function DynamicChecklistCalendar() {
 
   if (!isAdmin) return null;
 
+  const handleOpenAssign = (task: ChecklistItem) => {
+    setAssignDialogTask(task);
+    setAssignDialogDays(task.days_of_week ?? []);
+    setAssignDialogShift(task.manager_shift ?? null);
+  };
+
+  const toggleDay = (dayIdx: number) => {
+    setAssignDialogDays(prev =>
+      prev.includes(dayIdx) ? prev.filter(d => d !== dayIdx) : [...prev, dayIdx].sort()
+    );
+  };
+
+  const handleSaveAssign = async () => {
+    if (!assignDialogTask) return;
+    setAssignSaving(true);
+    try {
+      const days = assignDialogDays.length > 0 ? assignDialogDays : null;
+      const shift = assignDialogShift;
+      const { error } = await supabase
+        .from('checklist_items')
+        .update({ days_of_week: days, manager_shift: shift })
+        .eq('id', assignDialogTask.id);
+      if (error) throw error;
+
+      const updated: ChecklistItem = { ...assignDialogTask, days_of_week: days, manager_shift: shift };
+
+      // Update items
+      setItems(prev => prev.map(i => (i.id === updated.id ? updated : i)));
+
+      // Rebuild unassigned + assignedByDay from scratch for this item
+      setUnassignedItems(prev => {
+        const without = prev.filter(i => i.id !== updated.id);
+        return days === null ? [...without, updated] : without;
+      });
+
+      setAssignedByDay(prev => {
+        const next = new Map(prev);
+        // Remove from every day
+        next.forEach((tasks, d) => {
+          next.set(d, tasks.filter(t => t.id !== updated.id));
+        });
+        // Add to selected days
+        (days ?? []).forEach(d => {
+          const list = next.get(d) ?? [];
+          next.set(d, [...list, updated]);
+        });
+        return next;
+      });
+
+      toast.success('Task assigned');
+      setAssignDialogTask(null);
+    } catch (err) {
+      console.error('Assign error:', err);
+      toast.error('Failed to assign task');
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+
   return (
     <Layout>
       <div className="container mx-auto p-6 max-w-7xl space-y-6">
@@ -840,7 +949,7 @@ export default function DynamicChecklistCalendar() {
           onDragEnd={handleDragEnd}
         >
           <div className="grid lg:grid-cols-4 gap-6">
-            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onUpdateRefImage={handleUpdateRefImage} onUpdateRefNotes={handleUpdateRefNotes} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
+            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onUpdateRefImage={handleUpdateRefImage} onUpdateRefNotes={handleUpdateRefNotes} onOpenAssign={handleOpenAssign} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
 
             <div className="lg:col-span-3">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -854,6 +963,7 @@ export default function DynamicChecklistCalendar() {
                     blackoutDates={blackoutDates}
                     onUpdateRefImage={handleUpdateRefImage}
                     onUpdateRefNotes={handleUpdateRefNotes}
+                    onOpenAssign={handleOpenAssign}
                   />
                 ))}
               </div>
@@ -869,6 +979,82 @@ export default function DynamicChecklistCalendar() {
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        {/* Assign Days & Shift Dialog */}
+        <Dialog open={!!assignDialogTask} onOpenChange={(open) => !open && setAssignDialogTask(null)}>
+          <DialogContent className="max-w-md max-w-[calc(100vw-2rem)]">
+            <DialogHeader>
+              <DialogTitle className="text-base">Assign Task</DialogTitle>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {assignDialogTask?.question}
+              </p>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Days of the week</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {dayNames.map((name, idx) => {
+                    const active = assignDialogDays.includes(idx);
+                    return (
+                      <Button
+                        key={idx}
+                        type="button"
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => toggleDay(idx)}
+                      >
+                        {active && <span className="mr-1">✓</span>}
+                        {name}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Leave all unchecked to move back to Unassigned.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Day part (optional)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant={assignDialogShift === null ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignDialogShift(null)}
+                  >
+                    Any
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignDialogShift === 'am' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignDialogShift('am')}
+                    className={assignDialogShift === 'am' ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}
+                  >
+                    <Sun className="h-3.5 w-3.5 mr-1" /> AM
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignDialogShift === 'pm' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignDialogShift('pm')}
+                    className={assignDialogShift === 'pm' ? 'bg-indigo-700 hover:bg-indigo-800 text-white' : ''}
+                  >
+                    <Moon className="h-3.5 w-3.5 mr-1" /> PM
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setAssignDialogTask(null)}>Cancel</Button>
+              <Button onClick={handleSaveAssign} disabled={assignSaving}>
+                {assignSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

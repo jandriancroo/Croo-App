@@ -1213,11 +1213,21 @@ export default function CompleteChecklist() {
               
               <div className="space-y-2">
               {/* Title above divider - never blurred */}
-              <div className="px-1">
+              <div className="px-1 flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-medium">
                   {item.question}
                   {item.is_required && <span className="text-destructive ml-1">*</span>}
                 </h3>
+                {item.manager_shift === 'am' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700">
+                    ☀ AM
+                  </span>
+                )}
+                {item.manager_shift === 'pm' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-indigo-900 text-indigo-100 border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                    ☾ PM
+                  </span>
+                )}
               </div>
               
               {/* Horizontal divider */}
