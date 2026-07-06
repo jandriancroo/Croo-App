@@ -606,13 +606,14 @@ export default function DynamicChecklistCalendar() {
         .order('order_index');
 
       if (itemsError) throw itemsError;
-      setItems(itemsData || []);
+      const normalized: ChecklistItem[] = (itemsData || []).map((r: any) => normalizeItem(r));
+      setItems(normalized);
 
       // Organize items by day assignment
       const unassigned: ChecklistItem[] = [];
       const byDay = new Map<number, ChecklistItem[]>();
 
-      itemsData?.forEach((item) => {
+      normalized.forEach((item) => {
         if (!item.days_of_week || item.days_of_week.length === 0) {
           unassigned.push(item);
         } else {
