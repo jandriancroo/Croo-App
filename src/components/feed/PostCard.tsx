@@ -135,6 +135,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* Header */}
       <header className="relative px-3 pt-3">
         <div
+          ref={headerRef}
           className={cn(
             "flex items-start gap-3 rounded-xl bg-primary/10 px-3 py-3 select-none",
             canManage && "cursor-pointer",
