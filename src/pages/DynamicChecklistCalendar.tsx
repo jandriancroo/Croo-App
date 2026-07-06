@@ -31,6 +31,30 @@ interface ChecklistItem {
   manager_shift: 'am' | 'pm' | null;
 }
 
+type DbChecklistItem = {
+  id: string;
+  question: string;
+  item_type: string;
+  order_index: number;
+  days_of_week: number[] | null;
+  requires_temperature_validation: boolean;
+  reference_image_url: string | null;
+  reference_notes: string | null;
+  manager_shift: string | null;
+};
+
+const normalizeItem = (row: DbChecklistItem): ChecklistItem => ({
+  id: row.id,
+  question: row.question,
+  item_type: row.item_type,
+  order_index: row.order_index,
+  days_of_week: row.days_of_week ?? null,
+  requires_temperature_validation: !!row.requires_temperature_validation,
+  reference_image_url: row.reference_image_url ?? null,
+  reference_notes: row.reference_notes ?? null,
+  manager_shift: row.manager_shift === 'am' || row.manager_shift === 'pm' ? row.manager_shift : null,
+});
+
 interface Checklist {
   id: string;
   title: string;
