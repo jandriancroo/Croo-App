@@ -7,6 +7,7 @@ import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InlineComments } from './InlineComments';
+import { MediaLightbox } from './MediaLightbox';
 
 interface PostCardProps {
   post: FeedPost;
@@ -41,6 +42,8 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
   const files = post.media.filter(m => m.type !== 'image');
 
   const [expanded, setExpanded] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const lightboxItems = post.media;
   const shouldTruncate = post.body.length > BODY_TRUNCATE_CHARS;
   const displayBody = !shouldTruncate || expanded
     ? post.body
@@ -165,18 +168,23 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
               images.length === 4 && 'grid-cols-2',
             )}
           >
-            {images.map((m, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'relative overflow-hidden bg-muted',
-                  images.length === 3 && i === 0 && 'row-span-2',
-                  images.length === 1 ? 'aspect-video' : 'aspect-square',
-                )}
-              >
-                <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-              </div>
-            ))}
+            {images.map((m, i) => {
+              const idx = lightboxItems.indexOf(m);
+              return (
+                <button
+                  type="button"
+                  key={i}
+                  onClick={() => setLightboxIndex(idx >= 0 ? idx : 0)}
+                  className={cn(
+                    'relative overflow-hidden bg-muted focus:outline-none focus:ring-2 focus:ring-primary',
+                    images.length === 3 && i === 0 && 'row-span-2',
+                    images.length === 1 ? 'aspect-video' : 'aspect-square',
+                  )}
+                >
+                  <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -204,19 +212,20 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* File attachments */}
       {files.length > 0 && (
         <div className="px-4 pb-3 flex flex-col gap-1.5">
-          {files.map((m, i) => (
-            <a
-              key={i}
-              href={m.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 hover:bg-muted px-3 py-2 text-sm min-w-0"
-            >
-              <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="truncate">{friendlyFileName(m)}</span>
-            </a>
-          ))}
+          {files.map((m, i) => {
+            const idx = lightboxItems.indexOf(m);
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setLightboxIndex(idx >= 0 ? idx : 0)}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 hover:bg-muted px-3 py-2 text-sm min-w-0 text-left w-full"
+              >
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{friendlyFileName(m)}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -253,6 +262,13 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
         currentUserId={currentUserId}
         canModerate={canModerate || post.author_id === currentUserId}
         initialCount={post.comment_count}
+      />
+
+      <MediaLightbox
+        items={lightboxItems}
+        index={lightboxIndex}
+        onOpenChange={(o) => { if (!o) setLightboxIndex(null); }}
+        onIndexChange={setLightboxIndex}
       />
     </article>
   );
