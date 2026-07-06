@@ -68,7 +68,7 @@ interface Holiday {
   holiday_type: string;
 }
 
-function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void; onUpdateRefNotes?: (id: string, notes: string | null) => void }) {
+function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes, onOpenAssign }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void; onUpdateRefNotes?: (id: string, notes: string | null) => void; onOpenAssign?: (task: ChecklistItem) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
