@@ -8,7 +8,7 @@ import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed'
 import { useOpenShiftOffers } from '@/hooks/useOpenShiftOffers';
 import { PostCard } from './PostCard';
 import { PostComposer } from './PostComposer';
-import { PostDetailSheet } from './PostDetailSheet';
+
 import { SeenByDialog } from './SeenByDialog';
 import { ShiftOfferMessage } from '@/components/messages/ShiftOfferMessage';
 import { supabase } from '@/integrations/supabase/client';
