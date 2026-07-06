@@ -183,7 +183,7 @@ export function useAnnouncementFeed(
       const channelIds = Array.from(new Set(posts.map(p => p.channel_id).filter(Boolean))) as string[];
       const badgeIds = Array.from(new Set(posts.map((p: any) => p.badge_id).filter(Boolean))) as string[];
 
-      const [{ data: authors }, { data: channels }, { data: badges }, { data: reactions }, { data: comments }, { data: reads }] =
+      const [authorsRes, channelsRes, badgesRes, reactionsRes, commentsRes, readsRes] =
         await Promise.all([
           supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', authorIds),
           channelIds.length
@@ -196,6 +196,16 @@ export function useAnnouncementFeed(
           supabase.from('announcement_comments').select('post_id').in('post_id', postIds).is('deleted_at', null),
           supabase.from('announcement_reads').select('post_id, user_id').in('post_id', postIds),
         ]);
+
+      const loadError = authorsRes.error ?? channelsRes.error ?? badgesRes.error ?? reactionsRes.error ?? commentsRes.error ?? readsRes.error;
+      if (loadError) throw loadError;
+
+      const authors = authorsRes.data ?? [];
+      const channels = channelsRes.data ?? [];
+      const badges = badgesRes.data ?? [];
+      const reactions = reactionsRes.data ?? [];
+      const comments = commentsRes.data ?? [];
+      const reads = readsRes.data ?? [];
 
       const authorMap = new Map((authors ?? []).map((a: any) => [a.id, a]));
       const channelMap = new Map((channels ?? []).map((c: any) => [c.id, c]));
@@ -242,6 +252,9 @@ export function useAnnouncementFeed(
         queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_comments' }, () => {
+        queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_reads' }, () => {
         queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_badges' }, () => {

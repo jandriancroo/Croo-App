@@ -38,6 +38,7 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
         const audienceRes = post.location_id
           ? await supabase.from('user_locations').select('user_id').eq('location_id', post.location_id)
           : await supabase.from('brand_members').select('user_id').eq('brand_id', post.brand_id!);
+        if (audienceRes.error) throw audienceRes.error;
         const userIds = Array.from(new Set((audienceRes.data ?? []).map((r: any) => r.user_id)));
 
         const [profilesRes, readsRes] = await Promise.all([
@@ -46,6 +47,8 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
             : Promise.resolve({ data: [] as any[] }),
           supabase.from('announcement_reads').select('user_id, opened_at').eq('post_id', post.id),
         ]);
+        if (profilesRes.error) throw profilesRes.error;
+        if (readsRes.error) throw readsRes.error;
         if (cancelled) return;
 
         const activeProfiles = ((profilesRes.data ?? []) as any[]).filter(
@@ -60,6 +63,9 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
         const rmap: Record<string, string> = {};
         (readsRes.data ?? []).forEach((r: any) => { rmap[r.user_id] = r.opened_at; });
         setReads(rmap);
+      } catch (e) {
+        console.error('[SeenByDialog] failed to load post views', e);
+        toast.error('Failed to load post views');
       } finally {
         if (!cancelled) setLoading(false);
       }
