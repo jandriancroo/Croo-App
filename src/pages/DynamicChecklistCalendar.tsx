@@ -161,12 +161,35 @@ function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes, onO
       style={style}
       className="p-2 bg-card border rounded group"
     >
-      <div className="flex items-center justify-between">
-        <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
-          <p className="text-sm">{task.question}</p>
+      <div className="flex items-center justify-between gap-1">
+        <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm truncate">{task.question}</p>
+            {task.manager_shift === 'am' && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700">
+                <Sun className="h-2.5 w-2.5" /> AM
+              </span>
+            )}
+            {task.manager_shift === 'pm' && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full border bg-indigo-900 text-indigo-100 border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                <Moon className="h-2.5 w-2.5" /> PM
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">{task.item_type}</p>
         </div>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 shrink-0">
+          {onOpenAssign && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-70 hover:opacity-100"
+              onClick={() => onOpenAssign(task)}
+              title="Assign days & shift"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+            </Button>
+          )}
           {onUpdateRefImage && (
             <Button
               variant="ghost"
