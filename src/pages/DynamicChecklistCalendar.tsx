@@ -858,6 +858,66 @@ export default function DynamicChecklistCalendar() {
 
   if (!isAdmin) return null;
 
+  const handleOpenAssign = (task: ChecklistItem) => {
+    setAssignDialogTask(task);
+    setAssignDialogDays(task.days_of_week ?? []);
+    setAssignDialogShift(task.manager_shift ?? null);
+  };
+
+  const toggleDay = (dayIdx: number) => {
+    setAssignDialogDays(prev =>
+      prev.includes(dayIdx) ? prev.filter(d => d !== dayIdx) : [...prev, dayIdx].sort()
+    );
+  };
+
+  const handleSaveAssign = async () => {
+    if (!assignDialogTask) return;
+    setAssignSaving(true);
+    try {
+      const days = assignDialogDays.length > 0 ? assignDialogDays : null;
+      const shift = assignDialogShift;
+      const { error } = await supabase
+        .from('checklist_items')
+        .update({ days_of_week: days, manager_shift: shift })
+        .eq('id', assignDialogTask.id);
+      if (error) throw error;
+
+      const updated: ChecklistItem = { ...assignDialogTask, days_of_week: days, manager_shift: shift };
+
+      // Update items
+      setItems(prev => prev.map(i => (i.id === updated.id ? updated : i)));
+
+      // Rebuild unassigned + assignedByDay from scratch for this item
+      setUnassignedItems(prev => {
+        const without = prev.filter(i => i.id !== updated.id);
+        return days === null ? [...without, updated] : without;
+      });
+
+      setAssignedByDay(prev => {
+        const next = new Map(prev);
+        // Remove from every day
+        next.forEach((tasks, d) => {
+          next.set(d, tasks.filter(t => t.id !== updated.id));
+        });
+        // Add to selected days
+        (days ?? []).forEach(d => {
+          const list = next.get(d) ?? [];
+          next.set(d, [...list, updated]);
+        });
+        return next;
+      });
+
+      toast.success('Task assigned');
+      setAssignDialogTask(null);
+    } catch (err) {
+      console.error('Assign error:', err);
+      toast.error('Failed to assign task');
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+
   return (
     <Layout>
       <div className="container mx-auto p-6 max-w-7xl space-y-6">
