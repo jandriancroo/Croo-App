@@ -56,8 +56,7 @@ export function MediaLightbox({ items, index, onOpenChange, onIndexChange }: Pro
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onOpenChange(false); }}>
       <DialogContent
-        className="p-0 border-0 bg-black/95 max-w-[100vw] w-[100vw] h-[100vh] sm:max-w-[100vw] sm:rounded-none flex flex-col gap-0"
-        hideClose
+        className="p-0 border-0 bg-black/95 max-w-[100vw] w-[100vw] h-[100vh] sm:max-w-[100vw] sm:rounded-none flex flex-col gap-0 [&>button.absolute]:hidden"
       >
         {/* Top bar */}
         <div className="flex items-center justify-between px-3 py-2 text-white shrink-0">
