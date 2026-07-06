@@ -1,13 +1,16 @@
-import { memo, useState, useEffect, useRef } from 'react';
+import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye, Pin, MoreHorizontal, Paperclip, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { InlineComments } from './InlineComments';
 import { MediaLightbox } from './MediaLightbox';
+
 
 interface PostCardProps {
   post: FeedPost;
@@ -17,8 +20,10 @@ interface PostCardProps {
   onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
+  onEdit?: (postId: string, body: string) => void | Promise<void>;
   onMarkSeen?: (postId: string) => boolean | Promise<boolean>;
 }
+
 
 const BODY_TRUNCATE_CHARS = 320;
 
@@ -35,7 +40,7 @@ function friendlyFileName(m: { name?: string; url: string }) {
   } catch { return 'Attachment'; }
 }
 
-function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onMarkSeen }: PostCardProps) {
+function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onEdit, onMarkSeen }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
@@ -84,6 +89,42 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
     };
   }, [post.id, post.seen_by_me, isMine, onMarkSeen]);
 
+  // Long-press to open actions dialog (mobile-friendly, works on desktop too)
+  const canManage = isMine || canModerate;
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [editBody, setEditBody] = useState(post.body);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressFired = useRef(false);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const startLongPress = useCallback(() => {
+    if (!canManage) return;
+    longPressFired.current = false;
+    clearLongPress();
+    longPressTimer.current = window.setTimeout(() => {
+      longPressFired.current = true;
+      setActionsOpen(true);
+    }, 500);
+  }, [canManage, clearLongPress]);
+
+  const cancelLongPress = useCallback(() => {
+    clearLongPress();
+  }, [clearLongPress]);
+
+  const handleHeaderContextMenu = (e: React.MouseEvent) => {
+    if (!canManage) return;
+    e.preventDefault();
+    setActionsOpen(true);
+  };
+
   return (
     <article
       ref={rootRef}
@@ -91,7 +132,17 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
     >
       {/* Header */}
       <header className="relative px-3 pt-3">
-        <div className="flex items-start gap-3 rounded-xl bg-primary/10 px-3 py-3">
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-xl bg-primary/10 px-3 py-3 select-none",
+            canManage && "cursor-pointer",
+          )}
+          onPointerDown={startLongPress}
+          onPointerUp={cancelLongPress}
+          onPointerLeave={cancelLongPress}
+          onPointerCancel={cancelLongPress}
+          onContextMenu={handleHeaderContextMenu}
+        >
           <Avatar className="h-11 w-11 shrink-0">
             <AvatarImage src={post.author?.profile_photo_url ?? undefined} alt={authorName} />
             <AvatarFallback className="bg-primary/10 text-primary font-semibold">
@@ -99,7 +150,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            {/* Top row: name + timestamp + menu */}
+            {/* Top row: name + timestamp */}
             <div className="flex items-center gap-2 pr-1">
               <span className="font-semibold text-sm truncate">{authorName}</span>
               <span className="text-xs text-muted-foreground shrink-0">
@@ -137,30 +188,99 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
               )}
             </div>
           </div>
-          {(isMine || canModerate) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-1 -mt-1" onClick={e => e.stopPropagation()}>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setTimeout(() => {
-                      if (window.confirm('Delete this post?')) onDelete(post.id);
-                    }, 50);
-                  }}
-                >
-                  Delete post
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
       </header>
+
+      {/* Actions dialog (long-press) */}
+      {canManage && (
+        <Dialog open={actionsOpen} onOpenChange={setActionsOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Post actions</DialogTitle>
+              <DialogDescription>Choose what to do with this post.</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2 pt-2">
+              {isMine && onEdit && (
+                <Button
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() => {
+                    setEditBody(post.body);
+                    setActionsOpen(false);
+                    setEditOpen(true);
+                  }}
+                >
+                  <Pencil className="h-4 w-4 mr-2" /> Edit post
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="justify-start text-destructive hover:text-destructive"
+                onClick={() => {
+                  setActionsOpen(false);
+                  setConfirmDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Delete post
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit dialog */}
+      {canManage && onEdit && (
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit post</DialogTitle>
+            </DialogHeader>
+            <Textarea
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              rows={6}
+              className="resize-none"
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button
+                onClick={async () => {
+                  const trimmed = editBody.trim();
+                  if (!trimmed || trimmed === post.body) { setEditOpen(false); return; }
+                  await onEdit(post.id, trimmed);
+                  setEditOpen(false);
+                }}
+              >
+                Save changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Confirm delete */}
+      {canManage && (
+        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the post along with its comments and reactions. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => onDelete(post.id)}
+              >
+                Delete post
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
 
       {/* Media grid — ABOVE text, rounded and inset */}
       {images.length > 0 && (

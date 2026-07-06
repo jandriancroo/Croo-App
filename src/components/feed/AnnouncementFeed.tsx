@@ -51,7 +51,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
   const {
-    posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, markSeen,
+    posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, updatePost, markSeen,
   } = useAnnouncementFeed('all', activeBadge);
   const composerChannels = useMemo(
     () => channels.filter(c => c.audience_type === 'everyone' || isShiftManager),
@@ -178,6 +178,8 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                       onOpenSeenBy={setSeenByPost}
                       onToggleReaction={toggleReaction}
                       onDelete={(id) => deletePost(id)}
+                      onEdit={(id, body) => updatePost({ postId: id, body })}
+
                       onMarkSeen={markSeen}
                     />
                   ))}
@@ -195,6 +197,8 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                   onOpenSeenBy={setSeenByPost}
                   onToggleReaction={toggleReaction}
                   onDelete={(id) => deletePost(id)}
+                  onEdit={(id, body) => updatePost({ postId: id, body })}
+
                   onMarkSeen={markSeen}
                 />
               ))}

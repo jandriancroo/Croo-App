@@ -364,6 +364,21 @@ export function useAnnouncementFeed(
     onError: (e: any) => toast.error(e.message ?? 'Delete failed'),
   });
 
+  const updatePost = useMutation({
+    mutationFn: async ({ postId, body }: { postId: string; body: string }) => {
+      const { error } = await supabase
+        .from('announcement_posts')
+        .update({ body, edited_at: new Date().toISOString() })
+        .eq('id', postId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Post updated');
+      queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Update failed'),
+  });
+
   return {
     posts: postsQuery.data ?? [],
     channels: channelsQuery.data ?? [],
@@ -375,8 +390,10 @@ export function useAnnouncementFeed(
     createPost: createPost.mutateAsync,
     createBadge: createBadge.mutateAsync,
     deletePost: deletePost.mutateAsync,
+    updatePost: updatePost.mutateAsync,
   };
 }
+
 
 // --- Comments hook (per-post) ---
 
