@@ -64,10 +64,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   const regularPosts = useMemo(() => posts.filter(p => !p.pinned), [posts]);
   const hasPinnedStrip = pinnedPosts.length > 0 || openShiftOffers.length > 0;
 
-  const openPostFresh = useMemo(() => {
-    if (!openPost) return null;
-    return posts.find(p => p.id === openPost.id) ?? openPost;
-  }, [openPost, posts]);
 
   useEffect(() => {
     // Everyone can post; keep this as a no-op guard in case parent triggers composer when unauthed.
