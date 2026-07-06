@@ -156,22 +156,23 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     fetchLocations();
   }, [user]);
 
-  // Only clear location state on an EXPLICIT sign-out event. Transient null-user
-  // states from token refresh / sleep-wake should never wipe the cached location.
+  // NOTE: We intentionally do NOT clear currentLocation / localStorage on
+  // Supabase's SIGNED_OUT event. That event also fires on spurious refresh-token
+  // failures after a PWA has been idle (e.g. a 30-minute break on the punch
+  // clock kiosk). Wiping the cached location in that case left the punch clock
+  // stuck showing "Location not loaded yet" and "not scheduled today" until the
+  // manager fully logged out and back in.
+  //
+  // An explicit sign-out is handled by AuthProvider.signOut(), which navigates
+  // to /auth. On the next successful SIGNED_IN, `user` changes and
+  // fetchLocations() re-populates state — and if a different user signs in,
+  // savedLocationId is filtered against their user_locations, so no stale
+  // location leaks through.
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
-        setLocations([]);
-        setCurrentLocationState(null);
-        setOrganizationId(null);
-        try {
-          localStorage.removeItem('currentLocationCache');
-          localStorage.removeItem('currentLocationId');
-        } catch {}
-      }
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {});
     return () => sub.subscription.unsubscribe();
   }, []);
+
 
   const setCurrentLocation = useCallback((location: Location, destination?: string, forceNavigate?: boolean) => {
     const previousId = currentLocation?.id;
