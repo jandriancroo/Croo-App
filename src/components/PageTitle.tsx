@@ -55,7 +55,7 @@ interface PageTitleProps {
 }
 
 /**
- * Standardized page title with a colored accent bar.
+ * Standardized page title with a soft tinted chip background.
  * Used across every top-level page that has an existing title.
  * Do NOT add this to pages that don't already have a title.
  */
@@ -68,16 +68,11 @@ export const PageTitle = React.memo(function PageTitle({
   const barColor = (COLOR_MAP as Record<string, string>)[color] ?? color;
   return (
     <div className={cn('mt-4 md:mt-0', className)}>
-      <Tag className="font-apple-system text-[25px] font-extrabold leading-[1.05] tracking-tight">
+      <Tag className="font-apple-system text-[21px] font-extrabold leading-[1.05] tracking-tight">
         <span
-          className="inline-flex items-center gap-2 rounded-xl px-4 py-1"
+          className="inline-flex items-center rounded-xl px-4 py-1"
           style={{ backgroundColor: hexToRgba(barColor, 0.12) }}
         >
-          <span
-            aria-hidden="true"
-            className="shrink-0 text-[25px] h-[0.7em] rounded-[2px]"
-            style={{ width: 4, backgroundColor: barColor }}
-          />
           {children}
         </span>
       </Tag>
