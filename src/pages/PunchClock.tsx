@@ -146,8 +146,9 @@ const getDailyFacts = () => {
 const DAILY_FACTS = getDailyFacts();
 
 export default function PunchClock() {
-  const { currentLocation } = useAppLocation();
+  const { currentLocation, refetchLocations } = useAppLocation();
   const { timezone, closeTime } = useLocationTimezone();
+
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -544,6 +545,30 @@ export default function PunchClock() {
       ]);
     }
   }, [currentUser, currentLocation?.id]);
+
+  // Self-heal: if the user PINs in but currentLocation is missing (e.g. the
+  // PWA went idle during a break and Supabase spuriously wiped auth state),
+  // proactively refetch locations instead of forcing them to log out.
+  useEffect(() => {
+    if (currentUser && !currentLocation?.id) {
+      console.warn('[PunchClock] currentLocation missing after PIN — refetching');
+      refetchLocations().catch(() => {});
+    }
+  }, [currentUser, currentLocation?.id, refetchLocations]);
+
+  // On tab becoming visible again (kiosk woken from sleep), if location is
+  // missing, refetch. This prevents the "Location not loaded yet" trap.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !currentLocation?.id) {
+        refetchLocations().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [currentLocation?.id, refetchLocations]);
+
+
 
   const checkAllBirthdays = async () => {
     try {
@@ -955,7 +980,7 @@ export default function PunchClock() {
     try {
     // HARD GUARD: never write a punch with NULL location_id
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     // Block if already clocked in
@@ -1079,7 +1104,7 @@ export default function PunchClock() {
     isPunchingRef.current = true;
     try {
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     // Use timezone-aware timestamp for punch recording
@@ -1164,7 +1189,7 @@ export default function PunchClock() {
     isPunchingRef.current = true;
     try {
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     if (!breakStatus?.canEnd) {
@@ -1216,7 +1241,7 @@ export default function PunchClock() {
     isPunchingRef.current = true;
     try {
     if (!currentLocation?.id) {
-      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
       return;
     }
     // Use the open shift_id from the last punch (handles overnight shifts).
