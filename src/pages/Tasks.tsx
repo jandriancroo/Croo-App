@@ -11,6 +11,7 @@ import { useTasksData } from '@/hooks/useTasksData';
 import { Layers, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
+import { PageTitle } from '@/components/PageTitle';
 
 // Lazy-load Edit tab components to defer DnD bundle
 const EditTabContent = lazyWithRetry(() => import('@/components/tasks/EditTabContent'));
