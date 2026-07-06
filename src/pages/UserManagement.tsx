@@ -27,7 +27,7 @@ export default function UserManagement() {
     <Layout>
       <div className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
+          <PageTitle color="cyan">User Management</PageTitle>
         </div>
 
         <Card>
