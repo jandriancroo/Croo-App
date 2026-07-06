@@ -251,19 +251,21 @@ export function useAnnouncementFeed(
     return () => { supabase.removeChannel(channel); };
   }, [locationId, queryClient]);
 
-  const markSeen = useCallback(async (postId: string) => {
-    if (!user) return;
+  const markSeen = useCallback(async (postId: string): Promise<boolean> => {
+    if (!user) return false;
     const { error } = await supabase
       .from('announcement_reads')
-      .upsert(
-        { post_id: postId, user_id: user.id },
-        { onConflict: 'post_id,user_id', ignoreDuplicates: true },
-      );
+      .insert({ post_id: postId, user_id: user.id });
     if (error) {
+      if (error.code === '23505') {
+        queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+        return true;
+      }
       console.error('[markSeen] failed to record post read', { postId, error });
-      return;
+      return false;
     }
     queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+    return true;
   }, [user, queryClient, locationId]);
 
   const toggleReaction = useMutation({
