@@ -263,6 +263,13 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
         canModerate={canModerate || post.author_id === currentUserId}
         initialCount={post.comment_count}
       />
+
+      <MediaLightbox
+        items={lightboxItems}
+        index={lightboxIndex}
+        onOpenChange={(o) => { if (!o) setLightboxIndex(null); }}
+        onIndexChange={setLightboxIndex}
+      />
     </article>
   );
 }
