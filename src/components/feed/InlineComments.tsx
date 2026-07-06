@@ -112,10 +112,11 @@ export function InlineComments({ postId, allowComments, currentUserId, canModera
                   'inline-flex items-center gap-0.5 hover:text-foreground transition-colors',
                   like?.mine && 'text-primary font-medium',
                 )}
+                aria-label="Like"
                 aria-pressed={!!like?.mine}
               >
                 <ThumbsUp className="h-3 w-3" />
-                {like?.count ? like.count : 'Like'}
+                {like?.count ? like.count : ''}
               </button>
               <button
                 type="button"
@@ -124,10 +125,11 @@ export function InlineComments({ postId, allowComments, currentUserId, canModera
                   'inline-flex items-center gap-0.5 hover:text-foreground transition-colors',
                   dislike?.mine && 'text-destructive font-medium',
                 )}
+                aria-label="Dislike"
                 aria-pressed={!!dislike?.mine}
               >
                 <ThumbsDown className="h-3 w-3" />
-                {dislike?.count ? dislike.count : 'Dislike'}
+                {dislike?.count ? dislike.count : ''}
               </button>
               {allowComments && (
                 <button
@@ -137,9 +139,9 @@ export function InlineComments({ postId, allowComments, currentUserId, canModera
                     setReplyDraft('');
                   }}
                   className="inline-flex items-center gap-0.5 hover:text-foreground"
+                  aria-label="Reply"
                 >
                   <Reply className="h-3 w-3" />
-                  Reply
                 </button>
               )}
               {(isMine || canModerate) && (
