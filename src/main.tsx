@@ -27,36 +27,59 @@ if (isStandaloneMode) {
   document.documentElement.setAttribute('data-standalone', 'true');
 }
 
-// Emergency SW cleanup: a stale PWA service worker can intercept auth/token
-// requests and surface as Safari/Chrome "Load failed", leaving login stuck.
-// We are disabling browser SW control for now; push registration is only useful
-// after auth is stable and can be reintroduced behind an explicit opt-in.
-const disableServiceWorkers = async () => {
+// Service worker management: unregister any stale SWs (from previous iterations
+// that intercepted auth/token requests), then register our push-only SW so that
+// push notifications can subscribe. The push SW only handles push/notificationclick
+// events — it does NOT cache HTML or app-shell requests, so it cannot cause the
+// "Load failed" stale-cache bug that the old cleanup was guarding against.
+const PUSH_SW_URL = '/sw-push.js';
+
+const setupServiceWorkers = async () => {
   if (!('serviceWorker' in navigator)) return;
 
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
-    if (!registrations.length) return;
+    // Unregister any SW that is NOT our push handler (cleans up stale ones)
+    const stale = registrations.filter(
+      (r) => !r.active?.scriptURL?.endsWith(PUSH_SW_URL) &&
+             !r.installing?.scriptURL?.endsWith(PUSH_SW_URL) &&
+             !r.waiting?.scriptURL?.endsWith(PUSH_SW_URL)
+    );
 
-    console.warn(`[SW] Removing ${registrations.length} stale service worker registration(s)`);
-    await Promise.all(registrations.map((registration) => registration.unregister()));
+    if (stale.length) {
+      console.warn(`[SW] Removing ${stale.length} stale service worker registration(s)`);
+      await Promise.all(stale.map((r) => r.unregister()));
 
-    if ('caches' in window) {
-      const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      }
+
+      const reloadKey = 'sw_cleanup_reload_attempted';
+      if (!sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, 'true');
+        window.location.reload();
+        return;
+      }
     }
 
-    const reloadKey = 'sw_cleanup_reload_attempted';
-    if (!sessionStorage.getItem(reloadKey)) {
-      sessionStorage.setItem(reloadKey, 'true');
-      window.location.reload();
+    // Register the push SW so usePushNotifications can subscribe
+    const hasPushSw = registrations.some(
+      (r) => r.active?.scriptURL?.endsWith(PUSH_SW_URL) ||
+             r.installing?.scriptURL?.endsWith(PUSH_SW_URL) ||
+             r.waiting?.scriptURL?.endsWith(PUSH_SW_URL)
+    );
+    if (!hasPushSw) {
+      console.log('[SW] Registering push service worker');
+      await navigator.serviceWorker.register(PUSH_SW_URL, { scope: '/' });
     }
   } catch (error) {
-    console.warn('[SW] Cleanup failed', error);
+    console.warn('[SW] Setup failed', error);
   }
 };
 
-disableServiceWorkers();
+setupServiceWorkers();
+
 
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
