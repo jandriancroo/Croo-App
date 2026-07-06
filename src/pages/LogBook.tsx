@@ -103,7 +103,23 @@ export default function LogBook() {
     <Layout>
       <div className="space-y-4">
         <div className="mb-4">
-          <PageTitle color="purple">Logs</PageTitle>
+          <PageTitle
+            color="purple"
+            action={
+              activeTab === "search" && isAdmin && (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setManageCategoriesOpen(true)}
+                  title="Manage Categories"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              )
+            }
+          >
+            {activeTab === "library" ? "Library" : "Logs"}
+          </PageTitle>
           <div className="flex items-center justify-between mt-3">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
@@ -111,17 +127,6 @@ export default function LogBook() {
                 <TabsTrigger value="library">Library</TabsTrigger>
               </TabsList>
             </Tabs>
-
-            {isAdmin && (
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => setManageCategoriesOpen(true)}
-                title="Manage Categories"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            )}
           </div>
         </div>
 
