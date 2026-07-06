@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { PageTitle } from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,7 +114,7 @@ export default function Changelog() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">Changelog</h1>
+              <PageTitle color="sky">Changelog</PageTitle>
               <p className="text-muted-foreground">Track features, fixes, and improvements</p>
             </div>
           </div>

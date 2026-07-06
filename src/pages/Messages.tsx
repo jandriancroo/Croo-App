@@ -7,6 +7,7 @@ import { AnnouncementFeed } from '@/components/feed/AnnouncementFeed';
 import { DmPanel } from '@/components/messages/DmPanel';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { PageTitle } from '@/components/PageTitle';
 
 /**
  * Chat page = single-column Team Feed.
@@ -34,7 +35,7 @@ export default function Messages() {
       <div className="mx-auto w-full max-w-[640px] pb-8">
         {/* Page header — Chats title + DM button */}
         <header className="flex items-start justify-between">
-          <h1 className="text-3xl font-bold">Chats</h1>
+          <PageTitle color="orange">Chats</PageTitle>
 
           <Button
             variant="default"

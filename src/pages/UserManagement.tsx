@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { PageTitle } from '@/components/PageTitle';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
@@ -26,7 +27,7 @@ export default function UserManagement() {
     <Layout>
       <div className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
+          <PageTitle color="cyan">User Management</PageTitle>
         </div>
 
         <Card>

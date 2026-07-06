@@ -13,6 +13,7 @@ import { LogBookNewEntrySheet } from "@/components/logbook/LogBookNewEntrySheet"
 import { LogBookEntryList } from "@/components/logbook/LogBookEntryList";
 import { useLogBookData } from "@/hooks/useLogBookData";
 import { LibraryPanel } from "@/components/library/LibraryPanel";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function LogBook() {
   const data = useLogBookData();
@@ -91,7 +92,7 @@ export default function LogBook() {
     return (
       <Layout>
         <div className="space-y-4">
-          <h1 className="text-3xl font-bold">Library</h1>
+          <PageTitle color="purple">Library</PageTitle>
           <LibraryPanel />
         </div>
       </Layout>
@@ -102,7 +103,7 @@ export default function LogBook() {
     <Layout>
       <div className="space-y-4">
         <div className="mb-4">
-          <h1 className="text-3xl font-bold">Logs</h1>
+          <PageTitle color="purple">Logs</PageTitle>
           <div className="flex items-center justify-between mt-3">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>

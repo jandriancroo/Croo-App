@@ -7,6 +7,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
+import { PageTitle } from "@/components/PageTitle";
 import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
@@ -523,7 +524,7 @@ const Inventory = () => {
         {/* Page header */}
         <div className="flex items-start justify-between gap-3 pt-4">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold leading-tight">Inventory</h1>
+            <PageTitle color="green">Inventory</PageTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
               {location?.name || "Loading..."}
               {location?.store_number && <> · #{location.store_number}</>}

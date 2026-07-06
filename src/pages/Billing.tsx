@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { PageTitle } from '@/components/PageTitle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -83,7 +84,7 @@ export default function Billing() {
     <Layout>
       <div className="space-y-6 w-full max-w-4xl mx-auto">
         <div>
-          <h1 className="text-3xl font-bold">Plans & Billing</h1>
+          <PageTitle color="emerald">Plans & Billing</PageTitle>
           <p className="text-muted-foreground">Subscribe each location individually</p>
         </div>
 

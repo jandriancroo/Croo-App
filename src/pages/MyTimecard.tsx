@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
+import { PageTitle } from "@/components/PageTitle";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { formatInTimeZone } from "date-fns-tz";
 import { Clock, DollarSign, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -45,7 +46,7 @@ export default function MyTimecard() {
     <Layout>
       <div className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold">My Timecard</h1>
+          <PageTitle color="amber">My Timecard</PageTitle>
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">
               {payData && (
