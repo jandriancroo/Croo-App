@@ -33,7 +33,7 @@ export default function Messages() {
     <Layout>
       <div className="mx-auto w-full max-w-[640px] pb-8">
         {/* Page header — Chats title + DM button */}
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between pt-3">
           <h1 className="text-3xl font-bold">Chats</h1>
 
           <Button
