@@ -32,13 +32,15 @@ export default function Messages() {
   return (
     <Layout>
       <div className="mx-auto w-full max-w-[640px] pb-8">
-        {/* Page header — only the DM button stays here */}
-        <header className="flex items-center justify-end pt-1 pb-3 md:pt-2 md:pb-4">
+        {/* Page header — Chats title + DM button */}
+        <header className="flex items-center justify-between pt-4 pb-3 md:pt-5 md:pb-4">
+          <h1 className="text-xl font-semibold text-foreground">Chats</h1>
+
           <Button
             variant="default"
             size="icon"
             onClick={() => setDmOpen(true)}
-            className="relative h-12 w-12 rounded-full shrink-0 bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
+            className="relative h-12 w-12 rounded-2xl shrink-0 bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm mt-1"
             aria-label="Open direct messages"
           >
             <MessageCircle className="h-6 w-6" />
