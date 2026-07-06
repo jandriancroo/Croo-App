@@ -55,7 +55,7 @@ interface PageTitleProps {
 }
 
 /**
- * Standardized page title with a colored accent bar.
+ * Standardized page title with a soft tinted chip background.
  * Used across every top-level page that has an existing title.
  * Do NOT add this to pages that don't already have a title.
  */
