@@ -42,13 +42,16 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
 
         const [profilesRes, readsRes] = await Promise.all([
           userIds.length
-            ? supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', userIds)
+            ? supabase.from('profiles').select('id, full_name, nickname, profile_photo_url, is_active, appears_on_schedule').in('id', userIds)
             : Promise.resolve({ data: [] as any[] }),
           supabase.from('announcement_reads').select('user_id, opened_at').eq('post_id', post.id),
         ]);
         if (cancelled) return;
 
-        setMembers(((profilesRes.data ?? []) as any[]).map(p => ({
+        const activeProfiles = ((profilesRes.data ?? []) as any[]).filter(
+          p => p.is_active !== false && p.appears_on_schedule !== false,
+        );
+        setMembers(activeProfiles.map(p => ({
           user_id: p.id,
           full_name: p.full_name,
           nickname: p.nickname,
