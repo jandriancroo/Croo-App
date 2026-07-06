@@ -40,6 +40,13 @@ const COLOR_MAP: Record<PageTitleColor, string> = {
   pink: '#ec4899',
 };
 
+function hexToRgba(hex: string, alpha: number) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 interface PageTitleProps {
   children: React.ReactNode;
   color: PageTitleColor | string;
@@ -63,11 +70,16 @@ export const PageTitle = React.memo(function PageTitle({
     <div className={cn('flex items-center gap-3 mt-4 md:mt-0', className)}>
       <span
         aria-hidden="true"
-        className="shrink-0 self-center rounded-[2px] h-[0.7em]"
+        className="shrink-0 text-[32px] h-[0.7em] rounded-[2px]"
         style={{ width: 4, backgroundColor: barColor }}
       />
-      <Tag className="font-apple-system text-[28px] font-bold leading-[1.05] tracking-tight">
-        {children}
+      <Tag className="font-apple-system text-[32px] font-bold leading-[1.05] tracking-tight">
+        <span
+          className="rounded-xl px-4 py-1"
+          style={{ backgroundColor: hexToRgba(barColor, 0.12) }}
+        >
+          {children}
+        </span>
       </Tag>
     </div>
   );
