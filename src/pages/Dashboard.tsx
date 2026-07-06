@@ -590,24 +590,27 @@ export default function Dashboard() {
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
-        <div className="space-y-1">
-          <div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <PageTitle color="teal">Dash</PageTitle>
-              </div>
-              <div className="flex gap-2 items-center">
-                {/* Hide edit button for role-based cube users (cubes locked by Org Admin) */}
-                {!shouldUseRoleCubes && (
-                  <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
+          <div className="space-y-1">
+            <PageTitle
+              color="teal"
+              action={
+                !shouldUseRoleCubes && (
+                  <Button
+                    onClick={() => setShowEditDashboard(true)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10"
+                    title="Edit Dashboard"
+                  >
                     <Settings2 className="h-4 w-4" />
                   </Button>
-                )}
-              </div>
-            </div>
-          </div>
+                )
+              }
+            >
+              Dash
+            </PageTitle>
 
-          <BillingActivationBanner />
+            <BillingActivationBanner />
 
 
 
