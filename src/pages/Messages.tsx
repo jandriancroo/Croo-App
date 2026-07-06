@@ -2,25 +2,18 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, ChevronDown } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { AnnouncementFeed } from '@/components/feed/AnnouncementFeed';
 import { DmPanel } from '@/components/messages/DmPanel';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { useFeedBadges } from '@/hooks/useAnnouncementFeed';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 /**
  * Chat page = single-column Team Feed.
  * DMs, hiring and support live behind the chat bubble in the top-right (DmPanel).
  * Route + label stay "Chat" so a future rename is a one-line change.
  */
+
 export default function Messages() {
   const { currentLocation } = useAppLocation();
   const { counts: unreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
