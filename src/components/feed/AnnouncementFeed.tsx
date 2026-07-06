@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Megaphone, Loader2, Pin, Plus } from 'lucide-react';
+import { Megaphone, Loader2, Pin, Plus, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed';
@@ -13,9 +13,15 @@ import { SeenByDialog } from './SeenByDialog';
 import { ShiftOfferMessage } from '@/components/messages/ShiftOfferMessage';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface AnnouncementFeedProps {
-  activeBadge?: string | 'all';
   composerOpen?: boolean;
   onComposerOpenChange?: (open: boolean) => void;
 }
@@ -35,7 +41,7 @@ function useCurrentProfile(userId: string | null) {
   });
 }
 
-export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
+export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin, isShiftManager } = useUserRole();
   const canAnnounce = isAdmin || isManager || isSuperAdmin;
@@ -49,6 +55,7 @@ export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOp
     else setInternalComposerOpen(o);
   };
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
+  const [activeBadge, setActiveBadge] = useState<string | 'all'>('all');
 
   const {
     posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, updatePost, markSeen,
@@ -81,11 +88,12 @@ export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOp
         <div className="px-0 pt-2 pb-3 space-y-3 md:pt-3 md:space-y-3">
           {/* Inline composer trigger */}
           {user && (
-            <button
-              type="button"
-              onClick={() => setComposerOpen(true)}
-              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3 shadow-sm hover:bg-muted/60 transition-colors text-left"
-            >
+            <>
+              <button
+                type="button"
+                onClick={() => setComposerOpen(true)}
+                className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3 shadow-sm hover:bg-muted/60 transition-colors text-left"
+              >
               <Avatar className="h-10 w-10 shrink-0">
                 <AvatarImage src={me?.profile_photo_url ?? undefined} alt={displayName} />
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
@@ -95,6 +103,53 @@ export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOp
                 <Plus className="h-4 w-4" />
               </span>
             </button>
+
+            {/* ACTIVITY label + badge filter row sits directly under the composer trigger */}
+            <div className="flex items-center justify-between px-1 py-1">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/85">
+                ACTIVITY
+              </span>
+
+              {badges.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-colors border"
+                      style={
+                        activeBadge === 'all'
+                          ? { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderColor: 'hsl(var(--primary))' }
+                          : (() => {
+                              const b = badges.find(x => x.id === activeBadge);
+                              const color = b?.color ?? '#3B82F6';
+                              return { backgroundColor: color, color: 'white', borderColor: color };
+                            })()
+                      }
+                    >
+                      {activeBadge === 'all' ? 'All' : badges.find(b => b.id === activeBadge)?.label ?? 'All'}
+                      <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[160px]">
+                    <DropdownMenuRadioGroup value={activeBadge} onValueChange={(v) => setActiveBadge(v as string | 'all')}>
+                      <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                      {badges.map(b => (
+                        <DropdownMenuRadioItem key={b.id} value={b.id}>
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="inline-block h-2 w-2 rounded-full"
+                              style={{ backgroundColor: b.color ?? '#3B82F6' }}
+                            />
+                            {b.label}
+                          </span>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+            </>
           )}
 
           {isLoading ? (
