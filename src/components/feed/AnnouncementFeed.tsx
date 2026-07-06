@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
 interface AnnouncementFeedProps {
+  activeBadge?: string | 'all';
   composerOpen?: boolean;
   onComposerOpenChange?: (open: boolean) => void;
 }
