@@ -63,7 +63,7 @@ export const PageTitle = React.memo(function PageTitle({
     <div className={cn('flex items-center gap-3 mt-4 md:mt-0', className)}>
       <span
         aria-hidden="true"
-        className="shrink-0 self-stretch rounded-[2px] my-[0.15em]"
+        className="shrink-0 self-center rounded-[2px] h-[0.7em]"
         style={{ width: 4, backgroundColor: barColor }}
       />
       <Tag className="font-apple-system text-[28px] font-bold leading-[1.05] tracking-tight">
