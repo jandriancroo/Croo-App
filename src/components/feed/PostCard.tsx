@@ -222,7 +222,17 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
 
       {/* Meta bar */}
       <div className="px-4 py-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50">
-        <button type="button" onClick={() => onOpen(post)} className="inline-flex items-center gap-1.5 hover:text-foreground">
+        <button
+          type="button"
+          onClick={() => {
+            const el = document.getElementById(`comment-input-${post.id}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (el as HTMLInputElement).focus({ preventScroll: true });
+            }
+          }}
+          className="inline-flex items-center gap-1.5 hover:text-foreground"
+        >
           <MessageCircle className="h-3.5 w-3.5" />
           {post.comment_count} {post.comment_count === 1 ? 'comment' : 'comments'}
         </button>
