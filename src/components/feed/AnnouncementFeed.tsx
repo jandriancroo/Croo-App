@@ -41,7 +41,7 @@ function useCurrentProfile(userId: string | null) {
   });
 }
 
-export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
+export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin, isShiftManager } = useUserRole();
   const canAnnounce = isAdmin || isManager || isSuperAdmin;
@@ -55,6 +55,8 @@ export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOp
     else setInternalComposerOpen(o);
   };
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
+  const [activeBadge, setActiveBadge] = useState<string | 'all'>('all');
+  const { data: badges = [] } = useFeedBadges();
 
   const {
     posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, updatePost, markSeen,
