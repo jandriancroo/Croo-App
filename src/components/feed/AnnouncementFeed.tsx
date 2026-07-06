@@ -97,48 +97,6 @@ export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOp
             </button>
           )}
 
-          {/* Badge filter dropdown */}
-          {badges.length > 0 && (
-            <div className="px-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-colors border"
-                    style={
-                      activeBadge === 'all'
-                        ? { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderColor: 'hsl(var(--primary))' }
-                        : (() => {
-                            const b = badges.find(x => x.id === activeBadge);
-                            const color = b?.color ?? '#3B82F6';
-                            return { backgroundColor: color, color: 'white', borderColor: color };
-                          })()
-                    }
-                  >
-                    {activeBadge === 'all' ? 'All' : badges.find(b => b.id === activeBadge)?.label ?? 'All'}
-                    <ChevronDown className="h-3.5 w-3.5 opacity-80" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[160px]">
-                  <DropdownMenuRadioGroup value={activeBadge} onValueChange={(v) => setActiveBadge(v as string | 'all')}>
-                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                    {badges.map(b => (
-                      <DropdownMenuRadioItem key={b.id} value={b.id}>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full"
-                            style={{ backgroundColor: b.color ?? '#3B82F6' }}
-                          />
-                          {b.label}
-                        </span>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
-
           {isLoading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
