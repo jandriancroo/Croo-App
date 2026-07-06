@@ -477,7 +477,7 @@ export default function Settings() {
     <Layout>
       <div className="space-y-4 w-full">
         <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
+          <PageTitle color="slate">Settings</PageTitle>
           <p className="text-muted-foreground">Manage your preferences</p>
         </div>
 
