@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation } from "@/hooks/useLocation";
 import { Layout } from "@/components/Layout";
+import { PageTitle } from "@/components/PageTitle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
