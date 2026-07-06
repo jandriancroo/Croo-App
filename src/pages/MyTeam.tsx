@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { PageTitle } from '@/components/PageTitle';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
