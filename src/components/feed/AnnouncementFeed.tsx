@@ -99,7 +99,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
 
           {/* Badge filter row */}
           {badges.length > 0 && (
-            <div className="relative -mx-1 overflow-x-auto scrollbar-hide">
+            <div className="-mx-1 overflow-x-auto scrollbar-hide">
               <div className="flex gap-1.5 min-w-max px-1">
                 <button
                   type="button"
@@ -129,8 +129,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                   );
                 })}
               </div>
-              {/* Right-edge fade so overflow chips fade into the background instead of looking cut off */}
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-8 sm:w-10 bg-gradient-to-l from-background from-40% to-transparent" />
             </div>
           )}
 
