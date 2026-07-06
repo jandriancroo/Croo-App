@@ -48,7 +48,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
     if (onComposerOpenChange) onComposerOpenChange(o);
     else setInternalComposerOpen(o);
   };
-  const [openPost, setOpenPost] = useState<FeedPost | null>(null);
+  const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
   const {
