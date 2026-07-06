@@ -103,7 +103,7 @@ export default function LogBook() {
     <Layout>
       <div className="space-y-4">
         <div className="mb-4">
-          <h1 className="text-3xl font-bold">Logs</h1>
+          <PageTitle color="purple">Logs</PageTitle>
           <div className="flex items-center justify-between mt-3">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
