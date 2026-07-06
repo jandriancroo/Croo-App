@@ -37,7 +37,7 @@ export default function Availability() {
         <div>
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Availability</h1>
+              <PageTitle color="indigo">Availability</PageTitle>
             </div>
             <Button onClick={() => data.setRequestDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
