@@ -146,8 +146,9 @@ const getDailyFacts = () => {
 const DAILY_FACTS = getDailyFacts();
 
 export default function PunchClock() {
-  const { currentLocation } = useAppLocation();
+  const { currentLocation, refetchLocations } = useAppLocation();
   const { timezone, closeTime } = useLocationTimezone();
+
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
