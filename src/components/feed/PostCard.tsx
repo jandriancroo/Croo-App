@@ -1,15 +1,16 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
+import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { InlineComments } from './InlineComments';
 import { MediaLightbox } from './MediaLightbox';
+import { PostActionsPopover } from './PostActionsPopover';
 
 
 interface PostCardProps {
@@ -89,7 +90,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
     };
   }, [post.id, post.seen_by_me, isMine, onMarkSeen]);
 
-  // Long-press to open actions dialog (mobile-friendly, works on desktop too)
+  // Long-press to open actions popover (mobile-friendly, works on desktop too)
   const canManage = isMine || canModerate;
   const [actionsOpen, setActionsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -97,6 +98,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
   const [editBody, setEditBody] = useState(post.body);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimer.current != null) {
@@ -133,6 +135,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* Header */}
       <header className="relative px-3 pt-3">
         <div
+          ref={headerRef}
           className={cn(
             "flex items-start gap-3 rounded-xl bg-primary/10 px-3 py-3 select-none",
             canManage && "cursor-pointer",
@@ -191,41 +194,19 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
         </div>
       </header>
 
-      {/* Actions dialog (long-press) */}
+      {/* Actions popover (long-press) */}
       {canManage && (
-        <Dialog open={actionsOpen} onOpenChange={setActionsOpen}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Post actions</DialogTitle>
-              <DialogDescription>Choose what to do with this post.</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2 pt-2">
-              {isMine && onEdit && (
-                <Button
-                  variant="outline"
-                  className="justify-start"
-                  onClick={() => {
-                    setEditBody(post.body);
-                    setActionsOpen(false);
-                    setEditOpen(true);
-                  }}
-                >
-                  <Pencil className="h-4 w-4 mr-2" /> Edit post
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className="justify-start text-destructive hover:text-destructive"
-                onClick={() => {
-                  setActionsOpen(false);
-                  setConfirmDeleteOpen(true);
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Delete post
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <PostActionsPopover
+          open={actionsOpen}
+          onOpenChange={setActionsOpen}
+          triggerRef={headerRef}
+          canEdit={isMine && !!onEdit}
+          onEdit={() => {
+            setEditBody(post.body);
+            setEditOpen(true);
+          }}
+          onDelete={() => setConfirmDeleteOpen(true)}
+        />
       )}
 
       {/* Edit dialog */}
