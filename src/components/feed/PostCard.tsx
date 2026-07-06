@@ -90,7 +90,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-colors hover:bg-muted/50"
     >
       {/* Header */}
-      <header className="relative bg-muted/30 px-4 pt-4 pb-3">
+      <header className="relative bg-muted px-4 pt-4 pb-3">
         <div className="flex items-start gap-3">
           <Avatar className="h-11 w-11 shrink-0">
             <AvatarImage src={post.author?.profile_photo_url ?? undefined} alt={authorName} />
