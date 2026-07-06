@@ -149,6 +149,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                 </DropdownMenu>
               )}
             </div>
+            </>
           )}
 
           {isLoading ? (
