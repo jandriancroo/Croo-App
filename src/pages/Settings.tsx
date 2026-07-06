@@ -50,15 +50,23 @@ const PanelFallback = () => (
   </div>
 );
 
-const themes = [
+type ThemeOption = { value: string; label: string; brand?: string };
+const themes: ThemeOption[] = [
   { value: 'default', label: 'Default' },
   { value: 'oled', label: 'Dark Mode' },
   { value: 'earth', label: 'Warm Earth' },
   { value: 'beach', label: 'Beach' },
   { value: 'cupcake', label: 'Cupcake' },
-  { value: 'blaze', label: 'Blaze Pizza' },
-  { value: 'playa', label: 'Playa Bowls' },
+  { value: 'blaze', label: 'Blaze Pizza', brand: 'blaze pizza' },
+  { value: 'playa', label: 'Playa Bowls', brand: 'playa bowls' },
 ];
+
+// Themes scoped to a specific brand only show for that brand's stores.
+// Super admins (no currentLocation context) see all themes.
+function filterThemesForBrand(brandName?: string | null): ThemeOption[] {
+  const normalized = (brandName || '').trim().toLowerCase();
+  return themes.filter((t) => !t.brand || t.brand === normalized);
+}
 
 const textSizes = [
   { value: 'small', label: 'Small' },
@@ -246,16 +254,19 @@ export default function Settings() {
         return <PositionManagementInline organizationId={currentOrgId} />;
 
       case 'theme':
-        return (
+        {
+          const availableThemes = filterThemesForBrand(currentLocation?.brand_name);
+          const effectiveTheme = availableThemes.some((t) => t.value === theme) ? theme : 'default';
+          return (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="theme">Color Theme</Label>
-              <Select value={theme} onValueChange={handleThemeChange}>
+              <Select value={effectiveTheme} onValueChange={handleThemeChange}>
                 <SelectTrigger id="theme">
                   <SelectValue placeholder="Select a theme" />
                 </SelectTrigger>
                 <SelectContent>
-                  {themes.map((t) => (
+                  {availableThemes.map((t) => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -277,6 +288,9 @@ export default function Settings() {
             </div>
           </div>
         );
+        }
+
+
 
       case 'notifications':
         return <UnifiedNotificationSettings />;
