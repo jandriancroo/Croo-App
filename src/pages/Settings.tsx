@@ -50,15 +50,23 @@ const PanelFallback = () => (
   </div>
 );
 
-const themes = [
+type ThemeOption = { value: string; label: string; brand?: string };
+const themes: ThemeOption[] = [
   { value: 'default', label: 'Default' },
   { value: 'oled', label: 'Dark Mode' },
   { value: 'earth', label: 'Warm Earth' },
   { value: 'beach', label: 'Beach' },
   { value: 'cupcake', label: 'Cupcake' },
-  { value: 'blaze', label: 'Blaze Pizza' },
-  { value: 'playa', label: 'Playa Bowls' },
+  { value: 'blaze', label: 'Blaze Pizza', brand: 'blaze pizza' },
+  { value: 'playa', label: 'Playa Bowls', brand: 'playa bowls' },
 ];
+
+// Themes scoped to a specific brand only show for that brand's stores.
+// Super admins (no currentLocation context) see all themes.
+function filterThemesForBrand(brandName?: string | null): ThemeOption[] {
+  const normalized = (brandName || '').trim().toLowerCase();
+  return themes.filter((t) => !t.brand || t.brand === normalized);
+}
 
 const textSizes = [
   { value: 'small', label: 'Small' },
