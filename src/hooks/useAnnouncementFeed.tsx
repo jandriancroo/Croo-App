@@ -188,10 +188,10 @@ export function useAnnouncementFeed(
           supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', authorIds),
           channelIds.length
             ? supabase.from('announcement_channels').select('id, name, color').in('id', channelIds)
-            : Promise.resolve({ data: [] as any[] }),
+            : Promise.resolve({ data: [] as any[], error: null }),
           badgeIds.length
             ? supabase.from('feed_badges').select('id, label, tier, color, is_active, sort_order, location_id, brand_id, created_by').in('id', badgeIds)
-            : Promise.resolve({ data: [] as any[] }),
+            : Promise.resolve({ data: [] as any[], error: null }),
           supabase.from('announcement_reactions').select('post_id, user_id, emoji').in('post_id', postIds),
           supabase.from('announcement_comments').select('post_id').in('post_id', postIds).is('deleted_at', null),
           supabase.from('announcement_reads').select('post_id, user_id').in('post_id', postIds),

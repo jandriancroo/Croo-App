@@ -44,7 +44,7 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
         const [profilesRes, readsRes] = await Promise.all([
           userIds.length
             ? supabase.from('profiles').select('id, full_name, nickname, profile_photo_url, is_active, appears_on_schedule').in('id', userIds)
-            : Promise.resolve({ data: [] as any[] }),
+            : Promise.resolve({ data: [] as any[], error: null }),
           supabase.from('announcement_reads').select('user_id, opened_at').eq('post_id', post.id),
         ]);
         if (profilesRes.error) throw profilesRes.error;
