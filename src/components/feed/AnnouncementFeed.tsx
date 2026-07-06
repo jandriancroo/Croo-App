@@ -36,7 +36,7 @@ function useCurrentProfile(userId: string | null) {
 
 export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
-  const { isAdmin, isManager, isSuperAdmin } = useUserRole();
+  const { isAdmin, isManager, isSuperAdmin, isShiftManager } = useUserRole();
   const canAnnounce = isAdmin || isManager || isSuperAdmin;
   const canCreateBadges = isAdmin || isManager || isSuperAdmin;
   const canModerate = isAdmin || isSuperAdmin;
@@ -55,8 +55,8 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
     posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, markSeen,
   } = useAnnouncementFeed('all', activeBadge);
   const composerChannels = useMemo(
-    () => channels.filter(c => c.audience_type === 'everyone' || canAnnounce),
-    [channels, canAnnounce],
+    () => channels.filter(c => c.audience_type === 'everyone' || isShiftManager),
+    [channels, isShiftManager],
   );
   const { offers: openShiftOffers } = useOpenShiftOffers();
   const { data: me } = useCurrentProfile(user?.id ?? null);

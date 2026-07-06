@@ -302,37 +302,6 @@ export function useAnnouncementFeed(
       }).select().single();
       if (error) throw error;
 
-      // Push notification to users who qualify for this channel's audience (excluding author)
-      try {
-        const { data: audienceRows } = await supabase.rpc('feed_channel_audience_recipients', {
-          _location_id: locationId,
-          _channel_id: channelId,
-        });
-        const recipients = ((audienceRows as any[]) ?? [])
-          .map((r: any) => r.user_id ?? r)
-          .filter((id: string) => id && id !== user.id);
-        if (recipients.length) {
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('full_name, nickname')
-            .eq('id', user.id)
-            .single();
-          const senderName = (prof as any)?.nickname || (prof as any)?.full_name || 'Team';
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_ids: recipients,
-              sender_id: user.id,
-              title: isAnnouncement ? `📢 ${senderName}` : senderName,
-              body: (body || 'Shared a post').substring(0, 140),
-              notification_type: isAnnouncement ? 'announcements' : 'chat_messages',
-              data: { post_id: (data as any)?.id, location_id: locationId, channel_id: channelId ?? null, type: isAnnouncement ? 'announcement' : 'feed_post' },
-            },
-          });
-        }
-      } catch (err) {
-        console.error('Feed post push notification error:', err);
-      }
-
       return data;
     },
     onSuccess: () => {
@@ -444,45 +413,6 @@ export function useAnnouncementComments(postId: string | null, opts?: { subscrib
         post_id: postId, author_id: user.id, body, parent_comment_id: parentId ?? null,
       });
       if (error) throw error;
-
-      // Notify post author + prior commenters, filtered to post's channel audience (excluding self)
-      try {
-        const [{ data: post }, { data: priors }, { data: prof }] = await Promise.all([
-          supabase.from('announcement_posts').select('author_id, body, location_id, channel_id').eq('id', postId).maybeSingle(),
-          supabase.from('announcement_comments').select('author_id').eq('post_id', postId).is('deleted_at', null),
-          supabase.from('profiles').select('full_name, nickname').eq('id', user.id).maybeSingle(),
-        ]);
-        const candidateSet = new Set<string>();
-        if ((post as any)?.author_id) candidateSet.add((post as any).author_id);
-        for (const c of priors ?? []) candidateSet.add((c as any).author_id);
-        candidateSet.delete(user.id);
-        let recipients = Array.from(candidateSet);
-
-        if (recipients.length && (post as any)?.location_id) {
-          const { data: audienceRows } = await supabase.rpc('feed_channel_audience_recipients', {
-            _location_id: (post as any).location_id,
-            _channel_id: (post as any).channel_id ?? null,
-          });
-          const allowed = new Set(((audienceRows as any[]) ?? []).map((r: any) => r.user_id ?? r));
-          recipients = recipients.filter(id => allowed.has(id));
-        }
-
-        if (recipients.length) {
-          const senderName = (prof as any)?.nickname || (prof as any)?.full_name || 'Someone';
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_ids: recipients,
-              sender_id: user.id,
-              title: `${senderName} commented`,
-              body: (body || '').substring(0, 140),
-              notification_type: 'chat_messages',
-              data: { post_id: postId, location_id: (post as any)?.location_id ?? null, type: 'feed_comment' },
-            },
-          });
-        }
-      } catch (err) {
-        console.error('Feed comment push notification error:', err);
-      }
     },
     onError: (e: any) => toast.error(e.message ?? 'Comment failed'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['announcement-comments', postId] }),
