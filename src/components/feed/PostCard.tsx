@@ -12,7 +12,7 @@ interface PostCardProps {
   post: FeedPost;
   currentUserId: string | null;
   canModerate: boolean;
-  onOpen: (post: FeedPost) => void;
+  
   onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
@@ -34,7 +34,7 @@ function friendlyFileName(m: { name?: string; url: string }) {
   } catch { return 'Attachment'; }
 }
 
-function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, onToggleReaction, onDelete, onMarkSeen }: PostCardProps) {
+function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onMarkSeen }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
@@ -156,9 +156,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
       {/* Media grid — ABOVE text, rounded and inset */}
       {images.length > 0 && (
         <div className="px-3 mt-1">
-          <button
-            type="button"
-            onClick={() => onOpen(post)}
+          <div
             className={cn(
               'grid gap-0.5 w-full bg-muted rounded-xl overflow-hidden',
               images.length === 1 && 'grid-cols-1',
@@ -179,9 +177,10 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
                 <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
               </div>
             ))}
-          </button>
+          </div>
         </div>
       )}
+
 
       {/* Body */}
       {post.body && (
@@ -223,7 +222,17 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpen, onOpenSeenBy, 
 
       {/* Meta bar */}
       <div className="px-4 py-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50">
-        <button type="button" onClick={() => onOpen(post)} className="inline-flex items-center gap-1.5 hover:text-foreground">
+        <button
+          type="button"
+          onClick={() => {
+            const el = document.getElementById(`comment-input-${post.id}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (el as HTMLInputElement).focus({ preventScroll: true });
+            }
+          }}
+          className="inline-flex items-center gap-1.5 hover:text-foreground"
+        >
           <MessageCircle className="h-3.5 w-3.5" />
           {post.comment_count} {post.comment_count === 1 ? 'comment' : 'comments'}
         </button>

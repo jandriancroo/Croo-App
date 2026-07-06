@@ -97,6 +97,7 @@ export function InlineComments({ postId, allowComments, currentUserId, canModera
       {allowComments && (
         <div className="flex items-center gap-2 pt-1">
           <input
+            id={`comment-input-${postId}`}
             type="text"
             value={draft}
             onChange={e => setDraft(e.target.value)}

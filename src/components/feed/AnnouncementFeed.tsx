@@ -8,7 +8,7 @@ import { useAnnouncementFeed, type FeedPost } from '@/hooks/useAnnouncementFeed'
 import { useOpenShiftOffers } from '@/hooks/useOpenShiftOffers';
 import { PostCard } from './PostCard';
 import { PostComposer } from './PostComposer';
-import { PostDetailSheet } from './PostDetailSheet';
+
 import { SeenByDialog } from './SeenByDialog';
 import { ShiftOfferMessage } from '@/components/messages/ShiftOfferMessage';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,7 +48,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
     if (onComposerOpenChange) onComposerOpenChange(o);
     else setInternalComposerOpen(o);
   };
-  const [openPost, setOpenPost] = useState<FeedPost | null>(null);
   const [seenByPost, setSeenByPost] = useState<FeedPost | null>(null);
 
   const {
@@ -65,10 +64,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   const regularPosts = useMemo(() => posts.filter(p => !p.pinned), [posts]);
   const hasPinnedStrip = pinnedPosts.length > 0 || openShiftOffers.length > 0;
 
-  const openPostFresh = useMemo(() => {
-    if (!openPost) return null;
-    return posts.find(p => p.id === openPost.id) ?? openPost;
-  }, [openPost, posts]);
 
   useEffect(() => {
     // Everyone can post; keep this as a no-op guard in case parent triggers composer when unauthed.
@@ -180,7 +175,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                       post={p}
                       currentUserId={user?.id ?? null}
                       canModerate={canModerate}
-                      onOpen={setOpenPost}
                       onOpenSeenBy={setSeenByPost}
                       onToggleReaction={toggleReaction}
                       onDelete={(id) => deletePost(id)}
@@ -198,7 +192,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                   post={p}
                   currentUserId={user?.id ?? null}
                   canModerate={canModerate}
-                  onOpen={setOpenPost}
                   onOpenSeenBy={setSeenByPost}
                   onToggleReaction={toggleReaction}
                   onDelete={(id) => deletePost(id)}
@@ -222,14 +215,6 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
         onCreateBadge={createBadge}
       />
 
-      <PostDetailSheet
-        post={openPostFresh}
-        currentUserId={user?.id ?? null}
-        canModerate={canModerate}
-        onOpenChange={(o) => { if (!o) setOpenPost(null); }}
-        onToggleReaction={toggleReaction}
-        onMarkSeen={markSeen}
-      />
 
       <SeenByDialog
         post={seenByPost}
