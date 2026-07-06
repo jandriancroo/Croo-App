@@ -35,14 +35,13 @@ function useCurrentProfile(userId: string | null) {
   });
 }
 
-export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
+export function AnnouncementFeed({ activeBadge = 'all', composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin, isShiftManager } = useUserRole();
   const canAnnounce = isAdmin || isManager || isSuperAdmin;
   const canCreateBadges = isAdmin || isManager || isSuperAdmin;
   const canModerate = isAdmin || isSuperAdmin;
 
-  const [activeBadge, setActiveBadge] = useState<string | 'all'>('all');
   const [internalComposerOpen, setInternalComposerOpen] = useState(false);
   const composerOpen = composerOpenProp ?? internalComposerOpen;
   const setComposerOpen = (o: boolean) => {
