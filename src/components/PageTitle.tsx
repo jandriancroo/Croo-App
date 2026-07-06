@@ -40,6 +40,13 @@ const COLOR_MAP: Record<PageTitleColor, string> = {
   pink: '#ec4899',
 };
 
+function hexToRgba(hex: string, alpha: number) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 interface PageTitleProps {
   children: React.ReactNode;
   color: PageTitleColor | string;
