@@ -7,6 +7,7 @@ import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InlineComments } from './InlineComments';
+import { MediaLightbox } from './MediaLightbox';
 
 interface PostCardProps {
   post: FeedPost;
