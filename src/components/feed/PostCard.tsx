@@ -90,7 +90,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
     };
   }, [post.id, post.seen_by_me, isMine, onMarkSeen]);
 
-  // Long-press to open actions dialog (mobile-friendly, works on desktop too)
+  // Long-press to open actions popover (mobile-friendly, works on desktop too)
   const canManage = isMine || canModerate;
   const [actionsOpen, setActionsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -98,6 +98,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
   const [editBody, setEditBody] = useState(post.body);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
+  const headerRef = useRef<HTMLElement>(null);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimer.current != null) {
