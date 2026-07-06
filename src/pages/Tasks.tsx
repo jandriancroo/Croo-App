@@ -61,7 +61,7 @@ export default function Tasks() {
           <div className="mb-4">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-3">
-                <h1 className="text-3xl font-bold">Tasks</h1>
+                <PageTitle color="blue">Tasks</PageTitle>
                 <TabsList>
                   <TabsTrigger value="history">History</TabsTrigger>
                   {(isAdmin || isManager) && (
