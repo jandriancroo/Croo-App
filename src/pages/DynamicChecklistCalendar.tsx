@@ -979,6 +979,82 @@ export default function DynamicChecklistCalendar() {
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        {/* Assign Days & Shift Dialog */}
+        <Dialog open={!!assignDialogTask} onOpenChange={(open) => !open && setAssignDialogTask(null)}>
+          <DialogContent className="max-w-md max-w-[calc(100vw-2rem)]">
+            <DialogHeader>
+              <DialogTitle className="text-base">Assign Task</DialogTitle>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {assignDialogTask?.question}
+              </p>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Days of the week</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {dayNames.map((name, idx) => {
+                    const active = assignDialogDays.includes(idx);
+                    return (
+                      <Button
+                        key={idx}
+                        type="button"
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => toggleDay(idx)}
+                      >
+                        {active && <span className="mr-1">✓</span>}
+                        {name}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Leave all unchecked to move back to Unassigned.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Day part (optional)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant={assignDialogShift === null ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignDialogShift(null)}
+                  >
+                    Any
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignDialogShift === 'am' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignDialogShift('am')}
+                    className={assignDialogShift === 'am' ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}
+                  >
+                    <Sun className="h-3.5 w-3.5 mr-1" /> AM
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignDialogShift === 'pm' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignDialogShift('pm')}
+                    className={assignDialogShift === 'pm' ? 'bg-indigo-700 hover:bg-indigo-800 text-white' : ''}
+                  >
+                    <Moon className="h-3.5 w-3.5 mr-1" /> PM
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setAssignDialogTask(null)}>Cancel</Button>
+              <Button onClick={handleSaveAssign} disabled={assignSaving}>
+                {assignSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
