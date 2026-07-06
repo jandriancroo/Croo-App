@@ -42,6 +42,8 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
   const files = post.media.filter(m => m.type !== 'image');
 
   const [expanded, setExpanded] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const lightboxItems = post.media;
   const shouldTruncate = post.body.length > BODY_TRUNCATE_CHARS;
   const displayBody = !shouldTruncate || expanded
     ? post.body
