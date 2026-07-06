@@ -90,70 +90,76 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-colors hover:bg-muted/50"
     >
       {/* Header */}
-      <header className="flex items-start gap-3 px-4 pt-4 pb-2">
-        <Avatar className="h-11 w-11 shrink-0">
-          <AvatarImage src={post.author?.profile_photo_url ?? undefined} alt={authorName} />
-          <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-            {getInitials(authorName)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm">{authorName}</span>
-            {post.is_announcement && (
-              <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">
-                Announcement
+      <header className="relative bg-muted/30 px-4 pt-4 pb-3">
+        <div className="flex items-start gap-3">
+          <Avatar className="h-11 w-11 shrink-0">
+            <AvatarImage src={post.author?.profile_photo_url ?? undefined} alt={authorName} />
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+              {getInitials(authorName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            {/* Top row: name + timestamp + menu */}
+            <div className="flex items-center gap-2 pr-1">
+              <span className="font-semibold text-sm truncate">{authorName}</span>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                {post.edited_at && <span className="ml-1">· edited</span>}
               </span>
-            )}
-            {post.badge && (
-              <span
-                className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
-                style={{ backgroundColor: `${post.badge.color ?? '#3B82F6'}22`, color: post.badge.color ?? '#3B82F6' }}
-              >
-                {post.badge.label}
-              </span>
-            )}
-            {post.channel && (
-              <span
-                className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
-                style={{ backgroundColor: `${post.channel.color ?? '#3B82F6'}22`, color: post.channel.color ?? '#3B82F6' }}
-              >
-                {post.channel.name}
-              </span>
-            )}
-            {post.pinned && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-600">
-                <Pin className="h-3 w-3" /> Pinned
-              </span>
-            )}
+            </div>
+            {/* Second row: badges */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+              {post.is_announcement && (
+                <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                  Announcement
+                </span>
+              )}
+              {post.badge && (
+                <span
+                  className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: `${post.badge.color ?? '#3B82F6'}22`, color: post.badge.color ?? '#3B82F6' }}
+                >
+                  {post.badge.label}
+                </span>
+              )}
+              {post.channel && (
+                <span
+                  className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: `${post.channel.color ?? '#3B82F6'}22`, color: post.channel.color ?? '#3B82F6' }}
+                >
+                  {post.channel.name}
+                </span>
+              )}
+              {post.pinned && (
+                <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" aria-label="Pinned">
+                  <Pin className="h-3 w-3" />
+                </span>
+              )}
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-            {post.edited_at && <span className="ml-1">· edited</span>}
-          </div>
+          {(isMine || canModerate) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-1 -mt-1" onClick={e => e.stopPropagation()}>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setTimeout(() => {
+                      if (window.confirm('Delete this post?')) onDelete(post.id);
+                    }, 50);
+                  }}
+                >
+                  Delete post
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        {(isMine || canModerate) && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 -mr-1 -mt-1" onClick={e => e.stopPropagation()}>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                className="text-destructive"
-                onSelect={(e) => {
-                  e.preventDefault();
-                  setTimeout(() => {
-                    if (window.confirm('Delete this post?')) onDelete(post.id);
-                  }, 50);
-                }}
-              >
-                Delete post
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
       </header>
 
       {/* Media grid — ABOVE text, rounded and inset */}
