@@ -254,16 +254,19 @@ export default function Settings() {
         return <PositionManagementInline organizationId={currentOrgId} />;
 
       case 'theme':
-        return (
+        {
+          const availableThemes = filterThemesForBrand(currentLocation?.brand_name);
+          const effectiveTheme = availableThemes.some((t) => t.value === theme) ? theme : 'default';
+          return (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="theme">Color Theme</Label>
-              <Select value={theme} onValueChange={handleThemeChange}>
+              <Select value={effectiveTheme} onValueChange={handleThemeChange}>
                 <SelectTrigger id="theme">
                   <SelectValue placeholder="Select a theme" />
                 </SelectTrigger>
                 <SelectContent>
-                  {themes.map((t) => (
+                  {availableThemes.map((t) => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
