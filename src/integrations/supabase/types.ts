@@ -7653,6 +7653,27 @@ export type Database = {
         }
         Relationships: []
       }
+      notified_subscriptions: {
+        Row: {
+          location_id: string | null
+          notified_at: string
+          organization_id: string | null
+          stripe_subscription_id: string
+        }
+        Insert: {
+          location_id?: string | null
+          notified_at?: string
+          organization_id?: string | null
+          stripe_subscription_id: string
+        }
+        Update: {
+          location_id?: string | null
+          notified_at?: string
+          organization_id?: string | null
+          stripe_subscription_id?: string
+        }
+        Relationships: []
+      }
       onboarding_completions: {
         Row: {
           completed_at: string

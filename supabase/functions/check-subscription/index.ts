@@ -243,6 +243,83 @@ serve(async (req) => {
 
     logStep("Subscription data", { productIds, subscriptionEnd, trialEnd, locationCount, locationSubscriptions });
 
+    // Notify super admins about any brand-new subscriptions (fire-and-forget)
+    try {
+      const subIds = allSubs.map((s) => s.id);
+      if (subIds.length > 0) {
+        const { data: alreadyNotified } = await supabase
+          .from("notified_subscriptions")
+          .select("stripe_subscription_id")
+          .in("stripe_subscription_id", subIds);
+        const notifiedSet = new Set((alreadyNotified || []).map((r: any) => r.stripe_subscription_id));
+        const newSubs = allSubs.filter((s) => !notifiedSet.has(s.id));
+
+        if (newSubs.length > 0) {
+          // Fetch super admin emails
+          const { data: superAdmins } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .eq("role", "super_admin");
+          const adminIds = (superAdmins || []).map((r: any) => r.user_id);
+          const { data: adminProfiles } = await supabase
+            .from("profiles")
+            .select("id, email")
+            .in("id", adminIds);
+          const adminEmails = (adminProfiles || []).map((p: any) => p.email).filter(Boolean);
+
+          for (const sub of newSubs) {
+            const locId = sub.metadata?.location_id || null;
+            const locName = sub.metadata?.location_name || "Unknown location";
+            const orgId = sub.metadata?.organization_id || null;
+            const orgName = sub.metadata?.organization_name || "Unknown org";
+            const createdByUserId = sub.metadata?.created_by_user_id || null;
+
+            let createdByName = user.email || "Unknown";
+            if (createdByUserId) {
+              const { data: p } = await supabase
+                .from("profiles")
+                .select("full_name, email")
+                .eq("id", createdByUserId)
+                .maybeSingle();
+              if (p) createdByName = p.full_name || p.email || createdByName;
+            }
+
+            const priceItem = sub.items.data[0];
+            const amount = priceItem?.price?.unit_amount ? (priceItem.price.unit_amount / 100).toFixed(2) : "?";
+            const currency = (priceItem?.price?.currency || "usd").toUpperCase();
+            const interval = priceItem?.price?.recurring?.interval || "month";
+
+            for (const to of adminEmails) {
+              await supabase.functions.invoke("send-notification-email", {
+                body: {
+                  type: "new_subscription",
+                  to,
+                  data: {
+                    location_name: locName,
+                    organization_name: orgName,
+                    subscribed_by: createdByName,
+                    amount: `$${amount} ${currency}/${interval}`,
+                    status: sub.status,
+                    subscription_id: sub.id,
+                    trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+                  },
+                },
+              }).catch((e) => logStep("notify super admin failed", { e: String(e) }));
+            }
+
+            await supabase.from("notified_subscriptions").insert({
+              stripe_subscription_id: sub.id,
+              location_id: locId,
+              organization_id: orgId,
+            });
+            logStep("New subscription notified", { subId: sub.id, admins: adminEmails.length });
+          }
+        }
+      }
+    } catch (notifyErr) {
+      logStep("Notify block error (non-fatal)", { error: String(notifyErr) });
+    }
+
     return new Response(
       JSON.stringify({
         subscribed: true,
