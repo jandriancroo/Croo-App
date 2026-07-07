@@ -16,6 +16,7 @@ interface Props {
 
 interface LiteInvoice {
   id: string;
+  location_id: string;
   vendor_name: string | null;
   invoice_number: string | null;
   invoice_date: string | null;
@@ -39,6 +40,15 @@ interface LiteInvoiceLine {
   match_status: string;
   matched_item_id: string | null;
   candidate_item_id: string | null;
+  fuzzy_score: number | null;
+}
+
+interface CandidateItem {
+  id: string;
+  name: string;
+  pack_size: string | null;
+  vendor_name_normalized: string | null;
+  item_number: string | null;
 }
 
 /**
@@ -57,7 +67,7 @@ export default function LiteInvoicesList({ locationId }: Props) {
       const { data, error } = await supabase
         .from("lite_vendor_invoices" as any)
         .select(
-          "id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, storage_path, parsed_at, created_at"
+          "id, location_id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, storage_path, parsed_at, created_at"
         )
         .eq("location_id", locationId)
         .order("invoice_date", { ascending: false, nullsFirst: false })
@@ -70,16 +80,19 @@ export default function LiteInvoicesList({ locationId }: Props) {
   const { data: lineCounts } = useQuery({
     queryKey: ["lite-invoice-line-counts", locationId, invoices?.length],
     enabled: !!invoices && invoices.length > 0,
-    queryFn: async (): Promise<Map<string, number>> => {
+    queryFn: async (): Promise<Map<string, { total: number; fuzzy: number }>> => {
       const ids = (invoices || []).map((i) => i.id);
       if (ids.length === 0) return new Map();
       const { data } = await supabase
         .from("lite_vendor_invoice_items" as any)
-        .select("invoice_id")
+        .select("invoice_id, match_status")
         .in("invoice_id", ids);
-      const counts = new Map<string, number>();
+      const counts = new Map<string, { total: number; fuzzy: number }>();
       (data as any[] | null)?.forEach((r) => {
-        counts.set(r.invoice_id, (counts.get(r.invoice_id) || 0) + 1);
+        const c = counts.get(r.invoice_id) || { total: 0, fuzzy: 0 };
+        c.total += 1;
+        if (r.match_status === "fuzzy") c.fuzzy += 1;
+        counts.set(r.invoice_id, c);
       });
       return counts;
     },
@@ -143,12 +156,20 @@ export default function LiteInvoicesList({ locationId }: Props) {
                         {inv.status}
                       </Badge>
                     )}
+                    {(lineCounts?.get(inv.id)?.fuzzy ?? 0) > 0 && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 px-1.5 border-amber-500/50 text-amber-600 bg-amber-500/10"
+                      >
+                        {lineCounts!.get(inv.id)!.fuzzy} to review
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-[11px] text-muted-foreground truncate">
                     {inv.invoice_date || "no date"}
                     {inv.invoice_number ? ` • #${inv.invoice_number}` : ""}
-                    {lineCounts?.get(inv.id)
-                      ? ` • ${lineCounts.get(inv.id)} lines`
+                    {lineCounts?.get(inv.id)?.total
+                      ? ` • ${lineCounts.get(inv.id)!.total} lines`
                       : ""}
                   </div>
                 </div>
@@ -193,12 +214,32 @@ function InvoiceDetailSheet({
       const { data, error } = await supabase
         .from("lite_vendor_invoice_items" as any)
         .select(
-          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status, matched_item_id, candidate_item_id"
+          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status, matched_item_id, candidate_item_id, fuzzy_score"
         )
         .eq("invoice_id", invoice!.id)
         .order("product_name");
       if (error) throw error;
       return (data as any) || [];
+    },
+  });
+
+  // Preload candidate items so fuzzy lines show what they'd link to
+  const candidateIds = useMemo(
+    () => Array.from(new Set((lines || []).map((l) => l.candidate_item_id).filter(Boolean) as string[])),
+    [lines],
+  );
+  const { data: candidates } = useQuery({
+    queryKey: ["lite-invoice-candidates", invoice?.id, candidateIds.join(",")],
+    enabled: !!invoice && candidateIds.length > 0,
+    queryFn: async (): Promise<Map<string, CandidateItem>> => {
+      const { data, error } = await supabase
+        .from("lite_inventory_items" as any)
+        .select("id, name, pack_size, vendor_name_normalized, item_number")
+        .in("id", candidateIds);
+      if (error) throw error;
+      const map = new Map<string, CandidateItem>();
+      (data as any[] | null)?.forEach((c) => map.set(c.id, c as CandidateItem));
+      return map;
     },
   });
 
@@ -241,6 +282,112 @@ function InvoiceDetailSheet({
     );
     toast.success(next ? "Pack size saved" : "Pack size cleared");
   };
+
+  const [busyLineId, setBusyLineId] = useState<string | null>(null);
+
+  const refreshAfterResolve = () => {
+    qc.invalidateQueries({ queryKey: ["lite-invoice-lines", invoice!.id] });
+    qc.invalidateQueries({ queryKey: ["lite-invoice-line-counts"] });
+    qc.invalidateQueries({ queryKey: ["lite-inventory-items"] });
+    qc.invalidateQueries({ queryKey: ["lite-inventory-items-count"] });
+  };
+
+  const confirmFuzzy = async (line: LiteInvoiceLine) => {
+    if (!line.candidate_item_id) return;
+    setBusyLineId(line.id);
+    try {
+      const { error: lineErr } = await supabase
+        .from("lite_vendor_invoice_items" as any)
+        .update({
+          match_status: "matched",
+          matched_item_id: line.candidate_item_id,
+          candidate_item_id: null,
+        })
+        .eq("id", line.id);
+      if (lineErr) throw lineErr;
+
+      // Mirror the parser's matched-line behavior: bump cost, backfill pack_size if empty.
+      if (line.unit_price && line.unit_price > 0) {
+        const patch: Record<string, any> = { cost_per_unit: line.unit_price };
+        const { data: itemRow } = await supabase
+          .from("lite_inventory_items" as any)
+          .select("pack_size")
+          .eq("id", line.candidate_item_id)
+          .maybeSingle();
+        if (itemRow && !(itemRow as any).pack_size && line.pack_size) {
+          patch.pack_size = line.pack_size;
+        }
+        await supabase
+          .from("lite_inventory_items" as any)
+          .update(patch)
+          .eq("id", line.candidate_item_id);
+      }
+      toast.success("Linked to existing item");
+      refreshAfterResolve();
+    } catch (e: any) {
+      toast.error("Couldn't confirm match", { description: e?.message });
+    } finally {
+      setBusyLineId(null);
+    }
+  };
+
+  const createFromFuzzy = async (line: LiteInvoiceLine) => {
+    if (!invoice) return;
+    setBusyLineId(line.id);
+    try {
+      const { data: newItem, error: insErr } = await supabase
+        .from("lite_inventory_items" as any)
+        .insert({
+          location_id: invoice.location_id,
+          name: line.product_name,
+          item_number: line.item_number,
+          vendor_name_normalized: invoice.vendor_name
+            ? invoice.vendor_name.trim().toLowerCase().replace(/\s+/g, " ")
+            : null,
+          unit: line.unit || null,
+          pack_size: line.pack_size || null,
+          cost_per_unit: line.unit_price && line.unit_price > 0 ? line.unit_price : 0,
+          is_active: true,
+          match_status: "new",
+        })
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+      const { error: linkErr } = await supabase
+        .from("lite_vendor_invoice_items" as any)
+        .update({
+          match_status: "matched",
+          matched_item_id: (newItem as any).id,
+          candidate_item_id: null,
+        })
+        .eq("id", line.id);
+      if (linkErr) throw linkErr;
+      toast.success("New item created");
+      refreshAfterResolve();
+    } catch (e: any) {
+      toast.error("Couldn't create item", { description: e?.message });
+    } finally {
+      setBusyLineId(null);
+    }
+  };
+
+  const dismissFuzzy = async (line: LiteInvoiceLine) => {
+    setBusyLineId(line.id);
+    try {
+      const { error } = await supabase
+        .from("lite_vendor_invoice_items" as any)
+        .update({ match_status: "dismissed", candidate_item_id: null })
+        .eq("id", line.id);
+      if (error) throw error;
+      toast.success("Line dismissed");
+      refreshAfterResolve();
+    } catch (e: any) {
+      toast.error("Couldn't dismiss", { description: e?.message });
+    } finally {
+      setBusyLineId(null);
+    }
+  };
+
 
 
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -312,31 +459,102 @@ function InvoiceDetailSheet({
                 </div>
               ) : (
                 <div className="divide-y divide-border/50">
-                  {lines?.map((ln) => (
-                    <div key={ln.id} className="py-2">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium">
-                              {ln.product_name}
-                            </span>
-                            <PackSizeInlineEdit
-                              value={ln.pack_size}
-                              onSave={(next) => savePackSize(ln, next)}
-                            />
+                  {lines?.map((ln) => {
+                    const isFuzzy = ln.match_status === "fuzzy";
+                    const isDismissed = ln.match_status === "dismissed";
+                    const candidate = ln.candidate_item_id ? candidates?.get(ln.candidate_item_id) : null;
+                    const busy = busyLineId === ln.id;
+                    return (
+                      <div
+                        key={ln.id}
+                        className={`py-2 ${isFuzzy ? "bg-amber-500/5 -mx-4 px-4" : ""}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">
+                                {ln.product_name}
+                              </span>
+                              <PackSizeInlineEdit
+                                value={ln.pack_size}
+                                onSave={(next) => savePackSize(ln, next)}
+                              />
+                              {isFuzzy && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] h-4 px-1.5 border-amber-500/50 text-amber-600 bg-amber-500/10"
+                                >
+                                  needs review{ln.fuzzy_score ? ` · ${ln.fuzzy_score}` : ""}
+                                </Badge>
+                              )}
+                              {isDismissed && (
+                                <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
+                                  dismissed
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {ln.item_number ? `#${ln.item_number} • ` : ""}
+                              {ln.quantity ?? "?"} {ln.unit || ""} @{" "}
+                              {fmtMoney(ln.unit_price)}
+                            </div>
                           </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {ln.item_number ? `#${ln.item_number} • ` : ""}
-                            {ln.quantity ?? "?"} {ln.unit || ""} @{" "}
-                            {fmtMoney(ln.unit_price)}
+                          <div className="text-sm font-semibold tabular-nums shrink-0">
+                            {fmtMoney(ln.total_price)}
                           </div>
                         </div>
-                        <div className="text-sm font-semibold tabular-nums shrink-0">
-                          {fmtMoney(ln.total_price)}
-                        </div>
+
+                        {isFuzzy && (
+                          <div className="mt-2 rounded-md border border-amber-500/30 bg-background p-2 space-y-2">
+                            {candidate ? (
+                              <div className="text-[11px]">
+                                <span className="text-muted-foreground">Looks like: </span>
+                                <span className="font-medium">{candidate.name}</span>
+                                {candidate.pack_size ? (
+                                  <span className="text-muted-foreground"> · {candidate.pack_size}</span>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-muted-foreground">
+                                No candidate — create as new or dismiss.
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-1.5">
+                              {candidate && (
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  disabled={busy}
+                                  onClick={() => confirmFuzzy(ln)}
+                                >
+                                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                  Confirm match
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                disabled={busy}
+                                onClick={() => createFromFuzzy(ln)}
+                              >
+                                Create as new
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-muted-foreground"
+                                disabled={busy}
+                                onClick={() => dismissFuzzy(ln)}
+                              >
+                                Dismiss
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

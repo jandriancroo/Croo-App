@@ -27,6 +27,7 @@ export interface LiteEditableItem {
   name: string;
   category: string | null;
   pack_size: string | null;
+  common_label: string | null;
   storage_id: string | null;
   is_active: boolean;
   unit: string | null;
@@ -51,6 +52,8 @@ interface Props {
   locationId: string;
   storages: Storage[];
   categorySuggestions: string[];
+  /** Distinct common_labels used at this location, feeds the dropdown. */
+  commonLabelSuggestions?: string[];
 }
 
 const UNASSIGNED = "__unassigned__";
@@ -81,11 +84,13 @@ export default function LiteItemEditSheet({
   locationId,
   storages,
   categorySuggestions,
+  commonLabelSuggestions = [],
 }: Props) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [packSize, setPackSize] = useState("");
+  const [commonLabel, setCommonLabel] = useState("");
   const [storageId, setStorageId] = useState<string>(UNASSIGNED);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -101,6 +106,7 @@ export default function LiteItemEditSheet({
     setName(item.name ?? "");
     setCategory(item.category ?? "");
     setPackSize(item.pack_size ?? "");
+    setCommonLabel(item.common_label ?? "");
     setStorageId(item.storage_id ?? UNASSIGNED);
     setIsActive(item.is_active);
 
@@ -145,6 +151,7 @@ export default function LiteItemEditSheet({
       trimmedName !== (item.name ?? "").trim() ||
       (category.trim() || null) !== (item.category ?? null) ||
       (packSize.trim() || null) !== (item.pack_size ?? null) ||
+      (commonLabel.trim() || null) !== (item.common_label ?? null) ||
       (storageId === UNASSIGNED ? null : storageId) !== item.storage_id ||
       isActive !== item.is_active ||
       nextMode !== currentMode ||
@@ -157,6 +164,7 @@ export default function LiteItemEditSheet({
     trimmedName,
     category,
     packSize,
+    commonLabel,
     storageId,
     isActive,
     nextMode,
@@ -175,6 +183,7 @@ export default function LiteItemEditSheet({
       name: trimmedName,
       category: category.trim() || null,
       pack_size: packSize.trim() || null,
+      common_label: commonLabel.trim() || null,
       storage_id: storageId === UNASSIGNED ? null : storageId,
       is_active: isActive,
       count_mode: nextMode,
@@ -266,6 +275,28 @@ export default function LiteItemEditSheet({
               maxLength={60}
               placeholder='e.g. 6/32 oz'
             />
+            <div className="pt-1">
+              <Label htmlFor="lite-item-common-label" className="text-[11px] text-muted-foreground">
+                Common label for this pack
+              </Label>
+              <Input
+                id="lite-item-common-label"
+                value={commonLabel}
+                onChange={(e) => setCommonLabel(e.target.value)}
+                maxLength={80}
+                placeholder="e.g. Chicken Wings Case"
+                list={`lite-common-labels-${item?.id ?? "new"}`}
+                className="mt-1"
+              />
+              <datalist id={`lite-common-labels-${item?.id ?? "new"}`}>
+                {commonLabelSuggestions.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Pick from previously-used labels or type a new one — it'll be added to the list.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-1.5">

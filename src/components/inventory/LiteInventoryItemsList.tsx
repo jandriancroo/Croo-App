@@ -49,6 +49,7 @@ interface LiteItem {
   vendor_name_normalized: string | null;
   unit: string | null;
   pack_size: string | null;
+  common_label: string | null;
   cost_per_unit: number | null;
   match_status: string | null;
   is_active: boolean;
@@ -168,7 +169,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
         .select(
-          "id, name, item_number, vendor_name_normalized, unit, pack_size, cost_per_unit, match_status, is_active, storage_id, category, display_order, updated_at, count_mode, case_qty, unit_label, cost_per_inner_unit",
+          "id, name, item_number, vendor_name_normalized, unit, pack_size, common_label, cost_per_unit, match_status, is_active, storage_id, category, display_order, updated_at, count_mode, case_qty, unit_label, cost_per_inner_unit",
         )
         .eq("location_id", locationId)
         .order("name");
@@ -237,6 +238,15 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
     const set = new Set<string>();
     items?.forEach((i) => {
       const c = (i.category || "").trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  const commonLabelSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    items?.forEach((i) => {
+      const c = (i.common_label || "").trim();
       if (c) set.add(c);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
@@ -727,6 +737,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         locationId={locationId}
         storages={storages || []}
         categorySuggestions={categorySuggestions}
+        commonLabelSuggestions={commonLabelSuggestions}
       />
 
       <Dialog open={storageManagerOpen} onOpenChange={setStorageManagerOpen}>
@@ -1000,6 +1011,7 @@ function toEditable(item: LiteItem): LiteEditableItem {
     name: item.name,
     category: item.category,
     pack_size: item.pack_size,
+    common_label: item.common_label,
     storage_id: item.storage_id,
     is_active: item.is_active,
     unit: item.unit,
