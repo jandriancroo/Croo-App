@@ -737,6 +737,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
         locationId={locationId}
         storages={storages || []}
         categorySuggestions={categorySuggestions}
+        commonLabelSuggestions={commonLabelSuggestions}
       />
 
       <Dialog open={storageManagerOpen} onOpenChange={setStorageManagerOpen}>
