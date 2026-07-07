@@ -1,0 +1,2 @@
+ALTER TABLE public.lite_inventory_items ADD COLUMN IF NOT EXISTS common_label TEXT;
+CREATE INDEX IF NOT EXISTS lite_inventory_items_common_label_idx ON public.lite_inventory_items (location_id, common_label) WHERE common_label IS NOT NULL;

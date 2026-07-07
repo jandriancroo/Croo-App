@@ -6345,6 +6345,7 @@ export type Database = {
         Row: {
           case_qty: number | null
           category: string | null
+          common_label: string | null
           cost_per_inner_unit: number | null
           cost_per_unit: number | null
           count_mode: string
@@ -6366,6 +6367,7 @@ export type Database = {
         Insert: {
           case_qty?: number | null
           category?: string | null
+          common_label?: string | null
           cost_per_inner_unit?: number | null
           cost_per_unit?: number | null
           count_mode?: string
@@ -6387,6 +6389,7 @@ export type Database = {
         Update: {
           case_qty?: number | null
           category?: string | null
+          common_label?: string | null
           cost_per_inner_unit?: number | null
           cost_per_unit?: number | null
           count_mode?: string
