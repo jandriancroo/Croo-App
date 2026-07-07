@@ -84,11 +84,13 @@ export default function LiteItemEditSheet({
   locationId,
   storages,
   categorySuggestions,
+  commonLabelSuggestions = [],
 }: Props) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [packSize, setPackSize] = useState("");
+  const [commonLabel, setCommonLabel] = useState("");
   const [storageId, setStorageId] = useState<string>(UNASSIGNED);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
