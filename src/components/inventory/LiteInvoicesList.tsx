@@ -283,6 +283,112 @@ function InvoiceDetailSheet({
     toast.success(next ? "Pack size saved" : "Pack size cleared");
   };
 
+  const [busyLineId, setBusyLineId] = useState<string | null>(null);
+
+  const refreshAfterResolve = () => {
+    qc.invalidateQueries({ queryKey: ["lite-invoice-lines", invoice!.id] });
+    qc.invalidateQueries({ queryKey: ["lite-invoice-line-counts"] });
+    qc.invalidateQueries({ queryKey: ["lite-inventory-items"] });
+    qc.invalidateQueries({ queryKey: ["lite-inventory-items-count"] });
+  };
+
+  const confirmFuzzy = async (line: LiteInvoiceLine) => {
+    if (!line.candidate_item_id) return;
+    setBusyLineId(line.id);
+    try {
+      const { error: lineErr } = await supabase
+        .from("lite_vendor_invoice_items" as any)
+        .update({
+          match_status: "matched",
+          matched_item_id: line.candidate_item_id,
+          candidate_item_id: null,
+        })
+        .eq("id", line.id);
+      if (lineErr) throw lineErr;
+
+      // Mirror the parser's matched-line behavior: bump cost, backfill pack_size if empty.
+      if (line.unit_price && line.unit_price > 0) {
+        const patch: Record<string, any> = { cost_per_unit: line.unit_price };
+        const { data: itemRow } = await supabase
+          .from("lite_inventory_items" as any)
+          .select("pack_size")
+          .eq("id", line.candidate_item_id)
+          .maybeSingle();
+        if (itemRow && !(itemRow as any).pack_size && line.pack_size) {
+          patch.pack_size = line.pack_size;
+        }
+        await supabase
+          .from("lite_inventory_items" as any)
+          .update(patch)
+          .eq("id", line.candidate_item_id);
+      }
+      toast.success("Linked to existing item");
+      refreshAfterResolve();
+    } catch (e: any) {
+      toast.error("Couldn't confirm match", { description: e?.message });
+    } finally {
+      setBusyLineId(null);
+    }
+  };
+
+  const createFromFuzzy = async (line: LiteInvoiceLine) => {
+    if (!invoice) return;
+    setBusyLineId(line.id);
+    try {
+      const { data: newItem, error: insErr } = await supabase
+        .from("lite_inventory_items" as any)
+        .insert({
+          location_id: invoice.location_id,
+          name: line.product_name,
+          item_number: line.item_number,
+          vendor_name_normalized: invoice.vendor_name
+            ? invoice.vendor_name.trim().toLowerCase().replace(/\s+/g, " ")
+            : null,
+          unit: line.unit || null,
+          pack_size: line.pack_size || null,
+          cost_per_unit: line.unit_price && line.unit_price > 0 ? line.unit_price : 0,
+          is_active: true,
+          match_status: "new",
+        })
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+      const { error: linkErr } = await supabase
+        .from("lite_vendor_invoice_items" as any)
+        .update({
+          match_status: "matched",
+          matched_item_id: (newItem as any).id,
+          candidate_item_id: null,
+        })
+        .eq("id", line.id);
+      if (linkErr) throw linkErr;
+      toast.success("New item created");
+      refreshAfterResolve();
+    } catch (e: any) {
+      toast.error("Couldn't create item", { description: e?.message });
+    } finally {
+      setBusyLineId(null);
+    }
+  };
+
+  const dismissFuzzy = async (line: LiteInvoiceLine) => {
+    setBusyLineId(line.id);
+    try {
+      const { error } = await supabase
+        .from("lite_vendor_invoice_items" as any)
+        .update({ match_status: "dismissed", candidate_item_id: null })
+        .eq("id", line.id);
+      if (error) throw error;
+      toast.success("Line dismissed");
+      refreshAfterResolve();
+    } catch (e: any) {
+      toast.error("Couldn't dismiss", { description: e?.message });
+    } finally {
+      setBusyLineId(null);
+    }
+  };
+
+
 
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const openPdf = async () => {
