@@ -1010,6 +1010,7 @@ function toEditable(item: LiteItem): LiteEditableItem {
     name: item.name,
     category: item.category,
     pack_size: item.pack_size,
+    common_label: item.common_label,
     storage_id: item.storage_id,
     is_active: item.is_active,
     unit: item.unit,
