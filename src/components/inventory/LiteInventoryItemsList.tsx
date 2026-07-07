@@ -243,6 +243,15 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [items]);
 
+  const commonLabelSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    items?.forEach((i) => {
+      const c = (i.common_label || "").trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
   // Apply optimistic reorder overrides to a group's sorted items
   const applyOptimistic = useCallback(
     (key: string, groupItems: LiteItem[]): LiteItem[] => {
