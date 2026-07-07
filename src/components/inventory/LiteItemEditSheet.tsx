@@ -106,6 +106,7 @@ export default function LiteItemEditSheet({
     setName(item.name ?? "");
     setCategory(item.category ?? "");
     setPackSize(item.pack_size ?? "");
+    setCommonLabel(item.common_label ?? "");
     setStorageId(item.storage_id ?? UNASSIGNED);
     setIsActive(item.is_active);
 
