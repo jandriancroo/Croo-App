@@ -180,6 +180,28 @@ serve(async (req) => {
         <p style="color:#666;font-size:13px;margin:0 0 20px;">You'll also see a banner inside the app linking you to this same page.</p>
       `;
     }
+    // ========== NEW SUBSCRIPTION (super admin alert) ==========
+    else if (type === "new_subscription") {
+      const { location_name, organization_name, subscribed_by, amount, status, subscription_id, trial_end } = data;
+      subject = `🎉 New CrooHQ subscriber — ${organization_name} / ${location_name}`;
+      headerTitle = "New Subscription";
+      source = "new_subscription";
+      const trialLine = trial_end ? `<tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Trial ends</span><br/><strong style="color:${textColor};font-size:14px;">${new Date(trial_end).toLocaleString()}</strong></td></tr>` : "";
+      content = `
+        <p style="color:${textColor};font-size:15px;margin:0 0 16px;">A new paid subscription just started on CrooHQ.</p>
+        <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:16px;border-left:4px solid ${accentColor};">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Organization</span><br/><strong style="color:${textColor};font-size:14px;">${organization_name}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${location_name}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Subscribed by</span><br/><strong style="color:${textColor};font-size:14px;">${subscribed_by}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Plan</span><br/><strong style="color:${textColor};font-size:14px;">${amount}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Status</span><br/><strong style="color:${textColor};font-size:14px;text-transform:capitalize;">${status}</strong></td></tr>
+            ${trialLine}
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Stripe subscription</span><br/><code style="color:${textColor};font-size:12px;">${subscription_id}</code></td></tr>
+          </table>
+        </div>
+      `;
+    }
     else {
       return new Response(JSON.stringify({ error: "Unknown notification type: " + type }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
