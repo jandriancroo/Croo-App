@@ -169,7 +169,7 @@ export default function LiteInventoryItemsList({ locationId }: LiteInventoryItem
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
         .select(
-          "id, name, item_number, vendor_name_normalized, unit, pack_size, cost_per_unit, match_status, is_active, storage_id, category, display_order, updated_at, count_mode, case_qty, unit_label, cost_per_inner_unit",
+          "id, name, item_number, vendor_name_normalized, unit, pack_size, common_label, cost_per_unit, match_status, is_active, storage_id, category, display_order, updated_at, count_mode, case_qty, unit_label, cost_per_inner_unit",
         )
         .eq("location_id", locationId)
         .order("name");
