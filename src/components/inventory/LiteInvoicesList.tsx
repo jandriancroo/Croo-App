@@ -39,6 +39,15 @@ interface LiteInvoiceLine {
   match_status: string;
   matched_item_id: string | null;
   candidate_item_id: string | null;
+  fuzzy_score: number | null;
+}
+
+interface CandidateItem {
+  id: string;
+  name: string;
+  pack_size: string | null;
+  vendor_name_normalized: string | null;
+  item_number: string | null;
 }
 
 /**
