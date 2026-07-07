@@ -459,31 +459,102 @@ function InvoiceDetailSheet({
                 </div>
               ) : (
                 <div className="divide-y divide-border/50">
-                  {lines?.map((ln) => (
-                    <div key={ln.id} className="py-2">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium">
-                              {ln.product_name}
-                            </span>
-                            <PackSizeInlineEdit
-                              value={ln.pack_size}
-                              onSave={(next) => savePackSize(ln, next)}
-                            />
+                  {lines?.map((ln) => {
+                    const isFuzzy = ln.match_status === "fuzzy";
+                    const isDismissed = ln.match_status === "dismissed";
+                    const candidate = ln.candidate_item_id ? candidates?.get(ln.candidate_item_id) : null;
+                    const busy = busyLineId === ln.id;
+                    return (
+                      <div
+                        key={ln.id}
+                        className={`py-2 ${isFuzzy ? "bg-amber-500/5 -mx-4 px-4" : ""}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">
+                                {ln.product_name}
+                              </span>
+                              <PackSizeInlineEdit
+                                value={ln.pack_size}
+                                onSave={(next) => savePackSize(ln, next)}
+                              />
+                              {isFuzzy && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] h-4 px-1.5 border-amber-500/50 text-amber-600 bg-amber-500/10"
+                                >
+                                  needs review{ln.fuzzy_score ? ` · ${ln.fuzzy_score}` : ""}
+                                </Badge>
+                              )}
+                              {isDismissed && (
+                                <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
+                                  dismissed
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {ln.item_number ? `#${ln.item_number} • ` : ""}
+                              {ln.quantity ?? "?"} {ln.unit || ""} @{" "}
+                              {fmtMoney(ln.unit_price)}
+                            </div>
                           </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {ln.item_number ? `#${ln.item_number} • ` : ""}
-                            {ln.quantity ?? "?"} {ln.unit || ""} @{" "}
-                            {fmtMoney(ln.unit_price)}
+                          <div className="text-sm font-semibold tabular-nums shrink-0">
+                            {fmtMoney(ln.total_price)}
                           </div>
                         </div>
-                        <div className="text-sm font-semibold tabular-nums shrink-0">
-                          {fmtMoney(ln.total_price)}
-                        </div>
+
+                        {isFuzzy && (
+                          <div className="mt-2 rounded-md border border-amber-500/30 bg-background p-2 space-y-2">
+                            {candidate ? (
+                              <div className="text-[11px]">
+                                <span className="text-muted-foreground">Looks like: </span>
+                                <span className="font-medium">{candidate.name}</span>
+                                {candidate.pack_size ? (
+                                  <span className="text-muted-foreground"> · {candidate.pack_size}</span>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-muted-foreground">
+                                No candidate — create as new or dismiss.
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-1.5">
+                              {candidate && (
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  disabled={busy}
+                                  onClick={() => confirmFuzzy(ln)}
+                                >
+                                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                  Confirm match
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                disabled={busy}
+                                onClick={() => createFromFuzzy(ln)}
+                              >
+                                Create as new
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-muted-foreground"
+                                disabled={busy}
+                                onClick={() => dismissFuzzy(ln)}
+                              >
+                                Dismiss
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
