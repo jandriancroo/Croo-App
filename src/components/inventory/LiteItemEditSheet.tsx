@@ -27,6 +27,7 @@ export interface LiteEditableItem {
   name: string;
   category: string | null;
   pack_size: string | null;
+  common_label: string | null;
   storage_id: string | null;
   is_active: boolean;
   unit: string | null;
@@ -51,6 +52,8 @@ interface Props {
   locationId: string;
   storages: Storage[];
   categorySuggestions: string[];
+  /** Distinct common_labels used at this location, feeds the dropdown. */
+  commonLabelSuggestions?: string[];
 }
 
 const UNASSIGNED = "__unassigned__";
