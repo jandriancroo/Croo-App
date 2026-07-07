@@ -275,6 +275,28 @@ export default function LiteItemEditSheet({
               maxLength={60}
               placeholder='e.g. 6/32 oz'
             />
+            <div className="pt-1">
+              <Label htmlFor="lite-item-common-label" className="text-[11px] text-muted-foreground">
+                Common label for this pack
+              </Label>
+              <Input
+                id="lite-item-common-label"
+                value={commonLabel}
+                onChange={(e) => setCommonLabel(e.target.value)}
+                maxLength={80}
+                placeholder="e.g. Chicken Wings Case"
+                list={`lite-common-labels-${item?.id ?? "new"}`}
+                className="mt-1"
+              />
+              <datalist id={`lite-common-labels-${item?.id ?? "new"}`}>
+                {commonLabelSuggestions.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Pick from previously-used labels or type a new one — it'll be added to the list.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-1.5">
