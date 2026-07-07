@@ -151,6 +151,7 @@ export default function LiteItemEditSheet({
       trimmedName !== (item.name ?? "").trim() ||
       (category.trim() || null) !== (item.category ?? null) ||
       (packSize.trim() || null) !== (item.pack_size ?? null) ||
+      (commonLabel.trim() || null) !== (item.common_label ?? null) ||
       (storageId === UNASSIGNED ? null : storageId) !== item.storage_id ||
       isActive !== item.is_active ||
       nextMode !== currentMode ||
@@ -163,6 +164,7 @@ export default function LiteItemEditSheet({
     trimmedName,
     category,
     packSize,
+    commonLabel,
     storageId,
     isActive,
     nextMode,
