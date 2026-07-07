@@ -214,12 +214,32 @@ function InvoiceDetailSheet({
       const { data, error } = await supabase
         .from("lite_vendor_invoice_items" as any)
         .select(
-          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status, matched_item_id, candidate_item_id"
+          "id, product_name, item_number, pack_size, quantity, unit, unit_price, total_price, match_status, matched_item_id, candidate_item_id, fuzzy_score"
         )
         .eq("invoice_id", invoice!.id)
         .order("product_name");
       if (error) throw error;
       return (data as any) || [];
+    },
+  });
+
+  // Preload candidate items so fuzzy lines show what they'd link to
+  const candidateIds = useMemo(
+    () => Array.from(new Set((lines || []).map((l) => l.candidate_item_id).filter(Boolean) as string[])),
+    [lines],
+  );
+  const { data: candidates } = useQuery({
+    queryKey: ["lite-invoice-candidates", invoice?.id, candidateIds.join(",")],
+    enabled: !!invoice && candidateIds.length > 0,
+    queryFn: async (): Promise<Map<string, CandidateItem>> => {
+      const { data, error } = await supabase
+        .from("lite_inventory_items" as any)
+        .select("id, name, pack_size, vendor_name_normalized, item_number")
+        .in("id", candidateIds);
+      if (error) throw error;
+      const map = new Map<string, CandidateItem>();
+      (data as any[] | null)?.forEach((c) => map.set(c.id, c as CandidateItem));
+      return map;
     },
   });
 
