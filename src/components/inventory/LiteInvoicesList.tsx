@@ -67,7 +67,7 @@ export default function LiteInvoicesList({ locationId }: Props) {
       const { data, error } = await supabase
         .from("lite_vendor_invoices" as any)
         .select(
-          "id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, storage_path, parsed_at, created_at"
+          "id, location_id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, storage_path, parsed_at, created_at"
         )
         .eq("location_id", locationId)
         .order("invoice_date", { ascending: false, nullsFirst: false })
