@@ -155,12 +155,20 @@ export default function LiteInvoicesList({ locationId }: Props) {
                         {inv.status}
                       </Badge>
                     )}
+                    {(lineCounts?.get(inv.id)?.fuzzy ?? 0) > 0 && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 px-1.5 border-amber-500/50 text-amber-600 bg-amber-500/10"
+                      >
+                        {lineCounts!.get(inv.id)!.fuzzy} to review
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-[11px] text-muted-foreground truncate">
                     {inv.invoice_date || "no date"}
                     {inv.invoice_number ? ` • #${inv.invoice_number}` : ""}
-                    {lineCounts?.get(inv.id)
-                      ? ` • ${lineCounts.get(inv.id)} lines`
+                    {lineCounts?.get(inv.id)?.total
+                      ? ` • ${lineCounts.get(inv.id)!.total} lines`
                       : ""}
                   </div>
                 </div>
