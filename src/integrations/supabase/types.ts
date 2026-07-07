@@ -6296,6 +6296,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_backfill: boolean
           location_id: string
           manual_sales_total: number | null
           period_end: string
@@ -6309,6 +6310,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_backfill?: boolean
           location_id: string
           manual_sales_total?: number | null
           period_end: string
@@ -6322,6 +6324,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_backfill?: boolean
           location_id?: string
           manual_sales_total?: number | null
           period_end?: string
@@ -6585,6 +6588,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lite_vendor_invoices_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lite_vendor_order_schedule: {
+        Row: {
+          created_at: string
+          delivery_day: number | null
+          id: string
+          location_id: string
+          order_day: number
+          updated_at: string
+          vendor_name: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_day?: number | null
+          id?: string
+          location_id: string
+          order_day: number
+          updated_at?: string
+          vendor_name: string
+        }
+        Update: {
+          created_at?: string
+          delivery_day?: number | null
+          id?: string
+          location_id?: string
+          order_day?: number
+          updated_at?: string
+          vendor_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lite_vendor_order_schedule_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
