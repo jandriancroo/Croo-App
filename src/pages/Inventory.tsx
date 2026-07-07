@@ -559,6 +559,17 @@ const Inventory = () => {
             >
               <Plus className="h-5 w-5" />
             </Button>
+            {isLite && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 rounded-xl"
+                onClick={() => setShowGenius(true)}
+                title="Genius Order Coach"
+              >
+                <Sparkles className="h-5 w-5" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"
