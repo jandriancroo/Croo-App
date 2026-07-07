@@ -183,6 +183,7 @@ export default function LiteItemEditSheet({
       name: trimmedName,
       category: category.trim() || null,
       pack_size: packSize.trim() || null,
+      common_label: commonLabel.trim() || null,
       storage_id: storageId === UNASSIGNED ? null : storageId,
       is_active: isActive,
       count_mode: nextMode,
