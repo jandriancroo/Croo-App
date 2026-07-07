@@ -70,6 +70,8 @@ const Inventory = () => {
   
   const [showDailyCount, setShowDailyCount] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGenius, setShowGenius] = useState(false);
+  const [showHistorical, setShowHistorical] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const { pendingIncoming } = useInventoryTransfers(locationId || "");
 
