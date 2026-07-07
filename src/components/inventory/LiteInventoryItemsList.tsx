@@ -49,6 +49,7 @@ interface LiteItem {
   vendor_name_normalized: string | null;
   unit: string | null;
   pack_size: string | null;
+  common_label: string | null;
   cost_per_unit: number | null;
   match_status: string | null;
   is_active: boolean;
