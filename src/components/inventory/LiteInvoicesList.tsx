@@ -16,6 +16,7 @@ interface Props {
 
 interface LiteInvoice {
   id: string;
+  location_id: string;
   vendor_name: string | null;
   invoice_number: string | null;
   invoice_date: string | null;
