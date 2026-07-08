@@ -37,16 +37,29 @@ export default function LiteVendorOrderDaysManager({ locationId }: Props) {
   const [busy, setBusy] = useState(false);
 
   const { data: vendors, isLoading: vendorsLoading } = useQuery({
-    queryKey: ["lite-invoice-vendors", locationId],
+    queryKey: ["lite-inventory-vendors", locationId],
     queryFn: async (): Promise<string[]> => {
-      const { data, error } = await supabase
-        .from("lite_vendor_invoices" as any)
-        .select("vendor_name")
-        .eq("location_id", locationId)
-        .not("vendor_name", "is", null);
-      if (error) throw error;
+      // Pull vendors from the items catalog (normalized names) so the labels
+      // here match exactly what the Genius engine keys off of. Also include
+      // invoice vendors as a fallback for stores with items still unmatched.
+      const [{ data: itemRows, error: e1 }, { data: invRows, error: e2 }] =
+        await Promise.all([
+          supabase
+            .from("lite_inventory_items" as any)
+            .select("vendor_name_normalized")
+            .eq("location_id", locationId)
+            .not("vendor_name_normalized", "is", null),
+          supabase
+            .from("lite_vendor_invoices" as any)
+            .select("vendor_name")
+            .eq("location_id", locationId)
+            .not("vendor_name", "is", null),
+        ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
       const set = new Set<string>();
-      (data as any[]).forEach((r) => r.vendor_name && set.add(r.vendor_name));
+      (itemRows as any[]).forEach((r) => r.vendor_name_normalized && set.add(r.vendor_name_normalized));
+      (invRows as any[]).forEach((r) => r.vendor_name && set.add(r.vendor_name));
       return Array.from(set).sort();
     },
   });
