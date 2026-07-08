@@ -568,3 +568,71 @@ async function processBackfillCloverSales(
 
   return { synced, total: dates.length, dates };
 }
+
+// ============================================================================
+// BACKFILL ALOHA SALES — calls aloha-sync sync_dates (BWW GO only)
+// Mirrors processBackfillCloverSales but routes to the Aloha mailroom path.
+// ============================================================================
+async function processBackfillAlohaSales(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  supabaseKey: string,
+  task: any
+) {
+  const locationId = task.location_id;
+  const batchEndDate = new Date(task.target_date + "T12:00:00Z");
+
+  const dates: string[] = [];
+  for (let i = 0; i < BACKFILL_BATCH_DAYS; i++) {
+    const d = new Date(batchEndDate);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+
+  console.log(`[QUEUE] backfill_aloha_sales: ${locationId} batch ending ${task.target_date}, ${dates.length} dates`);
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/aloha-sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({ action: "sync_dates", locationId, dates }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+
+  const result = await response.json();
+  const synced = Array.isArray(result?.results) ? result.results.filter((r: any) => !r.error).length : 0;
+  console.log(`[QUEUE] backfill_aloha_sales batch done: ${synced}/${dates.length} days synced`);
+
+  const today = new Date();
+  const oldestDateInBatch = new Date(batchEndDate);
+  oldestDateInBatch.setDate(oldestDateInBatch.getDate() - (BACKFILL_BATCH_DAYS - 1));
+  const daysCovered = Math.floor((today.getTime() - oldestDateInBatch.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysCovered < BACKFILL_TOTAL_DAYS) {
+    const nextEndDate = new Date(oldestDateInBatch);
+    nextEndDate.setDate(nextEndDate.getDate() - 1);
+    const nextDateStr = nextEndDate.toISOString().slice(0, 10);
+
+    const { error: queueError } = await supabase
+      .from("maintenance_queue")
+      .insert({
+        task_type: "backfill_aloha_sales",
+        location_id: locationId,
+        target_date: nextDateStr,
+        status: "pending",
+      });
+
+    if (queueError) {
+      console.error(`[QUEUE] Failed to queue next aloha backfill batch:`, queueError);
+    } else {
+      console.log(`[QUEUE] Queued next aloha backfill batch for ${locationId} ending ${nextDateStr} (${daysCovered}/${BACKFILL_TOTAL_DAYS} days covered)`);
+    }
+  } else {
+    console.log(`[QUEUE] ✓ Aloha backfill complete for ${locationId}: ${daysCovered} days covered`);
+  }
+
+  return { synced, total: dates.length, dates };
+}
