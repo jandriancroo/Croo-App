@@ -16,6 +16,7 @@ import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
 import { InventoryAccessCard } from "./InventoryAccessCard";
+import AlohaIntegrationCard from "@/components/location/AlohaIntegrationCard";
 
 interface QuBeyondCredentials {
   username: string;
@@ -89,7 +90,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
 
   // Dialog state
-  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | null>(null);
+  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | 'aloha' | null>(null);
 
   // Clover state
   const [cloverApiToken, setCloverApiToken] = useState('');
