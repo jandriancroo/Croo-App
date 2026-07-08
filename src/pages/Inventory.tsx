@@ -721,7 +721,6 @@ const Inventory = () => {
           </div>
         </SheetContent>
       </Sheet>
-      </Sheet>
     </Layout>
   );
 };
