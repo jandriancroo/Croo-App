@@ -600,5 +600,103 @@ export async function fetchAlohaTickers(
   }));
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Drilldown Viewer → Hourly Sales
+//
+// POST /ddv/ddv_parse_hrly.jsp  (application/x-www-form-urlencoded)
+//   StoreID=<num>&RegionID=0&AreaID=0&BaseName=<name>&StoreName=<name>
+//   &StartDate=M/D/YYYY&EndDate=M/D/YYYY&SelDate=M/D/YYYY&bCanPrint=1
+//
+// Response is HTML with rows shaped like:
+//   <td ... onClick="c(10,'10am');">...10am</td>
+//   <td Align="right">89.04</td>
+//   <td ...>3.16</td><td>%</td>
+//
+// We parse each hour row into { hour, sales, checksCount:0 }. Aloha's hourly
+// tile only exposes Item Sales + % of day — no check count, no guests. That
+// still unlocks pacing + the hourly pulse chart for BWW GO.
+// ═════════════════════════════════════════════════════════════════════════════
+export interface AlohaHourlySlot {
+  hourId: number;         // 0..23 (military hour)
+  hourLabel: string;      // "10am", "12Noon", "1pm", etc.
+  itemSales: number;
+  percentOfDay: number;
+}
+
+export async function fetchAlohaHourly(
+  session: AlohaSession,
+  portalUrl: string,
+  storeId: number,
+  storeName: string,
+  yyyyMmDd: string,
+): Promise<AlohaHourlySlot[]> {
+  const base = normalizePortalBase(portalUrl);
+  const jar: Jar = new Map();
+  for (const pair of session.cookieHeader.split(/;\s*/)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) jar.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+
+  const dateMDY = formatDateMDY(yyyyMmDd);
+  const form = new URLSearchParams({
+    StoreID: String(storeId),
+    RegionID: "0",
+    AreaID: "0",
+    BaseName: storeName,
+    StoreName: storeName,
+    StartDate: dateMDY,
+    EndDate: dateMDY,
+    SelDate: dateMDY,
+    bCanPrint: "1",
+  });
+
+  const res = await jarFetch(jar, `${base}/ddv/ddv_parse_hrly.jsp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      Referer: `${base}/ddv/ddv_parse.jsp`,
+      Origin: base,
+    },
+    body: form.toString(),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Aloha ddv_parse_hrly failed: HTTP ${res.status}`);
+  }
+  const html = await res.text();
+  return parseAlohaHourlyHtml(html);
+}
+
+export function parseAlohaHourlyHtml(html: string): AlohaHourlySlot[] {
+  const slots: AlohaHourlySlot[] = [];
+  // Split into row segments so we can safely capture the next two <td>
+  // amounts after each c(hour,'label') onClick handler.
+  const rowRe = /onClick="c\((\d+),'([^']+)'\);?"[^>]*>[\s\S]*?<\/tr>/g;
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(html)) !== null) {
+    const hourId = Number(m[1]);
+    const hourLabel = m[2];
+    const rowHtml = m[0];
+    // First right-aligned numeric cell = item sales; second = percent.
+    const numRe = /<td[^>]*Align="right"[^>]*>\s*([-\d.,]+)\s*<\/td>/gi;
+    const nums: number[] = [];
+    let nm: RegExpExecArray | null;
+    while ((nm = numRe.exec(rowHtml)) !== null && nums.length < 3) {
+      const v = n(nm[1]);
+      if (Number.isFinite(v)) nums.push(v);
+    }
+    // nums[0] is the tiny empty-right cell (0), nums[1]=sales, nums[2]=pct.
+    // Fall back to positional pick if the empty cell was elided.
+    let sales = 0, pct = 0;
+    if (nums.length >= 3) { sales = nums[1]; pct = nums[2]; }
+    else if (nums.length === 2) { sales = nums[0]; pct = nums[1]; }
+    else if (nums.length === 1) { sales = nums[0]; }
+    slots.push({ hourId, hourLabel, itemSales: sales, percentOfDay: pct });
+  }
+  return slots;
+}
+
+
 
 
