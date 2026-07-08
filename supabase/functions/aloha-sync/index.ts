@@ -322,7 +322,43 @@ async function fetchAlohaDay(
       } catch (e) {
         console.warn(`[aloha-sync] menu fetch failed for ${date}:`, (e as Error).message);
       }
+      // Layer in payment tenders from the Drilldown Viewer payments report.
+      try {
+        const pmts = await fetchAlohaPayments(
+          session, creds.portal_url, matched.storeID, matched.storeName, date,
+        );
+        if (pmts.tenders.length) {
+          payload.paymentsData = {
+            source: "aloha",
+            tenders: pmts.tenders.map((t) => ({
+              label: t.label, count: t.count, amount: t.amount, tips: t.tips,
+            })),
+            total_tips: pmts.totalTips,
+          };
+        }
+      } catch (e) {
+        console.warn(`[aloha-sync] payments fetch failed for ${date}:`, (e as Error).message);
+      }
+      // Layer in labor from the Drilldown Viewer labor report.
+      try {
+        const lab = await fetchAlohaLabor(
+          session, creds.portal_url, matched.storeID, matched.storeName, date,
+        );
+        if (lab.totalHours > 0 || lab.totalCost > 0) {
+          const sales = payload.netSales || 0;
+          payload.labor = {
+            total_hours: lab.totalHours,
+            total_cost: lab.totalCost,
+            labor_percent: lab.laborPercent || (sales > 0 ? (lab.totalCost / sales) * 100 : 0),
+            sales_per_labor_hour: lab.totalHours > 0 ? sales / lab.totalHours : 0,
+            hourly: [],
+          };
+        }
+      } catch (e) {
+        console.warn(`[aloha-sync] labor fetch failed for ${date}:`, (e as Error).message);
+      }
       return payload;
+
 
     }
   } catch (e) {
