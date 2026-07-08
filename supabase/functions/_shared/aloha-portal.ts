@@ -368,25 +368,89 @@ function num(v: string | undefined): number {
 // ── InsightDashboard config-based fetch (works for "yesterday" tiles) ─────
 // The Insight portal computes tile metrics server-side and returns them via
 // /servlet/InsightDashboard?requestType=getDashboardConfiguration. Each tile
-// carries a dateRangeId (1 = Yesterday for AllStores summary tiles on the
-// BWW GO dashboard) and tileData with the resolved value. We map the six
-// known tile types the default dashboard exposes for AllStores.
-export interface AlohaYesterdayTotals {
+// carries a dateRangeId (1 = Yesterday on the BWW GO default dashboard) and
+// tileData with the resolved value. We harvest:
+//   • Tile type=4 "ALL METRICS"       → per-store + grand totals (all daily fields)
+//   • Tile type=2 "Top Selling Items" → product mix { id, name, sales }
+//   • Tile type=5 "Labor Hours"       → employee labor list (weekly, per store)
+// Hourly and tips are NOT in the dashboard payload; those need the Drilldown
+// Viewer report and can be layered in later.
+export interface AlohaStoreRow {
+  storeName: string;
   netSales: number;
-  guestCount: number;
-  ppa: number;
-  laborPercent: number;
+  netSalesLastYear: number;
+  laborHours: number;
   laborDollars: number;
+  laborPercent: number;
+  compCount: number;
   compDollars: number;
+  promoCount: number;
   promoDollars: number;
+  voidCount: number;
   voidDollars: number;
   checkCount: number;
+  guestCount: number;
+  salesPerLaborHour: number;
+  ppa: number;
+  ckAvg: number;
+  areaName: string;
+  regionName: string;
 }
 
-export async function fetchAlohaYesterday(
+export interface AlohaProductMixItem {
+  id: string;
+  name: string;
+  categoryId: string;
+  sales: number;
+}
+
+export interface AlohaEmployeeLabor {
+  name: string;
+  hours: number;
+}
+
+export interface AlohaYesterdayReport {
+  grand: AlohaStoreRow;
+  stores: AlohaStoreRow[];
+  productMix: AlohaProductMixItem[];
+  employeeLaborWeek: AlohaEmployeeLabor[];
+}
+
+function n(v: unknown): number {
+  if (v == null) return 0;
+  const s = String(v).replace(/[$,%\s]/g, "").replace(/^\((.+)\)$/, "-$1");
+  const num = Number(s);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function mapStoreRow(r: any, storeName?: string): AlohaStoreRow {
+  return {
+    storeName: storeName ?? r.StoreName ?? r.Summary ?? "",
+    netSales: n(r.NetSales),
+    netSalesLastYear: n(r.NetSalesLastYear),
+    laborHours: n(r.LaborHours),
+    laborDollars: n(r.LaborDollars),
+    laborPercent: n(r.LaborPercent),
+    compCount: n(r.CompCount),
+    compDollars: n(r.CompDollars),
+    promoCount: n(r.PromoCount),
+    promoDollars: n(r.PromoDollars),
+    voidCount: n(r.VoidCount),
+    voidDollars: n(r.VoidDollars),
+    checkCount: n(r.CheckCount),
+    guestCount: n(r.GuestCount),
+    salesPerLaborHour: n(r.SalesPerLaborHour),
+    ppa: n(r.PPA),
+    ckAvg: n(r.CKAvg),
+    areaName: r.AreaName ?? "",
+    regionName: r.RegionName ?? "",
+  };
+}
+
+export async function fetchAlohaYesterdayReport(
   session: AlohaSession,
   portalUrl: string,
-): Promise<AlohaYesterdayTotals> {
+): Promise<AlohaYesterdayReport> {
   const base = normalizePortalBase(portalUrl);
   const jar: Jar = new Map();
   for (const pair of session.cookieHeader.split(/;\s*/)) {
@@ -406,39 +470,60 @@ export async function fetchAlohaYesterday(
     throw new Error(`Aloha getDashboardConfiguration failed: HTTP ${res.status}`);
   }
   let body = await res.text();
-  // AngularJS anti-JSON-hijack prefix.
   body = body.replace(/^\)\]\}',?\s*/, "");
 
   let tiles: any[];
   try {
     tiles = JSON.parse(body);
-  } catch (e) {
+  } catch {
     throw new Error(`Aloha getDashboardConfiguration returned non-JSON: ${body.slice(0, 120)}`);
   }
   if (!Array.isArray(tiles)) {
     throw new Error("Aloha getDashboardConfiguration: unexpected shape");
   }
 
-  const byType: Record<string, number> = {};
-  for (const t of tiles) {
-    const td = t?.tileData;
-    if (!td || typeof td.type !== "string") continue;
-    // Only take AllStores summary tiles (locationType=5).
-    if (t.locationType !== 5) continue;
-    if (typeof td.value !== "number") continue;
-    byType[td.type] = td.value;
+  // ── Grid tile (type=4) → per-store + grand totals ──
+  const gridTile = tiles.find((t) => t.tileType === 4 && t.locationType === 5);
+  if (!gridTile?.tileData) {
+    throw new Error("Aloha dashboard: ALL METRICS grid tile missing");
+  }
+  const stores: AlohaStoreRow[] = Array.isArray(gridTile.tileData.stores)
+    ? gridTile.tileData.stores.map((r: any) => mapStoreRow(r))
+    : [];
+  const grand: AlohaStoreRow = gridTile.tileData.grand
+    ? mapStoreRow(gridTile.tileData.grand, "Grand Total")
+    : (stores[0] ?? mapStoreRow({}));
+
+  // ── Pie tile (type=2) → product mix flattened across categories ──
+  const pieTile = tiles.find((t) => t.tileType === 2 && t.locationType === 5);
+  const productMix: AlohaProductMixItem[] = [];
+  const cats = pieTile?.tileData?.categories;
+  if (cats && typeof cats === "object") {
+    for (const [catId, cat] of Object.entries(cats as Record<string, any>)) {
+      const items = (cat as any)?.items;
+      if (!items) continue;
+      for (const [itemId, item] of Object.entries(items as Record<string, any>)) {
+        const it = item as any;
+        productMix.push({
+          id: String(it?.id ?? itemId),
+          name: String(it?.name ?? ""),
+          categoryId: String(catId),
+          sales: n(it?.sales),
+        });
+      }
+    }
   }
 
-  return {
-    netSales: byType.NetSales ?? 0,
-    guestCount: byType.GuestCount ?? 0,
-    ppa: byType.PPASales ?? 0,
-    laborPercent: byType.LaborDollars ?? 0,   // portal names the % tile "LaborDollars"
-    laborDollars: byType.LaborCost ?? 0,
-    compDollars: byType.CompDollars ?? 0,
-    promoDollars: byType.PromoDollars ?? 0,
-    voidDollars: byType.VoidDollars ?? 0,
-    checkCount: byType.CheckCount ?? 0,
-  };
+  // ── Labor tile (type=5) → weekly employee hours (informational) ──
+  const laborTile = tiles.find((t) => t.tileType === 5);
+  const employeeLaborWeek: AlohaEmployeeLabor[] = Array.isArray(laborTile?.tileData?.employeeSeries)
+    ? laborTile.tileData.employeeSeries.map((row: any) => ({
+        name: String(row?.[0] ?? ""),
+        hours: n(row?.[1]),
+      }))
+    : [];
+
+  return { grand, stores, productMix, employeeLaborWeek };
 }
+
 
