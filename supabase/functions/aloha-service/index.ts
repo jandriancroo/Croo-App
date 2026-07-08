@@ -21,8 +21,8 @@ interface Body {
   storeId?: string;
 }
 
-const DEFAULT_PORTAL = "https://bapu.alohaenterprise.com";
-const DEFAULT_COMPANY = "blp01";
+const DEFAULT_PORTAL = "https://sierrafoodgroup.alohaenterprise.com";
+const DEFAULT_COMPANY = "sfg07";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

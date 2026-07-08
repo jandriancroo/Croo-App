@@ -12,8 +12,8 @@ interface AlohaIntegrationCardProps {
   locationId: string;
 }
 
-const DEFAULT_PORTAL_URL = 'https://bapu.alohaenterprise.com';
-const DEFAULT_COMPANY_ID = 'blp01';
+const DEFAULT_PORTAL_URL = 'https://sierrafoodgroup.alohaenterprise.com';
+const DEFAULT_COMPANY_ID = 'sfg07';
 
 // Aloha (NCR / BWW GO portal) credentials card.
 export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCardProps) {
