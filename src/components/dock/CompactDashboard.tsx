@@ -215,8 +215,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       const punchClockRow = data.find(
         (r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0)
       );
-      const qubeyondRow = data.find((r: any) => r.source === 'qubeyond');
-      const preferred = punchClockRow || qubeyondRow || data[0];
+      const externalRow = data.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
+      const preferred = punchClockRow || externalRow || data[0];
 
       return {
         labor_cost: Number(preferred.labor_cost) || 0,

@@ -605,8 +605,8 @@ export function MobileScheduleView({
       // Match SalesSummary EXACTLY: single preferredRow used for BOTH hours and cost
       // punch_clock wins only when it has real data (hours>0 or cost>0), else qubeyond
       const punchClockRow = laborRows.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-      const qubeyondRow = laborRows.find((r: any) => r.source === 'qubeyond');
-      const preferredRow = punchClockRow || qubeyondRow;
+      const externalRow = laborRows.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
+      const preferredRow = punchClockRow || externalRow;
       return {
         sales,
         laborCost: Number(preferredRow?.labor_cost) || 0,

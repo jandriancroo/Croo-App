@@ -221,8 +221,8 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
       });
       Object.entries(laborByDate).forEach(([d, rows]) => {
         const punch = rows.find(r => r.source === 'punch_clock' && Number(r.labor_hours) > 0);
-        const qu = rows.find(r => r.source === 'qubeyond');
-        const preferred = punch || qu;
+        const ext = rows.find(r => ['qubeyond', 'aloha', 'clover'].includes(r.source) && Number(r.labor_hours) > 0);
+        const preferred = punch || ext;
         const hours = preferred ? Number(preferred.labor_hours) || 0 : 0;
         if (!out[d]) out[d] = { netSales: 0, goal: null, laborHours: hours };
         else out[d].laborHours = hours;
