@@ -307,6 +307,28 @@ async function syncOneDay(
 ) {
   const payload = await fetchAlohaDay(creds, date, tz, locationName);
 
+  // Pack Aloha-only extras into payments_data (JSONB already accepts arbitrary
+  // fields, keeps the base tender contract intact, and avoids a schema change).
+  const paymentsWithExtras = {
+    ...payload.paymentsData,
+    metrics: {
+      check_count: payload.checkCount,
+      ppa: payload.ppa,
+      comp_count: payload.compCount,
+      comp_dollars: payload.compDollars,
+      promo_count: payload.promoCount,
+      promo_dollars: payload.promoDollars,
+      void_count: payload.voidCount,
+      void_dollars: payload.voidDollars,
+      labor_percent: payload.labor?.labor_percent ?? 0,
+      sales_per_labor_hour: payload.labor?.sales_per_labor_hour ?? 0,
+    },
+    aloha_extras: {
+      store_breakdown: payload.storeBreakdown ?? [],
+      employees_week: payload.labor?.employees_week ?? [],
+    },
+  };
+
   // ── Raw archive: aloha_sales_cache (conditional-spread merge) ─────────
   const { data: existingRaw } = await supabase
     .from("aloha_sales_cache")
@@ -324,7 +346,7 @@ async function syncOneDay(
     avg_ticket: payload.avgTicket,
     hourly_data: payload.hourly,
     product_mix: payload.productMix,
-    payments_data: payload.paymentsData,
+    payments_data: paymentsWithExtras,
     flagged_no_sales: payload.netSales === 0,
     fetched_at: new Date().toISOString(),
   };
