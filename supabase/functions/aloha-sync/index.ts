@@ -70,9 +70,17 @@ interface Hour {
 interface AlohaDayPayload {
   netSales: number;
   guestCount: number;
+  checkCount: number;
   avgTicket: number;
+  ppa: number;
+  compCount: number;
+  compDollars: number;
+  promoCount: number;
+  promoDollars: number;
+  voidCount: number;
+  voidDollars: number;
   hourly: Hour[];
-  productMix: Array<{ item_id: string; name: string; quantity: number; gross: number }>;
+  productMix: Array<{ item_id: string; name: string; quantity: number; gross: number; category_id?: string }>;
   paymentsData: {
     source: "aloha";
     tenders: Array<{ label: string; count: number; amount: number; tips: number }>;
@@ -81,8 +89,12 @@ interface AlohaDayPayload {
   labor?: {
     total_hours: number;
     total_cost: number;
+    labor_percent: number;
+    sales_per_labor_hour: number;
     hourly: Array<{ hour: string; hours: number; cost: number }>;
+    employees_week?: Array<{ name: string; hours: number }>;
   };
+  storeBreakdown?: Array<{ store: string; net_sales: number; labor_hours: number; labor_dollars: number; guest_count: number }>;
 }
 
 // ── Date helpers (store-local, yyyy-MM-dd strings) ─────────────────────────
