@@ -267,6 +267,75 @@ function tickerToPayload(
 }
 
 
+// Layer in hourly, product mix, tenders, and labor from DDV drill-down endpoints.
+// Called after the base payload is built from any source (ticker / yesterday
+// report / CSV) so all three paths benefit from the same detail data.
+async function augmentWithDrilldowns(
+  session: Awaited<ReturnType<typeof alohaLogin>>,
+  portalUrl: string,
+  storeID: number,
+  storeName: string,
+  date: string,
+  payload: AlohaDayPayload,
+): Promise<void> {
+  try {
+    const slots = await fetchAlohaHourly(session, portalUrl, storeID, storeName, date);
+    if (slots.length) {
+      payload.hourly = slots.map((s) => ({
+        hour: paddedHour(s.hourId), sales: s.itemSales, checksCount: 0,
+      }));
+    }
+  } catch (e) {
+    console.warn(`[aloha-sync] hourly fetch failed for ${date}:`, (e as Error).message);
+  }
+  try {
+    const menu = await fetchAlohaMenu(session, portalUrl, storeID, storeName, date);
+    if (menu.length) {
+      payload.productMix = menu
+        .filter((it) => it.quantity > 0 || it.itemSales > 0)
+        .map((it) => ({
+          item_id: it.itemId,
+          name: it.name,
+          quantity: it.quantity,
+          gross: it.itemSales,
+          category_id: it.category,
+        }));
+    }
+  } catch (e) {
+    console.warn(`[aloha-sync] menu fetch failed for ${date}:`, (e as Error).message);
+  }
+  try {
+    const pmts = await fetchAlohaPayments(session, portalUrl, storeID, storeName, date);
+    if (pmts.tenders.length) {
+      payload.paymentsData = {
+        source: "aloha",
+        tenders: pmts.tenders.map((t) => ({
+          label: t.label, count: t.count, amount: t.amount, tips: t.tips,
+        })),
+        total_tips: pmts.totalTips,
+      };
+    }
+  } catch (e) {
+    console.warn(`[aloha-sync] payments fetch failed for ${date}:`, (e as Error).message);
+  }
+  try {
+    const lab = await fetchAlohaLabor(session, portalUrl, storeID, storeName, date);
+    if (lab.totalHours > 0 || lab.totalCost > 0) {
+      const sales = payload.netSales || 0;
+      const prev = payload.labor;
+      payload.labor = {
+        total_hours: lab.totalHours,
+        total_cost: lab.totalCost,
+        labor_percent: sales > 0 ? (lab.totalCost / sales) * 100 : 0,
+        sales_per_labor_hour: lab.totalHours > 0 ? sales / lab.totalHours : 0,
+        hourly: [],
+        employees_week: prev?.employees_week,
+      };
+    }
+  } catch (e) {
+    console.warn(`[aloha-sync] labor fetch failed for ${date}:`, (e as Error).message);
+  }
+}
 
 async function fetchAlohaDay(
   creds: AlohaCreds,
@@ -283,129 +352,53 @@ async function fetchAlohaDay(
 
   const yesterday = addDays(todayInTz(tz), -1);
 
-  // ── Primary fast path: Current Day Polling → getTickers ──
-  // Works for any date, returns per-store daily rollups in one call, and does
-  // not depend on interactive dashboard state. This is what the portal's
-  // ticker page uses. Falls back to the tile/CSV paths on empty match.
+  // Always resolve storeID + canonical storeName via getTickers first so we
+  // can drive drill-down endpoints on ANY base path (ticker, yesterday, CSV).
+  let matched: AlohaTickerRow | undefined;
+  let tickers: AlohaTickerRow[] = [];
   try {
-    const tickers = await fetchAlohaTickers(session, creds.portal_url, date);
-    const matched = matchTickerRow(tickers, creds.store_id, locationName);
-    if (matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
-      const payload = tickerToPayload(matched, tickers);
-      // Layer in hourly sales from the Drilldown Viewer hourly report.
-      try {
-        const slots = await fetchAlohaHourly(
-          session, creds.portal_url, matched.storeID, matched.storeName, date,
-        );
-        if (slots.length) {
-          payload.hourly = slots.map((s) => ({
-            hour: paddedHour(s.hourId),
-            sales: s.itemSales,
-            checksCount: 0,
-          }));
-        }
-      } catch (e) {
-        console.warn(`[aloha-sync] hourly fetch failed for ${date}:`, (e as Error).message);
-      }
-      // Layer in product mix from the Drilldown Viewer menu report.
-      try {
-        const menu = await fetchAlohaMenu(
-          session, creds.portal_url, matched.storeID, matched.storeName, date,
-        );
-        if (menu.length) {
-          payload.productMix = menu
-            .filter((it) => it.quantity > 0 || it.itemSales > 0)
-            .map((it) => ({
-              item_id: it.itemId,
-              name: it.name,
-              quantity: it.quantity,
-              gross: it.itemSales,
-              category_id: it.category,
-            }));
-        }
-      } catch (e) {
-        console.warn(`[aloha-sync] menu fetch failed for ${date}:`, (e as Error).message);
-      }
-      // Layer in payment tenders from the Drilldown Viewer payments report.
-      try {
-        const pmts = await fetchAlohaPayments(
-          session, creds.portal_url, matched.storeID, matched.storeName, date,
-        );
-        if (pmts.tenders.length) {
-          payload.paymentsData = {
-            source: "aloha",
-            tenders: pmts.tenders.map((t) => ({
-              label: t.label, count: t.count, amount: t.amount, tips: t.tips,
-            })),
-            total_tips: pmts.totalTips,
-          };
-        }
-      } catch (e) {
-        console.warn(`[aloha-sync] payments fetch failed for ${date}:`, (e as Error).message);
-      }
-      // Layer in labor from the Drilldown Viewer labor report.
-      try {
-        const lab = await fetchAlohaLabor(
-          session, creds.portal_url, matched.storeID, matched.storeName, date,
-        );
-        if (lab.totalHours > 0 || lab.totalCost > 0) {
-          const sales = payload.netSales || 0;
-          payload.labor = {
-            total_hours: lab.totalHours,
-            total_cost: lab.totalCost,
-            labor_percent: lab.laborPercent || (sales > 0 ? (lab.totalCost / sales) * 100 : 0),
-            sales_per_labor_hour: lab.totalHours > 0 ? sales / lab.totalHours : 0,
-            hourly: [],
-          };
-        }
-      } catch (e) {
-        console.warn(`[aloha-sync] labor fetch failed for ${date}:`, (e as Error).message);
-      }
-      return payload;
-
-
-    }
+    tickers = await fetchAlohaTickers(session, creds.portal_url, date);
+    matched = matchTickerRow(tickers, creds.store_id, locationName);
   } catch (e) {
-
-    console.warn(`[aloha-sync] getTickers fast path failed for ${date}, falling back:`, (e as Error).message);
+    console.warn(`[aloha-sync] getTickers failed for ${date}:`, (e as Error).message);
   }
 
-  // Fast path: yesterday → InsightDashboard AllStores summary tiles.
-  // The portal's Grid-export servlet (creategridsummaryfile) requires
-  // additional session state that Aloha only wires up for interactive UI
-  // sessions, so we use the tile config for the daily job for now.
-  if (date === yesterday) {
+  let payload: AlohaDayPayload | undefined;
 
+  // ── Base path 1: ticker fast path (current day polling has data). ──
+  if (matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
+    payload = tickerToPayload(matched, tickers);
+  }
+
+  // ── Base path 2: yesterday → InsightDashboard AllStores summary tiles. ──
+  if (!payload && date === yesterday) {
     const rpt = await fetchAlohaYesterdayReport(session, creds.portal_url);
-    // Match the store row for this CrooHQ location (falls back to grand total
-    // when only one store is configured or none matches).
     const target = normalizeName(creds.store_id || locationName);
-    const matched = rpt.stores.find((s) => normalizeName(s.storeName).includes(target)) ??
+    const m = rpt.stores.find((s) => normalizeName(s.storeName).includes(target)) ??
       (rpt.stores.length === 1 ? rpt.stores[0] : undefined) ?? rpt.grand;
-
-    const avg = matched.ckAvg || (matched.checkCount > 0 ? matched.netSales / matched.checkCount : 0);
-    return {
-      netSales: matched.netSales,
-      guestCount: matched.guestCount,
-      checkCount: matched.checkCount,
+    const avg = m.ckAvg || (m.checkCount > 0 ? m.netSales / m.checkCount : 0);
+    payload = {
+      netSales: m.netSales,
+      guestCount: m.guestCount,
+      checkCount: m.checkCount,
       avgTicket: avg,
-      ppa: matched.ppa,
-      compCount: matched.compCount,
-      compDollars: matched.compDollars,
-      promoCount: matched.promoCount,
-      promoDollars: matched.promoDollars,
-      voidCount: matched.voidCount,
-      voidDollars: matched.voidDollars,
+      ppa: m.ppa,
+      compCount: m.compCount,
+      compDollars: m.compDollars,
+      promoCount: m.promoCount,
+      promoDollars: m.promoDollars,
+      voidCount: m.voidCount,
+      voidDollars: m.voidDollars,
       hourly: [],
       productMix: rpt.productMix
         .filter((p) => p.sales > 0)
         .map((p) => ({ item_id: p.id, name: p.name, quantity: 0, gross: p.sales, category_id: p.categoryId })),
       paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
       labor: {
-        total_hours: matched.laborHours,
-        total_cost: matched.laborDollars,
-        labor_percent: matched.laborPercent,
-        sales_per_labor_hour: matched.salesPerLaborHour,
+        total_hours: m.laborHours,
+        total_cost: m.laborDollars,
+        labor_percent: m.laborPercent,
+        sales_per_labor_hour: m.salesPerLaborHour,
         hourly: [],
         employees_week: rpt.employeeLaborWeek,
       },
@@ -418,6 +411,7 @@ async function fetchAlohaDay(
       })),
     };
   }
+
 
   // Historical/backfill path: CSV grid export by date range.
   const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
