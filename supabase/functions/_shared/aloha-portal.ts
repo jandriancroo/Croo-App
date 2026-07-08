@@ -806,7 +806,180 @@ export function parseAlohaMenuHtml(html: string): AlohaMenuItem[] {
   return items;
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Shared helpers for DDV table endpoints (same POST form contract as hourly/menu).
+// ═════════════════════════════════════════════════════════════════════════════
+async function postDdvTable(
+  session: AlohaSession,
+  portalUrl: string,
+  path: string,
+  storeId: number,
+  storeName: string,
+  yyyyMmDd: string,
+): Promise<string> {
+  const base = normalizePortalBase(portalUrl);
+  const jar: Jar = new Map();
+  for (const pair of session.cookieHeader.split(/;\s*/)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) jar.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+  const dateMDY = formatDateMDY(yyyyMmDd);
+  const form = new URLSearchParams({
+    StoreID: String(storeId),
+    RegionID: "0",
+    AreaID: "0",
+    BaseName: storeName,
+    StoreName: storeName,
+    StartDate: dateMDY,
+    EndDate: dateMDY,
+    SelDate: dateMDY,
+    bCanPrint: "1",
+  });
+  const res = await jarFetch(jar, `${base}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      Referer: `${base}/ddv/ddv_parse.jsp`,
+      Origin: base,
+    },
+    body: form.toString(),
+  });
+  if (!res.ok) throw new Error(`Aloha ${path} failed: HTTP ${res.status}`);
+  return await res.text();
+}
 
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+}
 
+/** Extract every data <tr> as {label, numbers[]} — label = first non-numeric cell. */
+function parseDdvRows(html: string): Array<{ label: string; nums: number[] }> {
+  const out: Array<{ label: string; nums: number[] }> = [];
+  const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(html)) !== null) {
+    const rowHtml = m[1];
+    if (/<th\b/i.test(rowHtml)) continue;
+    const cells: string[] = [];
+    const rightFlags: boolean[] = [];
+    const tdRe = /<td\b([^>]*)>([\s\S]*?)<\/td>/gi;
+    let tm: RegExpExecArray | null;
+    while ((tm = tdRe.exec(rowHtml)) !== null) {
+      cells.push(tm[2]);
+      rightFlags.push(/align\s*=\s*"?right"?/i.test(tm[1]));
+    }
+    if (cells.length < 2) continue;
+    const nums: number[] = [];
+    for (let i = 0; i < cells.length; i++) {
+      if (!rightFlags[i]) continue;
+      const raw = stripHtml(cells[i]);
+      if (!raw) continue;
+      const v = n(raw);
+      if (Number.isFinite(v)) nums.push(v);
+    }
+    if (nums.length < 1) continue;
+    let label = "";
+    for (const c of cells) {
+      const t = stripHtml(c);
+      if (!t) continue;
+      if (/^[-\d.,%$\s]+$/.test(t)) continue;
+      label = t;
+      break;
+    }
+    if (!label) continue;
+    out.push({ label, nums });
+  }
+  return out;
+}
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Payments — POST /ddv/ddv_parse_pmts.jsp
+// Table columns (observed): Tender Name | Count | Amount | Tips | % of Payments
+// ═════════════════════════════════════════════════════════════════════════════
+export interface AlohaPaymentTender {
+  label: string;
+  count: number;
+  amount: number;
+  tips: number;
+}
+
+export async function fetchAlohaPayments(
+  session: AlohaSession,
+  portalUrl: string,
+  storeId: number,
+  storeName: string,
+  yyyyMmDd: string,
+): Promise<{ tenders: AlohaPaymentTender[]; totalTips: number }> {
+  const html = await postDdvTable(
+    session, portalUrl, "/ddv/ddv_parse_pmts.jsp", storeId, storeName, yyyyMmDd,
+  );
+  return parseAlohaPaymentsHtml(html);
+}
+
+export function parseAlohaPaymentsHtml(html: string): {
+  tenders: AlohaPaymentTender[]; totalTips: number;
+} {
+  const rows = parseDdvRows(html);
+  const tenders: AlohaPaymentTender[] = [];
+  let totalTips = 0;
+  for (const { label, nums } of rows) {
+    // Expect at least count + amount; tips is optional (column may be absent).
+    // Observed order: [count, amount, tips, pct]
+    const count = nums[0] ?? 0;
+    const amount = nums[1] ?? 0;
+    const tips = nums.length >= 3 ? nums[2] : 0;
+    if (/^total/i.test(label)) { totalTips += 0; continue; }
+    tenders.push({ label, count, amount, tips });
+    totalTips += tips;
+  }
+  return { tenders, totalTips };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Labor — POST /ddv/ddv_parse_labor.jsp
+// Table columns (observed): Job/Department | Hours | Dollars | % of Sales
+// Row totals collapse to summary; per-row hours/dollars roll up to totals.
+// ═════════════════════════════════════════════════════════════════════════════
+export interface AlohaLaborRow {
+  label: string;
+  hours: number;
+  cost: number;
+  percentOfSales: number;
+}
+
+export async function fetchAlohaLabor(
+  session: AlohaSession,
+  portalUrl: string,
+  storeId: number,
+  storeName: string,
+  yyyyMmDd: string,
+): Promise<{ rows: AlohaLaborRow[]; totalHours: number; totalCost: number; laborPercent: number }> {
+  const html = await postDdvTable(
+    session, portalUrl, "/ddv/ddv_parse_labor.jsp", storeId, storeName, yyyyMmDd,
+  );
+  return parseAlohaLaborHtml(html);
+}
+
+export function parseAlohaLaborHtml(html: string): {
+  rows: AlohaLaborRow[]; totalHours: number; totalCost: number; laborPercent: number;
+} {
+  const rows = parseDdvRows(html);
+  const data: AlohaLaborRow[] = [];
+  let totalHours = 0, totalCost = 0, laborPercent = 0, sawTotal = false;
+  for (const { label, nums } of rows) {
+    const hours = nums[0] ?? 0;
+    const cost = nums[1] ?? 0;
+    const pct = nums[2] ?? 0;
+    if (/^(grand\s*)?total/i.test(label)) {
+      totalHours = hours; totalCost = cost; laborPercent = pct; sawTotal = true;
+      continue;
+    }
+    data.push({ label, hours, cost, percentOfSales: pct });
+  }
+  if (!sawTotal) {
+    for (const r of data) { totalHours += r.hours; totalCost += r.cost; }
+  }
+  return { rows: data, totalHours, totalCost, laborPercent };
+}
 
