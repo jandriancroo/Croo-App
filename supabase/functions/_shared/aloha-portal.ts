@@ -138,10 +138,28 @@ export async function alohaLogin(input: AlohaLoginInput): Promise<AlohaSession> 
         return parseAppConfig(base, body, input.companyId, jar);
       }
     }
-    // Extract error message if present
-    const errMatch = loginBody.match(/<[^>]*class=["'][^"']*(error|alert)[^"']*["'][^>]*>([\s\S]*?)<\//i);
-    const err = errMatch ? errMatch[2].replace(/<[^>]+>/g, "").trim().slice(0, 200) : "credentials rejected or reCAPTCHA required";
+    // Extract the visible portal error. The login page renders messages inside
+    // a <span class="...Error">…</span> or the loginErrorTd cell.
+    const patterns = [
+      /<span[^>]*class=["'][^"']*Error[^"']*["'][^>]*>([\s\S]*?)<\/span>/i,
+      /<td[^>]*id=["']loginErrorTd["'][^>]*>([\s\S]*?)<\/td>/i,
+      /<div[^>]*class=["'][^"']*(?:error|alert)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    ];
+    let err = "";
+    for (const re of patterns) {
+      const m = loginBody.match(re);
+      if (m) {
+        const txt = m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        if (txt && !/you must enter/i.test(txt)) { err = txt.slice(0, 300); break; }
+      }
+    }
+    if (!err) {
+      err = /recaptcha/i.test(loginBody)
+        ? "reCAPTCHA challenge required — portal is blocking programmatic login"
+        : "credentials rejected (no error message returned)";
+    }
     throw new Error(`Aloha login failed: ${err}`);
+
   }
 
   return parseAppConfig(base, loginBody, input.companyId, jar);
