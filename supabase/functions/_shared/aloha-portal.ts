@@ -131,7 +131,13 @@ export async function alohaLogin(input: AlohaLoginInput): Promise<AlohaSession> 
 
   if (looksLikeLoginPage || !/appConfiguration/.test(loginBody)) {
     // Try landing pages explicitly (some deployments redirect to a specific app)
-    for (const path of ["/", "/insightdashboard/", "/insight/"]) {
+    for (const path of [
+      "/insightdashboard/dashboard.jsp",
+      "/portal/portal.jsp",
+      "/insightdashboard/",
+      "/insight/",
+      "/",
+    ]) {
       const r = await jarFetch(jar, `${base}${path}`);
       const body = await r.text();
       if (/appConfiguration/.test(body) && !/name=["']loginForm["']/i.test(body)) {
