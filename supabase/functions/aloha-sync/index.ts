@@ -537,6 +537,11 @@ async function syncOneDay(
     },
   };
 
+  // BWW GO / Aloha rarely captures explicit guest counts on takeout orders,
+  // so fall back to checkCount when guestCount is missing/lower. This gives
+  // dashboards a meaningful "customers" number instead of a stale 14.
+  const effectiveGuests = Math.max(payload.guestCount || 0, payload.checkCount || 0);
+
   // ── Raw archive: aloha_sales_cache (conditional-spread merge) ─────────
   const { data: existingRaw } = await supabase
     .from("aloha_sales_cache")
@@ -550,7 +555,7 @@ async function syncOneDay(
     location_id: locationId,
     sale_date: date,
     net_sales: payload.netSales,
-    guest_count: payload.guestCount,
+    guest_count: effectiveGuests,
     avg_ticket: payload.avgTicket,
     hourly_data: payload.hourly,
     product_mix: payload.productMix,
@@ -579,7 +584,7 @@ async function syncOneDay(
     sale_date: date,
     pos_source: "aloha",
     net_sales: payload.netSales,
-    guest_count: payload.guestCount,
+    guest_count: effectiveGuests,
     pizza_count: 0,
     avg_ticket: payload.avgTicket,
     hourly_data: payload.hourly,
@@ -785,7 +790,7 @@ async function syncOneDay(
   return {
     date,
     net_sales: payload.netSales,
-    guest_count: payload.guestCount,
+    guest_count: effectiveGuests,
     check_count: payload.checkCount,
     avg_ticket: Math.round(payload.avgTicket * 100) / 100,
     labor_hours: payload.labor?.total_hours ?? 0,
