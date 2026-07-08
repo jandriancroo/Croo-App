@@ -304,7 +304,26 @@ async function fetchAlohaDay(
       } catch (e) {
         console.warn(`[aloha-sync] hourly fetch failed for ${date}:`, (e as Error).message);
       }
+      // Layer in product mix from the Drilldown Viewer menu report.
+      try {
+        const menu = await fetchAlohaMenu(
+          session, creds.portal_url, matched.storeID, matched.storeName, date,
+        );
+        if (menu.length) {
+          payload.productMix = menu
+            .filter((it) => it.quantity > 0 || it.itemSales > 0)
+            .map((it) => ({
+              item_id: it.itemId,
+              name: it.name,
+              quantity: it.quantity,
+              gross: it.itemSales,
+            }));
+        }
+      } catch (e) {
+        console.warn(`[aloha-sync] menu fetch failed for ${date}:`, (e as Error).message);
+      }
       return payload;
+
     }
   } catch (e) {
 
