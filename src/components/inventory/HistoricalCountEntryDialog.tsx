@@ -77,7 +77,7 @@ export default function HistoricalCountEntryDialog({
     onSuccess: (row: any) => {
       qc.invalidateQueries({ queryKey: ["lite-counts", locationId] });
       onOpenChange(false);
-      toast.success("Backfill count created");
+      toast.success("Historical count created");
       navigate(`/inventory/${locationId}/count/${row.id}`);
     },
     onError: (e: any) => {
