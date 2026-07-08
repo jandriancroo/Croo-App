@@ -12,13 +12,13 @@ interface AlohaIntegrationCardProps {
   locationId: string;
 }
 
-// Aloha (NCR / Sierra Food Group portal) credentials card.
-// Mirrors the Clover integration card shape. The `Test` button is intentionally
-// wired but will report "not implemented" until fetchAlohaDay() is filled in
-// (see docs/brands/bww-go.md).
+const DEFAULT_PORTAL_URL = 'https://sierrafoodgroup.alohaenterprise.com';
+const DEFAULT_COMPANY_ID = 'sfg07';
+
+// Aloha (NCR / BWW GO portal) credentials card.
 export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCardProps) {
-  const [portalUrl, setPortalUrl] = useState('https://sierrafoodgroup.alohaenterprise.com');
-  const [companyId, setCompanyId] = useState('sfg07');
+  const [portalUrl, setPortalUrl] = useState(DEFAULT_PORTAL_URL);
+  const [companyId, setCompanyId] = useState(DEFAULT_COMPANY_ID);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [storeId, setStoreId] = useState('');
@@ -39,8 +39,8 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
         .maybeSingle();
       if (data?.credentials) {
         const c = data.credentials as any;
-        setPortalUrl(c.portal_url ?? 'https://sierrafoodgroup.alohaenterprise.com');
-        setCompanyId(c.company_id ?? 'sfg07');
+        setPortalUrl(c.portal_url ?? DEFAULT_PORTAL_URL);
+        setCompanyId(c.company_id ?? DEFAULT_COMPANY_ID);
         setUsername(c.username ?? '');
         setPassword(c.password ?? '');
         setStoreId(c.store_id ?? '');
@@ -126,7 +126,7 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
         <div className="text-xs text-muted-foreground flex items-start gap-2 rounded-md border border-blue-500/30 bg-blue-500/5 p-2">
           <AlertTriangle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
           <span>
-            Sierra Food Group Aloha Insight portal. Test to verify login, Save to store credentials,
+            BWW GO Aloha Insight portal. Test to verify login, Save to store credentials,
             then Sync Yesterday to pull the first day of data.
           </span>
         </div>
@@ -151,7 +151,7 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
                 onChange={(e) => setCompanyId(e.target.value)}
                 disabled={loading}
                 className="h-8 text-sm"
-                placeholder="sfg07"
+                placeholder={DEFAULT_COMPANY_ID}
               />
             </div>
           </div>

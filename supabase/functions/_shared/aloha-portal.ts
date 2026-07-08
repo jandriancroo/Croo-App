@@ -89,7 +89,7 @@ async function jarFetch(jar: Jar, url: string, init: RequestInit = {}): Promise<
 // ── Login + session bootstrap ──────────────────────────────────────────────
 export async function alohaLogin(input: AlohaLoginInput): Promise<AlohaSession> {
   const jar: Jar = new Map();
-  const base = input.portalUrl.replace(/\/$/, "");
+  const base = normalizePortalBase(input.portalUrl);
 
   // 1. Prime session (JSESSIONID)
   const primeRes = await jarFetch(jar, `${base}/login.do`);
@@ -121,13 +121,13 @@ export async function alohaLogin(input: AlohaLoginInput): Promise<AlohaSession> 
 
   const loginBody = await loginRes.text();
 
-  // Failure heuristics: portal re-renders login.do with an error block, or
-  // shows recaptcha "please verify" text. Landing on the dashboard returns
-  // HTML that contains `appConfiguration` inline.
+  // Failure heuristics: portal re-renders login.do with an error block. The
+  // login page always includes reCAPTCHA script references, so only treat it as
+  // a real challenge when the returned page contains challenge-specific text.
   const looksLikeLoginPage =
     /name=["']loginForm["']/i.test(loginBody) ||
     /invalid (user|login|password)/i.test(loginBody) ||
-    /recaptcha/i.test(loginBody) && !/appConfiguration/.test(loginBody);
+    hasRecaptchaChallenge(loginBody) && !/appConfiguration/.test(loginBody);
 
   if (looksLikeLoginPage || !/appConfiguration/.test(loginBody)) {
     // Try landing pages explicitly (some deployments redirect to a specific app)
@@ -154,7 +154,7 @@ export async function alohaLogin(input: AlohaLoginInput): Promise<AlohaSession> 
       }
     }
     if (!err) {
-      err = /recaptcha/i.test(loginBody)
+      err = hasRecaptchaChallenge(loginBody)
         ? "reCAPTCHA challenge required — portal is blocking programmatic login"
         : "credentials rejected (no error message returned)";
     }
@@ -163,6 +163,10 @@ export async function alohaLogin(input: AlohaLoginInput): Promise<AlohaSession> 
   }
 
   return parseAppConfig(base, loginBody, input.companyId, jar);
+}
+
+function hasRecaptchaChallenge(html: string): boolean {
+  return /g-recaptcha-response|captcha challenge|captcha verification|please verify|verify that you are not/i.test(html);
 }
 
 function parseAppConfig(base: string, html: string, companyId: string, jar: Jar): AlohaSession {
@@ -230,7 +234,7 @@ export async function fetchAlohaGridCsv(
   locationType: AlohaLocationType,
   locationValue: string | number,
 ): Promise<string> {
-  const base = portalUrl.replace(/\/$/, "");
+  const base = normalizePortalBase(portalUrl);
   const jar: Jar = new Map();
   // Rehydrate session cookies
   for (const pair of session.cookieHeader.split(/;\s*/)) {
@@ -273,6 +277,11 @@ export async function fetchAlohaGridCsv(
     throw new Error(`Aloha downloadgridsummaryfile failed: HTTP ${dlRes.status} — ${body.slice(0, 200)}`);
   }
   return await dlRes.text();
+}
+
+function normalizePortalBase(portalUrl: string): string {
+  const url = portalUrl.trim().replace(/\/$/, "");
+  return url.replace(/\/login\.do$/i, "");
 }
 
 // ── CSV parser (Aloha exports are simple comma-quoted CSV) ─────────────────

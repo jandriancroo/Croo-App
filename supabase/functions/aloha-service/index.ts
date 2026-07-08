@@ -1,4 +1,4 @@
-// Aloha (NCR Aloha Enterprise / Sierra Food Group portal) credentials service.
+// Aloha (NCR Aloha Enterprise / BWW GO portal) credentials service.
 // Saves per-location credentials into location_integrations and performs a live
 // login test against the portal.
 
