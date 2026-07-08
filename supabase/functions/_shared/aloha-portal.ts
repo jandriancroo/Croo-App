@@ -89,7 +89,7 @@ async function jarFetch(jar: Jar, url: string, init: RequestInit = {}): Promise<
 // ── Login + session bootstrap ──────────────────────────────────────────────
 export async function alohaLogin(input: AlohaLoginInput): Promise<AlohaSession> {
   const jar: Jar = new Map();
-  const base = input.portalUrl.replace(/\/$/, "");
+  const base = normalizePortalBase(input.portalUrl);
 
   // 1. Prime session (JSESSIONID)
   const primeRes = await jarFetch(jar, `${base}/login.do`);
@@ -234,7 +234,7 @@ export async function fetchAlohaGridCsv(
   locationType: AlohaLocationType,
   locationValue: string | number,
 ): Promise<string> {
-  const base = portalUrl.replace(/\/$/, "");
+  const base = normalizePortalBase(portalUrl);
   const jar: Jar = new Map();
   // Rehydrate session cookies
   for (const pair of session.cookieHeader.split(/;\s*/)) {
@@ -277,6 +277,11 @@ export async function fetchAlohaGridCsv(
     throw new Error(`Aloha downloadgridsummaryfile failed: HTTP ${dlRes.status} — ${body.slice(0, 200)}`);
   }
   return await dlRes.text();
+}
+
+function normalizePortalBase(portalUrl: string): string {
+  const url = portalUrl.trim().replace(/\/$/, "");
+  return url.replace(/\/login\.do$/i, "");
 }
 
 // ── CSV parser (Aloha exports are simple comma-quoted CSV) ─────────────────
