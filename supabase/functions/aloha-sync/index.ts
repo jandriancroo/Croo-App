@@ -210,20 +210,46 @@ async function fetchAlohaDay(
   // additional session state that Aloha only wires up for interactive UI
   // sessions, so we use the tile config for the daily job for now.
   if (date === yesterday) {
-    const t = await fetchAlohaYesterday(session, creds.portal_url);
-    const avg = t.checkCount > 0 ? t.netSales / t.checkCount : (t.guestCount > 0 ? t.netSales / t.guestCount : 0);
+    const rpt = await fetchAlohaYesterdayReport(session, creds.portal_url);
+    // Match the store row for this CrooHQ location (falls back to grand total
+    // when only one store is configured or none matches).
+    const target = normalizeName(creds.store_id || locationName);
+    const matched = rpt.stores.find((s) => normalizeName(s.storeName).includes(target)) ??
+      (rpt.stores.length === 1 ? rpt.stores[0] : undefined) ?? rpt.grand;
+
+    const avg = matched.ckAvg || (matched.checkCount > 0 ? matched.netSales / matched.checkCount : 0);
     return {
-      netSales: t.netSales,
-      guestCount: t.guestCount,
+      netSales: matched.netSales,
+      guestCount: matched.guestCount,
+      checkCount: matched.checkCount,
       avgTicket: avg,
+      ppa: matched.ppa,
+      compCount: matched.compCount,
+      compDollars: matched.compDollars,
+      promoCount: matched.promoCount,
+      promoDollars: matched.promoDollars,
+      voidCount: matched.voidCount,
+      voidDollars: matched.voidDollars,
       hourly: [],
-      productMix: [],
+      productMix: rpt.productMix
+        .filter((p) => p.sales > 0)
+        .map((p) => ({ item_id: p.id, name: p.name, quantity: 0, gross: p.sales, category_id: p.categoryId })),
       paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
       labor: {
-        total_hours: 0,
-        total_cost: t.laborDollars,
+        total_hours: matched.laborHours,
+        total_cost: matched.laborDollars,
+        labor_percent: matched.laborPercent,
+        sales_per_labor_hour: matched.salesPerLaborHour,
         hourly: [],
+        employees_week: rpt.employeeLaborWeek,
       },
+      storeBreakdown: rpt.stores.map((s) => ({
+        store: s.storeName,
+        net_sales: s.netSales,
+        labor_hours: s.laborHours,
+        labor_dollars: s.laborDollars,
+        guest_count: s.guestCount,
+      })),
     };
   }
 
