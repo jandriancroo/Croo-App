@@ -364,3 +364,81 @@ function num(v: string | undefined): number {
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : 0;
 }
+
+// ── InsightDashboard config-based fetch (works for "yesterday" tiles) ─────
+// The Insight portal computes tile metrics server-side and returns them via
+// /servlet/InsightDashboard?requestType=getDashboardConfiguration. Each tile
+// carries a dateRangeId (1 = Yesterday for AllStores summary tiles on the
+// BWW GO dashboard) and tileData with the resolved value. We map the six
+// known tile types the default dashboard exposes for AllStores.
+export interface AlohaYesterdayTotals {
+  netSales: number;
+  guestCount: number;
+  ppa: number;
+  laborPercent: number;
+  laborDollars: number;
+  compDollars: number;
+  promoDollars: number;
+  voidDollars: number;
+  checkCount: number;
+}
+
+export async function fetchAlohaYesterday(
+  session: AlohaSession,
+  portalUrl: string,
+): Promise<AlohaYesterdayTotals> {
+  const base = normalizePortalBase(portalUrl);
+  const jar: Jar = new Map();
+  for (const pair of session.cookieHeader.split(/;\s*/)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) jar.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+
+  const url =
+    `${base}/servlet/InsightDashboard?requestType=getDashboardConfiguration` +
+    `&companyId=${encodeURIComponent(session.companyId)}` +
+    `&userId=${encodeURIComponent(session.userId)}` +
+    `&userLocale=${encodeURIComponent(session.userLocale)}` +
+    `&sessMgrID=${encodeURIComponent(session.sessionManagerID)}`;
+
+  const res = await jarFetch(jar, url);
+  if (!res.ok) {
+    throw new Error(`Aloha getDashboardConfiguration failed: HTTP ${res.status}`);
+  }
+  let body = await res.text();
+  // AngularJS anti-JSON-hijack prefix.
+  body = body.replace(/^\)\]\}',?\s*/, "");
+
+  let tiles: any[];
+  try {
+    tiles = JSON.parse(body);
+  } catch (e) {
+    throw new Error(`Aloha getDashboardConfiguration returned non-JSON: ${body.slice(0, 120)}`);
+  }
+  if (!Array.isArray(tiles)) {
+    throw new Error("Aloha getDashboardConfiguration: unexpected shape");
+  }
+
+  const byType: Record<string, number> = {};
+  for (const t of tiles) {
+    const td = t?.tileData;
+    if (!td || typeof td.type !== "string") continue;
+    // Only take AllStores summary tiles (locationType=5).
+    if (t.locationType !== 5) continue;
+    if (typeof td.value !== "number") continue;
+    byType[td.type] = td.value;
+  }
+
+  return {
+    netSales: byType.NetSales ?? 0,
+    guestCount: byType.GuestCount ?? 0,
+    ppa: byType.PPASales ?? 0,
+    laborPercent: byType.LaborDollars ?? 0,   // portal names the % tile "LaborDollars"
+    laborDollars: byType.LaborCost ?? 0,
+    compDollars: byType.CompDollars ?? 0,
+    promoDollars: byType.PromoDollars ?? 0,
+    voidDollars: byType.VoidDollars ?? 0,
+    checkCount: byType.CheckCount ?? 0,
+  };
+}
+
