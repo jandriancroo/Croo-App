@@ -456,11 +456,39 @@ async function fetchAlohaDay(
   }
 
   // Always attempt drill-down augmentation when we have the store identity.
-  // storeID / storeName may come from the ticker match (preferred, numeric) or,
-  // failing that, from the creds/location as a best-effort fallback.
-  const storeID = matched?.storeID ??
-    (creds.store_id && /^\d+$/.test(creds.store_id) ? Number(creds.store_id) : 0);
-  const storeName = matched?.storeName ?? locationName;
+  // Resolution order: ticker match → today's tickers (for historical dates) →
+  // leading digits in creds.store_id → leading digits in the yesterday-report
+  // store name. All Aloha DDV drill-downs need the numeric StoreID.
+  let storeID = matched?.storeID ?? 0;
+  let storeName = matched?.storeName ?? locationName;
+
+  if (!storeID) {
+    const leading = (s: string | null | undefined) => {
+      const mm = (s ?? "").trim().match(/^(\d+)/);
+      return mm ? Number(mm[1]) : 0;
+    };
+    storeID = leading(creds.store_id);
+    if (!storeID) {
+      // Yesterday-report path exposes the canonical "4274 BWW GO ..." names.
+      // Reuse that string when present so we send the exact BaseName Aloha expects.
+      const store = payload.storeBreakdown?.[0]?.store;
+      if (store) {
+        storeID = leading(store);
+        if (storeID) storeName = store;
+      }
+    }
+    if (!storeID) {
+      // Last resort — hit today's tickers to resolve the numeric ID.
+      try {
+        const todayTickers = await fetchAlohaTickers(session, creds.portal_url, todayInTz(tz));
+        const t = matchTickerRow(todayTickers, creds.store_id, locationName);
+        if (t) { storeID = t.storeID; storeName = t.storeName; }
+      } catch (e) {
+        console.warn(`[aloha-sync] today-ticker storeID lookup failed:`, (e as Error).message);
+      }
+    }
+  }
+
   if (storeID > 0) {
     await augmentWithDrilldowns(session, creds.portal_url, storeID, storeName, date, payload);
   } else {
@@ -468,6 +496,7 @@ async function fetchAlohaDay(
   }
   return payload;
 }
+
 
 
 // ── Sync one day ────────────────────────────────────────────────────────────
