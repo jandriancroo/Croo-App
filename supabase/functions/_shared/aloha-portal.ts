@@ -709,6 +709,7 @@ export interface AlohaMenuItem {
   quantity: number;
   itemSales: number;
   percentOfDay: number;
+  category?: string;
 }
 
 export async function fetchAlohaMenu(
@@ -756,52 +757,67 @@ export async function fetchAlohaMenu(
 
 export function parseAlohaMenuHtml(html: string): AlohaMenuItem[] {
   const items: AlohaMenuItem[] = [];
-  const stripTags = (s: string) =>
+  const strip = (s: string) =>
     s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 
+  // Category headers: <TR><TD colspan=11 Align=left>&nbsp;COMBOS</TD></tr>
+  // Data rows always contain onClick="c(<id>,'<name>')". Column order:
+  //   [spacer, name(fLbul), qty(Center), spacer, itemSales(right), spacer,
+  //    pct(right), spacer, refundAmt(right), spacer, refundPct(right)]
   const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let currentCategory = "";
   let m: RegExpExecArray | null;
   while ((m = rowRe.exec(html)) !== null) {
     const rowHtml = m[1];
-    if (/<th\b/i.test(rowHtml)) continue;
 
-    const cells: string[] = [];
-    const rightFlags: boolean[] = [];
+    // Category header row: single <TD colspan=11 Align=left>NAME</TD>, no onClick, no <hr>.
+    if (!/onClick=/i.test(rowHtml)) {
+      const catMatch = rowHtml.match(/<td[^>]*colspan\s*=\s*['"]?11['"]?[^>]*>([\s\S]*?)<\/td>/i);
+      if (catMatch && !/<hr/i.test(catMatch[1])) {
+        const label = strip(catMatch[1]);
+        if (label) currentCategory = label;
+      }
+      continue;
+    }
+
+    // Data row.
+    const idMatch = rowHtml.match(/onClick="c\((\d+),'([^']+)'\)/i);
+    if (!idMatch) continue;
+    const itemId = idMatch[1];
+    const name = idMatch[2];
+
+    // Collect td cells with align attribute.
+    const cells: Array<{ text: string; align: string }> = [];
     const tdRe = /<td\b([^>]*)>([\s\S]*?)<\/td>/gi;
     let tm: RegExpExecArray | null;
     while ((tm = tdRe.exec(rowHtml)) !== null) {
-      cells.push(tm[2]);
-      rightFlags.push(/align\s*=\s*"?right"?/i.test(tm[1]));
+      const alignMatch = tm[1].match(/align\s*=\s*['"]?(\w+)['"]?/i);
+      cells.push({ text: strip(tm[2]), align: (alignMatch?.[1] || "").toLowerCase() });
     }
-    if (cells.length < 3) continue;
 
-    const nums: number[] = [];
-    for (let i = 0; i < cells.length; i++) {
-      if (!rightFlags[i]) continue;
-      const raw = stripTags(cells[i]);
-      if (!raw) continue;
-      const v = n(raw);
-      if (Number.isFinite(v)) nums.push(v);
-    }
-    if (nums.length < 2) continue;
-
-    let name = "";
+    // Quantity = first Center-aligned numeric cell.
+    let quantity = 0;
     for (const c of cells) {
-      const t = stripTags(c);
-      if (!t) continue;
-      if (/^[-\d.,%$\s]+$/.test(t)) continue;
-      name = t;
-      break;
+      if (c.align === "center" && c.text) {
+        const v = n(c.text);
+        if (Number.isFinite(v)) { quantity = v; break; }
+      }
     }
-    if (!name) continue;
 
-    let itemId = "";
-    const idMatch = rowHtml.match(/onClick="[a-zA-Z_]+\(\s*['"]?([^,'"\)]+)['"]?/i);
-    if (idMatch) itemId = idMatch[1].trim();
-    if (!itemId) itemId = `menu:${name}`;
+    // First non-empty right-aligned numeric = item sales, next = percent.
+    const rightNums: number[] = [];
+    for (const c of cells) {
+      if (c.align !== "right" || !c.text) continue;
+      const v = n(c.text);
+      if (Number.isFinite(v)) rightNums.push(v);
+    }
+    const itemSales = rightNums[0] ?? 0;
+    const percentOfDay = rightNums[1] ?? 0;
 
-    const [qty, sales, pct = 0] = nums;
-    items.push({ itemId, name, quantity: qty, itemSales: sales, percentOfDay: pct });
+    items.push({
+      itemId, name, quantity, itemSales, percentOfDay,
+      category: currentCategory || undefined,
+    });
   }
   return items;
 }
