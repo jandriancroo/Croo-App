@@ -1,95 +1,80 @@
-## Goal
-Replace the current Announce list view with a Facebook/Workplace-style **Feed** — post cards with author, timestamp, body, images, reactions, comments, and read receipts — while keeping existing announcement posting permissions (admins/managers post, everyone can react & comment).
 
-## What changes for the user
-- Announce tab becomes a scrollable **Feed** of post cards
-- Each post shows: avatar, author name + role, timestamp, channel badge, body text, optional image(s), reaction bar, comment count, seen-by count
-- Tap a post → detail view with full comments thread + reaction picker + read-receipts sheet (reuses `AnnouncementStats`)
-- Channel tabs at top: **All · Everyone · Managers · FOH · BOH · Location-specific** (managed per-brand)
-- Comments allowed for all staff on any announcement they can see
-- Composer (admins/managers only): rich text + image upload + audience/channel picker
-- Reactions: 6 preset emojis (👍 ❤️ 🔥 🎉 😂 👏) — long-press picker, tap to toggle
-- Real-time updates for new posts, reactions, comments (Supabase Realtime)
+# Aloha POS Integration (Buffalo Wild Wings GO)
 
-## Data model (new tables)
+You have a portal login (sierrafoodgroup.alohaenterprise.com) but no confirmed API/export path yet. Rather than guess, I'll build the **entire plumbing** now — table, edge functions, cron, UI hook — matching the QU/Clover pattern exactly. A single `fetchAlohaDay()` function is the only stub; the moment we learn *how* to pull (NCR Aloha Cloud API, headless portal scrape like PFG, or Aloha Insight SFTP), we swap that one function and everything downstream (sales_cache, projections, dashboards, YOY, labor) lights up automatically.
 
-```text
-announcement_channels
-  id, brand_id, location_id (nullable), name, slug, color, icon,
-  audience_type ('everyone'|'role'|'position'|'custom'), audience_config jsonb,
-  sort_order, is_active
-  → RLS: readable by members of brand/location; managed by admins
+## What gets built
 
-announcement_posts        -- replaces "is_announcement chat" model going forward
-  id, author_id, brand_id, location_id, channel_id,
-  body text, media jsonb (array of {url,type,width,height}),
-  pinned boolean, allow_comments boolean default true,
-  chat_id (nullable, links to legacy announcement chat for migration),
-  created_at, updated_at, edited_at
+### 1. Database (one migration)
 
-announcement_reactions
-  id, post_id, user_id, emoji text
-  unique(post_id, user_id, emoji)
+**`public.aloha_sales_cache`** — raw archive table, twin of `clover_sales_cache`:
+- Same columns: `location_id`, `sale_date`, `net_sales`, `guest_count`, `avg_ticket`, `hourly_data`, `product_mix`, `payments_data`, `yoy_*`, `projected_sales`, `living_projection`, etc.
+- Unique on `(location_id, sale_date)`
+- RLS mirroring `clover_sales_cache` (location membership scope)
+- GRANTs for authenticated + service_role
 
-announcement_comments
-  id, post_id, author_id, parent_comment_id (nullable, 1-level replies),
-  body, media jsonb, created_at, edited_at, deleted_at
+No changes needed to `sales_cache` — `pos_source` is already TEXT; we just start writing `'aloha'`.
+No changes needed to `labor_cache` — `source` is already TEXT; we write `'aloha'` alongside `'punch_clock'`.
 
-announcement_comment_reactions
-  id, comment_id, user_id, emoji
-  unique(comment_id, user_id, emoji)
-```
+### 2. Edge functions
 
-- Read receipts continue to use existing `announcement_reads` — extended with `post_id` column (nullable, backfilled). Legacy `chat_id`-based reads keep working.
-- All tables get RLS + GRANTs (authenticated + service_role), realtime enabled on `announcement_posts`, `announcement_reactions`, `announcement_comments`.
+**`supabase/functions/aloha-service/index.ts`** — creds save/test (mirrors `clover-service`)
+- `action: 'test'` — validates credentials against Aloha (stub returns `not_implemented` with clear next-steps message)
+- `action: 'save'` — upserts into `location_integrations` with `integration_type='aloha'`
 
-## Frontend
-New folder `src/components/feed/`:
-- `AnnouncementFeed.tsx` — main scroll list, channel tabs, composer FAB
-- `PostCard.tsx` — avatar / body / media grid / reaction bar / comment count / seen-by
-- `PostDetail.tsx` — full post + comment thread (bottom sheet or `/feed/:postId` route)
-- `CommentThread.tsx`, `CommentItem.tsx`, `CommentComposer.tsx`
-- `ReactionBar.tsx` + `ReactionPicker.tsx` (long-press)
-- `ChannelTabs.tsx`, `ChannelPickerSheet.tsx`
-- `PostComposer.tsx` — rich body, image upload to existing Supabase storage bucket, channel + audience selector (admin/manager gated)
-- `hooks/useAnnouncementFeed.tsx`, `useAnnouncementComments.tsx`, `useAnnouncementReactions.tsx`
+**`supabase/functions/aloha-sync/index.ts`** — the sync engine (mirrors `clover-sync`)
+- Brand guard: refuses any location not on BWW GO brand
+- All the actions QU/Clover support: `sync_today`, `sync_yesterday`, `sync_date`, `sync_range`, `sync_dates`, `sync_all_today`, `sync_all_yesterday`
+- Shared projection module (`_shared/projections.ts`) — same pace/YOY math as QU + Clover
+- Dual-write pattern: raw → `aloha_sales_cache`, normalized → `sales_cache` with `pos_source='aloha'`
+- Conditional spread on `projected`, `labor`, `payments_data` (preserves sibling fields — see core rule)
+- Labor: writes to `labor_cache` with `source='aloha'` when the day contains labor
+- **One clearly-marked TODO**: `fetchAlohaDay(creds, date)` returns hourly sales + product mix + labor. This is the *only* place Aloha-specific transport code lives.
 
-Wire into `src/pages/Messages.tsx` — when `viewMode === 'announcements'`, render `<AnnouncementFeed />` instead of the chat list. Chat / Business / Support tabs untouched.
+**`supabase/functions/backfill-aloha-sales/index.ts`** — 53-week backfill (mirrors `backfill_clover_sales`)
+- Queues one location, walks 371 days back in batches of 7
+- Seeds YOY (−364d) inside `syncOneDay`
+- Registered as a maintenance queue task the same way Clover backfill is
 
-## Migration path
-- Existing announcement chats stay readable (legacy view button on empty feed).
-- Backfill script: for each `chats.is_announcement=true`, copy its `messages` rows into `announcement_posts` (1 post per message), link `chat_id`, migrate `announcement_reads` rows to `post_id`. Run once via `insert` tool after schema lands.
+### 3. Cron
 
-## Permissions
-- Posting: unchanged — same roles that can create announcement chats today (admin, brand_admin, manager, super_admin) can create posts. Enforced via RLS using `has_role_or_higher`.
-- Commenting: any authenticated user who can read the post (member of the channel's audience).
-- Reactions: same as comments.
-- Deleting: author or admin+.
+Adds Aloha to the existing 3 AM PST `sync_all_yesterday` cron alongside QU + Clover (single line in the cron SQL).
 
-## Locked-feature check
-None of: 3D cubes, inventory, fluid dock, version updater, support tickets. ✅ Clear to proceed.
+### 4. UI
 
-## Rollout order
-1. **Migration** — 5 new tables + columns + RLS + realtime
-2. **Backfill** — copy legacy announcement chats → posts (via `insert` tool)
-3. **Feed shell** — `AnnouncementFeed` + `PostCard` reading new data
-4. **Reactions + comments** UI + hooks
-5. **Composer** with image upload + channel picker
-6. **Channel management** admin screen (Brand Settings → Announce Channels)
-7. **Realtime** wiring + polish (animations, empty states, pull-to-refresh)
+**`src/components/location/AlohaIntegrationCard.tsx`** — creds form on the location integrations tab
+- Portal URL, username, password fields (adjusted once we confirm the actual data path — API key vs portal login)
+- Test / Save / Backfill buttons
+- Status badge
 
-## Technical notes
-- Business dates via existing Luxon helpers (America/Los_Angeles) — never `new Date(string)`.
-- No changes to `sales_cache`, `labor_cache`, or any locked feature.
-- Image uploads → existing storage bucket used by messages (or new `announcement-media` bucket if none suitable).
-- Comments and reactions use optimistic updates with React Query `setQueryData`.
-- Mobile-first, 60fps: virtualize feed once >30 posts (react-virtuoso already in project).
+**`docs/brands/bww-go.md`** — updates the BWW GO brand doc: POS = Aloha, links the sync/backfill functions, marks integration Pilot status.
 
-## Out of scope for v1
-- Threaded replies beyond 1 level
-- @mentions with notifications (can add in v2)
-- Post scheduling / drafts
-- Video uploads (images only in v1)
-- Analytics dashboard beyond existing seen-by
+### 5. What's *not* being built yet (blocked on info)
 
-Ship as one PR per step above; each step independently deployable.
+The `fetchAlohaDay()` stub. Once you can answer one of:
+- Does Sierra Food Group have Aloha Cloud API credentials? (best path, real REST API)
+- Can you get an Aloha Insight scheduled CSV export enabled? (SFTP drop we poll)
+- Do we need to headless-login to the portal and scrape reports? (works today, brittle — same pattern as our PFG scraper)
+
+…I plug it into that one function and the rest works with zero further changes.
+
+## Locked rules honored
+
+- `sales_cache` conditional-spread merge (protects `projected`, `labor`, `payments_data`)
+- `labor_cache` writes include `source='aloha'` + respect unique `(location_id, labor_date, source)`
+- Never merges labor back into `sales_cache`
+- All dates handled with Luxon in store-local timezone; string-first `yyyy-MM-dd`
+- Brand guard on every sync call (no cross-brand leaks)
+- GRANTs on the new table
+- Follows `docs/adding-a-new-pos.md` 5-step checklist exactly
+
+## Deliverables
+
+1. Migration: `aloha_sales_cache` table
+2. Edge functions: `aloha-service`, `aloha-sync`, `backfill-aloha-sales`
+3. Cron entry for nightly `sync_all_yesterday`
+4. `AlohaIntegrationCard.tsx` UI component
+5. Updated `docs/brands/bww-go.md`
+6. A short "what we need from Sierra Food Group" note in the doc so you can ask them the right question
+
+Approve and I'll ship it. After that, one follow-up turn will wire `fetchAlohaDay()` once we know the data source.
