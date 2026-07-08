@@ -208,11 +208,26 @@ async function fetchAlohaDay(
 
   const yesterday = addDays(todayInTz(tz), -1);
 
+  // ── Primary fast path: Current Day Polling → getTickers ──
+  // Works for any date, returns per-store daily rollups in one call, and does
+  // not depend on interactive dashboard state. This is what the portal's
+  // ticker page uses. Falls back to the tile/CSV paths on empty match.
+  try {
+    const tickers = await fetchAlohaTickers(session, creds.portal_url, date);
+    const matched = matchTickerRow(tickers, creds.store_id, locationName);
+    if (matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
+      return tickerToPayload(matched, tickers);
+    }
+  } catch (e) {
+    console.warn(`[aloha-sync] getTickers fast path failed for ${date}, falling back:`, (e as Error).message);
+  }
+
   // Fast path: yesterday → InsightDashboard AllStores summary tiles.
   // The portal's Grid-export servlet (creategridsummaryfile) requires
   // additional session state that Aloha only wires up for interactive UI
   // sessions, so we use the tile config for the daily job for now.
   if (date === yesterday) {
+
     const rpt = await fetchAlohaYesterdayReport(session, creds.portal_url);
     // Match the store row for this CrooHQ location (falls back to grand total
     // when only one store is configured or none matches).
