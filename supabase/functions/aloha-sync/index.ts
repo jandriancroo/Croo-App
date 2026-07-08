@@ -23,10 +23,13 @@ import {
 import {
   alohaLogin,
   fetchAlohaGridCsv,
+  fetchAlohaTickers,
   fetchAlohaYesterdayReport,
   parseAlohaGridCsv,
   type AlohaGridRow,
+  type AlohaTickerRow,
 } from "../_shared/aloha-portal.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -190,6 +193,70 @@ function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Match a ticker row for this CrooHQ location. Order of precedence:
+//   1. numeric store_id (Aloha storeID) — most reliable
+//   2. store_id substring match against storeName
+//   3. location name substring match against storeName
+//   4. single-row scope → use it
+function matchTickerRow(
+  tickers: AlohaTickerRow[],
+  storeId: string | null | undefined,
+  locationName: string,
+): AlohaTickerRow | undefined {
+  if (!tickers.length) return undefined;
+  const sid = (storeId ?? "").trim();
+  if (sid && /^\d+$/.test(sid)) {
+    const byId = tickers.find((t) => t.storeID === Number(sid));
+    if (byId) return byId;
+  }
+  const target = normalizeName(sid || locationName);
+  if (target) {
+    const byName = tickers.find((t) => normalizeName(t.storeName).includes(target));
+    if (byName) return byName;
+  }
+  if (tickers.length === 1) return tickers[0];
+  return undefined;
+}
+
+function tickerToPayload(
+  row: AlohaTickerRow,
+  allRows: AlohaTickerRow[],
+): AlohaDayPayload {
+  const avg = row.checkCount > 0 ? row.totalSales / row.checkCount : 0;
+  return {
+    netSales: row.totalSales,
+    guestCount: row.guestCount,
+    checkCount: row.checkCount,
+    avgTicket: avg,
+    ppa: row.guestCount > 0 ? row.totalSales / row.guestCount : 0,
+    compCount: 0,
+    compDollars: 0,
+    promoCount: 0,
+    promoDollars: 0,
+    voidCount: 0,
+    voidDollars: 0,
+    hourly: [],
+    productMix: [],
+    paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
+    labor: {
+      total_hours: row.totalHours,
+      total_cost: 0,
+      labor_percent: 0,
+      sales_per_labor_hour: row.totalHours > 0 ? row.totalSales / row.totalHours : 0,
+      hourly: [],
+    },
+    storeBreakdown: allRows.map((s) => ({
+      store: s.storeName,
+      net_sales: s.totalSales,
+      labor_hours: s.totalHours,
+      labor_dollars: 0,
+      guest_count: s.guestCount,
+    })),
+  };
+}
+
+
+
 async function fetchAlohaDay(
   creds: AlohaCreds,
   date: string,
@@ -205,11 +272,26 @@ async function fetchAlohaDay(
 
   const yesterday = addDays(todayInTz(tz), -1);
 
+  // ── Primary fast path: Current Day Polling → getTickers ──
+  // Works for any date, returns per-store daily rollups in one call, and does
+  // not depend on interactive dashboard state. This is what the portal's
+  // ticker page uses. Falls back to the tile/CSV paths on empty match.
+  try {
+    const tickers = await fetchAlohaTickers(session, creds.portal_url, date);
+    const matched = matchTickerRow(tickers, creds.store_id, locationName);
+    if (matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
+      return tickerToPayload(matched, tickers);
+    }
+  } catch (e) {
+    console.warn(`[aloha-sync] getTickers fast path failed for ${date}, falling back:`, (e as Error).message);
+  }
+
   // Fast path: yesterday → InsightDashboard AllStores summary tiles.
   // The portal's Grid-export servlet (creategridsummaryfile) requires
   // additional session state that Aloha only wires up for interactive UI
   // sessions, so we use the tile config for the daily job for now.
   if (date === yesterday) {
+
     const rpt = await fetchAlohaYesterdayReport(session, creds.portal_url);
     // Match the store row for this CrooHQ location (falls back to grand total
     // when only one store is configured or none matches).

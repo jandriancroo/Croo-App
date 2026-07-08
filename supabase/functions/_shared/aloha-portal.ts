@@ -526,4 +526,79 @@ export async function fetchAlohaYesterdayReport(
   return { grand, stores, productMix, employeeLaborWeek };
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Current Day Polling → getTickers
+//
+// GET /servlet/CurrentDayPolling?requestType=getTickers&startDate=M/D/YYYY
+// Response: `)]}',\n[ { storeName, storeID, totalSales, guestCount,
+//   checkCount, totalHours, lastImportDate, pollingStatus }, ... ]`
+//
+// pollingStatus: 0 = polled OK, 1 = never polled, other = exception.
+// Works for any date and returns every store in the user's scope in one call —
+// no dashboard/tile state required. Preferred fast path for today/yesterday.
+// ═════════════════════════════════════════════════════════════════════════════
+export interface AlohaTickerRow {
+  storeName: string;
+  storeID: number;
+  totalSales: number;
+  guestCount: number;
+  checkCount: number;
+  totalHours: number;
+  lastImportDate: string | null;
+  pollingStatus: number;
+}
+
+function formatDateMDY(yyyyMmDd: string): string {
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  return `${m}/${d}/${y}`;
+}
+
+export async function fetchAlohaTickers(
+  session: AlohaSession,
+  portalUrl: string,
+  yyyyMmDd: string,
+): Promise<AlohaTickerRow[]> {
+  const base = normalizePortalBase(portalUrl);
+  const jar: Jar = new Map();
+  for (const pair of session.cookieHeader.split(/;\s*/)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) jar.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+
+  const dateMDY = formatDateMDY(yyyyMmDd);
+  const url =
+    `${base}/servlet/CurrentDayPolling?requestType=getTickers` +
+    `&startDate=${encodeURIComponent(dateMDY)}`;
+
+  const res = await jarFetch(jar, url, {
+    headers: {
+      Accept: "application/json, text/plain, */*",
+      Referer: `${base}/ddv/ddv_ticker.jsp?dw=yes`,
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Aloha CurrentDayPolling getTickers failed: HTTP ${res.status}`);
+  }
+  let body = await res.text();
+  body = body.replace(/^\)\]\}',?\s*/, "");
+  let rows: any[];
+  try {
+    rows = JSON.parse(body);
+  } catch {
+    throw new Error(`Aloha getTickers returned non-JSON: ${body.slice(0, 120)}`);
+  }
+  if (!Array.isArray(rows)) return [];
+  return rows.map((r) => ({
+    storeName: String(r?.storeName ?? ""),
+    storeID: Number(r?.storeID ?? 0),
+    totalSales: n(r?.totalSales),
+    guestCount: n(r?.guestCount),
+    checkCount: n(r?.checkCount),
+    totalHours: n(r?.totalHours),
+    lastImportDate: r?.lastImportDate ?? null,
+    pollingStatus: Number(r?.pollingStatus ?? 0),
+  }));
+}
+
+
 
