@@ -1011,22 +1011,46 @@ export async function fetchAlohaLabor(
 export function parseAlohaLaborHtml(html: string): {
   rows: AlohaLaborRow[]; totalHours: number; totalCost: number; laborPercent: number;
 } {
-  const rows = parseDdvRows(html);
+  // Anchor on onClick="c(id,'name')". Column order per observed HTML:
+  //   name | hours(right) | otHours(right) | spacer | laborCost(right) |
+  //   spacer | otLaborCost(right)
+  // No % of Sales column — caller derives from netSales.
+  const strip = (s: string) =>
+    s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
   const data: AlohaLaborRow[] = [];
-  let totalHours = 0, totalCost = 0, laborPercent = 0, sawTotal = false;
-  for (const { label, nums } of rows) {
-    const hours = nums[0] ?? 0;
-    const cost = nums[1] ?? 0;
-    const pct = nums[2] ?? 0;
-    if (/^(grand\s*)?total/i.test(label)) {
-      totalHours = hours; totalCost = cost; laborPercent = pct; sawTotal = true;
-      continue;
+  let totalHours = 0, totalCost = 0;
+
+  const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(html)) !== null) {
+    const rowHtml = m[1];
+    const idMatch = rowHtml.match(/onClick="c\((\d+),'([^']+)'\)/i);
+    if (!idMatch) continue;
+    const label = idMatch[2];
+
+    const rn: number[] = [];
+    const tdRe = /<td\b([^>]*)>([\s\S]*?)<\/td>/gi;
+    let tm: RegExpExecArray | null;
+    while ((tm = tdRe.exec(rowHtml)) !== null) {
+      if (!/align\s*=\s*['"]?right['"]?/i.test(tm[1])) continue;
+      const t = strip(tm[2]);
+      if (!t) continue;
+      const v = n(t);
+      if (Number.isFinite(v)) rn.push(v);
     }
-    data.push({ label, hours, cost, percentOfSales: pct });
+    const hours = rn[0] ?? 0;
+    const otHours = rn[1] ?? 0;
+    const cost = rn[2] ?? 0;
+    const otCost = rn[3] ?? 0;
+    data.push({
+      label,
+      hours: hours + otHours,
+      cost: cost + otCost,
+      percentOfSales: 0,
+    });
+    totalHours += hours + otHours;
+    totalCost += cost + otCost;
   }
-  if (!sawTotal) {
-    for (const r of data) { totalHours += r.hours; totalCost += r.cost; }
-  }
-  return { rows: data, totalHours, totalCost, laborPercent };
+  return { rows: data, totalHours, totalCost, laborPercent: 0 };
 }
 
