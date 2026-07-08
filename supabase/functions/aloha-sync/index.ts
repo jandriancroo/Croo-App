@@ -150,8 +150,8 @@ async function getAlohaCreds(supabase: any, locationId: string): Promise<AlohaCr
   const c = data.credentials as AlohaCreds;
   if (!c?.username || !c?.password) throw new Error("Aloha credentials missing username or password");
   return {
-    portal_url: c.portal_url ?? "https://sierrafoodgroup.alohaenterprise.com",
-    company_id: c.company_id ?? "sfg07",
+    portal_url: c.portal_url ?? "https://bapu.alohaenterprise.com",
+    company_id: c.company_id ?? "blp01",
     username: c.username,
     password: c.password,
     store_id: c.store_id ?? null,

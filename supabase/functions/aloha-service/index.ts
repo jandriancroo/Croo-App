@@ -1,4 +1,4 @@
-// Aloha (NCR Aloha Enterprise / Sierra Food Group portal) credentials service.
+// Aloha (NCR Aloha Enterprise / BWW GO portal) credentials service.
 // Saves per-location credentials into location_integrations and performs a live
 // login test against the portal.
 
@@ -21,8 +21,8 @@ interface Body {
   storeId?: string;
 }
 
-const DEFAULT_PORTAL = "https://sierrafoodgroup.alohaenterprise.com";
-const DEFAULT_COMPANY = "sfg07";
+const DEFAULT_PORTAL = "https://bapu.alohaenterprise.com";
+const DEFAULT_COMPANY = "blp01";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
