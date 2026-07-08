@@ -578,6 +578,15 @@ async function syncOneDay(
     date,
     net_sales: payload.netSales,
     guest_count: payload.guestCount,
+    check_count: payload.checkCount,
+    avg_ticket: Math.round(payload.avgTicket * 100) / 100,
+    labor_hours: payload.labor?.total_hours ?? 0,
+    labor_dollars: payload.labor?.total_cost ?? 0,
+    labor_percent: payload.labor?.labor_percent ?? 0,
+    product_mix_items: payload.productMix.length,
+    comps: payload.compDollars,
+    promos: payload.promoDollars,
+    voids: payload.voidDollars,
   };
 }
 
