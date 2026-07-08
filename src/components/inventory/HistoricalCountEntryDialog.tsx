@@ -77,7 +77,7 @@ export default function HistoricalCountEntryDialog({
     onSuccess: (row: any) => {
       qc.invalidateQueries({ queryKey: ["lite-counts", locationId] });
       onOpenChange(false);
-      toast.success("Backfill count created");
+      toast.success("Historical count created");
       navigate(`/inventory/${locationId}/count/${row.id}`);
     },
     onError: (e: any) => {
@@ -121,7 +121,7 @@ export default function HistoricalCountEntryDialog({
             />
           </div>
           <p className="text-[11px] text-muted-foreground">
-            This count will be flagged as a backfill entry and included in usage math
+            This count will be flagged as a historical entry and included in usage math
             once you submit it.
           </p>
         </div>

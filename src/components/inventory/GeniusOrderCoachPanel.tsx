@@ -1,13 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Sparkles, Loader2, Truck, Calendar, TrendingUp } from "lucide-react";
@@ -22,26 +15,21 @@ import {
 } from "@/utils/computeUsageCoach";
 
 interface Props {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
   locationId: string;
   timezone?: string;
 }
 
 /**
- * Genius Order Coach (Lite).
+ * Genius Order Coach (Lite) — inline tab panel.
  *
- * First Genius feature for Lite stores. Uses submitted counts + invoice
- * receipts to compute point-to-point daily usage per item, then combines
- * with vendor order-day schedule to suggest "order X units of Y before
- * next order day".
+ * Uses submitted counts + invoice receipts to compute point-to-point daily
+ * usage per item, then combines with vendor order-day schedule to suggest
+ * "order X units of Y before next order day".
  *
  * Math lives in @/utils/computeUsageCoach.ts so a future Brand adapter can
  * reuse the same engine.
  */
-export default function GeniusOrderCoachSheet({
-  open,
-  onOpenChange,
+export default function GeniusOrderCoachPanel({
   locationId,
   timezone = "America/Los_Angeles",
 }: Props) {
@@ -49,7 +37,6 @@ export default function GeniusOrderCoachSheet({
 
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ["lite-items-for-genius", locationId],
-    enabled: open,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
@@ -63,7 +50,6 @@ export default function GeniusOrderCoachSheet({
 
   const { data: countsData, isLoading: countsLoading } = useQuery({
     queryKey: ["lite-counts-for-genius", locationId],
-    enabled: open,
     queryFn: async () => {
       const { data: heads, error } = await supabase
         .from("lite_inventory_counts" as any)
@@ -104,11 +90,8 @@ export default function GeniusOrderCoachSheet({
 
   const { data: receipts, isLoading: receiptsLoading } = useQuery({
     queryKey: ["lite-receipts-for-genius", locationId],
-    enabled: open && !!items,
+    enabled: !!items,
     queryFn: async (): Promise<UsageReceipt[]> => {
-      // Pull last 120 days of invoices + their matched line items.
-      // Invoice line `quantity` is in CASES; counts are stored in inner units
-      // (cases × case_qty + inner). Convert here so both sides speak the same unit.
       const cutoff = DateTime.now().minus({ days: 120 }).toFormat("yyyy-MM-dd");
       const { data: invs, error } = await supabase
         .from("lite_vendor_invoices" as any)
@@ -128,7 +111,6 @@ export default function GeniusOrderCoachSheet({
         .not("matched_item_id", "is", null);
       if (e2) throw e2;
 
-      // item_id -> case_qty (defaults to 1 for single-mode items)
       const caseQtyById = new Map<string, number>();
       (items || []).forEach((it: any) => {
         const cq = Number(it.case_qty ?? 0);
@@ -151,7 +133,6 @@ export default function GeniusOrderCoachSheet({
 
   const { data: orderDays, isLoading: orderDaysLoading } = useQuery({
     queryKey: ["lite-order-days-for-genius", locationId],
-    enabled: open,
     queryFn: async (): Promise<VendorOrderDay[]> => {
       const { data, error } = await supabase
         .from("lite_vendor_order_schedule" as any)
@@ -185,7 +166,6 @@ export default function GeniusOrderCoachSheet({
     });
   }, [loading, items, countsData, receipts, orderDays, today]);
 
-  // Group by vendor, sort by next order day, then by recommended qty desc
   const grouped = useMemo(() => {
     const map = new Map<string, typeof coach>();
     coach.forEach((row) => {
@@ -210,114 +190,108 @@ export default function GeniusOrderCoachSheet({
   const hasEnoughData = (countsData?.counts.length ?? 0) >= 2;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
-        <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3">
-          <SheetHeader className="text-left space-y-1">
-            <SheetTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Genius Order Coach
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              Smart order suggestions based on your submitted counts, invoice receipts,
-              and vendor order days.
-            </SheetDescription>
-          </SheetHeader>
+    <div className="space-y-4">
+      <Card className="p-4 flex items-start gap-3 bg-muted/20">
+        <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <div className="text-sm font-semibold">Genius Order Coach</div>
+          <p className="text-xs text-muted-foreground">
+            Smart order suggestions based on your submitted counts, invoice receipts,
+            and vendor order days.
+          </p>
         </div>
+      </Card>
 
-        <div className="p-4 space-y-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : !hasEnoughData ? (
-            <Card className="p-6 text-center space-y-2">
-              <Sparkles className="h-8 w-8 mx-auto text-muted-foreground/60" />
-              <p className="text-sm font-medium">Not enough count history yet</p>
-              <p className="text-xs text-muted-foreground">
-                Genius needs at least 2 submitted counts to compute daily usage.
-                Tip: use "Enter historical count" to seed prior-system data.
-              </p>
-            </Card>
-          ) : grouped.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic text-center py-10">
-              No active items to coach on.
-            </p>
-          ) : (
-            grouped.map((g) => (
-              <Card key={g.vendor} className="overflow-hidden">
-                <div className="px-3 py-2.5 bg-muted/30 border-b border-border/50 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm font-semibold truncate">{g.vendor}</span>
-                  </div>
-                  {g.nextOrder < 99 ? (
-                    <Badge variant="secondary" className="text-[10px] gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Order {DOW_SHORT[g.nextOrder]}
-                      {g.daysUntil < 99 && ` · ${g.daysUntil}d out`}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                      No order day set
-                    </Badge>
-                  )}
-                </div>
-                <div className="divide-y divide-border/50">
-                  {g.rows.map((r) => {
-                    const showRec =
-                      r.recommendedOrderQty != null && r.recommendedOrderQty > 0;
-                    return (
-                      <div key={r.item.id} className="px-3 py-2.5 flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{r.item.name}</div>
-                          <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
-                            {r.dailyUsage != null ? (
-                              <span className="inline-flex items-center gap-1">
-                                <TrendingUp className="h-3 w-3" />
-                                {r.dailyUsage.toFixed(2)}/day
-                              </span>
-                            ) : (
-                              <span className="italic">No usage yet</span>
-                            )}
-                            {r.projectedOnHand != null && (
-                              <span>· ~{r.projectedOnHand.toFixed(1)} on hand</span>
-                            )}
-                            {r.periodsUsed > 0 && (
-                              <span>· {r.periodsUsed}p avg</span>
-                            )}
-                          </div>
-                          {r.reason && !showRec && (
-                            <div className="text-[10px] text-muted-foreground/70 italic mt-0.5">
-                              {r.reason}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          {showRec ? (
-                            <>
-                              <div className="text-base font-bold text-primary leading-tight">
-                                {r.recommendedOrderQty}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground leading-tight">
-                                order {r.item.unitLabel || "units"}
-                              </div>
-                            </>
-                          ) : r.recommendedOrderQty === 0 ? (
-                            <Badge variant="outline" className="text-[10px]">OK</Badge>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">—</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            ))
-          )}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
-      </SheetContent>
-    </Sheet>
+      ) : !hasEnoughData ? (
+        <Card className="p-6 text-center space-y-2">
+          <Sparkles className="h-8 w-8 mx-auto text-muted-foreground/60" />
+          <p className="text-sm font-medium">Not enough count history yet</p>
+          <p className="text-xs text-muted-foreground">
+            Genius needs at least 2 submitted counts to compute daily usage.
+            Tip: use "Historical Count" (from New Count) to seed prior-system data.
+          </p>
+        </Card>
+      ) : grouped.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic text-center py-10">
+          No active items to coach on.
+        </p>
+      ) : (
+        grouped.map((g) => (
+          <Card key={g.vendor} className="overflow-hidden">
+            <div className="px-3 py-2.5 bg-muted/30 border-b border-border/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-semibold truncate">{g.vendor}</span>
+              </div>
+              {g.nextOrder < 99 ? (
+                <Badge variant="secondary" className="text-[10px] gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Order {DOW_SHORT[g.nextOrder]}
+                  {g.daysUntil < 99 && ` · ${g.daysUntil}d out`}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                  No order day set
+                </Badge>
+              )}
+            </div>
+            <div className="divide-y divide-border/50">
+              {g.rows.map((r) => {
+                const showRec =
+                  r.recommendedOrderQty != null && r.recommendedOrderQty > 0;
+                return (
+                  <div key={r.item.id} className="px-3 py-2.5 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{r.item.name}</div>
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
+                        {r.dailyUsage != null ? (
+                          <span className="inline-flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            {r.dailyUsage.toFixed(2)}/day
+                          </span>
+                        ) : (
+                          <span className="italic">No usage yet</span>
+                        )}
+                        {r.projectedOnHand != null && (
+                          <span>· ~{r.projectedOnHand.toFixed(1)} on hand</span>
+                        )}
+                        {r.periodsUsed > 0 && (
+                          <span>· {r.periodsUsed}p avg</span>
+                        )}
+                      </div>
+                      {r.reason && !showRec && (
+                        <div className="text-[10px] text-muted-foreground/70 italic mt-0.5">
+                          {r.reason}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {showRec ? (
+                        <>
+                          <div className="text-base font-bold text-primary leading-tight">
+                            {r.recommendedOrderQty}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">
+                            order {r.item.unitLabel || "units"}
+                          </div>
+                        </>
+                      ) : r.recommendedOrderQty === 0 ? (
+                        <Badge variant="outline" className="text-[10px]">OK</Badge>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        ))
+      )}
+    </div>
   );
 }

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus, FileText, Sparkles, History } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus, FileText, Sparkles } from "lucide-react";
 import TransferDialog from "@/components/inventory/TransferDialog";
 import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
@@ -32,8 +32,7 @@ import LiteCountTab from "@/components/inventory/LiteCountTab";
 import LiteStorageLocationsManager from "@/components/inventory/LiteStorageLocationsManager";
 import LiteVendorOrderDaysManager from "@/components/inventory/LiteVendorOrderDaysManager";
 import InventoryScheduleSettings from "@/components/inventory/InventoryScheduleSettings";
-import GeniusOrderCoachSheet from "@/components/inventory/GeniusOrderCoachSheet";
-import HistoricalCountEntryDialog from "@/components/inventory/HistoricalCountEntryDialog";
+import GeniusOrderCoachPanel from "@/components/inventory/GeniusOrderCoachPanel";
 
 import SandboxCountsPanel from "@/components/inventory/SandboxCountsPanel";
 import { SandboxPostDeployBanner } from "@/components/inventory/SandboxPostDeployBanner";
@@ -70,8 +69,6 @@ const Inventory = () => {
   
   const [showDailyCount, setShowDailyCount] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showGenius, setShowGenius] = useState(false);
-  const [showHistorical, setShowHistorical] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const { pendingIncoming } = useInventoryTransfers(locationId || "");
 
@@ -551,23 +548,14 @@ const Inventory = () => {
                 </span>
               )}
             </Button>
-            <Button
-              size="icon"
-              className="h-10 w-10 rounded-xl"
-              onClick={handleStartCount}
-              title="New count"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
-            {isLite && (
+            {!isLite && (
               <Button
-                variant="outline"
                 size="icon"
                 className="h-10 w-10 rounded-xl"
-                onClick={() => setShowGenius(true)}
-                title="Genius Order Coach"
+                onClick={handleStartCount}
+                title="New count"
               >
-                <Sparkles className="h-5 w-5" />
+                <Plus className="h-5 w-5" />
               </Button>
             )}
             <Button
@@ -587,7 +575,7 @@ const Inventory = () => {
         <SandboxPostDeployBanner />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full grid-cols-3`}>
+          <TabsList className={`grid w-full ${isLite ? "grid-cols-4" : "grid-cols-3"}`}>
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -597,10 +585,16 @@ const Inventory = () => {
               <span>Items</span>
             </TabsTrigger>
             {isLite ? (
-              <TabsTrigger value="invoices" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                <span>Invoices</span>
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="invoices" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>Invoices</span>
+                </TabsTrigger>
+                <TabsTrigger value="genius" className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Genius</span>
+                </TabsTrigger>
+              </>
             ) : (
               <TabsTrigger value="pricing" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
@@ -643,9 +637,14 @@ const Inventory = () => {
           </TabsContent>
 
           {isLite ? (
-            <TabsContent value="invoices" className="mt-4 space-y-4">
-              <LiteInvoicesList locationId={locationId!} />
-            </TabsContent>
+            <>
+              <TabsContent value="invoices" className="mt-4 space-y-4">
+                <LiteInvoicesList locationId={locationId!} />
+              </TabsContent>
+              <TabsContent value="genius" className="mt-4 space-y-4">
+                <GeniusOrderCoachPanel locationId={locationId!} timezone={timezone} />
+              </TabsContent>
+            </>
           ) : (
             <TabsContent value="pricing" className="mt-4 space-y-4">
               <MenuPricingCard locationId={locationId!} />
@@ -672,27 +671,6 @@ const Inventory = () => {
                 <InventoryScheduleSettings locationId={locationId!} />
                 <LiteVendorOrderDaysManager locationId={locationId!} />
                 <LiteStorageLocationsManager locationId={locationId!} />
-                <div className="rounded-md border border-border/50 p-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <History className="h-4 w-4" />
-                    Backfill
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Have counts from a prior system? Enter them so Genius has enough
-                    history to coach ordering right away.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setShowSettings(false);
-                      setShowHistorical(true);
-                    }}
-                  >
-                    Enter historical count
-                  </Button>
-                </div>
               </>
             ) : (
               <InventoryItemsManager locationId={locationId!} mode="setup" />
@@ -741,21 +719,6 @@ const Inventory = () => {
           </div>
         </SheetContent>
       </Sheet>
-      {isLite && (
-        <>
-          <GeniusOrderCoachSheet
-            open={showGenius}
-            onOpenChange={setShowGenius}
-            locationId={locationId!}
-            timezone={timezone}
-          />
-          <HistoricalCountEntryDialog
-            open={showHistorical}
-            onOpenChange={setShowHistorical}
-            locationId={locationId!}
-          />
-        </>
-      )}
     </Layout>
   );
 };
