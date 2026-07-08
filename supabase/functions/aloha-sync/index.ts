@@ -193,6 +193,70 @@ function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Match a ticker row for this CrooHQ location. Order of precedence:
+//   1. numeric store_id (Aloha storeID) — most reliable
+//   2. store_id substring match against storeName
+//   3. location name substring match against storeName
+//   4. single-row scope → use it
+function matchTickerRow(
+  tickers: AlohaTickerRow[],
+  storeId: string | null | undefined,
+  locationName: string,
+): AlohaTickerRow | undefined {
+  if (!tickers.length) return undefined;
+  const sid = (storeId ?? "").trim();
+  if (sid && /^\d+$/.test(sid)) {
+    const byId = tickers.find((t) => t.storeID === Number(sid));
+    if (byId) return byId;
+  }
+  const target = normalizeName(sid || locationName);
+  if (target) {
+    const byName = tickers.find((t) => normalizeName(t.storeName).includes(target));
+    if (byName) return byName;
+  }
+  if (tickers.length === 1) return tickers[0];
+  return undefined;
+}
+
+function tickerToPayload(
+  row: AlohaTickerRow,
+  allRows: AlohaTickerRow[],
+): AlohaDayPayload {
+  const avg = row.checkCount > 0 ? row.totalSales / row.checkCount : 0;
+  return {
+    netSales: row.totalSales,
+    guestCount: row.guestCount,
+    checkCount: row.checkCount,
+    avgTicket: avg,
+    ppa: row.guestCount > 0 ? row.totalSales / row.guestCount : 0,
+    compCount: 0,
+    compDollars: 0,
+    promoCount: 0,
+    promoDollars: 0,
+    voidCount: 0,
+    voidDollars: 0,
+    hourly: [],
+    productMix: [],
+    paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
+    labor: {
+      total_hours: row.totalHours,
+      total_cost: 0,
+      labor_percent: 0,
+      sales_per_labor_hour: row.totalHours > 0 ? row.totalSales / row.totalHours : 0,
+      hourly: [],
+    },
+    storeBreakdown: allRows.map((s) => ({
+      store: s.storeName,
+      net_sales: s.totalSales,
+      labor_hours: s.totalHours,
+      labor_dollars: 0,
+      guest_count: s.guestCount,
+    })),
+  };
+}
+
+
+
 async function fetchAlohaDay(
   creds: AlohaCreds,
   date: string,
