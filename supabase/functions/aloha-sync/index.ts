@@ -413,48 +413,62 @@ async function fetchAlohaDay(
   }
 
 
-  // Historical/backfill path: CSV grid export by date range.
-  const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
-  const { stores } = parseAlohaGridCsv(csv);
-  if (stores.length === 0) {
-    throw new Error(`Aloha returned no rows for ${date} — CSV empty`);
-  }
-
-  const target = normalizeName(creds.store_id || locationName);
-  let row: AlohaGridRow | undefined = stores.find((s) => normalizeName(s.StoreName) === target);
-  if (!row && stores.length === 1) row = stores[0];
-  if (!row) {
-    const known = stores.map((s) => s.StoreName).join(", ");
-    throw new Error(
-      `Aloha: no store row matched "${creds.store_id || locationName}". ` +
-      `Available: ${known}. Update the Store ID field on the integration card to one of these names.`,
-    );
-  }
-
-  return {
-    netSales: row.NetSales,
-    guestCount: row.GuestCount,
-    checkCount: row.CheckCount,
-    avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
-    ppa: row.PPA,
-    compCount: row.CompCount,
-    compDollars: row.CompDollars,
-    promoCount: row.PromoCount,
-    promoDollars: row.PromoDollars,
-    voidCount: row.VoidCount,
-    voidDollars: row.VoidDollars,
-    hourly: [],
-    productMix: [],
-    paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
-    labor: {
-      total_hours: row.LaborHours,
-      total_cost: row.LaborDollars,
-      labor_percent: row.LaborPercent,
-      sales_per_labor_hour: row.SalesPerLaborHour,
+  // ── Base path 3: Historical/backfill via CSV grid export. ──
+  if (!payload) {
+    const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
+    const { stores } = parseAlohaGridCsv(csv);
+    if (stores.length === 0) {
+      throw new Error(`Aloha returned no rows for ${date} — CSV empty`);
+    }
+    const target = normalizeName(creds.store_id || locationName);
+    let row: AlohaGridRow | undefined = stores.find((s) => normalizeName(s.StoreName) === target);
+    if (!row && stores.length === 1) row = stores[0];
+    if (!row) {
+      const known = stores.map((s) => s.StoreName).join(", ");
+      throw new Error(
+        `Aloha: no store row matched "${creds.store_id || locationName}". ` +
+        `Available: ${known}. Update the Store ID field on the integration card to one of these names.`,
+      );
+    }
+    payload = {
+      netSales: row.NetSales,
+      guestCount: row.GuestCount,
+      checkCount: row.CheckCount,
+      avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
+      ppa: row.PPA,
+      compCount: row.CompCount,
+      compDollars: row.CompDollars,
+      promoCount: row.PromoCount,
+      promoDollars: row.PromoDollars,
+      voidCount: row.VoidCount,
+      voidDollars: row.VoidDollars,
       hourly: [],
-    },
-  };
+      productMix: [],
+      paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
+      labor: {
+        total_hours: row.LaborHours,
+        total_cost: row.LaborDollars,
+        labor_percent: row.LaborPercent,
+        sales_per_labor_hour: row.SalesPerLaborHour,
+        hourly: [],
+      },
+    };
+  }
+
+  // Always attempt drill-down augmentation when we have the store identity.
+  // storeID / storeName may come from the ticker match (preferred, numeric) or,
+  // failing that, from the creds/location as a best-effort fallback.
+  const storeID = matched?.storeID ??
+    (creds.store_id && /^\d+$/.test(creds.store_id) ? Number(creds.store_id) : 0);
+  const storeName = matched?.storeName ?? locationName;
+  if (storeID > 0) {
+    await augmentWithDrilldowns(session, creds.portal_url, storeID, storeName, date, payload);
+  } else {
+    console.warn(`[aloha-sync] no storeID resolved for ${date}; skipping drill-downs`);
+  }
+  return payload;
 }
+
 
 // ── Sync one day ────────────────────────────────────────────────────────────
 async function syncOneDay(
