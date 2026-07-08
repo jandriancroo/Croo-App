@@ -139,16 +139,42 @@ export default function LiteVendorOrderDaysManager({ locationId }: Props) {
     );
   }
 
+  // Case/whitespace-insensitive dedupe. Collapse variants like
+  // "McLane Foodservice, Inc." vs "mclane foodservice, inc." into a single
+  // vendor entry — matches how the Genius engine keys them, and keeps
+  // Order Days schedules aggregated instead of showing dupes here.
+  const normalize = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");
+  const preferLabel = (a: string, b: string) => {
+    // Prefer the label that has at least one uppercase letter (proper casing).
+    const aHas = /[A-Z]/.test(a);
+    const bHas = /[A-Z]/.test(b);
+    if (aHas && !bHas) return a;
+    if (bHas && !aHas) return b;
+    return a.length >= b.length ? a : b;
+  };
+
+  const labelByKey = new Map<string, string>();
+  const bump = (raw: string | null | undefined) => {
+    if (!raw) return;
+    const key = normalize(raw);
+    if (!key) return;
+    const cur = labelByKey.get(key);
+    labelByKey.set(key, cur ? preferLabel(cur, raw) : raw);
+  };
+  (vendors || []).forEach(bump);
+  (rows || []).forEach((r) => bump(r.vendor_name));
+
   const rowsByVendor = new Map<string, OrderRow[]>();
   (rows || []).forEach((r) => {
-    const list = rowsByVendor.get(r.vendor_name) || [];
+    const key = normalize(r.vendor_name);
+    const list = rowsByVendor.get(key) || [];
     list.push(r);
-    rowsByVendor.set(r.vendor_name, list);
+    rowsByVendor.set(key, list);
   });
 
-  const allVendors = Array.from(
-    new Set([...(vendors || []), ...Array.from(rowsByVendor.keys())])
-  ).sort();
+  const allVendors = Array.from(labelByKey.entries())
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <Card>
@@ -165,13 +191,13 @@ export default function LiteVendorOrderDaysManager({ locationId }: Props) {
           </p>
         ) : (
           <div className="space-y-3">
-            {allVendors.map((vendor) => {
-              const vRows = rowsByVendor.get(vendor) || [];
+            {allVendors.map(({ key: vendorKey, label: vendor }) => {
+              const vRows = rowsByVendor.get(vendorKey) || [];
               const usedDays = new Set(vRows.map((r) => r.order_day));
               const availDays = DAYS.filter((d) => !usedDays.has(d.value));
 
               return (
-                <div key={vendor} className="rounded-md border border-border/50 p-2.5 space-y-2">
+                <div key={vendorKey} className="rounded-md border border-border/50 p-2.5 space-y-2">
                   <div className="text-sm font-medium truncate">{vendor}</div>
 
                   {vRows.length === 0 ? (
