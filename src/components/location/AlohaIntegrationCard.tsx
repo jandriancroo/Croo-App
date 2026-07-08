@@ -123,24 +123,37 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="text-xs text-muted-foreground flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-muted-foreground flex items-start gap-2 rounded-md border border-blue-500/30 bg-blue-500/5 p-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
           <span>
-            Data source pending confirmation with Sierra Food Group.
-            Credentials are stored securely; the sync engine activates once the fetch path is wired.
+            Sierra Food Group Aloha Insight portal. Test to verify login, Save to store credentials,
+            then Sync Yesterday to pull the first day of data.
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-2">
-          <div>
-            <Label htmlFor="aloha-portal" className="text-xs">Portal URL</Label>
-            <Input
-              id="aloha-portal"
-              value={portalUrl}
-              onChange={(e) => setPortalUrl(e.target.value)}
-              disabled={loading}
-              className="h-8 text-sm"
-            />
+          <div className="grid grid-cols-[1fr_120px] gap-2">
+            <div>
+              <Label htmlFor="aloha-portal" className="text-xs">Portal URL</Label>
+              <Input
+                id="aloha-portal"
+                value={portalUrl}
+                onChange={(e) => setPortalUrl(e.target.value)}
+                disabled={loading}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="aloha-company" className="text-xs">Company ID</Label>
+              <Input
+                id="aloha-company"
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                disabled={loading}
+                className="h-8 text-sm"
+                placeholder="sfg07"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -168,14 +181,14 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
             </div>
           </div>
           <div>
-            <Label htmlFor="aloha-store" className="text-xs">Store ID (optional)</Label>
+            <Label htmlFor="aloha-store" className="text-xs">Store name / ID (for row matching)</Label>
             <Input
               id="aloha-store"
               value={storeId}
               onChange={(e) => setStoreId(e.target.value)}
               disabled={loading}
               className="h-8 text-sm"
-              placeholder="e.g. 12345"
+              placeholder="Leave blank to match by location name"
             />
           </div>
         </div>
@@ -185,13 +198,13 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
             Save
           </Button>
-          <Button size="sm" variant="outline" onClick={test} disabled={testing || loading}>
+          <Button size="sm" variant="outline" onClick={test} disabled={testing || loading || !username || !password}>
             {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <PlugZap className="h-3.5 w-3.5 mr-1.5" />}
-            Test
+            Test login
           </Button>
-          <Button size="sm" variant="outline" onClick={syncToday} disabled={syncing || !isActive}>
+          <Button size="sm" variant="outline" onClick={syncYesterday} disabled={syncing || !isActive}>
             {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
-            Sync today
+            Sync yesterday
           </Button>
         </div>
       </CardContent>
