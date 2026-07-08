@@ -16,6 +16,7 @@ import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
 import { InventoryAccessCard } from "./InventoryAccessCard";
+import AlohaIntegrationCard from "@/components/location/AlohaIntegrationCard";
 
 interface QuBeyondCredentials {
   username: string;
@@ -89,7 +90,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
 
   // Dialog state
-  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | null>(null);
+  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | 'aloha' | null>(null);
 
   // Clover state
   const [cloverApiToken, setCloverApiToken] = useState('');
@@ -221,6 +222,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'clover').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
+  const { data: alohaIntegration, isLoading: alohaIsLoading } = useQuery({
+    queryKey: ['location-integration', locationId, 'aloha'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'aloha').maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -837,7 +849,27 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           isLoading={cloverIsLoading}
           onEdit={() => setEditingIntegration('clover')}
         />
+        <IntegrationCard
+          title="Aloha (BWW GO)"
+          description="Sierra Food Group Insight portal — sales & labor"
+          connected={!!alohaIntegration?.is_active && !!(alohaIntegration?.credentials as any)?.username}
+          isLoading={alohaIsLoading}
+          onEdit={() => setEditingIntegration('aloha')}
+        />
       </div>
+
+      {/* ── Aloha Dialog ── */}
+      <Dialog open={editingIntegration === 'aloha'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plug className="h-5 w-5" /> Aloha (BWW GO)
+            </DialogTitle>
+            <DialogDescription>Sierra Food Group Aloha Insight portal credentials</DialogDescription>
+          </DialogHeader>
+          {locationId && <AlohaIntegrationCard locationId={locationId} />}
+        </DialogContent>
+      </Dialog>
 
       {/* ── QuBeyond Dialog ── */}
       <Dialog open={editingIntegration === 'qubeyond'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
