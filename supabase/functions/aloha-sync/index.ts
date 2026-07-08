@@ -365,8 +365,13 @@ async function fetchAlohaDay(
 
   let payload: AlohaDayPayload | undefined;
 
+  // For yesterday, ticker data is stale (ticker reflects live/current-day
+  // polling). Skip the ticker fast path so the InsightDashboard yesterday
+  // report becomes the base — that's the authoritative EOD summary.
+  const isYesterday = date === yesterday;
+
   // ── Base path 1: ticker fast path (current day polling has data). ──
-  if (matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
+  if (!isYesterday && matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
     payload = tickerToPayload(matched, tickers);
   }
 
