@@ -139,16 +139,42 @@ export default function LiteVendorOrderDaysManager({ locationId }: Props) {
     );
   }
 
+  // Case/whitespace-insensitive dedupe. Collapse variants like
+  // "McLane Foodservice, Inc." vs "mclane foodservice, inc." into a single
+  // vendor entry — matches how the Genius engine keys them, and keeps
+  // Order Days schedules aggregated instead of showing dupes here.
+  const normalize = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");
+  const preferLabel = (a: string, b: string) => {
+    // Prefer the label that has at least one uppercase letter (proper casing).
+    const aHas = /[A-Z]/.test(a);
+    const bHas = /[A-Z]/.test(b);
+    if (aHas && !bHas) return a;
+    if (bHas && !aHas) return b;
+    return a.length >= b.length ? a : b;
+  };
+
+  const labelByKey = new Map<string, string>();
+  const bump = (raw: string | null | undefined) => {
+    if (!raw) return;
+    const key = normalize(raw);
+    if (!key) return;
+    const cur = labelByKey.get(key);
+    labelByKey.set(key, cur ? preferLabel(cur, raw) : raw);
+  };
+  (vendors || []).forEach(bump);
+  (rows || []).forEach((r) => bump(r.vendor_name));
+
   const rowsByVendor = new Map<string, OrderRow[]>();
   (rows || []).forEach((r) => {
-    const list = rowsByVendor.get(r.vendor_name) || [];
+    const key = normalize(r.vendor_name);
+    const list = rowsByVendor.get(key) || [];
     list.push(r);
-    rowsByVendor.set(r.vendor_name, list);
+    rowsByVendor.set(key, list);
   });
 
-  const allVendors = Array.from(
-    new Set([...(vendors || []), ...Array.from(rowsByVendor.keys())])
-  ).sort();
+  const allVendors = Array.from(labelByKey.entries())
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <Card>
