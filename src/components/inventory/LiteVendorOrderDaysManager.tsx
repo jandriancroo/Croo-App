@@ -191,13 +191,13 @@ export default function LiteVendorOrderDaysManager({ locationId }: Props) {
           </p>
         ) : (
           <div className="space-y-3">
-            {allVendors.map((vendor) => {
-              const vRows = rowsByVendor.get(vendor) || [];
+            {allVendors.map(({ key: vendorKey, label: vendor }) => {
+              const vRows = rowsByVendor.get(vendorKey) || [];
               const usedDays = new Set(vRows.map((r) => r.order_day));
               const availDays = DAYS.filter((d) => !usedDays.has(d.value));
 
               return (
-                <div key={vendor} className="rounded-md border border-border/50 p-2.5 space-y-2">
+                <div key={vendorKey} className="rounded-md border border-border/50 p-2.5 space-y-2">
                   <div className="text-sm font-medium truncate">{vendor}</div>
 
                   {vRows.length === 0 ? (
