@@ -121,6 +121,8 @@ async function processTask(
       return await processBackfillSales(supabase, supabaseUrl, supabaseKey, task);
     case "backfill_clover_sales":
       return await processBackfillCloverSales(supabase, supabaseUrl, supabaseKey, task);
+    case "backfill_aloha_sales":
+      return await processBackfillAlohaSales(supabase, supabaseUrl, supabaseKey, task);
     case "opus_bulk_extract":
       return await processOpusBulkExtract(supabaseUrl, supabaseKey, task);
     default:
