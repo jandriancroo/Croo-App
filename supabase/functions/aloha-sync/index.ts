@@ -23,7 +23,7 @@ import {
 import {
   alohaLogin,
   fetchAlohaGridCsv,
-  fetchAlohaYesterday,
+  fetchAlohaYesterdayReport,
   parseAlohaGridCsv,
   type AlohaGridRow,
 } from "../_shared/aloha-portal.ts";
@@ -70,9 +70,17 @@ interface Hour {
 interface AlohaDayPayload {
   netSales: number;
   guestCount: number;
+  checkCount: number;
   avgTicket: number;
+  ppa: number;
+  compCount: number;
+  compDollars: number;
+  promoCount: number;
+  promoDollars: number;
+  voidCount: number;
+  voidDollars: number;
   hourly: Hour[];
-  productMix: Array<{ item_id: string; name: string; quantity: number; gross: number }>;
+  productMix: Array<{ item_id: string; name: string; quantity: number; gross: number; category_id?: string }>;
   paymentsData: {
     source: "aloha";
     tenders: Array<{ label: string; count: number; amount: number; tips: number }>;
@@ -81,8 +89,12 @@ interface AlohaDayPayload {
   labor?: {
     total_hours: number;
     total_cost: number;
+    labor_percent: number;
+    sales_per_labor_hour: number;
     hourly: Array<{ hour: string; hours: number; cost: number }>;
+    employees_week?: Array<{ name: string; hours: number }>;
   };
+  storeBreakdown?: Array<{ store: string; net_sales: number; labor_hours: number; labor_dollars: number; guest_count: number }>;
 }
 
 // ── Date helpers (store-local, yyyy-MM-dd strings) ─────────────────────────
@@ -198,20 +210,46 @@ async function fetchAlohaDay(
   // additional session state that Aloha only wires up for interactive UI
   // sessions, so we use the tile config for the daily job for now.
   if (date === yesterday) {
-    const t = await fetchAlohaYesterday(session, creds.portal_url);
-    const avg = t.checkCount > 0 ? t.netSales / t.checkCount : (t.guestCount > 0 ? t.netSales / t.guestCount : 0);
+    const rpt = await fetchAlohaYesterdayReport(session, creds.portal_url);
+    // Match the store row for this CrooHQ location (falls back to grand total
+    // when only one store is configured or none matches).
+    const target = normalizeName(creds.store_id || locationName);
+    const matched = rpt.stores.find((s) => normalizeName(s.storeName).includes(target)) ??
+      (rpt.stores.length === 1 ? rpt.stores[0] : undefined) ?? rpt.grand;
+
+    const avg = matched.ckAvg || (matched.checkCount > 0 ? matched.netSales / matched.checkCount : 0);
     return {
-      netSales: t.netSales,
-      guestCount: t.guestCount,
+      netSales: matched.netSales,
+      guestCount: matched.guestCount,
+      checkCount: matched.checkCount,
       avgTicket: avg,
+      ppa: matched.ppa,
+      compCount: matched.compCount,
+      compDollars: matched.compDollars,
+      promoCount: matched.promoCount,
+      promoDollars: matched.promoDollars,
+      voidCount: matched.voidCount,
+      voidDollars: matched.voidDollars,
       hourly: [],
-      productMix: [],
+      productMix: rpt.productMix
+        .filter((p) => p.sales > 0)
+        .map((p) => ({ item_id: p.id, name: p.name, quantity: 0, gross: p.sales, category_id: p.categoryId })),
       paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
       labor: {
-        total_hours: 0,
-        total_cost: t.laborDollars,
+        total_hours: matched.laborHours,
+        total_cost: matched.laborDollars,
+        labor_percent: matched.laborPercent,
+        sales_per_labor_hour: matched.salesPerLaborHour,
         hourly: [],
+        employees_week: rpt.employeeLaborWeek,
       },
+      storeBreakdown: rpt.stores.map((s) => ({
+        store: s.storeName,
+        net_sales: s.netSales,
+        labor_hours: s.laborHours,
+        labor_dollars: s.laborDollars,
+        guest_count: s.guestCount,
+      })),
     };
   }
 
@@ -236,13 +274,23 @@ async function fetchAlohaDay(
   return {
     netSales: row.NetSales,
     guestCount: row.GuestCount,
+    checkCount: row.CheckCount,
     avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
+    ppa: row.PPA,
+    compCount: row.CompCount,
+    compDollars: row.CompDollars,
+    promoCount: row.PromoCount,
+    promoDollars: row.PromoDollars,
+    voidCount: row.VoidCount,
+    voidDollars: row.VoidDollars,
     hourly: [],
     productMix: [],
     paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
     labor: {
       total_hours: row.LaborHours,
       total_cost: row.LaborDollars,
+      labor_percent: row.LaborPercent,
+      sales_per_labor_hour: row.SalesPerLaborHour,
       hourly: [],
     },
   };
@@ -258,6 +306,28 @@ async function syncOneDay(
   locationName: string,
 ) {
   const payload = await fetchAlohaDay(creds, date, tz, locationName);
+
+  // Pack Aloha-only extras into payments_data (JSONB already accepts arbitrary
+  // fields, keeps the base tender contract intact, and avoids a schema change).
+  const paymentsWithExtras = {
+    ...payload.paymentsData,
+    metrics: {
+      check_count: payload.checkCount,
+      ppa: payload.ppa,
+      comp_count: payload.compCount,
+      comp_dollars: payload.compDollars,
+      promo_count: payload.promoCount,
+      promo_dollars: payload.promoDollars,
+      void_count: payload.voidCount,
+      void_dollars: payload.voidDollars,
+      labor_percent: payload.labor?.labor_percent ?? 0,
+      sales_per_labor_hour: payload.labor?.sales_per_labor_hour ?? 0,
+    },
+    aloha_extras: {
+      store_breakdown: payload.storeBreakdown ?? [],
+      employees_week: payload.labor?.employees_week ?? [],
+    },
+  };
 
   // ── Raw archive: aloha_sales_cache (conditional-spread merge) ─────────
   const { data: existingRaw } = await supabase
@@ -276,7 +346,7 @@ async function syncOneDay(
     avg_ticket: payload.avgTicket,
     hourly_data: payload.hourly,
     product_mix: payload.productMix,
-    payments_data: payload.paymentsData,
+    payments_data: paymentsWithExtras,
     flagged_no_sales: payload.netSales === 0,
     fetched_at: new Date().toISOString(),
   };
@@ -306,7 +376,7 @@ async function syncOneDay(
     avg_ticket: payload.avgTicket,
     hourly_data: payload.hourly,
     product_mix: payload.productMix,
-    payments_data: payload.paymentsData,
+    payments_data: paymentsWithExtras,
     flagged_no_sales: payload.netSales === 0,
     fetched_at: new Date().toISOString(),
   };
@@ -508,6 +578,15 @@ async function syncOneDay(
     date,
     net_sales: payload.netSales,
     guest_count: payload.guestCount,
+    check_count: payload.checkCount,
+    avg_ticket: Math.round(payload.avgTicket * 100) / 100,
+    labor_hours: payload.labor?.total_hours ?? 0,
+    labor_dollars: payload.labor?.total_cost ?? 0,
+    labor_percent: payload.labor?.labor_percent ?? 0,
+    product_mix_items: payload.productMix.length,
+    comps: payload.compDollars,
+    promos: payload.promoDollars,
+    voids: payload.voidDollars,
   };
 }
 
