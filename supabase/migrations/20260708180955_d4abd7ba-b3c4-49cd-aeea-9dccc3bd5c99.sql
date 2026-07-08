@@ -1,0 +1,2 @@
+ALTER TABLE public.labor_cache DROP CONSTRAINT IF EXISTS labor_cache_source_check;
+ALTER TABLE public.labor_cache ADD CONSTRAINT labor_cache_source_check CHECK (source = ANY (ARRAY['qubeyond'::text, 'punch_clock'::text, 'aloha'::text, 'clover'::text]));
