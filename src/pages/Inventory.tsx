@@ -721,21 +721,7 @@ const Inventory = () => {
           </div>
         </SheetContent>
       </Sheet>
-      {isLite && (
-        <>
-          <GeniusOrderCoachSheet
-            open={showGenius}
-            onOpenChange={setShowGenius}
-            locationId={locationId!}
-            timezone={timezone}
-          />
-          <HistoricalCountEntryDialog
-            open={showHistorical}
-            onOpenChange={setShowHistorical}
-            locationId={locationId!}
-          />
-        </>
-      )}
+      </Sheet>
     </Layout>
   );
 };
