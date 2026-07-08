@@ -18,6 +18,7 @@ interface AlohaIntegrationCardProps {
 // (see docs/brands/bww-go.md).
 export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCardProps) {
   const [portalUrl, setPortalUrl] = useState('https://sierrafoodgroup.alohaenterprise.com');
+  const [companyId, setCompanyId] = useState('sfg07');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [storeId, setStoreId] = useState('');
@@ -39,6 +40,7 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
       if (data?.credentials) {
         const c = data.credentials as any;
         setPortalUrl(c.portal_url ?? 'https://sierrafoodgroup.alohaenterprise.com');
+        setCompanyId(c.company_id ?? 'sfg07');
         setUsername(c.username ?? '');
         setPassword(c.password ?? '');
         setStoreId(c.store_id ?? '');
@@ -56,7 +58,7 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
     setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke('aloha-service', {
-        body: { action: 'save', locationId, portalUrl, username, password, storeId },
+        body: { action: 'save', locationId, portalUrl, companyId, username, password, storeId },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error ?? 'Save failed');
@@ -73,12 +75,12 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
     setTesting(true);
     try {
       const { data } = await supabase.functions.invoke('aloha-service', {
-        body: { action: 'test', locationId, portalUrl, username, password, storeId },
+        body: { action: 'test', portalUrl, companyId, username, password },
       });
       if (data?.success) {
-        toast.success('Aloha connection verified');
+        toast.success(`Aloha login verified (user ${data.userId || '?'})`);
       } else {
-        toast.warning(data?.error ?? 'Test not available yet');
+        toast.error(data?.error ?? 'Login failed');
       }
     } catch (e: any) {
       toast.error(`Test failed: ${e.message}`);
@@ -87,15 +89,17 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
     }
   };
 
-  const syncToday = async () => {
+  const syncYesterday = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('aloha-sync', {
-        body: { action: 'sync_today', locationId },
+        body: { action: 'sync_yesterday', locationId },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error ?? 'Sync failed');
-      toast.success(`Aloha sync: ${data?.results?.[0]?.net_sales ? `$${Math.round(data.results[0].net_sales)}` : 'ok'}`);
+      const r = data?.results?.[0];
+      if (r?.error) throw new Error(r.error);
+      toast.success(`Aloha yesterday: $${Math.round(r?.net_sales ?? 0)} · ${r?.guest_count ?? 0} guests`);
     } catch (e: any) {
       toast.error(`Sync failed: ${e.message}`);
     } finally {
@@ -119,24 +123,37 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="text-xs text-muted-foreground flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-muted-foreground flex items-start gap-2 rounded-md border border-blue-500/30 bg-blue-500/5 p-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
           <span>
-            Data source pending confirmation with Sierra Food Group.
-            Credentials are stored securely; the sync engine activates once the fetch path is wired.
+            Sierra Food Group Aloha Insight portal. Test to verify login, Save to store credentials,
+            then Sync Yesterday to pull the first day of data.
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-2">
-          <div>
-            <Label htmlFor="aloha-portal" className="text-xs">Portal URL</Label>
-            <Input
-              id="aloha-portal"
-              value={portalUrl}
-              onChange={(e) => setPortalUrl(e.target.value)}
-              disabled={loading}
-              className="h-8 text-sm"
-            />
+          <div className="grid grid-cols-[1fr_120px] gap-2">
+            <div>
+              <Label htmlFor="aloha-portal" className="text-xs">Portal URL</Label>
+              <Input
+                id="aloha-portal"
+                value={portalUrl}
+                onChange={(e) => setPortalUrl(e.target.value)}
+                disabled={loading}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="aloha-company" className="text-xs">Company ID</Label>
+              <Input
+                id="aloha-company"
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                disabled={loading}
+                className="h-8 text-sm"
+                placeholder="sfg07"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -164,14 +181,14 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
             </div>
           </div>
           <div>
-            <Label htmlFor="aloha-store" className="text-xs">Store ID (optional)</Label>
+            <Label htmlFor="aloha-store" className="text-xs">Store name / ID (for row matching)</Label>
             <Input
               id="aloha-store"
               value={storeId}
               onChange={(e) => setStoreId(e.target.value)}
               disabled={loading}
               className="h-8 text-sm"
-              placeholder="e.g. 12345"
+              placeholder="Leave blank to match by location name"
             />
           </div>
         </div>
@@ -181,13 +198,13 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
             Save
           </Button>
-          <Button size="sm" variant="outline" onClick={test} disabled={testing || loading}>
+          <Button size="sm" variant="outline" onClick={test} disabled={testing || loading || !username || !password}>
             {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <PlugZap className="h-3.5 w-3.5 mr-1.5" />}
-            Test
+            Test login
           </Button>
-          <Button size="sm" variant="outline" onClick={syncToday} disabled={syncing || !isActive}>
+          <Button size="sm" variant="outline" onClick={syncYesterday} disabled={syncing || !isActive}>
             {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
-            Sync today
+            Sync yesterday
           </Button>
         </div>
       </CardContent>

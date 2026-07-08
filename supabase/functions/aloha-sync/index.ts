@@ -20,6 +20,12 @@ import {
   getCurrentHourInTimezone,
   getCurrentMinutesInTimezone,
 } from "../_shared/projections.ts";
+import {
+  alohaLogin,
+  fetchAlohaGridCsv,
+  parseAlohaGridCsv,
+  type AlohaGridRow,
+} from "../_shared/aloha-portal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,9 +54,10 @@ interface Body {
 
 interface AlohaCreds {
   portal_url: string;
+  company_id: string;
   username: string;
   password: string;
-  store_id?: string | null;
+  store_id?: string | null;   // Aloha store name/number for matching CSV rows
 }
 
 interface Hour {
@@ -144,42 +151,81 @@ async function getAlohaCreds(supabase: any, locationId: string): Promise<AlohaCr
   if (!c?.username || !c?.password) throw new Error("Aloha credentials missing username or password");
   return {
     portal_url: c.portal_url ?? "https://sierrafoodgroup.alohaenterprise.com",
+    company_id: c.company_id ?? "sfg07",
     username: c.username,
     password: c.password,
     store_id: c.store_id ?? null,
   };
 }
 
+async function getLocationName(supabase: any, locationId: string): Promise<string> {
+  const { data } = await supabase.from("locations").select("name").eq("id", locationId).maybeSingle();
+  return (data?.name as string) ?? "";
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// TODO: fetchAlohaDay — THE ONLY POS-SPECIFIC PIECE
+// fetchAlohaDay — pulls the "AllStores" grid summary for the given date,
+// finds the row matching this location, and maps it into AlohaDayPayload.
+//
+// The Aloha Insight grid gives us daily totals only — Net Sales, Labor $/hrs,
+// Guest Count, PPA, Comps, Promos, Voids. Hourly breakdown and product mix
+// come from separate report endpoints; those can be layered in later.
+// For now hourly[] is a single lump bucket at open, productMix[] is empty,
+// and paymentsData carries a placeholder single "aloha" tender row.
 // ═══════════════════════════════════════════════════════════════════════════
-// This is the single function to fill in once we confirm how to pull data
-// from Aloha. Three viable paths:
-//
-//   1. NCR Aloha Cloud API (preferred). REST + Bearer token. Ask Sierra Food
-//      Group / NCR for API credentials. Endpoints: sales summary, hourly
-//      report, product mix, labor report.
-//
-//   2. Aloha Insight scheduled export. Sierra IT sets up a nightly CSV/SFTP
-//      drop; we poll the bucket and parse. Best if API access is unavailable.
-//
-//   3. Headless portal scrape. Playwright login → export reports → parse.
-//      Same shape as our .github/scripts/pfg-headless-login.mjs. Works today,
-//      brittle if the portal changes.
-//
-// Whatever path is chosen, this function must return AlohaDayPayload. That's
-// the contract — nothing downstream cares about the transport.
-// ═══════════════════════════════════════════════════════════════════════════
+function normalizeName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 async function fetchAlohaDay(
-  _creds: AlohaCreds,
-  _date: string,
+  creds: AlohaCreds,
+  date: string,
   _tz: string,
+  locationName: string,
 ): Promise<AlohaDayPayload> {
-  throw new Error(
-    "fetchAlohaDay not yet implemented — confirm Aloha data source with Sierra Food Group " +
-    "(Cloud API / Insight SFTP / portal scrape) then fill in this function. " +
-    "All plumbing (tables, projections, cron, backfill, UI) is already wired.",
-  );
+  const session = await alohaLogin({
+    portalUrl: creds.portal_url,
+    companyId: creds.company_id,
+    loginName: creds.username,
+    password: creds.password,
+  });
+
+  // 5 = AllStores. Aloha date format on this deployment is YYYY-MM-DD.
+  const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
+  const { stores } = parseAlohaGridCsv(csv);
+
+  if (stores.length === 0) {
+    throw new Error(`Aloha returned no rows for ${date} — CSV empty`);
+  }
+
+  const target = normalizeName(creds.store_id || locationName);
+  let row: AlohaGridRow | undefined = stores.find((s) => normalizeName(s.StoreName) === target);
+  if (!row && stores.length === 1) row = stores[0];
+  if (!row) {
+    const known = stores.map((s) => s.StoreName).join(", ");
+    throw new Error(
+      `Aloha: no store row matched "${creds.store_id || locationName}". ` +
+      `Available: ${known}. Update the Store ID field on the integration card to one of these names.`,
+    );
+  }
+
+  return {
+    netSales: row.NetSales,
+    guestCount: row.GuestCount,
+    avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
+    hourly: [],
+    productMix: [],
+    paymentsData: {
+      source: "aloha",
+      tenders: [],
+      total_tips: 0,
+    },
+    labor: {
+      total_hours: row.LaborHours,
+      total_cost: row.LaborDollars,
+      hourly: [],
+    },
+  };
 }
 
 // ── Sync one day ────────────────────────────────────────────────────────────
@@ -189,8 +235,9 @@ async function syncOneDay(
   creds: AlohaCreds,
   date: string,
   tz: string,
+  locationName: string,
 ) {
-  const payload = await fetchAlohaDay(creds, date, tz);
+  const payload = await fetchAlohaDay(creds, date, tz, locationName);
 
   // ── Raw archive: aloha_sales_cache (conditional-spread merge) ─────────
   const { data: existingRaw } = await supabase
@@ -479,7 +526,7 @@ Deno.serve(async (req) => {
           const todayLocal = todayInTz(tz);
           const target = action === "sync_all_today" ? todayLocal : addDays(todayLocal, -1);
           const creds = await getAlohaCreds(supabase, lid);
-          const r = await syncOneDay(supabase, lid, creds, target, tz);
+          const r = await syncOneDay(supabase, lid, creds, target, tz, lname);
           results.push({ location: lname, tz, ...r });
         } catch (e) {
           console.error(`[aloha-sync] fan-out ${lid} failed:`, e);
@@ -524,7 +571,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const d of dates) {
       try {
-        results.push(await syncOneDay(supabase, locationId, creds, d, tz));
+        results.push(await syncOneDay(supabase, locationId, creds, d, tz, name));
       } catch (e) {
         console.error(`[aloha-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });
