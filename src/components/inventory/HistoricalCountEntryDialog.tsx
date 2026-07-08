@@ -48,12 +48,14 @@ export default function HistoricalCountEntryDialog({
       if (periodStart > periodEnd) throw new Error("Start date must be before end date");
       if (periodEnd > today) throw new Error("End date can't be in the future");
 
-      // Reuse existing count for this period if it exists.
+      // Only resume an in-progress backfill draft — never reopen a submitted production count.
       const { data: existing } = await supabase
         .from("lite_inventory_counts" as any)
         .select("id")
         .eq("location_id", locationId)
         .eq("period_end", periodEnd)
+        .eq("status", "in_progress")
+        .eq("is_backfill", true)
         .maybeSingle();
       if (existing) return existing as any;
 

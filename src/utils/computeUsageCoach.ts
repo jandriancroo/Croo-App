@@ -103,12 +103,16 @@ export function computeUsageCoach(input: {
     receiptsByItem.set(r.item_id, list);
   });
 
-  // Vendor -> order days
+  // Vendor -> order days (case-insensitive keying so "SYSCO" and "Sysco" collapse)
+  const vendorKey = (v: string | null | undefined) =>
+    (v || "").trim().toLowerCase();
   const orderDaysByVendor = new Map<string, VendorOrderDay[]>();
   orderDays.forEach((o) => {
-    const list = orderDaysByVendor.get(o.vendor) || [];
+    const key = vendorKey(o.vendor);
+    if (!key) return;
+    const list = orderDaysByVendor.get(key) || [];
     list.push(o);
-    orderDaysByVendor.set(o.vendor, list);
+    orderDaysByVendor.set(key, list);
   });
 
   return items.map<UsageCoachRow>((item) => {
@@ -116,7 +120,6 @@ export function computeUsageCoach(input: {
 
     // Build per-period usage from consecutive counts
     const usages: number[] = [];
-    const consecutivePairs = counts.slice(-1 - maxPeriods).length - 1;
     const startIdx = Math.max(0, counts.length - 1 - maxPeriods);
     for (let i = startIdx; i < counts.length - 1; i++) {
       const a = counts[i];
@@ -131,7 +134,6 @@ export function computeUsageCoach(input: {
       const days = daysBetween(a.period_end, b.period_end);
       if (usage >= 0 && days > 0) usages.push(usage / days);
     }
-    void consecutivePairs;
 
     const dailyUsage =
       usages.length > 0
@@ -147,14 +149,14 @@ export function computeUsageCoach(input: {
       const receivedSince = itemReceipts
         .filter((r) => r.received_on > lastCountedOn && r.received_on <= today)
         .reduce((s, r) => s + (r.quantity || 0), 0);
-      const daysSince = Math.max(0, daysBetween(lastCountedOn, today) - 0);
+      const daysSince = daysBetween(lastCountedOn, today);
       const usedSince = dailyUsage != null ? dailyUsage * daysSince : 0;
       projectedOnHand = Math.max(0, lastQty + receivedSince - usedSince);
     }
 
     // Vendor order schedule
     const vendor = item.vendor;
-    const vendorSlots = vendor ? orderDaysByVendor.get(vendor) || [] : [];
+    const vendorSlots = vendor ? orderDaysByVendor.get(vendorKey(vendor)) || [] : [];
     let nextOrderDay: number | null = null;
     let nextDeliveryDay: number | null = null;
     let daysUntilNextDelivery: number | null = null;
@@ -163,10 +165,11 @@ export function computeUsageCoach(input: {
       const upcoming = vendorSlots
         .map((s) => {
           const daysUntilOrder = nextDowFromToday(s.order_day, today);
+          // Explicit delivery day when set; otherwise assume next-day delivery.
+          // Same-day delivery IS allowed when the user explicitly sets it.
           const deliveryDow = s.delivery_day ?? ((s.order_day + 1) % 7);
-          // delivery is the next occurrence of deliveryDow AFTER the order day
-          let daysUntilDelivery = daysUntilOrder + ((deliveryDow - s.order_day + 7) % 7);
-          if (daysUntilDelivery === daysUntilOrder) daysUntilDelivery += 7;
+          const deliveryOffset = (deliveryDow - s.order_day + 7) % 7;
+          const daysUntilDelivery = daysUntilOrder + deliveryOffset;
           return { s, daysUntilOrder, daysUntilDelivery, deliveryDow };
         })
         .sort((a, b) => a.daysUntilOrder - b.daysUntilOrder)[0];
