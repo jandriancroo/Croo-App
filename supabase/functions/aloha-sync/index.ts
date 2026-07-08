@@ -23,12 +23,18 @@ import {
 import {
   alohaLogin,
   fetchAlohaGridCsv,
+  fetchAlohaHourly,
   fetchAlohaTickers,
   fetchAlohaYesterdayReport,
   parseAlohaGridCsv,
   type AlohaGridRow,
   type AlohaTickerRow,
 } from "../_shared/aloha-portal.ts";
+
+function paddedHour(h: number): string {
+  return `${String(h).padStart(2, "0")}:00`;
+}
+
 
 
 const corsHeaders = {
@@ -280,9 +286,26 @@ async function fetchAlohaDay(
     const tickers = await fetchAlohaTickers(session, creds.portal_url, date);
     const matched = matchTickerRow(tickers, creds.store_id, locationName);
     if (matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
-      return tickerToPayload(matched, tickers);
+      const payload = tickerToPayload(matched, tickers);
+      // Layer in hourly sales from the Drilldown Viewer hourly report.
+      try {
+        const slots = await fetchAlohaHourly(
+          session, creds.portal_url, matched.storeID, matched.storeName, date,
+        );
+        if (slots.length) {
+          payload.hourly = slots.map((s) => ({
+            hour: paddedHour(s.hourId),
+            sales: s.itemSales,
+            checksCount: 0,
+          }));
+        }
+      } catch (e) {
+        console.warn(`[aloha-sync] hourly fetch failed for ${date}:`, (e as Error).message);
+      }
+      return payload;
     }
   } catch (e) {
+
     console.warn(`[aloha-sync] getTickers fast path failed for ${date}, falling back:`, (e as Error).message);
   }
 
