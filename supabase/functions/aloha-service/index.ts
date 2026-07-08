@@ -1,11 +1,9 @@
-// Aloha (NCR Aloha Enterprise) credentials service — save/test.
-// Mirrors clover-service. Actual data pulls live in aloha-sync.
-//
-// Note: The exact transport layer (Aloha Cloud REST API, Aloha Insight SFTP
-// export, or headless portal scrape) is TBD — see docs/brands/bww-go.md.
-// This service just stores whatever the user provides on location_integrations.
+// Aloha (NCR Aloha Enterprise / Sierra Food Group portal) credentials service.
+// Saves per-location credentials into location_integrations and performs a live
+// login test against the portal.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { alohaLogin } from "../_shared/aloha-portal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,13 +14,15 @@ const corsHeaders = {
 interface Body {
   action: "test" | "save";
   locationId?: string;
-  // Portal credentials (current best guess — swap for API key/secret if we move
-  // to Aloha Cloud API or Insight SFTP later).
   portalUrl?: string;
+  companyId?: string;
   username?: string;
   password?: string;
   storeId?: string;
 }
+
+const DEFAULT_PORTAL = "https://sierrafoodgroup.alohaenterprise.com";
+const DEFAULT_COMPANY = "sfg07";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -32,34 +32,55 @@ Deno.serve(async (req) => {
     const { action } = body;
     if (!action) throw new Error("action required");
 
-    // ── TEST: placeholder until we know the real Aloha data path ──
+    // ── TEST: real portal login round-trip ──
     if (action === "test") {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          status: "not_implemented",
-          error:
-            "Aloha connectivity test not yet wired. Confirm data source with Sierra Food Group " +
-            "(Aloha Cloud API credentials, Aloha Insight CSV/SFTP export, or portal login), then " +
-            "the fetchAlohaDay() stub in aloha-sync will be filled in.",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      if (!body.username || !body.password) throw new Error("username and password required");
+      const portalUrl = body.portalUrl || DEFAULT_PORTAL;
+      const companyId = body.companyId || DEFAULT_COMPANY;
+
+      try {
+        const session = await alohaLogin({
+          portalUrl,
+          companyId,
+          loginName: body.username,
+          password: body.password,
+        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            status: "verified",
+            sessionManagerID: session.sessionManagerID.slice(0, 6) + "…",
+            userId: session.userId,
+            userLocale: session.userLocale,
+            companyId: session.companyId,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (e) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            status: "failed",
+            error: e instanceof Error ? e.message : String(e),
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
-    // ── SAVE: persist creds to location_integrations ──
+    // ── SAVE ──
     if (action === "save") {
       if (!body.locationId) throw new Error("locationId required");
-      if (!body.username || !body.password) {
-        throw new Error("username and password required");
-      }
+      if (!body.username || !body.password) throw new Error("username and password required");
+
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
       const credentials = {
-        portal_url: body.portalUrl ?? "https://sierrafoodgroup.alohaenterprise.com",
+        portal_url: body.portalUrl || DEFAULT_PORTAL,
+        company_id: body.companyId || DEFAULT_COMPANY,
         username: body.username,
         password: body.password,
         store_id: body.storeId ?? null,
