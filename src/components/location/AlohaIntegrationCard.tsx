@@ -18,6 +18,7 @@ interface AlohaIntegrationCardProps {
 // (see docs/brands/bww-go.md).
 export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCardProps) {
   const [portalUrl, setPortalUrl] = useState('https://sierrafoodgroup.alohaenterprise.com');
+  const [companyId, setCompanyId] = useState('sfg07');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [storeId, setStoreId] = useState('');
@@ -39,6 +40,7 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
       if (data?.credentials) {
         const c = data.credentials as any;
         setPortalUrl(c.portal_url ?? 'https://sierrafoodgroup.alohaenterprise.com');
+        setCompanyId(c.company_id ?? 'sfg07');
         setUsername(c.username ?? '');
         setPassword(c.password ?? '');
         setStoreId(c.store_id ?? '');
@@ -56,7 +58,7 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
     setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke('aloha-service', {
-        body: { action: 'save', locationId, portalUrl, username, password, storeId },
+        body: { action: 'save', locationId, portalUrl, companyId, username, password, storeId },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error ?? 'Save failed');
@@ -73,12 +75,12 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
     setTesting(true);
     try {
       const { data } = await supabase.functions.invoke('aloha-service', {
-        body: { action: 'test', locationId, portalUrl, username, password, storeId },
+        body: { action: 'test', portalUrl, companyId, username, password },
       });
       if (data?.success) {
-        toast.success('Aloha connection verified');
+        toast.success(`Aloha login verified (user ${data.userId || '?'})`);
       } else {
-        toast.warning(data?.error ?? 'Test not available yet');
+        toast.error(data?.error ?? 'Login failed');
       }
     } catch (e: any) {
       toast.error(`Test failed: ${e.message}`);
@@ -87,15 +89,17 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
     }
   };
 
-  const syncToday = async () => {
+  const syncYesterday = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('aloha-sync', {
-        body: { action: 'sync_today', locationId },
+        body: { action: 'sync_yesterday', locationId },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error ?? 'Sync failed');
-      toast.success(`Aloha sync: ${data?.results?.[0]?.net_sales ? `$${Math.round(data.results[0].net_sales)}` : 'ok'}`);
+      const r = data?.results?.[0];
+      if (r?.error) throw new Error(r.error);
+      toast.success(`Aloha yesterday: $${Math.round(r?.net_sales ?? 0)} · ${r?.guest_count ?? 0} guests`);
     } catch (e: any) {
       toast.error(`Sync failed: ${e.message}`);
     } finally {

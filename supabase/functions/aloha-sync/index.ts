@@ -526,7 +526,7 @@ Deno.serve(async (req) => {
           const todayLocal = todayInTz(tz);
           const target = action === "sync_all_today" ? todayLocal : addDays(todayLocal, -1);
           const creds = await getAlohaCreds(supabase, lid);
-          const r = await syncOneDay(supabase, lid, creds, target, tz);
+          const r = await syncOneDay(supabase, lid, creds, target, tz, lname);
           results.push({ location: lname, tz, ...r });
         } catch (e) {
           console.error(`[aloha-sync] fan-out ${lid} failed:`, e);
@@ -571,7 +571,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const d of dates) {
       try {
-        results.push(await syncOneDay(supabase, locationId, creds, d, tz));
+        results.push(await syncOneDay(supabase, locationId, creds, d, tz, name));
       } catch (e) {
         console.error(`[aloha-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });
