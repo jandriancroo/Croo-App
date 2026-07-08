@@ -673,27 +673,6 @@ const Inventory = () => {
                 <InventoryScheduleSettings locationId={locationId!} />
                 <LiteVendorOrderDaysManager locationId={locationId!} />
                 <LiteStorageLocationsManager locationId={locationId!} />
-                <div className="rounded-md border border-border/50 p-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <History className="h-4 w-4" />
-                    Backfill
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Have counts from a prior system? Enter them so Genius has enough
-                    history to coach ordering right away.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setShowSettings(false);
-                      setShowHistorical(true);
-                    }}
-                  >
-                    Enter historical count
-                  </Button>
-                </div>
               </>
             ) : (
               <InventoryItemsManager locationId={locationId!} mode="setup" />
