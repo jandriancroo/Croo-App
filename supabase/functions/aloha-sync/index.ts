@@ -376,7 +376,7 @@ async function syncOneDay(
     avg_ticket: payload.avgTicket,
     hourly_data: payload.hourly,
     product_mix: payload.productMix,
-    payments_data: payload.paymentsData,
+    payments_data: paymentsWithExtras,
     flagged_no_sales: payload.netSales === 0,
     fetched_at: new Date().toISOString(),
   };
