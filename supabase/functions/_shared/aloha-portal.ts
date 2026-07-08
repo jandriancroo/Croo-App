@@ -697,6 +697,116 @@ export function parseAlohaHourlyHtml(html: string): AlohaHourlySlot[] {
   return slots;
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Drilldown Viewer: Menu (Product Mix) — POST /ddv/ddv_parse_menu.jsp
+// Same form payload as hourly. HTML table of menu items: name + right-aligned
+// numeric cells (qty, item sales, % of day). Some rows carry an onClick
+// handler with an item id; when absent we synthesize a stable id from name.
+// ═════════════════════════════════════════════════════════════════════════════
+export interface AlohaMenuItem {
+  itemId: string;
+  name: string;
+  quantity: number;
+  itemSales: number;
+  percentOfDay: number;
+}
+
+export async function fetchAlohaMenu(
+  session: AlohaSession,
+  portalUrl: string,
+  storeId: number,
+  storeName: string,
+  yyyyMmDd: string,
+): Promise<AlohaMenuItem[]> {
+  const base = normalizePortalBase(portalUrl);
+  const jar: Jar = new Map();
+  for (const pair of session.cookieHeader.split(/;\s*/)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) jar.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+
+  const dateMDY = formatDateMDY(yyyyMmDd);
+  const form = new URLSearchParams({
+    StoreID: String(storeId),
+    RegionID: "0",
+    AreaID: "0",
+    BaseName: storeName,
+    StoreName: storeName,
+    StartDate: dateMDY,
+    EndDate: dateMDY,
+    SelDate: dateMDY,
+    bCanPrint: "1",
+  });
+
+  const res = await jarFetch(jar, `${base}/ddv/ddv_parse_menu.jsp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      Referer: `${base}/ddv/ddv_parse.jsp`,
+      Origin: base,
+    },
+    body: form.toString(),
+  });
+
+  if (!res.ok) throw new Error(`Aloha ddv_parse_menu failed: HTTP ${res.status}`);
+  const html = await res.text();
+  return parseAlohaMenuHtml(html);
+}
+
+export function parseAlohaMenuHtml(html: string): AlohaMenuItem[] {
+  const items: AlohaMenuItem[] = [];
+  const stripTags = (s: string) =>
+    s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+
+  const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(html)) !== null) {
+    const rowHtml = m[1];
+    if (/<th\b/i.test(rowHtml)) continue;
+
+    const cells: string[] = [];
+    const rightFlags: boolean[] = [];
+    const tdRe = /<td\b([^>]*)>([\s\S]*?)<\/td>/gi;
+    let tm: RegExpExecArray | null;
+    while ((tm = tdRe.exec(rowHtml)) !== null) {
+      cells.push(tm[2]);
+      rightFlags.push(/align\s*=\s*"?right"?/i.test(tm[1]));
+    }
+    if (cells.length < 3) continue;
+
+    const nums: number[] = [];
+    for (let i = 0; i < cells.length; i++) {
+      if (!rightFlags[i]) continue;
+      const raw = stripTags(cells[i]);
+      if (!raw) continue;
+      const v = n(raw);
+      if (Number.isFinite(v)) nums.push(v);
+    }
+    if (nums.length < 2) continue;
+
+    let name = "";
+    for (const c of cells) {
+      const t = stripTags(c);
+      if (!t) continue;
+      if (/^[-\d.,%$\s]+$/.test(t)) continue;
+      name = t;
+      break;
+    }
+    if (!name) continue;
+
+    let itemId = "";
+    const idMatch = rowHtml.match(/onClick="[a-zA-Z_]+\(\s*['"]?([^,'"\)]+)['"]?/i);
+    if (idMatch) itemId = idMatch[1].trim();
+    if (!itemId) itemId = `menu:${name}`;
+
+    const [qty, sales, pct = 0] = nums;
+    items.push({ itemId, name, quantity: qty, itemSales: sales, percentOfDay: pct });
+  }
+  return items;
+}
+
+
 
 
 
