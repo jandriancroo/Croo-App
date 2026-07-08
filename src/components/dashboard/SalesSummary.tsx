@@ -395,8 +395,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const laborData = laborResult.data || [];
     // Pick the best source: punch_clock > qubeyond (punch_clock is our internal source of truth)
     const punchClockRow = laborData.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-    const qubeyondRow = laborData.find((r: any) => r.source === 'qubeyond');
-    const preferredRow = punchClockRow || qubeyondRow;
+    const externalRow = laborData.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
+    const preferredRow = punchClockRow || externalRow;
     
     const aggregatedLabor = preferredRow ? {
       laborCost: Number(preferredRow.labor_cost) || 0,
