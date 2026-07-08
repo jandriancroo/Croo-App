@@ -211,6 +211,7 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
           <div className="flex items-center gap-2">
             <Switch
               checked={!!monthlyRow?.is_active}
+              disabled={toggleMonthly.isPending}
               onCheckedChange={(v) => toggleMonthly.mutate(v)}
             />
             <div className="flex flex-col">

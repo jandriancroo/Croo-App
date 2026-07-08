@@ -53,7 +53,7 @@ export default function GeniusOrderCoachSheet({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
-        .select("id, name, common_label, vendor_name_normalized, unit, is_active")
+        .select("id, name, common_label, vendor_name_normalized, unit, is_active, case_qty")
         .eq("location_id", locationId)
         .eq("is_active", true);
       if (error) throw error;
@@ -104,9 +104,11 @@ export default function GeniusOrderCoachSheet({
 
   const { data: receipts, isLoading: receiptsLoading } = useQuery({
     queryKey: ["lite-receipts-for-genius", locationId],
-    enabled: open,
+    enabled: open && !!items,
     queryFn: async (): Promise<UsageReceipt[]> => {
-      // Pull last 120 days of invoices + their matched line items
+      // Pull last 120 days of invoices + their matched line items.
+      // Invoice line `quantity` is in CASES; counts are stored in inner units
+      // (cases × case_qty + inner). Convert here so both sides speak the same unit.
       const cutoff = DateTime.now().minus({ days: 120 }).toFormat("yyyy-MM-dd");
       const { data: invs, error } = await supabase
         .from("lite_vendor_invoices" as any)
@@ -125,12 +127,24 @@ export default function GeniusOrderCoachSheet({
         .in("invoice_id", Array.from(invMap.keys()))
         .not("matched_item_id", "is", null);
       if (e2) throw e2;
+
+      // item_id -> case_qty (defaults to 1 for single-mode items)
+      const caseQtyById = new Map<string, number>();
+      (items || []).forEach((it: any) => {
+        const cq = Number(it.case_qty ?? 0);
+        caseQtyById.set(it.id, cq > 0 ? cq : 1);
+      });
+
       return (lines as any[])
-        .map((l) => ({
-          item_id: l.matched_item_id as string,
-          received_on: invMap.get(l.invoice_id) as string,
-          quantity: Number(l.quantity ?? 0),
-        }))
+        .map((l) => {
+          const perCase = caseQtyById.get(l.matched_item_id) ?? 1;
+          const cases = Number(l.quantity ?? 0);
+          return {
+            item_id: l.matched_item_id as string,
+            received_on: invMap.get(l.invoice_id) as string,
+            quantity: cases * perCase,
+          };
+        })
         .filter((r) => !!r.received_on && r.quantity > 0);
     },
   });
