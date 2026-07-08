@@ -24,12 +24,14 @@ import {
   alohaLogin,
   fetchAlohaGridCsv,
   fetchAlohaHourly,
+  fetchAlohaMenu,
   fetchAlohaTickers,
   fetchAlohaYesterdayReport,
   parseAlohaGridCsv,
   type AlohaGridRow,
   type AlohaTickerRow,
 } from "../_shared/aloha-portal.ts";
+
 
 function paddedHour(h: number): string {
   return `${String(h).padStart(2, "0")}:00`;
