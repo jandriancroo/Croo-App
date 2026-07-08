@@ -314,9 +314,21 @@ async function augmentWithDrilldowns(
         })),
         total_tips: pmts.totalTips,
       };
+      // Backfill checkCount from payments when base didn't provide it.
+      if (!payload.checkCount) {
+        payload.checkCount = pmts.tenders.reduce((s, t) => s + (t.count || 0), 0);
+      }
     }
   } catch (e) {
     console.warn(`[aloha-sync] payments fetch failed for ${date}:`, (e as Error).message);
+  }
+  // Backfill netSales from hourly sum when base didn't provide it (e.g. CSV
+  // grid failed with HTTP 500 on historical dates).
+  if (!payload.netSales && payload.hourly.length) {
+    payload.netSales = payload.hourly.reduce((s, h) => s + (h.sales || 0), 0);
+  }
+  if (!payload.avgTicket && payload.checkCount > 0) {
+    payload.avgTicket = payload.netSales / payload.checkCount;
   }
   try {
     const lab = await fetchAlohaLabor(session, portalUrl, storeID, storeName, date);
@@ -354,13 +366,29 @@ async function fetchAlohaDay(
 
   // Always resolve storeID + canonical storeName via getTickers first so we
   // can drive drill-down endpoints on ANY base path (ticker, yesterday, CSV).
+  // We query BOTH the target date (for the ticker fast path) and today (as a
+  // guaranteed storeID resolver — the historical ticker often returns [] but
+  // today's does not).
   let matched: AlohaTickerRow | undefined;
   let tickers: AlohaTickerRow[] = [];
   try {
     tickers = await fetchAlohaTickers(session, creds.portal_url, date);
     matched = matchTickerRow(tickers, creds.store_id, locationName);
+    console.log(`[aloha-sync] tickers[${date}]: ${tickers.length} rows, matched=${matched?.storeName ?? "none"} (id=${matched?.storeID ?? 0})`);
   } catch (e) {
     console.warn(`[aloha-sync] getTickers failed for ${date}:`, (e as Error).message);
+  }
+  let resolvedStoreID = matched?.storeID ?? 0;
+  let resolvedStoreName = matched?.storeName ?? locationName;
+  if (!resolvedStoreID) {
+    try {
+      const todayTickers = await fetchAlohaTickers(session, creds.portal_url, todayInTz(tz));
+      const t = matchTickerRow(todayTickers, creds.store_id, locationName);
+      console.log(`[aloha-sync] fallback today tickers: ${todayTickers.length} rows [${todayTickers.map(x => `${x.storeID}:${x.storeName}`).join(" | ")}], matched=${t?.storeName ?? "none"} (id=${t?.storeID ?? 0})`);
+      if (t) { resolvedStoreID = t.storeID; resolvedStoreName = t.storeName; }
+    } catch (e) {
+      console.warn(`[aloha-sync] today-ticker storeID lookup failed:`, (e as Error).message);
+    }
   }
 
   let payload: AlohaDayPayload | undefined;
@@ -419,54 +447,67 @@ async function fetchAlohaDay(
 
 
   // ── Base path 3: Historical/backfill via CSV grid export. ──
+  // The Aloha portal's createGridSummaryFile endpoint frequently returns HTTP
+  // 500 for older dates. Treat CSV failure as non-fatal — build an empty base
+  // payload and rely on the DDV drill-downs (hourly / menu / payments / labor)
+  // that follow. Net sales, guest count, and check count are then derived from
+  // those drill-downs (hourly sum for sales; payments sum for check counts).
   if (!payload) {
-    const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
-    const { stores } = parseAlohaGridCsv(csv);
-    if (stores.length === 0) {
-      throw new Error(`Aloha returned no rows for ${date} — CSV empty`);
+    try {
+      const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
+      const { stores } = parseAlohaGridCsv(csv);
+      if (stores.length > 0) {
+        const target = normalizeName(creds.store_id || locationName);
+        let row: AlohaGridRow | undefined = stores.find((s) => normalizeName(s.StoreName) === target);
+        if (!row && stores.length === 1) row = stores[0];
+        if (row) {
+          payload = {
+            netSales: row.NetSales,
+            guestCount: row.GuestCount,
+            checkCount: row.CheckCount,
+            avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
+            ppa: row.PPA,
+            compCount: row.CompCount,
+            compDollars: row.CompDollars,
+            promoCount: row.PromoCount,
+            promoDollars: row.PromoDollars,
+            voidCount: row.VoidCount,
+            voidDollars: row.VoidDollars,
+            hourly: [],
+            productMix: [],
+            paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
+            labor: {
+              total_hours: row.LaborHours,
+              total_cost: row.LaborDollars,
+              labor_percent: row.LaborPercent,
+              sales_per_labor_hour: row.SalesPerLaborHour,
+              hourly: [],
+            },
+          };
+        }
+      }
+    } catch (e) {
+      console.warn(`[aloha-sync] CSV grid failed for ${date}, falling back to drill-downs only:`, (e as Error).message);
     }
-    const target = normalizeName(creds.store_id || locationName);
-    let row: AlohaGridRow | undefined = stores.find((s) => normalizeName(s.StoreName) === target);
-    if (!row && stores.length === 1) row = stores[0];
-    if (!row) {
-      const known = stores.map((s) => s.StoreName).join(", ");
-      throw new Error(
-        `Aloha: no store row matched "${creds.store_id || locationName}". ` +
-        `Available: ${known}. Update the Store ID field on the integration card to one of these names.`,
-      );
-    }
+  }
+
+  // Empty base payload — DDV drill-downs below will populate it.
+  if (!payload) {
     payload = {
-      netSales: row.NetSales,
-      guestCount: row.GuestCount,
-      checkCount: row.CheckCount,
-      avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
-      ppa: row.PPA,
-      compCount: row.CompCount,
-      compDollars: row.CompDollars,
-      promoCount: row.PromoCount,
-      promoDollars: row.PromoDollars,
-      voidCount: row.VoidCount,
-      voidDollars: row.VoidDollars,
-      hourly: [],
-      productMix: [],
+      netSales: 0, guestCount: 0, checkCount: 0, avgTicket: 0, ppa: 0,
+      compCount: 0, compDollars: 0, promoCount: 0, promoDollars: 0,
+      voidCount: 0, voidDollars: 0,
+      hourly: [], productMix: [],
       paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
-      labor: {
-        total_hours: row.LaborHours,
-        total_cost: row.LaborDollars,
-        labor_percent: row.LaborPercent,
-        sales_per_labor_hour: row.SalesPerLaborHour,
-        hourly: [],
-      },
+      labor: { total_hours: 0, total_cost: 0, labor_percent: 0, sales_per_labor_hour: 0, hourly: [] },
     };
   }
 
-  // Always attempt drill-down augmentation when we have the store identity.
-  // Resolution order: ticker match → today's tickers (for historical dates) →
-  // leading digits in creds.store_id → leading digits in the yesterday-report
-  // store name. All Aloha DDV drill-downs need the numeric StoreID.
-  let storeID = matched?.storeID ?? 0;
-  let storeName = matched?.storeName ?? locationName;
-
+  // storeID/storeName were resolved upfront (target-date ticker or today
+  // fallback). Fall back further to leading digits from creds or the
+  // yesterday-report store name if both ticker queries came back empty.
+  let storeID = resolvedStoreID;
+  let storeName = resolvedStoreName;
   if (!storeID) {
     const leading = (s: string | null | undefined) => {
       const mm = (s ?? "").trim().match(/^(\d+)/);
@@ -474,25 +515,14 @@ async function fetchAlohaDay(
     };
     storeID = leading(creds.store_id);
     if (!storeID) {
-      // Yesterday-report path exposes the canonical "4274 BWW GO ..." names.
-      // Reuse that string when present so we send the exact BaseName Aloha expects.
       const store = payload.storeBreakdown?.[0]?.store;
       if (store) {
         storeID = leading(store);
         if (storeID) storeName = store;
       }
     }
-    if (!storeID) {
-      // Last resort — hit today's tickers to resolve the numeric ID.
-      try {
-        const todayTickers = await fetchAlohaTickers(session, creds.portal_url, todayInTz(tz));
-        const t = matchTickerRow(todayTickers, creds.store_id, locationName);
-        if (t) { storeID = t.storeID; storeName = t.storeName; }
-      } catch (e) {
-        console.warn(`[aloha-sync] today-ticker storeID lookup failed:`, (e as Error).message);
-      }
-    }
   }
+
 
   if (storeID > 0) {
     await augmentWithDrilldowns(session, creds.portal_url, storeID, storeName, date, payload);
