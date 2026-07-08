@@ -320,6 +320,7 @@ async function fetchAlohaDay(
               name: it.name,
               quantity: it.quantity,
               gross: it.itemSales,
+              category_id: it.category,
             }));
         }
       } catch (e) {
