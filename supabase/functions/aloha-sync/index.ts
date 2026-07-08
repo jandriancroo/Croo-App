@@ -274,13 +274,23 @@ async function fetchAlohaDay(
   return {
     netSales: row.NetSales,
     guestCount: row.GuestCount,
+    checkCount: row.CheckCount,
     avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
+    ppa: row.PPA,
+    compCount: row.CompCount,
+    compDollars: row.CompDollars,
+    promoCount: row.PromoCount,
+    promoDollars: row.PromoDollars,
+    voidCount: row.VoidCount,
+    voidDollars: row.VoidDollars,
     hourly: [],
     productMix: [],
     paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
     labor: {
       total_hours: row.LaborHours,
       total_cost: row.LaborDollars,
+      labor_percent: row.LaborPercent,
+      sales_per_labor_hour: row.SalesPerLaborHour,
       hourly: [],
     },
   };
