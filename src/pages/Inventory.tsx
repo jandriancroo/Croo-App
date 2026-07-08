@@ -578,7 +578,7 @@ const Inventory = () => {
         <SandboxPostDeployBanner />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full grid-cols-3`}>
+          <TabsList className={`grid w-full ${isLite ? "grid-cols-4" : "grid-cols-3"}`}>
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -588,10 +588,16 @@ const Inventory = () => {
               <span>Items</span>
             </TabsTrigger>
             {isLite ? (
-              <TabsTrigger value="invoices" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                <span>Invoices</span>
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="invoices" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>Invoices</span>
+                </TabsTrigger>
+                <TabsTrigger value="genius" className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Genius</span>
+                </TabsTrigger>
+              </>
             ) : (
               <TabsTrigger value="pricing" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
@@ -634,9 +640,14 @@ const Inventory = () => {
           </TabsContent>
 
           {isLite ? (
-            <TabsContent value="invoices" className="mt-4 space-y-4">
-              <LiteInvoicesList locationId={locationId!} />
-            </TabsContent>
+            <>
+              <TabsContent value="invoices" className="mt-4 space-y-4">
+                <LiteInvoicesList locationId={locationId!} />
+              </TabsContent>
+              <TabsContent value="genius" className="mt-4 space-y-4">
+                <GeniusOrderCoachPanel locationId={locationId!} timezone={timezone} />
+              </TabsContent>
+            </>
           ) : (
             <TabsContent value="pricing" className="mt-4 space-y-4">
               <MenuPricingCard locationId={locationId!} />
