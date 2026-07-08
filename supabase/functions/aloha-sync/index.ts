@@ -23,7 +23,7 @@ import {
 import {
   alohaLogin,
   fetchAlohaGridCsv,
-  fetchAlohaYesterday,
+  fetchAlohaYesterdayReport,
   parseAlohaGridCsv,
   type AlohaGridRow,
 } from "../_shared/aloha-portal.ts";
