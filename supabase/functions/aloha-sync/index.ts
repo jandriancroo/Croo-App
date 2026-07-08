@@ -23,10 +23,13 @@ import {
 import {
   alohaLogin,
   fetchAlohaGridCsv,
+  fetchAlohaTickers,
   fetchAlohaYesterdayReport,
   parseAlohaGridCsv,
   type AlohaGridRow,
+  type AlohaTickerRow,
 } from "../_shared/aloha-portal.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
