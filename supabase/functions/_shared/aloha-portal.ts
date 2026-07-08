@@ -709,6 +709,7 @@ export interface AlohaMenuItem {
   quantity: number;
   itemSales: number;
   percentOfDay: number;
+  category?: string;
 }
 
 export async function fetchAlohaMenu(
