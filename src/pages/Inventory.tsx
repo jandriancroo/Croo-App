@@ -551,23 +551,14 @@ const Inventory = () => {
                 </span>
               )}
             </Button>
-            <Button
-              size="icon"
-              className="h-10 w-10 rounded-xl"
-              onClick={handleStartCount}
-              title="New count"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
-            {isLite && (
+            {!isLite && (
               <Button
-                variant="outline"
                 size="icon"
                 className="h-10 w-10 rounded-xl"
-                onClick={() => setShowGenius(true)}
-                title="Genius Order Coach"
+                onClick={handleStartCount}
+                title="New count"
               >
-                <Sparkles className="h-5 w-5" />
+                <Plus className="h-5 w-5" />
               </Button>
             )}
             <Button
