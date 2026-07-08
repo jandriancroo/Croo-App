@@ -936,16 +936,47 @@ export async function fetchAlohaPayments(
 export function parseAlohaPaymentsHtml(html: string): {
   tenders: AlohaPaymentTender[]; totalTips: number;
 } {
-  const rows = parseDdvRows(html);
+  // Anchor on onClick="c(id,'name')". Column order per observed HTML:
+  //   name | count(Center) | spacer | amountTendered(right) | spacer |
+  //   tips(right) | spacer | totalTendered(right) | pct(right)
+  const strip = (s: string) =>
+    s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
   const tenders: AlohaPaymentTender[] = [];
   let totalTips = 0;
-  for (const { label, nums } of rows) {
-    // Expect at least count + amount; tips is optional (column may be absent).
-    // Observed order: [count, amount, tips, pct]
-    const count = nums[0] ?? 0;
-    const amount = nums[1] ?? 0;
-    const tips = nums.length >= 3 ? nums[2] : 0;
-    if (/^total/i.test(label)) { totalTips += 0; continue; }
+
+  const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(html)) !== null) {
+    const rowHtml = m[1];
+    const idMatch = rowHtml.match(/onClick="c\((\d+),'([^']+)'\)/i);
+    if (!idMatch) continue;
+    const label = idMatch[2];
+
+    const cells: Array<{ text: string; align: string }> = [];
+    const tdRe = /<td\b([^>]*)>([\s\S]*?)<\/td>/gi;
+    let tm: RegExpExecArray | null;
+    while ((tm = tdRe.exec(rowHtml)) !== null) {
+      const a = tm[1].match(/align\s*=\s*['"]?(\w+)['"]?/i);
+      cells.push({ text: strip(tm[2]), align: (a?.[1] || "").toLowerCase() });
+    }
+
+    // Count = first Center-aligned numeric.
+    let count = 0;
+    for (const c of cells) {
+      if (c.align === "center" && c.text) {
+        const v = n(c.text);
+        if (Number.isFinite(v)) { count = v; break; }
+      }
+    }
+    // Right-aligned numeric cells → [amount, tips, total, pct]
+    const rn: number[] = [];
+    for (const c of cells) {
+      if (c.align !== "right" || !c.text) continue;
+      const v = n(c.text);
+      if (Number.isFinite(v)) rn.push(v);
+    }
+    const amount = rn[0] ?? 0;
+    const tips = rn[1] ?? 0;
     tenders.push({ label, count, amount, tips });
     totalTips += tips;
   }
