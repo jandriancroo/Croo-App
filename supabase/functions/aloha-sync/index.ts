@@ -181,7 +181,7 @@ function normalizeName(s: string): string {
 async function fetchAlohaDay(
   creds: AlohaCreds,
   date: string,
-  _tz: string,
+  tz: string,
   locationName: string,
 ): Promise<AlohaDayPayload> {
   const session = await alohaLogin({
@@ -191,10 +191,33 @@ async function fetchAlohaDay(
     password: creds.password,
   });
 
-  // 5 = AllStores. Aloha date format on this deployment is YYYY-MM-DD.
+  const yesterday = addDays(todayInTz(tz), -1);
+
+  // Fast path: yesterday → InsightDashboard AllStores summary tiles.
+  // The portal's Grid-export servlet (creategridsummaryfile) requires
+  // additional session state that Aloha only wires up for interactive UI
+  // sessions, so we use the tile config for the daily job for now.
+  if (date === yesterday) {
+    const t = await fetchAlohaYesterday(session, creds.portal_url);
+    const avg = t.checkCount > 0 ? t.netSales / t.checkCount : (t.guestCount > 0 ? t.netSales / t.guestCount : 0);
+    return {
+      netSales: t.netSales,
+      guestCount: t.guestCount,
+      avgTicket: avg,
+      hourly: [],
+      productMix: [],
+      paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
+      labor: {
+        total_hours: 0,
+        total_cost: t.laborDollars,
+        hourly: [],
+      },
+    };
+  }
+
+  // Historical/backfill path: CSV grid export by date range.
   const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
   const { stores } = parseAlohaGridCsv(csv);
-
   if (stores.length === 0) {
     throw new Error(`Aloha returned no rows for ${date} — CSV empty`);
   }
@@ -216,11 +239,7 @@ async function fetchAlohaDay(
     avgTicket: row.CKAvg || (row.CheckCount > 0 ? row.NetSales / row.CheckCount : 0),
     hourly: [],
     productMix: [],
-    paymentsData: {
-      source: "aloha",
-      tenders: [],
-      total_tips: 0,
-    },
+    paymentsData: { source: "aloha", tenders: [], total_tips: 0 },
     labor: {
       total_hours: row.LaborHours,
       total_cost: row.LaborDollars,
