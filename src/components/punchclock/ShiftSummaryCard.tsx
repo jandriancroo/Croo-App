@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
 import { Badge } from '@/components/ui/badge';
-import { Clock, Coffee, LogOut, Play, Check, ArrowLeft } from 'lucide-react';
+import { Clock, Coffee, LogOut, Play, Check, ArrowLeft, DoorOpen } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
