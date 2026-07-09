@@ -358,6 +358,20 @@ export function ShiftSummaryCard({
               )}
             </div>
 
+            {/* Manager-only: Exit Punch Clock */}
+            {canExitPunchClock && (
+              <Button
+                variant="outline"
+                className="w-full h-12 text-base border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={onExitPunchClock}
+              >
+                <DoorOpen className="mr-2 h-5 w-5" />
+                Exit Punch Clock
+              </Button>
+            )}
+
+
+
             {/* Break History */}
             {breaks.length > 0 && (
               <div className="space-y-2 pt-2">
