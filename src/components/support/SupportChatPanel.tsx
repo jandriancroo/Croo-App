@@ -92,6 +92,66 @@ const QUICK_REPLIES: QuickReply[] = [
   { label: "Resolved", message: "This issue has been resolved. Please let us know if you experience any further problems!", status: 'resolved', variant: 'secondary' },
 ];
 
+const STATUS_DOT: Record<string, string> = {
+  open: 'bg-yellow-500',
+  in_progress: 'bg-blue-500',
+  resolved: 'bg-green-500',
+};
+
+const formatTicketNum = (num: number) => `#SUP-${String(num).padStart(3, '0')}`;
+
+function TicketRow({
+  ticket,
+  onClick,
+  active = false,
+}: {
+  ticket: SupportTicket;
+  onClick: () => void;
+  active?: boolean;
+}) {
+  const StatusIcon = ticket.status === 'resolved' ? CheckCheck : ticket.status === 'in_progress' ? Zap : Clock;
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors ${
+        active ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/60'
+      }`}
+    >
+      <div className="relative shrink-0">
+        <Avatar className="h-11 w-11">
+          <AvatarImage src={ticket.profiles?.profile_photo_url || ''} />
+          <AvatarFallback>
+            <User className="h-5 w-5" />
+          </AvatarFallback>
+        </Avatar>
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-background flex items-center justify-center ${STATUS_DOT[ticket.status]}`}
+          title={ticket.status.replace('_', ' ')}
+        >
+          <StatusIcon className="h-2 w-2 text-white" strokeWidth={3} />
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold truncate">{ticket.profiles?.full_name || 'Unknown'}</p>
+          <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+            {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: false })}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+          <span className="font-mono text-[10px] text-primary shrink-0">
+            {formatTicketNum(ticket.ticket_number)}
+          </span>
+          <span className="text-muted-foreground/40 text-[10px]">·</span>
+          <span className="text-xs text-muted-foreground truncate">
+            {CATEGORY_LABELS[ticket.category] || ticket.category}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export function SupportChatPanel() {
   const { isSuperAdmin } = useUserRole();
   // Panel is always narrow (rendered inside slideover), so use single-column list-or-chat layout
