@@ -562,34 +562,13 @@ export function SupportChatPanel() {
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="divide-y divide-border/50 px-1">
+          <div className="px-2 py-1">
             {tickets.map((ticket) => (
-              <button
+              <TicketRow
                 key={ticket.id}
+                ticket={ticket}
                 onClick={() => setSelectedTicket(ticket)}
-                className={`w-full px-3 py-3 text-left transition-all border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} hover:bg-muted/50`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-mono text-xs font-semibold text-primary">
-                        {formatTicketId(ticket.ticket_number)}
-                      </span>
-                      <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[ticket.status]}`}>
-                        {ticket.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-semibold truncate">{ticket.profiles?.full_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {CATEGORY_LABELS[ticket.category] || ticket.category}
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                    {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{ticket.description}</p>
-              </button>
+              />
             ))}
           </div>
         </ScrollArea>
