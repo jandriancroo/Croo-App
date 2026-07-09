@@ -161,20 +161,20 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side={isMobile ? 'bottom' : 'right'}
-          className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden'}
+          className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl [&_[data-radix-dialog-close]]:text-primary-foreground' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground'}
         >
-          <SheetHeader className="px-3 pt-4 pb-2 pr-12 border-b border-border shrink-0">
+          <SheetHeader className="px-3 pt-4 pb-2 pr-12 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
             <div className="flex items-center justify-between gap-2">
               {steps.length > 1 ? (
-                <Button variant="ghost" size="icon" onClick={goPrev} className="h-8 w-8 shrink-0">
+                <Button variant="ghost" size="icon" onClick={goPrev} className="h-8 w-8 shrink-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
               ) : <div className="h-8 w-8 shrink-0" />}
-              <SheetTitle className="flex items-center gap-2 text-base min-w-0 truncate">
+              <SheetTitle className="flex items-center gap-2 text-base min-w-0 truncate text-primary-foreground">
                 <Icon className="h-4 w-4 shrink-0" /> <span className="truncate">{current.label}</span>
               </SheetTitle>
               {steps.length > 1 ? (
-                <Button variant="ghost" size="icon" onClick={goNext} className="h-8 w-8 shrink-0">
+                <Button variant="ghost" size="icon" onClick={goNext} className="h-8 w-8 shrink-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : <div className="h-8 w-8 shrink-0" />}
@@ -184,7 +184,7 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
                 {steps.map(s => (
                   <span
                     key={s.id}
-                    className={`h-1 rounded-full transition-all ${s.id === step ? 'w-6 bg-primary' : 'w-1.5 bg-muted-foreground/30'}`}
+                    className={`h-1 rounded-full transition-all ${s.id === step ? 'w-6 bg-primary-foreground' : 'w-1.5 bg-primary-foreground/40'}`}
                   />
                 ))}
               </div>
