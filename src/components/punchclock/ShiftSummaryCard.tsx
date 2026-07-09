@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
 import { Badge } from '@/components/ui/badge';
-import { Clock, Coffee, LogOut, Play, Check, ArrowLeft } from 'lucide-react';
+import { Clock, Coffee, LogOut, Play, Check, ArrowLeft, DoorOpen } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -43,6 +43,8 @@ interface ShiftSummaryCardProps {
   isClockedIn: boolean;
   isOnBreak: boolean;
   isDayMode: boolean;
+  userRole?: string | null;
+  onExitPunchClock?: () => void;
 }
 
 interface BreakRecord {
@@ -70,7 +72,11 @@ export function ShiftSummaryCard({
   isClockedIn,
   isOnBreak,
   isDayMode,
+  userRole,
+  onExitPunchClock,
 }: ShiftSummaryCardProps) {
+  const canExitPunchClock = !!onExitPunchClock && !!userRole &&
+    ['manager', 'admin', 'org_admin', 'brand_admin', 'super_admin'].includes(userRole);
   const currentTime = useClock(1000);
   const [hoursWorked, setHoursWorked] = useState({ hours: 0, minutes: 0 });
   const [clockInTime, setClockInTime] = useState<Date | null>(null);
@@ -351,6 +357,20 @@ export function ShiftSummaryCard({
                 </div>
               )}
             </div>
+
+            {/* Manager-only: Exit Punch Clock */}
+            {canExitPunchClock && (
+              <Button
+                variant="outline"
+                className="w-full h-12 text-base border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={onExitPunchClock}
+              >
+                <DoorOpen className="mr-2 h-5 w-5" />
+                Exit Punch Clock
+              </Button>
+            )}
+
+
 
             {/* Break History */}
             {breaks.length > 0 && (
