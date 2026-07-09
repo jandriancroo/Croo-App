@@ -35,12 +35,22 @@ interface SupportTicket {
   created_at: string;
   resolved_at: string | null;
   resolution_notes: string | null;
+  is_system?: boolean;
   profiles?: {
     full_name: string;
     profile_photo_url: string | null;
     email: string;
   };
 }
+
+const SYSTEM_PROFILE = {
+  full_name: 'CrooHQ System',
+  profile_photo_url: '/croo-logo.png',
+  email: 'system@croohq.com',
+};
+
+const displayProfile = (ticket: { is_system?: boolean; profiles?: SupportTicket['profiles'] }) =>
+  ticket.is_system ? SYSTEM_PROFILE : ticket.profiles;
 
 interface SupportMessage {
   id: string;
@@ -110,18 +120,31 @@ function TicketRow({
   active?: boolean;
 }) {
   const StatusIcon = ticket.status === 'resolved' ? CheckCheck : ticket.status === 'in_progress' ? Zap : Clock;
+  const profile = displayProfile(ticket);
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors ${
-        active ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/60'
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group w-full flex items-center gap-3 px-3 py-3 transition-colors text-left cursor-pointer select-none ${
+        active
+          ? 'bg-accent text-accent-foreground'
+          : ticket.status !== 'resolved'
+          ? 'hover:bg-muted/50'
+          : 'hover:bg-muted/40'
       }`}
     >
       <div className="relative shrink-0">
-        <Avatar className="h-11 w-11">
-          <AvatarImage src={ticket.profiles?.profile_photo_url || ''} />
-          <AvatarFallback>
-            <User className="h-5 w-5" />
+        <Avatar className="h-12 w-12">
+          <AvatarImage src={profile?.profile_photo_url || ''} />
+          <AvatarFallback className="text-lg font-medium">
+            {ticket.is_system ? 'C' : profile?.full_name?.charAt(0) || <User className="h-5 w-5" />}
           </AvatarFallback>
         </Avatar>
         <span
@@ -132,23 +155,25 @@ function TicketRow({
         </span>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold truncate">{ticket.profiles?.full_name || 'Unknown'}</p>
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+        <div className="flex items-center gap-2">
+          <p className="flex-1 min-w-0 truncate text-[15px] font-medium">
+            {profile?.full_name || 'Unknown'}
+          </p>
+          <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">
             {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: false })}
           </span>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-          <span className="font-mono text-[10px] text-primary shrink-0">
+          <span className="font-mono text-[11px] text-primary shrink-0">
             {formatTicketNum(ticket.ticket_number)}
           </span>
-          <span className="text-muted-foreground/40 text-[10px]">·</span>
-          <span className="text-xs text-muted-foreground truncate">
+          <span className="text-muted-foreground/40 text-[11px]">·</span>
+          <span className="text-[13px] text-muted-foreground truncate">
             {CATEGORY_LABELS[ticket.category] || ticket.category}
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -429,14 +454,14 @@ export function SupportChatPanel() {
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={selectedTicket.profiles?.profile_photo_url || ''} />
+                  <AvatarImage src={displayProfile(selectedTicket)?.profile_photo_url || ''} />
                   <AvatarFallback>
-                    <User className="h-4 w-4" />
+                    {selectedTicket.is_system ? 'C' : <User className="h-4 w-4" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm truncate">{selectedTicket.profiles?.full_name}</span>
+                    <span className="font-semibold text-sm truncate">{displayProfile(selectedTicket)?.full_name}</span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {formatTicketId(selectedTicket.ticket_number)}
                     </span>
@@ -622,7 +647,7 @@ export function SupportChatPanel() {
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="px-2 py-1">
+          <div className="divide-y divide-border/50 px-1">
             {tickets.map((ticket) => (
               <TicketRow
                 key={ticket.id}
@@ -650,7 +675,7 @@ export function SupportChatPanel() {
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="px-2 py-1">
+          <div className="divide-y divide-border/50 px-1">
             {tickets.map((ticket) => (
               <TicketRow
                 key={ticket.id}
@@ -672,19 +697,19 @@ export function SupportChatPanel() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={selectedTicket.profiles?.profile_photo_url || ''} />
+                    <AvatarImage src={displayProfile(selectedTicket)?.profile_photo_url || ''} />
                     <AvatarFallback>
-                      <User className="h-5 w-5" />
+                      {selectedTicket.is_system ? 'C' : <User className="h-5 w-5" />}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">{selectedTicket.profiles?.full_name}</span>
+                      <span className="font-semibold">{displayProfile(selectedTicket)?.full_name}</span>
                       <span className="font-mono text-xs text-muted-foreground">
                         {formatTicketId(selectedTicket.ticket_number)}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{selectedTicket.profiles?.email}</p>
+                    <p className="text-xs text-muted-foreground">{displayProfile(selectedTicket)?.email}</p>
                   </div>
                 </div>
                 {selectedTicket.status !== 'resolved' && (

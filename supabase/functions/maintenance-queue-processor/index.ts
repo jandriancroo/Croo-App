@@ -362,6 +362,7 @@ async function createSystemSupportTicket(
         category: "data_sync_issues",
         description: `${locationName} - System Alert: PFG integration token has expired and could not be refreshed after ${MAX_RETRIES} attempts. A manager needs to re-authenticate PFG in Settings → Integrations.\n\nError: ${errorMsg}`,
         occurrence_time: new Date().toISOString(),
+        is_system: true,
       })
       .select("id, ticket_number")
       .single();

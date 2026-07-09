@@ -2514,6 +2514,7 @@ async function handleHeadlessLoginFailed(supabase: any, body: any): Promise<Resp
       status: 'open',
       priority: 'high',
       category: 'integration',
+      is_system: true,
     });
   } catch (e) {
     console.warn('[PA Scraper] Could not create support ticket:', e);
