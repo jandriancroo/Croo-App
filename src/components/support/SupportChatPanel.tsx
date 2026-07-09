@@ -697,19 +697,19 @@ export function SupportChatPanel() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={selectedTicket.profiles?.profile_photo_url || ''} />
+                    <AvatarImage src={displayProfile(selectedTicket)?.profile_photo_url || ''} />
                     <AvatarFallback>
-                      <User className="h-5 w-5" />
+                      {selectedTicket.is_system ? 'C' : <User className="h-5 w-5" />}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">{selectedTicket.profiles?.full_name}</span>
+                      <span className="font-semibold">{displayProfile(selectedTicket)?.full_name}</span>
                       <span className="font-mono text-xs text-muted-foreground">
                         {formatTicketId(selectedTicket.ticket_number)}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{selectedTicket.profiles?.email}</p>
+                    <p className="text-xs text-muted-foreground">{displayProfile(selectedTicket)?.email}</p>
                   </div>
                 </div>
                 {selectedTicket.status !== 'resolved' && (
