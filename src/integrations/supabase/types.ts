@@ -10767,6 +10767,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          is_system: boolean
           occurrence_time: string | null
           resolution_notes: string | null
           resolved_at: string | null
@@ -10782,6 +10783,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          is_system?: boolean
           occurrence_time?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
@@ -10797,6 +10799,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          is_system?: boolean
           occurrence_time?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
