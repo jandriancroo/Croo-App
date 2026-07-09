@@ -637,14 +637,13 @@ export function SupportChatPanel() {
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 border-b bg-card">
-          <h2 className="font-semibold text-lg">Support Tickets</h2>
-          <p className="text-sm text-muted-foreground">
-            <span className="text-yellow-500 font-medium">{tickets.filter(t => t.status === 'open').length} open</span>
-            <span className="mx-2">•</span>
-            <span className="text-blue-500 font-medium">{tickets.filter(t => t.status === 'in_progress').length} in progress</span>
-            <span className="mx-2">•</span>
-            <span className="text-green-500 font-medium">{tickets.filter(t => t.status === 'resolved').length} resolved</span>
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {(['open', 'in_progress', 'resolved'] as const).map((status) => (
+              <Badge key={status} variant="outline" className={STATUS_COLORS[status]}>
+                {tickets.filter(t => t.status === status).length} {status.replace('_', ' ')}
+              </Badge>
+            ))}
+          </div>
         </div>
         <ScrollArea className="flex-1">
           <div className="divide-y divide-border/50 px-1">
