@@ -1302,7 +1302,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
         <QRTaskReportOverlay locationId={currentLocation.id} />
       )}
       
-      {/* Master code 0223 on keypad exits to dashboard */}
+      
 
       {!currentUser ? (
         <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
