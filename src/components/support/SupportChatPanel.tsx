@@ -675,7 +675,7 @@ export function SupportChatPanel() {
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="px-2 py-1">
+          <div className="divide-y divide-border/50 px-1">
             {tickets.map((ticket) => (
               <TicketRow
                 key={ticket.id}
