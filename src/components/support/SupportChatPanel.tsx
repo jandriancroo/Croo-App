@@ -94,7 +94,8 @@ const QUICK_REPLIES: QuickReply[] = [
 
 export function SupportChatPanel() {
   const { isSuperAdmin } = useUserRole();
-  const isMobile = useIsMobile();
+  // Panel is always narrow (rendered inside slideover), so use single-column list-or-chat layout
+  const isMobile = true;
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
