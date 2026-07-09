@@ -707,11 +707,6 @@ export default function PunchClock() {
       return;
     }
 
-    // Check for master exit code
-    if (pinValue === MASTER_EXIT_CODE) {
-      handleMasterExit();
-      return;
-    }
 
     const { data, error } = await supabase
       .from('profiles')
