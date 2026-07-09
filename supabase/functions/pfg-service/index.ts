@@ -287,6 +287,7 @@ async function maybeCreateChainBrokenTicket(
         category: 'broken_feature',
         description,
         occurrence_time: new Date().toISOString(),
+        is_system: true,
       });
 
     if (insertErr) {
