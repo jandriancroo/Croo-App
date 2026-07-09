@@ -35,12 +35,22 @@ interface SupportTicket {
   created_at: string;
   resolved_at: string | null;
   resolution_notes: string | null;
+  is_system?: boolean;
   profiles?: {
     full_name: string;
     profile_photo_url: string | null;
     email: string;
   };
 }
+
+const SYSTEM_PROFILE = {
+  full_name: 'CrooHQ System',
+  profile_photo_url: '/croo-logo.png',
+  email: 'system@croohq.com',
+};
+
+const displayProfile = (ticket: { is_system?: boolean; profiles?: SupportTicket['profiles'] }) =>
+  ticket.is_system ? SYSTEM_PROFILE : ticket.profiles;
 
 interface SupportMessage {
   id: string;
