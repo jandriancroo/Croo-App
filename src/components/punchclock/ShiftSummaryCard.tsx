@@ -43,6 +43,8 @@ interface ShiftSummaryCardProps {
   isClockedIn: boolean;
   isOnBreak: boolean;
   isDayMode: boolean;
+  userRole?: string | null;
+  onExitPunchClock?: () => void;
 }
 
 interface BreakRecord {
