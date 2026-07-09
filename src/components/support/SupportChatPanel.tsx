@@ -120,18 +120,31 @@ function TicketRow({
   active?: boolean;
 }) {
   const StatusIcon = ticket.status === 'resolved' ? CheckCheck : ticket.status === 'in_progress' ? Zap : Clock;
+  const profile = displayProfile(ticket);
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors ${
-        active ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/60'
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group w-full flex items-center gap-3 px-3 py-3 transition-colors text-left cursor-pointer select-none ${
+        active
+          ? 'bg-accent text-accent-foreground'
+          : ticket.status !== 'resolved'
+          ? 'hover:bg-muted/50'
+          : 'hover:bg-muted/40'
       }`}
     >
       <div className="relative shrink-0">
-        <Avatar className="h-11 w-11">
-          <AvatarImage src={ticket.profiles?.profile_photo_url || ''} />
-          <AvatarFallback>
-            <User className="h-5 w-5" />
+        <Avatar className="h-12 w-12">
+          <AvatarImage src={profile?.profile_photo_url || ''} />
+          <AvatarFallback className="text-lg font-medium">
+            {ticket.is_system ? 'C' : profile?.full_name?.charAt(0) || <User className="h-5 w-5" />}
           </AvatarFallback>
         </Avatar>
         <span
@@ -142,23 +155,25 @@ function TicketRow({
         </span>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold truncate">{ticket.profiles?.full_name || 'Unknown'}</p>
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+        <div className="flex items-center gap-2">
+          <p className="flex-1 min-w-0 truncate text-[15px] font-medium">
+            {profile?.full_name || 'Unknown'}
+          </p>
+          <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">
             {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: false })}
           </span>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-          <span className="font-mono text-[10px] text-primary shrink-0">
+          <span className="font-mono text-[11px] text-primary shrink-0">
             {formatTicketNum(ticket.ticket_number)}
           </span>
-          <span className="text-muted-foreground/40 text-[10px]">·</span>
-          <span className="text-xs text-muted-foreground truncate">
+          <span className="text-muted-foreground/40 text-[11px]">·</span>
+          <span className="text-[13px] text-muted-foreground truncate">
             {CATEGORY_LABELS[ticket.category] || ticket.category}
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
