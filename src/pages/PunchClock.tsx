@@ -258,7 +258,7 @@ export default function PunchClock() {
     fetchBrandLogo();
   }, [currentLocation?.organization_id]);
 
-  const MASTER_EXIT_CODE = '0223';
+  
 
   const handleMasterExit = async () => {
     // Exit fullscreen before navigating away
