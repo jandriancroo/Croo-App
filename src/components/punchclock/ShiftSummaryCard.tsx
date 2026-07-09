@@ -76,7 +76,7 @@ export function ShiftSummaryCard({
   onExitPunchClock,
 }: ShiftSummaryCardProps) {
   const canExitPunchClock = !!onExitPunchClock && !!userRole &&
-    ['manager', 'general_manager', 'assistant_manager', 'admin', 'owner', 'super_admin'].includes(userRole);
+    ['manager', 'admin', 'org_admin', 'brand_admin', 'super_admin'].includes(userRole);
   const currentTime = useClock(1000);
   const [hoursWorked, setHoursWorked] = useState({ hours: 0, minutes: 0 });
   const [clockInTime, setClockInTime] = useState<Date | null>(null);
