@@ -454,14 +454,14 @@ export function SupportChatPanel() {
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={selectedTicket.profiles?.profile_photo_url || ''} />
+                  <AvatarImage src={displayProfile(selectedTicket)?.profile_photo_url || ''} />
                   <AvatarFallback>
-                    <User className="h-4 w-4" />
+                    {selectedTicket.is_system ? 'C' : <User className="h-4 w-4" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm truncate">{selectedTicket.profiles?.full_name}</span>
+                    <span className="font-semibold text-sm truncate">{displayProfile(selectedTicket)?.full_name}</span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {formatTicketId(selectedTicket.ticket_number)}
                     </span>
