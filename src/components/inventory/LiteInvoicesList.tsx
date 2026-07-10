@@ -81,17 +81,18 @@ export default function LiteInvoicesList({ locationId }: Props) {
   const { data: lineCounts } = useQuery({
     queryKey: ["lite-invoice-line-counts", locationId, invoices?.length],
     enabled: !!invoices && invoices.length > 0,
-    queryFn: async (): Promise<Map<string, { total: number; fuzzy: number }>> => {
+    queryFn: async (): Promise<Map<string, { total: number; fuzzy: number; items: number }>> => {
       const ids = (invoices || []).map((i) => i.id);
       if (ids.length === 0) return new Map();
       const { data } = await supabase
         .from("lite_vendor_invoice_items" as any)
-        .select("invoice_id, match_status")
+        .select("invoice_id, match_status, quantity")
         .in("invoice_id", ids);
-      const counts = new Map<string, { total: number; fuzzy: number }>();
+      const counts = new Map<string, { total: number; fuzzy: number; items: number }>();
       (data as any[] | null)?.forEach((r) => {
-        const c = counts.get(r.invoice_id) || { total: 0, fuzzy: 0 };
+        const c = counts.get(r.invoice_id) || { total: 0, fuzzy: 0, items: 0 };
         c.total += 1;
+        c.items += Number(r.quantity) || 0;
         if (r.match_status === "fuzzy") c.fuzzy += 1;
         counts.set(r.invoice_id, c);
       });
