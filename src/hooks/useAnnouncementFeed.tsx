@@ -323,7 +323,46 @@ export function useAnnouncementFeed(
       }).select().single();
       if (error) throw error;
 
+      // Fire push notification to channel audience (fire-and-forget).
+      // The DB trigger backup requires vault secrets that may not be set,
+      // so we invoke the edge function directly from the client for reliability.
+      try {
+        const { data: recipients } = await supabase.rpc('feed_channel_audience_recipients', {
+          _location_id: locationId,
+          _channel_id: channelId,
+        });
+        const userIds = ((recipients as any[]) || [])
+          .map((r) => r.user_id)
+          .filter((id: string) => id && id !== user.id);
+        if (userIds.length > 0) {
+          const senderName =
+            (user.user_metadata as any)?.nickname ||
+            (user.user_metadata as any)?.full_name ||
+            'Team';
+          const preview = (body || 'Shared a post').slice(0, 140);
+          supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: userIds,
+              sender_id: user.id,
+              location_id: locationId,
+              title: senderName,
+              body: preview,
+              notification_type: isAnnouncement ? 'announcements' : 'chat_messages',
+              data: {
+                post_id: (data as any)?.id,
+                location_id: locationId,
+                channel_id: channelId,
+                type: isAnnouncement ? 'announcement' : 'feed_post',
+              },
+            },
+          }).catch((e) => console.warn('feed push failed', e));
+        }
+      } catch (e) {
+        console.warn('feed push dispatch skipped', e);
+      }
+
       return data;
+
     },
     onSuccess: () => {
       toast.success('Posted');
