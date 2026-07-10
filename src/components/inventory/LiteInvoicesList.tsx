@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { FileText, Upload, Loader2, ExternalLink, ChevronRight } from "lucide-react";
+import { DateTime } from "luxon";
 import { toast } from "sonner";
 import LiteInvoiceUploadDialog from "./LiteInvoiceUploadDialog";
 import PackSizeInlineEdit from "./PackSizeInlineEdit";
@@ -80,17 +81,18 @@ export default function LiteInvoicesList({ locationId }: Props) {
   const { data: lineCounts } = useQuery({
     queryKey: ["lite-invoice-line-counts", locationId, invoices?.length],
     enabled: !!invoices && invoices.length > 0,
-    queryFn: async (): Promise<Map<string, { total: number; fuzzy: number }>> => {
+    queryFn: async (): Promise<Map<string, { total: number; fuzzy: number; items: number }>> => {
       const ids = (invoices || []).map((i) => i.id);
       if (ids.length === 0) return new Map();
       const { data } = await supabase
         .from("lite_vendor_invoice_items" as any)
-        .select("invoice_id, match_status")
+        .select("invoice_id, match_status, quantity")
         .in("invoice_id", ids);
-      const counts = new Map<string, { total: number; fuzzy: number }>();
+      const counts = new Map<string, { total: number; fuzzy: number; items: number }>();
       (data as any[] | null)?.forEach((r) => {
-        const c = counts.get(r.invoice_id) || { total: 0, fuzzy: 0 };
+        const c = counts.get(r.invoice_id) || { total: 0, fuzzy: 0, items: 0 };
         c.total += 1;
+        c.items += Number(r.quantity) || 0;
         if (r.match_status === "fuzzy") c.fuzzy += 1;
         counts.set(r.invoice_id, c);
       });
@@ -106,21 +108,79 @@ export default function LiteInvoicesList({ locationId }: Props) {
   const fmtMoney = (n: number | null) =>
     n == null ? "—" : `$${Number(n).toFixed(2)}`;
 
+  const fmtDate = (d: string | null) => {
+    if (!d) return "—";
+    const parsed = DateTime.fromFormat(d.slice(0, 10), "yyyy-MM-dd");
+    return parsed.isValid ? parsed.toFormat("MM/dd/yy") : d;
+  };
+
+  // Group invoices by vendor for sub-tabs
+  const vendorGroups = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; invoices: LiteInvoice[] }>();
+    (invoices || []).forEach((inv) => {
+      const label = inv.vendor_name?.trim() || "Unknown vendor";
+      const key = label.toLowerCase();
+      const g = map.get(key) || { key, label, invoices: [] };
+      g.invoices.push(inv);
+      map.set(key, g);
+    });
+    return Array.from(map.values()).sort((a, b) => b.invoices.length - a.invoices.length);
+  }, [invoices]);
+
+  const [activeVendor, setActiveVendor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!activeVendor && vendorGroups.length > 0) {
+      setActiveVendor(vendorGroups[0].key);
+    } else if (activeVendor && !vendorGroups.some((g) => g.key === activeVendor)) {
+      setActiveVendor(vendorGroups[0]?.key ?? null);
+    }
+  }, [vendorGroups, activeVendor]);
+
+  const visibleInvoices = useMemo(
+    () => vendorGroups.find((g) => g.key === activeVendor)?.invoices ?? [],
+    [vendorGroups, activeVendor]
+  );
+
   return (
     <>
       <Card className="overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border/50">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            <h3 className="text-sm font-semibold truncate">
               Invoices ({invoices?.length ?? 0})
             </h3>
           </div>
-          <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2">
+          <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-2 shrink-0">
             <Upload className="h-4 w-4" />
-            Upload Invoice
+            <span className="hidden sm:inline">Upload Invoice</span>
+            <span className="sm:hidden">Upload</span>
           </Button>
         </div>
+
+        {vendorGroups.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto px-2 py-2 border-b border-border/50 scrollbar-none">
+            {vendorGroups.map((g) => {
+              const active = g.key === activeVendor;
+              return (
+                <button
+                  key={g.key}
+                  onClick={() => setActiveVendor(g.key)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {g.label}
+                  <span className={`ml-1.5 tabular-nums ${active ? "opacity-80" : "opacity-60"}`}>
+                    {g.invoices.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
@@ -140,47 +200,52 @@ export default function LiteInvoicesList({ locationId }: Props) {
           </div>
         ) : (
           <div className="divide-y divide-border/50">
-            {invoices!.map((inv) => (
-              <button
-                key={inv.id}
-                onClick={() => setOpenInvoiceId(inv.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 text-left"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium truncate">
-                      {inv.vendor_name || "Unknown vendor"}
-                    </span>
-                    {inv.status !== "parsed" && (
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                        {inv.status}
-                      </Badge>
+            {visibleInvoices.map((inv) => {
+              const counts = lineCounts?.get(inv.id);
+              const itemTotal = counts?.items ?? 0;
+              return (
+                <button
+                  key={inv.id}
+                  onClick={() => setOpenInvoiceId(inv.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 text-left"
+                >
+                  <div className="w-[68px] shrink-0 text-sm font-medium tabular-nums">
+                    {fmtDate(inv.invoice_date)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {inv.invoice_number ? `#${inv.invoice_number}` : "—"}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      {inv.status !== "parsed" && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                          {inv.status}
+                        </Badge>
+                      )}
+                      {(counts?.fuzzy ?? 0) > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] h-4 px-1.5 border-amber-500/50 text-amber-600 bg-amber-500/10"
+                        >
+                          {counts!.fuzzy} to review
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-semibold tabular-nums">
+                      {fmtMoney(inv.total_amount)}
+                    </div>
+                    {itemTotal > 0 && (
+                      <div className="text-[11px] text-muted-foreground tabular-nums">
+                        {Math.round(itemTotal).toLocaleString()} item{itemTotal === 1 ? "" : "s"}
+                      </div>
                     )}
-                    {(lineCounts?.get(inv.id)?.fuzzy ?? 0) > 0 && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] h-4 px-1.5 border-amber-500/50 text-amber-600 bg-amber-500/10"
-                      >
-                        {lineCounts!.get(inv.id)!.fuzzy} to review
-                      </Badge>
-                    )}
                   </div>
-                  <div className="text-[11px] text-muted-foreground truncate">
-                    {inv.invoice_date || "no date"}
-                    {inv.invoice_number ? ` • #${inv.invoice_number}` : ""}
-                    {lineCounts?.get(inv.id)?.total
-                      ? ` • ${lineCounts.get(inv.id)!.total} lines`
-                      : ""}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-sm font-semibold tabular-nums">
-                    {fmtMoney(inv.total_amount)}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+              );
+            })}
           </div>
         )}
       </Card>
