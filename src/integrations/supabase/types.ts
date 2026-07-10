@@ -12655,6 +12655,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      upsert_vault_secret: {
+        Args: { _name: string; _secret: string }
+        Returns: string
+      }
       upsert_vendor_gap_with_location: {
         Args: {
           _brand_id: string
