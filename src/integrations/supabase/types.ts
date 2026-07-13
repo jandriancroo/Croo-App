@@ -2156,6 +2156,35 @@ export type Database = {
           },
         ]
       }
+      checklist_user_tags: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_user_tags_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklists: {
         Row: {
           assigned_day_of_week: number | null
