@@ -23,7 +23,7 @@ interface Props {
   onSelectDate?: (date: string | null) => void;
 }
 
-export { expandDates };
+
 
 /** Expand a request into a list of yyyy-MM-dd date strings it covers. */
 export function expandDates(req: AvailabilityRequest): string[] {
