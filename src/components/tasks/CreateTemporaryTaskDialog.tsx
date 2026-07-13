@@ -173,7 +173,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
     setQrNotifyPunchClock(true);
     setShowQrDialog(false);
     setCreatedQrCode(null);
-    setAssignmentType("employees");
+    // (unified assignment picker — no separate mode)
     setSelectedEmployees([]);
     setSelectedRoles([]);
     setSubtasks([]);
