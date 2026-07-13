@@ -229,9 +229,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
       setQrAllowNotes(initialTemplate.qr_allow_notes ?? true);
       setQrNotifyPunchClock(initialTemplate.qr_notify_punch_clock ?? true);
       
-      // Assignment
-      if (initialTemplate.assignment_type === "roles" && initialTemplate.default_roles?.length > 0) {
-        setAssignmentType("roles");
+      // Assignment (roles default from template)
+      if (initialTemplate.default_roles?.length > 0) {
         setSelectedRoles(initialTemplate.default_roles);
       }
       
