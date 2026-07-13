@@ -300,6 +300,7 @@ export default function EditChecklist() {
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
   const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
   const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
