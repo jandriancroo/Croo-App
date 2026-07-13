@@ -91,7 +91,7 @@ export function DesktopTimeTrackingTable({
   }
 
   return (
-    <div className="border rounded-lg overflow-x-auto">
+    <div className="border rounded-lg overflow-x-auto bg-white dark:bg-card shadow-sm">
       <Table className="min-w-[700px]">
         <TableBody>
           {employeeData.map(({ card, weeks }) => (
