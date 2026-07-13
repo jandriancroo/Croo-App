@@ -43,6 +43,7 @@ export function useTasksData() {
         .select(`
           *,
           checklist_role_tags(role),
+          checklist_user_tags(user_id),
           checklist_items(id, days_of_week)
         `)
         .eq('location_id', currentLocation.id)
@@ -61,8 +62,11 @@ export function useTasksData() {
         if (!checklist.is_active) return false;
 
         const roleTags = checklist.checklist_role_tags;
-        const roleMatch = roleTags.length === 0 || roleTags.some((tag: any) => tag.role === userRole);
-        if (!roleMatch) return false;
+        const userTags = (checklist as any).checklist_user_tags ?? [];
+        const hasNoAudience = roleTags.length === 0 && userTags.length === 0;
+        const roleMatch = roleTags.some((tag: any) => tag.role === userRole);
+        const userMatch = userTags.some((t: any) => t.user_id === user!.id);
+        if (!(hasNoAudience || roleMatch || userMatch)) return false;
 
         if (checklist.template_type === 'dynamic') {
           const todayItems = checklist.checklist_items?.filter((item: any) =>

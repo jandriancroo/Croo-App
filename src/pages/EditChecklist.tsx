@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
+import { AssigneePicker } from '@/components/shared/AssigneePicker';
 
 interface ChecklistItem {
   id?: string;
@@ -299,6 +300,7 @@ export default function EditChecklist() {
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
   const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
   const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
@@ -371,6 +373,13 @@ export default function EditChecklist() {
 
       if (roleTagsError) throw roleTagsError;
 
+      const { data: userTags, error: userTagsError } = await supabase
+        .from('checklist_user_tags')
+        .select('user_id')
+        .eq('checklist_id', id);
+
+      if (userTagsError) throw userTagsError;
+
       setTitle(checklist.title);
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
@@ -386,6 +395,7 @@ export default function EditChecklist() {
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
+      setSelectedUserIds(userTags?.map(ut => ut.user_id) || []);
       setChecklistLocationId(checklist.location_id || null);
 
       // Fetch available positions
@@ -667,6 +677,24 @@ export default function EditChecklist() {
         if (roleTagsError) throw roleTagsError;
       }
 
+      // User tags (individual people granted access on top of role tags)
+      const { error: deleteUserTagsError } = await supabase
+        .from('checklist_user_tags')
+        .delete()
+        .eq('checklist_id', id);
+      if (deleteUserTagsError) throw deleteUserTagsError;
+
+      if (selectedUserIds.length > 0) {
+        const userTagsToInsert = selectedUserIds.map(user_id => ({
+          checklist_id: id!,
+          user_id,
+        }));
+        const { error: userTagsError } = await supabase
+          .from('checklist_user_tags')
+          .insert(userTagsToInsert);
+        if (userTagsError) throw userTagsError;
+      }
+
       toast({
         title: 'Success',
         description: 'Checklist updated successfully',
@@ -853,23 +881,15 @@ export default function EditChecklist() {
             </div>
 
             <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Assigned Roles</Label>
-                <div className="flex flex-wrap gap-2">
-                  {['admin', 'manager', 'shift_manager', 'team_member'].map((role) => (
-                    <label key={role} className="flex items-center gap-1 text-xs cursor-pointer">
-                      <Checkbox
-                        checked={selectedRoles.includes(role)}
-                        onCheckedChange={(checked) => {
-                          if (checked) setSelectedRoles([...selectedRoles, role]);
-                          else setSelectedRoles(selectedRoles.filter(r => r !== role));
-                        }}
-                      />
-                      {role === 'manager' ? 'Mgr' : role === 'shift_manager' ? 'Shift Mgr' : role === 'team_member' ? 'Team' : 'Admin'}
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <AssigneePicker
+                locationId={checklistLocationId}
+                selectedRoles={selectedRoles}
+                onRolesChange={setSelectedRoles}
+                selectedUserIds={selectedUserIds}
+                onUserIdsChange={setSelectedUserIds}
+                label="Visible to"
+                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+              />
             </div>
 
             {/* Toggle row */}

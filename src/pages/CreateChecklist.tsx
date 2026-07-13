@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
+import { AssigneePicker } from '@/components/shared/AssigneePicker';
 
 interface ChecklistItem {
   question: string;
@@ -41,6 +42,7 @@ export default function CreateChecklist() {
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
   const [items, setItems] = useState<ChecklistItem[]>([
     { question: '', item_type: 'confirmation', is_required: true }
@@ -114,6 +116,7 @@ export default function CreateChecklist() {
       setLockTimeEnabled(!!savedLockTime);
       setTemplateType(parsed.templateType ?? 'standard');
       setSelectedRoles(Array.isArray(parsed.selectedRoles) ? parsed.selectedRoles : []);
+      setSelectedUserIds(Array.isArray(parsed.selectedUserIds) ? parsed.selectedUserIds : []);
       setVisibleDaysBeforeMonthEnd(
         typeof parsed.visibleDaysBeforeMonthEnd === 'number' ? parsed.visibleDaysBeforeMonthEnd : 7
       );
@@ -137,13 +140,13 @@ export default function CreateChecklist() {
         JSON.stringify({
           title, description, frequency, dueByTime,
           lockUntilTime: lockTimeEnabled ? lockUntilTime : '',
-          templateType, selectedRoles, visibleDaysBeforeMonthEnd, items, bulkText,
+          templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText,
         })
       );
     } catch {
       // ignore storage errors
     }
-  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, visibleDaysBeforeMonthEnd, items, bulkText]);
+  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
 
   const clearDraft = () => {
     try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
@@ -335,6 +338,15 @@ export default function CreateChecklist() {
       if (roleTagsError) throw roleTagsError;
     }
 
+    if (selectedUserIds.length > 0) {
+      const userTagsToInsert = selectedUserIds.map((user_id) => ({
+        checklist_id: checklist.id,
+        user_id,
+      }));
+      const { error: userTagsError } = await supabase.from('checklist_user_tags').insert(userTagsToInsert);
+      if (userTagsError) throw userTagsError;
+    }
+
     clearDraft();
   };
 
@@ -367,6 +379,15 @@ export default function CreateChecklist() {
       }));
       const { error: roleTagsError } = await supabase.from('checklist_role_tags').insert(roleTagsToInsert);
       if (roleTagsError) throw roleTagsError;
+    }
+
+    if (selectedUserIds.length > 0) {
+      const userTagsToInsert = selectedUserIds.map((user_id) => ({
+        checklist_id: checklist.id,
+        user_id,
+      }));
+      const { error: userTagsError } = await supabase.from('checklist_user_tags').insert(userTagsToInsert);
+      if (userTagsError) throw userTagsError;
     }
 
     clearDraft();
@@ -443,41 +464,27 @@ export default function CreateChecklist() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Template Type</Label>
-                  <Select value={templateType} onValueChange={(value: any) => setTemplateType(value)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {templateType === 'dynamic' && <p className="text-[10px] text-muted-foreground">After creating, assign tasks to days on calendar</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Assigned Roles</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'admin', label: 'Admin' },
-                      { value: 'manager', label: 'Mgr' },
-                      { value: 'shift_manager', label: 'Shift Mgr' },
-                      { value: 'team_member', label: 'Team' },
-                    ].map((role) => (
-                      <label key={role.value} className="flex items-center gap-1 text-xs cursor-pointer">
-                        <Checkbox
-                          checked={selectedRoles.includes(role.value)}
-                          onCheckedChange={(checked) => {
-                            if (checked) setSelectedRoles([...selectedRoles, role.value]);
-                            else setSelectedRoles(selectedRoles.filter(r => r !== role.value));
-                          }}
-                        />
-                        {role.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Template Type</Label>
+                <Select value={templateType} onValueChange={(value: any) => setTemplateType(value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
+                  </SelectContent>
+                </Select>
+                {templateType === 'dynamic' && <p className="text-[10px] text-muted-foreground">After creating, assign tasks to days on calendar</p>}
               </div>
+
+              <AssigneePicker
+                locationId={currentLocation?.id}
+                selectedRoles={selectedRoles}
+                onRolesChange={setSelectedRoles}
+                selectedUserIds={selectedUserIds}
+                onUserIdsChange={setSelectedUserIds}
+                label="Visible to"
+                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+              />
 
               {/* Toggle row */}
               <div className="flex flex-wrap gap-4 pt-2 border-t">
