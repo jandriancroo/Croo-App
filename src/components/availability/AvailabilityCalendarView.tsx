@@ -21,7 +21,10 @@ interface Props {
   requests: AvailabilityRequest[];
   selectedDate?: string | null;
   onSelectDate?: (date: string | null) => void;
+  selectedWeek?: string | null;
+  onSelectWeek?: (weekStart: string | null) => void;
 }
+
 
 
 
