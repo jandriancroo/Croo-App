@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
+import { AssigneePicker } from '@/components/shared/AssigneePicker';
 
 interface ChecklistItem {
   id?: string;
