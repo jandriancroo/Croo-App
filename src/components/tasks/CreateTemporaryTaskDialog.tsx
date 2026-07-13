@@ -114,8 +114,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
   // QR code dialog state
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [createdQrCode, setCreatedQrCode] = useState<string | null>(null);
-  // Assignment
-  const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
+  // Assignment — roles auto-include their users; extras are added individually
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   
