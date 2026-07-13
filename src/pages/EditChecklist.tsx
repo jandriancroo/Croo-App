@@ -677,6 +677,24 @@ export default function EditChecklist() {
         if (roleTagsError) throw roleTagsError;
       }
 
+      // User tags (individual people granted access on top of role tags)
+      const { error: deleteUserTagsError } = await supabase
+        .from('checklist_user_tags')
+        .delete()
+        .eq('checklist_id', id);
+      if (deleteUserTagsError) throw deleteUserTagsError;
+
+      if (selectedUserIds.length > 0) {
+        const userTagsToInsert = selectedUserIds.map(user_id => ({
+          checklist_id: id!,
+          user_id,
+        }));
+        const { error: userTagsError } = await supabase
+          .from('checklist_user_tags')
+          .insert(userTagsToInsert);
+        if (userTagsError) throw userTagsError;
+      }
+
       toast({
         title: 'Success',
         description: 'Checklist updated successfully',
