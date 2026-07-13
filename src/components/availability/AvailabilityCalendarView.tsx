@@ -48,8 +48,8 @@ export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate 
 
   const monthStart = startOfMonth(cursor);
   const monthEnd = endOfMonth(cursor);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
   const days = useMemo(() => {
     const arr: Date[] = [];
