@@ -91,7 +91,7 @@ export function DesktopTimeTrackingTable({
   }
 
   return (
-    <div className="border rounded-lg overflow-x-auto">
+    <div className="border rounded-lg overflow-x-auto bg-white dark:bg-card shadow-sm">
       <Table className="min-w-[700px]">
         <TableBody>
           {employeeData.map(({ card, weeks }) => (
@@ -169,8 +169,8 @@ export function DesktopTimeTrackingTable({
                     const hasAnyFlag = flags.hasAnyFlag;
                     const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
                     
-                    // Alternating row colors for visual separation
-                    const rowBg = dayIdx % 2 === 0 ? '' : 'bg-muted/10';
+                    // Alternating row colors for visual separation (zebra striping on white card)
+                    const rowBg = dayIdx % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50 dark:bg-muted/10';
 
                     // Format scheduled time for display (e.g., "09:00" -> "9:00 AM")
                     const formatScheduledTime = (time: string | null | undefined) => {
