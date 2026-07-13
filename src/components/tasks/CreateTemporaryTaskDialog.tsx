@@ -445,9 +445,10 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
             data: { type: 'task_assigned', task_id: task.id },
           };
 
-          if (assignmentType === "employees" && selectedEmployees.length > 0) {
+          if (selectedEmployees.length > 0) {
             pushBody.user_ids = selectedEmployees;
-          } else if (assignmentType === "roles" && selectedRoles.length > 0) {
+          }
+          if (selectedRoles.length > 0) {
             pushBody.roles = selectedRoles;
             pushBody.location_id = currentLocation!.id;
           }
