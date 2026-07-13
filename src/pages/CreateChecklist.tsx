@@ -116,6 +116,7 @@ export default function CreateChecklist() {
       setLockTimeEnabled(!!savedLockTime);
       setTemplateType(parsed.templateType ?? 'standard');
       setSelectedRoles(Array.isArray(parsed.selectedRoles) ? parsed.selectedRoles : []);
+      setSelectedUserIds(Array.isArray(parsed.selectedUserIds) ? parsed.selectedUserIds : []);
       setVisibleDaysBeforeMonthEnd(
         typeof parsed.visibleDaysBeforeMonthEnd === 'number' ? parsed.visibleDaysBeforeMonthEnd : 7
       );
