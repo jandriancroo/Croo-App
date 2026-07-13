@@ -110,15 +110,19 @@ export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate 
           const c = counts.get(key);
           const total = (c?.pending || 0) + (c?.approved || 0);
 
+          const isSelected = selectedDate === key;
           return (
-            <div
+            <button
+              type="button"
               key={key}
+              onClick={() => onSelectDate?.(isSelected ? null : key)}
               className={cn(
-                "aspect-square sm:aspect-auto sm:min-h-[80px] rounded-md border p-1 sm:p-2 flex flex-col",
+                "aspect-square sm:aspect-auto sm:min-h-[80px] rounded-md border p-1 sm:p-2 flex flex-col text-left transition-colors hover:border-primary/60 hover:bg-accent/40 cursor-pointer",
                 !inMonth && "opacity-40",
                 isPast && "bg-muted/40 text-muted-foreground",
                 !isPast && "bg-card",
-                isToday && "ring-2 ring-primary border-primary",
+                isToday && !isSelected && "ring-2 ring-primary border-primary",
+                isSelected && "ring-2 ring-primary bg-accent",
               )}
             >
               <div className="text-[10px] sm:text-xs font-medium">{format(day, "d")}</div>
