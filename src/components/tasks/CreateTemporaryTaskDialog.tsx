@@ -305,15 +305,10 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
       return;
     }
     
-    // QR and Team tasks don't need employee assignments
+    // QR and Team tasks don't need employee/role assignments
     if (taskStyle !== "qr" && taskStyle !== "team") {
-      if (assignmentType === "employees" && selectedEmployees.length === 0) {
-        toast.error("Please select at least one employee");
-        return;
-      }
-      
-      if (assignmentType === "roles" && selectedRoles.length === 0) {
-        toast.error("Please select at least one role");
+      if (selectedEmployees.length === 0 && selectedRoles.length === 0) {
+        toast.error("Please assign at least one role or employee");
         return;
       }
     }
