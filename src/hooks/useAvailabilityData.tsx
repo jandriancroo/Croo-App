@@ -456,6 +456,7 @@ export function useAvailabilityData() {
     openEmployeeEditDialog,
     handleEmployeeEditRequest,
     // Data
+    requests,
     filteredRequests,
     groupedByWeek,
     sortedWeekKeys,
