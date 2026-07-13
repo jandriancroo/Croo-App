@@ -404,7 +404,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
 
       // Create assignments (skip for QR and Team tasks). Roles + individual employees can both be set.
       if (taskStyle !== "qr" && taskStyle !== "team") {
-        const assignments = [
+        const assignments: any[] = [
           ...selectedRoles.map(role => ({ task_id: task.id, user_id: null, role })),
           ...selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null })),
         ];
