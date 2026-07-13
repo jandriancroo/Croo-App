@@ -17,12 +17,16 @@ import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 import { SchedulingPreferencesSection } from "@/components/availability/SchedulingPreferencesSection";
 import { AvailabilityRequestCard } from "@/components/availability/AvailabilityRequestCard";
 import { AvailabilityDialogs } from "@/components/availability/AvailabilityDialogs";
-import { AvailabilityCalendarView } from "@/components/availability/AvailabilityCalendarView";
+import { AvailabilityCalendarView, expandDates } from "@/components/availability/AvailabilityCalendarView";
 import { useAvailabilityData } from "@/hooks/useAvailabilityData";
 
 export default function Availability() {
   const data = useAvailabilityData();
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const dayRequests = selectedDate
+    ? data.requests.filter((r) => expandDates(r).includes(selectedDate))
+    : [];
 
   if (data.roleLoading || data.loading) {
     return (
