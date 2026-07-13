@@ -883,97 +883,16 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           )}
           {/* Assignment Section - Hidden for QR and Team tasks */}
           {taskStyle !== "qr" && taskStyle !== "team" && (
-            <>
-              <div className="space-y-2">
-                <Label>Assign To</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={assignmentType === "employees" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setAssignmentType("employees");
-                      setSelectedRoles([]);
-                    }}
-                  >
-                    Employees
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={assignmentType === "roles" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setAssignmentType("roles");
-                      setSelectedEmployees([]);
-                    }}
-                  >
-                    Roles
-                  </Button>
-                </div>
-              </div>
-
-              {/* Employee Selection */}
-              {assignmentType === "employees" && (
-                <div className="space-y-2">
-                  <Label>Select Employees *</Label>
-                  <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                    {employees.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No employees found</p>
-                    ) : (
-                      employees.map((emp: any) => (
-                        <div key={emp.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={emp.id}
-                            checked={selectedEmployees.includes(emp.id)}
-                            onCheckedChange={() => toggleEmployee(emp.id)}
-                          />
-                          <label htmlFor={emp.id} className="text-sm cursor-pointer">
-                            {emp.full_name || emp.email}
-                          </label>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  {selectedEmployees.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedEmployees.map(id => {
-                        const emp = employees.find((e: any) => e.id === id);
-                        return emp ? (
-                          <Badge key={id} variant="secondary" className="gap-1">
-                            {emp.full_name?.split(' ')[0] || emp.email}
-                            <X 
-                              className="h-3 w-3 cursor-pointer" 
-                              onClick={() => toggleEmployee(id)}
-                            />
-                          </Badge>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Role Selection */}
-              {assignmentType === "roles" && (
-                <div className="space-y-2">
-                  <Label>Select Roles *</Label>
-                  <div className="border rounded-lg p-3 space-y-2">
-                    {ROLE_OPTIONS.map(role => (
-                      <div key={role.value} className="flex items-center gap-2">
-                        <Checkbox
-                          id={role.value}
-                          checked={selectedRoles.includes(role.value)}
-                          onCheckedChange={() => toggleRole(role.value)}
-                        />
-                        <label htmlFor={role.value} className="text-sm cursor-pointer">
-                          {role.label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            <AssigneePicker
+              locationId={currentLocation?.id}
+              selectedRoles={selectedRoles}
+              onRolesChange={setSelectedRoles}
+              selectedUserIds={selectedEmployees}
+              onUserIdsChange={setSelectedEmployees}
+              label="Assign To"
+              helperText="Pick a role to include everyone in it, then add specific people if needed."
+              roleOptions={ROLE_OPTIONS}
+            />
           )}
 
           {/* Subtasks - Hidden for QR tasks */}
