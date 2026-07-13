@@ -881,23 +881,16 @@ export default function EditChecklist() {
             </div>
 
             <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Assigned Roles</Label>
-                <div className="flex flex-wrap gap-2">
-                  {['admin', 'manager', 'shift_manager', 'team_member'].map((role) => (
-                    <label key={role} className="flex items-center gap-1 text-xs cursor-pointer">
-                      <Checkbox
-                        checked={selectedRoles.includes(role)}
-                        onCheckedChange={(checked) => {
-                          if (checked) setSelectedRoles([...selectedRoles, role]);
-                          else setSelectedRoles(selectedRoles.filter(r => r !== role));
-                        }}
-                      />
-                      {role === 'manager' ? 'Mgr' : role === 'shift_manager' ? 'Shift Mgr' : role === 'team_member' ? 'Team' : 'Admin'}
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <AssigneePicker
+                locationId={checklistLocationId}
+                selectedRoles={selectedRoles}
+                onRolesChange={setSelectedRoles}
+                selectedUserIds={selectedUserIds}
+                onUserIdsChange={setSelectedUserIds}
+                label="Visible to"
+                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+              />
+            </div>
             </div>
 
             {/* Toggle row */}
