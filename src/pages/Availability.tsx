@@ -10,16 +10,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, Plus } from "lucide-react";
+import { Clock, Plus, List, CalendarDays } from "lucide-react";
+import { useState } from "react";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 import { SchedulingPreferencesSection } from "@/components/availability/SchedulingPreferencesSection";
 import { AvailabilityRequestCard } from "@/components/availability/AvailabilityRequestCard";
 import { AvailabilityDialogs } from "@/components/availability/AvailabilityDialogs";
+import { AvailabilityCalendarView } from "@/components/availability/AvailabilityCalendarView";
 import { useAvailabilityData } from "@/hooks/useAvailabilityData";
 
 export default function Availability() {
   const data = useAvailabilityData();
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   if (data.roleLoading || data.loading) {
     return (
