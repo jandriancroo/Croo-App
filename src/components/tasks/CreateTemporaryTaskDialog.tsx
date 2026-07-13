@@ -402,17 +402,19 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
 
       if (taskError) throw taskError;
 
-      // Create assignments (skip for QR and Team tasks)
+      // Create assignments (skip for QR and Team tasks). Roles + individual employees can both be set.
       if (taskStyle !== "qr" && taskStyle !== "team") {
-        const assignments = assignmentType === "employees"
-          ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
-          : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
+        const assignments = [
+          ...selectedRoles.map(role => ({ task_id: task.id, user_id: null, role })),
+          ...selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null })),
+        ];
 
-        const { error: assignmentError } = await supabase
-          .from('temporary_task_assignments')
-          .insert(assignments);
-
-        if (assignmentError) throw assignmentError;
+        if (assignments.length > 0) {
+          const { error: assignmentError } = await supabase
+            .from('temporary_task_assignments')
+            .insert(assignments);
+          if (assignmentError) throw assignmentError;
+        }
       }
 
       // Create subtasks (skip for QR tasks)
