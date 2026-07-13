@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
+import { AssigneePicker } from '@/components/shared/AssigneePicker';
 
 interface ChecklistItem {
   question: string;
