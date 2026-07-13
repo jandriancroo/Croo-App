@@ -26,7 +26,7 @@ interface Props {
 export { expandDates };
 
 /** Expand a request into a list of yyyy-MM-dd date strings it covers. */
-function expandDates(req: AvailabilityRequest): string[] {
+export function expandDates(req: AvailabilityRequest): string[] {
   const start = req.start_date;
   const end = req.time_scope === "multi_day" && req.end_date ? req.end_date : start;
   const [a, b] = start <= end ? [start, end] : [end, start];
