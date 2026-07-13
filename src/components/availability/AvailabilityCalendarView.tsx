@@ -48,8 +48,8 @@ export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate 
 
   const monthStart = startOfMonth(cursor);
   const monthEnd = endOfMonth(cursor);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
   const days = useMemo(() => {
     const arr: Date[] = [];
@@ -93,7 +93,7 @@ export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate 
 
       {/* Weekday header */}
       <div className="grid grid-cols-7 gap-1 mb-1">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
           <div key={d} className="text-[10px] sm:text-xs font-medium text-muted-foreground text-center py-1">
             {d}
           </div>
