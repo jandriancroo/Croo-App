@@ -464,41 +464,27 @@ export default function CreateChecklist() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Template Type</Label>
-                  <Select value={templateType} onValueChange={(value: any) => setTemplateType(value)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {templateType === 'dynamic' && <p className="text-[10px] text-muted-foreground">After creating, assign tasks to days on calendar</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Assigned Roles</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'admin', label: 'Admin' },
-                      { value: 'manager', label: 'Mgr' },
-                      { value: 'shift_manager', label: 'Shift Mgr' },
-                      { value: 'team_member', label: 'Team' },
-                    ].map((role) => (
-                      <label key={role.value} className="flex items-center gap-1 text-xs cursor-pointer">
-                        <Checkbox
-                          checked={selectedRoles.includes(role.value)}
-                          onCheckedChange={(checked) => {
-                            if (checked) setSelectedRoles([...selectedRoles, role.value]);
-                            else setSelectedRoles(selectedRoles.filter(r => r !== role.value));
-                          }}
-                        />
-                        {role.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Template Type</Label>
+                <Select value={templateType} onValueChange={(value: any) => setTemplateType(value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
+                  </SelectContent>
+                </Select>
+                {templateType === 'dynamic' && <p className="text-[10px] text-muted-foreground">After creating, assign tasks to days on calendar</p>}
               </div>
+
+              <AssigneePicker
+                locationId={currentLocation?.id}
+                selectedRoles={selectedRoles}
+                onRolesChange={setSelectedRoles}
+                selectedUserIds={selectedUserIds}
+                onUserIdsChange={setSelectedUserIds}
+                label="Visible to"
+                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+              />
 
               {/* Toggle row */}
               <div className="flex flex-wrap gap-4 pt-2 border-t">
