@@ -43,7 +43,7 @@ export function expandDates(req: AvailabilityRequest): string[] {
   return out;
 }
 
-export function AvailabilityCalendarView({ requests }: Props) {
+export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate }: Props) {
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
 
   const monthStart = startOfMonth(cursor);
