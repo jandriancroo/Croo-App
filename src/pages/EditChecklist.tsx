@@ -395,6 +395,7 @@ export default function EditChecklist() {
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
+      setSelectedUserIds(userTags?.map(ut => ut.user_id) || []);
       setChecklistLocationId(checklist.location_id || null);
 
       // Fetch available positions
