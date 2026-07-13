@@ -19,10 +19,14 @@ import type { AvailabilityRequest } from "@/hooks/useAvailabilityData";
 
 interface Props {
   requests: AvailabilityRequest[];
+  selectedDate?: string | null;
+  onSelectDate?: (date: string | null) => void;
 }
 
+
+
 /** Expand a request into a list of yyyy-MM-dd date strings it covers. */
-function expandDates(req: AvailabilityRequest): string[] {
+export function expandDates(req: AvailabilityRequest): string[] {
   const start = req.start_date;
   const end = req.time_scope === "multi_day" && req.end_date ? req.end_date : start;
   const [a, b] = start <= end ? [start, end] : [end, start];
@@ -39,7 +43,7 @@ function expandDates(req: AvailabilityRequest): string[] {
   return out;
 }
 
-export function AvailabilityCalendarView({ requests }: Props) {
+export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate }: Props) {
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
 
   const monthStart = startOfMonth(cursor);
@@ -106,15 +110,19 @@ export function AvailabilityCalendarView({ requests }: Props) {
           const c = counts.get(key);
           const total = (c?.pending || 0) + (c?.approved || 0);
 
+          const isSelected = selectedDate === key;
           return (
-            <div
+            <button
+              type="button"
               key={key}
+              onClick={() => onSelectDate?.(isSelected ? null : key)}
               className={cn(
-                "aspect-square sm:aspect-auto sm:min-h-[80px] rounded-md border p-1 sm:p-2 flex flex-col",
+                "aspect-square sm:aspect-auto sm:min-h-[80px] rounded-md border p-1 sm:p-2 flex flex-col text-left transition-colors hover:border-primary/60 hover:bg-accent/40 cursor-pointer",
                 !inMonth && "opacity-40",
                 isPast && "bg-muted/40 text-muted-foreground",
                 !isPast && "bg-card",
-                isToday && "ring-2 ring-primary border-primary",
+                isToday && !isSelected && "ring-2 ring-primary border-primary",
+                isSelected && "ring-2 ring-primary bg-accent",
               )}
             >
               <div className="text-[10px] sm:text-xs font-medium">{format(day, "d")}</div>
@@ -146,7 +154,7 @@ export function AvailabilityCalendarView({ requests }: Props) {
                   )}
                 </div>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

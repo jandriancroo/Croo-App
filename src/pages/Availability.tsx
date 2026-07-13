@@ -17,12 +17,16 @@ import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 import { SchedulingPreferencesSection } from "@/components/availability/SchedulingPreferencesSection";
 import { AvailabilityRequestCard } from "@/components/availability/AvailabilityRequestCard";
 import { AvailabilityDialogs } from "@/components/availability/AvailabilityDialogs";
-import { AvailabilityCalendarView } from "@/components/availability/AvailabilityCalendarView";
+import { AvailabilityCalendarView, expandDates } from "@/components/availability/AvailabilityCalendarView";
 import { useAvailabilityData } from "@/hooks/useAvailabilityData";
 
 export default function Availability() {
   const data = useAvailabilityData();
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const dayRequests = selectedDate
+    ? data.requests.filter((r) => expandDates(r).includes(selectedDate))
+    : [];
 
   if (data.roleLoading || data.loading) {
     return (
@@ -186,7 +190,44 @@ export default function Availability() {
               )}
             </>
           ) : (
-            <AvailabilityCalendarView requests={data.requests} />
+            <>
+              <AvailabilityCalendarView
+                requests={data.requests}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+              />
+              {selectedDate && (
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="text-sm font-semibold mb-3">
+                    Requests for {new Date(`${selectedDate}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} ({dayRequests.length})
+                  </h3>
+                  {dayRequests.length === 0 ? (
+                    <p className="text-muted-foreground text-sm text-center py-6">No requests for this day</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {dayRequests.map((request) => (
+                        <AvailabilityRequestCard
+                          key={request.id}
+                          request={request}
+                          canApproveRequests={data.canApproveRequests}
+                          userId={data.user?.id}
+                          formatTimeScope={data.formatTimeScope}
+                          formatDayOfWeek={data.formatDayOfWeek}
+                          formatRequestedDate={data.formatRequestedDate}
+                          onSetStatus={(id, status) => {
+                            data.setSelectedRequest(id);
+                            data.setEditStatus(status);
+                          }}
+                          onEdit={data.openEditDialog}
+                          onEmployeeEdit={data.openEmployeeEditDialog}
+                          onDelete={data.openDeleteDialog}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </Card>
 
