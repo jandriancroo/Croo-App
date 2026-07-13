@@ -140,7 +140,7 @@ export default function CreateChecklist() {
         JSON.stringify({
           title, description, frequency, dueByTime,
           lockUntilTime: lockTimeEnabled ? lockUntilTime : '',
-          templateType, selectedRoles, visibleDaysBeforeMonthEnd, items, bulkText,
+          templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText,
         })
       );
     } catch {
