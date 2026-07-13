@@ -24,9 +24,29 @@ export default function Availability() {
   const data = useAvailabilityData();
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const dayRequests = selectedDate
     ? data.requests.filter((r) => expandDates(r).includes(selectedDate))
     : [];
+  const weekRequests = selectedWeek
+    ? (() => {
+        const [y, m, d] = selectedWeek.split("-").map(Number);
+        const days: string[] = [];
+        for (let i = 0; i < 7; i++) {
+          const dt = new Date(Date.UTC(y, m - 1, d + i));
+          days.push(dt.toISOString().slice(0, 10));
+        }
+        const daySet = new Set(days);
+        return data.requests.filter((r) => expandDates(r).some((ds) => daySet.has(ds)));
+      })()
+    : [];
+  const weekEndLabel = selectedWeek
+    ? (() => {
+        const [y, m, d] = selectedWeek.split("-").map(Number);
+        const end = new Date(Date.UTC(y, m - 1, d + 6));
+        return end.toISOString().slice(0, 10);
+      })()
+    : null;
 
   if (data.roleLoading || data.loading) {
     return (
