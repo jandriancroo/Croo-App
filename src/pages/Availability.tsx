@@ -186,7 +186,7 @@ export default function Availability() {
               )}
             </>
           ) : (
-            <AvailabilityCalendarView requests={data.filteredRequests} />
+            <AvailabilityCalendarView requests={data.requests} />
           )}
         </Card>
 
