@@ -373,6 +373,13 @@ export default function EditChecklist() {
 
       if (roleTagsError) throw roleTagsError;
 
+      const { data: userTags, error: userTagsError } = await supabase
+        .from('checklist_user_tags')
+        .select('user_id')
+        .eq('checklist_id', id);
+
+      if (userTagsError) throw userTagsError;
+
       setTitle(checklist.title);
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
