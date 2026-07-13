@@ -154,7 +154,7 @@ export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate 
                   )}
                 </div>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
