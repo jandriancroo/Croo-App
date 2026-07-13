@@ -19,7 +19,11 @@ import type { AvailabilityRequest } from "@/hooks/useAvailabilityData";
 
 interface Props {
   requests: AvailabilityRequest[];
+  selectedDate?: string | null;
+  onSelectDate?: (date: string | null) => void;
 }
+
+export { expandDates };
 
 /** Expand a request into a list of yyyy-MM-dd date strings it covers. */
 function expandDates(req: AvailabilityRequest): string[] {
