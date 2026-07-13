@@ -146,7 +146,7 @@ export default function CreateChecklist() {
     } catch {
       // ignore storage errors
     }
-  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, visibleDaysBeforeMonthEnd, items, bulkText]);
+  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
 
   const clearDraft = () => {
     try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
