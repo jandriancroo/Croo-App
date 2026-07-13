@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { QRTaskCodeDialog } from "./QRTaskCodeDialog";
+import { AssigneePicker } from "@/components/shared/AssigneePicker";
 
 interface CreateTemporaryTaskDialogProps {
   open: boolean;
