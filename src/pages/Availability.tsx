@@ -10,16 +10,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, Plus } from "lucide-react";
+import { Clock, Plus, List, CalendarDays } from "lucide-react";
+import { useState } from "react";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 import { SchedulingPreferencesSection } from "@/components/availability/SchedulingPreferencesSection";
 import { AvailabilityRequestCard } from "@/components/availability/AvailabilityRequestCard";
 import { AvailabilityDialogs } from "@/components/availability/AvailabilityDialogs";
+import { AvailabilityCalendarView } from "@/components/availability/AvailabilityCalendarView";
 import { useAvailabilityData } from "@/hooks/useAvailabilityData";
 
 export default function Availability() {
   const data = useAvailabilityData();
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   if (data.roleLoading || data.loading) {
     return (
@@ -63,93 +66,127 @@ export default function Availability() {
         {/* Shift Pool - Manager Only */}
         {data.canApproveRequests && <ShiftPoolSection />}
 
-        {/* Filters + Requests List */}
+        {/* View toggle + Filters + Content */}
         <Card className="p-4 md:p-6">
-          <div className="flex flex-wrap gap-4 items-center mb-4">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="hide-past-main"
-                checked={data.hidePastRequests}
-                onCheckedChange={(checked) => data.setHidePastRequests(checked === true)}
-              />
-              <label htmlFor="hide-past-main" className="text-sm cursor-pointer text-muted-foreground whitespace-nowrap">
-                Hide past
-              </label>
-            </div>
-            <div className="flex-1 min-w-[120px]">
-              <Select value={data.filterStatus} onValueChange={data.setFilterStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="denied">Denied</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 min-w-[120px]">
-              <Select value={data.filterType} onValueChange={data.setFilterType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="unpaid">Unpaid</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* View mode tabs */}
+          <div className="inline-flex rounded-lg border p-1 bg-muted/40 mb-4">
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                viewMode === "list"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List className="h-4 w-4" />
+              List
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("calendar")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                viewMode === "calendar"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CalendarDays className="h-4 w-4" />
+              Calendar
+            </button>
           </div>
 
-          <div className="h-px bg-border mb-4" />
+          {viewMode === "list" ? (
+            <>
+              <div className="flex flex-wrap gap-4 items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="hide-past-main"
+                    checked={data.hidePastRequests}
+                    onCheckedChange={(checked) => data.setHidePastRequests(checked === true)}
+                  />
+                  <label htmlFor="hide-past-main" className="text-sm cursor-pointer text-muted-foreground whitespace-nowrap">
+                    Hide past
+                  </label>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <Select value={data.filterStatus} onValueChange={data.setFilterStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="denied">Denied</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <Select value={data.filterType} onValueChange={data.setFilterType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="unpaid">Unpaid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <h2 className="text-lg font-semibold mb-4">
-            {data.canApproveRequests ? "All Requests" : "My Requests"} ({data.filteredRequests.length})
-          </h2>
+              <div className="h-px bg-border mb-4" />
 
-          {data.filteredRequests.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No requests found</p>
-          ) : (
-            <div className="space-y-6">
-              {data.sortedWeekKeys.map((weekKey) => {
-                const weekRequests = data.groupedByWeek[weekKey];
-                const weekLabel = data.getWeekLabel(weekKey);
+              <h2 className="text-lg font-semibold mb-4">
+                {data.canApproveRequests ? "All Requests" : "My Requests"} ({data.filteredRequests.length})
+              </h2>
 
-                return (
-                  <div key={weekKey}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="text-sm font-semibold text-foreground">{weekLabel}</div>
-                      <div className="flex-1 h-px bg-border" />
-                      <div className="text-xs text-muted-foreground">
-                        {weekRequests.length} request{weekRequests.length !== 1 ? "s" : ""}
+              {data.filteredRequests.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No requests found</p>
+              ) : (
+                <div className="space-y-6">
+                  {data.sortedWeekKeys.map((weekKey) => {
+                    const weekRequests = data.groupedByWeek[weekKey];
+                    const weekLabel = data.getWeekLabel(weekKey);
+
+                    return (
+                      <div key={weekKey}>
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="text-sm font-semibold text-foreground">{weekLabel}</div>
+                          <div className="flex-1 h-px bg-border" />
+                          <div className="text-xs text-muted-foreground">
+                            {weekRequests.length} request{weekRequests.length !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          {weekRequests.map((request) => (
+                            <AvailabilityRequestCard
+                              key={request.id}
+                              request={request}
+                              canApproveRequests={data.canApproveRequests}
+                              userId={data.user?.id}
+                              formatTimeScope={data.formatTimeScope}
+                              formatDayOfWeek={data.formatDayOfWeek}
+                              formatRequestedDate={data.formatRequestedDate}
+                              onSetStatus={(id, status) => {
+                                data.setSelectedRequest(id);
+                                data.setEditStatus(status);
+                              }}
+                              onEdit={data.openEditDialog}
+                              onEmployeeEdit={data.openEmployeeEditDialog}
+                              onDelete={data.openDeleteDialog}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-3">
-                      {weekRequests.map((request) => (
-                        <AvailabilityRequestCard
-                          key={request.id}
-                          request={request}
-                          canApproveRequests={data.canApproveRequests}
-                          userId={data.user?.id}
-                          formatTimeScope={data.formatTimeScope}
-                          formatDayOfWeek={data.formatDayOfWeek}
-                          formatRequestedDate={data.formatRequestedDate}
-                          onSetStatus={(id, status) => {
-                            data.setSelectedRequest(id);
-                            data.setEditStatus(status);
-                          }}
-                          onEdit={data.openEditDialog}
-                          onEmployeeEdit={data.openEmployeeEditDialog}
-                          onDelete={data.openDeleteDialog}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <AvailabilityCalendarView requests={data.requests} />
           )}
         </Card>
 
