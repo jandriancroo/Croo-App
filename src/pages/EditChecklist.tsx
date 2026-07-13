@@ -891,7 +891,6 @@ export default function EditChecklist() {
                 helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
               />
             </div>
-            </div>
 
             {/* Toggle row */}
             <div className="flex flex-wrap gap-4 pt-2 border-t">
