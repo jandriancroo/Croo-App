@@ -42,6 +42,7 @@ export default function CreateChecklist() {
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
   const [items, setItems] = useState<ChecklistItem[]>([
     { question: '', item_type: 'confirmation', is_required: true }
