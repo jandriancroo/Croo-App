@@ -24,9 +24,29 @@ export default function Availability() {
   const data = useAvailabilityData();
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const dayRequests = selectedDate
     ? data.requests.filter((r) => expandDates(r).includes(selectedDate))
     : [];
+  const weekRequests = selectedWeek
+    ? (() => {
+        const [y, m, d] = selectedWeek.split("-").map(Number);
+        const days: string[] = [];
+        for (let i = 0; i < 7; i++) {
+          const dt = new Date(Date.UTC(y, m - 1, d + i));
+          days.push(dt.toISOString().slice(0, 10));
+        }
+        const daySet = new Set(days);
+        return data.requests.filter((r) => expandDates(r).some((ds) => daySet.has(ds)));
+      })()
+    : [];
+  const weekEndLabel = selectedWeek
+    ? (() => {
+        const [y, m, d] = selectedWeek.split("-").map(Number);
+        const end = new Date(Date.UTC(y, m - 1, d + 6));
+        return end.toISOString().slice(0, 10);
+      })()
+    : null;
 
   if (data.roleLoading || data.loading) {
     return (
@@ -194,39 +214,54 @@ export default function Availability() {
               <AvailabilityCalendarView
                 requests={data.requests}
                 selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
+                onSelectDate={(d) => {
+                  setSelectedDate(d);
+                  if (d) setSelectedWeek(null);
+                }}
+                selectedWeek={selectedWeek}
+                onSelectWeek={(w) => {
+                  setSelectedWeek(w);
+                  if (w) setSelectedDate(null);
+                }}
               />
-              {selectedDate && (
-                <div className="mt-6 pt-6 border-t">
-                  <h3 className="text-sm font-semibold mb-3">
-                    Requests for {new Date(`${selectedDate}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} ({dayRequests.length})
-                  </h3>
-                  {dayRequests.length === 0 ? (
-                    <p className="text-muted-foreground text-sm text-center py-6">No requests for this day</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {dayRequests.map((request) => (
-                        <AvailabilityRequestCard
-                          key={request.id}
-                          request={request}
-                          canApproveRequests={data.canApproveRequests}
-                          userId={data.user?.id}
-                          formatTimeScope={data.formatTimeScope}
-                          formatDayOfWeek={data.formatDayOfWeek}
-                          formatRequestedDate={data.formatRequestedDate}
-                          onSetStatus={(id, status) => {
-                            data.setSelectedRequest(id);
-                            data.setEditStatus(status);
-                          }}
-                          onEdit={data.openEditDialog}
-                          onEmployeeEdit={data.openEmployeeEditDialog}
-                          onDelete={data.openDeleteDialog}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {(selectedDate || selectedWeek) && (() => {
+                const list = selectedDate ? dayRequests : weekRequests;
+                const heading = selectedDate
+                  ? `Requests for ${new Date(`${selectedDate}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}`
+                  : `Week of ${new Date(`${selectedWeek}T12:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${new Date(`${weekEndLabel}T12:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+                const emptyLabel = selectedDate ? "No requests for this day" : "No requests for this week";
+                return (
+                  <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-sm font-semibold mb-3">
+                      {heading} ({list.length})
+                    </h3>
+                    {list.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-6">{emptyLabel}</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {list.map((request) => (
+                          <AvailabilityRequestCard
+                            key={request.id}
+                            request={request}
+                            canApproveRequests={data.canApproveRequests}
+                            userId={data.user?.id}
+                            formatTimeScope={data.formatTimeScope}
+                            formatDayOfWeek={data.formatDayOfWeek}
+                            formatRequestedDate={data.formatRequestedDate}
+                            onSetStatus={(id, status) => {
+                              data.setSelectedRequest(id);
+                              data.setEditStatus(status);
+                            }}
+                            onEdit={data.openEditDialog}
+                            onEmployeeEdit={data.openEmployeeEditDialog}
+                            onDelete={data.openDeleteDialog}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </>
           )}
         </Card>

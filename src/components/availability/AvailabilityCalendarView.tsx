@@ -21,7 +21,10 @@ interface Props {
   requests: AvailabilityRequest[];
   selectedDate?: string | null;
   onSelectDate?: (date: string | null) => void;
+  selectedWeek?: string | null;
+  onSelectWeek?: (weekStart: string | null) => void;
 }
+
 
 
 
@@ -43,7 +46,7 @@ export function expandDates(req: AvailabilityRequest): string[] {
   return out;
 }
 
-export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate }: Props) {
+export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate, selectedWeek, onSelectWeek }: Props) {
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
 
   const monthStart = startOfMonth(cursor);
@@ -92,7 +95,8 @@ export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate 
       </div>
 
       {/* Weekday header */}
-      <div className="grid grid-cols-7 gap-1 mb-1">
+      <div className="grid grid-cols-[14px_repeat(7,minmax(0,1fr))] gap-1 mb-1">
+        <div />
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
           <div key={d} className="text-[10px] sm:text-xs font-medium text-muted-foreground text-center py-1">
             {d}
@@ -100,61 +104,84 @@ export function AvailabilityCalendarView({ requests, selectedDate, onSelectDate 
         ))}
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd");
-          const inMonth = isSameMonth(day, cursor);
-          const isPast = isBefore(day, today) && !isSameDay(day, today);
-          const isToday = isSameDay(day, today);
-          const c = counts.get(key);
-          const total = (c?.pending || 0) + (c?.approved || 0);
+      {/* Weekly rows */}
+      <div className="space-y-1">
+        {Array.from({ length: Math.ceil(days.length / 7) }, (_, weekIdx) => {
+          const weekDays = days.slice(weekIdx * 7, weekIdx * 7 + 7);
+          const weekKey = format(weekDays[0], "yyyy-MM-dd");
+          const weekEnd = weekDays[weekDays.length - 1];
+          const weekIsPast = isBefore(weekEnd, today) && !isSameDay(weekEnd, today);
+          const isWeekSelected = selectedWeek === weekKey;
 
-          const isSelected = selectedDate === key;
           return (
-            <button
-              type="button"
-              key={key}
-              onClick={() => onSelectDate?.(isSelected ? null : key)}
-              className={cn(
-                "aspect-square sm:aspect-auto sm:min-h-[80px] rounded-md border p-1 sm:p-2 flex flex-col text-left transition-colors hover:border-primary/60 hover:bg-accent/40 cursor-pointer",
-                !inMonth && "opacity-40",
-                isPast && "bg-muted/40 text-muted-foreground",
-                !isPast && "bg-card",
-                isToday && !isSelected && "ring-2 ring-primary border-primary",
-                isSelected && "ring-2 ring-primary bg-accent",
-              )}
-            >
-              <div className="text-[10px] sm:text-xs font-medium">{format(day, "d")}</div>
-              {total > 0 && (
-                <div className="mt-auto flex flex-col gap-0.5 items-start">
-                  {(c?.pending || 0) > 0 && (
-                    <span
-                      className={cn(
-                        "text-[9px] sm:text-[10px] font-medium rounded px-1 sm:px-1.5 py-0.5 leading-none",
-                        isPast
-                          ? "bg-muted text-muted-foreground"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300",
-                      )}
-                    >
-                      {c!.pending}P
-                    </span>
-                  )}
-                  {(c?.approved || 0) > 0 && (
-                    <span
-                      className={cn(
-                        "text-[9px] sm:text-[10px] font-medium rounded px-1 sm:px-1.5 py-0.5 leading-none",
-                        isPast
-                          ? "bg-muted text-muted-foreground"
-                          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300",
-                      )}
-                    >
-                      {c!.approved}A
-                    </span>
-                  )}
-                </div>
-              )}
-            </button>
+            <div key={weekKey} className="grid grid-cols-[14px_repeat(7,minmax(0,1fr))] gap-1">
+              <button
+                type="button"
+                onClick={() => onSelectWeek?.(isWeekSelected ? null : weekKey)}
+                aria-label={`Select week of ${format(weekDays[0], "MMM d")}`}
+                title={`Week of ${format(weekDays[0], "MMM d")}`}
+                className={cn(
+                  "rounded-md transition-colors cursor-pointer",
+                  weekIsPast ? "bg-muted-foreground/30 hover:bg-muted-foreground/50" : "bg-primary/60 hover:bg-primary",
+                  isWeekSelected && "ring-2 ring-primary bg-primary",
+                )}
+              />
+              {weekDays.map((day) => {
+                const key = format(day, "yyyy-MM-dd");
+                const inMonth = isSameMonth(day, cursor);
+                const isPast = isBefore(day, today) && !isSameDay(day, today);
+                const isToday = isSameDay(day, today);
+                const c = counts.get(key);
+                const total = (c?.pending || 0) + (c?.approved || 0);
+                const isSelected = selectedDate === key;
+
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    onClick={() => onSelectDate?.(isSelected ? null : key)}
+                    className={cn(
+                      "aspect-square sm:aspect-auto sm:min-h-[80px] rounded-md border p-1 sm:p-2 flex flex-col text-left transition-colors hover:border-primary/60 hover:bg-accent/40 cursor-pointer",
+                      !inMonth && "opacity-40",
+                      isPast && "bg-muted/40 text-muted-foreground",
+                      !isPast && "bg-card",
+                      isToday && !isSelected && "ring-2 ring-primary border-primary",
+                      isSelected && "ring-2 ring-primary bg-accent",
+                    )}
+                  >
+                    <div className="text-[10px] sm:text-xs font-medium">{format(day, "d")}</div>
+                    {total > 0 && (
+                      <div className="mt-auto flex flex-col gap-0.5 items-start">
+                        {(c?.pending || 0) > 0 && (
+                          <span
+                            className={cn(
+                              "text-[9px] sm:text-[10px] font-medium rounded px-1 sm:px-1.5 py-0.5 leading-none",
+                              isPast
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300",
+                            )}
+                          >
+                            {c!.pending}P
+                          </span>
+                        )}
+                        {(c?.approved || 0) > 0 && (
+                          <span
+                            className={cn(
+                              "text-[9px] sm:text-[10px] font-medium rounded px-1 sm:px-1.5 py-0.5 leading-none",
+                              isPast
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300",
+                            )}
+                          >
+                            {c!.approved}A
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
       </div>
