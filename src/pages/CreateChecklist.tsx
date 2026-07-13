@@ -381,6 +381,15 @@ export default function CreateChecklist() {
       if (roleTagsError) throw roleTagsError;
     }
 
+    if (selectedUserIds.length > 0) {
+      const userTagsToInsert = selectedUserIds.map((user_id) => ({
+        checklist_id: checklist.id,
+        user_id,
+      }));
+      const { error: userTagsError } = await supabase.from('checklist_user_tags').insert(userTagsToInsert);
+      if (userTagsError) throw userTagsError;
+    }
+
     clearDraft();
     toast.success('Template created! Now assign tasks to days.');
     navigate(`/dynamic-checklist/${checklist.id}`);
