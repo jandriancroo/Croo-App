@@ -1,6 +1,6 @@
 // Parse a PDF or image of a recipe and return structured recipe JSON.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { imageBufferToBase64, AiRateLimitedError, AiCreditsExhaustedError } from '../_shared/invoice-ai.ts';
+
 
 const SYSTEM_PROMPT = `You extract structured recipe data from an image or PDF of a recipe (handwritten, typed, book scan, or photo).
 Return: title, description, category, tags (array of short strings), yield_qty (number), yield_unit, servings (integer), prep_time_min, cook_time_min, ingredients (array of { name, quantity (number or null), unit }), steps (array of strings — each string is one step in order).
