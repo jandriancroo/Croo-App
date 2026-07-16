@@ -128,6 +128,53 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
     }
   };
 
+  const handleAiImport = async (file: File) => {
+    setAiImporting(true);
+    const toastId = toast.loading("AI reading your recipe...");
+    try {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunk = 8192;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      const file_base64 = btoa(binary);
+      const { data, error } = await supabase.functions.invoke("parse-recipe-document", {
+        body: { file_base64, content_type: file.type || "application/octet-stream" },
+      });
+      if (error) throw error;
+      const r = (data as any)?.recipe;
+      if (!r) throw new Error("No recipe returned");
+      if (r.title) setTitle(r.title);
+      if (r.description) setDescription(r.description);
+      if (r.category) setCategory(r.category);
+      if (Array.isArray(r.tags)) setTags(r.tags.join(", "));
+      if (r.yield_qty != null) setYieldQty(String(r.yield_qty));
+      if (r.yield_unit) setYieldUnit(r.yield_unit);
+      if (r.servings != null) setServings(String(r.servings));
+      if (r.prep_time_min != null) setPrepMin(String(r.prep_time_min));
+      if (r.cook_time_min != null) setCookMin(String(r.cook_time_min));
+      if (Array.isArray(r.ingredients) && r.ingredients.length) {
+        setIngs(r.ingredients.map((it: any) => ({
+          key: crypto.randomUUID(),
+          name: it.name ?? "",
+          quantity: it.quantity != null ? String(it.quantity) : "",
+          unit: it.unit ?? "",
+        })));
+      }
+      if (Array.isArray(r.steps) && r.steps.length) {
+        setSteps(r.steps.map((t: string) => ({ key: crypto.randomUUID(), text: String(t), photo_url: null })));
+      }
+      toast.success("Recipe imported — review and save", { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message ?? "AI import failed", { id: toastId });
+    } finally {
+      setAiImporting(false);
+      if (aiInputRef.current) aiInputRef.current.value = "";
+    }
+  };
+
   const save = async () => {
     if (!title.trim()) return toast.error("Title required");
     setSaving(true);
