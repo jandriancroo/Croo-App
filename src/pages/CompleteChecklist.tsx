@@ -1404,15 +1404,47 @@ export default function CompleteChecklist() {
                     </div>
                 </CardHeader>
                 )}
-                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem && item.item_type !== 'text' && item.item_type !== 'number' ? 'pointer-events-none' : ''}`}>
-                  {(item.item_type === 'text' || item.item_type === 'number') && hasResponse && completerInfo && (
-                    <div className="flex items-center gap-2 mb-2 text-[11px] text-muted-foreground">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                      <span>Saved by {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}. · {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}</span>
+                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem ? 'pointer-events-none' : ''}`}>
+                  {item.item_type === 'text' && (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={responses[item.id] ?? ''}
+                        onChange={e => setResponses(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        placeholder="Enter your response"
+                        required={item.is_required}
+                        className="min-h-[60px] text-sm"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!responses[item.id] || String(responses[item.id]).trim() === ''}
+                        onClick={() => autoSaveResponse(item.id, String(responses[item.id] ?? '').trim(), false)}
+                      >
+                        Submit
+                      </Button>
                     </div>
                   )}
-                  {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
-                  {item.item_type === 'number' && <Input type="number" inputMode="decimal" value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter a number" required={item.is_required} className="text-sm" />}
+                  {item.item_type === 'number' && (
+                    <div className="space-y-2">
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={responses[item.id] ?? ''}
+                        onChange={e => setResponses(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        placeholder="Enter a number"
+                        required={item.is_required}
+                        className="text-sm"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={responses[item.id] === undefined || responses[item.id] === '' || responses[item.id] === null}
+                        onClick={() => autoSaveResponse(item.id, String(responses[item.id] ?? ''), false)}
+                      >
+                        Submit
+                      </Button>
+                    </div>
+                  )}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
                       {item.options.map(option => <div key={option} className="flex items-center space-x-2">
                           <RadioGroupItem value={option} id={`${item.id}-${option}`} className="h-4 w-4" />
