@@ -1320,7 +1320,8 @@ export default function CompleteChecklist() {
                 {/* Option C: For non-image items with response — inline completion row replaces content */}
                 {hasResponse && !isImageItem ? (
                   <CardContent className="py-2">
-                    <div className="flex items-center gap-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
                         {canUndoItems ? (
                           <button
                             type="button"
@@ -1370,6 +1371,13 @@ export default function CompleteChecklist() {
                             {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
                           </span>
                         )}
+                      </div>
+
+                      {isTextEntryItem && (
+                        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm whitespace-pre-wrap break-words">
+                          {String(responsesWithCompleters[item.id]?.value ?? responses[item.id] ?? '')}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 ) : (
