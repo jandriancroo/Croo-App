@@ -1,0 +1,1 @@
+UPDATE public.locations SET billing_initiated_at = NULL, billing_initiated_by = NULL, billing_initiated_email = NULL WHERE id = '150cfede-666a-4b5f-ae01-5bfb7bb39635';
