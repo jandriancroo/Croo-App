@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, Link2, ImagePlus, Loader2, X } from "lucide-react";
+import { Plus, Trash2, Save, Link2, ImagePlus, Loader2, X, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { IngredientCombobox } from "./IngredientCombobox";
@@ -56,7 +56,9 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
   const [steps, setSteps] = useState<StepRow[]>([]);
   const [links, setLinks] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [aiImporting, setAiImporting] = useState(false);
   const heroInputRef = useRef<HTMLInputElement>(null);
+  const aiInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -123,6 +125,53 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
       setSteps((s) => s.map((x) => x.key === key ? { ...x, photo_url: url } : x));
     } catch (e: any) {
       toast.error(e.message ?? "Upload failed");
+    }
+  };
+
+  const handleAiImport = async (file: File) => {
+    setAiImporting(true);
+    const toastId = toast.loading("AI reading your recipe...");
+    try {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunk = 8192;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      const file_base64 = btoa(binary);
+      const { data, error } = await supabase.functions.invoke("parse-recipe-document", {
+        body: { file_base64, content_type: file.type || "application/octet-stream" },
+      });
+      if (error) throw error;
+      const r = (data as any)?.recipe;
+      if (!r) throw new Error("No recipe returned");
+      if (r.title) setTitle(r.title);
+      if (r.description) setDescription(r.description);
+      if (r.category) setCategory(r.category);
+      if (Array.isArray(r.tags)) setTags(r.tags.join(", "));
+      if (r.yield_qty != null) setYieldQty(String(r.yield_qty));
+      if (r.yield_unit) setYieldUnit(r.yield_unit);
+      if (r.servings != null) setServings(String(r.servings));
+      if (r.prep_time_min != null) setPrepMin(String(r.prep_time_min));
+      if (r.cook_time_min != null) setCookMin(String(r.cook_time_min));
+      if (Array.isArray(r.ingredients) && r.ingredients.length) {
+        setIngs(r.ingredients.map((it: any) => ({
+          key: crypto.randomUUID(),
+          name: it.name ?? "",
+          quantity: it.quantity != null ? String(it.quantity) : "",
+          unit: it.unit ?? "",
+        })));
+      }
+      if (Array.isArray(r.steps) && r.steps.length) {
+        setSteps(r.steps.map((t: string) => ({ key: crypto.randomUUID(), text: String(t), photo_url: null })));
+      }
+      toast.success("Recipe imported — review and save", { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message ?? "AI import failed", { id: toastId });
+    } finally {
+      setAiImporting(false);
+      if (aiInputRef.current) aiInputRef.current.value = "";
     }
   };
 
@@ -211,6 +260,37 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
           <DialogTitle>{recipeId ? "Edit Recipe" : "New Recipe"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* AI import */}
+          <div className="rounded-lg border border-dashed bg-muted/20 p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+                Build from photo or PDF
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Upload a recipe card, book scan, or PDF and AI will fill in the fields.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => aiInputRef.current?.click()}
+              disabled={aiImporting}
+            >
+              {aiImporting
+                ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Reading…</>
+                : <><Sparkles className="h-4 w-4 mr-1.5" />Upload</>}
+            </Button>
+            <input
+              ref={aiInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleAiImport(e.target.files[0])}
+            />
+          </div>
+
+
           {/* Hero image */}
           <div className="space-y-2">
             <Label>Hero Image</Label>
