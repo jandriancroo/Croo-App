@@ -1307,8 +1307,9 @@ export default function CompleteChecklist() {
                 </div>
               )}
                 
-                {/* Option C: For non-image items with response — inline completion row replaces content */}
-                {hasResponse && !isImageItem ? (
+                {/* Option C: For non-image items with response — inline completion row replaces content.
+                    Exclude text/number so the user can keep editing (was auto-swapping after first keystroke). */}
+                {hasResponse && !isImageItem && item.item_type !== 'text' && item.item_type !== 'number' ? (
                   <CardContent className="py-2">
                     <div className="flex items-center gap-2">
                         {canUndoItems ? (
