@@ -94,6 +94,3 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: e?.message ?? 'unknown error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
-
-// keep imports used
-void imageBufferToBase64; void AiRateLimitedError; void AiCreditsExhaustedError;
