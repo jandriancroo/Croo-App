@@ -56,7 +56,9 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
   const [steps, setSteps] = useState<StepRow[]>([]);
   const [links, setLinks] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [aiImporting, setAiImporting] = useState(false);
   const heroInputRef = useRef<HTMLInputElement>(null);
+  const aiInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
