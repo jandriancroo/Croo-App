@@ -573,26 +573,27 @@ export default function CompleteChecklist() {
         return;
       }
 
-      // Fetch updated completer info
-      const {
-        data: profile
-      } = await supabase.from('profiles').select('full_name, profile_photo_url').eq('id', user.id).single();
-      if (profile) {
-        setResponsesWithCompleters(prev => ({
-          ...prev,
-          [itemId]: {
-            responseId: responseId,
-            value,
-            isImage,
-            completedBy: {
-              userId: user.id,
-              fullName: profile.full_name || 'Unknown',
-              profilePhoto: profile.profile_photo_url,
-              completedAt: new Date().toISOString()
-            }
+      // Fetch updated completer info, but never block the saved/completed UI on profile data.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, profile_photo_url')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      setResponsesWithCompleters(prev => ({
+        ...prev,
+        [itemId]: {
+          responseId,
+          value,
+          isImage,
+          completedBy: {
+            userId: user.id,
+            fullName: profile?.full_name || user.email || 'Unknown',
+            profilePhoto: profile?.profile_photo_url || null,
+            completedAt: new Date().toISOString()
           }
-        }));
-      }
+        }
+      }));
     } catch (error) {
       console.error('Error auto-saving response:', error);
     }
@@ -1317,7 +1318,7 @@ export default function CompleteChecklist() {
               )}
                 
                 {/* Option C: For non-image items with response — inline completion row replaces content */}
-                {hasResponse && !isImageItem && !isTextEntryItem ? (
+                {hasResponse && !isImageItem ? (
                   <CardContent className="py-2">
                     <div className="flex items-center gap-2">
                         {canUndoItems ? (
@@ -1413,7 +1414,7 @@ export default function CompleteChecklist() {
                     </div>
                 </CardHeader>
                 )}
-                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem && !isTextEntryItem ? 'pointer-events-none' : ''}`}>
+                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && (
                     <div className="space-y-2">
                       <Textarea
