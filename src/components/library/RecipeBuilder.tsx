@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, Link2, ImagePlus, Loader2, X } from "lucide-react";
+import { Plus, Trash2, Save, Link2, ImagePlus, Loader2, X, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { IngredientCombobox } from "./IngredientCombobox";
