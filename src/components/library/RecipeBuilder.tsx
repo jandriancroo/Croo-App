@@ -260,6 +260,37 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
           <DialogTitle>{recipeId ? "Edit Recipe" : "New Recipe"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* AI import */}
+          <div className="rounded-lg border border-dashed bg-muted/20 p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+                Build from photo or PDF
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Upload a recipe card, book scan, or PDF and AI will fill in the fields.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => aiInputRef.current?.click()}
+              disabled={aiImporting}
+            >
+              {aiImporting
+                ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Reading…</>
+                : <><Sparkles className="h-4 w-4 mr-1.5" />Upload</>}
+            </Button>
+            <input
+              ref={aiInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleAiImport(e.target.files[0])}
+            />
+          </div>
+
+
           {/* Hero image */}
           <div className="space-y-2">
             <Label>Hero Image</Label>
