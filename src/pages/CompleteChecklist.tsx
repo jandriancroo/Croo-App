@@ -263,10 +263,14 @@ export default function CompleteChecklist() {
       if (item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature') {
         return isMultiPhotoComplete(item, response);
       }
+      if (item.item_type === 'text' || item.item_type === 'number') {
+        const savedResponse = responsesWithCompleters[item.id]?.value;
+        return savedResponse !== undefined && savedResponse !== '' && savedResponse !== null;
+      }
       return response !== undefined && response !== '' && response !== null;
     }).length;
     setCompletionPercentage(Math.round(completedCount / answerableItems.length * 100));
-  }, [responses, items, isMultiPhotoComplete]);
+  }, [responses, responsesWithCompleters, items, isMultiPhotoComplete]);
 
   // Create or get shared submission (daily for daily/weekly, monthly for monthly checklists)
   useEffect(() => {
@@ -577,7 +581,7 @@ export default function CompleteChecklist() {
         setResponsesWithCompleters(prev => ({
           ...prev,
           [itemId]: {
-            responseId: existing?.id || '',
+            responseId: responseId,
             value,
             isImage,
             completedBy: {
@@ -1058,6 +1062,8 @@ export default function CompleteChecklist() {
               const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
               const hasResponse = isImageItem 
                 ? isMultiPhotoComplete(item, responses[item.id])
+                : (item.item_type === 'text' || item.item_type === 'number')
+                ? responsesWithCompleters[item.id]?.value !== undefined && responsesWithCompleters[item.id]?.value !== '' && responsesWithCompleters[item.id]?.value !== null
                 : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
               return !hasResponse;
             });
@@ -1121,8 +1127,11 @@ export default function CompleteChecklist() {
 
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
+          const isTextEntryItem = item.item_type === 'text' || item.item_type === 'number';
           const hasResponse = isImageItem 
             ? isMultiPhotoComplete(item, responses[item.id])
+            : isTextEntryItem
+            ? responsesWithCompleters[item.id]?.value !== undefined && responsesWithCompleters[item.id]?.value !== '' && responsesWithCompleters[item.id]?.value !== null
             : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           const currentPhotos = isImageItem ? getPhotosForItem(item.id) : [];
 
@@ -1308,7 +1317,7 @@ export default function CompleteChecklist() {
               )}
                 
                 {/* Option C: For non-image items with response — inline completion row replaces content */}
-                {hasResponse && !isImageItem ? (
+                {hasResponse && !isImageItem && !isTextEntryItem ? (
                   <CardContent className="py-2">
                     <div className="flex items-center gap-2">
                         {canUndoItems ? (
@@ -1404,7 +1413,7 @@ export default function CompleteChecklist() {
                     </div>
                 </CardHeader>
                 )}
-                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem ? 'pointer-events-none' : ''}`}>
+                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem && !isTextEntryItem ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && (
                     <div className="space-y-2">
                       <Textarea
