@@ -1,17 +1,20 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ClipboardList, Loader2, CalendarDays } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import NewLiteCountDialog from "@/components/inventory/NewLiteCountDialog";
+import LiteCogsPanel from "@/components/inventory/LiteCogsPanel";
 
 interface Props {
   locationId: string;
   timezone: string;
+  locationName?: string;
 }
 
 interface Count {
@@ -25,13 +28,37 @@ interface Count {
 }
 
 /**
- * Lite Count tab — list of counts + "New Count" button that opens a
- * period picker dialog (this week / historical) instead of immediately
- * creating one.
+ * Lite Count tab — mirrors Brand InventoryCountTab visually so operators who
+ * run both brand and lite locations don't have to learn two systems.
+ *
+ * Layout:
+ *  - Teal hero for the current week (Start count / Resume).
+ *  - Past submitted/in-progress counts as a divider list on the left.
+ *  - Selected past count's COGS panel on the right (desktop) or inline
+ *    expansion (mobile).
  */
-export default function LiteCountTab({ locationId, timezone }: Props) {
+export default function LiteCountTab({ locationId, timezone, locationName }: Props) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [showPicker, setShowPicker] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const PAGE_SIZE = 6;
+
+  // Current week range in the location's timezone (Sun–Sat), matching
+  // NewLiteCountDialog so the hero and the picker agree.
+  const week = useMemo(() => {
+    const now = DateTime.now().setZone(timezone || "America/Los_Angeles");
+    const dow = now.weekday % 7; // Luxon: 1=Mon..7=Sun; convert so Sun=0
+    const sunday = now.minus({ days: dow }).startOf("day");
+    const saturday = sunday.plus({ days: 6 });
+    return {
+      start: sunday.toFormat("yyyy-MM-dd"),
+      end: saturday.toFormat("yyyy-MM-dd"),
+      label: `Week of ${sunday.toFormat("LLL d")} – ${saturday.toFormat("LLL d")}`,
+      range: `${sunday.toFormat("LLL d")} – ${saturday.toFormat("LLL d, yyyy")}`,
+    };
+  }, [timezone]);
 
   const { data: counts, isLoading } = useQuery({
     queryKey: ["lite-counts", locationId],
@@ -48,65 +75,292 @@ export default function LiteCountTab({ locationId, timezone }: Props) {
     },
   });
 
+  // Current-week draft if one exists (matches by period_end).
+  const currentDraft = useMemo(
+    () => (counts || []).find((c) => c.period_end === week.end && c.status !== "submitted") || null,
+    [counts, week.end],
+  );
+
+  // Past counts (submitted OR any prior draft not belonging to this week).
+  const pastCounts = useMemo(
+    () => (counts || []).filter((c) => c.id !== currentDraft?.id),
+    [counts, currentDraft],
+  );
+
+  const pastMaxPage = Math.max(0, Math.ceil(pastCounts.length / PAGE_SIZE) - 1);
+  const pagedPast = pastCounts.slice(pageIndex * PAGE_SIZE, pageIndex * PAGE_SIZE + PAGE_SIZE);
+
+  // Auto-select first submitted count on desktop so the COGS panel isn't blank.
+  const firstSubmitted = pastCounts.find((c) => c.status === "submitted") || null;
+  const desktopSelectedId = selectedId ?? firstSubmitted?.id ?? null;
+  const desktopSelected = pastCounts.find((c) => c.id === desktopSelectedId) || null;
+
   const fmt = (d: string) => DateTime.fromFormat(d, "yyyy-MM-dd").toFormat("LLL d");
 
-  return (
-    <>
-      <Card className="overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">Counts</h3>
-          </div>
-          <Button size="sm" className="gap-2" onClick={() => setShowPicker(true)}>
-            <Plus className="h-4 w-4" />
-            New Count
-          </Button>
-        </div>
+  // Start / resume the current week's count directly from the hero.
+  const startCurrentWeek = useMutation({
+    mutationFn: async () => {
+      if (currentDraft) return currentDraft.id;
+      const { data: userData } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("lite_inventory_counts" as any)
+        .insert({
+          location_id: locationId,
+          period_start: week.start,
+          period_end: week.end,
+          status: "draft",
+          created_by: userData.user?.id ?? null,
+        })
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any).id as string;
+    },
+    onSuccess: (id) => {
+      qc.invalidateQueries({ queryKey: ["lite-counts", locationId] });
+      navigate(`/inventory/${locationId}/count/${id}`);
+    },
+    onError: (err: any) => {
+      toast.error("Couldn't start count", { description: err?.message });
+    },
+  });
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        ) : (counts?.length ?? 0) === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-10 text-center px-4">
-            <ClipboardList className="h-8 w-8 text-muted-foreground/60" />
-            <p className="text-sm text-muted-foreground max-w-sm">
-              No counts yet. Tap "New Count" to start this week's inventory count.
-            </p>
-          </div>
+  const renderHero = () => (
+    <div className="rounded-xl px-4 py-3 bg-primary text-primary-foreground shadow-sm flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-[9px] font-bold uppercase tracking-widest text-primary-foreground/70">
+          Current period
+        </div>
+        <div className="text-sm font-bold leading-tight truncate">
+          {week.label}
+          {currentDraft && (
+            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground/80">
+              · In progress
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-primary-foreground/75 truncate">{week.range}</div>
+      </div>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => startCurrentWeek.mutate()}
+        disabled={startCurrentWeek.isPending}
+        className="font-semibold shadow flex-shrink-0 h-8"
+      >
+        {startCurrentWeek.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : currentDraft ? (
+          <>Resume <ArrowRight className="h-4 w-4 ml-1" /></>
         ) : (
-          <div className="divide-y divide-border/50">
-            {counts!.map((c) => (
+          "Start count"
+        )}
+      </Button>
+    </div>
+  );
+
+  const renderPastList = ({ desktop }: { desktop: boolean }) => {
+    if (pastCounts.length === 0) {
+      return (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-xs text-muted-foreground">
+          No past counts yet.
+        </div>
+      );
+    }
+    return (
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        {pagedPast.map((count) => {
+          const isActive = desktop
+            ? count.id === desktopSelectedId
+            : count.id === selectedId;
+          const submitted = count.status === "submitted";
+          const label = `Week · ${fmt(count.period_start)} – ${fmt(count.period_end)}`;
+          const statusLabel = submitted
+            ? count.submitted_at
+              ? `Submitted ${DateTime.fromISO(count.submitted_at).toRelative()}`
+              : "Submitted"
+            : "In progress";
+
+          return (
+            <div key={count.id} className="border-b border-border last:border-b-0">
               <button
-                key={c.id}
-                onClick={() => navigate(`/inventory/${locationId}/count/${c.id}`)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 text-left"
+                onClick={() =>
+                  setSelectedId(desktop ? count.id : (isActive ? null : count.id))
+                }
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                  isActive
+                    ? desktop
+                      ? "bg-primary/10 border-l-2 border-primary pl-[14px]"
+                      : "bg-muted/40"
+                    : "hover:bg-muted/30"
+                }`}
               >
-                <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                    Week of {fmt(c.period_start)} – {fmt(c.period_end)}
-                    {c.is_backfill && (
-                      <Badge variant="outline" className="text-[10px] font-normal">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold flex items-center gap-1.5">
+                    {label}
+                    {submitted && (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" strokeWidth={3} />
+                    )}
+                    {count.is_backfill && (
+                      <Badge variant="outline" className="text-[9px] font-normal px-1.5 py-0">
                         Historical
                       </Badge>
                     )}
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {c.status === "submitted" && c.submitted_at
-                      ? `Submitted ${DateTime.fromISO(c.submitted_at).toRelative()}`
-                      : "In progress"}
-                  </div>
+                  <div className="text-xs text-muted-foreground">{statusLabel}</div>
                 </div>
-                <Badge variant={c.status === "submitted" ? "default" : "secondary"} className="text-[10px]">
-                  {c.status === "submitted" ? "Submitted" : "Draft"}
-                </Badge>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Badge
+                    variant={submitted ? "default" : "secondary"}
+                    className="text-[10px]"
+                  >
+                    {submitted ? "Submitted" : "Draft"}
+                  </Badge>
+                </div>
               </button>
-            ))}
+
+              {/* Mobile inline expansion — resume for drafts, COGS for submitted */}
+              {!desktop && (
+                <AnimatePresence initial={false}>
+                  {isActive && (
+                    <motion.div
+                      key="panel"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3 pb-3 pt-1">
+                        {submitted ? (
+                          <LiteCogsPanel
+                            countId={count.id}
+                            locationId={locationId}
+                            periodStart={count.period_start}
+                            periodEnd={count.period_end}
+                            locationName={locationName || "Location"}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-muted/40">
+                            <span className="text-xs text-muted-foreground">
+                              Draft count in progress.
+                            </span>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                navigate(`/inventory/${locationId}/count/${count.id}`)
+                              }
+                            >
+                              Open <ArrowRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
+            </div>
+          );
+        })}
+
+        {pastCounts.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-t border-border">
+            <button
+              onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+              disabled={pageIndex === 0}
+              className="w-8 h-8 rounded-lg bg-background hover:bg-muted flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
+              {pageIndex + 1} / {pastMaxPage + 1}
+            </span>
+            <button
+              onClick={() => setPageIndex((p) => Math.min(pastMaxPage, p + 1))}
+              disabled={pageIndex >= pastMaxPage}
+              className="w-8 h-8 rounded-lg bg-background hover:bg-muted flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         )}
-      </Card>
+      </div>
+    );
+  };
+
+  const renderHistoricalRow = () => (
+    <button
+      onClick={() => setShowPicker(true)}
+      className="w-full flex items-center justify-between gap-2 rounded-xl border border-dashed border-border bg-background hover:bg-muted/30 px-4 py-2.5 text-left transition-colors"
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <Plus className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-semibold text-muted-foreground">
+          Enter a historical count
+        </span>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+    </button>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-10 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-3">
+        {/* Mobile */}
+        <div className="md:hidden space-y-3">
+          {renderHero()}
+          {renderPastList({ desktop: false })}
+          {renderHistoricalRow()}
+        </div>
+
+        {/* Desktop master-detail */}
+        <div className="hidden md:grid md:grid-cols-12 md:gap-4">
+          <div className="md:col-span-5 space-y-3">
+            {renderHero()}
+            {renderPastList({ desktop: true })}
+            {renderHistoricalRow()}
+          </div>
+          <div className="md:col-span-7">
+            {desktopSelected ? (
+              desktopSelected.status === "submitted" ? (
+                <LiteCogsPanel
+                  countId={desktopSelected.id}
+                  locationId={locationId}
+                  periodStart={desktopSelected.period_start}
+                  periodEnd={desktopSelected.period_end}
+                  locationName={locationName || "Location"}
+                />
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Draft count in progress. Open it to keep counting.
+                  </div>
+                  <Button
+                    onClick={() =>
+                      navigate(`/inventory/${locationId}/count/${desktopSelected.id}`)
+                    }
+                  >
+                    Open draft <ArrowRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+                Select a submitted count to see its COGS breakdown.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <NewLiteCountDialog
         open={showPicker}
