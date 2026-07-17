@@ -291,23 +291,31 @@ export default function GeniusOrderCoachPanel({
                 const recCases = pack.caseQty > 1 ? Math.ceil(recEaches / pack.caseQty) : recEaches;
                 const usePackUnit = pack.caseQty > 1;
 
-                // Daily usage: show cases/day when big pack, else eaches/day
+                // Daily usage
                 const dailyEach = r.dailyUsage;
+                const caseWord = pack.caseLabel;
+                const eachWord = pack.eachLabel;
                 const dailyDisplay =
                   dailyEach == null
                     ? null
                     : usePackUnit
-                      ? `${(dailyEach / pack.caseQty).toFixed(2)} ${pack.caseLabel.toLowerCase()}/day`
-                      : `${dailyEach.toFixed(2)} ${pack.eachLabel.toLowerCase()}/day`;
+                      ? `${(dailyEach / pack.caseQty).toFixed(2)} ${caseWord.toLowerCase()}s per day`
+                      : `${dailyEach.toFixed(2)} ${eachWord.toLowerCase()} per day`;
 
-                // On hand: express in cases (with each remainder) when pack > 1
+                // On hand
                 const onHandEach = r.projectedOnHand;
                 const onHandDisplay =
                   onHandEach == null
                     ? null
                     : usePackUnit
-                      ? `~${(onHandEach / pack.caseQty).toFixed(1)} ${pack.caseLabel.toLowerCase()} on hand`
-                      : `~${onHandEach.toFixed(1)} on hand`;
+                      ? `${(onHandEach / pack.caseQty).toFixed(1)} ${caseWord.toLowerCase()}s on hand`
+                      : `${onHandEach.toFixed(1)} ${eachWord.toLowerCase()} on hand`;
+
+                const lastCountedLabel = r.lastCountedOn && lastCounted
+                  ? `Last counted ${lastCounted}`
+                  : null;
+                const avgLabel =
+                  r.periodsUsed > 0 ? `${r.periodsUsed}-period average` : null;
 
                 return (
                   <div key={r.item.id} className="px-3 py-2.5 flex items-center gap-3">
@@ -316,29 +324,44 @@ export default function GeniusOrderCoachPanel({
                         {r.item.name}
                       </div>
                       {usePackUnit && (
-                        <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">
-                          1 {pack.caseLabel} = {pack.caseQty} {pack.eachLabel}
+                        <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide mt-0.5">
+                          1 {caseWord} = {pack.caseQty} {eachWord}
                         </div>
                       )}
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {dailyDisplay ? (
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-medium">
                             <TrendingUp className="h-3 w-3" />
                             {dailyDisplay}
                           </span>
                         ) : (
-                          <span className="italic">No usage yet</span>
+                          <span className="inline-flex items-center rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-[11px] italic">
+                            No usage data yet
+                          </span>
                         )}
-                        {onHandDisplay && <span>· {onHandDisplay}</span>}
-                        {lastCounted && <span>· counted {lastCounted}</span>}
-                        {r.periodsUsed > 0 && <span>· {r.periodsUsed}p avg</span>}
+                        {onHandDisplay && (
+                          <span className="inline-flex items-center rounded-full bg-muted text-foreground/80 px-2 py-0.5 text-[11px] font-medium">
+                            {onHandDisplay}
+                          </span>
+                        )}
+                        {lastCountedLabel && (
+                          <span className="inline-flex items-center rounded-full bg-muted/60 text-muted-foreground px-2 py-0.5 text-[11px]">
+                            {lastCountedLabel}
+                          </span>
+                        )}
+                        {avgLabel && (
+                          <span className="inline-flex items-center rounded-full bg-muted/60 text-muted-foreground px-2 py-0.5 text-[11px]">
+                            {avgLabel}
+                          </span>
+                        )}
                       </div>
                       {r.reason && !showRec && (
-                        <div className="text-[10px] text-muted-foreground/70 italic mt-0.5">
+                        <div className="text-[10px] text-muted-foreground/70 italic mt-1">
                           {r.reason}
                         </div>
                       )}
                     </div>
+
                     <div className="text-right">
                       {showRec ? (
                         <>
