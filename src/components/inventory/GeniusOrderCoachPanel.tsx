@@ -153,9 +153,11 @@ export default function GeniusOrderCoachPanel({
     if (loading || !items || !countsData) return [];
     const uItems: UsageItem[] = items.map((i: any) => ({
       id: i.id,
-      name: i.common_label || i.name,
+      // Product name first — `common_label` is the pack shape (Bag/Case/Sleeve),
+      // not the product, so falling back to it made every row look identical.
+      name: i.name || i.common_label || "Unnamed item",
       vendor: i.vendor_name_normalized,
-      unitLabel: i.unit,
+      unitLabel: i.common_label || i.unit,
     }));
     return computeUsageCoach({
       today,
@@ -165,6 +167,7 @@ export default function GeniusOrderCoachPanel({
       orderDays: orderDays || [],
     });
   }, [loading, items, countsData, receipts, orderDays, today]);
+
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof coach>();
