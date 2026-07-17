@@ -1563,10 +1563,16 @@ export default function CompleteChecklist() {
                                     <Eye className="h-4 w-4" />
                                   </button>
                                 </div>
+                              ) : isUploading ? (
+                                <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
+                                  <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin mb-1" />
+                                  <span className="text-[10px] text-primary">Uploading…</span>
+                                </div>
                               ) : (
                                 <PhotoPickerButton
                                   onFileSelected={(file) => handleImageUpload(item.id, file)}
                                   className="block w-full"
+                                  disabled={isUploading}
                                 >
                                   <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer">
                                     <Camera className="h-8 w-8 text-muted-foreground mb-1" />
