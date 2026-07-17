@@ -171,6 +171,13 @@ export default function LiteCogsPanel({
   const fmtDate = (d: string | null) =>
     d ? DateTime.fromFormat(d, "yyyy-MM-dd").toFormat("LLL d") : "—";
 
+  const cogsPct = breakdown.cogsPct;
+  const cogsTone =
+    cogsPct == null ? "text-muted-foreground"
+    : cogsPct >= 65 ? "text-red-600"
+    : cogsPct >= 60 ? "text-amber-600"
+    : "text-emerald-600";
+
   return (
     <div className="space-y-3">
       <Card className="overflow-hidden">
@@ -178,6 +185,18 @@ export default function LiteCogsPanel({
           <div className="flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">COGS</h3>
+            {cogsPct != null && (
+              <div className="flex items-baseline gap-1 ml-2">
+                <span className={`text-base font-bold tabular-nums ${cogsTone}`}>
+                  {cogsPct.toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {posSales == null && (
+              <span className="text-[10px] text-muted-foreground ml-1">
+                (no POS sales yet)
+              </span>
+            )}
           </div>
           <Button size="sm" variant="outline" className="gap-1.5" onClick={onExport}>
             <Download className="h-4 w-4" />
@@ -272,7 +291,9 @@ export default function LiteCogsPanel({
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold">COGS $</div>
               <div className="text-[11px] text-muted-foreground">
-                Beginning + Purchases − Ending
+                {posSales != null
+                  ? `POS net sales · ${formatMoney(posSales)}`
+                  : "Beginning + Purchases − Ending"}
               </div>
             </div>
             <div className="text-xl font-bold tabular-nums text-primary">
@@ -282,50 +303,7 @@ export default function LiteCogsPanel({
         </div>
       </Card>
 
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">Manual Sales Total</div>
-            <div className="text-[11px] text-muted-foreground">
-              Type in this period's sales so we can show COGS as a %. Optional.
-            </div>
-          </div>
-          <div className="relative w-40">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-              $
-            </span>
-            <Input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={manualSalesInput}
-              onChange={(e) => setManualSalesInput(e.target.value)}
-              onBlur={(e) => {
-                if (e.target.value !== (current?.manualSales?.toString() ?? "")) {
-                  saveManualSales.mutate(e.target.value);
-                }
-              }}
-              className="pl-6 text-right tabular-nums"
-              placeholder="0.00"
-              disabled={saveManualSales.isPending}
-            />
-          </div>
-        </div>
 
-        {breakdown.cogsPct != null ? (
-          <div className="flex items-center justify-between border-t border-border/50 pt-3">
-            <div className="text-sm font-semibold">COGS %</div>
-            <div className="text-lg font-bold tabular-nums text-primary">
-              {breakdown.cogsPct.toFixed(2)}%
-            </div>
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">
-            Enter sales above to see COGS %.
-          </div>
-        )}
-      </Card>
 
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-border/50">
