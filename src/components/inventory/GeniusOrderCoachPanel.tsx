@@ -244,7 +244,7 @@ export default function GeniusOrderCoachPanel({
             <div className="px-3 py-2.5 bg-muted/30 border-b border-border/50 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-semibold truncate">{g.vendor}</span>
+                <span className="text-sm font-semibold truncate">{prettyVendor(g.vendor)}</span>
               </div>
               {g.nextOrder < 99 ? (
                 <Badge variant="secondary" className="text-[10px] gap-1">
