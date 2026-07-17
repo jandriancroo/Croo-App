@@ -798,6 +798,41 @@ export default function CompleteChecklist() {
     const isMultiPhoto = minPhotos > 1;
 
     console.log('handleImageUpload called:', { itemId, submissionId, userId: user?.id });
+
+    // ---------- OPTIMISTIC UPDATE ----------
+    // Immediately show the photo as complete using a local blob URL so the
+    // user sees instant feedback while the real upload finishes in the
+    // background (compression + storage + AI temp validation can take 10s+).
+    const blobUrl = URL.createObjectURL(file);
+    const previousResponses = responses;
+    const previousResponsesWithCompleters = responsesWithCompleters;
+
+    let optimisticValue: string | string[];
+    if (isMultiPhoto) {
+      const currentPhotos = getPhotosForItem(itemId);
+      if (photoIndex !== undefined && photoIndex < currentPhotos.length) {
+        const next = [...currentPhotos];
+        next[photoIndex] = blobUrl;
+        optimisticValue = next;
+      } else {
+        optimisticValue = [...currentPhotos, blobUrl];
+      }
+    } else {
+      optimisticValue = blobUrl;
+    }
+
+    setResponses(prev => ({ ...prev, [itemId]: optimisticValue }));
+    setResponsesWithCompleters(prev => ({
+      ...prev,
+      [itemId]: {
+        responseId: prev[itemId]?.responseId || '',
+        value: optimisticValue,
+        isImage: true,
+        extractedTemperature: prev[itemId]?.extractedTemperature ?? null,
+        temperatureValid: prev[itemId]?.temperatureValid ?? null,
+        completedBy: prev[itemId]?.completedBy,
+      },
+    }));
     setUploadingItems(prev => ({ ...prev, [itemId]: true }));
 
     try {
@@ -878,23 +913,20 @@ export default function CompleteChecklist() {
         }
       }
 
-      // Handle multi-photo vs single photo
+      // Swap the blob URL for the real public URL in whatever the current
+      // state is (user may have added/replaced other photos meanwhile).
+      const swapBlob = (arr: string[]) =>
+        arr.map(u => (u === blobUrl ? data.publicUrl : u));
+
       let newValue: string | string[];
       if (isMultiPhoto) {
-        const currentPhotos = getPhotosForItem(itemId);
-        if (photoIndex !== undefined && photoIndex < currentPhotos.length) {
-          // Replace existing photo at index
-          currentPhotos[photoIndex] = data.publicUrl;
-          newValue = [...currentPhotos];
-        } else {
-          // Add new photo
-          newValue = [...currentPhotos, data.publicUrl];
-        }
+        const latestRaw = (responses[itemId] as string[] | undefined) ?? [];
+        newValue = swapBlob(Array.isArray(latestRaw) ? latestRaw : [latestRaw as any]);
       } else {
         newValue = data.publicUrl;
       }
 
-      // Save the response with temperature data
+      // Persist to DB
       let responseId: string | undefined;
       if (submissionId && user?.id) {
         console.log('Saving response for submission:', submissionId);
@@ -946,35 +978,53 @@ export default function CompleteChecklist() {
           .eq('id', user.id)
           .single();
 
-        // Update both responses and responsesWithCompleters with ALL data including temperature
-        setResponses(prev => ({ ...prev, [itemId]: newValue }));
-        setResponsesWithCompleters(prev => ({
-          ...prev,
-          [itemId]: {
-            responseId: responseId || '',
-            value: newValue,
-            isImage: true,
-            extractedTemperature: extractedTemp,
-            temperatureValid: tempValid,
-            completedBy: profile ? {
-              userId: user.id,
-              fullName: profile.full_name || 'Unknown',
-              profilePhoto: profile.profile_photo_url,
-              completedAt: new Date().toISOString()
-            } : undefined
+        // Swap blob → real URL in state (preserves any other concurrent edits)
+        setResponses(prev => {
+          const current = prev[itemId];
+          if (isMultiPhoto && Array.isArray(current)) {
+            return { ...prev, [itemId]: swapBlob(current) };
           }
-        }));
+          return { ...prev, [itemId]: newValue };
+        });
+        setResponsesWithCompleters(prev => {
+          const current = prev[itemId];
+          const currentVal = current?.value;
+          const swapped =
+            isMultiPhoto && Array.isArray(currentVal) ? swapBlob(currentVal) : newValue;
+          return {
+            ...prev,
+            [itemId]: {
+              responseId: responseId || '',
+              value: swapped,
+              isImage: true,
+              extractedTemperature: extractedTemp,
+              temperatureValid: tempValid,
+              completedBy: profile ? {
+                userId: user.id,
+                fullName: profile.full_name || 'Unknown',
+                profilePhoto: profile.profile_photo_url,
+                completedAt: new Date().toISOString()
+              } : undefined
+            }
+          };
+        });
       }
 
-      toast.success('Image uploaded successfully');
+      // Silent success — the user already saw the photo appear optimistically.
     } catch (error: any) {
+      // Revert the optimistic update so the user knows to retry.
+      setResponses(previousResponses);
+      setResponsesWithCompleters(previousResponsesWithCompleters);
+
       const msg = String(error?.message || '').toLowerCase();
       if (msg.includes('memory') || msg.includes('out of memory') || msg.includes('low memory')) {
         toast.error('Low memory: try choosing an existing photo instead');
       } else {
-        toast.error('Failed to upload image');
+        toast.error('Photo upload failed — please retry');
       }
     } finally {
+      // Release the blob URL after a beat so the <img> has time to swap sources.
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
       setUploadingItems(prev => {
         const next = { ...prev };
         delete next[itemId];
@@ -982,6 +1032,7 @@ export default function CompleteChecklist() {
       });
     }
   };
+
   if (loading) {
     return <Layout>
         <div className="text-center text-muted-foreground">Loading checklist...</div>
