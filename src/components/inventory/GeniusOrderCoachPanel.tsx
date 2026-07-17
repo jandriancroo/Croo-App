@@ -19,6 +19,25 @@ interface Props {
   timezone?: string;
 }
 
+// Pretty-print vendor names like "MCLANE FOODSERVICE, INC." -> "McLane Foodservice, Inc."
+// Preserves common all-caps suffixes and inner caps (Mc*, Mac*).
+function prettyVendor(raw: string | null | undefined): string {
+  if (!raw) return "Unassigned vendor";
+  const KEEP_UPPER = new Set(["LLC", "INC", "LTD", "CO", "USA", "US", "DBA"]);
+  return raw
+    .toLowerCase()
+    .split(/(\s+|,)/)
+    .map((tok) => {
+      if (!tok.trim() || tok === ",") return tok;
+      const bare = tok.replace(/\.$/, "");
+      if (KEEP_UPPER.has(bare.toUpperCase())) return bare.toUpperCase() + (tok.endsWith(".") ? "." : "");
+      if (/^mc[a-z]/.test(tok)) return "Mc" + tok.charAt(2).toUpperCase() + tok.slice(3);
+      if (/^mac[a-z]/.test(tok)) return "Mac" + tok.charAt(3).toUpperCase() + tok.slice(4);
+      return tok.charAt(0).toUpperCase() + tok.slice(1);
+    })
+    .join("");
+}
+
 /**
  * Genius Order Coach (Lite) — inline tab panel.
  *
@@ -244,7 +263,7 @@ export default function GeniusOrderCoachPanel({
             <div className="px-3 py-2.5 bg-muted/30 border-b border-border/50 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-semibold truncate">{g.vendor}</span>
+                <span className="text-sm font-semibold truncate">{prettyVendor(g.vendor)}</span>
               </div>
               {g.nextOrder < 99 ? (
                 <Badge variant="secondary" className="text-[10px] gap-1">
