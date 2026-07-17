@@ -257,40 +257,59 @@ export default function GeniusOrderCoachPanel({
             </div>
             <div className="divide-y divide-border/50">
               {g.rows.map((r) => {
+                const pack = packById.get(r.item.id) || { caseQty: 1, eachLabel: "each", caseLabel: "case" };
                 const showRec =
                   r.recommendedOrderQty != null && r.recommendedOrderQty > 0;
                 const lastCounted = r.lastCountedOn
                   ? DateTime.fromFormat(r.lastCountedOn, "yyyy-MM-dd").toRelative({ base: DateTime.fromFormat(today, "yyyy-MM-dd") })
                   : null;
+
+                // Convert engine "each" output to cases when we have a pack size > 1.
+                const recEaches = r.recommendedOrderQty ?? 0;
+                const recCases = pack.caseQty > 1 ? Math.ceil(recEaches / pack.caseQty) : recEaches;
+                const usePackUnit = pack.caseQty > 1;
+
+                // Daily usage: show cases/day when big pack, else eaches/day
+                const dailyEach = r.dailyUsage;
+                const dailyDisplay =
+                  dailyEach == null
+                    ? null
+                    : usePackUnit
+                      ? `${(dailyEach / pack.caseQty).toFixed(2)} ${pack.caseLabel.toLowerCase()}/day`
+                      : `${dailyEach.toFixed(2)} ${pack.eachLabel.toLowerCase()}/day`;
+
+                // On hand: express in cases (with each remainder) when pack > 1
+                const onHandEach = r.projectedOnHand;
+                const onHandDisplay =
+                  onHandEach == null
+                    ? null
+                    : usePackUnit
+                      ? `~${(onHandEach / pack.caseQty).toFixed(1)} ${pack.caseLabel.toLowerCase()} on hand`
+                      : `~${onHandEach.toFixed(1)} on hand`;
+
                 return (
                   <div key={r.item.id} className="px-3 py-2.5 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                      <div className="text-sm font-medium truncate">
                         {r.item.name}
-                        {r.item.unitLabel && (
-                          <span className="text-[10px] font-normal text-muted-foreground/70 uppercase tracking-wide">
-                            · {r.item.unitLabel}
-                          </span>
-                        )}
                       </div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
-                        {r.dailyUsage != null ? (
+                      {usePackUnit && (
+                        <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">
+                          1 {pack.caseLabel} = {pack.caseQty} {pack.eachLabel}
+                        </div>
+                      )}
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                        {dailyDisplay ? (
                           <span className="inline-flex items-center gap-1">
                             <TrendingUp className="h-3 w-3" />
-                            {r.dailyUsage.toFixed(2)}/day
+                            {dailyDisplay}
                           </span>
                         ) : (
                           <span className="italic">No usage yet</span>
                         )}
-                        {r.projectedOnHand != null && (
-                          <span>· ~{r.projectedOnHand.toFixed(1)} on hand</span>
-                        )}
-                        {lastCounted && (
-                          <span>· counted {lastCounted}</span>
-                        )}
-                        {r.periodsUsed > 0 && (
-                          <span>· {r.periodsUsed}p avg</span>
-                        )}
+                        {onHandDisplay && <span>· {onHandDisplay}</span>}
+                        {lastCounted && <span>· counted {lastCounted}</span>}
+                        {r.periodsUsed > 0 && <span>· {r.periodsUsed}p avg</span>}
                       </div>
                       {r.reason && !showRec && (
                         <div className="text-[10px] text-muted-foreground/70 italic mt-0.5">
@@ -302,11 +321,18 @@ export default function GeniusOrderCoachPanel({
                       {showRec ? (
                         <>
                           <div className="text-base font-bold text-primary leading-tight">
-                            {r.recommendedOrderQty}
+                            {recCases}
                           </div>
                           <div className="text-[10px] text-muted-foreground leading-tight">
-                            order {r.item.unitLabel || "units"}
+                            {usePackUnit
+                              ? `${pack.caseLabel.toLowerCase()}${recCases === 1 ? "" : "s"} to order`
+                              : `${pack.eachLabel.toLowerCase()} to order`}
                           </div>
+                          {usePackUnit && (
+                            <div className="text-[10px] text-muted-foreground/70 leading-tight">
+                              ≈ {recEaches} {pack.eachLabel.toLowerCase()}
+                            </div>
+                          )}
                         </>
                       ) : r.recommendedOrderQty === 0 ? (
                         <Badge variant="outline" className="text-[10px]">OK</Badge>
