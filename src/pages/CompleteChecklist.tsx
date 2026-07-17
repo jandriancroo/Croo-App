@@ -91,6 +91,7 @@ export default function CompleteChecklist() {
   const [showNotes, setShowNotes] = useState(false);
   const [manualTempOpen, setManualTempOpen] = useState<Record<string, boolean>>({});
   const [manualTempValue, setManualTempValue] = useState<Record<string, string>>({});
+  const [uploadingItems, setUploadingItems] = useState<Record<string, boolean>>({});
   const notesTimeoutRef = useRef<NodeJS.Timeout>();
   const {
     user
