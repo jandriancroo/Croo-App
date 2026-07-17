@@ -974,6 +974,12 @@ export default function CompleteChecklist() {
       } else {
         toast.error('Failed to upload image');
       }
+    } finally {
+      setUploadingItems(prev => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
     }
   };
   if (loading) {
