@@ -606,7 +606,7 @@ const Inventory = () => {
 
           <TabsContent value="count" className="mt-4 space-y-4">
             {isLite ? (
-              <LiteCountTab locationId={locationId!} timezone={timezone} />
+              <LiteCountTab locationId={locationId!} timezone={timezone} locationName={location?.name} />
             ) : (
               <>
                 <SandboxCountsPanel locationId={locationId!} />
