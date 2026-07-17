@@ -1494,6 +1494,8 @@ export default function CompleteChecklist() {
 
                     const hasSplitView = !!item.reference_image_url && !isMultiPhoto;
 
+                    const isUploading = !!uploadingItems[item.id];
+
                     return (
                       <div className="space-y-3">
                         {isMultiPhoto && (
@@ -1502,6 +1504,9 @@ export default function CompleteChecklist() {
                               {currentPhotos.length} / {minPhotos} photos uploaded
                             </span>
                             {isComplete && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                            {isUploading && (
+                              <span className="text-xs text-muted-foreground animate-pulse">Uploading…</span>
+                            )}
                           </div>
                         )}
 
