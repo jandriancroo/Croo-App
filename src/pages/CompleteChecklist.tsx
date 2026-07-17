@@ -91,6 +91,7 @@ export default function CompleteChecklist() {
   const [showNotes, setShowNotes] = useState(false);
   const [manualTempOpen, setManualTempOpen] = useState<Record<string, boolean>>({});
   const [manualTempValue, setManualTempValue] = useState<Record<string, string>>({});
+  const [uploadingItems, setUploadingItems] = useState<Record<string, boolean>>({});
   const notesTimeoutRef = useRef<NodeJS.Timeout>();
   const {
     user
@@ -786,11 +787,18 @@ export default function CompleteChecklist() {
   };
 
   const handleImageUpload = async (itemId: string, file: File, photoIndex?: number) => {
+    // Guard: if an upload is already in flight for this item, ignore the second tap.
+    // Prevents duplicate photos when users tap again thinking nothing happened.
+    if (uploadingItems[itemId]) {
+      toast.info('Upload in progress — please wait');
+      return;
+    }
     const item = items.find(i => i.id === itemId);
     const minPhotos = item ? getMinPhotos(item) : 1;
     const isMultiPhoto = minPhotos > 1;
 
     console.log('handleImageUpload called:', { itemId, submissionId, userId: user?.id });
+    setUploadingItems(prev => ({ ...prev, [itemId]: true }));
 
     try {
       // Compress image to reduce memory usage on mobile devices
@@ -966,6 +974,12 @@ export default function CompleteChecklist() {
       } else {
         toast.error('Failed to upload image');
       }
+    } finally {
+      setUploadingItems(prev => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
     }
   };
   if (loading) {
@@ -1480,6 +1494,8 @@ export default function CompleteChecklist() {
 
                     const hasSplitView = !!item.reference_image_url && !isMultiPhoto;
 
+                    const isUploading = !!uploadingItems[item.id];
+
                     return (
                       <div className="space-y-3">
                         {isMultiPhoto && (
@@ -1488,6 +1504,9 @@ export default function CompleteChecklist() {
                               {currentPhotos.length} / {minPhotos} photos uploaded
                             </span>
                             {isComplete && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                            {isUploading && (
+                              <span className="text-xs text-muted-foreground animate-pulse">Uploading…</span>
+                            )}
                           </div>
                         )}
 
@@ -1544,10 +1563,16 @@ export default function CompleteChecklist() {
                                     <Eye className="h-4 w-4" />
                                   </button>
                                 </div>
+                              ) : isUploading ? (
+                                <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
+                                  <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin mb-1" />
+                                  <span className="text-[10px] text-primary">Uploading…</span>
+                                </div>
                               ) : (
                                 <PhotoPickerButton
                                   onFileSelected={(file) => handleImageUpload(item.id, file)}
                                   className="block w-full"
+                                  disabled={isUploading}
                                 >
                                   <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer">
                                     <Camera className="h-8 w-8 text-muted-foreground mb-1" />
@@ -1598,14 +1623,22 @@ export default function CompleteChecklist() {
                             {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => {
                               return (
                                 <div key={idx}>
-                                  <PhotoPickerButton
-                                    onFileSelected={(file) => handleImageUpload(item.id, file)}
-                                    className="block w-full"
-                                  >
-                                    <div className="flex items-center justify-center min-h-[60px] cursor-pointer">
-                                      <Camera className="h-8 w-8 text-muted-foreground" />
+                                  {isUploading && idx === 0 ? (
+                                    <div className="flex items-center justify-center gap-2 min-h-[60px] rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
+                                      <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                                      <span className="text-xs text-primary">Uploading…</span>
                                     </div>
-                                  </PhotoPickerButton>
+                                  ) : (
+                                    <PhotoPickerButton
+                                      onFileSelected={(file) => handleImageUpload(item.id, file)}
+                                      className="block w-full"
+                                      disabled={isUploading}
+                                    >
+                                      <div className="flex items-center justify-center min-h-[60px] cursor-pointer">
+                                        <Camera className="h-8 w-8 text-muted-foreground" />
+                                      </div>
+                                    </PhotoPickerButton>
+                                  )}
                                 </div>
                               );
                             })}
@@ -1613,6 +1646,7 @@ export default function CompleteChecklist() {
                         )}
                           </>
                         )}
+
 
                       </div>
                     );
