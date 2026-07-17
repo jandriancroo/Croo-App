@@ -155,10 +155,13 @@ export default function GeniusOrderCoachPanel({
     const map = new Map<string, { caseQty: number; eachLabel: string; caseLabel: string }>();
     (items || []).forEach((i: any) => {
       const cq = Number(i.case_qty ?? 0);
+      // common_label/unit describe the *inner* counting unit (each/bag/sleeve).
+      // We don't store a separate case-noun, so use "case" for the outer pack.
+      const eachLabel = (i.common_label || i.unit || "each").toString();
       map.set(i.id, {
         caseQty: cq > 0 ? cq : 1,
-        eachLabel: (i.unit || "each").toString(),
-        caseLabel: (i.common_label || "case").toString(),
+        eachLabel,
+        caseLabel: "case",
       });
     });
     return map;
