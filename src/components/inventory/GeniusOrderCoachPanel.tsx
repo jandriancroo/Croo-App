@@ -19,6 +19,25 @@ interface Props {
   timezone?: string;
 }
 
+// Pretty-print vendor names like "MCLANE FOODSERVICE, INC." -> "McLane Foodservice, Inc."
+// Preserves common all-caps suffixes and inner caps (Mc*, Mac*).
+function prettyVendor(raw: string | null | undefined): string {
+  if (!raw) return "Unassigned vendor";
+  const KEEP_UPPER = new Set(["LLC", "INC", "LTD", "CO", "USA", "US", "DBA"]);
+  return raw
+    .toLowerCase()
+    .split(/(\s+|,)/)
+    .map((tok) => {
+      if (!tok.trim() || tok === ",") return tok;
+      const bare = tok.replace(/\.$/, "");
+      if (KEEP_UPPER.has(bare.toUpperCase())) return bare.toUpperCase() + (tok.endsWith(".") ? "." : "");
+      if (/^mc[a-z]/.test(tok)) return "Mc" + tok.charAt(2).toUpperCase() + tok.slice(3);
+      if (/^mac[a-z]/.test(tok)) return "Mac" + tok.charAt(3).toUpperCase() + tok.slice(4);
+      return tok.charAt(0).toUpperCase() + tok.slice(1);
+    })
+    .join("");
+}
+
 /**
  * Genius Order Coach (Lite) — inline tab panel.
  *
