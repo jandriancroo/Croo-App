@@ -1,14 +1,12 @@
 import { useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
   Loader2,
@@ -20,7 +18,6 @@ import {
   Package,
   Receipt,
 } from "lucide-react";
-import { toast } from "sonner";
 import { DateTime } from "luxon";
 import {
   buildCogs,
@@ -31,6 +28,7 @@ import {
   sumCountItems,
   type LiteInvoiceRow,
 } from "@/utils/liteCogs";
+
 
 interface Props {
   countId: string;
@@ -52,24 +50,14 @@ export default function LiteCogsPanel({
   periodEnd,
   locationName = "Location",
 }: Props) {
-  const qc = useQueryClient();
-  const [manualSalesInput, setManualSalesInput] = useState<string>("");
-  const [manualSalesInitialised, setManualSalesInitialised] = useState(false);
   const [invoicesOpen, setInvoicesOpen] = useState(false);
 
-  // Current period: count meta (for manual_sales_total) + count items joined
-  // to lite_inventory_items for category grouping.
+  // Current period: count items joined to lite_inventory_items for category
+  // grouping. (Manual sales removed — we pull net_sales from sales_cache.)
   const { data: current, isLoading: currentLoading } = useQuery({
     queryKey: ["lite-cogs-current", countId],
     enabled: !!countId,
     queryFn: async () => {
-      const { data: meta, error: metaErr } = await supabase
-        .from("lite_inventory_counts" as any)
-        .select("id, manual_sales_total")
-        .eq("id", countId)
-        .maybeSingle();
-      if (metaErr) throw metaErr;
-
       const { data: rows, error: rowsErr } = await supabase
         .from("lite_inventory_count_items" as any)
         .select(
@@ -77,14 +65,7 @@ export default function LiteCogsPanel({
         )
         .eq("count_id", countId);
       if (rowsErr) throw rowsErr;
-
-      return {
-        manualSales:
-          (meta as any)?.manual_sales_total != null
-            ? Number((meta as any).manual_sales_total)
-            : null,
-        rows: (rows as any) || [],
-      };
+      return { rows: (rows as any) || [] };
     },
   });
 
@@ -130,43 +111,30 @@ export default function LiteCogsPanel({
     },
   });
 
+  // POS-synced net sales for the period. Replaces the manual sales input —
+  // sales_cache is populated by the POS backfill so this is always current.
+  const { data: posSales, isLoading: salesLoading } = useQuery({
+    queryKey: ["lite-cogs-pos-sales", locationId, periodStart, periodEnd],
+    enabled: !!locationId && !!periodStart && !!periodEnd,
+    queryFn: async (): Promise<number | null> => {
+      const { data, error } = await supabase
+        .from("sales_cache")
+        .select("net_sales")
+        .eq("location_id", locationId)
+        .gte("sale_date", periodStart)
+        .lte("sale_date", periodEnd);
+      if (error) throw error;
+      if (!data || data.length === 0) return null;
+      return data.reduce((s, r: any) => s + (Number(r.net_sales) || 0), 0);
+    },
+  });
+
   const invoicesInWindow = useMemo(
     () => filterInvoicesInWindow(allInvoices, periodStart, periodEnd),
     [allInvoices, periodStart, periodEnd],
   );
 
-  // Sync manual sales input from server the first time it lands.
-  if (!manualSalesInitialised && current) {
-    setManualSalesInitialised(true);
-    setManualSalesInput(current.manualSales != null ? String(current.manualSales) : "");
-  }
-
-  const saveManualSales = useMutation({
-    mutationFn: async (raw: string) => {
-      const trimmed = raw.trim();
-      const nextVal =
-        trimmed === "" ? null : Number.isFinite(Number(trimmed)) ? Number(trimmed) : null;
-      if (trimmed !== "" && nextVal == null) {
-        throw new Error("Enter a number");
-      }
-      const { error } = await supabase
-        .from("lite_inventory_counts" as any)
-        .update({ manual_sales_total: nextVal })
-        .eq("id", countId);
-      if (error) throw error;
-      return nextVal;
-    },
-    onSuccess: (nextVal) => {
-      qc.setQueryData(["lite-cogs-current", countId], (prev: any) =>
-        prev ? { ...prev, manualSales: nextVal } : prev,
-      );
-    },
-    onError: (err: any) => {
-      toast.error("Couldn't save sales total", { description: err?.message });
-    },
-  });
-
-  const loading = currentLoading || priorLoading || invoicesLoading;
+  const loading = currentLoading || priorLoading || invoicesLoading || salesLoading;
 
   const breakdown = useMemo(() => {
     if (!current) return null;
@@ -174,9 +142,10 @@ export default function LiteCogsPanel({
       currentRows: current.rows,
       priorEnding: priorEnding ?? 0,
       invoicesInWindow,
-      manualSales: current.manualSales,
+      manualSales: posSales ?? null,
     });
-  }, [current, priorEnding, invoicesInWindow]);
+  }, [current, priorEnding, invoicesInWindow, posSales]);
+
 
   const onExport = () => {
     if (!breakdown) return;
@@ -202,6 +171,13 @@ export default function LiteCogsPanel({
   const fmtDate = (d: string | null) =>
     d ? DateTime.fromFormat(d, "yyyy-MM-dd").toFormat("LLL d") : "—";
 
+  const cogsPct = breakdown.cogsPct;
+  const cogsTone =
+    cogsPct == null ? "text-muted-foreground"
+    : cogsPct >= 65 ? "text-red-600"
+    : cogsPct >= 60 ? "text-amber-600"
+    : "text-emerald-600";
+
   return (
     <div className="space-y-3">
       <Card className="overflow-hidden">
@@ -209,6 +185,18 @@ export default function LiteCogsPanel({
           <div className="flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">COGS</h3>
+            {cogsPct != null && (
+              <div className="flex items-baseline gap-1 ml-2">
+                <span className={`text-base font-bold tabular-nums ${cogsTone}`}>
+                  {cogsPct.toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {posSales == null && (
+              <span className="text-[10px] text-muted-foreground ml-1">
+                (no POS sales yet)
+              </span>
+            )}
           </div>
           <Button size="sm" variant="outline" className="gap-1.5" onClick={onExport}>
             <Download className="h-4 w-4" />
@@ -303,7 +291,9 @@ export default function LiteCogsPanel({
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold">COGS $</div>
               <div className="text-[11px] text-muted-foreground">
-                Beginning + Purchases − Ending
+                {posSales != null
+                  ? `POS net sales · ${formatMoney(posSales)}`
+                  : "Beginning + Purchases − Ending"}
               </div>
             </div>
             <div className="text-xl font-bold tabular-nums text-primary">
@@ -313,50 +303,7 @@ export default function LiteCogsPanel({
         </div>
       </Card>
 
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">Manual Sales Total</div>
-            <div className="text-[11px] text-muted-foreground">
-              Type in this period's sales so we can show COGS as a %. Optional.
-            </div>
-          </div>
-          <div className="relative w-40">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-              $
-            </span>
-            <Input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={manualSalesInput}
-              onChange={(e) => setManualSalesInput(e.target.value)}
-              onBlur={(e) => {
-                if (e.target.value !== (current?.manualSales?.toString() ?? "")) {
-                  saveManualSales.mutate(e.target.value);
-                }
-              }}
-              className="pl-6 text-right tabular-nums"
-              placeholder="0.00"
-              disabled={saveManualSales.isPending}
-            />
-          </div>
-        </div>
 
-        {breakdown.cogsPct != null ? (
-          <div className="flex items-center justify-between border-t border-border/50 pt-3">
-            <div className="text-sm font-semibold">COGS %</div>
-            <div className="text-lg font-bold tabular-nums text-primary">
-              {breakdown.cogsPct.toFixed(2)}%
-            </div>
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">
-            Enter sales above to see COGS %.
-          </div>
-        )}
-      </Card>
 
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-border/50">
