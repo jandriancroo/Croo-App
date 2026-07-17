@@ -333,7 +333,7 @@ export default function GeniusOrderCoachPanel({
                           </div>
                           {usePackUnit && (
                             <div className="text-[10px] text-muted-foreground/70 leading-tight">
-                              ≈ {recEaches} {pack.eachLabel.toLowerCase()}
+                              need ~{recEaches} {pack.eachLabel.toLowerCase()}
                             </div>
                           )}
                         </>
