@@ -149,15 +149,28 @@ export default function GeniusOrderCoachPanel({
 
   const loading = itemsLoading || countsLoading || receiptsLoading || orderDaysLoading;
 
+  // Map id -> pack info so we can convert the engine's "each" output back
+  // into cases (how operators actually order).
+  const packById = useMemo(() => {
+    const map = new Map<string, { caseQty: number; eachLabel: string; caseLabel: string }>();
+    (items || []).forEach((i: any) => {
+      const cq = Number(i.case_qty ?? 0);
+      map.set(i.id, {
+        caseQty: cq > 0 ? cq : 1,
+        eachLabel: (i.unit || "each").toString(),
+        caseLabel: (i.common_label || "case").toString(),
+      });
+    });
+    return map;
+  }, [items]);
+
   const coach = useMemo(() => {
     if (loading || !items || !countsData) return [];
     const uItems: UsageItem[] = items.map((i: any) => ({
       id: i.id,
-      // Product name first — `common_label` is the pack shape (Bag/Case/Sleeve),
-      // not the product, so falling back to it made every row look identical.
-      name: i.name || i.common_label || "Unnamed item",
+      name: i.name || "Unnamed item",
       vendor: i.vendor_name_normalized,
-      unitLabel: i.common_label || i.unit,
+      unitLabel: i.unit || "each",
     }));
     return computeUsageCoach({
       today,
