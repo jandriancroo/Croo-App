@@ -787,11 +787,18 @@ export default function CompleteChecklist() {
   };
 
   const handleImageUpload = async (itemId: string, file: File, photoIndex?: number) => {
+    // Guard: if an upload is already in flight for this item, ignore the second tap.
+    // Prevents duplicate photos when users tap again thinking nothing happened.
+    if (uploadingItems[itemId]) {
+      toast.info('Upload in progress — please wait');
+      return;
+    }
     const item = items.find(i => i.id === itemId);
     const minPhotos = item ? getMinPhotos(item) : 1;
     const isMultiPhoto = minPhotos > 1;
 
     console.log('handleImageUpload called:', { itemId, submissionId, userId: user?.id });
+    setUploadingItems(prev => ({ ...prev, [itemId]: true }));
 
     try {
       // Compress image to reduce memory usage on mobile devices
