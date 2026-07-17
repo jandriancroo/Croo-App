@@ -50,24 +50,14 @@ export default function LiteCogsPanel({
   periodEnd,
   locationName = "Location",
 }: Props) {
-  const qc = useQueryClient();
-  const [manualSalesInput, setManualSalesInput] = useState<string>("");
-  const [manualSalesInitialised, setManualSalesInitialised] = useState(false);
   const [invoicesOpen, setInvoicesOpen] = useState(false);
 
-  // Current period: count meta (for manual_sales_total) + count items joined
-  // to lite_inventory_items for category grouping.
+  // Current period: count items joined to lite_inventory_items for category
+  // grouping. (Manual sales removed — we pull net_sales from sales_cache.)
   const { data: current, isLoading: currentLoading } = useQuery({
     queryKey: ["lite-cogs-current", countId],
     enabled: !!countId,
     queryFn: async () => {
-      const { data: meta, error: metaErr } = await supabase
-        .from("lite_inventory_counts" as any)
-        .select("id, manual_sales_total")
-        .eq("id", countId)
-        .maybeSingle();
-      if (metaErr) throw metaErr;
-
       const { data: rows, error: rowsErr } = await supabase
         .from("lite_inventory_count_items" as any)
         .select(
@@ -75,14 +65,7 @@ export default function LiteCogsPanel({
         )
         .eq("count_id", countId);
       if (rowsErr) throw rowsErr;
-
-      return {
-        manualSales:
-          (meta as any)?.manual_sales_total != null
-            ? Number((meta as any).manual_sales_total)
-            : null,
-        rows: (rows as any) || [],
-      };
+      return { rows: (rows as any) || [] };
     },
   });
 
@@ -128,43 +111,30 @@ export default function LiteCogsPanel({
     },
   });
 
+  // POS-synced net sales for the period. Replaces the manual sales input —
+  // sales_cache is populated by the POS backfill so this is always current.
+  const { data: posSales, isLoading: salesLoading } = useQuery({
+    queryKey: ["lite-cogs-pos-sales", locationId, periodStart, periodEnd],
+    enabled: !!locationId && !!periodStart && !!periodEnd,
+    queryFn: async (): Promise<number | null> => {
+      const { data, error } = await supabase
+        .from("sales_cache")
+        .select("net_sales")
+        .eq("location_id", locationId)
+        .gte("sale_date", periodStart)
+        .lte("sale_date", periodEnd);
+      if (error) throw error;
+      if (!data || data.length === 0) return null;
+      return data.reduce((s, r: any) => s + (Number(r.net_sales) || 0), 0);
+    },
+  });
+
   const invoicesInWindow = useMemo(
     () => filterInvoicesInWindow(allInvoices, periodStart, periodEnd),
     [allInvoices, periodStart, periodEnd],
   );
 
-  // Sync manual sales input from server the first time it lands.
-  if (!manualSalesInitialised && current) {
-    setManualSalesInitialised(true);
-    setManualSalesInput(current.manualSales != null ? String(current.manualSales) : "");
-  }
-
-  const saveManualSales = useMutation({
-    mutationFn: async (raw: string) => {
-      const trimmed = raw.trim();
-      const nextVal =
-        trimmed === "" ? null : Number.isFinite(Number(trimmed)) ? Number(trimmed) : null;
-      if (trimmed !== "" && nextVal == null) {
-        throw new Error("Enter a number");
-      }
-      const { error } = await supabase
-        .from("lite_inventory_counts" as any)
-        .update({ manual_sales_total: nextVal })
-        .eq("id", countId);
-      if (error) throw error;
-      return nextVal;
-    },
-    onSuccess: (nextVal) => {
-      qc.setQueryData(["lite-cogs-current", countId], (prev: any) =>
-        prev ? { ...prev, manualSales: nextVal } : prev,
-      );
-    },
-    onError: (err: any) => {
-      toast.error("Couldn't save sales total", { description: err?.message });
-    },
-  });
-
-  const loading = currentLoading || priorLoading || invoicesLoading;
+  const loading = currentLoading || priorLoading || invoicesLoading || salesLoading;
 
   const breakdown = useMemo(() => {
     if (!current) return null;
@@ -172,9 +142,10 @@ export default function LiteCogsPanel({
       currentRows: current.rows,
       priorEnding: priorEnding ?? 0,
       invoicesInWindow,
-      manualSales: current.manualSales,
+      manualSales: posSales ?? null,
     });
-  }, [current, priorEnding, invoicesInWindow]);
+  }, [current, priorEnding, invoicesInWindow, posSales]);
+
 
   const onExport = () => {
     if (!breakdown) return;
