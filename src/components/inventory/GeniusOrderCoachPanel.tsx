@@ -246,10 +246,20 @@ export default function GeniusOrderCoachPanel({
               {g.rows.map((r) => {
                 const showRec =
                   r.recommendedOrderQty != null && r.recommendedOrderQty > 0;
+                const lastCounted = r.lastCountedOn
+                  ? DateTime.fromFormat(r.lastCountedOn, "yyyy-MM-dd").toRelative({ base: DateTime.fromFormat(today, "yyyy-MM-dd") })
+                  : null;
                 return (
                   <div key={r.item.id} className="px-3 py-2.5 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{r.item.name}</div>
+                      <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                        {r.item.name}
+                        {r.item.unitLabel && (
+                          <span className="text-[10px] font-normal text-muted-foreground/70 uppercase tracking-wide">
+                            · {r.item.unitLabel}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
                         {r.dailyUsage != null ? (
                           <span className="inline-flex items-center gap-1">
@@ -261,6 +271,9 @@ export default function GeniusOrderCoachPanel({
                         )}
                         {r.projectedOnHand != null && (
                           <span>· ~{r.projectedOnHand.toFixed(1)} on hand</span>
+                        )}
+                        {lastCounted && (
+                          <span>· counted {lastCounted}</span>
                         )}
                         {r.periodsUsed > 0 && (
                           <span>· {r.periodsUsed}p avg</span>
@@ -291,6 +304,7 @@ export default function GeniusOrderCoachPanel({
                   </div>
                 );
               })}
+
             </div>
           </Card>
         ))
