@@ -12708,6 +12708,10 @@ export type Database = {
         Args: { p_integration_id: string; p_new_credentials: Json }
         Returns: boolean
       }
+      profile_at_punch_device_location: {
+        Args: { _device_user_id: string; _profile_id: string }
+        Returns: boolean
+      }
       prune_alert_queue: { Args: { days_to_keep?: number }; Returns: number }
       prune_checklist_notification_logs: {
         Args: { days_to_keep?: number }
