@@ -29,16 +29,16 @@ interface Device {
   id: string;
   device_name: string;
   location_id: string;
-  location_name?: string;
+  locations?: { name: string; store_number?: string | null } | null;
   paired_at: string;
-  last_seen_at: string | null;
+  last_active_at: string | null;
   revoked_at: string | null;
 }
 
 interface PairingCode {
   code: string;
   location_name: string;
-  expires_at: string;
+  expiresAt: string;
 }
 
 interface Props {
