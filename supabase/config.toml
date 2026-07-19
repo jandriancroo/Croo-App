@@ -109,6 +109,9 @@ verify_jwt = false
 [functions.parse-vendor-invoice-lite]
 verify_jwt = true
 
+[functions.punch-device-service]
+verify_jwt = false
+
 
 
 
