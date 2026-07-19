@@ -13,11 +13,13 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import {
   isPaired,
   isKioskExitActive,
   enterKioskMode,
   getPairing,
+  updateStoredSession,
 } from '@/lib/punchDevicePairing';
 
 export const KioskAutoRestore = () => {
