@@ -199,10 +199,10 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{d.device_name}</div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {d.location_name}
+                      {d.locations?.name}
                       {' · '}
-                      {d.last_seen_at
-                        ? `last seen ${formatDistanceToNow(new Date(d.last_seen_at), { addSuffix: true })}`
+                      {d.last_active_at
+                        ? `last seen ${formatDistanceToNow(new Date(d.last_active_at), { addSuffix: true })}`
                         : 'never checked in'}
                     </div>
                   </div>
