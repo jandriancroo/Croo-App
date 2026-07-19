@@ -333,14 +333,14 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
                   >
                     <div className="flex items-center gap-2.5 mb-2 sm:mb-1 flex-wrap">
                       <StarRating rating={reviewsWithFeedback[reviewIndex]?.rating || 0} />
-                      <span className="text-sm sm:text-[10px] text-muted-foreground truncate max-w-[11rem] sm:max-w-none">
+                      <span className="text-sm sm:text-[10px] font-medium text-foreground/80 truncate max-w-[11rem] sm:max-w-none">
                         {reviewsWithFeedback[reviewIndex]?.customerName}
                       </span>
                       {reviewsWithFeedback[reviewIndex]?.hasResponse && (
-                        <span className="text-xs sm:text-[9px] text-green-500 font-medium">✓ replied</span>
+                        <span className="text-xs sm:text-[9px] text-green-600 font-medium">✓ replied</span>
                       )}
                     </div>
-                    <p className="text-base sm:text-[11px] text-muted-foreground leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
+                    <p className="text-base sm:text-[11px] text-foreground/90 leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
                       {reviewsWithFeedback[reviewIndex]?.feedback}
                     </p>
                   </motion.div>
