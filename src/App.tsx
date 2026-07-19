@@ -145,6 +145,7 @@ const AppWithSplash = () => {
   return (
     <>
       <ForceReloadHandler />
+      <KioskAutoRestore />
       {showSplash && <AppSplashScreen onComplete={handleSplashComplete} />}
       <AppContent />
       
