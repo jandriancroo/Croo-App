@@ -151,6 +151,10 @@ export default function Auth() {
 
   const handleSplashComplete = () => {
     toast.success('Signed in successfully');
+    if (isPunchDeviceUser(user)) {
+      navigate('/punch-clock', { replace: true });
+      return;
+    }
     navigate('/dashboard');
   };
 
