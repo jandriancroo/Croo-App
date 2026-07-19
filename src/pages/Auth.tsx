@@ -11,7 +11,7 @@ import { PunchDeviceEntry } from '@/components/punchclock/PunchDeviceEntry';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
 import { PWAInstallTutorial } from '@/components/PWAInstallTutorial';
-import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
+import { isKioskExitActive, isPunchDeviceUser } from '@/lib/punchDevicePairing';
 import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
 import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
 import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
@@ -123,6 +123,7 @@ export default function Auth() {
   useEffect(() => {
     if (user && !showSplash && !showCrowAnimation) {
       if (isPunchDeviceUser(user)) {
+        if (isKioskExitActive()) return;
         navigate('/punch-clock', { replace: true });
         return;
       }
@@ -152,6 +153,7 @@ export default function Auth() {
   const handleSplashComplete = () => {
     toast.success('Signed in successfully');
     if (isPunchDeviceUser(user)) {
+      if (isKioskExitActive()) return;
       navigate('/punch-clock', { replace: true });
       return;
     }
@@ -162,6 +164,7 @@ export default function Auth() {
   useEffect(() => {
     if (showCrowAnimation && user) {
       if (isPunchDeviceUser(user)) {
+        if (isKioskExitActive()) return;
         navigate('/punch-clock', { replace: true });
         return;
       }
