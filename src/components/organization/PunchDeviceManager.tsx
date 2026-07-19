@@ -29,16 +29,16 @@ interface Device {
   id: string;
   device_name: string;
   location_id: string;
-  location_name?: string;
+  locations?: { name: string; store_number?: string | null } | null;
   paired_at: string;
-  last_seen_at: string | null;
+  last_active_at: string | null;
   revoked_at: string | null;
 }
 
 interface PairingCode {
   code: string;
   location_name: string;
-  expires_at: string;
+  expiresAt: string;
 }
 
 interface Props {
@@ -92,7 +92,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
     setFreshCode({
       code: data.code,
       location_name: locations.find((l) => l.id === selectedLocation)?.name || '',
-      expires_at: data.expires_at,
+      expiresAt: data.expiresAt,
     });
     setDeviceNameDraft('');
   };
@@ -169,7 +169,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3">
               <div className="flex-1">
                 <div className="text-xs text-muted-foreground">
-                  {freshCode.location_name} · expires {formatDistanceToNow(new Date(freshCode.expires_at), { addSuffix: true })}
+                  {freshCode.location_name} · expires {formatDistanceToNow(new Date(freshCode.expiresAt), { addSuffix: true })}
                 </div>
                 <div className="text-3xl font-mono font-bold tracking-widest text-primary mt-1">
                   {freshCode.code}
@@ -199,10 +199,10 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{d.device_name}</div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {d.location_name}
+                      {d.locations?.name}
                       {' · '}
-                      {d.last_seen_at
-                        ? `last seen ${formatDistanceToNow(new Date(d.last_seen_at), { addSuffix: true })}`
+                      {d.last_active_at
+                        ? `last seen ${formatDistanceToNow(new Date(d.last_active_at), { addSuffix: true })}`
                         : 'never checked in'}
                     </div>
                   </div>
