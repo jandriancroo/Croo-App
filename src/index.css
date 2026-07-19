@@ -785,6 +785,38 @@ header.bg-primary *,
   color: hsl(var(--header-fg));
 }
 
+header.bg-primary .ovation-readable-panel,
+header.bg-primary .ovation-readable-panel .ovation-panel-ink,
+.nav-bar-unified .ovation-readable-panel,
+.nav-bar-unified .ovation-readable-panel .ovation-panel-ink {
+  color: hsl(var(--ovation-panel-foreground)) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-panel-muted,
+.nav-bar-unified .ovation-readable-panel .ovation-panel-muted {
+  color: hsl(var(--ovation-panel-muted)) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-good,
+.nav-bar-unified .ovation-readable-panel .ovation-status-good {
+  color: hsl(142 76% 28%) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-warn,
+.nav-bar-unified .ovation-readable-panel .ovation-status-warn {
+  color: hsl(38 92% 32%) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-mid,
+.nav-bar-unified .ovation-readable-panel .ovation-status-mid {
+  color: hsl(24 95% 38%) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-bad,
+.nav-bar-unified .ovation-readable-panel .ovation-status-bad {
+  color: hsl(0 84% 42%) !important;
+}
+
 /* Beach wave keyframes for dock */
 @keyframes beachDockWave {
   0%   { background-position: 0% 50%, 50% 50%; }

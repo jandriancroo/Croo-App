@@ -280,7 +280,7 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="overflow-hidden"
         >
-            <div ref={panelRef} className="relative w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 ovation-panel-bg ovation-panel-ink border ovation-panel-border rounded-2xl shadow-lg mt-2">
+            <div ref={panelRef} className="ovation-readable-panel relative w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 ovation-panel-bg ovation-panel-ink border ovation-panel-border rounded-2xl shadow-lg mt-2">
             {/* Tail pointing up to the Ovation pill in the header */}
             {tailLeftPct !== null && (
               <div
@@ -295,7 +295,7 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
               <div className="flex items-center gap-2.5 min-w-0">
                 <img src={ovationLogo} alt="OvationUp" className="h-7 w-7 sm:h-6 sm:w-6 object-contain shrink-0" />
                 <div>
-                  <p className="text-base sm:text-xs font-semibold leading-tight">OvationUp</p>
+                  <p className="text-base sm:text-xs font-semibold ovation-panel-ink leading-tight">OvationUp</p>
                   <p className="text-xs sm:text-[10px] ovation-panel-muted leading-tight">
                     Last 14 days · {countValue} reviews
                   </p>
@@ -304,9 +304,9 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className={cn(
                   'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
-                  scoreValue >= 4.5 ? 'bg-green-500/10 text-green-600' :
-                  scoreValue >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
-                  scoreValue >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
+                   scoreValue >= 4.5 ? 'bg-green-500/10 ovation-status-good' :
+                   scoreValue >= 3.5 ? 'bg-yellow-500/10 ovation-status-warn' :
+                   scoreValue >= 2.5 ? 'bg-orange-500/10 ovation-status-mid' : 'bg-red-500/10 ovation-status-bad'
                 )}>
                   {scoreValue.toFixed(1)}
                 </div>
@@ -337,7 +337,7 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
                         {reviewsWithFeedback[reviewIndex]?.customerName}
                       </span>
                       {reviewsWithFeedback[reviewIndex]?.hasResponse && (
-                        <span className="text-xs sm:text-[9px] text-green-600 font-medium">✓ replied</span>
+                        <span className="text-xs sm:text-[9px] ovation-status-good font-medium">✓ replied</span>
                       )}
                     </div>
                      <p className="text-base sm:text-[11px] font-medium ovation-panel-ink leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
