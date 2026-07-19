@@ -81,7 +81,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
       body: {
         action: 'generate',
         locationId: selectedLocation,
-        deviceName: deviceNameDraft.trim() || null,
+        deviceName: deviceNameDraft.trim() || 'Kiosk',
       },
     });
     setGeneratingFor('');
