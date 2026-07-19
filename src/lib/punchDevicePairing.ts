@@ -24,6 +24,33 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400; // ~400 days (browser cap)
 // goes straight back to punch clock, which is what we want).
 const EXIT_FLAG = 'croohq_kiosk_exit_active_v1';
 
+function getSupabaseAuthStorageKeys(): string[] {
+  const keys = new Set<string>();
+
+  try {
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const ref = url ? new URL(url).hostname.split('.')[0] : null;
+    if (ref) keys.add(`sb-${ref}-auth-token`);
+  } catch {}
+
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('sb-') && key.endsWith('-auth-token')) {
+        keys.add(key);
+      }
+    }
+  } catch {}
+
+  return [...keys];
+}
+
+function clearActiveAuthSessionLocalOnly() {
+  for (const key of getSupabaseAuthStorageKeys()) {
+    try { localStorage.removeItem(key); } catch {}
+  }
+}
+
 export interface PunchDeviceLocation {
   id: string;
   name: string;
@@ -202,7 +229,24 @@ async function enterKioskModeOnce(): Promise<boolean> {
  */
 export async function exitKioskMode() {
   setKioskExitActive();
-  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+
+  // Do NOT call auth.signOut() here. Even with local scope, the hosted auth
+  // server can revoke the refresh token that we need to restore the paired
+  // device later. Exit is only a UI escape to the login screen, so preserve the
+  // latest paired-device token, then remove only the active auth session from
+  // browser storage.
+  const existing = await supabase.auth.getSession().catch(() => null);
+  const existingSession = existing?.data?.session;
+  if (existingSession && isPunchDeviceUser(existingSession.user)) {
+    updateStoredSession({
+      access_token: existingSession.access_token,
+      refresh_token: existingSession.refresh_token,
+      expires_at: existingSession.expires_at,
+    });
+  }
+
+  try { supabase.auth.stopAutoRefresh(); } catch {}
+  clearActiveAuthSessionLocalOnly();
 }
 
 /**

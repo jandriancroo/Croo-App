@@ -274,10 +274,9 @@ export default function PunchClock() {
     setTodayShift(null);
     setLastPunch(null);
 
-    // Paired-device path: actively kill the device session and land on /auth
-    // so an admin can log in with their own email/password to use the tablet
-    // for other work. Pairing credentials stay in localStorage + cookie so
-    // Time > Punch Clock (or a force-quit) re-enters kiosk mode.
+    // Paired-device path: leave kiosk UI and land on /auth so an admin can log
+    // in with their own email/password. Pairing credentials stay intact so Time
+    // > Punch Clock (or a force-quit) can re-enter kiosk mode without re-pairing.
     if (isPaired()) {
       await exitKioskMode();
       window.location.href = '/auth';
