@@ -124,6 +124,12 @@ All colors MUST be HSL.
     --quick-task-system: 190 54% 40%;
     --quick-task-system-fg: 0 0% 100%;
     --quick-task-alpha: 1;
+
+     /* Ovation review popover — fixed high-contrast surface for mobile/Android readability */
+     --ovation-panel: 0 0% 100%;
+     --ovation-panel-foreground: 220 25% 7%;
+     --ovation-panel-muted: 220 18% 28%;
+     --ovation-panel-border: 220 20% 78%;
   }
 
   .dark {
@@ -178,6 +184,12 @@ All colors MUST be HSL.
     --glass-border: 0 0% 100% / 0.1;
     --glass-shadow: 0 0% 0% / 0.3;
     --glass-blur: 20px;
+
+     /* Keep Ovation popover readable even when Android/browser dark mode is active */
+     --ovation-panel: 0 0% 100%;
+     --ovation-panel-foreground: 220 25% 7%;
+     --ovation-panel-muted: 220 18% 28%;
+     --ovation-panel-border: 220 20% 78%;
 
      --header-bg: 189 45% 50%;
      --header-fg: 220 28% 4%;
