@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Users can view all events" ON public.schedule_events;
