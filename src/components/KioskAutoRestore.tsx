@@ -24,34 +24,36 @@ export const KioskAutoRestore = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading } = useAuth();
-  const attemptedRef = useRef(false);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     if (loading) return;
-    if (attemptedRef.current) return;
+    if (inFlightRef.current) return;
     if (!isPaired()) return;
-    if (isKioskExitActive()) return;
 
-    // Don't fight explicit routes that make sense to stay on
     const path = location.pathname;
-    const currentIsPunchClock = path === '/punch-clock';
-
-    const pairing = getPairing();
-    if (!pairing) return;
-
-    // If we're already the device session AND already on /punch-clock, nothing to do.
     const isDeviceSession = (user?.user_metadata as any)?.is_punch_device === true;
-    if (isDeviceSession && currentIsPunchClock) {
-      attemptedRef.current = true;
-      return;
-    }
 
-    attemptedRef.current = true;
+    // Case A: user explicitly navigated to /punch-clock but isn't the device
+    // session yet → sign out current user, restore device session. Ignore
+    // the "just exited" flag here because tapping Punch Clock is an explicit
+    // request to re-enter kiosk mode.
+    const explicitPunchClock = path === '/punch-clock' && !isDeviceSession;
+
+    // Case B: cold launch (no explicit exit flag) and not already in kiosk →
+    // auto-restore so force-quit + reopen always returns to kiosk.
+    const coldRestore = !isKioskExitActive() && !isDeviceSession && path !== '/punch-clock';
+
+    if (!explicitPunchClock && !coldRestore) return;
+    if (!getPairing()) return;
+
+    inFlightRef.current = true;
     (async () => {
       const ok = await enterKioskMode();
       if (ok) {
         navigate('/punch-clock', { replace: true });
       }
+      inFlightRef.current = false;
     })();
   }, [loading, user?.id, location.pathname, navigate]);
 
