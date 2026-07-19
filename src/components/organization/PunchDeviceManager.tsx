@@ -57,7 +57,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
   const loadDevices = async () => {
     setLoading(true);
     const { data, error } = await supabase.functions.invoke('punch-device-service', {
-      body: { action: 'list', organization_id: organizationId },
+      body: { action: 'list', organizationId },
     });
     if (error) {
       toast.error('Failed to load devices');
@@ -80,8 +80,8 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
     const { data, error } = await supabase.functions.invoke('punch-device-service', {
       body: {
         action: 'generate',
-        location_id: selectedLocation,
-        device_name: deviceNameDraft.trim() || null,
+        locationId: selectedLocation,
+        deviceName: deviceNameDraft.trim() || 'Kiosk',
       },
     });
     setGeneratingFor('');
@@ -100,7 +100,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
   const revokeDevice = async (device: Device) => {
     if (!confirm(`Revoke "${device.device_name}"? This tablet will drop back to the pairing screen.`)) return;
     const { error, data } = await supabase.functions.invoke('punch-device-service', {
-      body: { action: 'revoke', device_id: device.id },
+      body: { action: 'revoke', deviceId: device.id },
     });
     if (error || data?.error) {
       toast.error(data?.error || 'Failed to revoke device');
