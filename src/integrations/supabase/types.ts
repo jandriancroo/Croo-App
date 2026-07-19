@@ -12727,6 +12727,7 @@ export type Database = {
         Returns: number
       }
       prune_visual_alert_queue: { Args: never; Returns: undefined }
+      punch_device_location: { Args: { _user_id: string }; Returns: string }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
       read_email_batch: {
