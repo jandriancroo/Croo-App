@@ -124,6 +124,12 @@ All colors MUST be HSL.
     --quick-task-system: 190 54% 40%;
     --quick-task-system-fg: 0 0% 100%;
     --quick-task-alpha: 1;
+
+     /* Ovation review popover — fixed high-contrast surface for mobile/Android readability */
+     --ovation-panel: 0 0% 100%;
+     --ovation-panel-foreground: 220 25% 7%;
+     --ovation-panel-muted: 220 18% 28%;
+     --ovation-panel-border: 220 20% 78%;
   }
 
   .dark {
@@ -178,6 +184,12 @@ All colors MUST be HSL.
     --glass-border: 0 0% 100% / 0.1;
     --glass-shadow: 0 0% 0% / 0.3;
     --glass-blur: 20px;
+
+     /* Keep Ovation popover readable even when Android/browser dark mode is active */
+     --ovation-panel: 0 0% 100%;
+     --ovation-panel-foreground: 220 25% 7%;
+     --ovation-panel-muted: 220 18% 28%;
+     --ovation-panel-border: 220 20% 78%;
 
      --header-bg: 189 45% 50%;
      --header-fg: 220 28% 4%;
@@ -773,6 +785,38 @@ header.bg-primary *,
   color: hsl(var(--header-fg));
 }
 
+header.bg-primary .ovation-readable-panel,
+header.bg-primary .ovation-readable-panel .ovation-panel-ink,
+.nav-bar-unified .ovation-readable-panel,
+.nav-bar-unified .ovation-readable-panel .ovation-panel-ink {
+  color: hsl(var(--ovation-panel-foreground)) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-panel-muted,
+.nav-bar-unified .ovation-readable-panel .ovation-panel-muted {
+  color: hsl(var(--ovation-panel-muted)) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-good,
+.nav-bar-unified .ovation-readable-panel .ovation-status-good {
+  color: hsl(142 76% 28%) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-warn,
+.nav-bar-unified .ovation-readable-panel .ovation-status-warn {
+  color: hsl(38 92% 32%) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-mid,
+.nav-bar-unified .ovation-readable-panel .ovation-status-mid {
+  color: hsl(24 95% 38%) !important;
+}
+
+header.bg-primary .ovation-readable-panel .ovation-status-bad,
+.nav-bar-unified .ovation-readable-panel .ovation-status-bad {
+  color: hsl(0 84% 42%) !important;
+}
+
 /* Beach wave keyframes for dock */
 @keyframes beachDockWave {
   0%   { background-position: 0% 50%, 50% 50%; }
@@ -927,6 +971,22 @@ header.bg-primary *,
 }
 
 @layer utilities {
+  .ovation-panel-bg {
+    background-color: hsl(var(--ovation-panel));
+  }
+
+  .ovation-panel-ink {
+    color: hsl(var(--ovation-panel-foreground));
+  }
+
+  .ovation-panel-muted {
+    color: hsl(var(--ovation-panel-muted));
+  }
+
+  .ovation-panel-border {
+    border-color: hsl(var(--ovation-panel-border));
+  }
+
   /* Period detail flush: remove top border/rounding from first card */
   .period-detail-flush > div > div:first-child {
     border-top-left-radius: 0 !important;

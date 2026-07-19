@@ -280,23 +280,23 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="overflow-hidden"
         >
-          <div ref={panelRef} className="relative w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 bg-popover text-popover-foreground border border-border/30 rounded-2xl shadow-lg mt-2">
+            <div ref={panelRef} className="ovation-readable-panel relative w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 ovation-panel-bg ovation-panel-ink border ovation-panel-border rounded-2xl shadow-lg mt-2">
             {/* Tail pointing up to the Ovation pill in the header */}
             {tailLeftPct !== null && (
               <div
                 aria-hidden
-                className="absolute -top-1.5 w-3 h-3 rotate-45 bg-popover border-l border-t border-border/30"
+                className="absolute -top-1.5 w-3 h-3 rotate-45 ovation-panel-bg border-l border-t ovation-panel-border"
                 style={{ left: `${tailLeftPct}%`, transform: 'translateX(-50%) rotate(45deg)' }}
               />
             )}
 
             {/* Header */}
-            <div className="px-4 sm:px-3 pt-3 sm:pt-2.5 pb-3 sm:pb-2 flex items-center justify-between gap-3 border-b border-border/20">
+            <div className="px-4 sm:px-3 pt-3 sm:pt-2.5 pb-3 sm:pb-2 flex items-center justify-between gap-3 border-b ovation-panel-border">
               <div className="flex items-center gap-2.5 min-w-0">
                 <img src={ovationLogo} alt="OvationUp" className="h-7 w-7 sm:h-6 sm:w-6 object-contain shrink-0" />
                 <div>
-                  <p className="text-base sm:text-xs font-semibold leading-tight">OvationUp</p>
-                  <p className="text-xs sm:text-[10px] text-muted-foreground leading-tight">
+                  <p className="text-base sm:text-xs font-semibold ovation-panel-ink leading-tight">OvationUp</p>
+                  <p className="text-xs sm:text-[10px] ovation-panel-muted leading-tight">
                     Last 14 days · {countValue} reviews
                   </p>
                 </div>
@@ -304,13 +304,13 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className={cn(
                   'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
-                  scoreValue >= 4.5 ? 'bg-green-500/10 text-green-600' :
-                  scoreValue >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
-                  scoreValue >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
+                   scoreValue >= 4.5 ? 'bg-green-500/10 ovation-status-good' :
+                   scoreValue >= 3.5 ? 'bg-yellow-500/10 ovation-status-warn' :
+                   scoreValue >= 2.5 ? 'bg-orange-500/10 ovation-status-mid' : 'bg-red-500/10 ovation-status-bad'
                 )}>
                   {scoreValue.toFixed(1)}
                 </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground">
+                <div className="flex items-center gap-1.5 ovation-panel-muted">
                   <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="text-xs sm:text-[10px] font-medium">{countValue}</span>
                 </div>
@@ -333,14 +333,14 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
                   >
                     <div className="flex items-center gap-2.5 mb-2 sm:mb-1 flex-wrap">
                       <StarRating rating={reviewsWithFeedback[reviewIndex]?.rating || 0} />
-                      <span className="text-sm sm:text-[10px] font-medium text-foreground/80 truncate max-w-[11rem] sm:max-w-none">
+                      <span className="text-sm sm:text-[10px] font-semibold ovation-panel-ink truncate max-w-[11rem] sm:max-w-none">
                         {reviewsWithFeedback[reviewIndex]?.customerName}
                       </span>
                       {reviewsWithFeedback[reviewIndex]?.hasResponse && (
-                        <span className="text-xs sm:text-[9px] text-green-600 font-medium">✓ replied</span>
+                        <span className="text-xs sm:text-[9px] ovation-status-good font-medium">✓ replied</span>
                       )}
                     </div>
-                    <p className="text-base sm:text-[11px] text-foreground/90 leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
+                     <p className="text-base sm:text-[11px] font-medium ovation-panel-ink leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
                       {reviewsWithFeedback[reviewIndex]?.feedback}
                     </p>
                   </motion.div>
@@ -353,7 +353,7 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
                         key={idx}
                         className={cn(
                           'h-2 w-2 sm:h-1 sm:w-1 rounded-full transition-all',
-                          idx === reviewIndex ? 'bg-primary w-4 sm:w-2' : 'bg-muted-foreground/30'
+                           idx === reviewIndex ? 'bg-primary w-4 sm:w-2' : 'bg-muted-foreground/35'
                         )}
                         onClick={(e) => { e.stopPropagation(); setReviewIndex(idx); }}
                         aria-label={`Show review ${idx + 1}`}
@@ -373,7 +373,7 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
               </div>
             ) : (
               <div className="px-4 sm:px-3 py-4 sm:py-3">
-                <p className="text-base sm:text-[11px] text-muted-foreground italic">
+                 <p className="text-base sm:text-[11px] ovation-panel-muted italic">
                   {reviewsData?.reviews?.length ?? 0} ratings (no written feedback)
                 </p>
               </div>
