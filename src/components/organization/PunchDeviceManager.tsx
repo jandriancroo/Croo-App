@@ -92,7 +92,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
     setFreshCode({
       code: data.code,
       location_name: locations.find((l) => l.id === selectedLocation)?.name || '',
-      expires_at: data.expires_at,
+      expiresAt: data.expiresAt,
     });
     setDeviceNameDraft('');
   };
