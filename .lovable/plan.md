@@ -1,80 +1,168 @@
+# Kiosk RLS: schedule_events hotfix + device-scoped mirrored policies
 
-# Aloha POS Integration (Buffalo Wild Wings GO)
+Two migrations, in order. Migration 1 is a standalone hotfix. Migration 2 is the kiosk work. Validation is live against a paired tablet.
 
-You have a portal login (sierrafoodgroup.alohaenterprise.com) but no confirmed API/export path yet. Rather than guess, I'll build the **entire plumbing** now — table, edge functions, cron, UI hook — matching the QU/Clover pattern exactly. A single `fetchAlohaDay()` function is the only stub; the moment we learn *how* to pull (NCR Aloha Cloud API, headless portal scrape like PFG, or Aloha Insight SFTP), we swap that one function and everything downstream (sales_cache, projections, dashboards, YOY, labor) lights up automatically.
+---
 
-## What gets built
+## Migration 1 — schedule_events hotfix (ship first, alone)
 
-### 1. Database (one migration)
+Drop the permissive `USING (true)` policy on `schedule_events`. The properly-scoped `Users can view events at their locations` policy already covers legitimate reads.
 
-**`public.aloha_sales_cache`** — raw archive table, twin of `clover_sales_cache`:
-- Same columns: `location_id`, `sale_date`, `net_sales`, `guest_count`, `avg_ticket`, `hourly_data`, `product_mix`, `payments_data`, `yoy_*`, `projected_sales`, `living_projection`, etc.
-- Unique on `(location_id, sale_date)`
-- RLS mirroring `clover_sales_cache` (location membership scope)
-- GRANTs for authenticated + service_role
+```sql
+DROP POLICY IF EXISTS "Users can view all events" ON public.schedule_events;
+```
 
-No changes needed to `sales_cache` — `pos_source` is already TEXT; we just start writing `'aloha'`.
-No changes needed to `labor_cache` — `source` is already TEXT; we write `'aloha'` alongside `'punch_clock'`.
+### Audit of other `USING (true)` policies on `{public}` / `{authenticated}` roles
 
-### 2. Edge functions
+I ran the same check across the whole schema. 42 policies match. They fall into three buckets:
 
-**`supabase/functions/aloha-service/index.ts`** — creds save/test (mirrors `clover-service`)
-- `action: 'test'` — validates credentials against Aloha (stub returns `not_implemented` with clear next-steps message)
-- `action: 'save'` — upserts into `location_integrations` with `integration_type='aloha'`
+**Real multi-tenant leaks — same shape as schedule_events, need scoped replacements (not fixing in this plan, flagging for follow-up):**
 
-**`supabase/functions/aloha-sync/index.ts`** — the sync engine (mirrors `clover-sync`)
-- Brand guard: refuses any location not on BWW GO brand
-- All the actions QU/Clover support: `sync_today`, `sync_yesterday`, `sync_date`, `sync_range`, `sync_dates`, `sync_all_today`, `sync_all_yesterday`
-- Shared projection module (`_shared/projections.ts`) — same pace/YOY math as QU + Clover
-- Dual-write pattern: raw → `aloha_sales_cache`, normalized → `sales_cache` with `pos_source='aloha'`
-- Conditional spread on `projected`, `labor`, `payments_data` (preserves sibling fields — see core rule)
-- Labor: writes to `labor_cache` with `source='aloha'` when the day contains labor
-- **One clearly-marked TODO**: `fetchAlohaDay(creds, date)` returns hourly sales + product mix + labor. This is the *only* place Aloha-specific transport code lives.
+- `schedule_events` — Users can view all events *(fixed in Migration 1)*
+- `shift_templates` — Users can view all shift templates
+- `kds_orders` — Authenticated users can view kds_orders
+- `sales_aggregates` — Service role can manage sales aggregates *(`{public}` + ALL — worst case)*
+- `schedule_projected_sales` — Users can view projected sales
+- `vendor_invoices` — Users can view invoices at their locations *(name lies; body is `USING (true)`)*
+- `vendor_invoice_items` — Users can view invoice items
+- `daily_summary_logs` — Authenticated users can view summary logs
+- `shift_offer_claims` — Anyone can view shift claims
+- `alert_queue` — Authenticated users can read alerts
 
-**`supabase/functions/backfill-aloha-sales/index.ts`** — 53-week backfill (mirrors `backfill_clover_sales`)
-- Queues one location, walks 371 days back in batches of 7
-- Seeds YOY (−364d) inside `syncOneDay`
-- Registered as a maintenance queue task the same way Clover backfill is
+**Cross-user visibility (may be intentional, review recommended):**
 
-### 3. Cron
+- `user_roles` — Users can view all roles
+- `role_permissions`, `role_notification_settings`, `organization_positions`
 
-Adds Aloha to the existing 3 AM PST `sync_all_yesterday` cron alongside QU + Clover (single line in the cron SQL).
+**Catalog / lookup / library tables (likely intentional, low risk):**
 
-### 4. UI
+- `library_*` (5), `plan*` (4), `pa_catalog_items`, `pfg_bid_items`, `brand_event_categories`, `brand_inventory_categories`, `brand_inventory_staging`, `checklist_items`, `checklist_prep_rows`, `checklist_role_tags`, `checklist_user_tags`, `feed_badges`, `game_high_scores`, `labor_rule_presets`, `logbook_fields`, `opus_resource_index`, `location_plan_overrides`, `pfg_orders` (service role), `applicant_push_subscriptions` (service role)
 
-**`src/components/location/AlohaIntegrationCard.tsx`** — creds form on the location integrations tab
-- Portal URL, username, password fields (adjusted once we confirm the actual data path — API key vs portal login)
-- Test / Save / Backfill buttons
-- Status badge
+After Migration 1 ships, I'll surface the "Real multi-tenant leaks" bucket for scoping decisions — each needs its own targeted policy replacement, and some of them (vendor_invoices, kds_orders) are business-critical to get right.
 
-**`docs/brands/bww-go.md`** — updates the BWW GO brand doc: POS = Aloha, links the sync/backfill functions, marks integration Pilot status.
+---
 
-### 5. What's *not* being built yet (blocked on info)
+## Migration 2 — is_punch_device helper + mirrored kiosk policies
 
-The `fetchAlohaDay()` stub. Once you can answer one of:
-- Does Sierra Food Group have Aloha Cloud API credentials? (best path, real REST API)
-- Can you get an Aloha Insight scheduled CSV export enabled? (SFTP drop we poll)
-- Do we need to headless-login to the portal and scrape reports? (works today, brittle — same pattern as our PFG scraper)
+### The helper
 
-…I plug it into that one function and the rest works with zero further changes.
+```sql
+CREATE OR REPLACE FUNCTION public.is_punch_device(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.punch_clock_devices
+    WHERE auth_user_id = _user_id AND revoked_at IS NULL
+  );
+$$;
 
-## Locked rules honored
+CREATE OR REPLACE FUNCTION public.punch_device_location(_user_id uuid)
+RETURNS uuid
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT location_id FROM public.punch_clock_devices
+  WHERE auth_user_id = _user_id AND revoked_at IS NULL
+  LIMIT 1;
+$$;
 
-- `sales_cache` conditional-spread merge (protects `projected`, `labor`, `payments_data`)
-- `labor_cache` writes include `source='aloha'` + respect unique `(location_id, labor_date, source)`
-- Never merges labor back into `sales_cache`
-- All dates handled with Luxon in store-local timezone; string-first `yyyy-MM-dd`
-- Brand guard on every sync call (no cross-brand leaks)
-- GRANTs on the new table
-- Follows `docs/adding-a-new-pos.md` 5-step checklist exactly
+GRANT EXECUTE ON FUNCTION public.is_punch_device(uuid), public.punch_device_location(uuid) TO authenticated;
+```
 
-## Deliverables
+Authorization comes from the `punch_clock_devices` row, not from `raw_user_meta_data`. Metadata is never read for authz.
 
-1. Migration: `aloha_sales_cache` table
-2. Edge functions: `aloha-service`, `aloha-sync`, `backfill-aloha-sales`
-3. Cron entry for nightly `sync_all_yesterday`
-4. `AlohaIntegrationCard.tsx` UI component
-5. Updated `docs/brands/bww-go.md`
-6. A short "what we need from Sierra Food Group" note in the doc so you can ask them the right question
+### Policy shape (InitPlan-wrapped)
 
-Approve and I'll ship it. After that, one follow-up turn will wire `fetchAlohaDay()` once we know the data source.
+Every mirrored policy uses the same template. Both helper calls are wrapped in `(SELECT …)` so Postgres evaluates them once per query, not once per row:
+
+```sql
+CREATE POLICY "Punch device can read <table> at its location"
+ON public.<table> FOR SELECT TO authenticated
+USING (
+  (SELECT public.is_punch_device(auth.uid()))
+  AND location_id = (SELECT public.punch_device_location(auth.uid()))
+);
+```
+
+For tables without a direct `location_id` column, the join runs through the parent's `location_id` using the same InitPlan pattern:
+
+```sql
+-- checklist_submissions has location_id — direct match
+-- alarm_task_completions joins via temporary_tasks
+CREATE POLICY "Punch device can read alarm completions at its location"
+ON public.alarm_task_completions FOR SELECT TO authenticated
+USING (
+  (SELECT public.is_punch_device(auth.uid()))
+  AND EXISTS (
+    SELECT 1 FROM public.temporary_tasks tt
+    WHERE tt.id = alarm_task_completions.task_id
+      AND tt.location_id = (SELECT public.punch_device_location(auth.uid()))
+  )
+);
+```
+
+### Coverage — 13 dashboard tables + punch-flow tables
+
+Each gets one additive `SELECT` policy scoped to the device's assigned location. No existing policies modified.
+
+**Direct `location_id`:** `sales_cache`, `labor_cache`, `location_settings`, `time_punches`, `schedule_events`, `checklists`, `checklist_submissions`, `temporary_tasks`, `punch_clock_templates`
+
+**Joined location:**
+- `scheduled_shifts` → via `schedules.location_id`
+- `temporary_task_subtasks` → via `temporary_tasks.location_id`
+- `task_subtask_completions` → via `temporary_task_subtasks` → `temporary_tasks.location_id`
+- `event_task_completions` → via `schedule_events.location_id`
+- `alarm_task_completions` → via `temporary_tasks.location_id`
+
+**`profiles` (special — needed for both PIN lookup and active-shift roster):**
+
+```sql
+CREATE POLICY "Punch device can read profiles at its location"
+ON public.profiles FOR SELECT TO authenticated
+USING (
+  (SELECT public.is_punch_device(auth.uid()))
+  AND EXISTS (
+    SELECT 1 FROM public.user_locations ul
+    WHERE ul.user_id = profiles.id
+      AND ul.location_id = (SELECT public.punch_device_location(auth.uid()))
+  )
+);
+```
+
+Only staff assigned to the device's location are readable. Cross-location staff invisible.
+
+**Write policies for the punch flow:**
+
+- `time_punches` — already has `Allow punch clock inserts` (INSERT `{public}`, no qual). Covers device inserts.
+- `punch_clock_attempts` — already has `Anyone can log punch clock attempts` (INSERT `{public}`). Covers device inserts.
+
+Both open write policies pre-date this work and are fine — they only permit `INSERT`, and the incoming rows always carry the device's location_id from the client (the writes were designed for the anon kiosk model).
+
+### What is NOT granted
+
+Confirmed by exclusion — device users still cannot read: `user_roles`, `user_locations`, `locations`, `punch_clock_pairing_codes`, or any table not listed above. `punch_clock_devices` remains restricted to `auth_user_id = auth.uid()` (own row only).
+
+---
+
+## Validation protocol (before declaring done)
+
+Executed against a real paired tablet at Sandbox location:
+
+1. Pair a fresh device, capture the device's `auth_user_id`.
+2. Sign in as a manager on the same tablet, open Punch Clock, enter PIN, land on ManagerDashboardOverlay. Screenshot every tile: sales card, hourly chart, labor % badge, active-shift roster, quick-tasks list, checklist completion badge.
+3. Exit to `/auth`. Confirm device session is now active (not the manager's).
+4. Re-enter kiosk mode as the device (no manager session), enter PIN, open ManagerDashboardOverlay. Screenshot every tile again.
+5. Diff the two screenshots. Any tile that renders in step 2 but is empty in step 4 = missing table grant. Loop back and add.
+6. Punch flow end-to-end on the device session: PIN entry (profiles read) → clock in (time_punches insert) → clock out (time_punches insert). Verify rows written with correct location_id and user_id.
+7. Negative test: run a `.from('sales_cache').select().neq('location_id', <paired_location>)` from the device console. Must return zero rows.
+
+Only after 5 passes with zero delta and 6+7 succeed will I report complete.
+
+---
+
+## Technical notes
+
+- Both helpers are `SECURITY DEFINER` and read only `punch_clock_devices`, which has no policy path back to itself — no recursion risk.
+- `punch_clock_devices` is small (one row per tablet), so `punch_device_location()` is effectively free even without the InitPlan wrap; wrapping still matters for the composed EXISTS subqueries.
+- All new policies are additive and named `Punch device can read <table> at its location` for greppability and easy rollback.
+- Migration 1 is idempotent (`DROP POLICY IF EXISTS`); Migration 2 uses `CREATE POLICY` (fails loud if run twice, intentional).
