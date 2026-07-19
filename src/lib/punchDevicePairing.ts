@@ -114,6 +114,10 @@ export function isPaired(): boolean {
   return !!getPairing();
 }
 
+export function isPunchDeviceUser(user: { user_metadata?: Record<string, unknown> } | null | undefined): boolean {
+  return user?.user_metadata?.is_punch_device === true;
+}
+
 // ---------------------------------------------------------------- exit flag
 
 export function isKioskExitActive(): boolean {
@@ -133,12 +137,39 @@ export function clearKioskExitActive() {
  * session from stored credentials. Caller navigates to /punch-clock after.
  * Returns true on success, false if not paired or restore failed.
  */
+let enterKioskModePromise: Promise<boolean> | null = null;
+
 export async function enterKioskMode(): Promise<boolean> {
+  if (enterKioskModePromise) return enterKioskModePromise;
+
+  enterKioskModePromise = enterKioskModeOnce().finally(() => {
+    enterKioskModePromise = null;
+  });
+
+  return enterKioskModePromise;
+}
+
+async function enterKioskModeOnce(): Promise<boolean> {
   const cred = getPairing();
   if (!cred) return false;
 
   // Clear the "just exited" flag — we're actively re-entering.
   clearKioskExitActive();
+
+  // If the tablet is already signed in as the paired device, do not sign out
+  // and re-consume the same refresh token. This prevents double entry paths
+  // (login-screen click + auto-restore) from immediately killing the kiosk
+  // session and bouncing the tablet back to login.
+  const existing = await supabase.auth.getSession().catch(() => null);
+  const existingSession = existing?.data?.session;
+  if (existingSession && isPunchDeviceUser(existingSession.user)) {
+    updateStoredSession({
+      access_token: existingSession.access_token,
+      refresh_token: existingSession.refresh_token,
+      expires_at: existingSession.expires_at,
+    });
+    return true;
+  }
 
   // Hard sign-out of whatever session is currently on the device.
   await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
