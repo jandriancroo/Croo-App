@@ -80,8 +80,8 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
     const { data, error } = await supabase.functions.invoke('punch-device-service', {
       body: {
         action: 'generate',
-        location_id: selectedLocation,
-        device_name: deviceNameDraft.trim() || null,
+        locationId: selectedLocation,
+        deviceName: deviceNameDraft.trim() || null,
       },
     });
     setGeneratingFor('');
