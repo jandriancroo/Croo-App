@@ -59,5 +59,26 @@ export const KioskAutoRestore = () => {
     })();
   }, [loading, user?.id, location.pathname, navigate]);
 
+  // Mirror rotated refresh tokens back into our own storage so a subsequent
+  // cold launch can always restore the device session. Supabase rotates the
+  // refresh token on every refresh; if we don't capture the new one, the
+  // stored copy becomes stale and enterKioskMode() fails with "Could not
+  // restore paired session."
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) return;
+      if (event !== 'TOKEN_REFRESHED' && event !== 'SIGNED_IN') return;
+      const isDeviceSession = (session.user?.user_metadata as any)?.is_punch_device === true;
+      if (!isDeviceSession) return;
+      if (!isPaired()) return;
+      updateStoredSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at: session.expires_at,
+      });
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   return null;
 };
