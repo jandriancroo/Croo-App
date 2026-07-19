@@ -57,7 +57,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
   const loadDevices = async () => {
     setLoading(true);
     const { data, error } = await supabase.functions.invoke('punch-device-service', {
-      body: { action: 'list', organization_id: organizationId },
+      body: { action: 'list', organizationId },
     });
     if (error) {
       toast.error('Failed to load devices');
