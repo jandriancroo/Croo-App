@@ -939,6 +939,22 @@ header.bg-primary *,
 }
 
 @layer utilities {
+  .ovation-panel-bg {
+    background-color: hsl(var(--ovation-panel));
+  }
+
+  .ovation-panel-ink {
+    color: hsl(var(--ovation-panel-foreground));
+  }
+
+  .ovation-panel-muted {
+    color: hsl(var(--ovation-panel-muted));
+  }
+
+  .ovation-panel-border {
+    border-color: hsl(var(--ovation-panel-border));
+  }
+
   /* Period detail flush: remove top border/rounding from first card */
   .period-detail-flush > div > div:first-child {
     border-top-left-radius: 0 !important;
