@@ -285,6 +285,11 @@ export default function OrganizationProfile() {
           </Card>
         )}
 
+        {/* Punch Clock Devices (org admins only) */}
+        {!isNew && id && (
+          <PunchDeviceManager organizationId={id} locations={locations as any[]} />
+        )}
+
         {/* Locations */}
         {!isNew && (
           <Card>
