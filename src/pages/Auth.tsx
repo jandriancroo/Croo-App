@@ -223,6 +223,9 @@ export default function Auth() {
                   Forgot your password?
                 </button>
               </div>
+              <div className="text-center pt-1 border-t border-border/40">
+                <PunchDeviceEntry />
+              </div>
             </form>
           </CardContent>
         </Card>
