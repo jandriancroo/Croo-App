@@ -47,6 +47,7 @@ export const PunchDeviceEntry = () => {
 
   const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!code.trim()) return;
     setBusy(true);
     try {
