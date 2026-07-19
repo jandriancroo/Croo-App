@@ -20,6 +20,7 @@ import {
   enterKioskMode,
   getPairing,
   updateStoredSession,
+  isPunchDeviceUser,
 } from '@/lib/punchDevicePairing';
 
 export const KioskAutoRestore = () => {
@@ -34,7 +35,7 @@ export const KioskAutoRestore = () => {
     if (!isPaired()) return;
 
     const path = location.pathname;
-    const isDeviceSession = (user?.user_metadata as any)?.is_punch_device === true;
+    const isDeviceSession = isPunchDeviceUser(user);
 
     // Case A: user explicitly navigated to /punch-clock but isn't the device
     // session yet → sign out current user, restore device session. Ignore
@@ -68,7 +69,7 @@ export const KioskAutoRestore = () => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) return;
       if (event !== 'TOKEN_REFRESHED' && event !== 'SIGNED_IN') return;
-      const isDeviceSession = (session.user?.user_metadata as any)?.is_punch_device === true;
+      const isDeviceSession = isPunchDeviceUser(session.user);
       if (!isDeviceSession) return;
       if (!isPaired()) return;
       updateStoredSession({

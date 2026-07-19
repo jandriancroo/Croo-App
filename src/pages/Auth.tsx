@@ -11,6 +11,7 @@ import { PunchDeviceEntry } from '@/components/punchclock/PunchDeviceEntry';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
 import { PWAInstallTutorial } from '@/components/PWAInstallTutorial';
+import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
 import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
 import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
 import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
@@ -121,6 +122,10 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && !showSplash && !showCrowAnimation) {
+      if (isPunchDeviceUser(user)) {
+        navigate('/punch-clock', { replace: true });
+        return;
+      }
       navigate('/dashboard');
     }
   }, [user, navigate, showSplash, showCrowAnimation]);
@@ -146,12 +151,20 @@ export default function Auth() {
 
   const handleSplashComplete = () => {
     toast.success('Signed in successfully');
+    if (isPunchDeviceUser(user)) {
+      navigate('/punch-clock', { replace: true });
+      return;
+    }
     navigate('/dashboard');
   };
 
   // Navigate once after successful sign-in animation trigger
   useEffect(() => {
     if (showCrowAnimation && user) {
+      if (isPunchDeviceUser(user)) {
+        navigate('/punch-clock', { replace: true });
+        return;
+      }
       navigate('/dashboard', { state: { showWelcomeAnimation: true } });
     }
   }, [showCrowAnimation, user, navigate]);
