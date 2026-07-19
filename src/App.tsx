@@ -19,6 +19,7 @@ import { useForceReload } from "@/hooks/useForceReload";
 import { AppSplashScreen } from "@/components/AppSplashScreen";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { usePrefetchDashboard } from "@/hooks/usePrefetchDashboard";
+import { KioskAutoRestore } from "@/components/KioskAutoRestore";
 
 
 // Critical routes - loaded eagerly (auth flow)
@@ -144,6 +145,7 @@ const AppWithSplash = () => {
   return (
     <>
       <ForceReloadHandler />
+      <KioskAutoRestore />
       {showSplash && <AppSplashScreen onComplete={handleSplashComplete} />}
       <AppContent />
       

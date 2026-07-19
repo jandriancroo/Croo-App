@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.webp';
+import { PunchDeviceEntry } from '@/components/punchclock/PunchDeviceEntry';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
 import { PWAInstallTutorial } from '@/components/PWAInstallTutorial';
@@ -221,6 +222,9 @@ export default function Auth() {
                 >
                   Forgot your password?
                 </button>
+              </div>
+              <div className="text-center pt-1 border-t border-border/40">
+                <PunchDeviceEntry />
               </div>
             </form>
           </CardContent>

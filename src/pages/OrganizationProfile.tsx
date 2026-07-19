@@ -16,6 +16,7 @@ import { RoleManagementSection } from '@/components/settings/RoleManagementSecti
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { useUserRole } from '@/hooks/useUserRole';
 import { OrgLibraryEnableSection } from '@/components/library/OrgLibraryEnableSection';
+import { PunchDeviceManager } from '@/components/organization/PunchDeviceManager';
 
 export default function OrganizationProfile() {
   const { id } = useParams<{ id: string }>();
@@ -282,6 +283,11 @@ export default function OrganizationProfile() {
               <PositionManagementInline organizationId={id} />
             </CardContent>
           </Card>
+        )}
+
+        {/* Punch Clock Devices (org admins only) */}
+        {!isNew && id && (
+          <PunchDeviceManager organizationId={id} locations={locations as any[]} />
         )}
 
         {/* Locations */}

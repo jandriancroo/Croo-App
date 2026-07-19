@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { getPairing } from '@/lib/punchDevicePairing';
 
 interface Location {
   id: string;
@@ -60,6 +61,34 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
       return;
     }
+
+    // ---- Paired punch device short-circuit ----
+    // Device sessions have no profile and no user_locations row. Use the
+    // location baked into the pairing credential instead.
+    const pairing = getPairing();
+    if (pairing && pairing.location) {
+      const deviceLoc: Location = {
+        id: pairing.location.id,
+        name: pairing.location.name,
+        location_type: 'restaurant',
+        store_number: pairing.location.store_number ?? null,
+        organization_id: pairing.location.organization_id,
+      };
+      // Verify this session is actually the device (metadata flag set at pairing time)
+      const isDeviceSession = (user.user_metadata as any)?.is_punch_device === true;
+      if (isDeviceSession) {
+        setLocations([deviceLoc]);
+        setCurrentLocationState(deviceLoc);
+        if (deviceLoc.organization_id) setOrganizationId(deviceLoc.organization_id);
+        try {
+          localStorage.setItem('currentLocationId', deviceLoc.id);
+          localStorage.setItem('currentLocationCache', JSON.stringify(deviceLoc));
+        } catch {}
+        setLoading(false);
+        return;
+      }
+    }
+
 
     try {
       // Parallel fetch: profile + user_locations at the same time (both only need user.id)

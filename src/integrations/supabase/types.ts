@@ -9198,6 +9198,114 @@ export type Database = {
           },
         ]
       }
+      punch_clock_devices: {
+        Row: {
+          auth_user_id: string
+          created_by: string | null
+          device_name: string
+          id: string
+          last_active_at: string
+          location_id: string
+          organization_id: string
+          paired_at: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          auth_user_id: string
+          created_by?: string | null
+          device_name: string
+          id?: string
+          last_active_at?: string
+          location_id: string
+          organization_id: string
+          paired_at?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          auth_user_id?: string
+          created_by?: string | null
+          device_name?: string
+          id?: string
+          last_active_at?: string
+          location_id?: string
+          organization_id?: string
+          paired_at?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "punch_clock_devices_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_clock_devices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      punch_clock_pairing_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          device_name: string
+          expires_at: string
+          id: string
+          location_id: string
+          organization_id: string
+          redeemed_at: string | null
+          redeemed_device_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          device_name: string
+          expires_at?: string
+          id?: string
+          location_id: string
+          organization_id: string
+          redeemed_at?: string | null
+          redeemed_device_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          device_name?: string
+          expires_at?: string
+          id?: string
+          location_id?: string
+          organization_id?: string
+          redeemed_at?: string | null
+          redeemed_device_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "punch_clock_pairing_codes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_clock_pairing_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       punch_clock_templates: {
         Row: {
           background_url: string | null
@@ -12423,6 +12531,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      generate_pairing_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_active_conversion: {
         Args: { p_template_id: string }
@@ -12571,6 +12680,7 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      is_punch_device: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
