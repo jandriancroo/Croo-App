@@ -169,7 +169,7 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3">
               <div className="flex-1">
                 <div className="text-xs text-muted-foreground">
-                  {freshCode.location_name} · expires {formatDistanceToNow(new Date(freshCode.expires_at), { addSuffix: true })}
+                  {freshCode.location_name} · expires {formatDistanceToNow(new Date(freshCode.expiresAt), { addSuffix: true })}
                 </div>
                 <div className="text-3xl font-mono font-bold tracking-widest text-primary mt-1">
                   {freshCode.code}
