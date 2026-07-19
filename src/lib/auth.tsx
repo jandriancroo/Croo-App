@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
 
 interface AuthContextType {
   user: User | null;
@@ -79,6 +80,8 @@ const checkFirstLogin = async (userId: string): Promise<boolean> => {
   }
 };
 
+const isDeviceSession = (session: Session | null | undefined) => isPunchDeviceUser(session?.user);
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -96,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
 
         // Update last_login_at on sign in (not token refresh)
-        if (session?.user && event === 'SIGNED_IN') {
+        if (session?.user && event === 'SIGNED_IN' && !isDeviceSession(session)) {
           const userId = session.user.id;
           if (!checkedFirstLoginRef.current.has(userId)) {
             checkedFirstLoginRef.current.add(userId);
@@ -123,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
 
         // Also check first login for existing sessions
-        if (session?.user && !checkedFirstLoginRef.current.has(session.user.id)) {
+        if (session?.user && !isDeviceSession(session) && !checkedFirstLoginRef.current.has(session.user.id)) {
           checkedFirstLoginRef.current.add(session.user.id);
           setTimeout(() => {
             checkFirstLogin(session.user.id);
