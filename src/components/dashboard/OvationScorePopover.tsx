@@ -280,12 +280,12 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="overflow-hidden"
         >
-          <div ref={panelRef} className="relative w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 bg-white dark:bg-card border border-border/30 rounded-2xl shadow-lg mt-2">
+          <div ref={panelRef} className="relative w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 bg-popover text-popover-foreground border border-border/30 rounded-2xl shadow-lg mt-2">
             {/* Tail pointing up to the Ovation pill in the header */}
             {tailLeftPct !== null && (
               <div
                 aria-hidden
-                className="absolute -top-1.5 w-3 h-3 rotate-45 bg-white dark:bg-card border-l border-t border-border/30"
+                className="absolute -top-1.5 w-3 h-3 rotate-45 bg-popover border-l border-t border-border/30"
                 style={{ left: `${tailLeftPct}%`, transform: 'translateX(-50%) rotate(45deg)' }}
               />
             )}
