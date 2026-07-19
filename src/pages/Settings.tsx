@@ -589,6 +589,19 @@ export default function Settings() {
               </Collapsible>
             );
           })}
+
+          {activeTab === 'org' && currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin) && (
+            <button
+              onClick={() => navigate(`/organization/${currentOrgId}`)}
+              className="w-full flex items-center justify-between px-4 py-4 rounded-xl bg-primary text-primary-foreground active:scale-[0.98] transition-all duration-150 shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <Building2 className="h-4 w-4 opacity-80" />
+                <span className="font-semibold text-base">Edit Org Settings</span>
+              </div>
+              <ChevronRight className="h-4 w-4 opacity-60" />
+            </button>
+          )}
         </div>
       </div>
     </Layout>
