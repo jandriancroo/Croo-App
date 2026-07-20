@@ -313,10 +313,14 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
 
 
 
-                <div className="flex items-center gap-1.5 ovation-panel-muted">
+                <div
+                  style={{ color: 'hsl(var(--primary))' }}
+                  className="flex items-center gap-1.5"
+                >
                   <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                  <span className="text-xs sm:text-[10px] font-medium">{countValue}</span>
+                  <span className="text-xs sm:text-[10px] font-semibold">{countValue}</span>
                 </div>
+
               </div>
             </div>
 
