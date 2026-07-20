@@ -30,7 +30,7 @@ interface OvationReviewsData {
 
 function StarRating({ rating }: { rating: number }) {
   return (
-    <div className="flex gap-0.5">
+    <div className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-yellow-400/15 border border-yellow-400/30">
       {[1, 2, 3, 4, 5].map(i => (
         <Star
           key={i}
@@ -43,6 +43,7 @@ function StarRating({ rating }: { rating: number }) {
     </div>
   );
 }
+
 
 // --- localStorage cache for instant hydration on reload ---
 const OVATION_CACHE_KEY = 'ovation-last-score';
@@ -303,13 +304,14 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
               </div>
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className={cn(
-                  'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
-                   scoreValue >= 4.5 ? 'bg-green-500/10 ovation-status-good' :
-                   scoreValue >= 3.5 ? 'bg-yellow-500/10 ovation-status-warn' :
-                   scoreValue >= 2.5 ? 'bg-orange-500/10 ovation-status-mid' : 'bg-red-500/10 ovation-status-bad'
+                  'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm text-black',
+                   scoreValue >= 4.5 ? 'bg-green-500/15' :
+                   scoreValue >= 3.5 ? 'bg-yellow-500/15' :
+                   scoreValue >= 2.5 ? 'bg-orange-500/15' : 'bg-red-500/15'
                 )}>
                   {scoreValue.toFixed(1)}
                 </div>
+
                 <div className="flex items-center gap-1.5 ovation-panel-muted">
                   <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="text-xs sm:text-[10px] font-medium">{countValue}</span>
