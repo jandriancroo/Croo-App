@@ -36,13 +36,14 @@ function StarRating({ rating }: { rating: number }) {
           key={i}
           className={cn(
             'h-3.5 w-3.5 sm:h-3 sm:w-3',
-            i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'
+            i <= rating ? 'fill-yellow-400 text-yellow-400' : 'fill-white text-white'
           )}
         />
       ))}
     </div>
   );
 }
+
 
 
 // --- localStorage cache for instant hydration on reload ---
