@@ -30,7 +30,7 @@ interface OvationReviewsData {
 
 function StarRating({ rating }: { rating: number }) {
   return (
-    <div className="flex gap-0.5">
+    <div className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-yellow-400/15 border border-yellow-400/30">
       {[1, 2, 3, 4, 5].map(i => (
         <Star
           key={i}
@@ -43,6 +43,7 @@ function StarRating({ rating }: { rating: number }) {
     </div>
   );
 }
+
 
 // --- localStorage cache for instant hydration on reload ---
 const OVATION_CACHE_KEY = 'ovation-last-score';
