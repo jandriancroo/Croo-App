@@ -36,7 +36,7 @@ function StarRating({ rating }: { rating: number }) {
           key={i}
           className={cn(
             'h-3.5 w-3.5 sm:h-3 sm:w-3',
-            i <= rating ? 'fill-yellow-400 text-yellow-400' : 'fill-white text-white'
+            i <= rating ? 'fill-yellow-400 text-yellow-400' : 'fill-yellow-100 text-yellow-600'
           )}
         />
       ))}
@@ -305,16 +305,12 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
               </div>
               <div className="flex items-center gap-2.5 shrink-0">
                 <div
-                  style={{ color: '#000' }}
-                  className={cn(
-                    'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
-                    scoreValue >= 4.5 ? 'bg-green-500/15' :
-                    scoreValue >= 3.5 ? 'bg-yellow-500/15' :
-                    scoreValue >= 2.5 ? 'bg-orange-500/15' : 'bg-red-500/15'
-                  )}
+                  style={{ color: '#fff', backgroundColor: 'hsl(var(--primary))' }}
+                  className="flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm"
                 >
                   {scoreValue.toFixed(1)}
                 </div>
+
 
 
                 <div className="flex items-center gap-1.5 ovation-panel-muted">
