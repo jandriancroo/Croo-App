@@ -313,12 +313,17 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
 
 
 
-                <div
-                  style={{ color: 'hsl(var(--primary))' }}
-                  className="flex items-center gap-1.5"
-                >
-                  <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                  <span className="text-xs sm:text-[10px] font-semibold">{countValue}</span>
+                <div className="flex items-center gap-1.5">
+                  <MessageSquare
+                    className="h-4 w-4 sm:h-3.5 sm:w-3.5"
+                    style={{ color: 'hsl(var(--primary))', stroke: 'hsl(var(--primary))' }}
+                  />
+                  <span
+                    className="text-xs sm:text-[10px] font-semibold"
+                    style={{ color: 'hsl(var(--primary))' }}
+                  >
+                    {countValue}
+                  </span>
                 </div>
 
               </div>
