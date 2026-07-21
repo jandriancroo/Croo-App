@@ -530,44 +530,29 @@ export default function CompleteChecklist() {
     }
   };
 
-  // Debounced auto-save function
+  // Race-safe auto-save: single upsert on unique (submission_id, item_id).
   const autoSaveResponse = useCallback(async (itemId: string, value: any, isImage: boolean = false) => {
     if (!submissionId || !user?.id) return;
     try {
-      // Check if response already exists
-      const {
-        data: existing
-      } = await supabase.from('checklist_responses').select('id').eq('submission_id', submissionId).eq('item_id', itemId).single();
-      let responseId: string | undefined = existing?.id;
-
-      if (existing) {
-        // Update existing response
-        const { error } = await supabase
-          .from('checklist_responses')
-          .update({
-            response_text: isImage ? null : typeof value === 'boolean' ? String(value) : value,
-            response_image_url: isImage ? value : null,
-            completed_by: user.id
-          })
-          .eq('id', existing.id);
-        if (error) throw error;
-      } else {
-        // Insert new response and get its id
-        const { data: newResponse, error } = await supabase
-          .from('checklist_responses')
-          .insert({
+      const { data: upserted, error } = await supabase
+        .from('checklist_responses')
+        .upsert(
+          {
             submission_id: submissionId,
             item_id: itemId,
             response_text: isImage ? null : typeof value === 'boolean' ? String(value) : value,
             response_image_url: isImage ? value : null,
-            completed_by: user.id
-          })
-          .select('id')
-          .single();
+            completed_by: user.id,
+          },
+          { onConflict: 'submission_id,item_id' }
+        )
+        .select('id')
+        .single();
 
-        if (error) throw error;
-        responseId = newResponse?.id;
-      }
+      if (error) throw error;
+      const responseId = upserted?.id;
+
+      console.log('[autosave]', { itemId, isImage, responseId, valuePreview: typeof value === 'string' ? value.slice(0, 40) : value });
 
       if (!responseId) {
         console.warn('No responseId available after save for item', itemId);
@@ -595,8 +580,9 @@ export default function CompleteChecklist() {
           }
         }
       }));
-    } catch (error) {
-      console.error('Error auto-saving response:', error);
+    } catch (error: any) {
+      console.error('[autosave] Error auto-saving response:', error, { itemId });
+      toast.error('Could not save your entry — check your connection and try again.');
     }
   }, [submissionId, user]);
   const handleResponseChange = (itemId: string, value: any, isImage: boolean = false) => {
@@ -605,17 +591,18 @@ export default function CompleteChecklist() {
       [itemId]: value
     });
 
-    // Debounce auto-save for text inputs
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
+    // Per-item debounce so typing in one field doesn't cancel another's pending save.
+    const pending = autoSaveTimeoutsRef.current[itemId];
+    if (pending) clearTimeout(pending);
+
     if (isImage || typeof value === 'boolean') {
       // Save immediately for images and checkboxes
       autoSaveResponse(itemId, value, isImage);
     } else {
-      // Debounce text inputs
-      autoSaveTimeoutRef.current = setTimeout(() => {
+      // Debounce text/number inputs per item
+      autoSaveTimeoutsRef.current[itemId] = setTimeout(() => {
         autoSaveResponse(itemId, value, isImage);
+        delete autoSaveTimeoutsRef.current[itemId];
       }, 1000);
     }
   };
