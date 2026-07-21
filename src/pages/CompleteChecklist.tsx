@@ -226,7 +226,7 @@ export default function CompleteChecklist() {
   const canUndoItems = isShiftManager;
   // currentLocation already declared above
   const navigate = useNavigate();
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const autoSaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   useEffect(() => {
     fetchChecklistData();
   }, [id, viewDate]);
