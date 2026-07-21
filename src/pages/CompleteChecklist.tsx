@@ -913,15 +913,25 @@ export default function CompleteChecklist() {
         }
       }
 
-      // Swap the blob URL for the real public URL in whatever the current
-      // state is (user may have added/replaced other photos meanwhile).
+      // Swap the blob URL for the real public URL. IMPORTANT: use the
+      // optimisticValue we just computed — NOT `responses[itemId]` from
+      // the closure, which is stale (pre-handler) state and would drop
+      // the newly-added photo when persisting the JSON array.
       const swapBlob = (arr: string[]) =>
         arr.map(u => (u === blobUrl ? data.publicUrl : u));
 
       let newValue: string | string[];
       if (isMultiPhoto) {
-        const latestRaw = (responses[itemId] as string[] | undefined) ?? [];
-        newValue = swapBlob(Array.isArray(latestRaw) ? latestRaw : [latestRaw as any]);
+        const base = Array.isArray(optimisticValue) ? optimisticValue : [optimisticValue as string];
+        newValue = swapBlob(base);
+        console.log('[multi-photo save]', {
+          itemId,
+          blobUrl,
+          publicUrl: data.publicUrl,
+          optimisticCount: base.length,
+          persistedCount: (newValue as string[]).length,
+          persisted: newValue,
+        });
       } else {
         newValue = data.publicUrl;
       }
