@@ -920,6 +920,19 @@ export default function CompleteChecklist() {
           persistedCount: (newValue as string[]).length,
           persisted: newValue,
         });
+        serverDebugLog('multi_photo_save', {
+          userId: user?.id,
+          locationId: currentLocation?.id || checklist?.location_id || null,
+          submissionId: submissionId || null,
+          itemId,
+          payload: {
+            publicUrl: data.publicUrl,
+            optimisticCount: base.length,
+            persistedCount: (newValue as string[]).length,
+            urls: newValue,
+            fileSizeKB: Math.round(file.size / 1024),
+          },
+        });
       } else {
         newValue = data.publicUrl;
       }
