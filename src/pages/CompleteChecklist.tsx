@@ -583,6 +583,17 @@ export default function CompleteChecklist() {
       }));
     } catch (error: any) {
       console.error('[autosave] Error auto-saving response:', error, { itemId });
+      serverDebugLog('autosave_error', {
+        userId: user?.id,
+        locationId: currentLocation?.id || checklist?.location_id || null,
+        submissionId: submissionId || null,
+        itemId,
+        payload: {
+          message: error?.message || String(error),
+          code: error?.code || null,
+          isImage,
+        },
+      });
       toast.error('Could not save your entry — check your connection and try again.');
     }
   }, [submissionId, user]);
