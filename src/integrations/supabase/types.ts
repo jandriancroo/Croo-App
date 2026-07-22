@@ -2260,6 +2260,42 @@ export type Database = {
           },
         ]
       }
+      client_debug_logs: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string | null
+          location_id: string | null
+          payload: Json | null
+          submission_id: string | null
+          tag: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          location_id?: string | null
+          payload?: Json | null
+          submission_id?: string | null
+          tag: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          location_id?: string | null
+          payload?: Json | null
+          submission_id?: string | null
+          tag?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       clover_sales_cache: {
         Row: {
           avg_ticket: number
@@ -12732,6 +12768,7 @@ export type Database = {
       }
       prune_visual_alert_queue: { Args: never; Returns: undefined }
       punch_device_location: { Args: { _user_id: string }; Returns: string }
+      purge_old_client_debug_logs: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
       read_email_batch: {

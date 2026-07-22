@@ -27,6 +27,7 @@ import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { useUserPosition } from '@/hooks/useUserPosition';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
+import { serverDebugLog } from '@/utils/serverDebugLog';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -582,6 +583,17 @@ export default function CompleteChecklist() {
       }));
     } catch (error: any) {
       console.error('[autosave] Error auto-saving response:', error, { itemId });
+      serverDebugLog('autosave_error', {
+        userId: user?.id,
+        locationId: currentLocation?.id || checklist?.location_id || null,
+        submissionId: submissionId || null,
+        itemId,
+        payload: {
+          message: error?.message || String(error),
+          code: error?.code || null,
+          isImage,
+        },
+      });
       toast.error('Could not save your entry — check your connection and try again.');
     }
   }, [submissionId, user]);
@@ -918,6 +930,19 @@ export default function CompleteChecklist() {
           optimisticCount: base.length,
           persistedCount: (newValue as string[]).length,
           persisted: newValue,
+        });
+        serverDebugLog('multi_photo_save', {
+          userId: user?.id,
+          locationId: currentLocation?.id || checklist?.location_id || null,
+          submissionId: submissionId || null,
+          itemId,
+          payload: {
+            publicUrl: data.publicUrl,
+            optimisticCount: base.length,
+            persistedCount: (newValue as string[]).length,
+            urls: newValue,
+            fileSizeKB: Math.round(file.size / 1024),
+          },
         });
       } else {
         newValue = data.publicUrl;
