@@ -27,6 +27,7 @@ import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { useUserPosition } from '@/hooks/useUserPosition';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
+import { serverDebugLog } from '@/utils/serverDebugLog';
 interface ChecklistItem {
   id: string;
   question: string;
