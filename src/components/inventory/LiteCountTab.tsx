@@ -50,6 +50,7 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
   const qc = useQueryClient();
   const [showPicker, setShowPicker] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewCount, setPreviewCount] = useState<Count | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const PAGE_SIZE = 6;
 
