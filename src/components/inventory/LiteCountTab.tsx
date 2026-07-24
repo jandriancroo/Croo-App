@@ -439,7 +439,3 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
     </>
   );
 }
-
-    </>
-  );
-}
