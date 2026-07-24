@@ -3,13 +3,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2, Plus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2, Plus, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import NewLiteCountDialog from "@/components/inventory/NewLiteCountDialog";
 import LiteCogsPanel from "@/components/inventory/LiteCogsPanel";
+import LiteCountSession from "@/components/inventory/LiteCountSession";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface Props {
   locationId: string;
@@ -42,6 +50,7 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
   const qc = useQueryClient();
   const [showPicker, setShowPicker] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewCount, setPreviewCount] = useState<Count | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const PAGE_SIZE = 6;
 
@@ -183,11 +192,19 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
 
           return (
             <div key={count.id} className="border-b border-border last:border-b-0">
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() =>
                   setSelectedId(desktop ? count.id : (isActive ? null : count.id))
                 }
-                className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedId(desktop ? count.id : (isActive ? null : count.id));
+                  }
+                }}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
                   isActive
                     ? desktop
                       ? "bg-primary/10 border-l-2 border-primary pl-[14px]"
@@ -210,6 +227,21 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
                   <div className="text-xs text-muted-foreground">{statusLabel}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {submitted && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewCount(count);
+                      }}
+                      aria-label="Preview count"
+                      title="Preview count"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Badge
                     variant={submitted ? "default" : "secondary"}
                     className="text-[10px]"
@@ -217,7 +249,8 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
                     {submitted ? "Submitted" : "Draft"}
                   </Badge>
                 </div>
-              </button>
+              </div>
+
 
               {/* Mobile inline expansion — resume for drafts, COGS for submitted */}
               {!desktop && (
@@ -332,13 +365,26 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
           <div className="md:col-span-7">
             {desktopSelected ? (
               desktopSelected.status === "submitted" ? (
-                <LiteCogsPanel
-                  countId={desktopSelected.id}
-                  locationId={locationId}
-                  periodStart={desktopSelected.period_start}
-                  periodEnd={desktopSelected.period_end}
-                  locationName={locationName || "Location"}
-                />
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewCount(desktopSelected)}
+                      className="gap-1.5"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview count
+                    </Button>
+                  </div>
+                  <LiteCogsPanel
+                    countId={desktopSelected.id}
+                    locationId={locationId}
+                    periodStart={desktopSelected.period_start}
+                    periodEnd={desktopSelected.period_end}
+                    locationName={locationName || "Location"}
+                  />
+                </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center space-y-3">
                   <div className="text-sm text-muted-foreground">
@@ -359,6 +405,7 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
               </div>
             )}
           </div>
+
         </div>
       </div>
 
@@ -368,6 +415,27 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
         locationId={locationId}
         timezone={timezone}
       />
+
+      <Dialog open={!!previewCount} onOpenChange={(v) => !v && setPreviewCount(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {previewCount &&
+                `Week · ${fmt(previewCount.period_start)} – ${fmt(previewCount.period_end)}`}
+            </DialogTitle>
+            <DialogDescription>
+              Read-only review of this submitted count.
+            </DialogDescription>
+          </DialogHeader>
+          {previewCount && (
+            <LiteCountSession
+              countId={previewCount.id}
+              locationId={locationId}
+              readOnly
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
