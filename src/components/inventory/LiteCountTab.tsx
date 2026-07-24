@@ -3,13 +3,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2, Plus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2, Plus, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import NewLiteCountDialog from "@/components/inventory/NewLiteCountDialog";
 import LiteCogsPanel from "@/components/inventory/LiteCogsPanel";
+import LiteCountSession from "@/components/inventory/LiteCountSession";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface Props {
   locationId: string;
