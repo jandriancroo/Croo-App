@@ -192,11 +192,19 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
 
           return (
             <div key={count.id} className="border-b border-border last:border-b-0">
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() =>
                   setSelectedId(desktop ? count.id : (isActive ? null : count.id))
                 }
-                className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedId(desktop ? count.id : (isActive ? null : count.id));
+                  }
+                }}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
                   isActive
                     ? desktop
                       ? "bg-primary/10 border-l-2 border-primary pl-[14px]"
@@ -219,6 +227,21 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
                   <div className="text-xs text-muted-foreground">{statusLabel}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {submitted && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewCount(count);
+                      }}
+                      aria-label="Preview count"
+                      title="Preview count"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Badge
                     variant={submitted ? "default" : "secondary"}
                     className="text-[10px]"
@@ -226,7 +249,8 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
                     {submitted ? "Submitted" : "Draft"}
                   </Badge>
                 </div>
-              </button>
+              </div>
+
 
               {/* Mobile inline expansion — resume for drafts, COGS for submitted */}
               {!desktop && (
