@@ -365,13 +365,26 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
           <div className="md:col-span-7">
             {desktopSelected ? (
               desktopSelected.status === "submitted" ? (
-                <LiteCogsPanel
-                  countId={desktopSelected.id}
-                  locationId={locationId}
-                  periodStart={desktopSelected.period_start}
-                  periodEnd={desktopSelected.period_end}
-                  locationName={locationName || "Location"}
-                />
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewCount(desktopSelected)}
+                      className="gap-1.5"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview count
+                    </Button>
+                  </div>
+                  <LiteCogsPanel
+                    countId={desktopSelected.id}
+                    locationId={locationId}
+                    periodStart={desktopSelected.period_start}
+                    periodEnd={desktopSelected.period_end}
+                    locationName={locationName || "Location"}
+                  />
+                </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center space-y-3">
                   <div className="text-sm text-muted-foreground">
@@ -392,6 +405,7 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
               </div>
             )}
           </div>
+
         </div>
       </div>
 
