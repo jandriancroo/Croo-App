@@ -415,6 +415,31 @@ export default function LiteCountTab({ locationId, timezone, locationName }: Pro
         locationId={locationId}
         timezone={timezone}
       />
+
+      <Dialog open={!!previewCount} onOpenChange={(v) => !v && setPreviewCount(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {previewCount &&
+                `Week · ${fmt(previewCount.period_start)} – ${fmt(previewCount.period_end)}`}
+            </DialogTitle>
+            <DialogDescription>
+              Read-only review of this submitted count.
+            </DialogDescription>
+          </DialogHeader>
+          {previewCount && (
+            <LiteCountSession
+              countId={previewCount.id}
+              locationId={locationId}
+              readOnly
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
     </>
   );
 }
