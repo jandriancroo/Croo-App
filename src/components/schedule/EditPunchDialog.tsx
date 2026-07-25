@@ -469,16 +469,19 @@ export function EditPunchDialog({
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>Clock In</Label>
+                    <div className="flex items-center justify-between h-5">
+                      <Label>Clock In</Label>
+                    </div>
                     <Input
                       type="time"
                       value={clockInTime}
                       onChange={(e) => setClockInTime(e.target.value)}
                     />
                   </div>
+
                   {showClockOut ? (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between h-5">
                         <Label>Clock Out</Label>
                         <Button
                           type="button"
@@ -493,6 +496,7 @@ export function EditPunchDialog({
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
+
                       <Input
                         type="time"
                         value={clockOutTime}
