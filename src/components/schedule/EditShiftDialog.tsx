@@ -8,17 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, subDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
-import { ArrowUp, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowUp, Trash2, AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, Coffee } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BreakEditor } from "./BreakEditor";
 import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
 import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
+import { shiftHasBreak } from "@/utils/shiftUtils";
 
 
 interface EditShiftDialogProps {
