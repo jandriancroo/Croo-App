@@ -8,17 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, subDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
-import { ArrowUp, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowUp, Trash2, AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, Coffee } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BreakEditor } from "./BreakEditor";
 import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
 import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
+import { shiftHasBreak } from "@/utils/shiftUtils";
 
 
 interface EditShiftDialogProps {
@@ -367,231 +369,308 @@ export function EditShiftDialog({
     return "Limited availability";
   };
 
+  const selectedProfile = profiles.find((p: any) => p.id === selectedUserId);
+  const canOfferUp = isShiftPublished && currentUserId && (isAdmin || shift.user_id === currentUserId);
+  const shiftDateStr = shift.shift_date || format(addDays(currentWeekStart, shift.day_of_week), 'yyyy-MM-dd');
+  const [editDate, setEditDate] = useState(shiftDateStr);
+
+  useEffect(() => {
+    if (open) setEditDate(shiftDateStr);
+  }, [open, shiftDateStr]);
+
+  const hasBreak = shiftHasBreak(startTime, endTime);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Edit Shift</DialogTitle>
-        </DialogHeader>
+        <DialogContent className="max-w-sm max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              Shift Details
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4 py-4 overflow-y-auto flex-1">
-          {/* Time-off conflict alert */}
-          {overlappingTimeOffRequests.length > 0 && (
-            <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <div className="font-medium">Time-Off Request Conflict</div>
-                {overlappingTimeOffRequests.map(req => (
-                  <div key={req.id} className="text-sm mt-1">
-                    {req.time_scope === "partial_day" && req.start_time && req.end_time
-                      ? `${formatTime12h(req.start_time)} - ${formatTime12h(req.end_time)}`
-                      : "Full Day"
-                    }
-                    {" "}• {req.status === "pending" ? "Pending" : "Approved"}
-                    {req.notes && <span className="opacity-75"> — {req.notes}</span>}
-                  </div>
-                ))}
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {/* Weekly availability conflict alert */}
-          {hasAvailabilityConflict && (
-            <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <div className="font-medium">Availability Conflict</div>
-                <div className="text-sm mt-1">{getAvailabilityDescription()}</div>
-              </AlertDescription>
-            </Alert>
-          )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1">
+            {/* Time-off conflict alert */}
+            {overlappingTimeOffRequests.length > 0 && (
+              <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="font-medium">Time-Off Request Conflict</div>
+                  {overlappingTimeOffRequests.map(req => (
+                    <div key={req.id} className="text-sm mt-1">
+                      {req.time_scope === "partial_day" && req.start_time && req.end_time
+                        ? `${formatTime12h(req.start_time)} - ${formatTime12h(req.end_time)}`
+                        : "Full Day"
+                      }
+                      {" "}• {req.status === "pending" ? "Pending" : "Approved"}
+                      {req.notes && <span className="opacity-75"> — {req.notes}</span>}
+                    </div>
+                  ))}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Weekly availability conflict alert */}
+            {hasAvailabilityConflict && (
+              <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="font-medium">Availability Conflict</div>
+                  <div className="text-sm mt-1">{getAvailabilityDescription()}</div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Date Selector — mirrors QuickPunch */}
             <div className="space-y-2">
-              <Label htmlFor="start-time">Start Time</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
+              <Label>Date</Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => {
+                    const current = new Date(editDate + 'T12:00:00');
+                    setEditDate(format(subDays(current, 1), 'yyyy-MM-dd'));
+                  }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="flex-1 text-center"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => {
+                    const current = new Date(editDate + 'T12:00:00');
+                    setEditDate(format(addDays(current, 1), 'yyyy-MM-dd'));
+                  }}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
+
+            {/* Employee Selector */}
             <div className="space-y-2">
-              <Label htmlFor="end-time">End Time</Label>
-              <Input
-                id="end-time"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="employee">Employee</Label>
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger id="employee">
-                <SelectValue placeholder="Select employee" />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((profile) => (
-                  <SelectItem key={profile.id} value={profile.id}>
-                    {profile.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="position">Quick Fill</Label>
-            <Select 
-              value={position || "none"} 
-              onValueChange={(val) => {
-                if (val.startsWith('offer-')) {
-                  // Handle offered shift selection
-                  const offerId = val.replace('offer-', '');
-                  const offer = offeredShifts.find(o => o.id === offerId);
-                  if (offer && offer.scheduled_shifts) {
-                    setSelectedOfferId(offerId);
-                    setStartTime(offer.scheduled_shifts.start_time);
-                    setEndTime(offer.scheduled_shifts.end_time);
-                    if (offer.scheduled_shifts.template_id) {
-                      setPosition(offer.scheduled_shifts.template_id);
-                    } else {
-                      setPosition(`offer-${offerId}`);
-                    }
-                  }
-                } else if (val !== "none") {
-                  setSelectedOfferId(null);
-                  setPosition(val);
-                  const template = templates.find(t => t.id === val);
-                  if (template) {
-                    setStartTime(template.start_time);
-                    setEndTime(template.end_time);
-                  }
-                } else {
-                  setSelectedOfferId(null);
-                  setPosition("");
-                }
-              }}
-            >
-            <SelectTrigger id="position">
-              <SelectValue placeholder="Select quick fill option" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                
-                {/* Offered Shifts Section */}
-                {offeredShifts.length > 0 && offeredShifts.map((offer) => {
-                  const shiftData = offer.scheduled_shifts;
-                  const offeredBy = offer.profiles?.full_name || 'Unknown';
-                  const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
-                  const formatTime = (time: string) => {
-                    const [hours, minutes] = time.split(':');
-                    const hour = parseInt(hours);
-                    const ampm = hour >= 12 ? 'PM' : 'AM';
-                    const displayHour = hour % 12 || 12;
-                    return `${displayHour}:${minutes} ${ampm}`;
-                  };
-                  
-                  return (
-                    <SelectItem 
-                      key={offer.id} 
-                      value={`offer-${offer.id}`}
-                      className="font-semibold text-primary bg-primary/10 border-l-4 border-primary"
-                    >
-                      <div className="flex items-center gap-2">
-                        <ArrowUp className="h-4 w-4 animate-pulse" />
-                        <span className="italic">
-                          {templateName} ({formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)}) - Offered by {offeredBy}
-                        </span>
+              <Label>Employee</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((profile: any) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      <div className="flex items-center gap-2 w-full">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={profile.profile_photo_url || undefined} />
+                          <AvatarFallback className="text-xs">{(profile.full_name || '?').charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1 truncate">{profile.full_name}</span>
                       </div>
                     </SelectItem>
-                  );
-                })}
-                
-                {/* Regular Templates */}
-                {templates.map((template) => {
-                  const formatTime = (time: string) => {
-                    const [hours, minutes] = time.split(':');
-                    const hour = parseInt(hours);
-                    const ampm = hour >= 12 ? 'PM' : 'AM';
-                    const displayHour = hour % 12 || 12;
-                    return `${displayHour}:${minutes} ${ampm}`;
-                  };
-                  
-                  return (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.position || template.template_name} ({formatTime(template.start_time)} - {formatTime(template.end_time)})
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Apply to Days</Label>
-            <div className="space-y-2">
-              {weekDays.map((day, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`day-${index}`}
-                    checked={selectedDays.includes(index)}
-                    onCheckedChange={() => handleDayToggle(index)}
-                  />
-                  <label
-                    htmlFor={`day-${index}`}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {day}
-                  </label>
-                </div>
-              ))}
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* Selected employee preview card */}
+            {selectedProfile && (
+              <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={selectedProfile.profile_photo_url || undefined} />
+                  <AvatarFallback>{(selectedProfile.full_name || '?').charAt(0)}</AvatarFallback>
+                </Avatar>
+                <span className="font-medium">{selectedProfile.full_name}</span>
+              </div>
+            )}
+
+            {/* Time Inputs — Start / End */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Start</Label>
+                <Input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End</Label>
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Break hint */}
+            {hasBreak && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 px-1">
+                <Coffee className="h-3.5 w-3.5" />
+                30-min unpaid break (shift &gt; 5 hrs)
+              </div>
+            )}
+
+            {/* Quick Fill */}
+            <div className="space-y-2">
+              <Label htmlFor="position">Quick Fill</Label>
+              <Select
+                value={position || "none"}
+                onValueChange={(val) => {
+                  if (val.startsWith('offer-')) {
+                    const offerId = val.replace('offer-', '');
+                    const offer = offeredShifts.find(o => o.id === offerId);
+                    if (offer && offer.scheduled_shifts) {
+                      setSelectedOfferId(offerId);
+                      setStartTime(offer.scheduled_shifts.start_time);
+                      setEndTime(offer.scheduled_shifts.end_time);
+                      if (offer.scheduled_shifts.template_id) {
+                        setPosition(offer.scheduled_shifts.template_id);
+                      } else {
+                        setPosition(`offer-${offerId}`);
+                      }
+                    }
+                  } else if (val !== "none") {
+                    setSelectedOfferId(null);
+                    setPosition(val);
+                    const template = templates.find(t => t.id === val);
+                    if (template) {
+                      setStartTime(template.start_time);
+                      setEndTime(template.end_time);
+                    }
+                  } else {
+                    setSelectedOfferId(null);
+                    setPosition("");
+                  }
+                }}
+              >
+                <SelectTrigger id="position">
+                  <SelectValue placeholder="Select quick fill option" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+
+                  {offeredShifts.length > 0 && offeredShifts.map((offer) => {
+                    const shiftData = offer.scheduled_shifts;
+                    const offeredBy = offer.profiles?.full_name || 'Unknown';
+                    const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
+                    const formatTime = (time: string) => {
+                      const [hours, minutes] = time.split(':');
+                      const hour = parseInt(hours);
+                      const ampm = hour >= 12 ? 'PM' : 'AM';
+                      const displayHour = hour % 12 || 12;
+                      return `${displayHour}:${minutes} ${ampm}`;
+                    };
+                    return (
+                      <SelectItem
+                        key={offer.id}
+                        value={`offer-${offer.id}`}
+                        className="font-semibold text-primary bg-primary/10 border-l-4 border-primary"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ArrowUp className="h-4 w-4 animate-pulse" />
+                          <span className="italic">
+                            {templateName} ({formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)}) - Offered by {offeredBy}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+
+                  {templates.map((template) => {
+                    const formatTime = (time: string) => {
+                      const [hours, minutes] = time.split(':');
+                      const hour = parseInt(hours);
+                      const ampm = hour >= 12 ? 'PM' : 'AM';
+                      const displayHour = hour % 12 || 12;
+                      return `${displayHour}:${minutes} ${ampm}`;
+                    };
+                    return (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.position || template.template_name} ({formatTime(template.start_time)} - {formatTime(template.end_time)})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Apply to Days */}
+            <div className="space-y-2">
+              <Label>Apply to Days</Label>
+              <div className="grid grid-cols-2 gap-2 p-3 bg-muted/40 rounded-lg">
+                {weekDays.map((day, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`day-${index}`}
+                      checked={selectedDays.includes(index)}
+                      onCheckedChange={() => handleDayToggle(index)}
+                    />
+                    <label
+                      htmlFor={`day-${index}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {day}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {breakCoverageEnabled && (
+              <BreakEditor
+                value={breaks}
+                onChange={setBreaks}
+                showCoverer
+                coverers={profiles.map((p: any) => ({ id: p.id, full_name: p.full_name }))}
+                shiftStart={startTime}
+                shiftEnd={endTime}
+              />
+            )}
           </div>
 
-          {breakCoverageEnabled && (
-            <BreakEditor
-              value={breaks}
-              onChange={setBreaks}
-              showCoverer
-              coverers={profiles.map((p: any) => ({ id: p.id, full_name: p.full_name }))}
-              shiftStart={startTime}
-              shiftEnd={endTime}
-            />
-          )}
-        </div>
-
-        <DialogFooter>
-          <div className="flex justify-between w-full gap-2">
-            <Button 
-              variant="destructive" 
-              onClick={handleDelete} 
-              disabled={deleting || saving}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleting ? "Deleting..." : "Delete"}
-            </Button>
-            <div className="flex gap-2">
-              {isShiftPublished && currentUserId && (isAdmin || shift.user_id === currentUserId) && (
-                <Button variant="outline" onClick={() => setShowOfferDialog(true)}>
+          <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            {/* Primary action row — mirrors QuickPunch */}
+            <div className="flex w-full gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={() => handleSave()} disabled={saving} className="flex-1">
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+            {/* Secondary destructive/offer row */}
+            <div className="flex w-full gap-2">
+              {canOfferUp && (
+                <Button variant="outline" onClick={() => setShowOfferDialog(true)} className="flex-1">
                   <ArrowUp className="h-4 w-4 mr-2" />
                   Offer Up
                 </Button>
               )}
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => handleSave()} disabled={saving}>
-                {saving ? "Saving..." : "Save"}
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleting || saving}
+                className={canOfferUp ? "flex-1" : "w-full"}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? "Deleting..." : "Delete"}
               </Button>
             </div>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     <ConflictWarningDialog
       open={showConflictWarning}
