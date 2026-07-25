@@ -332,8 +332,49 @@ export function MobileShiftDialog({
         </DialogHeader>
 
         <div className="space-y-4 px-5 pb-4 overflow-y-auto flex-1 min-h-0">
-          {/* Selected Employee Preview */}
-          {profile && (
+          {/* Employee selector card (merged avatar + dropdown) */}
+          {isAdmin ? (
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger className="h-auto p-3 bg-primary/5 rounded-lg border [&>svg]:opacity-60">
+                <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                  {(() => {
+                    const sel = profiles.find(p => p.id === selectedUserId);
+                    return (
+                      <>
+                        <Avatar className="h-10 w-10 shrink-0">
+                          <AvatarImage src={sel?.profile_photo_url || undefined} />
+                          <AvatarFallback>{sel?.full_name?.charAt(0) ?? '?'}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-medium leading-tight truncate">
+                            {sel?.full_name ?? 'Select employee'}
+                          </p>
+                          {shift.template?.position && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {shift.template.position}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {profiles.map(p => (
+                  <SelectItem key={p.id} value={p.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={p.profile_photo_url || undefined} />
+                        <AvatarFallback className="text-xs">{p.full_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span>{p.full_name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : profile && (
             <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={profile.profile_photo_url || undefined} />
@@ -342,13 +383,12 @@ export function MobileShiftDialog({
               <div className="min-w-0">
                 <p className="font-medium leading-tight truncate">{profile.full_name}</p>
                 {shift.template?.position && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {shift.template.position} · {formatTime(shift.start_time)}
-                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{shift.template.position}</p>
                 )}
               </div>
             </div>
           )}
+
 
           {isAdmin ? (
             <>
@@ -560,25 +600,8 @@ export function MobileShiftDialog({
             </div>
           )}
 
-          {/* Employee Assignment - Admin Only */}
-          {isAdmin && (
-            <div className="space-y-2">
-              <Label>Assigned Employee</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {profiles.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
+
 
         <DialogFooter className="flex-col gap-2 px-5 py-3 border-t shrink-0 bg-background sm:flex-col sm:space-x-0">
           {/* Primary row: Cancel + Save */}
