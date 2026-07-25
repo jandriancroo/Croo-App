@@ -600,25 +600,8 @@ export function MobileShiftDialog({
             </div>
           )}
 
-          {/* Employee Assignment - Admin Only */}
-          {isAdmin && (
-            <div className="space-y-2">
-              <Label>Assigned Employee</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {profiles.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
+
 
         <DialogFooter className="flex-col gap-2 px-5 py-3 border-t shrink-0 bg-background sm:flex-col sm:space-x-0">
           {/* Primary row: Cancel + Save */}
