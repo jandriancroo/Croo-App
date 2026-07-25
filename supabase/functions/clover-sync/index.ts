@@ -362,6 +362,35 @@ async function syncOneDay(
     .upsert(mailRow, { onConflict: "location_id,sale_date" });
   if (mailErr) throw new Error(`sales_cache upsert failed for ${date}: ${mailErr.message}`);
 
+  // ── Dual-write: daily_tips (parity with QU flow) ────────────────────────
+  // Clover reports CC/debit tips per payment; cash tips are not declared at POS.
+  // Aggregate all non-cash tender tips as total_cc_tips; cash defaults to 0
+  // (manual entry can override later if we add UI for it).
+  try {
+    let ccTips = 0;
+    let cashTips = 0;
+    for (const t of (paymentsData.tenders ?? [])) {
+      const label = String(t.label ?? "").toLowerCase();
+      if (label.includes("cash")) cashTips += Number(t.tips) || 0;
+      else ccTips += Number(t.tips) || 0;
+    }
+    if (ccTips > 0 || cashTips > 0) {
+      const { error: tipsErr } = await supabase
+        .from("daily_tips")
+        .upsert({
+          location_id: locationId,
+          tip_date: date,
+          total_cc_tips: ccTips,
+          total_cash_tips: cashTips,
+          fetched_at: new Date().toISOString(),
+        }, { onConflict: "location_id,tip_date" });
+      if (tipsErr) console.error(`[clover-sync] daily_tips upsert failed for ${date}:`, tipsErr.message);
+      else console.log(`[clover-sync] daily_tips saved ${date}: cc=$${ccTips.toFixed(2)} cash=$${cashTips.toFixed(2)}`);
+    }
+  } catch (e) {
+    console.error(`[clover-sync] daily_tips error for ${date}:`, e);
+  }
+
   // ── YOY projection seed (only if missing) ──────────────────────────────
   // Pull same-day last year (-364 days to keep day-of-week aligned).
   try {
