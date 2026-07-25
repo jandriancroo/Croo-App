@@ -742,6 +742,11 @@ export function MobileAddScheduleSheet({
                         lineColors.push(tpl?.color || '#94a3b8');
                       }
 
+                      const hasAvail = hasApprovedOff || hasPendingOff;
+                      const stripeColor = hasApprovedOff
+                        ? 'rgba(16,185,129,0.18)' // emerald
+                        : 'rgba(245,158,11,0.20)'; // amber
+
                       return (
                         <button
                           key={i}
@@ -751,9 +756,15 @@ export function MobileAddScheduleSheet({
                             "flex flex-col items-center justify-between gap-1.5 py-2.5 px-1 rounded-lg border text-[10px] transition active:scale-95 min-h-[52px]",
                             isCursor ? "border-primary bg-primary/10 shadow-sm" : "border-border bg-background",
                             lineColors.length > 0 && !isCursor && "bg-muted/30",
-                            !isCursor && hasApprovedOff && "border-emerald-500/50 bg-emerald-500/10",
-                            !isCursor && !hasApprovedOff && hasPendingOff && "border-amber-500/50 bg-amber-500/10"
+                            hasAvail && !isCursor && "border-dashed border-2 bg-muted/30"
                           )}
+                          style={
+                            hasAvail && !isCursor
+                              ? {
+                                  backgroundImage: `repeating-linear-gradient(45deg, ${stripeColor}, ${stripeColor} 4px, transparent 4px, transparent 8px)`,
+                                }
+                              : undefined
+                          }
                           title={
                             hasApprovedOff
                               ? 'Approved time off'
@@ -762,17 +773,7 @@ export function MobileAddScheduleSheet({
                                 : undefined
                           }
                         >
-                          <span className="uppercase font-semibold tracking-wide flex items-center gap-1">
-                            {DAY_LABELS[i]}
-                            {(hasApprovedOff || hasPendingOff) && (
-                              <span
-                                className={cn(
-                                  "h-1.5 w-1.5 rounded-full",
-                                  hasApprovedOff ? "bg-emerald-500" : "bg-amber-500"
-                                )}
-                              />
-                            )}
-                          </span>
+                          <span className="uppercase font-semibold tracking-wide">{DAY_LABELS[i]}</span>
                           <div className="flex flex-col items-center gap-0.5 w-full px-1.5">
                             {lineColors.length > 0 ? (
                               lineColors.slice(0, 3).map((c, idx) => (
