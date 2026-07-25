@@ -12,9 +12,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
-import { Trash2, ArrowUp, ArrowRightLeft } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowRightLeft, CalendarClock, ChevronLeft, ChevronRight, Coffee } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
-import { format } from 'date-fns';
+import { format, addDays, subDays } from 'date-fns';
 import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { BreakEditor } from './BreakEditor';
@@ -322,62 +322,103 @@ export function MobileShiftDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onOpenAutoFocus={(e) => e.preventDefault()}
-        className="max-h-[75vh] p-0 gap-0 flex flex-col overflow-hidden"
+        className="max-w-sm max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
       >
-        <DialogHeader className="px-4 pt-3 pb-2 border-b shrink-0">
-          <DialogTitle className="text-base">{isCreating ? 'Add Shift' : 'Shift Details'}</DialogTitle>
+        <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <CalendarClock className="h-5 w-5" />
+            {isCreating ? 'Add Shift' : 'Shift Details'}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 px-4 py-3 overflow-y-auto flex-1 min-h-0">
-          {/* Employee Info */}
+        <div className="space-y-4 px-5 pb-4 overflow-y-auto flex-1 min-h-0">
+          {/* Selected Employee Preview */}
           {profile && (
-            <div className="flex items-center gap-2.5 pb-2 border-b">
-              <Avatar className="h-9 w-9">
+            <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border">
+              <Avatar className="h-10 w-10">
                 <AvatarImage src={profile.profile_photo_url || undefined} />
                 <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="font-semibold text-sm leading-tight truncate">{profile.full_name}</p>
-                <p className="text-xs text-muted-foreground truncate">{shift.template?.position}</p>
+                <p className="font-medium leading-tight truncate">{profile.full_name}</p>
+                {shift.template?.position && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {shift.template.position} · {formatTime(shift.start_time)}
+                  </p>
+                )}
               </div>
             </div>
           )}
 
-          {/* Date + Times on one row for admins */}
           {isAdmin ? (
-            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-1.5 items-end">
-              <div className="space-y-1">
-                <Label className="text-xs">Date</Label>
-                <Input
-                  type="date"
-                  value={shiftDate}
-                  onChange={(e) => setShiftDate(e.target.value)}
-                  className="h-9 text-xs px-2"
-                />
+            <>
+              {/* Date Selector with chevrons */}
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() => {
+                      const current = new Date(shiftDate + 'T12:00:00');
+                      setShiftDate(format(subDays(current, 1), 'yyyy-MM-dd'));
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    type="date"
+                    value={shiftDate}
+                    onChange={(e) => setShiftDate(e.target.value)}
+                    className="flex-1 text-center"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() => {
+                      const current = new Date(shiftDate + 'T12:00:00');
+                      setShiftDate(format(addDays(current, 1), 'yyyy-MM-dd'));
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="pb-2 text-muted-foreground text-xs">·</div>
-              <div className="space-y-1">
-                <Label className="text-xs">Start</Label>
-                <Input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  autoFocus={false}
-                  className="h-9 text-xs px-2"
-                />
+
+              {/* Start / End Times */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Start</Label>
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    autoFocus={false}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>End</Label>
+                  <Input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    autoFocus={false}
+                  />
+                </div>
               </div>
-              <div className="pb-2 text-muted-foreground text-xs">–</div>
-              <div className="space-y-1">
-                <Label className="text-xs">End</Label>
-                <Input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  autoFocus={false}
-                  className="h-9 text-xs px-2"
-                />
-              </div>
-            </div>
+
+              {/* Break hint chip */}
+              {shiftHasBreak(startTime, endTime) && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Coffee className="h-3.5 w-3.5 text-amber-600" />
+                  <span>30-min unpaid break (shift &gt; 5 hrs)</span>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex items-center justify-between gap-3 text-sm">
               <div>
@@ -396,14 +437,6 @@ export function MobileShiftDialog({
             </div>
           )}
 
-          {/* Break Indicator for Admin */}
-          {isAdmin && shiftHasBreak(startTime, endTime) && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <BreakIndicator hasBreak={true} size="sm" />
-              <span>30-min unpaid break (shift &gt; 5 hrs)</span>
-            </div>
-          )}
-
           {/* Scheduled Breaks + Coverage — gated on master toggle */}
           {isAdmin && breakCoverageEnabled && (
             <BreakEditor
@@ -416,16 +449,14 @@ export function MobileShiftDialog({
             />
           )}
 
-
           {/* Template Selection - Admin Only */}
           {isAdmin && templates.length > 0 && (
-            <div className="space-y-1">
-              <Label className="text-xs">Quick Fill</Label>
-              <Select 
-                value={selectedTemplateId || 'none'} 
+            <div className="space-y-2">
+              <Label>Quick Fill</Label>
+              <Select
+                value={selectedTemplateId || 'none'}
                 onValueChange={(value) => {
                   if (value.startsWith('offer-')) {
-                    // Handle offered shift selection
                     const offerId = value.replace('offer-', '');
                     const offer = offeredShifts.find(o => o.id === offerId);
                     if (offer && offer.scheduled_shifts) {
@@ -452,12 +483,12 @@ export function MobileShiftDialog({
                   }
                 }}
               >
-              <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger>
                   <SelectValue placeholder="Select quick fill option" />
                 </SelectTrigger>
                 <SelectContent className="max-w-[calc(100vw-2rem)]">
                   <SelectItem value="none">None</SelectItem>
-                  
+
                   {/* Offered Shifts Section */}
                   {offeredShifts.length > 0 && offeredShifts.map((offer) => {
                     const shiftData = offer.scheduled_shifts;
@@ -472,10 +503,10 @@ export function MobileShiftDialog({
                       const displayHour = hour % 12 || 12;
                       return `${displayHour}:${minutes} ${ampm}`;
                     };
-                    
+
                     return (
-                      <SelectItem 
-                        key={offer.id} 
+                      <SelectItem
+                        key={offer.id}
                         value={`offer-${offer.id}`}
                         className="font-semibold text-primary bg-primary/10 border-l-4 border-primary max-w-full"
                       >
@@ -491,7 +522,7 @@ export function MobileShiftDialog({
                       </SelectItem>
                     );
                   })}
-                  
+
                   {/* Regular Templates */}
                   {templates.map(t => {
                     const formatTime = (time: string) => {
@@ -531,10 +562,10 @@ export function MobileShiftDialog({
 
           {/* Employee Assignment - Admin Only */}
           {isAdmin && (
-            <div className="space-y-1">
-              <Label className="text-xs">Assigned Employee</Label>
+            <div className="space-y-2">
+              <Label>Assigned Employee</Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger>
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -549,43 +580,46 @@ export function MobileShiftDialog({
           )}
         </div>
 
+        <DialogFooter className="flex-col gap-2 px-5 py-3 border-t shrink-0 bg-background sm:flex-col sm:space-x-0">
+          {/* Primary row: Cancel + Save */}
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {isAdmin ? 'Cancel' : 'Close'}
+            </Button>
+            {isAdmin && (
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
+              </Button>
+            )}
+          </div>
 
-        <DialogFooter className="flex-row flex-wrap gap-1.5 px-3 py-2 border-t shrink-0 bg-background">
-          {/* Offer Up button - show for assigned shifts that aren't being created */}
-          {!isCreating && shift?.user_id && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowOfferDialog(true)}
-              className="h-8 px-2 text-xs mr-auto border-primary/50 text-primary hover:bg-primary/10"
-            >
-              <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
-              Offer Up
-            </Button>
-          )}
-          {isAdmin && !isCreating && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDelete}
-              disabled={deleting}
-              className={`h-8 px-2 text-xs ${!shift?.user_id ? 'mr-auto' : ''}`}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
-              {deleting ? '...' : 'Delete'}
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 px-3 text-xs">
-            {isAdmin ? 'Cancel' : 'Close'}
-          </Button>
-          {isAdmin && (
-            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 px-3 text-xs">
-              {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
-            </Button>
+          {/* Secondary row: Offer Up + Delete */}
+          {isAdmin && !isCreating && (shift?.user_id || shift) && (
+            <div className={`grid ${shift?.user_id ? 'grid-cols-2' : 'grid-cols-1'} gap-2 w-full`}>
+              {shift?.user_id && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowOfferDialog(true)}
+                  className="border-primary/50 text-primary hover:bg-primary/10"
+                >
+                  <ArrowRightLeft className="h-4 w-4 mr-1.5" />
+                  Offer Up
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                {deleting ? '...' : 'Delete'}
+              </Button>
+            </div>
           )}
         </DialogFooter>
 
       </DialogContent>
+
 
       {/* Offer Up Dialog */}
       {shift && (
