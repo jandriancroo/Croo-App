@@ -331,7 +331,7 @@ export function MobileShiftDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 px-5 pb-4 overflow-y-auto flex-1 min-h-0">
+        <div className="space-y-4 px-5 pt-1 pb-4 overflow-y-auto flex-1 min-h-0">
           {/* Employee selector card (merged avatar + dropdown) */}
           {isAdmin ? (
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
