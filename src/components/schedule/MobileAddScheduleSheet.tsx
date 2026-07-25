@@ -725,6 +725,13 @@ export function MobileAddScheduleSheet({
                       const existing = empExistingByDay[dateStr];
                       const isCursor = i === dayCursor;
 
+                      // Availability requests for this employee on this day
+                      const dayAvail = empUserId
+                        ? availabilityForDay(availabilityRequests, empUserId, dateStr)
+                        : [];
+                      const hasApprovedOff = dayAvail.some(r => r.status === 'approved');
+                      const hasPendingOff = dayAvail.some(r => r.status === 'pending');
+
                       // Color line(s) under day label. Draft first, then existing.
                       const lineColors: string[] = [];
                       if (draft) {
@@ -743,10 +750,29 @@ export function MobileAddScheduleSheet({
                           className={cn(
                             "flex flex-col items-center justify-between gap-1.5 py-2.5 px-1 rounded-lg border text-[10px] transition active:scale-95 min-h-[52px]",
                             isCursor ? "border-primary bg-primary/10 shadow-sm" : "border-border bg-background",
-                            lineColors.length > 0 && !isCursor && "bg-muted/30"
+                            lineColors.length > 0 && !isCursor && "bg-muted/30",
+                            !isCursor && hasApprovedOff && "border-emerald-500/50 bg-emerald-500/10",
+                            !isCursor && !hasApprovedOff && hasPendingOff && "border-amber-500/50 bg-amber-500/10"
                           )}
+                          title={
+                            hasApprovedOff
+                              ? 'Approved time off'
+                              : hasPendingOff
+                                ? 'Pending time-off request'
+                                : undefined
+                          }
                         >
-                          <span className="uppercase font-semibold tracking-wide">{DAY_LABELS[i]}</span>
+                          <span className="uppercase font-semibold tracking-wide flex items-center gap-1">
+                            {DAY_LABELS[i]}
+                            {(hasApprovedOff || hasPendingOff) && (
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 rounded-full",
+                                  hasApprovedOff ? "bg-emerald-500" : "bg-amber-500"
+                                )}
+                              />
+                            )}
+                          </span>
                           <div className="flex flex-col items-center gap-0.5 w-full px-1.5">
                             {lineColors.length > 0 ? (
                               lineColors.slice(0, 3).map((c, idx) => (
