@@ -73,10 +73,21 @@ export function useIsMobile() {
     const phone = isPhoneDevice();
     const tablet = isTabletDevice();
 
-    // Tablets: always desktop, no listener needed
+    // Tablets (iPad, etc): follow viewport width so Lovable's mobile preview
+    // toggle (which shrinks the iframe to ~390px) can render the mobile UI.
     if (tablet) {
-      setIsMobile(false);
-      return;
+      let debounceTimerT: ReturnType<typeof setTimeout> | null = null;
+      const applyTablet = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+      applyTablet();
+      const onResizeT = () => {
+        if (debounceTimerT) clearTimeout(debounceTimerT);
+        debounceTimerT = setTimeout(applyTablet, 150);
+      };
+      window.addEventListener("resize", onResizeT);
+      return () => {
+        window.removeEventListener("resize", onResizeT);
+        if (debounceTimerT) clearTimeout(debounceTimerT);
+      };
     }
 
     // Small phones (screen < 390): always mobile, no listener needed
