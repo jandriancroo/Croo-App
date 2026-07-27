@@ -236,14 +236,96 @@ export default function GeniusOrderCoachPanel({
     <div className="space-y-4">
       <Card className="p-4 flex items-start gap-3 bg-muted/20">
         <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
+        <div className="space-y-0.5 flex-1">
           <div className="text-sm font-semibold">Genius Order Coach</div>
           <p className="text-xs text-muted-foreground">
             Smart order suggestions based on your submitted counts, invoice receipts,
             and vendor order days.
           </p>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Switch checked={useEngine} onCheckedChange={setUseEngine} />
+            Forecast v2
+          </label>
+          {useEngine && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-[11px]"
+              onClick={() => engine.refit.mutate()}
+              disabled={engine.refit.isPending}
+            >
+              <RefreshCw className={`h-3 w-3 ${engine.refit.isPending ? "animate-spin" : ""}`} />
+              Refit
+            </Button>
+          )}
+        </div>
       </Card>
+
+      {useEngine && (
+        <Card className="p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Forecast v2 — sales-linked engine
+            </div>
+            {engine.isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          </div>
+          {engine.data && (
+            <div className="divide-y divide-border/50">
+              {engine.data.items.map((it: any) => {
+                const rec = engine.data.recs[it.id];
+                const rate = engine.data.rates[it.id];
+                if (!rec || rec.error) {
+                  return (
+                    <div key={it.id} className="py-2 flex items-center justify-between text-xs">
+                      <span className="truncate">{it.name}</span>
+                      <span className="text-muted-foreground italic">{rec?.error || "no data"}</span>
+                    </div>
+                  );
+                }
+                const cases = Number(rec.recommended_cases || 0);
+                const qty = Number(rec.recommended_qty || 0);
+                const conf = rec.confidence as "green" | "amber" | "red";
+                const badgeColor =
+                  conf === "green" ? "bg-emerald-100 text-emerald-800" :
+                  conf === "amber" ? "bg-amber-100 text-amber-800" :
+                  "bg-red-100 text-red-800";
+                const weekly = Number(rate?.weekly_usage_level ?? 0);
+                const oh = Number(rec.projected_on_hand ?? 0);
+                const trend = Number(rec.trend_factor ?? 1);
+                const unit = (it.common_label || it.unit || "each").toLowerCase();
+                return (
+                  <div key={it.id} className="py-2 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{it.name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        ~{weekly.toFixed(1)} {unit}/week · covering{" "}
+                        {DateTime.fromFormat(rec.coverage_start, "yyyy-MM-dd").toFormat("EEE")}–
+                        {DateTime.fromFormat(rec.coverage_end, "yyyy-MM-dd").toFormat("EEE")}
+                        {trend !== 1 && ` (${trend.toFixed(2)}× avg)`} · {oh.toFixed(1)} on hand
+                      </div>
+                    </div>
+                    <Badge className={`text-[10px] ${badgeColor}`} variant="outline">
+                      {rec.periods_used}p
+                    </Badge>
+                    <div className="text-right">
+                      <div className="text-base font-bold text-primary leading-tight">
+                        {Number(rec.units_per_case) > 1 ? cases : qty.toFixed(1)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground leading-tight">
+                        {Number(rec.units_per_case) > 1
+                          ? `case${cases === 1 ? "" : "s"} · ~${qty.toFixed(0)} ${unit}`
+                          : unit}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
