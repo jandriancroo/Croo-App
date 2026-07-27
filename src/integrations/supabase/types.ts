@@ -2734,6 +2734,53 @@ export type Database = {
           },
         ]
       }
+      dow_sales_profile: {
+        Row: {
+          avg_net_sales: number
+          computed_at: string
+          day_of_week: number
+          id: string
+          location_id: string
+          max_net_sales: number | null
+          min_net_sales: number | null
+          share_of_week: number
+          stddev: number | null
+          weeks_in_sample: number
+        }
+        Insert: {
+          avg_net_sales: number
+          computed_at?: string
+          day_of_week: number
+          id?: string
+          location_id: string
+          max_net_sales?: number | null
+          min_net_sales?: number | null
+          share_of_week: number
+          stddev?: number | null
+          weeks_in_sample: number
+        }
+        Update: {
+          avg_net_sales?: number
+          computed_at?: string
+          day_of_week?: number
+          id?: string
+          location_id?: string
+          max_net_sales?: number | null
+          min_net_sales?: number | null
+          share_of_week?: number
+          stddev?: number | null
+          weeks_in_sample?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dow_sales_profile_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_queue: {
         Row: {
           created_at: string
@@ -5184,6 +5231,141 @@ export type Database = {
           },
         ]
       }
+      item_usage_periods: {
+        Row: {
+          created_at: string
+          days_in_period: number
+          excluded_at: string | null
+          excluded_by: string | null
+          exclusion_reason: string | null
+          id: string
+          is_excluded: boolean
+          item_id: string
+          location_id: string
+          net_sales: number | null
+          period_end_date: string
+          period_start_date: string
+          qty_end: number
+          qty_received: number
+          qty_start: number
+          receipt_date_source: string | null
+          updated_at: string
+          usage: number
+          usage_per_dollar: number | null
+        }
+        Insert: {
+          created_at?: string
+          days_in_period: number
+          excluded_at?: string | null
+          excluded_by?: string | null
+          exclusion_reason?: string | null
+          id?: string
+          is_excluded?: boolean
+          item_id: string
+          location_id: string
+          net_sales?: number | null
+          period_end_date: string
+          period_start_date: string
+          qty_end: number
+          qty_received?: number
+          qty_start: number
+          receipt_date_source?: string | null
+          updated_at?: string
+          usage: number
+          usage_per_dollar?: number | null
+        }
+        Update: {
+          created_at?: string
+          days_in_period?: number
+          excluded_at?: string | null
+          excluded_by?: string | null
+          exclusion_reason?: string | null
+          id?: string
+          is_excluded?: boolean
+          item_id?: string
+          location_id?: string
+          net_sales?: number | null
+          period_end_date?: string
+          period_start_date?: string
+          qty_end?: number
+          qty_received?: number
+          qty_start?: number
+          receipt_date_source?: string | null
+          updated_at?: string
+          usage?: number
+          usage_per_dollar?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_usage_periods_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "lite_inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_usage_periods_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_usage_rates: {
+        Row: {
+          alpha: number
+          created_at: string
+          item_id: string
+          last_fitted_at: string | null
+          location_id: string
+          periods_used: number
+          r2_usage_vs_sales: number | null
+          residual_stddev: number | null
+          updated_at: string
+          weekly_usage_level: number | null
+        }
+        Insert: {
+          alpha?: number
+          created_at?: string
+          item_id: string
+          last_fitted_at?: string | null
+          location_id: string
+          periods_used?: number
+          r2_usage_vs_sales?: number | null
+          residual_stddev?: number | null
+          updated_at?: string
+          weekly_usage_level?: number | null
+        }
+        Update: {
+          alpha?: number
+          created_at?: string
+          item_id?: string
+          last_fitted_at?: string | null
+          location_id?: string
+          periods_used?: number
+          r2_usage_vs_sales?: number | null
+          residual_stddev?: number | null
+          updated_at?: string
+          weekly_usage_level?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_usage_rates_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: true
+            referencedRelation: "lite_inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_usage_rates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_application_references: {
         Row: {
           application_id: string
@@ -6496,18 +6678,26 @@ export type Database = {
           cost_per_unit: number | null
           count_mode: string
           created_at: string
+          delivery_dows: number[] | null
           display_order: number | null
           id: string
           is_active: boolean
           item_number: string | null
+          lead_time_days: number | null
           location_id: string
           match_status: string
           name: string
+          order_unit: string | null
           pack_size: string | null
+          par_level: number | null
+          rounding_policy: string
           storage_id: string | null
           unit: string | null
           unit_label: string | null
+          units_per_case: number | null
           updated_at: string
+          usage_model: string
+          usage_model_locked: boolean
           vendor_name_normalized: string | null
         }
         Insert: {
@@ -6518,18 +6708,26 @@ export type Database = {
           cost_per_unit?: number | null
           count_mode?: string
           created_at?: string
+          delivery_dows?: number[] | null
           display_order?: number | null
           id?: string
           is_active?: boolean
           item_number?: string | null
+          lead_time_days?: number | null
           location_id: string
           match_status?: string
           name: string
+          order_unit?: string | null
           pack_size?: string | null
+          par_level?: number | null
+          rounding_policy?: string
           storage_id?: string | null
           unit?: string | null
           unit_label?: string | null
+          units_per_case?: number | null
           updated_at?: string
+          usage_model?: string
+          usage_model_locked?: boolean
           vendor_name_normalized?: string | null
         }
         Update: {
@@ -6540,18 +6738,26 @@ export type Database = {
           cost_per_unit?: number | null
           count_mode?: string
           created_at?: string
+          delivery_dows?: number[] | null
           display_order?: number | null
           id?: string
           is_active?: boolean
           item_number?: string | null
+          lead_time_days?: number | null
           location_id?: string
           match_status?: string
           name?: string
+          order_unit?: string | null
           pack_size?: string | null
+          par_level?: number | null
+          rounding_policy?: string
           storage_id?: string | null
           unit?: string | null
           unit_label?: string | null
+          units_per_case?: number | null
           updated_at?: string
+          usage_model?: string
+          usage_model_locked?: boolean
           vendor_name_normalized?: string | null
         }
         Relationships: [
@@ -8001,6 +8207,84 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_recommendations: {
+        Row: {
+          actual_ordered_qty: number | null
+          actual_usage_qty: number | null
+          as_of_date: string
+          coverage_end: string
+          coverage_start: string
+          created_at: string
+          forecast_qty: number
+          generated_at: string
+          id: string
+          item_id: string
+          level_used: number | null
+          location_id: string
+          projected_on_hand: number | null
+          recommended_cases: number | null
+          recommended_qty: number
+          safety_stock: number | null
+          shape_source: string | null
+          trend_factor: number | null
+        }
+        Insert: {
+          actual_ordered_qty?: number | null
+          actual_usage_qty?: number | null
+          as_of_date: string
+          coverage_end: string
+          coverage_start: string
+          created_at?: string
+          forecast_qty: number
+          generated_at?: string
+          id?: string
+          item_id: string
+          level_used?: number | null
+          location_id: string
+          projected_on_hand?: number | null
+          recommended_cases?: number | null
+          recommended_qty: number
+          safety_stock?: number | null
+          shape_source?: string | null
+          trend_factor?: number | null
+        }
+        Update: {
+          actual_ordered_qty?: number | null
+          actual_usage_qty?: number | null
+          as_of_date?: string
+          coverage_end?: string
+          coverage_start?: string
+          created_at?: string
+          forecast_qty?: number
+          generated_at?: string
+          id?: string
+          item_id?: string
+          level_used?: number | null
+          location_id?: string
+          projected_on_hand?: number | null
+          recommended_cases?: number | null
+          recommended_qty?: number
+          safety_stock?: number | null
+          shape_source?: string | null
+          trend_factor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_recommendations_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "lite_inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_recommendations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
