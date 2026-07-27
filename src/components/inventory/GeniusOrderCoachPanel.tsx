@@ -296,14 +296,6 @@ export default function GeniusOrderCoachPanel({
               const rate = engine.data.rates[it.id];
               return { it, rec, rate };
             });
-            // Split: items to order vs nothing needed, sort by size desc
-            const toOrder = rows
-              .filter((r) => r.rec && !r.rec.error && Number(r.rec.recommended_qty || 0) > 0)
-              .sort((a, b) => Number(b.rec.recommended_qty) - Number(a.rec.recommended_qty));
-            const noNeed = rows.filter(
-              (r) => r.rec && !r.rec.error && Number(r.rec.recommended_qty || 0) <= 0,
-            );
-            const noData = rows.filter((r) => !r.rec || r.rec.error);
             const renderRow = ({ it, rec, rate }: any) => {
               if (!rec || rec.error) {
                 return (
