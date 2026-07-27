@@ -56,6 +56,8 @@ export default function GeniusOrderCoachPanel({
   timezone = "America/Los_Angeles",
 }: Props) {
   const today = DateTime.now().setZone(timezone).toFormat("yyyy-MM-dd");
+  const [useEngine, setUseEngine] = useState(false);
+  const engine = useGeniusRecommendations(locationId);
 
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ["lite-items-for-genius", locationId],
