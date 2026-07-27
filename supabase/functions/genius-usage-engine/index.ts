@@ -278,14 +278,14 @@ async function refreshDowProfile(supabase: any, locationId: string) {
   const cutoff = DateTime.now().minus({ weeks: 16 }).toFormat("yyyy-MM-dd");
   const { data: sales } = await supabase
     .from("sales_cache")
-    .select("business_date, sales_date, net_sales")
+    .select("sale_date, net_sales")
     .eq("location_id", locationId)
-    .gte("business_date", cutoff);
+    .gte("sale_date", cutoff);
 
   const byDow = new Map<number, number[]>();
   const weeksByDow = new Map<number, Set<string>>();
   (sales || []).forEach((r: any) => {
-    const d = (r.business_date || r.sales_date) as string;
+    const d = r.sale_date as string;
     if (!d) return;
     const dow = dowFromDate(d);
     const ns = Number(r.net_sales ?? 0);
