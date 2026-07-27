@@ -291,9 +291,15 @@ export default function GeniusOrderCoachPanel({
             </div>
           )}
           {engine.data && !engine.data.error && (() => {
-            const rows = (engine.data.items as any[]).map((it: any) => {
-              const rec = engine.data.recs[it.id];
-              const rate = engine.data.rates[it.id];
+            // Merge engine items with local item metadata (storage_id, display_order)
+            // so we can group by storage exactly like the item list.
+            const localById = new Map<string, any>();
+            (items || []).forEach((li: any) => localById.set(li.id, li));
+            const rows = (engine.data.items as any[]).map((eit: any) => {
+              const local = localById.get(eit.id) || {};
+              const it = { ...eit, storage_id: local.storage_id ?? null, display_order: local.display_order ?? null };
+              const rec = engine.data.recs[eit.id];
+              const rate = engine.data.rates[eit.id];
               return { it, rec, rate };
             });
             const renderRow = ({ it, rec, rate }: any) => {
