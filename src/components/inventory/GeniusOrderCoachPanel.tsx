@@ -64,9 +64,23 @@ export default function GeniusOrderCoachPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lite_inventory_items" as any)
-        .select("id, name, common_label, vendor_name_normalized, unit, is_active, case_qty")
+        .select("id, name, common_label, vendor_name_normalized, unit, is_active, case_qty, storage_id, display_order")
         .eq("location_id", locationId)
         .eq("is_active", true);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  const { data: storages } = useQuery({
+    queryKey: ["lite-storages-for-genius", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lite_storage_locations" as any)
+        .select("id, name, sort_order")
+        .eq("location_id", locationId)
+        .order("sort_order")
+        .order("name");
       if (error) throw error;
       return (data as any[]) || [];
     },
