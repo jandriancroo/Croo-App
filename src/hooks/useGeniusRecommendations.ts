@@ -18,35 +18,19 @@ export function useGeniusRecommendations(locationId: string, enabled = true) {
     enabled: !!locationId && enabled,
     staleTime: 60_000,
     queryFn: async () => {
-      // Grab active items
-      const { data: items, error: itemsErr } = await supabase
-        .from("lite_inventory_items" as any)
-        .select("id, name, vendor_name_normalized, unit, common_label, case_qty, units_per_case, usage_model")
-        .eq("location_id", locationId)
-        .eq("is_active", true);
-      if (itemsErr) throw itemsErr;
-      const ids = ((items as any[]) || []).map((i) => i.id);
-      if (ids.length === 0) return { items: [], recs: {}, rates: {} };
-
-      // Fitted rates (already computed by the engine)
-      const { data: rates } = await supabase
-        .from("item_usage_rates" as any)
-        .select("item_id, weekly_usage_level, residual_stddev, r2_usage_vs_sales, periods_used, last_fitted_at")
-        .in("item_id", ids);
-      const ratesById = new Map<string, any>();
-      ((rates as any[]) || []).forEach((r) => ratesById.set(r.item_id, r));
-
-      // Ask the engine for a fresh batch of recommendations for today
+      // Ask the engine for a fresh location batch. The edge function loads
+      // active items server-side so large locations do not send huge payloads
+      // or trigger per-item request waterfalls from the browser.
       const { data: fn, error: fnErr } = await supabase.functions.invoke("genius-usage-engine", {
-        body: { action: "recommendBatch", item_ids: ids, as_of_date: asOfDate },
+        body: { action: "recommendLocation", location_id: locationId, as_of_date: asOfDate },
       });
       if (fnErr) {
-        console.error("[GeniusRecommendations] recommendBatch failed", fnErr);
+        console.error("[GeniusRecommendations] recommendLocation failed", fnErr);
       }
       return {
-        items: (items as any[]) || [],
+        items: fnErr ? [] : (fn?.items as any[]) || [],
         recs: fnErr ? {} : (fn?.results as Record<string, any>) || {},
-        rates: Object.fromEntries(ratesById),
+        rates: fnErr ? {} : (fn?.rates as Record<string, any>) || {},
         error: fnErr?.message || null,
       };
     },
