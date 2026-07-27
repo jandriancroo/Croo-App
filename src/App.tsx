@@ -87,6 +87,7 @@ const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const Inventory = lazyWithRetry(() => import("./pages/Inventory"));
 const InventoryCount = lazyWithRetry(() => import("./pages/InventoryCount"));
 const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
+const UsageModelsPage = lazyWithRetry(() => import("./pages/UsageModelsPage"));
 const PeriodSelectorPreview = lazyWithRetry(() => import("./pages/PeriodSelectorPreview"));
 
 const QRCodeGenerator = lazyWithRetry(() => import("./pages/QRCodeGenerator"));
