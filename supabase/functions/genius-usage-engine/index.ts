@@ -636,28 +636,61 @@ Deno.serve(async (req) => {
     }
     if (action === "recommendBatch" && Array.isArray(item_ids) && as_of_date) {
       const results: Record<string, any> = {};
-      for (const id of item_ids) {
-        try {
-          results[id] = await recommendOrder(supabase, id, as_of_date);
-        } catch (e) {
-          results[id] = { error: (e as Error).message };
-        }
+      const CONCURRENCY = 6;
+      for (let i = 0; i < item_ids.length; i += CONCURRENCY) {
+        const chunk = item_ids.slice(i, i + CONCURRENCY);
+        const out = await Promise.all(
+          chunk.map(async (id: string) => {
+            try {
+              return [id, await recommendOrder(supabase, id, as_of_date)] as const;
+            } catch (e) {
+              return [id, { error: (e as Error).message }] as const;
+            }
+          }),
+        );
+        for (const [id, v] of out) results[id] = v;
       }
       return json({ results });
     }
     if (action === "rebuildLocation" && location_id) {
-      // Rebuild everything for a location: DOW profile → periods → rates → cache recs
-      await refreshDowProfile(supabase, location_id);
-      const { data: items } = await supabase
-        .from("lite_inventory_items")
-        .select("id")
-        .eq("location_id", location_id)
-        .eq("is_active", true);
-      for (const it of (items as any[]) || []) {
-        await buildUsagePeriods(supabase, it.id);
-        await fitUsageRate(supabase, it.id);
+      // Long-running: kick off in background so the HTTP request returns
+      // immediately (avoids the 150s edge idle-timeout).
+      const task = async () => {
+        try {
+          await refreshDowProfile(supabase, location_id);
+          const { data: items } = await supabase
+            .from("lite_inventory_items")
+            .select("id")
+            .eq("location_id", location_id)
+            .eq("is_active", true);
+          const list = ((items as any[]) || []).map((r) => r.id);
+          const CONCURRENCY = 4;
+          for (let i = 0; i < list.length; i += CONCURRENCY) {
+            const chunk = list.slice(i, i + CONCURRENCY);
+            await Promise.all(
+              chunk.map(async (id: string) => {
+                try {
+                  await buildUsagePeriods(supabase, id);
+                  await fitUsageRate(supabase, id);
+                } catch (e) {
+                  console.error("rebuildLocation item failed", id, e);
+                }
+              }),
+            );
+          }
+          console.log("rebuildLocation complete", location_id, list.length);
+        } catch (e) {
+          console.error("rebuildLocation task failed", e);
+        }
+      };
+      // @ts-ignore EdgeRuntime is provided by supabase edge runtime
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(task());
+      } else {
+        task();
       }
-      return json({ items: (items || []).length });
+      return json({ status: "started", location_id });
     }
 
     return json({ error: "unknown action" }, 400);
