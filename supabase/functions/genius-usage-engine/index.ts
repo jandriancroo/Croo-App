@@ -452,16 +452,19 @@ async function recommendOrder(supabase: any, itemId: string, asOfDate: string) {
     0,
   );
 
-  // Projected sales overrides for coverage window (schedule_projected_sales)
-  const { data: projRows } = await supabase
-    .from("schedule_projected_sales")
-    .select("target_date, projected_sales")
-    .eq("location_id", item.location_id)
-    .in("target_date", coverageDates);
+  // Daily projection overrides for coverage window — sales_cache carries
+  // override_projection / living_projection for future dates on some POS
+  // integrations. Any date without a row falls back to the DOW average.
   const dailySalesOverride = new Map<string, number>();
+  const { data: projRows } = await supabase
+    .from("sales_cache")
+    .select("sale_date, override_projection, living_projection, initial_projection")
+    .eq("location_id", item.location_id)
+    .in("sale_date", coverageDates);
   (projRows || []).forEach((r: any) => {
-    if (r.target_date && r.projected_sales != null) {
-      dailySalesOverride.set(r.target_date, Number(r.projected_sales));
+    const v = r.override_projection ?? r.living_projection ?? r.initial_projection;
+    if (r.sale_date && v != null) {
+      dailySalesOverride.set(r.sale_date, Number(v));
     }
   });
 
