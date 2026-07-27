@@ -294,31 +294,79 @@ export default function GeniusOrderCoachPanel({
                 const weekly = Number(rate?.weekly_usage_level ?? 0);
                 const oh = Number(rec.projected_on_hand ?? 0);
                 const trend = Number(rec.trend_factor ?? 1);
+                const upc = Number(rec.units_per_case || 1);
                 const unit = (it.common_label || it.unit || "each").toLowerCase();
+                const perDay: { date: string; dow: number; forecast: number }[] = rec.per_day || [];
+                const perDayTotal = perDay.reduce((s, d) => s + Number(d.forecast || 0), 0);
+                const deliveryDate = rec.coverage_end;
+                const daysUntilDelivery = perDay.length;
+
                 return (
-                  <div key={it.id} className="py-2 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{it.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        ~{weekly.toFixed(1)} {unit}/week · covering{" "}
-                        {DateTime.fromFormat(rec.coverage_start, "yyyy-MM-dd").toFormat("EEE")}–
-                        {DateTime.fromFormat(rec.coverage_end, "yyyy-MM-dd").toFormat("EEE")}
-                        {trend !== 1 && ` (${trend.toFixed(2)}× avg)`} · {oh.toFixed(1)} on hand
+                  <div key={it.id} className="py-3 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{it.name}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          ~{weekly.toFixed(1)} {unit}/week · {oh.toFixed(1)} on hand
+                          {trend !== 1 && ` · ${trend.toFixed(2)}× avg`}
+                        </div>
+                      </div>
+                      <Badge className={`text-[10px] ${badgeColor}`} variant="outline">
+                        {rec.periods_used}p
+                      </Badge>
+                      <div className="text-right">
+                        <div className="text-base font-bold text-primary leading-tight">
+                          {upc > 1 ? cases : qty.toFixed(1)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground leading-tight">
+                          {upc > 1
+                            ? `case${cases === 1 ? "" : "s"} to order`
+                            : `${unit} to order`}
+                        </div>
                       </div>
                     </div>
-                    <Badge className={`text-[10px] ${badgeColor}`} variant="outline">
-                      {rec.periods_used}p
-                    </Badge>
-                    <div className="text-right">
-                      <div className="text-base font-bold text-primary leading-tight">
-                        {Number(rec.units_per_case) > 1 ? cases : qty.toFixed(1)}
+
+                    {perDay.length > 0 && (
+                      <div className="rounded-md border border-border/50 bg-muted/20 p-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                            Coverage · {daysUntilDelivery}d until delivery
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            ~{perDayTotal.toFixed(1)} {unit} needed
+                          </span>
+                        </div>
+                        <div className="flex gap-1 overflow-x-auto">
+                          {perDay.map((d, idx) => {
+                            const isLast = idx === perDay.length - 1;
+                            const dt = DateTime.fromFormat(d.date, "yyyy-MM-dd");
+                            return (
+                              <div
+                                key={d.date}
+                                className={`flex-1 min-w-[40px] text-center rounded px-1 py-1 ${
+                                  isLast
+                                    ? "bg-primary/15 ring-1 ring-primary/40"
+                                    : "bg-background/60"
+                                }`}
+                                title={`${dt.toFormat("EEE MMM d")}: ${Number(d.forecast).toFixed(2)} ${unit}${isLast ? " · delivery" : ""}`}
+                              >
+                                <div className={`text-[9px] uppercase leading-tight ${isLast ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                                  {dt.toFormat("EEE")}
+                                </div>
+                                <div className={`text-[11px] font-semibold leading-tight ${isLast ? "text-primary" : "text-foreground"}`}>
+                                  {Number(d.forecast).toFixed(1)}
+                                </div>
+                                {isLast && (
+                                  <div className="text-[8px] text-primary/80 leading-tight">
+                                    order
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-muted-foreground leading-tight">
-                        {Number(rec.units_per_case) > 1
-                          ? `case${cases === 1 ? "" : "s"} · ~${qty.toFixed(0)} ${unit}`
-                          : unit}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
