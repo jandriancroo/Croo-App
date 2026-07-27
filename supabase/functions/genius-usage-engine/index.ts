@@ -618,7 +618,7 @@ async function recommendBatchOptimized(
   const { data: itemsData, error: itemsError } = await supabase
     .from("lite_inventory_items")
     .select(
-      "id, location_id, name, usage_model, par_level, units_per_case, case_qty, rounding_policy, lead_time_days, delivery_dows",
+      "id, location_id, name, common_label, unit, vendor_name_normalized, usage_model, par_level, units_per_case, case_qty, rounding_policy, lead_time_days, delivery_dows",
     )
     .in("id", ids);
   if (itemsError) throw itemsError;
@@ -907,7 +907,36 @@ async function recommendBatchOptimized(
     if (error) console.error("recommendBatch audit insert failed", error);
   }
 
-  return { results };
+  return {
+    items: items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      common_label: item.common_label,
+      unit: item.unit,
+      vendor_name_normalized: item.vendor_name_normalized,
+      case_qty: item.case_qty,
+      units_per_case: item.units_per_case,
+      usage_model: item.usage_model,
+    })),
+    rates: Object.fromEntries(ratesById),
+    results,
+  };
+}
+
+async function recommendLocationOptimized(
+  supabase: any,
+  locationId: string,
+  asOfDate: string,
+) {
+  const { data: items, error } = await supabase
+    .from("lite_inventory_items")
+    .select("id")
+    .eq("location_id", locationId)
+    .eq("is_active", true);
+  if (error) throw error;
+
+  const ids = ((items as any[]) || []).map((item) => item.id).filter(Boolean);
+  return recommendBatchOptimized(supabase, ids, asOfDate);
 }
 
 // ------------------------------------------------------------
@@ -939,6 +968,10 @@ Deno.serve(async (req) => {
     }
     if (action === "recommendBatch" && Array.isArray(item_ids) && as_of_date) {
       const out = await recommendBatchOptimized(supabase, item_ids, as_of_date);
+      return json(out);
+    }
+    if (action === "recommendLocation" && location_id && as_of_date) {
+      const out = await recommendLocationOptimized(supabase, location_id, as_of_date);
       return json(out);
     }
     if (action === "rebuildLocation" && location_id) {
