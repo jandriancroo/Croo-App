@@ -158,13 +158,13 @@ async function buildUsagePeriods(supabase: any, itemId: string) {
   const lastDate = heads[heads.length - 1].period_end as string;
   const { data: salesRows } = await supabase
     .from("sales_cache")
-    .select("business_date, net_sales, sales_date")
+    .select("sale_date, net_sales")
     .eq("location_id", locationId)
-    .gte("business_date", firstDate)
-    .lte("business_date", lastDate);
+    .gte("sale_date", firstDate)
+    .lte("sale_date", lastDate);
   const salesByDate = new Map<string, number>();
   (salesRows || []).forEach((r: any) => {
-    const d = r.business_date || r.sales_date;
+    const d = r.sale_date;
     if (!d) return;
     salesByDate.set(d, (salesByDate.get(d) || 0) + Number(r.net_sales ?? 0));
   });
