@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Loader2, Truck, Calendar, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Sparkles, Loader2, Truck, Calendar, TrendingUp, RefreshCw } from "lucide-react";
 import { DateTime } from "luxon";
 import {
   computeUsageCoach,
@@ -13,6 +15,7 @@ import {
   type UsageItem,
   type VendorOrderDay,
 } from "@/utils/computeUsageCoach";
+import { useGeniusRecommendations } from "@/hooks/useGeniusRecommendations";
 
 interface Props {
   locationId: string;
