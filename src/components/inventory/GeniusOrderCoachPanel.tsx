@@ -276,107 +276,142 @@ export default function GeniusOrderCoachPanel({
               Forecast is temporarily unavailable. Legacy recommendations are still shown below.
             </div>
           )}
-          {engine.data && !engine.data.error && (
-            <div className="divide-y divide-border/50">
-              {engine.data.items.map((it: any) => {
-                const rec = engine.data.recs[it.id];
-                const rate = engine.data.rates[it.id];
-                if (!rec || rec.error) {
-                  return (
-                    <div key={it.id} className="py-2 flex items-center justify-between text-xs">
-                      <span className="truncate">{it.name}</span>
-                      <span className="text-muted-foreground italic">{rec?.error || "no data"}</span>
+          {engine.data && !engine.data.error && (() => {
+            const rows = (engine.data.items as any[]).map((it: any) => {
+              const rec = engine.data.recs[it.id];
+              const rate = engine.data.rates[it.id];
+              return { it, rec, rate };
+            });
+            // Split: items to order vs nothing needed, sort by size desc
+            const toOrder = rows
+              .filter((r) => r.rec && !r.rec.error && Number(r.rec.recommended_qty || 0) > 0)
+              .sort((a, b) => Number(b.rec.recommended_qty) - Number(a.rec.recommended_qty));
+            const noNeed = rows.filter(
+              (r) => r.rec && !r.rec.error && Number(r.rec.recommended_qty || 0) <= 0,
+            );
+            const noData = rows.filter((r) => !r.rec || r.rec.error);
+            const renderRow = ({ it, rec, rate }: any) => {
+              const qty = Number(rec.recommended_qty || 0);
+              const upc = Number(rec.units_per_case || 1);
+              const cases = Number(rec.recommended_cases || 0);
+              const unit = (it.common_label || it.unit || "each").toLowerCase();
+              const orderInCases = upc > 1;
+              // When we can convert to cases, show cases; when we can't, still
+              // round up to whole counting units so we never show "0.4 sleeve".
+              const displayQty = orderInCases ? cases : Math.ceil(qty);
+              const displayLabel = orderInCases
+                ? `case${displayQty === 1 ? "" : "s"}`
+                : `${unit}${displayQty === 1 ? "" : "s"}`;
+              const conf = rec.confidence as "green" | "amber" | "red";
+              const badgeColor =
+                conf === "green" ? "bg-emerald-100 text-emerald-800" :
+                conf === "amber" ? "bg-amber-100 text-amber-800" :
+                "bg-red-100 text-red-800";
+              const weekly = Number(rate?.weekly_usage_level ?? 0);
+              const weeklyDisplay = orderInCases
+                ? `~${(weekly / upc).toFixed(1)} case/week`
+                : `~${weekly.toFixed(1)} ${unit}/week`;
+              const oh = Number(rec.projected_on_hand ?? 0);
+              const ohDisplay = orderInCases
+                ? `${(oh / upc).toFixed(1)} case on hand`
+                : `${oh.toFixed(1)} on hand`;
+              const perDay: { date: string; dow: number; forecast: number }[] = rec.per_day || [];
+              const perDayTotal = perDay.reduce((s, d) => s + Number(d.forecast || 0), 0);
+              return (
+                <div key={it.id} className="py-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{it.name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {weeklyDisplay} · {ohDisplay}
+                        {!orderInCases && qty > 0 && (
+                          <span className="ml-1 text-amber-700">· set case size to order in cases</span>
+                        )}
+                      </div>
                     </div>
-                  );
-                }
-                const cases = Number(rec.recommended_cases || 0);
-                const qty = Number(rec.recommended_qty || 0);
-                const conf = rec.confidence as "green" | "amber" | "red";
-                const badgeColor =
-                  conf === "green" ? "bg-emerald-100 text-emerald-800" :
-                  conf === "amber" ? "bg-amber-100 text-amber-800" :
-                  "bg-red-100 text-red-800";
-                const weekly = Number(rate?.weekly_usage_level ?? 0);
-                const oh = Number(rec.projected_on_hand ?? 0);
-                const trend = Number(rec.trend_factor ?? 1);
-                const upc = Number(rec.units_per_case || 1);
-                const unit = (it.common_label || it.unit || "each").toLowerCase();
-                const perDay: { date: string; dow: number; forecast: number }[] = rec.per_day || [];
-                const perDayTotal = perDay.reduce((s, d) => s + Number(d.forecast || 0), 0);
-                const deliveryDate = rec.coverage_end;
-                const daysUntilDelivery = perDay.length;
-
-                return (
-                  <div key={it.id} className="py-3 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{it.name}</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          ~{weekly.toFixed(1)} {unit}/week · {oh.toFixed(1)} on hand
-                          {trend !== 1 && ` · ${trend.toFixed(2)}× avg`}
-                        </div>
+                    <Badge className={`text-[10px] ${badgeColor}`} variant="outline">
+                      {rec.periods_used}p
+                    </Badge>
+                    <div className="text-right">
+                      <div className="text-base font-bold text-primary leading-tight">
+                        {displayQty}
                       </div>
-                      <Badge className={`text-[10px] ${badgeColor}`} variant="outline">
-                        {rec.periods_used}p
-                      </Badge>
-                      <div className="text-right">
-                        <div className="text-base font-bold text-primary leading-tight">
-                          {upc > 1 ? cases : qty.toFixed(1)}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground leading-tight">
-                          {upc > 1
-                            ? `case${cases === 1 ? "" : "s"} to order`
-                            : `${unit} to order`}
-                        </div>
+                      <div className="text-[10px] text-muted-foreground leading-tight">
+                        {displayLabel} to order
                       </div>
                     </div>
-
-                    {perDay.length > 0 && (
-                      <div className="rounded-md border border-border/50 bg-muted/20 p-2">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-                            Coverage · {daysUntilDelivery}d until delivery
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            ~{perDayTotal.toFixed(1)} {unit} needed
-                          </span>
-                        </div>
-                        <div className="flex gap-1 overflow-x-auto">
-                          {perDay.map((d, idx) => {
-                            const isLast = idx === perDay.length - 1;
-                            const dt = DateTime.fromFormat(d.date, "yyyy-MM-dd");
-                            return (
-                              <div
-                                key={d.date}
-                                className={`flex-1 min-w-[40px] text-center rounded px-1 py-1 ${
-                                  isLast
-                                    ? "bg-primary/15 ring-1 ring-primary/40"
-                                    : "bg-background/60"
-                                }`}
-                                title={`${dt.toFormat("EEE MMM d")}: ${Number(d.forecast).toFixed(2)} ${unit}${isLast ? " · delivery" : ""}`}
-                              >
-                                <div className={`text-[9px] uppercase leading-tight ${isLast ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                                  {dt.toFormat("EEE")}
-                                </div>
-                                <div className={`text-[11px] font-semibold leading-tight ${isLast ? "text-primary" : "text-foreground"}`}>
-                                  {Number(d.forecast).toFixed(1)}
-                                </div>
-                                {isLast && (
-                                  <div className="text-[8px] text-primary/80 leading-tight">
-                                    order
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  {perDay.length > 0 && (
+                    <div className="rounded-md border border-border/50 bg-muted/20 p-2">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                          Coverage · {perDay.length}d until delivery
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          ~{perDayTotal.toFixed(1)} {unit} needed
+                        </span>
+                      </div>
+                      <div className="flex gap-1 overflow-x-auto">
+                        {perDay.map((d, idx) => {
+                          const isLast = idx === perDay.length - 1;
+                          const dt = DateTime.fromFormat(d.date, "yyyy-MM-dd");
+                          return (
+                            <div
+                              key={d.date}
+                              className={`flex-1 min-w-[40px] text-center rounded px-1 py-1 ${
+                                isLast
+                                  ? "bg-primary/15 ring-1 ring-primary/40"
+                                  : "bg-background/60"
+                              }`}
+                              title={`${dt.toFormat("EEE MMM d")}: ${Number(d.forecast).toFixed(2)} ${unit}${isLast ? " · delivery" : ""}`}
+                            >
+                              <div className={`text-[9px] uppercase leading-tight ${isLast ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                                {dt.toFormat("EEE")}
+                              </div>
+                              <div className={`text-[11px] font-semibold leading-tight ${isLast ? "text-primary" : "text-foreground"}`}>
+                                {Number(d.forecast).toFixed(1)}
+                              </div>
+                              {isLast && (
+                                <div className="text-[8px] text-primary/80 leading-tight">
+                                  order
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            };
+            return (
+              <div className="divide-y divide-border/50">
+                {toOrder.length === 0 && (
+                  <div className="py-3 text-xs text-muted-foreground italic text-center">
+                    Nothing to order right now.
+                  </div>
+                )}
+                {toOrder.map(renderRow)}
+                {(noNeed.length > 0 || noData.length > 0) && (
+                  <details className="pt-2">
+                    <summary className="text-[11px] text-muted-foreground cursor-pointer py-1.5 hover:text-foreground">
+                      {noNeed.length} on-hand · {noData.length} no history yet
+                    </summary>
+                    <div className="divide-y divide-border/50 mt-1">
+                      {noNeed.map(renderRow)}
+                      {noData.map(({ it, rec }) => (
+                        <div key={it.id} className="py-2 flex items-center justify-between text-xs">
+                          <span className="truncate">{it.name}</span>
+                          <span className="text-muted-foreground italic">{rec?.error || "no data"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            );
+          })()}
         </Card>
       )}
 
