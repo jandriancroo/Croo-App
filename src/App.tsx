@@ -227,6 +227,7 @@ const AppContent = () => {
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/cogs" element={<ProtectedRoute><COGSReport /></ProtectedRoute>} />
+        <Route path="/inventory/:locationId/usage-models" element={<ProtectedRoute><UsageModelsPage /></ProtectedRoute>} />
         <Route path="/inventory/period-selector-preview" element={<ProtectedRoute><PeriodSelectorPreview /></ProtectedRoute>} />
         
         <Route path="/qr-generator" element={<QRCodeGenerator />} />
