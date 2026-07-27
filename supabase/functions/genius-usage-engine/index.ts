@@ -607,6 +607,309 @@ async function recommendOrder(supabase: any, itemId: string, asOfDate: string) {
   };
 }
 
+async function recommendBatchOptimized(
+  supabase: any,
+  itemIds: string[],
+  asOfDate: string,
+) {
+  const ids = Array.from(new Set(itemIds.filter(Boolean)));
+  if (ids.length === 0) return { results: {} };
+
+  const { data: itemsData, error: itemsError } = await supabase
+    .from("lite_inventory_items")
+    .select(
+      "id, location_id, name, usage_model, par_level, units_per_case, case_qty, rounding_policy, lead_time_days, delivery_dows",
+    )
+    .in("id", ids);
+  if (itemsError) throw itemsError;
+
+  const items = ((itemsData as any[]) || []).filter((item) => item?.id && item?.location_id);
+  const foundIds = new Set(items.map((item) => item.id as string));
+  const results: Record<string, any> = {};
+  ids.forEach((id) => {
+    if (!foundIds.has(id)) results[id] = { error: "item not found" };
+  });
+  if (items.length === 0) return { results };
+
+  const locationIds = Array.from(new Set(items.map((item) => item.location_id as string)));
+
+  const [{ data: ratesData }, { data: dowData }] = await Promise.all([
+    supabase
+      .from("item_usage_rates")
+      .select("item_id, weekly_usage_level, residual_stddev, r2_usage_vs_sales, periods_used")
+      .in("item_id", ids),
+    supabase
+      .from("dow_sales_profile")
+      .select("location_id, day_of_week, share_of_week, avg_net_sales")
+      .in("location_id", locationIds),
+  ]);
+
+  const ratesById = new Map<string, any>();
+  ((ratesData as any[]) || []).forEach((rate) => ratesById.set(rate.item_id, rate));
+
+  const dowByLocation = new Map<string, any[]>();
+  ((dowData as any[]) || []).forEach((row) => {
+    const locationRows = dowByLocation.get(row.location_id) || [];
+    locationRows.push(row);
+    dowByLocation.set(row.location_id, locationRows);
+  });
+
+  const lastCountPairs = await Promise.all(
+    locationIds.map(async (locationId) => {
+      const { data } = await supabase
+        .from("lite_inventory_counts")
+        .select("id, location_id, period_end")
+        .eq("location_id", locationId)
+        .eq("status", "submitted")
+        .order("period_end", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return [locationId, data] as const;
+    }),
+  );
+  const lastCountByLocation = new Map<string, any>();
+  lastCountPairs.forEach(([locationId, count]) => {
+    if (count?.id) lastCountByLocation.set(locationId, count);
+  });
+
+  const lastCountIds = Array.from(lastCountByLocation.values()).map((count) => count.id as string);
+  const countQtyByItem = new Map<string, number>();
+  if (lastCountIds.length > 0) {
+    const { data: countItems } = await supabase
+      .from("lite_inventory_count_items")
+      .select("count_id, item_id, quantity, case_quantity, inner_quantity, case_qty_at_count")
+      .in("count_id", lastCountIds)
+      .in("item_id", ids);
+    ((countItems as any[]) || []).forEach((row) => {
+      const item = items.find((candidate) => candidate.id === row.item_id);
+      const fallbackUnits = Number(item?.units_per_case ?? item?.case_qty ?? 1) || 1;
+      const qty =
+        Number(row.quantity ?? 0) +
+        Number(row.case_quantity ?? 0) * Number(row.case_qty_at_count ?? fallbackUnits) +
+        Number(row.inner_quantity ?? 0);
+      countQtyByItem.set(row.item_id, qty);
+    });
+  }
+
+  const invoiceDateById = new Map<string, string>();
+  const invoiceLocationById = new Map<string, string>();
+  await Promise.all(
+    locationIds.map(async (locationId) => {
+      const lastCount = lastCountByLocation.get(locationId);
+      if (!lastCount?.period_end) return;
+      const { data: invoices } = await supabase
+        .from("lite_vendor_invoices")
+        .select("id, location_id, invoice_date, delivery_date")
+        .eq("location_id", locationId)
+        .or(`delivery_date.gte.${lastCount.period_end},invoice_date.gte.${lastCount.period_end}`);
+      ((invoices as any[]) || []).forEach((invoice) => {
+        const date = invoice.delivery_date || invoice.invoice_date;
+        if (!invoice.id || !date) return;
+        invoiceDateById.set(invoice.id, date);
+        invoiceLocationById.set(invoice.id, invoice.location_id || locationId);
+      });
+    }),
+  );
+
+  const receivedByItem = new Map<string, { date: string; qty: number }[]>();
+  const invoiceIds = Array.from(invoiceDateById.keys());
+  const IN_CHUNK = 500;
+  for (let i = 0; i < invoiceIds.length; i += IN_CHUNK) {
+    const chunk = invoiceIds.slice(i, i + IN_CHUNK);
+    const { data: lines } = await supabase
+      .from("lite_vendor_invoice_items")
+      .select("invoice_id, matched_item_id, quantity")
+      .in("invoice_id", chunk)
+      .in("matched_item_id", ids);
+    ((lines as any[]) || []).forEach((line) => {
+      const item = items.find((candidate) => candidate.id === line.matched_item_id);
+      if (!item) return;
+      const invoiceLocation = invoiceLocationById.get(line.invoice_id);
+      if (invoiceLocation && invoiceLocation !== item.location_id) return;
+      const date = invoiceDateById.get(line.invoice_id);
+      if (!date) return;
+      const unitsPerCase = Number(item.units_per_case ?? item.case_qty ?? 1) || 1;
+      const rows = receivedByItem.get(line.matched_item_id) || [];
+      rows.push({ date, qty: Number(line.quantity ?? 0) * unitsPerCase });
+      receivedByItem.set(line.matched_item_id, rows);
+    });
+  }
+
+  const coverageDatesByItem = new Map<string, string[]>();
+  const projectionDatesByLocation = new Map<string, Set<string>>();
+  const asOf = DateTime.fromFormat(asOfDate, "yyyy-MM-dd");
+
+  items.forEach((item) => {
+    const leadDays = Number(item.lead_time_days ?? 0);
+    const deliveryDows: number[] =
+      Array.isArray(item.delivery_dows) && item.delivery_dows.length > 0
+        ? item.delivery_dows
+        : [];
+    let nextDelivery = asOf.plus({ days: 1 });
+    if (deliveryDows.length > 0) {
+      let best = Infinity;
+      for (const dow of deliveryDows) {
+        const todayDow = asOf.weekday % 7;
+        let diff = Number(dow) - todayDow;
+        if (diff <= 0) diff += 7;
+        if (diff < best) best = diff;
+      }
+      nextDelivery = asOf.plus({ days: best });
+    }
+    const coverageEnd = nextDelivery.plus({ days: leadDays });
+    const dates = eachDate(asOf.toFormat("yyyy-MM-dd"), coverageEnd.toFormat("yyyy-MM-dd"));
+    coverageDatesByItem.set(item.id, dates);
+    const locationDates = projectionDatesByLocation.get(item.location_id) || new Set<string>();
+    dates.forEach((date) => locationDates.add(date));
+    projectionDatesByLocation.set(item.location_id, locationDates);
+  });
+
+  const projectionByLocationDate = new Map<string, number>();
+  await Promise.all(
+    Array.from(projectionDatesByLocation.entries()).map(async ([locationId, dates]) => {
+      const dateList = Array.from(dates);
+      if (dateList.length === 0) return;
+      const { data: rows } = await supabase
+        .from("sales_cache")
+        .select("sale_date, override_projection, living_projection, initial_projection")
+        .eq("location_id", locationId)
+        .in("sale_date", dateList);
+      ((rows as any[]) || []).forEach((row) => {
+        const value = row.override_projection ?? row.living_projection ?? row.initial_projection;
+        if (row.sale_date && value != null) {
+          projectionByLocationDate.set(`${locationId}:${row.sale_date}`, Number(value));
+        }
+      });
+    }),
+  );
+
+  const recommendationRows: any[] = [];
+
+  for (const item of items) {
+    const itemId = item.id as string;
+    const locationId = item.location_id as string;
+    const unitsPerCase = Number(item.units_per_case ?? item.case_qty ?? 1) || 1;
+    const rounding = (item.rounding_policy as RoundingPolicy) || "up";
+    const rate = ratesById.get(itemId);
+    const dowRows = dowByLocation.get(locationId) || [];
+    const typicalWeekSales = dowRows.reduce(
+      (sum, row) => sum + Number(row.avg_net_sales || 0),
+      0,
+    );
+    const coverageDates = coverageDatesByItem.get(itemId) || [asOfDate];
+    const dailySalesOverride = new Map<string, number>();
+    coverageDates.forEach((date) => {
+      const value = projectionByLocationDate.get(`${locationId}:${date}`);
+      if (value != null) dailySalesOverride.set(date, value);
+    });
+
+    let projectedOnHand: number | null = null;
+    const lastCount = lastCountByLocation.get(locationId);
+    if (lastCount?.period_end) {
+      const lastQty = countQtyByItem.get(itemId) || 0;
+      let receivedSince = 0;
+      (receivedByItem.get(itemId) || []).forEach((receipt) => {
+        if (receipt.date > lastCount.period_end && receipt.date <= asOfDate) {
+          receivedSince += receipt.qty;
+        }
+      });
+      const daysSince = daysBetween(lastCount.period_end, asOfDate);
+      const weekly = Number(rate?.weekly_usage_level ?? 0);
+      const usedSince = (weekly / 7) * daysSince;
+      projectedOnHand = Math.max(0, lastQty + receivedSince - usedSince);
+    }
+
+    const usageModel = (item.usage_model as UsageModel) || "sales_linked";
+    let shapeSource:
+      | "sales_linked_dow"
+      | "daily_projection"
+      | "manager_override"
+      | "time_based"
+      | "par_based" = "time_based";
+    let forecastQty = 0;
+    let trend = 1;
+    let perDay: { date: string; dow: number; forecast: number }[] = [];
+
+    if (usageModel === "par_based" && item.par_level != null) {
+      forecastQty = Number(item.par_level) - (projectedOnHand ?? 0);
+      shapeSource = "par_based";
+    } else if (usageModel === "sales_linked" && rate?.weekly_usage_level) {
+      const projectedWeekTotal = coverageDates.reduce((sum, date) => {
+        const projected = dailySalesOverride.get(date);
+        if (projected != null) return sum + projected;
+        const share = dowRows.find((row) => row.day_of_week === dowFromDate(date));
+        return sum + Number(share?.avg_net_sales ?? 0);
+      }, 0);
+      const typicalCoverageTotal = coverageDates.reduce((sum, date) => {
+        const share = dowRows.find((row) => row.day_of_week === dowFromDate(date));
+        return sum + Number(share?.avg_net_sales ?? 0);
+      }, 0);
+      trend = typicalCoverageTotal > 0 ? clamp(projectedWeekTotal / typicalCoverageTotal, 0.85, 1.25) : 1;
+      const forecast = forecastSalesLinked(
+        Number(rate.weekly_usage_level),
+        coverageDates,
+        dowRows.map((row) => ({
+          day_of_week: row.day_of_week,
+          share_of_week: Number(row.share_of_week),
+          avg_net_sales: Number(row.avg_net_sales),
+        })),
+        trend,
+        dailySalesOverride.size > 0 ? dailySalesOverride : null,
+        typicalWeekSales,
+      );
+      forecastQty = forecast.total;
+      perDay = forecast.perDay;
+      shapeSource = dailySalesOverride.size > 0 ? "daily_projection" : "sales_linked_dow";
+    } else if (rate?.weekly_usage_level) {
+      forecastQty = (Number(rate.weekly_usage_level) / 7) * coverageDates.length;
+      shapeSource = "time_based";
+    }
+
+    const residual = Number(rate?.residual_stddev ?? 0);
+    const safety = 1.65 * residual * Math.sqrt(coverageDates.length / 7);
+    const raw = forecastQty - (projectedOnHand ?? 0) + safety;
+    const recommendedQty = Math.max(0, raw);
+    const cases = unitsPerCase > 1 ? applyRounding(recommendedQty / unitsPerCase, rounding) : 0;
+    const periodsUsed = Number(rate?.periods_used ?? 0);
+    const confidence: "green" | "amber" | "red" =
+      periodsUsed >= 8 ? "green" : periodsUsed >= 4 ? "amber" : "red";
+
+    const row = {
+      item_id: itemId,
+      location_id: locationId,
+      generated_at: new Date().toISOString(),
+      as_of_date: asOfDate,
+      coverage_start: coverageDates[0],
+      coverage_end: coverageDates[coverageDates.length - 1],
+      forecast_qty: Number(forecastQty.toFixed(4)),
+      projected_on_hand: projectedOnHand != null ? Number(projectedOnHand.toFixed(4)) : null,
+      safety_stock: Number(safety.toFixed(4)),
+      recommended_qty: Number(recommendedQty.toFixed(4)),
+      recommended_cases: cases,
+      level_used: rate?.weekly_usage_level != null ? Number(rate.weekly_usage_level) : null,
+      shape_source: shapeSource,
+      trend_factor: Number(trend.toFixed(4)),
+    };
+
+    recommendationRows.push(row);
+    results[itemId] = {
+      ...row,
+      per_day: perDay,
+      confidence,
+      periods_used: periodsUsed,
+      low_confidence: periodsUsed < 4,
+      units_per_case: unitsPerCase,
+    };
+  }
+
+  if (recommendationRows.length > 0) {
+    const { error } = await supabase.from("order_recommendations").insert(recommendationRows);
+    if (error) console.error("recommendBatch audit insert failed", error);
+  }
+
+  return { results };
+}
+
 // ------------------------------------------------------------
 // HTTP entry
 // ------------------------------------------------------------
@@ -635,22 +938,8 @@ Deno.serve(async (req) => {
       return json(out);
     }
     if (action === "recommendBatch" && Array.isArray(item_ids) && as_of_date) {
-      const results: Record<string, any> = {};
-      const CONCURRENCY = 6;
-      for (let i = 0; i < item_ids.length; i += CONCURRENCY) {
-        const chunk = item_ids.slice(i, i + CONCURRENCY);
-        const out = await Promise.all(
-          chunk.map(async (id: string) => {
-            try {
-              return [id, await recommendOrder(supabase, id, as_of_date)] as const;
-            } catch (e) {
-              return [id, { error: (e as Error).message }] as const;
-            }
-          }),
-        );
-        for (const [id, v] of out) results[id] = v;
-      }
-      return json({ results });
+      const out = await recommendBatchOptimized(supabase, item_ids, as_of_date);
+      return json(out);
     }
     if (action === "rebuildLocation" && location_id) {
       // Long-running: kick off in background so the HTTP request returns

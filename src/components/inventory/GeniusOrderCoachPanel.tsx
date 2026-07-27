@@ -57,7 +57,7 @@ export default function GeniusOrderCoachPanel({
 }: Props) {
   const today = DateTime.now().setZone(timezone).toFormat("yyyy-MM-dd");
   const [useEngine, setUseEngine] = useState(false);
-  const engine = useGeniusRecommendations(locationId);
+  const engine = useGeniusRecommendations(locationId, useEngine);
 
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ["lite-items-for-genius", locationId],
@@ -271,7 +271,12 @@ export default function GeniusOrderCoachPanel({
             </div>
             {engine.isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </div>
-          {engine.data && (
+          {engine.data?.error && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              Forecast is temporarily unavailable. Legacy recommendations are still shown below.
+            </div>
+          )}
+          {engine.data && !engine.data.error && (
             <div className="divide-y divide-border/50">
               {engine.data.items.map((it: any) => {
                 const rec = engine.data.recs[it.id];

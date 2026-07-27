@@ -8,14 +8,14 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
  * The engine is authoritative — this hook only invokes it and reads the
  * cached rows it wrote (item_usage_rates, order_recommendations).
  */
-export function useGeniusRecommendations(locationId: string) {
+export function useGeniusRecommendations(locationId: string, enabled = true) {
   const qc = useQueryClient();
   const { getBusinessDateInTimezone } = useLocationTimezone(locationId);
   const asOfDate = getBusinessDateInTimezone();
 
   const recs = useQuery({
     queryKey: ["genius-recs", locationId, asOfDate],
-    enabled: !!locationId,
+    enabled: !!locationId && enabled,
     staleTime: 60_000,
     queryFn: async () => {
       // Grab active items
@@ -40,11 +40,14 @@ export function useGeniusRecommendations(locationId: string) {
       const { data: fn, error: fnErr } = await supabase.functions.invoke("genius-usage-engine", {
         body: { action: "recommendBatch", item_ids: ids, as_of_date: asOfDate },
       });
-      if (fnErr) throw fnErr;
+      if (fnErr) {
+        console.error("[GeniusRecommendations] recommendBatch failed", fnErr);
+      }
       return {
         items: (items as any[]) || [],
-        recs: (fn?.results as Record<string, any>) || {},
+        recs: fnErr ? {} : (fn?.results as Record<string, any>) || {},
         rates: Object.fromEntries(ratesById),
+        error: fnErr?.message || null,
       };
     },
   });
