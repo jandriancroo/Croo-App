@@ -861,7 +861,34 @@ async function recommendBatchOptimized(
       perDay = forecast.perDay;
       shapeSource = dailySalesOverride.size > 0 ? "daily_projection" : "sales_linked_dow";
     } else if (rate?.weekly_usage_level) {
-      forecastQty = (Number(rate.weekly_usage_level) / 7) * coverageDates.length;
+      // Time-based path — still emit a per-day breakdown so the UI can render
+      // the coverage strip. If we have DOW shares, weight by them; otherwise
+      // spread the weekly level evenly across the coverage window.
+      const weekly = Number(rate.weekly_usage_level);
+      if (dowRows.length > 0) {
+        const forecast = forecastSalesLinked(
+          weekly,
+          coverageDates,
+          dowRows.map((row) => ({
+            day_of_week: row.day_of_week,
+            share_of_week: Number(row.share_of_week),
+            avg_net_sales: Number(row.avg_net_sales),
+          })),
+          1,
+          null,
+          typicalWeekSales,
+        );
+        forecastQty = forecast.total;
+        perDay = forecast.perDay;
+      } else {
+        const perDayQty = weekly / 7;
+        perDay = coverageDates.map((date) => ({
+          date,
+          dow: dowFromDate(date),
+          forecast: perDayQty,
+        }));
+        forecastQty = perDayQty * coverageDates.length;
+      }
       shapeSource = "time_based";
     }
 
