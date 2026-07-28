@@ -29,11 +29,13 @@ serve(async (req) => {
     {
       const { data: shifts, error: sErr } = await supabase
         .from("scheduled_shifts")
-        .select("id, user_id, shift_date, start_time, is_time_off, schedule_id, schedules!inner(location_id, locations!inner(name, id))")
+        .select("id, user_id, shift_date, start_time, is_time_off, schedule_id, schedules!inner(location_id, is_published, locations!inner(name, id))")
         .not("user_id", "is", null)
         .eq("is_time_off", false)
+        .eq("schedules.is_published", true)
         .gte("shift_date", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
         .lte("shift_date", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+
 
       if (sErr) throw sErr;
 
