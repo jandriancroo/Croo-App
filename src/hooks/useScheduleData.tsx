@@ -442,7 +442,7 @@ export function useScheduleData() {
             scheduleId: schedule.id,
             isPublished: schedule.is_published || false,
             publishedSnapshot: (Array.isArray(schedule.published_shifts_snapshot) ? schedule.published_shifts_snapshot : []) as unknown as ScheduledShift[],
-            shifts: shiftsResult.data || [],
+            shifts: (!schedule.is_published && !(isAdmin || isManager)) ? [] : (shiftsResult.data || []),
             events: filterEventsByRole(allEvents, role),
             profiles: stableData.profiles,
             templates: stableData.templates,
