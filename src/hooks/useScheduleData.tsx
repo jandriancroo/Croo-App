@@ -290,8 +290,11 @@ export function useScheduleData() {
       console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
 
       if (shiftsResult.error) throw shiftsResult.error;
-      const shifts = shiftsResult.data || [];
+      // Draft (unpublished) schedules must never be visible to non-managers
+      const canSeeDrafts = isAdmin || isManager;
+      const shifts = (!schedule.is_published && !canSeeDrafts) ? [] : (shiftsResult.data || []);
       const lastWeekShifts = (lastWeekShiftsResult as any)?.data || [];
+
 
       if (eventsResult.error) throw eventsResult.error;
       if (recurringEventsResult.error) throw recurringEventsResult.error;
