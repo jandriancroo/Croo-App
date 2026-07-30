@@ -71,7 +71,7 @@ export default function Messages() {
         />
       </div>
 
-      <DmPanel open={dmOpen} onOpenChange={setDmOpen} />
+      <DmPanel open={dmOpen} onOpenChange={setDmOpen} initialChatId={chatParam} />
     </Layout>
   );
 }
