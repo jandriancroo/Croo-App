@@ -17,6 +17,8 @@ type Step = 'dms' | 'hiring' | 'support';
 interface DmPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Deep link target (e.g. from a push notification): opens straight into this chat. */
+  initialChatId?: string | null;
 }
 
 export function DmPanel({ open, onOpenChange }: DmPanelProps) {
