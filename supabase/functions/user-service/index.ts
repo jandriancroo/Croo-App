@@ -98,27 +98,25 @@ interface SetPasswordPayload {
 // SHARED UTILITIES
 // ============================================================================
 
-function getRequestingUserId(authHeader: string | null): string {
+async function getRequestingUserId(supabaseAdmin: any, authHeader: string | null): Promise<string> {
   if (!authHeader) {
     throw new Error("Missing authorization header");
   }
-  
-  const token = authHeader.replace('Bearer ', '');
-  const payloadBase64 = token.split('.')[1];
-  if (!payloadBase64) {
+
+  const token = authHeader.replace('Bearer ', '').trim();
+  if (!token) {
     throw new Error("Invalid token");
   }
 
-  const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
-  const payload = JSON.parse(payloadJson);
-  const userId = payload.sub as string | undefined;
-
-  if (!userId) {
+  // Verify the JWT signature server-side — never trust the decoded payload.
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user?.id) {
     throw new Error("Unauthorized");
   }
-  
-  return userId;
+
+  return data.user.id as string;
 }
+
 
 async function verifyAdminRole(supabaseAdmin: any, userId: string): Promise<void> {
   const { data: roleData, error: roleError } = await supabaseAdmin
@@ -572,7 +570,7 @@ serve(async (req) => {
     });
 
     const authHeader = req.headers.get("Authorization");
-    const requestingUserId = getRequestingUserId(authHeader);
+    const requestingUserId = await getRequestingUserId(supabaseAdmin, authHeader);
 
     console.log(`[user-service] Action: ${action}, RequestedBy: ${requestingUserId}`);
 

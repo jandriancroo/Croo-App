@@ -51,6 +51,43 @@ function getCTAButton(url: string, text: string): string {
   return `<div style="text-align:center;"><a href="${url}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">${text}</a></div>`;
 }
 
+// Escape any caller-supplied value before it lands in email HTML.
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Only allow https URLs for image/link fields; anything else is dropped.
+function safeUrl(value: unknown): string {
+  if (!value) return '';
+  try {
+    const u = new URL(String(value));
+    if (u.protocol !== 'https:') return '';
+    return escapeHtml(u.toString());
+  } catch {
+    return '';
+  }
+}
+
+function sanitizeData(input: any): any {
+  if (input === null || input === undefined) return input;
+  if (typeof input === 'string') return escapeHtml(input);
+  if (Array.isArray(input)) return input.map(sanitizeData);
+  if (typeof input === 'object') {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(input)) {
+      out[k] = /_url$/.test(k) ? safeUrl(v) : sanitizeData(v);
+    }
+    return out;
+  }
+  return input;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -58,11 +95,13 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { type, to, data } = payload;
+    const { type, to } = payload;
+    const data = sanitizeData(payload.data ?? {});
 
     if (!type || !to) {
       return new Response(JSON.stringify({ error: "type and to required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     let subject = "";
     let content = "";
