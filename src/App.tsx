@@ -221,7 +221,9 @@ const AppContent = () => {
         <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
         <Route path="/brand-dashboard" element={<ProtectedRoute><BrandDashboard /></ProtectedRoute>} />
         <Route path="/org-dash" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
-        <Route path="/kds" element={<ProtectedRoute><KDSBoard /></ProtectedRoute>} />
+        {FEATURE_FLAGS.KDS_ENABLED && (
+          <Route path="/kds" element={<ProtectedRoute><KDSBoard /></ProtectedRoute>} />
+        )}
         <Route path="/theo-preview" element={<ProtectedRoute><TheoPlacementPreview /></ProtectedRoute>} />
         
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
