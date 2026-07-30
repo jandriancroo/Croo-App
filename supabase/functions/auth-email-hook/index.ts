@@ -122,8 +122,15 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Internal-only: GoTrue / service-to-service invokes. Without this gate anyone
+  // could POST an arbitrary recipient + action URL and have CrooHQ send a
+  // branded "reset your password" email pointing at an attacker link.
+  const denied = requireInternalCaller(req, corsHeaders);
+  if (denied) return denied;
+
   try {
     const payload = await req.json();
+
     console.log(`[auth-email-hook] Received auth email event: type=${payload.type || 'unknown'}, email=${payload.email || 'unknown'}`);
 
     // Supabase sends: { type, email, confirmation_url/action_link, token_hash, ... }
