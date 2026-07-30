@@ -770,7 +770,7 @@ const handler = async (req: Request): Promise<Response> => {
                 // Auto-prune dead subscriptions: 410 Gone = unsubscribed/expired, 404 = not found
                 if (response.status === 410 || response.status === 404) {
                   console.log(`[${userName}] 🗑️ Pruning dead subscription (${response.status})`);
-                  await supabase
+                  await supabaseClient
                     .from('push_notification_tokens')
                     .delete()
                     .eq('token', token);

@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, addDays, subDays } from "date-fns";
+import { format, addDays, subDays, differenceInCalendarDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
 import { ArrowUp, Trash2, AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, Coffee } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
@@ -195,6 +195,19 @@ export function EditShiftDialog({
         if (offerError) throw offerError;
       }
 
+      // The Date picker (editDate) is the source of truth for the shift's day.
+      // If it changed, this is a MOVE: persist both shift_date and day_of_week.
+      const originalDateStr =
+        shift.shift_date || format(addDays(currentWeekStart, shift.day_of_week), "yyyy-MM-dd");
+      const isDateMove = editDate !== originalDateStr;
+      const movedShiftDate = isDateMove ? editDate : originalDateStr;
+      // day_of_week on desktop is an offset from the visible week start (0 = Monday).
+      const movedDayOfWeek = isDateMove
+        ? differenceInCalendarDays(new Date(editDate + "T12:00:00"), currentWeekStart)
+        : shift.day_of_week;
+      const isSingleDayMove = isDateMove;
+
+
       // Update the current shift
       const { error: updateError } = await supabase
         .from("scheduled_shifts")
@@ -204,6 +217,9 @@ export function EditShiftDialog({
           user_id: selectedUserId === "unassigned" ? null : selectedUserId,
           template_id: position || null,
           breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
+          ...(isSingleDayMove
+            ? { day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
+            : {}),
         } as any)
         .eq("id", shift.id);
 
@@ -218,15 +234,18 @@ export function EditShiftDialog({
           ...old,
           shifts: old.shifts.map((s: any) =>
             s.id === shift.id
-              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template }
+              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template, day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
               : s
           ),
         };
       });
 
-      // If multiple days selected, create/update shifts for other days
-      for (const dayIndex of selectedDays) {
-        if (dayIndex === shift.day_of_week) continue; // Skip current day
+
+      // If multiple days selected, create/update shifts for other days.
+      // Skipped entirely for a single-day move (the shift itself was relocated above).
+      for (const dayIndex of isSingleDayMove ? [] : selectedDays) {
+        if (dayIndex === movedDayOfWeek) continue; // Skip current day
+
 
         const shiftDate = format(addDays(currentWeekStart, dayIndex), "yyyy-MM-dd");
         
