@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -741,8 +742,12 @@ serve(async (req: Request): Promise<Response> => {
         return await handleSubmitQRTaskReport(req, supabaseAdmin);
       case "verify-turnstile-upload":
         return await handleVerifyTurnstileUpload(req, supabaseAdmin);
-      case "flush_inventory_count":
+      case "flush_inventory_count": {
+        // Writes inventory counts with service-role — signed-in users only.
+        const denied = await requireAuthorizedCaller(req, corsHeaders);
+        if (denied) return denied;
         return await handleFlushInventoryCount(req, supabaseAdmin);
+      }
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),
