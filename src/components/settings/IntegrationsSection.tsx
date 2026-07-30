@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { toast } from "sonner";
 import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, RefreshCw, Settings2, ChevronDown, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
