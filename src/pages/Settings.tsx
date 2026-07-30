@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
+import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio, Loader2, FileText } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
@@ -475,7 +476,7 @@ export default function Settings() {
       if (id === 'location-profile') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'inventory') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_inventory'));
       if (id === 'punch-clock') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
-      if (id === 'kds-board') return isSuperAdmin;
+      if (id === 'kds-board') return FEATURE_FLAGS.KDS_ENABLED && isSuperAdmin;
       if (id === 'billing') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'reporting') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-members') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);

@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { LocationProvider, useLocation as useAppLocation } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import { DockToastProvider } from "@/contexts/DockToastContext";
 import { DiagnosticMode } from "@/components/DiagnosticMode";
@@ -221,7 +222,9 @@ const AppContent = () => {
         <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
         <Route path="/brand-dashboard" element={<ProtectedRoute><BrandDashboard /></ProtectedRoute>} />
         <Route path="/org-dash" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
-        <Route path="/kds" element={<ProtectedRoute><KDSBoard /></ProtectedRoute>} />
+        {FEATURE_FLAGS.KDS_ENABLED && (
+          <Route path="/kds" element={<ProtectedRoute><KDSBoard /></ProtectedRoute>} />
+        )}
         <Route path="/theo-preview" element={<ProtectedRoute><TheoPlacementPreview /></ProtectedRoute>} />
         
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />

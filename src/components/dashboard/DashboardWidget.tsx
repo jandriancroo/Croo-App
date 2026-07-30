@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Cale
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { format } from 'date-fns';
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 
 // Widget size types
 export type WidgetSize = 'small' | 'medium' | 'large';
@@ -259,7 +260,7 @@ export function migrateMetricType(metric: string): MetricType {
 }
 
 // Consistent order across all time periods - only includes non-hidden metrics (no "x" from CSV)
-export const METRIC_GROUPS = [
+const RAW_METRIC_GROUPS = [
   { 
     label: 'Personal', 
     metrics: [
@@ -313,6 +314,16 @@ export const METRIC_GROUPS = [
     ] as MetricType[]
   },
 ];
+
+// KDS metrics are archived behind a feature flag — hidden from pickers when off.
+export const METRIC_GROUPS = RAW_METRIC_GROUPS
+  .map(g => ({
+    ...g,
+    metrics: FEATURE_FLAGS.KDS_ENABLED
+      ? g.metrics
+      : g.metrics.filter(m => !String(m).startsWith('kds_')),
+  }))
+  .filter(g => g.metrics.length > 0);
 
 export interface SalesDataForWidgets {
   daily?: number;
