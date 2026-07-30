@@ -66,40 +66,35 @@ export default function ApplicantPortal() {
     setError(null);
     
     try {
-      const { data, error: fetchError } = await supabase
-        .from('job_applications')
-        .select(`
-          id,
-          full_name,
-          status,
-          submitted_at,
-          organization:organizations!job_applications_organization_id_fkey (
-            name,
-            brand_name,
-            logo_url
-          ),
-          location:locations!job_applications_location_id_fkey (
-            name
-          ),
-          conversation:hiring_conversations (
-            access_token
-          )
-        `)
-        .eq('email', emailToSearch.toLowerCase().trim())
-        .order('submitted_at', { ascending: false });
+      // Applicants no longer have direct read access to job_applications (PII
+      // protection). This RPC returns only status-level fields for the exact
+      // email supplied.
+      const { data, error: fetchError } = await (supabase as any).rpc(
+        'get_applications_by_email',
+        { _email: emailToSearch.toLowerCase().trim() }
+      );
 
       if (fetchError) throw fetchError;
 
-      // Transform the data to handle the conversation array
-      const transformedData = (data || []).map(app => ({
-        ...app,
-        organization: app.organization as Application['organization'],
-        location: app.location as Application['location'],
-        conversation: app.conversation?.[0] || null,
+      const transformedData: Application[] = (data || []).map((row: any) => ({
+        id: row.id,
+        full_name: row.full_name,
+        status: row.status,
+        submitted_at: row.submitted_at,
+        organization: {
+          name: row.organization_name,
+          brand_name: row.organization_brand_name,
+          logo_url: row.organization_logo_url,
+        },
+        location: row.location_name ? { name: row.location_name } : null,
+        conversation: row.conversation_access_token
+          ? { access_token: row.conversation_access_token }
+          : null,
       }));
 
       setApplications(transformedData);
       localStorage.setItem('applicant_email', emailToSearch.toLowerCase().trim());
+
     } catch (err) {
       console.error('Error fetching applications:', err);
       setError('Unable to load applications. Please try again.');
