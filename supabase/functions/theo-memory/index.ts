@@ -234,6 +234,13 @@ serve(async (req) => {
 
     if (action === "list") {
       const { location_id } = body;
+      if (!location_id) return deny(400, "Missing location_id");
+      const { data: hasLoc } = await supabaseUser.rpc("has_location_access", {
+        _user_id: user.id,
+        _location_id: location_id,
+      });
+      if (hasLoc !== true) return deny(403, "Forbidden");
+
       const { data, error } = await supabaseUser
         .from("theo_knowledge")
         .select("id, topic, content, created_at, created_by")
@@ -249,6 +256,19 @@ serve(async (req) => {
 
     if (action === "delete") {
       const { id } = body;
+      if (!id) return deny(400, "Missing id");
+
+      // Resolve the row's location first, then enforce manager+ access to it.
+      const { data: row } = await supabaseUser
+        .from("theo_knowledge")
+        .select("id, location_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (!row) return deny(404, "Not found");
+
+      const guard = await requireManagerAtLocation(row.location_id);
+      if (guard) return guard;
+
       const { error } = await supabaseUser
         .from("theo_knowledge")
         .delete()
@@ -259,6 +279,7 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
