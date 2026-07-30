@@ -10,6 +10,25 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Ack the cron tick immediately and drain in the background. Draining inline
+  // could exceed the worker wall-clock limit, which the edge surfaced as a 502
+  // on every scheduled invocation.
+  const work = drainAlertQueue()
+  // @ts-ignore — EdgeRuntime.waitUntil is available in the Supabase edge runtime
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(work)
+  }
+
+  return new Response(JSON.stringify({ accepted: true }), {
+    status: 202,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+})
+
+async function drainAlertQueue() {
+  const startedAt = Date.now()
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -30,10 +49,7 @@ Deno.serve(async (req) => {
     }
 
     if (!queue || queue.length === 0) {
-      return new Response(
-        JSON.stringify({ message: 'No pending alerts', sent: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return
     }
 
     console.log(`[alert-push-sender] Processing ${queue.length} queued alerts`)
@@ -92,17 +108,11 @@ Deno.serve(async (req) => {
 
     console.log(`[alert-push-sender] Done: ${sentCount} sent, ${errorCount} errors`)
 
-    return new Response(
-      JSON.stringify({ message: `Processed ${queue.length} alerts`, sent: sentCount, errors: errorCount }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return
 
   } catch (error: any) {
     console.error('[alert-push-sender] Fatal error:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return
   }
 })
 
