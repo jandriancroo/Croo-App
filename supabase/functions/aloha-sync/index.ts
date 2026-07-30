@@ -705,11 +705,19 @@ async function syncOneDay(
       try {
         const { data: hoursRow } = await supabase
           .from("location_settings")
-          .select("business_hours_open, business_hours_close")
+          .select("hours_open, hours_close")
           .eq("location_id", locationId)
           .maybeSingle();
-        if (hoursRow?.business_hours_open != null) hoursOpen = Number(hoursRow.business_hours_open);
-        if (hoursRow?.business_hours_close != null) hoursClose = Number(hoursRow.business_hours_close);
+        // hours_open/hours_close are TIME values ("10:00:00") — take the hour part.
+        const parseHour = (v: unknown): number | null => {
+          if (v == null) return null;
+          const h = parseInt(String(v).split(":")[0], 10);
+          return Number.isFinite(h) ? h : null;
+        };
+        const openH = parseHour(hoursRow?.hours_open);
+        const closeH = parseHour(hoursRow?.hours_close);
+        if (openH != null) hoursOpen = openH;
+        if (closeH != null) hoursClose = closeH;
       } catch {}
 
       const hist = await fetchHistoricalDataFromCache(supabase, locationId, date);
