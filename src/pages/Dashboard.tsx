@@ -171,7 +171,7 @@ export default function Dashboard() {
         lateCount: todayRow.orders_slow || 0,
       };
     },
-    enabled: !!currentLocation?.id,
+    enabled: FEATURE_FLAGS.KDS_ENABLED && !!currentLocation?.id,
     staleTime: 5 * 60 * 1000,
   });
   
