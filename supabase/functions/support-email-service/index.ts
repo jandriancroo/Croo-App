@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { requireCaller } from "../_shared/callerAuth.ts";
 
 // Format a UTC timestamp to America/Los_Angeles time string
 function formatTimePST(isoString: string): string {
@@ -1409,6 +1410,9 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const auth = await requireCaller(req, corsHeaders);
+  if ("response" in auth) return auth.response;
 
   try {
     const { action, payload } = await req.json();
