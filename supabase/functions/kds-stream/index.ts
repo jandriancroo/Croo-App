@@ -24,6 +24,22 @@ const QU_LOCATION_MAP: Record<number, string> = {
   5448: "5448", // Hemet
 };
 
+const OUR_QU_LOCATION_IDS = new Set(Object.keys(QU_LOCATION_MAP));
+
+/**
+ * Cheap raw-text check for whether a payload concerns one of our stores.
+ * Scans for any "locationId": <n> occurrence (present in both plain and
+ * SNS-wrapped bodies) and matches against QU_LOCATION_MAP without parsing.
+ */
+function bodyMentionsOurLocation(rawBody: string): boolean {
+  const matches = rawBody.matchAll(/"location(?:Id|_id)"\s*:\s*"?(\d+)"?/g);
+  for (const m of matches) {
+    if (OUR_QU_LOCATION_IDS.has(m[1])) return true;
+  }
+  return false;
+}
+
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
