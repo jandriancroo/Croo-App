@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Cale
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { format } from 'date-fns';
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 
 // Widget size types
 export type WidgetSize = 'small' | 'medium' | 'large';
