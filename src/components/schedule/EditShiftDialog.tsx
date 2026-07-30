@@ -195,14 +195,18 @@ export function EditShiftDialog({
         if (offerError) throw offerError;
       }
 
-      // If exactly one day is selected and it differs from the shift's current day,
-      // this is a MOVE: persist the new day_of_week + shift_date.
-      const isSingleDayMove =
-        selectedDays.length === 1 && selectedDays[0] !== shift.day_of_week;
-      const movedDayOfWeek = isSingleDayMove ? selectedDays[0] : shift.day_of_week;
-      const movedShiftDate = isSingleDayMove
-        ? format(addDays(currentWeekStart, selectedDays[0]), "yyyy-MM-dd")
-        : shift.shift_date;
+      // The Date picker (editDate) is the source of truth for the shift's day.
+      // If it changed, this is a MOVE: persist both shift_date and day_of_week.
+      const originalDateStr =
+        shift.shift_date || format(addDays(currentWeekStart, shift.day_of_week), "yyyy-MM-dd");
+      const isDateMove = editDate !== originalDateStr;
+      const movedShiftDate = isDateMove ? editDate : originalDateStr;
+      // day_of_week on desktop is an offset from the visible week start (0 = Monday).
+      const movedDayOfWeek = isDateMove
+        ? differenceInCalendarDays(new Date(editDate + "T12:00:00"), currentWeekStart)
+        : shift.day_of_week;
+      const isSingleDayMove = isDateMove;
+
 
       // Update the current shift
       const { error: updateError } = await supabase
