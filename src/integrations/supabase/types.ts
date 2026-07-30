@@ -12880,6 +12880,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_applications_by_email: {
+        Args: { _email: string }
+        Returns: {
+          conversation_access_token: string
+          full_name: string
+          id: string
+          location_name: string
+          organization_brand_name: string
+          organization_logo_url: string
+          organization_name: string
+          status: Database["public"]["Enums"]["application_status"]
+          submitted_at: string
+        }[]
+      }
       get_chat_unread_counts: {
         Args: { _location_id: string; _user_id: string }
         Returns: Json
