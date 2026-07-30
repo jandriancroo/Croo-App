@@ -53,15 +53,18 @@ async function drainQueue() {
     if (fetchError) throw fetchError;
 
     if (!tasks || tasks.length === 0) {
-      return new Response(JSON.stringify({ processed: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return;
     }
 
     console.log(`[QUEUE] Processing ${tasks.length} tasks`);
     const results: { id: string; task_type: string; status: string; error?: string }[] = [];
 
     for (const task of tasks) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        console.log(`[QUEUE] Time budget reached — deferring ${tasks.length - results.length} task(s) to next tick`);
+        break;
+      }
+
       // Mark as processing
       await supabase
         .from("maintenance_queue")
@@ -102,17 +105,11 @@ async function drainQueue() {
       }
     }
 
-    return new Response(JSON.stringify({ processed: results.length, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log(`[QUEUE] Done: processed ${results.length}`);
   } catch (error) {
     console.error("[QUEUE] Fatal error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   }
-});
+}
 
 // ============================================================================
 // TASK ROUTER
