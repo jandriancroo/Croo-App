@@ -518,9 +518,24 @@ async function handleSetPassword(req: Request, supabaseAdmin: any, requestingUse
     throw new Error("userId and password are required");
   }
 
-  if (password.length < 6) {
-    throw new Error("Password must be at least 6 characters");
+  if (password.length < 10) {
+    throw new Error("Password must be at least 10 characters");
   }
+
+  const weak = [
+    /^(.)\1+$/,                    // all same character
+    /^(?:0123|1234|2345|3456|4567|5678|6789|abcd|qwer)/i,
+  ];
+  const commonWords = /(password|croohq|welcome|letmein|qwerty|123456)/i;
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(password)).length;
+
+  if (classes < 3) {
+    throw new Error("Password must include at least three of: lowercase, uppercase, number, symbol");
+  }
+  if (commonWords.test(password) || weak.some((r) => r.test(password))) {
+    throw new Error("Password is too easily guessable — choose something less predictable");
+  }
+
 
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
 
