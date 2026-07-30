@@ -7,4 +7,7 @@ export const FEATURE_FLAGS = {
   // KDS (Live KDS Board, Fresh KDS integration, KDS dashboard metrics)
   // Archived — code is kept intact, just not surfaced. Flip to true to restore.
   KDS_ENABLED: false,
+  // OPUS LMS integration (settings card, background sync, training tasks)
+  // Archived — code kept intact, just not surfaced. Flip to true to restore.
+  OPUS_ENABLED: false,
 } as const;

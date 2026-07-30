@@ -839,12 +839,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           connected={!!ovationIntegration && !!ovationMapping && ((ovationIntegration as any)?.is_active ?? true)}
           onEdit={() => setEditingIntegration('ovation')}
         />
-        <IntegrationCard
-          title="OPUS LMS"
-          description="Training & learning modules"
-          connected={!!opusIntegration?.is_active}
-          onEdit={() => setEditingIntegration('opus')}
-        />
+        {FEATURE_FLAGS.OPUS_ENABLED && (
+          <IntegrationCard
+            title="OPUS LMS"
+            description="Training & learning modules"
+            connected={!!opusIntegration?.is_active}
+            onEdit={() => setEditingIntegration('opus')}
+          />
+        )}
         <IntegrationCard
           title="Clover POS"
           description="Orders & payments (Playa Bowls)"
