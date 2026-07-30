@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
