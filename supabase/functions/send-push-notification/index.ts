@@ -824,10 +824,11 @@ const handler = async (req: Request): Promise<Response> => {
                       title: formattedContent.title,
                       body: formattedContent.body,
                     },
-                    data: Object.keys(payloadData).reduce((acc, key) => {
-                      acc[key] = String(payloadData[key]);
+                    data: Object.entries(payloadData as Record<string, unknown>).reduce((acc, [key, value]) => {
+                      acc[key] = String(value);
                       return acc;
                     }, {} as Record<string, string>),
+
                     apns: {
                       payload: {
                         aps: {
