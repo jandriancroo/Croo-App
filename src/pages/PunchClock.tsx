@@ -720,44 +720,22 @@ export default function PunchClock() {
       return;
     }
 
-    // PRIMARY PATH: privacy-safe lookup. The RPC runs inside the database and
-    // returns only id / full_name / profile_photo_url — never wage, phone,
-    // birthday, address or the PIN itself. Requires the employee to belong to
-    // this kiosk's location.
+    // Privacy-safe lookup. The RPC runs inside the database and returns only
+    // id / full_name / profile_photo_url — never wage, phone, birthday, email
+    // or the PIN itself. The kiosk has no direct read access to those columns.
     let data: any = null;
     let error: any = null;
 
-    if (currentLocation?.id) {
-      const rpc = await (supabase as any).rpc('punch_clock_lookup_pin', {
-        _pin: pinValue,
-        _location_id: currentLocation.id,
-      });
-      if (!rpc.error && rpc.data && rpc.data.length > 0) {
-        data = rpc.data[0];
-      } else if (rpc.error) {
-        console.warn('[PunchClock] Secure PIN lookup errored, falling back:', rpc.error.message);
-      }
+    const rpc = await (supabase as any).rpc('punch_clock_lookup_pin', {
+      _pin: pinValue,
+      _location_id: currentLocation?.id ?? null,
+    });
+    if (rpc.error) {
+      error = rpc.error;
+    } else if (rpc.data && rpc.data.length > 0) {
+      data = rpc.data[0];
     }
 
-    // FALLBACK PATH (temporary): the original direct table lookup. Kept so a
-    // kiosk can never be locked out while the secure path is being validated.
-    // Remove this block — and the anon SELECT policy on profiles — once a live
-    // tap-in has been confirmed on a real device.
-    if (!data) {
-      const legacy = await supabase
-        .from('profiles')
-        .select('id, full_name, profile_photo_url')
-        .eq('employee_pin', pinValue)
-        .eq('is_active', true)
-        .maybeSingle();
-      data = legacy.data;
-      error = legacy.error;
-      if (data) {
-        console.warn('[PunchClock] Resolved PIN via LEGACY fallback path');
-      }
-    } else {
-      console.log('[PunchClock] Resolved PIN via secure RPC path');
-    }
 
     if (error || !data) {
       // Log failed attempt with shift-based guessing
