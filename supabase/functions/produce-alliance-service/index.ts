@@ -3231,6 +3231,12 @@ serve(async (req) => {
     const action = body.action || 'test';
     console.log('[PA Service] Action:', action, 'locationId:', body.locationId);
 
+    const PRIVILEGED_PA_ACTIONS = ['save_credentials', 'list_pending_scrapes', 'debug', 'explore'];
+    if (PRIVILEGED_PA_ACTIONS.includes(action)) {
+      const adminDenied = await requireAuthorizedCaller(req, corsHeaders, { minRole: 'admin' });
+      if (adminDenied) return adminDenied;
+    }
+
     switch (action) {
       case 'test': return await handleTest(supabase, body);
       case 'items': return await handleItems(supabase, body);

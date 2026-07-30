@@ -3510,6 +3510,14 @@ serve(async (req) => {
 
     console.log('[PFG Service] Action:', action || 'fetch');
 
+    // Credential-bearing actions require admin (service-role / cron callers
+    // already passed the guard above and are exempt).
+    const PRIVILEGED_PFG_ACTIONS = ['test_ropc', 'save_pfg_credentials', 'list_active_integrations', 'save_token', 'oauth_exchange'];
+    if (action && PRIVILEGED_PFG_ACTIONS.includes(action)) {
+      const adminDenied = await requireAuthorizedCaller(req, corsHeaders, { minRole: 'admin' });
+      if (adminDenied) return adminDenied;
+    }
+
     switch (action) {
       case 'test_ropc': {
         // Test ROPC with real credentials for a specific location
