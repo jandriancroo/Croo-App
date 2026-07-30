@@ -608,7 +608,7 @@ serve(async (req) => {
         });
     }
   } catch (error: unknown) {
-    console.error('[user-service] Error:', error);
+    console.error('[user-service v2] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     // Auth failures must surface as 401/403 so smoke checks and callers can
     // distinguish "not allowed" from "bad request".
