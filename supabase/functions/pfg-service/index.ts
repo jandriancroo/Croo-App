@@ -1236,7 +1236,7 @@ async function syncRecentInvoices(
   console.log(`[PFG Invoice Sync] location=${integration.location_id} orders=${(orders ?? []).length} unique_invoices=${refs.size}`);
 
   if (refs.size === 0) {
-    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0 };
+    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: 0, novelInvoices: 0, pricesStamped: 0, backfillStamped: 0 };
   }
 
   const tokenResult = await getValidAccessToken(
@@ -1248,7 +1248,7 @@ async function syncRecentInvoices(
   );
   if (!tokenResult) {
     console.warn('[PFG Invoice Sync] no token — skipping');
-    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: refs.size, novelInvoices: 0 };
+    return { invoicesProcessed: 0, invoicesUpserted: 0, failed: refs.size, novelInvoices: 0, pricesStamped: 0, backfillStamped: 0 };
   }
   const accessToken = tokenResult.accessToken;
   const customerId = integration.credentials.customer_id || '';

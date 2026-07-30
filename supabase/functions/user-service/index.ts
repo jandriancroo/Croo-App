@@ -610,9 +610,15 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error('[user-service] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    // Auth failures must surface as 401/403 so smoke checks and callers can
+    // distinguish "not allowed" from "bad request".
+    const authFailures = ['Missing authorization header', 'Invalid token', 'Unauthorized'];
+    const forbidden = errorMessage.toLowerCase().includes('admin');
+    const status = authFailures.includes(errorMessage) ? 401 : forbidden ? 403 : 400;
     return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 400,
+      status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
 });
