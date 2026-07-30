@@ -14,7 +14,7 @@ import { chromium } from 'playwright';
 
 const PA_BASE_URL = 'https://producealliance.info';
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY, LOCATION_FILTER } = process.env;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, LOCATION_FILTER, CRON_SECRET } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY');

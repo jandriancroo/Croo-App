@@ -10,7 +10,7 @@
  *   SUPABASE_ANON_KEY - Supabase anon key
  */
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, CRON_SECRET } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY');

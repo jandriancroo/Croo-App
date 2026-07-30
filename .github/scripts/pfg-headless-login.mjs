@@ -19,7 +19,7 @@ const PFG_CLIENT_ID = 'c68e7fae-80a1-42db-bd89-3fb37d1224a2';
 const PFG_REDIRECT_URI = 'https://www.customerfirstsolutions.com';
 
 // ── Environment ─────────────────────────────────────────────────
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, CRON_SECRET } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY');
