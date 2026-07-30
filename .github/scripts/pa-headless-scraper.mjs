@@ -35,6 +35,7 @@ async function fetchPendingOrders() {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
       },
       body: JSON.stringify({ action: 'list_pending_scrapes' }),
     }
@@ -260,6 +261,7 @@ async function processLocation(browser, location) {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
           },
           body: JSON.stringify({
             action: 'headless_login_failed',
@@ -296,6 +298,7 @@ async function processLocation(browser, location) {
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
               },
               body: JSON.stringify({
                 action: 'save_scraped_order',
@@ -354,6 +357,7 @@ async function fetchAllPALocations() {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
       },
       body: JSON.stringify({ action: 'list_catalog_locations' }),
     }
@@ -637,6 +641,7 @@ async function processCatalogLocation(browser, location) {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
           },
           body: JSON.stringify({
             action: 'save_catalog',

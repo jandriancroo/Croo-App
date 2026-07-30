@@ -35,6 +35,7 @@ async function main() {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
         },
         body: JSON.stringify({ brandId }),
       }
@@ -62,6 +63,7 @@ async function main() {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
           },
           body: JSON.stringify({
             action: 'create_support_ticket',
