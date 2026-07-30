@@ -237,9 +237,11 @@ export function EditShiftDialog({
       });
 
 
-      // If multiple days selected, create/update shifts for other days
-      for (const dayIndex of selectedDays) {
-        if (dayIndex === shift.day_of_week) continue; // Skip current day
+      // If multiple days selected, create/update shifts for other days.
+      // Skipped entirely for a single-day move (the shift itself was relocated above).
+      for (const dayIndex of isSingleDayMove ? [] : selectedDays) {
+        if (dayIndex === movedDayOfWeek) continue; // Skip current day
+
 
         const shiftDate = format(addDays(currentWeekStart, dayIndex), "yyyy-MM-dd");
         
