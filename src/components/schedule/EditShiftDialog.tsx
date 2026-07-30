@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, addDays, subDays } from "date-fns";
+import { format, addDays, subDays, differenceInCalendarDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
 import { ArrowUp, Trash2, AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, Coffee } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
