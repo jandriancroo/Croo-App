@@ -93,6 +93,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const auth = await requireCaller(req, corsHeaders);
+  if ("response" in auth) return auth.response;
+
   try {
     const payload = await req.json();
     const { type, to } = payload;
