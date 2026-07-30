@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { LocationProvider, useLocation as useAppLocation } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import { DockToastProvider } from "@/contexts/DockToastContext";
 import { DiagnosticMode } from "@/components/DiagnosticMode";
