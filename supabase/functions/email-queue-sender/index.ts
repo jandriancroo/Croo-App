@@ -1,9 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'https://esm.sh/resend@2.0.0'
+import { requireInternalCaller } from '../_shared/callerAuth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 Deno.serve(async (req) => {
@@ -11,10 +12,15 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Cron / service-to-service only.
+  const denied = requireInternalCaller(req, corsHeaders)
+  if (denied) return denied
+
   // Ack the cron tick immediately and drain in the background. Draining inline
   // could exceed the worker wall-clock limit, which the edge surfaced as a 502
   // on every scheduled invocation.
   const work = drainEmailQueue()
+
   // @ts-ignore — EdgeRuntime.waitUntil is available in the Supabase edge runtime
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
     // @ts-ignore
