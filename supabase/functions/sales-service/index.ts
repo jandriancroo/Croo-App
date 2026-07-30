@@ -607,12 +607,16 @@ async function handleSyncLive(supabase: any): Promise<Response> {
   // V4: Get ONE global token for all locations
   const tokenGw = await authenticateV4();
   if (!tokenGw) {
-    console.error('[sales-service] V4 authentication failed, aborting sync');
-    return new Response(JSON.stringify({ error: 'V4 authentication failed' }), {
-      status: 502,
+    // sync-live is cron-driven every ~6 minutes. A failed auth means we skip
+    // this tick, not that the endpoint is broken — returning 5xx here made
+    // every transient Qu blip look like an edge function outage.
+    console.error('[sales-service] V4 authentication failed, skipping this sync tick');
+    return new Response(JSON.stringify({ skipped: true, reason: 'qu_auth_failed' }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
+
 
   for (const integration of integrations) {
     const locationId = integration.location_id;
