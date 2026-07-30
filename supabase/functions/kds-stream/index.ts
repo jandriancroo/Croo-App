@@ -57,6 +57,14 @@ serve(async (req) => {
     });
   }
 
+  // Archived: ack instantly, no parsing, no logging, no DB writes.
+  if (!KDS_ENABLED) {
+    return new Response(JSON.stringify({ received: true, disabled: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // Supabase client is created inside the background processor to avoid
   // blocking the fast ack path.
 
