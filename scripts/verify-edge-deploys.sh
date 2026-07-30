@@ -31,7 +31,10 @@ GUARDED=(
   inventory-availability-sweep
   inventory-inner-pack-backfill
   inventory-snapshot-backfill
+  labor-service
+  fetch-qubeyond-sales
   labor-intelligence
+
   maintenance-queue-processor
   ovation-service
   pfg-service

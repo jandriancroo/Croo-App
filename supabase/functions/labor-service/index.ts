@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireCaller } from '../_shared/callerAuth.ts';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -637,7 +639,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Require a real caller: service role (cron/edge-to-edge) or a signature-
+  // verified session — a logged-in manager OR a paired punch-clock device.
+  const authed = await requireCaller(req, corsHeaders);
+  if ('response' in authed) return authed.response;
+
   try {
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
