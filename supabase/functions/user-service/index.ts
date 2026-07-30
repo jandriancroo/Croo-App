@@ -570,7 +570,7 @@ serve(async (req) => {
     });
 
     const authHeader = req.headers.get("Authorization");
-    const requestingUserId = getRequestingUserId(authHeader);
+    const requestingUserId = await getRequestingUserId(supabaseAdmin, authHeader);
 
     console.log(`[user-service] Action: ${action}, RequestedBy: ${requestingUserId}`);
 
