@@ -97,10 +97,16 @@ async function handleAnalyzeApplication(payload: any) {
   if (workHistory.length === 0 && application.resume_url) {
     console.log('No work history, parsing resume:', application.resume_url);
     try {
-      const resumeResponse = await fetch(application.resume_url);
-      if (resumeResponse.ok) {
-        const contentType = resumeResponse.headers.get('content-type') || 'application/pdf';
-        const arrayBuffer = await resumeResponse.arrayBuffer();
+      // The resumes bucket is PRIVATE — download through the service-role
+      // storage client instead of hitting a (no longer valid) public URL.
+      const resumePath = application.resume_url.split('/resumes/')[1];
+      const resumeResponse = resumePath
+        ? await supabase.storage.from('resumes').download(decodeURIComponent(resumePath))
+        : { data: null, error: new Error('Unparseable resume path') };
+      if (resumeResponse.data) {
+        const blob = resumeResponse.data as Blob;
+        const contentType = blob.type || 'application/pdf';
+        const arrayBuffer = await blob.arrayBuffer();
         const base64 = btoa(new Uint8Array(arrayBuffer).reduce((d, b) => d + String.fromCharCode(b), ''));
 
         const parseData = await callAI(
