@@ -58,8 +58,9 @@ interface LocationResult {
 }
 
 async function syncOneLocation(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   loc: { id: string; name: string; credentials: any },
+
 ): Promise<Omit<LocationResult, "location_id" | "location_name">> {
   const startedAt = Date.now();
   const productListHeaderId = loc.credentials?.product_list_header_id;
@@ -139,15 +140,16 @@ async function syncOneLocation(
       ]);
 
       const pfgSkuToTemplate = new Map<string, string>();
-      for (const m of mappingRes.data || []) {
-        if (m.vendor_item_id) pfgSkuToTemplate.set(m.vendor_item_id, m.brand_template_id);
+      for (const m of (mappingRes.data || []) as any[]) {
+        if (m.vendor_item_id) pfgSkuToTemplate.set(String(m.vendor_item_id), m.brand_template_id);
       }
       const byItemNumber = new Map<string, any>();
       const byBrandItemId = new Map<string, any>();
-      for (const i of itemsRes.data || []) {
-        if (i.item_number) byItemNumber.set(i.item_number, i);
-        if (i.brand_item_id) byBrandItemId.set(i.brand_item_id, i);
+      for (const i of (itemsRes.data || []) as any[]) {
+        if (i.item_number) byItemNumber.set(String(i.item_number), i);
+        if (i.brand_item_id) byBrandItemId.set(String(i.brand_item_id), i);
       }
+
 
       let itemsUpdated = 0;
       const now = new Date().toISOString();

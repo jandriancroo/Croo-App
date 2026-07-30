@@ -409,11 +409,11 @@ Deno.serve(async (req) => {
     const overrideApplied = !!ov && (ov.outer_qty != null || ov.outer_type != null || ov.inner_qty != null || ov.inner_type != null);
     const lookup: ParsedPack = overrideApplied ? {
       outer_qty: ov!.outer_qty ?? parsed.outer_qty,
-      outer_type: ov!.outer_type ?? parsed.outer_type,
       inner_qty: ov!.inner_qty ?? parsed.inner_qty,
       inner_type: ov!.inner_type ?? parsed.inner_type,
       common_unit: ov!.inner_type ?? parsed.common_unit,
     } : parsed;
+
 
     const matches = matchConfigs(pair.brand_template_id, lookup);
     if (matches.length === 0) {
@@ -462,7 +462,7 @@ Deno.serve(async (req) => {
       source: chosen.source, vendor_item_id: chosen.vendor_item_id,
       pack_string: chosen.pack_size || undefined, parsed,
       matched_config_ids: matches.map((m: any) => m.id),
-      default_config_id: preferred,
+      default_config_id: preferred ?? undefined,
       multi_match: true,
     });
   }

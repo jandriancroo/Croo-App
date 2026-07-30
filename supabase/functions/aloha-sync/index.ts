@@ -743,8 +743,8 @@ async function syncOneDay(
 
       const weeklyBreakdown = (weekRows || []).map((r: any) => ({ date: r.sale_date, sales: Number(r.net_sales) || 0 }));
       const monthlyBreakdown = (monthRows || []).map((r: any) => ({ date: r.sale_date, sales: Number(r.net_sales) || 0 }));
-      const weeklySales = weeklyBreakdown.reduce((s, r) => s + r.sales, 0);
-      const monthlySales = monthlyBreakdown.reduce((s, r) => s + r.sales, 0);
+      const weeklySales = weeklyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
+      const monthlySales = monthlyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
 
       const provisionalDaily =
         (hist.fourWeekAverage?.avgDailyByDayOfWeek.find(
@@ -864,7 +864,7 @@ Deno.serve(async (req) => {
         .eq("is_active", true);
       if (error) throw new Error(`fan-out lookup failed: ${error.message}`);
 
-      const bwwLocations = (integrations ?? []).filter(
+      const bwwLocations: any[] = ((integrations ?? []) as any[]).filter(
         (i: any) => i.locations?.organizations?.brand_id === BWW_GO_BRAND_ID,
       );
       const results: any[] = [];

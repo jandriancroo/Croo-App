@@ -495,8 +495,8 @@ async function syncOneDay(
       const monthlyBreakdown = (monthRows || []).map((r: any) => ({
         date: r.sale_date, sales: Number(r.net_sales) || 0,
       }));
-      const weeklySales = weeklyBreakdown.reduce((s, r) => s + r.sales, 0);
-      const monthlySales = monthlyBreakdown.reduce((s, r) => s + r.sales, 0);
+      const weeklySales = weeklyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
+      const monthlySales = monthlyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
 
       // Provisional daily projection to shape hourly curve, then run pace.
       const provisionalDaily =
@@ -615,7 +615,7 @@ Deno.serve(async (req) => {
         .eq("is_active", true);
       if (error) throw new Error(`fan-out lookup failed: ${error.message}`);
 
-      const playaLocations = (integrations ?? []).filter(
+      const playaLocations: any[] = ((integrations ?? []) as any[]).filter(
         (i: any) => i.locations?.organizations?.brand_id === PLAYA_BOWLS_BRAND_ID,
       );
       const results: any[] = [];
