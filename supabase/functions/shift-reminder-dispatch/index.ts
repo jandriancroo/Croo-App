@@ -18,6 +18,23 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Ack the cron tick immediately and dispatch in the background. Doing the
+  // scan + per-user push sends inline could exceed the wall-clock limit, which
+  // the edge surfaced as a 502 on every scheduled invocation.
+  const work = dispatchReminders();
+  // @ts-ignore — EdgeRuntime.waitUntil is available in the Supabase edge runtime
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(work);
+  }
+
+  return new Response(JSON.stringify({ accepted: true }), {
+    status: 202,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+});
+
+async function dispatchReminders() {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -40,7 +57,7 @@ serve(async (req) => {
       if (sErr) throw sErr;
 
       // Pull tz per location
-      const locationIds = [...new Set((shifts || []).map((s: any) => s.schedules.location_id))];
+      const locationIds = [...new Set(((shifts || []) as any[]).map((s: any) => s.schedules.location_id))];
       const { data: settings } = await supabase
         .from("location_settings")
         .select("location_id, timezone")
@@ -53,7 +70,7 @@ serve(async (req) => {
       const targetMsMin = now + (REMINDER_MINUTES - WINDOW_MINUTES) * 60 * 1000;
       const targetMsMax = now + (REMINDER_MINUTES + WINDOW_MINUTES) * 60 * 1000;
 
-      for (const s of shifts || []) {
+      for (const s of ((shifts || []) as any[])) {
         const tz = tzMap.get(s.schedules.location_id) || "America/Los_Angeles";
         // Compute the UTC instant of `shift_date T start_time` interpreted in `tz`.
         const localIso = `${s.shift_date}T${s.start_time}`;
@@ -73,9 +90,7 @@ serve(async (req) => {
     }
 
     if (rows.length === 0) {
-      return new Response(JSON.stringify({ ok: true, sent: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return;
     }
 
     // Filter out shifts already logged
@@ -125,17 +140,11 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, sent, candidates: rows.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log(`[shift-reminder] sent ${sent}/${rows.length}`);
   } catch (e: any) {
     console.error("[shift-reminder] error:", e);
-    return new Response(JSON.stringify({ error: e?.message || String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   }
-});
+}
 
 // Convert "YYYY-MM-DDTHH:MM:SS" interpreted in `tz` into a UTC ms timestamp.
 function zonedDateTimeToUtcMs(localIso: string, tz: string): number {

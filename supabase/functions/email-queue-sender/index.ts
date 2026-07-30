@@ -11,16 +11,32 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Ack the cron tick immediately and drain in the background. Draining inline
+  // could exceed the worker wall-clock limit, which the edge surfaced as a 502
+  // on every scheduled invocation.
+  const work = drainEmailQueue()
+  // @ts-ignore — EdgeRuntime.waitUntil is available in the Supabase edge runtime
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(work)
+  }
+
+  return new Response(JSON.stringify({ accepted: true }), {
+    status: 202,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+})
+
+async function drainEmailQueue() {
+  const startedAt = Date.now()
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
 
   if (!resendApiKey) {
     console.error('[email-queue-sender] RESEND_API_KEY not configured')
-    return new Response(
-      JSON.stringify({ error: 'RESEND_API_KEY not configured' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -46,10 +62,7 @@ Deno.serve(async (req) => {
     }
 
     if (!queue || queue.length === 0) {
-      return new Response(
-        JSON.stringify({ message: 'No pending emails', sent: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return
     }
 
     console.log(`[email-queue-sender] Processing ${queue.length} queued emails`)
@@ -58,6 +71,11 @@ Deno.serve(async (req) => {
     let errorCount = 0
 
     for (const item of queue) {
+      // Leave headroom before the runtime kills the worker; the rest rolls to the next tick.
+      if (Date.now() - startedAt > 100_000) {
+        console.log('[email-queue-sender] Time budget reached — deferring remaining items to next tick')
+        break
+      }
       try {
         // Filter out bounced email addresses
         const bouncedAddresses = await supabase
@@ -171,16 +189,9 @@ Deno.serve(async (req) => {
 
     console.log(`[email-queue-sender] Done: ${sentCount} sent, ${errorCount} errors`)
 
-    return new Response(
-      JSON.stringify({ message: `Processed ${queue.length} emails`, sent: sentCount, errors: errorCount }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return
 
   } catch (error: any) {
     console.error('[email-queue-sender] Fatal error:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
   }
-})
+}

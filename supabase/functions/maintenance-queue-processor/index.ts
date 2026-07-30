@@ -9,12 +9,33 @@ const corsHeaders = {
 
 const BATCH_SIZE = 5;
 const MAX_RETRIES = 3;
+// Stop pulling new work before the edge runtime kills the worker, so the tick
+// ends cleanly and the rest of the queue rolls over to the next cron run.
+const TIME_BUDGET_MS = 100_000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Acknowledge the cron tick immediately; drain the queue in the background.
+  // Doing the drain inline made long batches exceed the wall-clock limit, which
+  // the edge surfaced as a 502 on every scheduled invocation.
+  const work = drainQueue();
+  // @ts-ignore — EdgeRuntime.waitUntil is available in the Supabase edge runtime
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(work);
+  }
+
+  return new Response(JSON.stringify({ accepted: true }), {
+    status: 202,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+});
+
+async function drainQueue() {
+  const startedAt = Date.now();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -32,15 +53,18 @@ Deno.serve(async (req) => {
     if (fetchError) throw fetchError;
 
     if (!tasks || tasks.length === 0) {
-      return new Response(JSON.stringify({ processed: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return;
     }
 
     console.log(`[QUEUE] Processing ${tasks.length} tasks`);
     const results: { id: string; task_type: string; status: string; error?: string }[] = [];
 
     for (const task of tasks) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        console.log(`[QUEUE] Time budget reached — deferring ${tasks.length - results.length} task(s) to next tick`);
+        break;
+      }
+
       // Mark as processing
       await supabase
         .from("maintenance_queue")
@@ -81,17 +105,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ processed: results.length, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log(`[QUEUE] Done: processed ${results.length}`);
   } catch (error) {
     console.error("[QUEUE] Fatal error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   }
-});
+}
 
 // ============================================================================
 // TASK ROUTER
