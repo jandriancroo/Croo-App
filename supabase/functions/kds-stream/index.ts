@@ -18,6 +18,10 @@ const corsHeaders = {
 
 const STORE_TIME_ZONE = "America/Los_Angeles";
 
+// KDS is archived. While false, this webhook acks with 200 and writes nothing.
+// Flip to true (and re-enable the frontend KDS_ENABLED flag) to restore.
+const KDS_ENABLED = false;
+
 // Map Qu location IDs to our store IDs
 const QU_LOCATION_MAP: Record<number, string> = {
   5280: "5280", // Palm Springs
