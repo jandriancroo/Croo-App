@@ -181,11 +181,15 @@ serve(async (req) => {
       // Search for relevant knowledge
       const { location_id, query } = body;
       if (!location_id || !query) {
-        return new Response(JSON.stringify({ error: "Missing location_id or query" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return deny(400, "Missing location_id or query");
       }
+      // Reads are allowed for any user with access to that location.
+      const { data: hasLoc } = await supabaseUser.rpc("has_location_access", {
+        _user_id: user.id,
+        _location_id: location_id,
+      });
+      if (hasLoc !== true) return deny(403, "Forbidden");
+
 
       // Generate embedding for the query
       const queryEmbedding = await generateEmbedding(query);
