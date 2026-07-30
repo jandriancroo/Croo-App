@@ -411,8 +411,19 @@ export function ManagerDashboardOverlay({
       const userIds = activeUsers.map(u => u.userId);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, profile_photo_url, hourly_wage')
+        .select('id, full_name, profile_photo_url')
         .in('id', userIds);
+
+      // Wages are no longer readable directly from profiles by the kiosk
+      // (unauthenticated PII protection). Use the security-definer helper,
+      // which returns only { user_id, hourly_wage } for the given users.
+      const { data: wageRows } = await (supabase as any).rpc('get_current_wages_batch', {
+        p_user_ids: userIds,
+        p_date: todayStr,
+      });
+      const wageMap = new Map<string, number>(
+        (wageRows || []).map((w: any) => [w.user_id, Number(w.hourly_wage)])
+      );
 
       // Get today's shifts for positions and start/end times
       const { data: shifts } = await supabase
@@ -422,6 +433,7 @@ export function ManagerDashboardOverlay({
         .in('user_id', userIds);
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
       const shiftMap = new Map((shifts || []).map(s => [s.user_id, { 
         position: s.template?.position, 
         startTime: s.template?.start_time,
@@ -440,7 +452,7 @@ export function ManagerDashboardOverlay({
           breakStartTime: u.breakStartTime,
           breakType: u.breakType,
           position: shiftInfo?.position || undefined,
-          hourlyWage: profile?.hourly_wage || 16, // Default to $16/hr if not set
+          hourlyWage: wageMap.get(u.userId) || 16, // Default to $16/hr if not set
           scheduledStartTime: shiftInfo?.startTime || undefined,
           scheduledEndTime: shiftInfo?.endTime || undefined,
         } as ActiveShift;
