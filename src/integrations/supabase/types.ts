@@ -13065,6 +13065,14 @@ export type Database = {
         Returns: number
       }
       prune_visual_alert_queue: { Args: never; Returns: undefined }
+      punch_clock_lookup_pin: {
+        Args: { _location_id: string; _pin: string }
+        Returns: {
+          full_name: string
+          id: string
+          profile_photo_url: string
+        }[]
+      }
       punch_device_location: { Args: { _user_id: string }; Returns: string }
       purge_old_client_debug_logs: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }
