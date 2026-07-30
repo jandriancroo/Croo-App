@@ -21,7 +21,7 @@ interface DmPanelProps {
   initialChatId?: string | null;
 }
 
-export function DmPanel({ open, onOpenChange }: DmPanelProps) {
+export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
   const data = useMessagesData();
   const isMobile = useIsMobile();
   const {
