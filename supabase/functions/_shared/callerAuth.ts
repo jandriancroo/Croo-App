@@ -61,3 +61,32 @@ export async function requireCaller(
   }
   return { caller };
 }
+
+/**
+ * Guard for internal-only endpoints (cron ticks, database triggers,
+ * service-to-service invokes). These are never called from the browser, so a
+ * plain end-user token is NOT enough — the caller must present either the
+ * service role key or the shared CRON_SECRET (`x-cron-secret` header).
+ *
+ * Returns `null` when the caller is authorized, otherwise a 401 Response.
+ */
+export function requireInternalCaller(
+  req: Request,
+  corsHeaders: Record<string, string>,
+): Response | null {
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const providedCronSecret = req.headers.get("x-cron-secret");
+
+  const isService = !!SERVICE_ROLE_KEY && bearer === SERVICE_ROLE_KEY;
+  const isCron = !!cronSecret && providedCronSecret === cronSecret;
+
+  if (isService || isCron) return null;
+
+  return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    status: 401,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
