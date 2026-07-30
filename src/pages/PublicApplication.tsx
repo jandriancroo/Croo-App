@@ -441,12 +441,12 @@ export default function PublicApplication() {
         }));
         console.log('Work history payload:', workHistoryPayload);
         
-        const { error: workError, data: workData } = await supabase
+        const { error: workError } = await supabase
           .from('job_application_work_history')
-          .insert(workHistoryPayload)
-          .select();
+          .insert(workHistoryPayload);
 
-        console.log('Work history insert result:', { workData, workError });
+        console.log('Work history insert result:', { workError });
+
         if (workError) console.error('Work history error:', workError);
       } else {
         console.log('No valid work history to insert');
