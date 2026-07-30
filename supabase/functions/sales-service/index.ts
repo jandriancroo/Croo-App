@@ -64,24 +64,27 @@ function isWithinBusinessHours(
 // V4 OAuth2 Authentication (replaces legacy scraping auth)
 // ============================================================================
 
-async function authenticateV4(): Promise<string | null> {
-  const clientId = Deno.env.get('QU_USERNAME');
-  const clientSecret = Deno.env.get('QU_PASSWORD');
+// Cached token — the Qu OAuth2 token is valid far longer than one cron tick,
+// so re-minting it on every invocation was both slow and a needless chance to fail.
+let cachedV4Token: { token: string; expiresAt: number } | null = null;
+const V4_TOKEN_TTL_MS = 45 * 60 * 1000;
+const V4_AUTH_ATTEMPTS = 3;
 
-  if (!clientId || !clientSecret) {
-    console.error('[sales-service] Missing QU_USERNAME or QU_PASSWORD env vars');
-    return null;
-  }
+async function fetchV4Token(clientId: string, clientSecret: string): Promise<string | null> {
+  const formData = new FormData();
+  formData.append('grant_type', 'client_credentials');
+  formData.append('client_id', clientId);
+  formData.append('client_secret', clientSecret);
+
+  // Don't let a hung Qu endpoint burn the whole worker wall-clock budget.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
 
   try {
-    const formData = new FormData();
-    formData.append('grant_type', 'client_credentials');
-    formData.append('client_id', clientId);
-    formData.append('client_secret', clientSecret);
-
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token', {
       method: 'POST',
       body: formData,
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -96,14 +99,49 @@ async function authenticateV4(): Promise<string | null> {
       console.error('[sales-service] No access_token in OAuth2 response');
       return null;
     }
-
-    console.log('[sales-service] V4 OAuth2 auth OK');
     return token;
   } catch (error) {
     console.error('[sales-service] V4 OAuth2 error:', error);
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
+
+async function authenticateV4(): Promise<string | null> {
+  const clientId = Deno.env.get('QU_USERNAME');
+  const clientSecret = Deno.env.get('QU_PASSWORD');
+
+  if (!clientId || !clientSecret) {
+    console.error('[sales-service] Missing QU_USERNAME or QU_PASSWORD env vars');
+    return null;
+  }
+
+  if (cachedV4Token && Date.now() < cachedV4Token.expiresAt) {
+    return cachedV4Token.token;
+  }
+
+  // A single transient blip on Qu's OAuth endpoint used to abort the entire
+  // sync run. Retry with backoff before giving up on the tick.
+  for (let attempt = 1; attempt <= V4_AUTH_ATTEMPTS; attempt++) {
+    const token = await fetchV4Token(clientId, clientSecret);
+    if (token) {
+      cachedV4Token = { token, expiresAt: Date.now() + V4_TOKEN_TTL_MS };
+      console.log(`[sales-service] V4 OAuth2 auth OK (attempt ${attempt})`);
+      return token;
+    }
+    if (attempt < V4_AUTH_ATTEMPTS) {
+      const backoff = 500 * Math.pow(2, attempt - 1);
+      console.warn(`[sales-service] V4 auth attempt ${attempt} failed, retrying in ${backoff}ms`);
+      await new Promise((r) => setTimeout(r, backoff));
+    }
+  }
+
+  cachedV4Token = null;
+  console.error(`[sales-service] V4 OAuth2 auth failed after ${V4_AUTH_ATTEMPTS} attempts`);
+  return null;
+}
+
 
 function getV4Headers(accessToken: string): Record<string, string> {
   return {
