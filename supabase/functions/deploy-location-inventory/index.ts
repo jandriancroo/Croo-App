@@ -2,17 +2,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders } from "https://deno.land/x/edge_cors@0.2.1/src/cors.ts";
 import { isInventoryEnabled, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
+import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS });
   }
+
+  // Bulk template deployment — admins (or service/cron) only.
+  const denied = await requireAuthorizedCaller(req, CORS, { minRole: "admin" });
+  if (denied) return denied;
 
   try {
     const { locationId, brandId, templateId, sourceLocationId } = await req.json();
