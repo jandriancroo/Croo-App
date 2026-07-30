@@ -3178,7 +3178,7 @@ async function handleScrapeAllCatalogs(supabase: any, _body: any): Promise<Respo
 
 // (Original loop kept below for reference inside the headless workflow if ever re-enabled.)
 async function _handleScrapeAllCatalogs_disabled(supabase: any, _body: any): Promise<Response> {
-
+  const { data: integrations } = await supabase
     .from('location_integrations')
     .select('location_id, credentials')
     .eq('integration_type', 'produce_alliance')
