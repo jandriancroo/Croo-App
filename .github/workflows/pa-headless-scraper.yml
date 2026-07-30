@@ -33,5 +33,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           LOCATION_FILTER: ${{ github.event.inputs.location_filter }}
         run: node .github/scripts/pa-headless-scraper.mjs
