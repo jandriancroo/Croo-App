@@ -2228,7 +2228,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Require a real caller: service role (cron/edge-to-edge) or a signature-
+  // verified session — a logged-in manager OR a paired punch-clock device.
+  const authed = await requireCaller(req, corsHeaders);
+  if ('response' in authed) return authed.response;
+
   try {
+
     const { locationId, targetDate, testCredentials, skipProjections } = await req.json().catch(() => ({}));
     
     let credentials: QuBeyondCredentials;
