@@ -107,10 +107,36 @@ serve(async (req) => {
     const body = await req.json();
     const action = body.action;
 
+    const deny = (status: number, error: string) =>
+      new Response(JSON.stringify({ error }), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+    // The DB client below uses the service role (needed for vector RPC), so RLS
+    // does NOT apply. Enforce role + location scoping explicitly here.
+    const requireManagerAtLocation = async (locationId: string | null) => {
+      if (!locationId) return deny(400, "Missing location_id");
+      const { data: isManager, error: roleErr } = await supabaseUser.rpc("has_role_or_higher", {
+        _user_id: user.id,
+        _minimum_role: "manager",
+      });
+      if (roleErr || isManager !== true) return deny(403, "Forbidden");
+      const { data: hasLoc, error: locErr } = await supabaseUser.rpc("has_location_access", {
+        _user_id: user.id,
+        _location_id: locationId,
+      });
+      if (locErr || hasLoc !== true) return deny(403, "Forbidden");
+      return null;
+    };
+
     if (action === "save") {
       // Save knowledge with embedding
       const { location_id, content, topic } = body;
+      const guard = await requireManagerAtLocation(location_id);
+      if (guard) return guard;
       if (!location_id || !content) {
+
         return new Response(JSON.stringify({ error: "Missing location_id or content" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
