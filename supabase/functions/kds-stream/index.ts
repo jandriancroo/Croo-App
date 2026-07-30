@@ -18,6 +18,10 @@ const corsHeaders = {
 
 const STORE_TIME_ZONE = "America/Los_Angeles";
 
+// KDS is archived. While false, this webhook acks with 200 and writes nothing.
+// Flip to true (and re-enable the frontend KDS_ENABLED flag) to restore.
+const KDS_ENABLED = false;
+
 // Map Qu location IDs to our store IDs
 const QU_LOCATION_MAP: Record<number, string> = {
   5280: "5280", // Palm Springs
@@ -49,6 +53,14 @@ serve(async (req) => {
   // Accept GET for health checks (Qu may ping the URL to verify)
   if (req.method === "GET") {
     return new Response(JSON.stringify({ status: "ok", service: "kds-stream" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Archived: ack instantly, no parsing, no logging, no DB writes.
+  if (!KDS_ENABLED) {
+    return new Response(JSON.stringify({ received: true, disabled: true }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
