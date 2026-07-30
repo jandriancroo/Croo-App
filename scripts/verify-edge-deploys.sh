@@ -21,10 +21,17 @@ GUARDED=(
   alert-push-sender
   aloha-service
   auth-email-hook
+  auto-punch-out
   clover-service
+  deploy-location-inventory
+  document-validation
   email-batch-sender
   email-queue-sender
   hiring-email-service
+  inventory-availability-sweep
+  inventory-inner-pack-backfill
+  inventory-snapshot-backfill
+  labor-intelligence
   maintenance-queue-processor
   ovation-service
   pfg-service
@@ -36,6 +43,7 @@ GUARDED=(
   send-push-notification
   user-service
 )
+
 
 fail=0
 
