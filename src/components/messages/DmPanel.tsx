@@ -66,6 +66,14 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
     }
   }, [open, setSelectedChatId, setSelectedHiringConversation]);
 
+  // Deep link: when opened with a target chat id, jump straight into that thread.
+  useEffect(() => {
+    if (open && initialChatId) {
+      setStep('dms');
+      setSelectedChatId(initialChatId);
+    }
+  }, [open, initialChatId, setSelectedChatId]);
+
   const current = steps[stepIdx] ?? steps[0];
   const Icon = current.icon;
 
