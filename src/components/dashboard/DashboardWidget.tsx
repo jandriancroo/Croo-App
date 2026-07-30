@@ -259,7 +259,7 @@ export function migrateMetricType(metric: string): MetricType {
 }
 
 // Consistent order across all time periods - only includes non-hidden metrics (no "x" from CSV)
-export const METRIC_GROUPS = [
+const RAW_METRIC_GROUPS = [
   { 
     label: 'Personal', 
     metrics: [
