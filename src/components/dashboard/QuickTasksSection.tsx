@@ -9,6 +9,7 @@ import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { PinMigrationTask } from '@/components/dashboard/PinMigrationTask';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
+import { FEATURE_FLAGS } from '@/config/featureFlags';
 
 interface QuickTasksSectionProps {
   locationSettings: { hours_open: string; hours_close: string } | null | undefined;
@@ -29,7 +30,7 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
         <PinMigrationTask />
         <PendingDocumentsCard />
         <I9UploadCard />
-        <OpusBackgroundSync />
+        {FEATURE_FLAGS.OPUS_ENABLED && <OpusBackgroundSync />}
         <AssignedTemporaryTasks
           compact
           includeEventTasks
