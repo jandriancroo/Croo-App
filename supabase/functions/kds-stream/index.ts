@@ -63,9 +63,22 @@ serve(async (req) => {
     return new Response("OK", { status: 200, headers: corsHeaders });
   }
 
+  // Qu streams events for EVERY location in the company (hundreds of stores),
+  // but only the ids in QU_LOCATION_MAP belong to us. Cheaply reject the rest
+  // from the raw text before doing any logging, JSON parsing or DB writes —
+  // otherwise ~99% of the worker's CPU budget is spent persisting other
+  // people's orders, which is what was killing workers mid-request (502s).
+  if (!bodyMentionsOurLocation(rawBody)) {
+    return new Response(JSON.stringify({ received: true, skipped: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // ACKNOWLEDGE IMMEDIATELY, then process asynchronously via EdgeRuntime.waitUntil.
   // This prevents 504/503 timeouts at the Cloudflare edge when DB writes are slow.
   const processInBackground = async () => {
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
