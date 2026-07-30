@@ -80,12 +80,20 @@ serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Auth check
+    // Auth check — REQUIRED. Either the service role key (server-to-server)
+    // or a valid, signature-verified end-user token.
     const authHeader = req.headers.get("Authorization");
-    const token = authHeader?.replace("Bearer ", "");
+    const token = authHeader?.replace(/^Bearer\s+/i, "").trim();
     let userId: string | null = null;
 
-    if (token && token !== SUPABASE_SERVICE_ROLE_KEY) {
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (token !== SUPABASE_SERVICE_ROLE_KEY) {
       const { data: { user }, error } = await supabase.auth.getUser(token);
       if (error || !user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -95,6 +103,7 @@ serve(async (req) => {
       }
       userId = user.id;
     }
+
 
     const body = await req.json();
     const action = body.action;

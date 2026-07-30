@@ -201,33 +201,39 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                         const url = application.resume_url;
                         const extension = url.split('.').pop()?.toLowerCase() || '';
                         const isViewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extension);
-                        const fileName = url.split('/').pop() || 'resume';
-                        
-                        if (isViewable) {
-                          return (
-                            <a 
-                              href={url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline flex items-center gap-1"
-                            >
-                              View Resume <ExternalLink className="h-3 w-3" />
-                            </a>
-                          );
-                        }
-                        
+
+                        // The resumes bucket is private — mint a short-lived
+                        // signed URL on click instead of linking a public URL.
+                        const openResume = async () => {
+                          const path = url.split('/resumes/')[1];
+                          if (!path) {
+                            toast.error('Resume link is invalid');
+                            return;
+                          }
+                          const { data, error } = await supabase.storage
+                            .from('resumes')
+                            .createSignedUrl(decodeURIComponent(path), 300);
+                          if (error || !data?.signedUrl) {
+                            toast.error('Could not open resume');
+                            return;
+                          }
+                          window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                        };
+
                         return (
-                          <a 
-                            href={url}
-                            download={fileName}
+                          <button
+                            type="button"
+                            onClick={openResume}
                             className="text-primary hover:underline flex items-center gap-1"
                           >
-                            Download Resume ({extension.toUpperCase()}) <ExternalLink className="h-3 w-3" />
-                          </a>
+                            {isViewable ? 'View Resume' : `Download Resume (${extension.toUpperCase()})`}
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
                         );
                       })()}
                     </div>
                   )}
+
                   <p className="text-xs text-muted-foreground pt-2">
                     Applied {format(new Date(application.submitted_at), 'MMMM d, yyyy \'at\' h:mm a')}
                   </p>

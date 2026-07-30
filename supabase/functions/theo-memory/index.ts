@@ -107,10 +107,36 @@ serve(async (req) => {
     const body = await req.json();
     const action = body.action;
 
+    const deny = (status: number, error: string) =>
+      new Response(JSON.stringify({ error }), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+    // The DB client below uses the service role (needed for vector RPC), so RLS
+    // does NOT apply. Enforce role + location scoping explicitly here.
+    const requireManagerAtLocation = async (locationId: string | null) => {
+      if (!locationId) return deny(400, "Missing location_id");
+      const { data: isManager, error: roleErr } = await supabaseUser.rpc("has_role_or_higher", {
+        _user_id: user.id,
+        _minimum_role: "manager",
+      });
+      if (roleErr || isManager !== true) return deny(403, "Forbidden");
+      const { data: hasLoc, error: locErr } = await supabaseUser.rpc("has_location_access", {
+        _user_id: user.id,
+        _location_id: locationId,
+      });
+      if (locErr || hasLoc !== true) return deny(403, "Forbidden");
+      return null;
+    };
+
     if (action === "save") {
       // Save knowledge with embedding
       const { location_id, content, topic } = body;
+      const guard = await requireManagerAtLocation(location_id);
+      if (guard) return guard;
       if (!location_id || !content) {
+
         return new Response(JSON.stringify({ error: "Missing location_id or content" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -155,11 +181,15 @@ serve(async (req) => {
       // Search for relevant knowledge
       const { location_id, query } = body;
       if (!location_id || !query) {
-        return new Response(JSON.stringify({ error: "Missing location_id or query" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return deny(400, "Missing location_id or query");
       }
+      // Reads are allowed for any user with access to that location.
+      const { data: hasLoc } = await supabaseUser.rpc("has_location_access", {
+        _user_id: user.id,
+        _location_id: location_id,
+      });
+      if (hasLoc !== true) return deny(403, "Forbidden");
+
 
       // Generate embedding for the query
       const queryEmbedding = await generateEmbedding(query);
@@ -204,6 +234,13 @@ serve(async (req) => {
 
     if (action === "list") {
       const { location_id } = body;
+      if (!location_id) return deny(400, "Missing location_id");
+      const { data: hasLoc } = await supabaseUser.rpc("has_location_access", {
+        _user_id: user.id,
+        _location_id: location_id,
+      });
+      if (hasLoc !== true) return deny(403, "Forbidden");
+
       const { data, error } = await supabaseUser
         .from("theo_knowledge")
         .select("id, topic, content, created_at, created_by")
@@ -219,6 +256,19 @@ serve(async (req) => {
 
     if (action === "delete") {
       const { id } = body;
+      if (!id) return deny(400, "Missing id");
+
+      // Resolve the row's location first, then enforce manager+ access to it.
+      const { data: row } = await supabaseUser
+        .from("theo_knowledge")
+        .select("id, location_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (!row) return deny(404, "Not found");
+
+      const guard = await requireManagerAtLocation(row.location_id);
+      if (guard) return guard;
+
       const { error } = await supabaseUser
         .from("theo_knowledge")
         .delete()
@@ -229,6 +279,7 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
