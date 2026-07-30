@@ -824,12 +824,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           isLoading={paIsLoading}
           onEdit={() => setEditingIntegration('pa')}
         />
-        <IntegrationCard
-          title="Fresh KDS"
-          description="Ticket times & order stats"
-          connected={kdsConnected}
-          onEdit={() => setEditingIntegration('kds')}
-        />
+        {FEATURE_FLAGS.KDS_ENABLED && (
+          <IntegrationCard
+            title="Fresh KDS"
+            description="Ticket times & order stats"
+            connected={kdsConnected}
+            onEdit={() => setEditingIntegration('kds')}
+          />
+        )}
         <IntegrationCard
           title="OvationUp"
           description="Guest reviews & feedback"
