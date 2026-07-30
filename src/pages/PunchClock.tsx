@@ -681,7 +681,7 @@ export default function PunchClock() {
       
       const { data: scheduledShifts } = await supabase
         .from('scheduled_shifts')
-        .select('user_id, profiles!inner(id, full_name, employee_pin)')
+        .select('user_id, profiles!inner(id, full_name)')
         .eq('shift_date', today)
         .gte('start_time', twoHoursBefore)
         .lte('start_time', twoHoursAfter);
