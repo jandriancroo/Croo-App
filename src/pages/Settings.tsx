@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
+import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio, Loader2, FileText } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
