@@ -57,7 +57,7 @@ async function dispatchReminders() {
       if (sErr) throw sErr;
 
       // Pull tz per location
-      const locationIds = [...new Set((shifts || []).map((s: any) => s.schedules.location_id))];
+      const locationIds = [...new Set(((shifts || []) as any[]).map((s: any) => s.schedules.location_id))];
       const { data: settings } = await supabase
         .from("location_settings")
         .select("location_id, timezone")
@@ -70,7 +70,7 @@ async function dispatchReminders() {
       const targetMsMin = now + (REMINDER_MINUTES - WINDOW_MINUTES) * 60 * 1000;
       const targetMsMax = now + (REMINDER_MINUTES + WINDOW_MINUTES) * 60 * 1000;
 
-      for (const s of shifts || []) {
+      for (const s of ((shifts || []) as any[])) {
         const tz = tzMap.get(s.schedules.location_id) || "America/Los_Angeles";
         // Compute the UTC instant of `shift_date T start_time` interpreted in `tz`.
         const localIso = `${s.shift_date}T${s.start_time}`;
