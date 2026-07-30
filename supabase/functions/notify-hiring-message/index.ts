@@ -118,13 +118,33 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: "No email on file" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const chatUrl = `https://croohq.com/hiring-chat/${conversation.access_token}`;
-    const preview = messageContent ? messageContent.substring(0, 200) : "(no preview)";
-    const sender = senderName || "a hiring manager";
+    const escapeHtml = (v: unknown) =>
+      String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    const safeHttpsUrl = (v: unknown) => {
+      try {
+        const u = new URL(String(v));
+        return u.protocol === 'https:' ? escapeHtml(u.toString()) : '';
+      } catch {
+        return '';
+      }
+    };
 
-    const logoHtml = logoUrl
-      ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:44px;max-width:140px;border-radius:6px;"/>`
+    const chatUrl = `https://croohq.com/hiring-chat/${encodeURIComponent(conversation.access_token)}`;
+    const preview = messageContent ? escapeHtml(String(messageContent).substring(0, 200)) : "(no preview)";
+    const sender = escapeHtml(senderName || "a hiring manager");
+    const safeOrgName = escapeHtml(orgName);
+    const safeFirstName = escapeHtml(firstName);
+    const safeLogoUrl = safeHttpsUrl(logoUrl);
+
+    const logoHtml = safeLogoUrl
+      ? `<img src="${safeLogoUrl}" alt="${safeOrgName}" style="max-height:44px;max-width:140px;border-radius:6px;"/>`
       : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:36px;"/>`;
+
 
     const subject = `New message from ${orgName}`;
 
