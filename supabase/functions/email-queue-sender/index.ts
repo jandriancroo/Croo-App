@@ -71,6 +71,11 @@ async function drainEmailQueue() {
     let errorCount = 0
 
     for (const item of queue) {
+      // Leave headroom before the runtime kills the worker; the rest rolls to the next tick.
+      if (Date.now() - startedAt > 100_000) {
+        console.log('[email-queue-sender] Time budget reached — deferring remaining items to next tick')
+        break
+      }
       try {
         // Filter out bounced email addresses
         const bouncedAddresses = await supabase
@@ -188,6 +193,5 @@ async function drainEmailQueue() {
 
   } catch (error: any) {
     console.error('[email-queue-sender] Fatal error:', error)
-    return
   }
-})
+}

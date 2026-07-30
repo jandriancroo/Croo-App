@@ -58,6 +58,11 @@ async function drainAlertQueue() {
     let errorCount = 0
 
     for (const item of queue) {
+      // Leave headroom before the runtime kills the worker; the rest rolls to the next tick.
+      if (Date.now() - startedAt > 100_000) {
+        console.log('[alert-push-sender] Time budget reached — deferring remaining items to next tick')
+        break
+      }
       try {
         const payload = item.payload as any
 
@@ -112,9 +117,8 @@ async function drainAlertQueue() {
 
   } catch (error: any) {
     console.error('[alert-push-sender] Fatal error:', error)
-    return
   }
-})
+}
 
 // ==================== ALARM ALERT HANDLER ====================
 // Alarms need dynamic user resolution (clocked-in filtering, role expansion)
