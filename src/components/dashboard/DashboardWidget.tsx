@@ -314,6 +314,16 @@ const RAW_METRIC_GROUPS = [
   },
 ];
 
+// KDS metrics are archived behind a feature flag — hidden from pickers when off.
+export const METRIC_GROUPS = RAW_METRIC_GROUPS
+  .map(g => ({
+    ...g,
+    metrics: FEATURE_FLAGS.KDS_ENABLED
+      ? g.metrics
+      : g.metrics.filter(m => !String(m).startsWith('kds_')),
+  }))
+  .filter(g => g.metrics.length > 0);
+
 export interface SalesDataForWidgets {
   daily?: number;
   weekly?: number;
