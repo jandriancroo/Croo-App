@@ -1,10 +1,11 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireInternalCaller } from "../_shared/callerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 const BATCH_SIZE = 5;
@@ -17,6 +18,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Cron / service-to-service only.
+  const denied = requireInternalCaller(req, corsHeaders);
+  if (denied) return denied;
+
+
 
   // Acknowledge the cron tick immediately; drain the queue in the background.
   // Doing the drain inline made long batches exceed the wall-clock limit, which
