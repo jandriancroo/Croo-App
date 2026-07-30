@@ -19,7 +19,7 @@ const PFG_CLIENT_ID = 'c68e7fae-80a1-42db-bd89-3fb37d1224a2';
 const PFG_REDIRECT_URI = 'https://www.customerfirstsolutions.com';
 
 // ── Environment ─────────────────────────────────────────────────
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, CRON_SECRET } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY');
@@ -168,6 +168,7 @@ async function loginLocation(browser, { locationId, username, password }) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
         },
         body: JSON.stringify({
           locationId,
@@ -206,6 +207,7 @@ async function main() {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
       },
       body: JSON.stringify({}),
     }
@@ -257,6 +259,7 @@ async function main() {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
           },
           body: JSON.stringify({
             locationId: f.locationId,

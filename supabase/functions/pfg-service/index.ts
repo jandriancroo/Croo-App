@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isInventoryEnabled, filterEnabledLocations, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
+import { requireAuthorizedCaller } from '../_shared/callerAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 // ============================================================================
@@ -3489,6 +3490,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const denied = await requireAuthorizedCaller(req, corsHeaders, {});
+  if (denied) return denied;
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -3505,6 +3509,14 @@ serve(async (req) => {
     }
 
     console.log('[PFG Service] Action:', action || 'fetch');
+
+    // Credential-bearing actions require admin (service-role / cron callers
+    // already passed the guard above and are exempt).
+    const PRIVILEGED_PFG_ACTIONS = ['test_ropc', 'save_pfg_credentials', 'list_active_integrations', 'save_token', 'oauth_exchange'];
+    if (action && PRIVILEGED_PFG_ACTIONS.includes(action)) {
+      const adminDenied = await requireAuthorizedCaller(req, corsHeaders, { minRole: 'admin' });
+      if (adminDenied) return adminDenied;
+    }
 
     switch (action) {
       case 'test_ropc': {

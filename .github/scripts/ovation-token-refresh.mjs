@@ -10,7 +10,7 @@
  *   SUPABASE_ANON_KEY - Supabase anon key
  */
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, CRON_SECRET } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('❌ Missing SUPABASE_URL or SUPABASE_ANON_KEY');
@@ -35,6 +35,7 @@ async function main() {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
         },
         body: JSON.stringify({ brandId }),
       }
@@ -62,6 +63,7 @@ async function main() {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-cron-secret': CRON_SECRET,
           },
           body: JSON.stringify({
             action: 'create_support_ticket',

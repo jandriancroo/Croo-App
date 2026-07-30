@@ -38,6 +38,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: node .github/scripts/pfg-headless-login.mjs
 
   sync-pa-catalog:
@@ -50,12 +51,14 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           echo "🍅 Syncing PA catalog via edge function (no browser needed)..."
           RESPONSE=$(curl -s -w "\n%{http_code}" \
             -X POST "$SUPABASE_URL/functions/v1/produce-alliance-service" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "x-cron-secret: $CRON_SECRET" \
             -d '{"action":"scrape_all_catalogs"}')
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)

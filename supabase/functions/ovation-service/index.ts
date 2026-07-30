@@ -1,10 +1,11 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireAuthorizedCaller } from '../_shared/callerAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 const OVATION_API = 'https://api.ovationup.com/app-services/v2'
@@ -17,6 +18,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
+
+  const denied = await requireAuthorizedCaller(req, corsHeaders, { minRole: 'admin' });
+  if (denied) return denied;
 
   const url = new URL(req.url)
   let action = url.searchParams.get('action') || ''

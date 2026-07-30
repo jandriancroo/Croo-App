@@ -2,10 +2,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { isInventoryEnabled, filterEnabledLocations, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
+import { requireAuthorizedCaller } from '../_shared/callerAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // ============================================================================
@@ -3177,7 +3178,7 @@ async function handleScrapeAllCatalogs(supabase: any, _body: any): Promise<Respo
 
 // (Original loop kept below for reference inside the headless workflow if ever re-enabled.)
 async function _handleScrapeAllCatalogs_disabled(supabase: any, _body: any): Promise<Response> {
-
+  const { data: integrations } = await supabase
     .from('location_integrations')
     .select('location_id, credentials')
     .eq('integration_type', 'produce_alliance')
@@ -3216,6 +3217,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const denied = await requireAuthorizedCaller(req, corsHeaders, {});
+  if (denied) return denied;
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -3226,6 +3230,12 @@ serve(async (req) => {
 
     const action = body.action || 'test';
     console.log('[PA Service] Action:', action, 'locationId:', body.locationId);
+
+    const PRIVILEGED_PA_ACTIONS = ['save_credentials', 'list_pending_scrapes', 'debug', 'explore'];
+    if (PRIVILEGED_PA_ACTIONS.includes(action)) {
+      const adminDenied = await requireAuthorizedCaller(req, corsHeaders, { minRole: 'admin' });
+      if (adminDenied) return adminDenied;
+    }
 
     switch (action) {
       case 'test': return await handleTest(supabase, body);
