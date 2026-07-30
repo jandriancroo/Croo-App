@@ -1,0 +1,1 @@
+TRUNCATE TABLE public.kds_stream_events;
