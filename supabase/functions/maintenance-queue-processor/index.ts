@@ -9,12 +9,33 @@ const corsHeaders = {
 
 const BATCH_SIZE = 5;
 const MAX_RETRIES = 3;
+// Stop pulling new work before the edge runtime kills the worker, so the tick
+// ends cleanly and the rest of the queue rolls over to the next cron run.
+const TIME_BUDGET_MS = 100_000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Acknowledge the cron tick immediately; drain the queue in the background.
+  // Doing the drain inline made long batches exceed the wall-clock limit, which
+  // the edge surfaced as a 502 on every scheduled invocation.
+  const work = drainQueue();
+  // @ts-ignore — EdgeRuntime.waitUntil is available in the Supabase edge runtime
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(work);
+  }
+
+  return new Response(JSON.stringify({ accepted: true }), {
+    status: 202,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+});
+
+async function drainQueue() {
+  const startedAt = Date.now();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
