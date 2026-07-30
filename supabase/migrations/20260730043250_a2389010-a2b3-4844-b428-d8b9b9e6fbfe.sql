@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_notify_feed_post_push ON public.announcement_posts;

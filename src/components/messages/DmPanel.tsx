@@ -17,9 +17,11 @@ type Step = 'dms' | 'hiring' | 'support';
 interface DmPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Deep link target (e.g. from a push notification): opens straight into this chat. */
+  initialChatId?: string | null;
 }
 
-export function DmPanel({ open, onOpenChange }: DmPanelProps) {
+export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
   const data = useMessagesData();
   const isMobile = useIsMobile();
   const {
@@ -63,6 +65,14 @@ export function DmPanel({ open, onOpenChange }: DmPanelProps) {
       setSelectedHiringConversation(null);
     }
   }, [open, setSelectedChatId, setSelectedHiringConversation]);
+
+  // Deep link: when opened with a target chat id, jump straight into that thread.
+  useEffect(() => {
+    if (open && initialChatId) {
+      setStep('dms');
+      setSelectedChatId(initialChatId);
+    }
+  }, [open, initialChatId, setSelectedChatId]);
 
   const current = steps[stepIdx] ?? steps[0];
   const Icon = current.icon;

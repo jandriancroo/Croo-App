@@ -531,7 +531,7 @@ async function recommendOrder(supabase: any, itemId: string, asOfDate: string) {
   let perDay: { date: string; dow: number; forecast: number }[] = [];
 
   if (usageModel === "par_based" && item.par_level != null) {
-    forecastQty = Number(item.par_level) - (projectedOnHand ?? 0);
+    forecastQty = Number(item.par_level); // on-hand subtracted once below in `raw`
     shapeSource = "par_based";
   } else if (usageModel === "sales_linked" && rate?.weekly_usage_level) {
     // trend factor
@@ -831,7 +831,7 @@ async function recommendBatchOptimized(
     let perDay: { date: string; dow: number; forecast: number }[] = [];
 
     if (usageModel === "par_based" && item.par_level != null) {
-      forecastQty = Number(item.par_level) - (projectedOnHand ?? 0);
+      forecastQty = Number(item.par_level); // on-hand subtracted once below in `raw`
       shapeSource = "par_based";
     } else if (usageModel === "sales_linked" && rate?.weekly_usage_level) {
       const projectedWeekTotal = coverageDates.reduce((sum, date) => {

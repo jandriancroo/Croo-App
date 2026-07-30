@@ -25,10 +25,10 @@ export default function Messages() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Deep link from push notification: /messages?chat=<id> → open DM panel to that chat.
+  const chatParam = searchParams.get('chat');
   useEffect(() => {
-    const chatParam = searchParams.get('chat');
     if (chatParam) setDmOpen(true);
-  }, [searchParams]);
+  }, [chatParam]);
 
   return (
     <Layout>
@@ -71,7 +71,7 @@ export default function Messages() {
         />
       </div>
 
-      <DmPanel open={dmOpen} onOpenChange={setDmOpen} />
+      <DmPanel open={dmOpen} onOpenChange={setDmOpen} initialChatId={chatParam} />
     </Layout>
   );
 }
