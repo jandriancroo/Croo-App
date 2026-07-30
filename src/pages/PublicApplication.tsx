@@ -398,10 +398,15 @@ export default function PublicApplication() {
       const utmSource = searchParams.get('utm_source') || 'direct';
       const listingId = searchParams.get('listing') || null;
 
-      // Insert main application
-      const { data: application, error: appError } = await supabase
+      // Insert main application.
+      // The id is generated client-side because anonymous applicants no longer
+      // have read access to job_applications (PII protection) — so we cannot
+      // use .select() to read the inserted row back.
+      const applicationId = crypto.randomUUID();
+      const { error: appError } = await supabase
         .from('job_applications')
         .insert({
+          id: applicationId,
           template_id: selectedTemplate,
           organization_id: organization.id,
           location_id: selectedLocation || null,
@@ -413,11 +418,11 @@ export default function PublicApplication() {
           custom_responses: customResponses,
           source: utmSource,
           job_listing_id: listingId,
-        } as any)
-        .select()
-        .single();
+        } as any);
 
       if (appError) throw appError;
+      const application = { id: applicationId };
+
 
       // Insert work history
       const validWorkHistory = workHistory.filter(w => w.employer_name.trim());
@@ -436,12 +441,12 @@ export default function PublicApplication() {
         }));
         console.log('Work history payload:', workHistoryPayload);
         
-        const { error: workError, data: workData } = await supabase
+        const { error: workError } = await supabase
           .from('job_application_work_history')
-          .insert(workHistoryPayload)
-          .select();
+          .insert(workHistoryPayload);
 
-        console.log('Work history insert result:', { workData, workError });
+        console.log('Work history insert result:', { workError });
+
         if (workError) console.error('Work history error:', workError);
       } else {
         console.log('No valid work history to insert');
