@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
@@ -191,8 +191,23 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
               )}
             </div>
           </div>
+          {canManage && (
+            <button
+              type="button"
+              aria-label="Post options"
+              className="shrink-0 -mr-1 -mt-1 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-background/70 hover:text-foreground transition-colors"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActionsOpen((o) => !o);
+              }}
+            >
+              <MoreHorizontal className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </header>
+
 
       {/* Actions popover (long-press) */}
       {canManage && (
