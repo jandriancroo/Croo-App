@@ -195,6 +195,15 @@ export function EditShiftDialog({
         if (offerError) throw offerError;
       }
 
+      // If exactly one day is selected and it differs from the shift's current day,
+      // this is a MOVE: persist the new day_of_week + shift_date.
+      const isSingleDayMove =
+        selectedDays.length === 1 && selectedDays[0] !== shift.day_of_week;
+      const movedDayOfWeek = isSingleDayMove ? selectedDays[0] : shift.day_of_week;
+      const movedShiftDate = isSingleDayMove
+        ? format(addDays(currentWeekStart, selectedDays[0]), "yyyy-MM-dd")
+        : shift.shift_date;
+
       // Update the current shift
       const { error: updateError } = await supabase
         .from("scheduled_shifts")
@@ -204,6 +213,9 @@ export function EditShiftDialog({
           user_id: selectedUserId === "unassigned" ? null : selectedUserId,
           template_id: position || null,
           breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
+          ...(isSingleDayMove
+            ? { day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
+            : {}),
         } as any)
         .eq("id", shift.id);
 
@@ -218,11 +230,12 @@ export function EditShiftDialog({
           ...old,
           shifts: old.shifts.map((s: any) =>
             s.id === shift.id
-              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template }
+              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template, day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
               : s
           ),
         };
       });
+
 
       // If multiple days selected, create/update shifts for other days
       for (const dayIndex of selectedDays) {
