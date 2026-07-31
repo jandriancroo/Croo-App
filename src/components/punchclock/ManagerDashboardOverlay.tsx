@@ -1244,14 +1244,14 @@ export function ManagerDashboardOverlay({
                         <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Labor</h3>
                         <div className="mt-2 flex items-end gap-2">
                           <span className={`text-3xl font-bold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
-                            {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
+                            {(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
                           </span>
                           <span className={`pb-1 text-xs ${laborStatus === 'good' ? 'text-emerald-500/80' : laborStatus === 'warning' ? 'text-amber-500/80' : 'text-red-500/80'}`}>
                             {laborStatus === 'good' ? 'on target' : laborStatus === 'warning' ? 'watching' : 'over target'}
                           </span>
                         </div>
                         <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
+                          {formatCurrency(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
                         </p>
                       </div>
                         <div className={`rounded-full p-2 ${isDayMode ? 'bg-white' : 'bg-neutral-900/60'}`}>
