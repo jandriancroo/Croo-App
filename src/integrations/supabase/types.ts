@@ -12766,9 +12766,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_get_employee_pin: { Args: { _user_id: string }; Returns: string }
       admin_set_pending_punch_pin: {
         Args: { p_pin: string; p_target_user_id: string }
         Returns: Json
+      }
+      applicant_send_hiring_message: {
+        Args: { _content: string; _token: string }
+        Returns: string
       }
       assign_user_to_location: {
         Args: { p_location_id: string; p_user_id: string }
@@ -12930,6 +12935,14 @@ export type Database = {
           organization_id: string
         }[]
       }
+      get_punch_pin_for_user: {
+        Args: { _user_id: string }
+        Returns: {
+          pin_pending: string
+          pin_pending_plaintext: string
+          pin_pending_set_at: string
+        }[]
+      }
       get_theo_unread: {
         Args: { p_location_id: string }
         Returns: {
@@ -13065,6 +13078,7 @@ export type Database = {
         Returns: number
       }
       prune_visual_alert_queue: { Args: never; Returns: undefined }
+      punch_clock_get_role: { Args: { _user_id: string }; Returns: string }
       punch_clock_lookup_pin: {
         Args: { _location_id: string; _pin: string }
         Returns: {
