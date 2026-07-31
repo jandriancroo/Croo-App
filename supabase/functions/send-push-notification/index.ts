@@ -767,9 +767,13 @@ const handler = async (req: Request): Promise<Response> => {
               if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`[${userName}] Web push FAILED: ${response.status} - ${errorText}`);
-                // Auto-prune dead subscriptions: 410 Gone = unsubscribed/expired, 404 = not found
-                if (response.status === 410 || response.status === 404) {
-                  console.log(`[${userName}] 🗑️ Pruning dead subscription (${response.status})`);
+                // Auto-prune dead subscriptions: 410 Gone = unsubscribed/expired, 404 = not found.
+                // Also prune VapidPkHashMismatch — the browser subscribed with a different
+                // applicationServerKey than we sign with, so this token can never be delivered.
+                // The client re-subscribes with the server key on next load.
+                const isVapidMismatch = /VapidPkHashMismatch/i.test(errorText);
+                if (response.status === 410 || response.status === 404 || isVapidMismatch) {
+                  console.log(`[${userName}] 🗑️ Pruning unusable subscription (${response.status}${isVapidMismatch ? ' VapidPkHashMismatch' : ''})`);
                   await supabaseClient
                     .from('push_notification_tokens')
                     .delete()
@@ -777,6 +781,7 @@ const handler = async (req: Request): Promise<Response> => {
                 }
                 throw new Error(`Web push failed: ${response.status} - ${errorText}`);
               }
+
 
               
               console.log(`[${userName}] ✅ Web push sent successfully`);
