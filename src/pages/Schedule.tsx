@@ -315,28 +315,34 @@ export default function Schedule() {
                       <Button variant="outline" size="icon"><Wrench className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-background z-[60]">
-                      <DropdownMenuCheckboxItem
-                        checked={isCompactMode}
-                        onCheckedChange={(v) => setIsCompactMode(!!v)}
-                        onSelect={(e) => e.preventDefault()}
-                        className="cursor-pointer"
+                      <DropdownMenuItem
+                        onSelect={(e) => { e.preventDefault(); setIsCompactMode(!isCompactMode); }}
+                        className="cursor-pointer flex items-center justify-between gap-3"
                       >
-                        Compact View
-                        <span className="ml-2 text-[10px] text-muted-foreground">{isCompactMode ? "ON" : "OFF"}</span>
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={!hideTemplatesBar}
-                        onCheckedChange={(v) => {
-                          const next = !v;
+                        <span>Compact View</span>
+                        <Switch checked={isCompactMode} onCheckedChange={(v) => setIsCompactMode(!!v)} className="scale-75" />
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          const next = !hideTemplatesBar;
                           setHideTemplatesBar(next);
                           localStorage.setItem('schedule-hide-templates', String(next));
                         }}
-                        onSelect={(e) => e.preventDefault()}
-                        className="cursor-pointer"
+                        className="cursor-pointer flex items-center justify-between gap-3"
                       >
-                        Drag and Drop UI
-                        <span className="ml-2 text-[10px] text-muted-foreground">{!hideTemplatesBar ? "ON" : "OFF"}</span>
-                      </DropdownMenuCheckboxItem>
+                        <span>Drag and Drop UI</span>
+                        <Switch
+                          checked={!hideTemplatesBar}
+                          onCheckedChange={(v) => {
+                            const next = !v;
+                            setHideTemplatesBar(next);
+                            localStorage.setItem('schedule-hide-templates', String(next));
+                          }}
+                          className="scale-75"
+                        />
+                      </DropdownMenuItem>
+
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
                         <Calendar className="h-4 w-4" />View Availability
