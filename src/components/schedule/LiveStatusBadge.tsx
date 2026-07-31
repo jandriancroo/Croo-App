@@ -115,7 +115,7 @@ export function LiveStatusBadge({
   // State 3: Published with no changes - show "LIVE" badge with status info
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="relative inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 border-2 border-red-500 rounded-md">
+      <div className="relative inline-flex h-7 items-center gap-1.5 px-2.5 bg-red-500/10 border-2 border-red-500 rounded-md">
         <span className="relative flex items-end gap-[2px] h-3">
           <span className="w-[3px] bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
           <span className="w-[3px] bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
