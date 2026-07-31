@@ -130,9 +130,10 @@ function SmartTapPopoverComponent({
               </div>
             </div>
           )}
-          {hasStations && (hasRecent || hasOthers) && (
+          {hasStations && (hasRecent || hasOthers || !!onNewShift) && (
             <div className="w-px bg-border flex-shrink-0" />
           )}
+
           {/* New Shift + Recent column */}
           {(hasRecent || onNewShift) && (
             <div className="min-w-[130px] flex-shrink-0">
