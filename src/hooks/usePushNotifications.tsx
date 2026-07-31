@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/auth';
 import {
   getVapidPublicKey,
   ensureSubscriptionForKey,
-  urlBase64ToUint8Array,
 } from '@/utils/pushVapid';
 
 
