@@ -665,37 +665,32 @@ export default function Schedule() {
               <div className="container max-w-7xl mx-auto px-4 overflow-visible">
                 <LaborTotals shifts={shifts} profiles={profiles} currentWeekStart={currentWeekStart} scheduleId={scheduleId} isEditable={isAdmin || isManager} />
               </div>
+              {!hideTemplatesBar && (
               <div className="bg-card border-t border-border" style={{ touchAction: 'none' }}>
                 <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-auto" style={{ touchAction: 'none' }}>
                   <div className="flex items-start gap-3">
-                    <button
-                      className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap pt-1 text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => { const next = !hideTemplatesBar; setHideTemplatesBar(next); localStorage.setItem('schedule-hide-templates', String(next)); }}
-                    >
-                      <ChevronDown className={`h-3 w-3 transition-transform ${hideTemplatesBar ? 'rotate-180' : ''}`} />
+                    <span className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap pt-1 text-muted-foreground">
                       Templates
-                    </button>
-                    {!hideTemplatesBar && (
-                      <>
-                        {templates.length > 0 ? (
-                          <div className={`flex ${isCompactMode ? 'gap-1 flex-nowrap overflow-x-auto pb-1 pr-4' : 'gap-2 flex-wrap'} flex-1 min-w-0`}>
-                            {templates.map((template) => (
-                              <ShiftCard key={template.id} shift={{ template, isTemplate: true }} isCompactMode={isCompactMode} />
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <p className="text-muted-foreground text-xs">No templates</p>
-                            <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
-                              <Plus className="h-3 w-3 mr-1" />Create
-                            </Button>
-                          </div>
-                        )}
-                      </>
+                    </span>
+                    {templates.length > 0 ? (
+                      <div className={`flex ${isCompactMode ? 'gap-1 flex-nowrap overflow-x-auto pb-1 pr-4' : 'gap-2 flex-wrap'} flex-1 min-w-0`}>
+                        {templates.map((template) => (
+                          <ShiftCard key={template.id} shift={{ template, isTemplate: true }} isCompactMode={isCompactMode} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="text-muted-foreground text-xs">No templates</p>
+                        <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
+                          <Plus className="h-3 w-3 mr-1" />Create
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
+              )}
+
             </div>
           )}
 
