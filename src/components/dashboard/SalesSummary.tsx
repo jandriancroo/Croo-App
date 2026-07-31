@@ -938,14 +938,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         }
 
         // Start interval for periodic refresh while visible
-        visibilityRefreshInterval.current = setInterval(() => {
-          if (document.visibilityState === 'visible' && !isBackgroundRefreshing.current) {
-            isBackgroundRefreshing.current = true;
-            refetch().finally(() => {
-              isBackgroundRefreshing.current = false;
-            });
-          }
-        }, VISIBILITY_REFRESH_INTERVAL);
+        startInterval();
       }
     };
 
@@ -954,14 +947,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     
     // Initial check - if page is already visible, start interval
     if (document.visibilityState === 'visible' && isToday) {
-      visibilityRefreshInterval.current = setInterval(() => {
-        if (document.visibilityState === 'visible' && !isBackgroundRefreshing.current) {
-          isBackgroundRefreshing.current = true;
-          refetch().finally(() => {
-            isBackgroundRefreshing.current = false;
-          });
-        }
-      }, VISIBILITY_REFRESH_INTERVAL);
+      startInterval();
     }
 
     return () => {
@@ -970,7 +956,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         clearInterval(visibilityRefreshInterval.current);
       }
     };
-  }, [currentLocation?.id, isToday, refetch]);
+  }, [currentLocation?.id, isToday, refetch, locationSettings?.hours_open, locationSettings?.hours_close, locationZone]);
+
 
   // Calculate how long ago data was fetched
   const dataAgeText = useMemo(() => {
