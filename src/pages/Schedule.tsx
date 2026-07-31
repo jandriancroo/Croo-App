@@ -368,6 +368,12 @@ export default function Schedule() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
+                  <Button variant="outline" size="sm" onClick={() => setAutoScheduleOpen(true)} className="h-7 gap-1.5 px-2.5">
+                    <Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Croo AI</span>
+                  </Button>
+
+
+
                   {scheduleId && (
                     <LiveStatusBadge
                       isPublished={isPublished}
