@@ -1505,7 +1505,9 @@ export function ManagerDashboardOverlay({
                       </div>
                       <div className="text-right">
                         <Badge className="bg-red-500/30 text-red-500 text-xs">-{cut.minutesCut}m</Badge>
-                        <p className="text-green-500 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
+                        {wagesKnown && (
+                          <p className="text-green-500 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
+                        )}
                       </div>
                     </div>
                   );
