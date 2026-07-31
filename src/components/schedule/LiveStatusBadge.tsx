@@ -114,11 +114,20 @@ export function LiveStatusBadge({
 
   // State 3: Published with no changes - show "LIVE" badge with status info
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-end gap-1">
+      <div className="relative inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 border-2 border-red-500 rounded-md">
+        <span className="relative flex items-end gap-[2px] h-3">
+          <span className="w-[3px] bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+          <span className="w-[3px] bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+          <span className="w-[3px] bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+          <span className="w-[3px] bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+        </span>
+        <span className="font-semibold text-red-500 uppercase tracking-wide text-xs">Live</span>
+      </div>
       {statusInfo && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="text-xs text-muted-foreground hidden md:inline">
+            <span className="text-[10px] text-muted-foreground hidden md:inline leading-none">
               {statusInfo.actionLabel} by {statusInfo.byName}
             </span>
           </TooltipTrigger>
@@ -127,15 +136,7 @@ export function LiveStatusBadge({
           </TooltipContent>
         </Tooltip>
       )}
-      <div className="relative inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border-2 border-red-500 rounded-lg">
-        <span className="relative flex items-end gap-[2px] h-4">
-          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
-          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
-          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
-          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
-        </span>
-        <span className="font-semibold text-red-500 uppercase tracking-wide">Live</span>
-      </div>
     </div>
   );
 }
+
