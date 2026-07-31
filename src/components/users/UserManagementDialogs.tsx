@@ -12,6 +12,7 @@ import { BulkActionsBar } from '@/components/users/BulkActionsBar';
 import { BulkWageUpdateDialog } from '@/components/users/BulkWageUpdateDialog';
 import { I9RequestDialog } from '@/components/users/I9RequestDialog';
 import { Loader2, Camera, Copy, Trash2 } from 'lucide-react';
+import { checkPassword, generateTempPassword, PASSWORD_MIN_LENGTH } from '@/utils/passwordPolicy';
 import { type AppRole } from '@/hooks/useUserRole';
 
 interface UserManagementDialogsProps {
