@@ -139,7 +139,10 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
             </div>
           )}
           <div className={isReorderMode ? 'opacity-85' : ''}>
-            <SalesSummary locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
+            <Suspense fallback={<div className="h-[320px] w-full animate-pulse bg-muted/40" />}>
+              <SalesSummary locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
+            </Suspense>
+
           </div>
         </Card>
       </div>
