@@ -233,7 +233,7 @@ export function useScheduleData() {
         locationUserIds: Array.from(locationUserIds),
       };
     },
-    enabled: !!currentLocation?.id,
+    enabled: !!currentLocation?.id && !roleLoading,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     placeholderData: (previousData) => previousData,
