@@ -880,11 +880,46 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }, [currentLocation?.id, isToday, refetch]);
 
   // Visibility-based auto-refresh: only refresh when dashboard is visible/focused
-  // This prevents unnecessary API calls when user isn't looking at the dashboard
+  // AND the store is within operating hours (+1h grace after close).
+  // Prevents overnight polling of a POS that has nothing new to report.
   useEffect(() => {
     if (!currentLocation?.id) return;
 
     const VISIBILITY_REFRESH_INTERVAL = 3 * 60 * 1000; // 3 minutes - matches cache TTL
+
+    // If hours aren't configured we fall back to always-on (previous behavior).
+    const isWithinOperatingHours = () => {
+      const openStr = locationSettings?.hours_open;
+      const closeStr = locationSettings?.hours_close;
+      if (!openStr || !closeStr) return true;
+
+      const now = DateTime.now().setZone(locationZone);
+      const nowMin = now.hour * 60 + now.minute;
+      const [oh, om] = openStr.split(':').map(Number);
+      const [ch, cm] = closeStr.split(':').map(Number);
+      const openMin = oh * 60 + (om || 0);
+      // 60 min grace after close so end-of-night totals still settle
+      const closeMin = ch * 60 + (cm || 0) + 60;
+
+      // Overnight close (e.g. open 11:00, close 02:00)
+      if (closeMin <= openMin) return nowMin >= openMin || nowMin <= closeMin;
+      return nowMin >= openMin && nowMin <= closeMin;
+    };
+
+    const startInterval = () => {
+      visibilityRefreshInterval.current = setInterval(() => {
+        if (
+          document.visibilityState === 'visible' &&
+          !isBackgroundRefreshing.current &&
+          isWithinOperatingHours()
+        ) {
+          isBackgroundRefreshing.current = true;
+          refetch().finally(() => {
+            isBackgroundRefreshing.current = false;
+          });
+        }
+      }, VISIBILITY_REFRESH_INTERVAL);
+    };
 
     const handleVisibilityChange = () => {
       // Clear any existing interval
@@ -895,6 +930,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
       // If page becomes visible and we're viewing today, start refresh interval
       if (document.visibilityState === 'visible' && isToday) {
+
         // Check if cache is stale (> 3 min) - if fresh, don't refresh yet
         const cached = getCachedLiveSales(currentLocation.id);
         if (!cached?.isFresh) {
