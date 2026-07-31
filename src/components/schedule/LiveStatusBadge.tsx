@@ -114,7 +114,7 @@ export function LiveStatusBadge({
 
   // State 3: Published with no changes - show "LIVE" badge with status info
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="relative flex flex-col items-end">
       <div className="relative inline-flex h-7 items-center gap-1.5 px-2.5 bg-red-500/10 border-2 border-red-500 rounded-md">
         <span className="relative flex items-end gap-[2px] h-3">
           <span className="w-[3px] bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
@@ -127,7 +127,7 @@ export function LiveStatusBadge({
       {statusInfo && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="text-[10px] text-muted-foreground hidden md:inline leading-none">
+            <span className="absolute right-0 top-full mt-1 text-[10px] text-muted-foreground hidden md:inline leading-none whitespace-nowrap">
               {statusInfo.actionLabel} by {statusInfo.byName}
             </span>
           </TooltipTrigger>
@@ -136,6 +136,7 @@ export function LiveStatusBadge({
           </TooltipContent>
         </Tooltip>
       )}
+
     </div>
   );
 }
