@@ -295,11 +295,8 @@ export function useScheduleData() {
         };
       }
 
-      console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
-
       const lastWeekDate = format(addDays(currentWeekStart, -7), 'yyyy-MM-dd');
 
-      const parallelStart = performance.now();
       const [
         shiftsResult, eventsResult, recurringEventsResult, availabilityResult,
         salesResult, holidaysResult, locationSettingsResult, lastWeekScheduleResult
@@ -318,8 +315,6 @@ export function useScheduleData() {
       const lastWeekShiftsResult = lastWeekSchedule?.id
         ? await supabase.from("scheduled_shifts").select("user_id, template_id, shift_date").eq("schedule_id", lastWeekSchedule.id).not("template_id", "is", null)
         : { data: [], error: null };
-
-      console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
 
       if (shiftsResult.error) throw shiftsResult.error;
       // Draft (unpublished) schedules must never be visible to non-managers
@@ -390,17 +385,6 @@ export function useScheduleData() {
           break_coverage_enabled: !!(locationSettingsResult.data as any).break_coverage_enabled,
         };
       }
-
-      const lastBirthdaySync = sessionStorage.getItem('lastBirthdaySyncTime');
-      const now = Date.now();
-      if (!lastBirthdaySync || now - parseInt(lastBirthdaySync) > 300000) {
-        sessionStorage.setItem('lastBirthdaySyncTime', now.toString());
-        supabase.functions.invoke('data-sync-service?action=sync-birthday-events').catch(err =>
-          console.error('Failed to sync birthday holidays:', err)
-        );
-      }
-
-      console.log(`[Schedule] fetchScheduleData completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
 
       setWeeklyTotalSales(totalSales);
       setHolidays(processedHolidays);
