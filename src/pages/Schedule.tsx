@@ -308,10 +308,8 @@ export default function Schedule() {
                 </Badge>
               </div>
               {(isAdmin || isManager) && (
-                <div className="flex items-start gap-1 md:gap-2 flex-shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => setAutoScheduleOpen(true)} className="h-7 gap-1.5 md:gap-2 px-2.5">
-                    <Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Croo AI</span>
-                  </Button>
+                <div className="flex items-start gap-1.5 flex-shrink-0">
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="icon" className="h-7 w-7"><Wrench className="h-4 w-4" /></Button>
@@ -369,6 +367,12 @@ export default function Schedule() {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+
+                  <Button variant="outline" size="sm" onClick={() => setAutoScheduleOpen(true)} className="h-7 gap-1.5 px-2.5">
+                    <Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Croo AI</span>
+                  </Button>
+
+
 
                   {scheduleId && (
                     <LiveStatusBadge
