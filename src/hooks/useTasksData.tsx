@@ -473,7 +473,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
   });
 
   // ─── Event Completions ────────────────────────────────────────
-  const { data: eventCompletions = [] } = useQuery({
+  const { data: rawEventCompletions = [] } = useQuery({
     queryKey: ['event-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     placeholderData: (prev) => prev,
@@ -498,18 +498,6 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
       if (error) throw error;
       if (!completions || completions.length === 0) return [];
 
-      const completerIds = [...new Set(completions.map(c => c.completed_by).filter(Boolean))];
-      let completersMap: Record<string, any> = {};
-      if (completerIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, profile_photo_url')
-          .in('id', completerIds);
-        profiles?.forEach((p: any) => {
-          completersMap[p.id] = p;
-        });
-      }
-
       return completions.map(c => ({
         id: c.id,
         title: (c.event as any)?.event_name || 'Event',
@@ -517,15 +505,13 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
         completed_by: c.completed_by,
         accent_color: null,
         task_style: 'event' as const,
-        completerName: completersMap[c.completed_by]?.full_name || null,
-        completerPhoto: completersMap[c.completed_by]?.profile_photo_url || null,
       }));
     },
     enabled: !!currentLocation?.id,
   });
 
   // ─── Logbook Entries ──────────────────────────────────────────
-  const { data: logbookEntries = [] } = useQuery({
+  const { data: rawLogbookEntries = [] } = useQuery({
     queryKey: ['logbook-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     placeholderData: (prev) => prev,
@@ -546,18 +532,6 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
 
       if (error) throw error;
       if (!entries || entries.length === 0) return [];
-
-      const creatorIds = [...new Set(entries.map(e => e.created_by).filter(Boolean))];
-      let creatorsMap: Record<string, any> = {};
-      if (creatorIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, profile_photo_url')
-          .in('id', creatorIds);
-        profiles?.forEach((p: any) => {
-          creatorsMap[p.id] = p;
-        });
-      }
 
       return entries.map(e => {
         let title = (e.category as any)?.name || 'Logbook Entry';
@@ -580,13 +554,60 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           completed_by: e.created_by,
           accent_color: null,
           task_style: 'logbook' as const,
-          completerName: creatorsMap[e.created_by]?.full_name || null,
-          completerPhoto: creatorsMap[e.created_by]?.profile_photo_url || null,
         };
       });
     },
     enabled: !!currentLocation?.id,
   });
+
+  // ─── Shared profile lookup (one query per history date) ───────
+  const profileIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    (rawHistoryStats || []).forEach((h: any) => (h.contributorIds || []).forEach((id: string) => ids.add(id)));
+    (rawTempTasks || []).forEach((t: any) => t.completed_by && ids.add(t.completed_by));
+    (rawEventCompletions || []).forEach((c: any) => c.completed_by && ids.add(c.completed_by));
+    (rawLogbookEntries || []).forEach((e: any) => e.completed_by && ids.add(e.completed_by));
+    return Array.from(ids).sort().join(',');
+  }, [rawHistoryStats, rawTempTasks, rawEventCompletions, rawLogbookEntries]);
+
+  const { data: profilesMap = {} } = useQuery({
+    queryKey: ['history-profiles', profileIdsKey],
+    enabled: profileIdsKey.length > 0,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const ids = profileIdsKey.split(',').filter(Boolean);
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', ids);
+      const map: Record<string, { name: string; photo: string | null }> = {};
+      (data || []).forEach((p: any) => {
+        map[p.id] = { name: p.full_name, photo: p.profile_photo_url };
+      });
+      return map;
+    },
+  });
+
+  const historyStats = useMemo(
+    () =>
+      (rawHistoryStats || []).map((h: any) => ({
+        ...h,
+        contributors: (h.contributorIds || []).map((id: string) => profilesMap[id]).filter(Boolean),
+      })),
+    [rawHistoryStats, profilesMap]
+  );
+
+  const decorate = (items: any[]) =>
+    items.map((t: any) => {
+      const p = t.completed_by ? profilesMap[t.completed_by] : null;
+      return { ...t, completerName: p?.name || null, completerPhoto: p?.photo || null };
+    });
+
+  const completedTempTasks = useMemo(() => decorate(rawTempTasks || []), [rawTempTasks, profilesMap]);
+  const eventCompletions = useMemo(() => decorate(rawEventCompletions || []), [rawEventCompletions, profilesMap]);
+  const logbookEntries = useMemo(() => decorate(rawLogbookEntries || []), [rawLogbookEntries, profilesMap]);
 
   return {
     // Auth / role
@@ -599,8 +620,6 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
     // Data
     checklists,
     checklistsLoading,
-    submissionStats,
-    statsLoading,
     historyStats,
     completedTempTasks,
     eventCompletions,
@@ -611,3 +630,4 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
     historyDateStr,
   };
 }
+
