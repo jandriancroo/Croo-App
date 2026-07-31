@@ -194,7 +194,10 @@ export default function Dashboard() {
 
     enabled: !!currentLocation?.id,
     staleTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    // Only keep polling for locations that actually returned kiosk data.
+    // Stores without a kiosk stop after the first call instead of polling forever.
+    refetchInterval: (query) => (query.state.data ? 5 * 60 * 1000 : false),
+
   });
 
   // Combine sales data with personal data and KDS data (memoized to prevent recalc on every render)
