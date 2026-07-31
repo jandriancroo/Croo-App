@@ -32,9 +32,9 @@ import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
 const MobileShiftDialog = lazyWithRetry(() => import("@/components/schedule/MobileShiftDialog").then(m => ({ default: m.MobileShiftDialog })));
 import { LaborTotals } from "@/components/schedule/LaborTotals";
 import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
-import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
-import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
-import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog";
+const DayBreakdownDialog = lazyWithRetry(() => import("@/components/schedule/DayBreakdownDialog").then(m => ({ default: m.DayBreakdownDialog })));
+const AutoScheduleWizard = lazyWithRetry(() => import("@/components/schedule/AutoScheduleWizard").then(m => ({ default: m.AutoScheduleWizard })));
+const ChangeTrackingDialog = lazyWithRetry(() => import("@/components/schedule/ChangeTrackingDialog").then(m => ({ default: m.ChangeTrackingDialog })));
 import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 import { useLocationStations } from "@/hooks/useLocationStations";
 import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
@@ -140,7 +140,11 @@ export default function Schedule() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
-  const isTeamMemberDesktopView = !isMobile && !isAdmin && !isManager;
+  const isTeamMemberView = !isAdmin && !isManager;
+  const isTeamMemberDesktopView = !isMobile && isTeamMemberView;
+  // Mobile parity: team members only get their own shifts/profile passed down
+  const mobileShifts = isTeamMemberView && currentUserId ? shifts.filter(s => s.user_id === currentUserId) : shifts;
+  const mobileProfiles = isTeamMemberView && currentUserId ? profiles.filter(p => p.id === currentUserId) : profiles;
   const filteredProfiles = isTeamMemberDesktopView && currentUserId ? profiles.filter(p => p.id === currentUserId) : profiles;
   const filteredShifts = isTeamMemberDesktopView && currentUserId ? shifts.filter(s => s.user_id === currentUserId) : shifts;
 
@@ -249,7 +253,7 @@ export default function Schedule() {
       {isMobile ? (
         <MobileScheduleView
           currentWeekStart={currentWeekStart}
-          shifts={shifts.map(s => ({
+          shifts={mobileShifts.map(s => ({
             ...s,
             template_id: s.template_id,
             breaks: (s as any).breaks,
@@ -259,7 +263,7 @@ export default function Schedule() {
             } : undefined,
           }))}
           events={events}
-          profiles={profiles}
+          profiles={mobileProfiles}
           onShiftClick={(shift) => setEditingShift(shift)}
           onWeekChange={(newWeek) => {
             queryClient.invalidateQueries({ queryKey: ['schedule', currentLocation?.id, format(newWeek, 'yyyy-MM-dd')] });
@@ -743,7 +747,7 @@ export default function Schedule() {
         )}
 
         {(isAdmin || isManager) && selectedDayForBreakdown && scheduleId && (
-          <DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} stations={useStationGrouping ? stations : undefined} stationAssignments={useStationGrouping ? stationAssignments : undefined} />
+          <Suspense fallback={null}><DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} stations={useStationGrouping ? stations : undefined} stationAssignments={useStationGrouping ? stationAssignments : undefined} /></Suspense>
         )}
 
         {(isAdmin || isManager) && isCreatingShift && (
@@ -851,11 +855,13 @@ export default function Schedule() {
       </div>
       )}
 
-      {currentLocation && (
-        <AutoScheduleWizard open={autoScheduleOpen} onOpenChange={setAutoScheduleOpen} currentWeekStart={currentWeekStart} locationId={currentLocation.id} scheduleId={scheduleId} onScheduleGenerated={() => fetchScheduleData(false)} />
+      {currentLocation && autoScheduleOpen && (
+        <Suspense fallback={null}><AutoScheduleWizard open={autoScheduleOpen} onOpenChange={setAutoScheduleOpen} currentWeekStart={currentWeekStart} locationId={currentLocation.id} scheduleId={scheduleId} onScheduleGenerated={() => fetchScheduleData(false)} /></Suspense>
       )}
 
-      <ChangeTrackingDialog open={changeTrackingOpen} onOpenChange={setChangeTrackingOpen} scheduleId={scheduleId} weekStartDate={currentWeekStart} isPublished={isPublished} />
+      {changeTrackingOpen && (
+      <Suspense fallback={null}><ChangeTrackingDialog open={changeTrackingOpen} onOpenChange={setChangeTrackingOpen} scheduleId={scheduleId} weekStartDate={currentWeekStart} isPublished={isPublished} /></Suspense>
+      )}
       <UpdatePreviewSheet
         open={updatePreviewOpen}
         onOpenChange={setUpdatePreviewOpen}

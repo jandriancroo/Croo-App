@@ -100,7 +100,7 @@ export interface Holiday {
 }
 
 export function useScheduleData() {
-  const { role, isAdmin, isManager, canViewAllWages } = useUserRole();
+  const { role, isAdmin, isManager, canViewAllWages, loading: roleLoading } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { currentLocation } = useAppLocation();
   const { timezone, getTodayInTimezone } = useLocationTimezone();
@@ -160,27 +160,46 @@ export function useScheduleData() {
     queryFn: async () => {
       if (!currentLocation?.id) return null;
 
-      const [userLocationsResult, allProfilesResult, rolesResult, templatesResult] = await Promise.all([
+      const [userLocationsResult, templatesResult] = await Promise.all([
         supabase.from("user_locations").select("user_id, show_on_schedule").eq("location_id", currentLocation.id),
-        supabase.from("profiles").select(`id, full_name, nickname, profile_photo_url, display_order, appears_on_schedule, weekly_availability`).eq("is_active", true).eq("appears_on_schedule", true),
-        supabase.from("user_roles").select("user_id, role"),
         supabase.from("shift_templates").select("*").eq("location_id", currentLocation.id).order("start_time", { ascending: true }),
       ]);
 
       if (userLocationsResult.error) throw userLocationsResult.error;
-      if (allProfilesResult.error) throw allProfilesResult.error;
-      if (rolesResult.error) throw rolesResult.error;
       if (templatesResult.error) throw templatesResult.error;
 
-      const locationUserIds = new Set((userLocationsResult.data || []).filter(ul => ul.show_on_schedule !== false).map((ul) => ul.user_id));
-      const locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
+      const locationUserIds = new Set(
+        (userLocationsResult.data || [])
+          .filter(ul => ul.show_on_schedule !== false)
+          .map((ul) => ul.user_id)
+      );
+      const scopedIds = Array.from(locationUserIds);
 
-      // Wages come from a role-checked RPC (never selectable on profiles).
-      const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
-        p_user_ids: locationProfiles.map((p) => p.id),
-      });
+      if (scopedIds.length === 0) {
+        return { profiles: [], templates: templatesResult.data || [], locationUserIds: scopedIds };
+      }
+
+      // Scope profiles + roles (+ wages) to this location's roster — server-side, not JS.
+      const [allProfilesResult, rolesResult, wagesResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(`id, full_name, nickname, profile_photo_url, display_order, appears_on_schedule, weekly_availability`)
+          .in("id", scopedIds)
+          .eq("is_active", true)
+          .eq("appears_on_schedule", true),
+        supabase.from("user_roles").select("user_id, role").in("user_id", scopedIds),
+        // Wages come from a role-checked RPC (never selectable on profiles) — managers only.
+        canViewAllWages
+          ? supabase.rpc('get_current_wages_batch', { p_user_ids: scopedIds })
+          : Promise.resolve({ data: null } as any),
+      ]);
+
+      if (allProfilesResult.error) throw allProfilesResult.error;
+      if (rolesResult.error) throw rolesResult.error;
+
+      const locationProfiles = allProfilesResult.data || [];
       const wageMap = new Map<string, number>(
-        ((wageRows || []) as any[]).map((w) => [w.user_id, Number(w.hourly_wage)])
+        (((wagesResult as any)?.data || []) as any[]).map((w) => [w.user_id, Number(w.hourly_wage)])
       );
 
       const profilesWithRoles = locationProfiles.map(profile => {
@@ -188,11 +207,12 @@ export function useScheduleData() {
         return {
           ...profile,
           weekly_availability: profile.weekly_availability as WeeklyAvailability | null,
-          hourly_wage: wageMap.get(profile.id) ?? 15,
+          hourly_wage: canViewAllWages ? (wageMap.get(profile.id) ?? 15) : undefined,
           role: userRole?.role || 'team_member',
           display_order: profile.display_order ?? 0
         };
       });
+
 
       const roleOrder: Record<string, number> = {
         super_admin: 0, brand_admin: 1, org_admin: 2, admin: 3,
@@ -213,7 +233,7 @@ export function useScheduleData() {
         locationUserIds: Array.from(locationUserIds),
       };
     },
-    enabled: !!currentLocation?.id,
+    enabled: !!currentLocation?.id && !roleLoading,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     placeholderData: (previousData) => previousData,
@@ -228,16 +248,18 @@ export function useScheduleData() {
   } = useQuery({
     queryKey: scheduleQueryKey,
     queryFn: async () => {
-      const perfStart = performance.now();
-      console.log('[Schedule] fetchScheduleData started');
-
       if (!currentLocation?.id) return null;
 
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
+      const SCHEDULE_COLUMNS = "id, is_published, published_shifts_snapshot, last_status_changed_at, last_status_changed_by, last_status_action, week_start_date, week_end_date, location_id";
+
       let { data: schedule, error: scheduleError } = await supabase
         .from("schedules")
-        .select("*")
+        .select(SCHEDULE_COLUMNS)
+        .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
+        .eq("location_id", currentLocation.id)
+
         .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
         .eq("location_id", currentLocation.id)
         .single();
@@ -251,7 +273,8 @@ export function useScheduleData() {
               week_end_date: format(weekEnd, "yyyy-MM-dd"),
               location_id: currentLocation.id,
             })
-            .select()
+            .select(SCHEDULE_COLUMNS)
+
             .single();
 
           if (createError) throw createError;
@@ -272,11 +295,8 @@ export function useScheduleData() {
         };
       }
 
-      console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
-
       const lastWeekDate = format(addDays(currentWeekStart, -7), 'yyyy-MM-dd');
 
-      const parallelStart = performance.now();
       const [
         shiftsResult, eventsResult, recurringEventsResult, availabilityResult,
         salesResult, holidaysResult, locationSettingsResult, lastWeekScheduleResult
@@ -295,8 +315,6 @@ export function useScheduleData() {
       const lastWeekShiftsResult = lastWeekSchedule?.id
         ? await supabase.from("scheduled_shifts").select("user_id, template_id, shift_date").eq("schedule_id", lastWeekSchedule.id).not("template_id", "is", null)
         : { data: [], error: null };
-
-      console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
 
       if (shiftsResult.error) throw shiftsResult.error;
       // Draft (unpublished) schedules must never be visible to non-managers
@@ -331,12 +349,14 @@ export function useScheduleData() {
         const shiftUserIds = Array.from(new Set(shifts.map((s) => s.user_id).filter(Boolean) as string[]));
         if (shiftUserIds.length > 0) {
           const { data: shiftProfiles } = await supabase.from('profiles').select('id, full_name, nickname, profile_photo_url, display_order, appears_on_schedule, weekly_availability').in('id', shiftUserIds);
-          const { data: roles } = await supabase.from("user_roles").select("user_id, role");
-          const { data: shiftWageRows } = await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds });
+          const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("user_id", shiftUserIds);
+          const { data: shiftWageRows } = canViewAllWages
+            ? await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds })
+            : { data: null };
           const shiftWageMap = new Map<string, number>(((shiftWageRows || []) as any[]).map((w) => [w.user_id, Number(w.hourly_wage)]));
           profilesWithRoles = (shiftProfiles || []).map(profile => {
             const userRole = roles?.find(r => r.user_id === profile.id);
-            return { ...profile, weekly_availability: profile.weekly_availability as WeeklyAvailability | null, hourly_wage: shiftWageMap.get(profile.id) ?? 15, role: userRole?.role || 'team_member', display_order: profile.display_order ?? 0 };
+            return { ...profile, weekly_availability: profile.weekly_availability as WeeklyAvailability | null, hourly_wage: canViewAllWages ? (shiftWageMap.get(profile.id) ?? 15) : undefined, role: userRole?.role || 'team_member', display_order: profile.display_order ?? 0 };
           });
         }
       }
@@ -367,17 +387,6 @@ export function useScheduleData() {
           break_coverage_enabled: !!(locationSettingsResult.data as any).break_coverage_enabled,
         };
       }
-
-      const lastBirthdaySync = sessionStorage.getItem('lastBirthdaySyncTime');
-      const now = Date.now();
-      if (!lastBirthdaySync || now - parseInt(lastBirthdaySync) > 300000) {
-        sessionStorage.setItem('lastBirthdaySyncTime', now.toString());
-        supabase.functions.invoke('data-sync-service?action=sync-birthday-events').catch(err =>
-          console.error('Failed to sync birthday holidays:', err)
-        );
-      }
-
-      console.log(`[Schedule] fetchScheduleData completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
 
       setWeeklyTotalSales(totalSales);
       setHolidays(processedHolidays);
