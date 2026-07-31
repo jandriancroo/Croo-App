@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { triggerForceReload, getCurrentAppVersion } from '@/hooks/useForceReload';
+import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 
 export interface UserProfile {
   id: string;
@@ -141,12 +142,12 @@ export const useUserManagementData = () => {
       if (userIds.length === 0) return [];
 
       const [profilesResult, rolesResult, availabilityResult, wageHistoryResult, certificationsResult] = await Promise.all([
-        supabase.from('profiles').select('*').in('id', userIds).order('created_at', { ascending: false }),
+        supabase.from('profiles').select(PROFILE_SAFE_COLUMNS).in('id', userIds).order('created_at', { ascending: false }),
         supabase.from('user_roles').select('user_id, role'),
         supabase.from('availability_requests').select('user_id, request_type, hours_requested, status')
           .eq('status', 'approved').gte('start_date', `${new Date().getFullYear()}-01-01`).lte('start_date', `${new Date().getFullYear()}-12-31`),
-        supabase.from('wage_history').select('user_id, hourly_wage, effective_date')
-          .in('user_id', userIds).lte('effective_date', getTodayInPST()).order('effective_date', { ascending: false }),
+        // Wages are never selectable from profiles directly — role-checked RPC only.
+        supabase.rpc('get_current_wages_batch', { p_user_ids: userIds, p_date: getTodayInPST() }),
         supabase.from('certifications').select('user_id, status, expiration_date')
           .in('user_id', userIds).eq('status', 'approved').gte('expiration_date', getTodayInPST())
       ]);
@@ -164,21 +165,22 @@ export const useUserManagementData = () => {
 
       const wageMap = new Map<string, number>();
       if (wageHistoryResult.data) {
-        for (const wh of wageHistoryResult.data) {
-          if (!wageMap.has(wh.user_id)) wageMap.set(wh.user_id, wh.hourly_wage);
+        for (const wh of wageHistoryResult.data as any[]) {
+          if (!wageMap.has(wh.user_id)) wageMap.set(wh.user_id, Number(wh.hourly_wage));
         }
       }
 
       const certificationMap = new Map(certificationsResult.data?.map(cert => [cert.user_id, true]) || []);
 
-      const usersWithRoles = profilesResult.data.map((profile) => ({
+      const usersWithRoles = ((profilesResult.data || []) as any[]).map((profile) => ({
         ...profile,
         role: rolesResult.data.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
         paid_hours: hoursByUser[profile.id]?.paid || 0,
         unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
-        hourly_wage: wageMap.get(profile.id) ?? profile.hourly_wage ?? 15.00,
+        hourly_wage: wageMap.get(profile.id) ?? 15.00,
         has_certification: certificationMap.has(profile.id),
       }));
+
 
       console.log(`[UserManagement] fetchUsers completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
       return usersWithRoles as UserProfile[];

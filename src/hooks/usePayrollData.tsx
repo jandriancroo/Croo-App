@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { format, addDays, addWeeks } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -653,11 +654,12 @@ export function usePayrollData() {
 
     // Include inactive employees too — payroll history must surface
     // punches from deactivated users for legal/audit compliance.
-    const { data: profiles } = await supabase
+    const { data: profilesRaw } = await supabase
       .from('profiles')
-      .select('*')
+      .select(PROFILE_SAFE_COLUMNS)
       .in('id', allUserIds)
       .order('full_name');
+    const profiles = (profilesRaw || []) as any[];
 
     if (!profiles) return;
 
@@ -851,7 +853,7 @@ export function usePayrollData() {
         return {
           profile: {
             ...profile,
-            hourly_wage: currentWage || profile.hourly_wage || 15
+            hourly_wage: currentWage || 15
           },
           punches: punches || [],
           punchesByDay,

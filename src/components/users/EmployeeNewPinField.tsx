@@ -18,13 +18,15 @@ export function EmployeeNewPinField({ userId }: { userId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ["employee-new-pin", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("pin_pending, pin_pending_plaintext, pin_pending_set_at")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_punch_pin_for_user", {
+        _user_id: userId,
+      });
       if (error) throw error;
-      return data;
+      return ((data as any[])?.[0] ?? null) as {
+        pin_pending: string | null;
+        pin_pending_plaintext: string | null;
+        pin_pending_set_at: string | null;
+      } | null;
     },
     enabled: !!userId,
     staleTime: 60 * 1000,
