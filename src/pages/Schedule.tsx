@@ -73,6 +73,7 @@ export default function Schedule() {
   const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
   const [weeksToAdd, setWeeksToAdd] = useState(1);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
+  const [newShiftPreset, setNewShiftPreset] = useState<{ userId: string; dayIndex: number; shiftDate: string } | null>(null);
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
   const [changeTrackingOpen, setChangeTrackingOpen] = useState(false);
   const [updatePreviewOpen, setUpdatePreviewOpen] = useState(false);
