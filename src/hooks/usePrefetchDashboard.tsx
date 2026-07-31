@@ -23,8 +23,14 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
     const day = parts.find(p => p.type === 'day')?.value || '01';
     const todayStr = `${year}-${month}-${day}`;
 
-    // Dashboard widgets are fetched by useDashboardWidgets on mount.
-    // We skip prefetching here to keep the cache shape consistent with the hook's queryFn.
+    // Prefetch dashboard widgets using the SAME key + shared fetcher as
+    // useDashboardWidgets, so cubes render warm instead of flashing empty.
+    queryClient.prefetchQuery({
+      queryKey: ['dashboard-widgets', userId, locationId],
+      queryFn: () => fetchDashboardWidgets(userId, locationId),
+      staleTime: DASHBOARD_WIDGETS_STALE_TIME,
+    });
+
 
     // Prefetch checklists using the SAME key + result shape the Dashboard reads,
     // otherwise the splash prefetch lands in a drawer nobody opens.
