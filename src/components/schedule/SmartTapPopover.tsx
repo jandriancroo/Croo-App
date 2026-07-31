@@ -133,33 +133,53 @@ function SmartTapPopoverComponent({
           {hasStations && (hasRecent || hasOthers) && (
             <div className="w-px bg-border flex-shrink-0" />
           )}
-          {/* Recent column */}
-
-          {hasRecent && (
+          {/* New Shift + Recent column */}
+          {(hasRecent || onNewShift) && (
             <div className="min-w-[130px] flex-shrink-0">
-              <div className="flex items-center gap-1.5 px-1 pb-1">
-                <Sparkles className="h-3 w-3 text-amber-500" />
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Last Week
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                {recentTemplates.map((template) => (
-                  <TemplateOption
-                    key={template.id}
-                    template={template}
-                    onSelect={onSelectTemplate}
-                    isHighlighted
-                  />
-                ))}
-              </div>
+              {onNewShift && (
+                <div className="pb-2">
+                  <div className="px-1 pb-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      New
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onNewShift}
+                    className="w-full h-[23px] flex items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
+                    aria-label="Create new shift"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+              {hasRecent && (
+                <>
+                  <div className="flex items-center gap-1.5 px-1 pb-1">
+                    <Sparkles className="h-3 w-3 text-amber-500" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Last Week
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {recentTemplates.map((template) => (
+                      <TemplateOption
+                        key={template.id}
+                        template={template}
+                        onSelect={onSelectTemplate}
+                        isHighlighted
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {/* Other template columns */}
           {otherColumns.map((column, colIdx) => (
             <div key={colIdx} className="flex gap-2">
-              {(hasRecent || colIdx > 0) && (
+              {(hasRecent || onNewShift || colIdx > 0) && (
                 <div className="w-px bg-border flex-shrink-0" />
               )}
               <div className="min-w-[130px] flex-shrink-0">
@@ -184,29 +204,6 @@ function SmartTapPopoverComponent({
             </div>
           ))}
 
-          {/* New Shift column */}
-          {onNewShift && (
-            <div className="flex gap-2">
-              {(hasStations || hasRecent || hasOthers) && (
-                <div className="w-px bg-border flex-shrink-0" />
-              )}
-              <div className="min-w-[110px] flex-shrink-0">
-                <div className="px-1 pb-1">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    New Shift
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={onNewShift}
-                  className="w-full h-[46px] flex items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
-                  aria-label="Create new shift"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </PopoverContent>
     </Popover>
