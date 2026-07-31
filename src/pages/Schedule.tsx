@@ -287,30 +287,37 @@ export default function Schedule() {
               </div>
               {(isAdmin || isManager) && (
                 <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-                  <Button
-                    variant={isCompactMode ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setIsCompactMode(!isCompactMode)}
-                    className="gap-1.5 md:gap-2"
-                    title={isCompactMode ? "Expand view" : "Compact view"}
-                  >
-                    {isCompactMode ? (
-                      <><Maximize2 className="h-4 w-4" /><span className="hidden lg:inline">Expand</span></>
-                    ) : (
-                      <><Minimize2 className="h-4 w-4" /><span className="hidden lg:inline">Compact</span></>
-                    )}
-                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setAutoScheduleOpen(true)} className="gap-1.5 md:gap-2">
                     <Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Croo AI</span>
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => wrapEditAction(() => setIsCreatingShift(true))} className="opacity-60 hover:opacity-100 transition-opacity">
-                    <Plus className="h-4 w-4" />
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="icon"><Wrench className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-background z-[60]">
+                      <DropdownMenuCheckboxItem
+                        checked={isCompactMode}
+                        onCheckedChange={(v) => setIsCompactMode(!!v)}
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer"
+                      >
+                        Compact View
+                        <span className="ml-2 text-[10px] text-muted-foreground">{isCompactMode ? "ON" : "OFF"}</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={!hideTemplatesBar}
+                        onCheckedChange={(v) => {
+                          const next = !v;
+                          setHideTemplatesBar(next);
+                          localStorage.setItem('schedule-hide-templates', String(next));
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer"
+                      >
+                        Drag and Drop UI
+                        <span className="ml-2 text-[10px] text-muted-foreground">{!hideTemplatesBar ? "ON" : "OFF"}</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
                         <Calendar className="h-4 w-4" />View Availability
                       </DropdownMenuItem>
@@ -323,17 +330,6 @@ export default function Schedule() {
                       <DropdownMenuItem onClick={() => setChangeTrackingOpen(true)} className="gap-2 cursor-pointer">
                         <History className="h-4 w-4" />Change Tracking
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const printProfiles = profiles.map((p: any) => ({ id: p.id, fullName: p.full_name, role: p.role }));
-                        const printShifts = shifts.map((s: any) => {
-                          const dayIdx = (new Date(s.shift_date).getDay() + 6) % 7;
-                          return { userId: s.user_id || "", dayIndex: dayIdx, startTime: s.start_time, endTime: s.end_time, isTimeOff: s.is_time_off, templateName: s.template?.template_name, templateColor: s.template?.color };
-                        });
-                        const printEvents = events.map((e: any) => ({ dayIndex: e.day_of_week, name: e.event_name, time: e.event_time }));
-                        exportScheduleToPrint({ locationName: currentLocation?.name || "Schedule", weekStart: currentWeekStart, profiles: printProfiles, shifts: printShifts, events: printEvents });
-                      }} className="gap-2 cursor-pointer">
-                        <Printer className="h-4 w-4" />Print Schedule
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
                         <Trash2 className="h-4 w-4" />Clear Schedule
                       </DropdownMenuItem>
@@ -344,6 +340,7 @@ export default function Schedule() {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+
                   {scheduleId && (
                     <LiveStatusBadge
                       isPublished={isPublished}
