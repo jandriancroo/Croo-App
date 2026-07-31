@@ -43,8 +43,9 @@ export const usePushNotifications = () => {
       // Auth check already done at top of effect
       if (!userId) return;
 
-      // VAPID public key for web push
-      const vapidPublicKey = 'BMFAfiqavc1nPrnxT3UlNQ7QmxL3bZYpzbgmQiXs3WL0jcDEKMX-6VTVLeGodW2XVCfmaQTsbdCwkjXutsVXzKU';
+      // VAPID public key comes from the backend so it can never drift from the
+      // key `send-push-notification` signs with (cause of VapidPkHashMismatch).
+
 
       console.log('[Push Web] ✅ Starting web push setup for user:', userId);
       console.log('[Push Web] ✅ Starting web push setup for user:', userId);
