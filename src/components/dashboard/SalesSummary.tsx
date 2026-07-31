@@ -468,8 +468,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const dailyPayments = cached?.payments_data && Array.isArray(cached.payments_data)
       ? (cached.payments_data as Array<{ paymentType: string; amount: number }>)
       : [];
-    const weeklyPayments = aggregatePayments(weekPaymentsResult.data || []);
-    const monthlyPayments = aggregatePayments(monthPaymentsResult.data || []);
+    const weeklyPayments = aggregatePayments(weekResult.data || []);
+    const monthlyPayments = aggregatePayments(monthResult.data || []);
+
     const productMix = normalizeProductMix(cached?.product_mix);
 
     return {
