@@ -100,7 +100,7 @@ export interface Holiday {
 }
 
 export function useScheduleData() {
-  const { role, isAdmin, isManager, canViewAllWages } = useUserRole();
+  const { role, isAdmin, isManager, canViewAllWages, loading: roleLoading } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { currentLocation } = useAppLocation();
   const { timezone, getTodayInTimezone } = useLocationTimezone();
