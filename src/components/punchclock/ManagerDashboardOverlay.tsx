@@ -415,15 +415,30 @@ export function ManagerDashboardOverlay({
         .in('id', userIds);
 
       // Wages are no longer readable directly from profiles by the kiosk
-      // (unauthenticated PII protection). Use the security-definer helper,
-      // which returns only { user_id, hourly_wage } for the given users.
-      const { data: wageRows } = await (supabase as any).rpc('get_current_wages_batch', {
-        p_user_ids: userIds,
-        p_date: todayStr,
-      });
-      const wageMap = new Map<string, number>(
-        (wageRows || []).map((w: any) => [w.user_id, Number(w.hourly_wage)])
-      );
+      // (unauthenticated PII protection). The security-definer helper returns a
+      // flat 15.00 placeholder for non-manager callers — and the kiosk device
+      // session has no role — so only trust the numbers when the signed-in user
+      // is actually a manager. Otherwise wages stay null and we hide dollars.
+      const { data: authData } = await supabase.auth.getUser();
+      const authUserId = authData?.user?.id ?? null;
+      let wagesReadable = false;
+      if (authUserId) {
+        const { data: priv } = await (supabase as any).rpc('has_role_or_higher', {
+          _user_id: authUserId,
+          _minimum_role: 'manager',
+        });
+        wagesReadable = priv === true;
+      }
+
+      const wageMap = new Map<string, number>();
+      if (wagesReadable) {
+        const { data: wageRows } = await (supabase as any).rpc('get_current_wages_batch', {
+          p_user_ids: userIds,
+          p_date: todayStr,
+        });
+        (wageRows || []).forEach((w: any) => wageMap.set(w.user_id, Number(w.hourly_wage)));
+      }
+
 
       // Get today's shifts for positions and start/end times
       const { data: shifts } = await supabase
