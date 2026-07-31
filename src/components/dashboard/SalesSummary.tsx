@@ -159,7 +159,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
     // Fetch labor for the ENTIRE WEEK to show labor% in weekly chart
-    const [dailyResult, weekResult, weekPaymentsResult, monthPaymentsResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
+    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
       // Daily sales
       supabase
         .from('sales_cache')
@@ -167,34 +167,23 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         .eq('location_id', currentLocation.id)
         .eq('sale_date', dateStr)
         .maybeSingle(),
+      // Week sales + payments (single round-trip)
       supabase
         .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
+        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, payments_data')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', weekStartStr)
         .lte('sale_date', weekEndStr)
         .order('sale_date'),
-      // Week payments data for payment cubes
+      // Month sales + payments (single round-trip)
       supabase
         .from('sales_cache')
-        .select('sale_date, payments_data')
-        .eq('location_id', currentLocation.id)
-        .gte('sale_date', weekStartStr)
-        .lte('sale_date', weekEndStr),
-      // Month payments data for payment cubes
-      supabase
-        .from('sales_cache')
-        .select('sale_date, payments_data')
-        .eq('location_id', currentLocation.id)
-        .gte('sale_date', monthStartStr)
-        .lte('sale_date', monthEndStr),
-      supabase
-        .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
+        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, payments_data')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', monthStartStr)
         .lte('sale_date', monthEndStr)
         .order('sale_date'),
+
       // Fetch labor from dedicated labor_cache table for selected day
       supabase
         .from('labor_cache')
