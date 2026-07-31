@@ -202,7 +202,9 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
   // Fetch per-day sales & labor for the range
   const { data: salesLaborByDate } = useQuery({
     queryKey: ['heatmap-sales-labor', currentLocation?.id, rangeKey],
-    staleTime: 5 * 60 * 1000,
+    staleTime: cachePolicy.staleTime,
+    gcTime: cachePolicy.gcTime,
+    refetchOnMount: cachePolicy.refetchOnMount,
     enabled: !!currentLocation?.id,
     queryFn: async (): Promise<Record<string, DaySalesLabor>> => {
       const startStr = format(startDate, 'yyyy-MM-dd');
