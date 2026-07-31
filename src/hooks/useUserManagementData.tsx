@@ -141,12 +141,12 @@ export const useUserManagementData = () => {
       if (userIds.length === 0) return [];
 
       const [profilesResult, rolesResult, availabilityResult, wageHistoryResult, certificationsResult] = await Promise.all([
-        supabase.from('profiles').select('*').in('id', userIds).order('created_at', { ascending: false }),
+        supabase.from('profiles').select(PROFILE_SAFE_COLUMNS).in('id', userIds).order('created_at', { ascending: false }),
         supabase.from('user_roles').select('user_id, role'),
         supabase.from('availability_requests').select('user_id, request_type, hours_requested, status')
           .eq('status', 'approved').gte('start_date', `${new Date().getFullYear()}-01-01`).lte('start_date', `${new Date().getFullYear()}-12-31`),
-        supabase.from('wage_history').select('user_id, hourly_wage, effective_date')
-          .in('user_id', userIds).lte('effective_date', getTodayInPST()).order('effective_date', { ascending: false }),
+        // Wages are never selectable from profiles directly — role-checked RPC only.
+        supabase.rpc('get_current_wages_batch', { p_user_ids: userIds, p_date: getTodayInPST() }),
         supabase.from('certifications').select('user_id, status, expiration_date')
           .in('user_id', userIds).eq('status', 'approved').gte('expiration_date', getTodayInPST())
       ]);
