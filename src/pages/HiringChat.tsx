@@ -37,6 +37,8 @@ interface ConversationData {
 
 // VAPID key is served by the backend so it can never drift from the key the
 // push sender signs with. See src/utils/pushVapid.ts.
+import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
+
 
 
 export default function HiringChat() {
