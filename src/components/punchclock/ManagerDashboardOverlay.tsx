@@ -468,7 +468,7 @@ export function ManagerDashboardOverlay({
           breakStartTime: u.breakStartTime,
           breakType: u.breakType,
           position: shiftInfo?.position || undefined,
-          hourlyWage: wageMap.get(u.userId) || 16, // Default to $16/hr if not set
+          hourlyWage: wagesReadable ? (wageMap.get(u.userId) ?? null) : null,
           scheduledStartTime: shiftInfo?.startTime || undefined,
           scheduledEndTime: shiftInfo?.endTime || undefined,
         } as ActiveShift;
