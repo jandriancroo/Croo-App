@@ -97,7 +97,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
 
 
   // ─── Completion History ───────────────────────────────────────
-  const { data: historyStats } = useQuery({
+  const { data: rawHistoryStats } = useQuery({
     queryKey: ['completion-history', historyDateStr, user?.id, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
@@ -293,7 +293,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
   });
 
   // ─── Completed Quick Tasks ────────────────────────────────────
-  const { data: completedTempTasks = [] } = useQuery({
+  const { data: rawTempTasks = [] } = useQuery({
     queryKey: ['completed-temp-tasks', historyDateStr, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
@@ -462,13 +462,10 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
 
       return allItems.map(t => {
         const agg = subtaskAgg[t.id] || { total: 0, completed: 0 };
-        const completer = t.completed_by ? completerMap[t.completed_by] : null;
         return {
           ...t,
           subtaskTotal: agg.total,
           subtaskCompleted: agg.completed,
-          completerName: completer?.full_name || null,
-          completerPhoto: completer?.profile_photo_url || null,
         };
       });
     },
