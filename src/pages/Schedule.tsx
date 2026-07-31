@@ -12,7 +12,7 @@ import { Plus, Settings, Calendar, Copy, Trash2, Wrench, ChevronDown, AlertTrian
 import { exportScheduleToPrint } from "@/utils/exportSchedulePrint";
 import { Badge } from "@/components/ui/badge";
 import { DateNavigator } from "@/components/ui/date-navigator";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -73,6 +73,7 @@ export default function Schedule() {
   const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
   const [weeksToAdd, setWeeksToAdd] = useState(1);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
+  const [newShiftPreset, setNewShiftPreset] = useState<{ userId: string; dayIndex: number; shiftDate: string } | null>(null);
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
   const [changeTrackingOpen, setChangeTrackingOpen] = useState(false);
   const [updatePreviewOpen, setUpdatePreviewOpen] = useState(false);
@@ -222,6 +223,25 @@ export default function Schedule() {
     }
   };
 
+  const onNewShiftFromCell = (userId: string, dayIndex: number, shiftDate: string) => {
+    wrapEditAction(() => {
+      setNewShiftPreset({ userId, dayIndex, shiftDate });
+      setIsCreatingShift(true);
+    });
+  };
+
+  const handlePrintSchedule = () => {
+    const printProfiles = profiles.map((p: any) => ({ id: p.id, fullName: p.full_name, role: p.role }));
+    const printShifts = shifts.map((s: any) => {
+      const dayIdx = (new Date(s.shift_date).getDay() + 6) % 7;
+      return { userId: s.user_id || "", dayIndex: dayIdx, startTime: s.start_time, endTime: s.end_time, isTimeOff: s.is_time_off, templateName: s.template?.template_name, templateColor: s.template?.color };
+    });
+    const printEvents = events.map((e: any) => ({ dayIndex: e.day_of_week, name: e.event_name, time: e.event_time }));
+    exportScheduleToPrint({ locationName: currentLocation?.name || "Schedule", weekStart: currentWeekStart, profiles: printProfiles, shifts: printShifts, events: printEvents });
+  };
+
+
+
   return (
     <Layout>
       {isMobile ? (
@@ -287,30 +307,37 @@ export default function Schedule() {
               </div>
               {(isAdmin || isManager) && (
                 <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-                  <Button
-                    variant={isCompactMode ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setIsCompactMode(!isCompactMode)}
-                    className="gap-1.5 md:gap-2"
-                    title={isCompactMode ? "Expand view" : "Compact view"}
-                  >
-                    {isCompactMode ? (
-                      <><Maximize2 className="h-4 w-4" /><span className="hidden lg:inline">Expand</span></>
-                    ) : (
-                      <><Minimize2 className="h-4 w-4" /><span className="hidden lg:inline">Compact</span></>
-                    )}
-                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setAutoScheduleOpen(true)} className="gap-1.5 md:gap-2">
                     <Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Croo AI</span>
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => wrapEditAction(() => setIsCreatingShift(true))} className="opacity-60 hover:opacity-100 transition-opacity">
-                    <Plus className="h-4 w-4" />
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="icon"><Wrench className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-background z-[60]">
+                      <DropdownMenuCheckboxItem
+                        checked={isCompactMode}
+                        onCheckedChange={(v) => setIsCompactMode(!!v)}
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer"
+                      >
+                        Compact View
+                        <span className="ml-2 text-[10px] text-muted-foreground">{isCompactMode ? "ON" : "OFF"}</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={!hideTemplatesBar}
+                        onCheckedChange={(v) => {
+                          const next = !v;
+                          setHideTemplatesBar(next);
+                          localStorage.setItem('schedule-hide-templates', String(next));
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer"
+                      >
+                        Drag and Drop UI
+                        <span className="ml-2 text-[10px] text-muted-foreground">{!hideTemplatesBar ? "ON" : "OFF"}</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
                         <Calendar className="h-4 w-4" />View Availability
                       </DropdownMenuItem>
@@ -323,17 +350,6 @@ export default function Schedule() {
                       <DropdownMenuItem onClick={() => setChangeTrackingOpen(true)} className="gap-2 cursor-pointer">
                         <History className="h-4 w-4" />Change Tracking
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const printProfiles = profiles.map((p: any) => ({ id: p.id, fullName: p.full_name, role: p.role }));
-                        const printShifts = shifts.map((s: any) => {
-                          const dayIdx = (new Date(s.shift_date).getDay() + 6) % 7;
-                          return { userId: s.user_id || "", dayIndex: dayIdx, startTime: s.start_time, endTime: s.end_time, isTimeOff: s.is_time_off, templateName: s.template?.template_name, templateColor: s.template?.color };
-                        });
-                        const printEvents = events.map((e: any) => ({ dayIndex: e.day_of_week, name: e.event_name, time: e.event_time }));
-                        exportScheduleToPrint({ locationName: currentLocation?.name || "Schedule", weekStart: currentWeekStart, profiles: printProfiles, shifts: printShifts, events: printEvents });
-                      }} className="gap-2 cursor-pointer">
-                        <Printer className="h-4 w-4" />Print Schedule
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
                         <Trash2 className="h-4 w-4" />Clear Schedule
                       </DropdownMenuItem>
@@ -344,6 +360,7 @@ export default function Schedule() {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+
                   {scheduleId && (
                     <LiveStatusBadge
                       isPublished={isPublished}
@@ -530,6 +547,7 @@ export default function Schedule() {
                                         holidays={holidays}
                                         allShifts={lastWeekShifts}
                                         onSmartTap={onSmartTap}
+                                        onNewShift={onNewShiftFromCell}
                                         stations={useStationGrouping ? stations : undefined}
                                         currentStationId={stationAssignments[profile.id] ?? null}
                                         onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
@@ -598,6 +616,7 @@ export default function Schedule() {
                                     holidays={holidays}
                                     allShifts={lastWeekShifts}
                                     onSmartTap={onSmartTap}
+                                        onNewShift={onNewShiftFromCell}
                                     stations={stations}
                                     currentStationId={stationAssignments[profile.id] ?? null}
                                     onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
@@ -634,7 +653,13 @@ export default function Schedule() {
               <div className="w-8 h-4 rounded bg-muted/30 border border-dashed border-muted-foreground/30" style={{ background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 4px, transparent 4px, transparent 8px)" }} />
               <span>Time Off</span>
             </div>
+            <div className="ml-auto">
+              <Button variant="outline" size="sm" onClick={handlePrintSchedule} className="h-7 gap-1.5 text-xs">
+                <Printer className="h-3.5 w-3.5" />Print
+              </Button>
+            </div>
           </div>
+
 
           {/* Floating Templates Bar */}
            {(isAdmin || isManager) && (
@@ -642,37 +667,32 @@ export default function Schedule() {
               <div className="container max-w-7xl mx-auto px-4 overflow-visible">
                 <LaborTotals shifts={shifts} profiles={profiles} currentWeekStart={currentWeekStart} scheduleId={scheduleId} isEditable={isAdmin || isManager} />
               </div>
+              {!hideTemplatesBar && (
               <div className="bg-card border-t border-border" style={{ touchAction: 'none' }}>
                 <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-auto" style={{ touchAction: 'none' }}>
                   <div className="flex items-start gap-3">
-                    <button
-                      className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap pt-1 text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => { const next = !hideTemplatesBar; setHideTemplatesBar(next); localStorage.setItem('schedule-hide-templates', String(next)); }}
-                    >
-                      <ChevronDown className={`h-3 w-3 transition-transform ${hideTemplatesBar ? 'rotate-180' : ''}`} />
+                    <span className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap pt-1 text-muted-foreground">
                       Templates
-                    </button>
-                    {!hideTemplatesBar && (
-                      <>
-                        {templates.length > 0 ? (
-                          <div className={`flex ${isCompactMode ? 'gap-1 flex-nowrap overflow-x-auto pb-1 pr-4' : 'gap-2 flex-wrap'} flex-1 min-w-0`}>
-                            {templates.map((template) => (
-                              <ShiftCard key={template.id} shift={{ template, isTemplate: true }} isCompactMode={isCompactMode} />
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <p className="text-muted-foreground text-xs">No templates</p>
-                            <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
-                              <Plus className="h-3 w-3 mr-1" />Create
-                            </Button>
-                          </div>
-                        )}
-                      </>
+                    </span>
+                    {templates.length > 0 ? (
+                      <div className={`flex ${isCompactMode ? 'gap-1 flex-nowrap overflow-x-auto pb-1 pr-4' : 'gap-2 flex-wrap'} flex-1 min-w-0`}>
+                        {templates.map((template) => (
+                          <ShiftCard key={template.id} shift={{ template, isTemplate: true }} isCompactMode={isCompactMode} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="text-muted-foreground text-xs">No templates</p>
+                        <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
+                          <Plus className="h-3 w-3 mr-1" />Create
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
+              )}
+
             </div>
           )}
 
@@ -716,8 +736,8 @@ export default function Schedule() {
         {(isAdmin || isManager) && isCreatingShift && (
           <Suspense fallback={null}>
             <MobileShiftDialog
-              open={isCreatingShift} onOpenChange={setIsCreatingShift}
-              shift={{ id: '', user_id: null, day_of_week: 0, start_time: '09:00', end_time: '17:00', shift_date: format(currentWeekStart, 'yyyy-MM-dd') }}
+              open={isCreatingShift} onOpenChange={(open) => { setIsCreatingShift(open); if (!open) setNewShiftPreset(null); }}
+              shift={{ id: '', user_id: newShiftPreset?.userId ?? null, day_of_week: newShiftPreset?.dayIndex ?? 0, start_time: '09:00', end_time: '17:00', shift_date: newShiftPreset?.shiftDate || format(currentWeekStart, 'yyyy-MM-dd') }}
               profiles={profiles} isAdmin={isAdmin || isManager}
               onShiftUpdated={fetchScheduleData} isCreating={true}
               scheduleId={scheduleId} templates={templates} locationId={currentLocation?.id}
@@ -725,6 +745,7 @@ export default function Schedule() {
             />
           </Suspense>
         )}
+
 
         {(isAdmin || isManager) && (
           <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>

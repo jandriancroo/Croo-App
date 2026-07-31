@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sparkles, MapPin, Check } from "lucide-react";
+import { Sparkles, MapPin, Check, Plus } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
 
 interface ShiftTemplate {
@@ -31,6 +31,8 @@ interface SmartTapPopoverProps {
   stations?: StationOption[];
   currentStationId?: string | null;
   onSelectStation?: (stationId: string | null) => void;
+  /** Opens a blank new-shift dialog for this cell. */
+  onNewShift?: () => void;
 }
 
 const MAX_PER_COLUMN = 5;
@@ -46,6 +48,7 @@ function SmartTapPopoverComponent({
   stations,
   currentStationId,
   onSelectStation,
+  onNewShift,
 }: SmartTapPopoverProps) {
 
   const { recentTemplates, otherColumns } = useMemo(() => {
@@ -73,7 +76,7 @@ function SmartTapPopoverComponent({
   }, [templates, recentTemplateIds]);
 
   const hasStations = !!(stations && stations.length > 0 && onSelectStation);
-  if (templates.length === 0 && !hasStations) return <>{children}</>;
+  if (templates.length === 0 && !hasStations && !onNewShift) return <>{children}</>;
 
   const hasRecent = recentTemplates.length > 0;
   const hasOthers = otherColumns.length > 0;
@@ -180,6 +183,30 @@ function SmartTapPopoverComponent({
               </div>
             </div>
           ))}
+
+          {/* New Shift column */}
+          {onNewShift && (
+            <div className="flex gap-2">
+              {(hasStations || hasRecent || hasOthers) && (
+                <div className="w-px bg-border flex-shrink-0" />
+              )}
+              <div className="min-w-[110px] flex-shrink-0">
+                <div className="px-1 pb-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    New Shift
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onNewShift}
+                  className="w-full h-[46px] flex items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
+                  aria-label="Create new shift"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>

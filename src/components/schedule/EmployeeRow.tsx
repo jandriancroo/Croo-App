@@ -65,6 +65,7 @@ interface EmployeeRowProps {
   holidays?: Holiday[];
   allShifts?: any[];
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  onNewShift?: (userId: string, dayIndex: number, shiftDate: string) => void;
   /** Optional small badge shown next to the name (e.g. "Manager"). */
   roleBadge?: string;
   /** Stations enabled at the location (passed to SmartTap popover). */
@@ -93,6 +94,7 @@ function EmployeeRowComponent({
   holidays = [],
   allShifts = [],
   onSmartTap,
+  onNewShift,
   roleBadge,
   stations,
   currentStationId,
@@ -271,6 +273,7 @@ function EmployeeRowComponent({
          templates={templates}
          recentTemplateIds={recentTemplateIds}
          onSmartTap={onSmartTap}
+         onNewShift={onNewShift}
          cellDateStr={cellDateStr}
          stations={stations}
          currentStationId={currentStationId}
@@ -299,6 +302,7 @@ function DayCell({
   templates = [],
   recentTemplateIds = [],
   onSmartTap,
+  onNewShift,
   cellDateStr = "",
   stations,
   currentStationId,
@@ -322,6 +326,7 @@ function DayCell({
   templates?: any[];
   recentTemplateIds?: string[];
   onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  onNewShift?: (userId: string, dayIndex: number, shiftDate: string) => void;
   cellDateStr?: string;
   stations?: { id: string; name: string; color?: string | null }[];
   currentStationId?: string | null;
@@ -338,7 +343,7 @@ function DayCell({
   
   const [smartTapOpen, setSmartTapOpen] = useState(false);
   const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
-  const canSmartTap = !!onSmartTap && (templates.length > 0 || hasStationPicker) && shifts.length === 0 && userId !== "unassigned";
+  const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
   
   const formatTime12h = (time: string) => {
@@ -395,6 +400,11 @@ function DayCell({
     onSmartTap?.(userId, dayIndex, cellDateStr, template);
   };
 
+  const handleNewShift = () => {
+    setSmartTapOpen(false);
+    onNewShift?.(userId, dayIndex, cellDateStr);
+  };
+
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
   }} className={`${isCompactMode ? 'min-h-[26px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden ${canSmartTap ? 'cursor-pointer' : ''}`}>
@@ -408,6 +418,7 @@ function DayCell({
       stations={hasStationPicker ? stations : undefined}
       currentStationId={currentStationId ?? null}
       onSelectStation={hasStationPicker ? onAssignStation : undefined}
+      onNewShift={onNewShift ? handleNewShift : undefined}
     >
 
       <div 
