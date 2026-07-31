@@ -349,12 +349,14 @@ export function useScheduleData() {
         const shiftUserIds = Array.from(new Set(shifts.map((s) => s.user_id).filter(Boolean) as string[]));
         if (shiftUserIds.length > 0) {
           const { data: shiftProfiles } = await supabase.from('profiles').select('id, full_name, nickname, profile_photo_url, display_order, appears_on_schedule, weekly_availability').in('id', shiftUserIds);
-          const { data: roles } = await supabase.from("user_roles").select("user_id, role");
-          const { data: shiftWageRows } = await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds });
+          const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("user_id", shiftUserIds);
+          const { data: shiftWageRows } = canViewAllWages
+            ? await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds })
+            : { data: null };
           const shiftWageMap = new Map<string, number>(((shiftWageRows || []) as any[]).map((w) => [w.user_id, Number(w.hourly_wage)]));
           profilesWithRoles = (shiftProfiles || []).map(profile => {
             const userRole = roles?.find(r => r.user_id === profile.id);
-            return { ...profile, weekly_availability: profile.weekly_availability as WeeklyAvailability | null, hourly_wage: shiftWageMap.get(profile.id) ?? 15, role: userRole?.role || 'team_member', display_order: profile.display_order ?? 0 };
+            return { ...profile, weekly_availability: profile.weekly_availability as WeeklyAvailability | null, hourly_wage: canViewAllWages ? (shiftWageMap.get(profile.id) ?? 15) : undefined, role: userRole?.role || 'team_member', display_order: profile.display_order ?? 0 };
           });
         }
       }
