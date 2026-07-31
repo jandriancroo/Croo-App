@@ -439,28 +439,15 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
       const allItems = [...oneTimeItems, ...alarmTaskItems];
       if (allItems.length === 0) return [];
 
-      const completerIds = [...new Set(allItems.map(t => t.completed_by).filter(Boolean))] as string[];
       const oneTimeTaskIds = (oneTimeTasks || []).map(t => t.id);
 
-      const [{ data: subtasks }, { data: completers }] = await Promise.all([
-        oneTimeTaskIds.length > 0
-          ? supabase
-              .from('temporary_task_subtasks')
-              .select('task_id, completed_at')
-              .in('task_id', oneTimeTaskIds)
-          : Promise.resolve({ data: [] }),
-        completerIds.length > 0
-          ? supabase
-              .from('profiles')
-              .select('id, full_name, profile_photo_url')
-              .in('id', completerIds)
-          : Promise.resolve({ data: [] as any[] } as any),
-      ]);
+      const { data: subtasks } = oneTimeTaskIds.length > 0
+        ? await supabase
+            .from('temporary_task_subtasks')
+            .select('task_id, completed_at')
+            .in('task_id', oneTimeTaskIds)
+        : { data: [] as any[] };
 
-      const completerMap = (completers || []).reduce((acc: Record<string, any>, p: any) => {
-        acc[p.id] = p;
-        return acc;
-      }, {});
 
       const subtaskAgg = (subtasks || []).reduce(
         (acc: Record<string, { total: number; completed: number }>, s: any) => {
