@@ -255,7 +255,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
     const cached = dailyResult.data;
     
-    console.log(`[CACHE] Date ${dateStr}: daily=${!!cached}, week=${weekResult.data?.length || 0} days, month=${monthResult.data?.length || 0} days`);
     
     // Aggregate weekly data - always include all 7 days Mon-Sun
     const weekData = weekResult.data || [];
@@ -394,14 +393,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       overtimeHours: Number(preferredRow.overtime_hours) || 0
     } : { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
     
-    console.log('[SalesOverview] Labor from labor_cache:', { 
-      labor_cost: aggregatedLabor.laborCost, 
-      labor_hours: aggregatedLabor.hoursWorked,
-      selectedSource: preferredRow?.source || 'none',
-      availableSources: laborData.map((r: any) => r.source),
-      net_sales: cached?.net_sales,
-      hasLabor: aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0
-    });
     
     const dailyLabor = (aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0) ? {
       laborPercent: cached?.net_sales && Number(cached.net_sales) > 0 
@@ -412,7 +403,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       regularHours: aggregatedLabor.regularHours || aggregatedLabor.hoursWorked,
       overtimeHours: aggregatedLabor.overtimeHours
     } : null;
-    console.log('[SalesOverview] Built dailyLabor:', dailyLabor);
     
     // Calculate weekly labor totals from weeklyLaborMap
     const weeklyLaborTotalCost = weeklyBreakdown.reduce((sum, d) => sum + (d.laborCost || 0), 0);
@@ -424,7 +414,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       regularHours: weeklyLaborTotalHours, // We don't have breakdown, use total
       overtimeHours: 0
     } : null;
-    console.log('[SalesOverview] Built weeklyLabor:', weeklyLabor);
     
     // Calculate monthly labor totals from monthlyLaborMap
     const monthlyLaborTotalCost = monthlyBreakdownFull.reduce((sum, d) => sum + (d.laborCost || 0), 0);
@@ -436,7 +425,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       regularHours: monthlyLaborTotalHours,
       overtimeHours: 0
     } : null;
-    console.log('[SalesOverview] Built monthlyLabor:', { monthlyLaborTotalCost, monthlyLaborTotalHours, monthlyLaborMapSize: monthlyLaborMap.size, monthlySales, monthlyLabor: monthlyLabor ? 'has data' : 'null', monthStartStr, monthEndStr });
     
     // Build payments data from cache for cubes
     const aggregatePayments = (rows: any[]): Array<{ paymentType: string; amount: number }> => {
@@ -793,12 +781,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const initialData = useMemo(() => {
     if (!isTodayQuery || !currentLocation?.id) return undefined;
     const cached = getCachedLiveSales(currentLocation.id);
-    console.log('[SalesOverview] Checking cache for initial data:', { 
-      isTodayQuery, 
-      locationId: currentLocation?.id,
-      hasCached: !!cached,
-      cachedData: cached?.data ? 'has data' : 'no data'
-    });
     return cached?.data || undefined;
   }, [isTodayQuery, currentLocation?.id]);
   
@@ -840,7 +822,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       if (isTodayQuery && currentLocation?.id) {
         const cached = getCachedLiveSales(currentLocation.id);
         if (cached?.isFresh && cached.data) {
-          console.log('[SalesOverview] Using fresh cached data (< 3 min old), skipping API call');
           // Update the fetch timestamp to reflect cached data age
           if (cached.cachedAt) {
             setLastFetchTimestamp(cached.cachedAt);
