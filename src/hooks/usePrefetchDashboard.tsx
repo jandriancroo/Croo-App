@@ -31,6 +31,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
     queryClient.prefetchQuery({
       queryKey: ['dashboard-checklists', locationId, timezone],
       queryFn: async () => {
+        const currentDay = getDayOfWeekInTimezone(timezone);
         const { data } = await supabase
           .from('checklists')
           .select('*, checklist_items(id, days_of_week)')
@@ -38,8 +39,27 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
           .eq('location_id', locationId)
           .order('display_order', { ascending: true })
           .order('created_at', { ascending: false });
-        return { checklists: data || [] };
+
+        // Mirror the Dashboard's filter exactly so the warmed cache is usable as-is
+        const filtered = (data || []).filter((checklist: any) => {
+          if (checklist.template_type === 'dynamic') {
+            const todayItems = checklist.checklist_items?.filter(
+              (item: any) => item.days_of_week && item.days_of_week.includes(currentDay)
+            );
+            return todayItems && todayItems.length > 0;
+          }
+          if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
+            const today = new Date();
+            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
+            return daysUntilMonthEnd < checklist.visible_days_before_month_end;
+          }
+          return true;
+        });
+
+        return { checklists: filtered };
       },
+
       staleTime: 2 * 60 * 1000,
     });
 
