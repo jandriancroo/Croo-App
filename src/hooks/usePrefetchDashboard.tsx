@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, startOfMonth } from 'date-fns';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+import { fetchDashboardWidgets, DASHBOARD_WIDGETS_STALE_TIME } from '@/hooks/useDashboardWidgets';
+
 
 
 /**
