@@ -119,7 +119,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         .select(`
           item_id,
           created_at,
-          checklist_submissions!inner(checklist_id, location_id)
+          checklist_submissions!inner(checklist_id)
         `)
         .in('checklist_submissions.checklist_id', checklistIds)
         .eq('checklist_submissions.location_id', currentLocation.id)
