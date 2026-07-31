@@ -248,16 +248,18 @@ export function useScheduleData() {
   } = useQuery({
     queryKey: scheduleQueryKey,
     queryFn: async () => {
-      const perfStart = performance.now();
-      console.log('[Schedule] fetchScheduleData started');
-
       if (!currentLocation?.id) return null;
 
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
+      const SCHEDULE_COLUMNS = "id, is_published, published_shifts_snapshot, last_status_changed_at, last_status_changed_by, last_status_action, week_start_date, week_end_date, location_id";
+
       let { data: schedule, error: scheduleError } = await supabase
         .from("schedules")
-        .select("*")
+        .select(SCHEDULE_COLUMNS)
+        .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
+        .eq("location_id", currentLocation.id)
+
         .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
         .eq("location_id", currentLocation.id)
         .single();
