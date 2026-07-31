@@ -2,6 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, startOfMonth } from 'date-fns';
+import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+
 
 /**
  * Prefetches critical dashboard data in the background.
@@ -24,20 +26,43 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
     // Dashboard widgets are fetched by useDashboardWidgets on mount.
     // We skip prefetching here to keep the cache shape consistent with the hook's queryFn.
 
-    // Prefetch checklists for tasks page
+    // Prefetch checklists using the SAME key + result shape the Dashboard reads,
+    // otherwise the splash prefetch lands in a drawer nobody opens.
     queryClient.prefetchQuery({
-      queryKey: ['user-checklists', userId, true, locationId], // isAdmin = true covers all
+      queryKey: ['dashboard-checklists', locationId, timezone],
       queryFn: async () => {
+        const currentDay = getDayOfWeekInTimezone(timezone);
         const { data } = await supabase
           .from('checklists')
-          .select('*, checklist_role_tags(role), checklist_items(id, days_of_week)')
+          .select('*, checklist_items(id, days_of_week)')
           .eq('is_active', true)
           .eq('location_id', locationId)
-          .order('display_order', { ascending: true });
-        return data || [];
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: false });
+
+        // Mirror the Dashboard's filter exactly so the warmed cache is usable as-is
+        const filtered = (data || []).filter((checklist: any) => {
+          if (checklist.template_type === 'dynamic') {
+            const todayItems = checklist.checklist_items?.filter(
+              (item: any) => item.days_of_week && item.days_of_week.includes(currentDay)
+            );
+            return todayItems && todayItems.length > 0;
+          }
+          if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
+            const today = new Date();
+            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
+            return daysUntilMonthEnd < checklist.visible_days_before_month_end;
+          }
+          return true;
+        });
+
+        return { checklists: filtered };
       },
+
       staleTime: 2 * 60 * 1000,
     });
+
 
     // Prefetch location hours
     const weekdayMap: Record<string, number> = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };

@@ -159,7 +159,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
     // Fetch labor for the ENTIRE WEEK to show labor% in weekly chart
-    const [dailyResult, weekResult, weekPaymentsResult, monthPaymentsResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
+    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
       // Daily sales
       supabase
         .from('sales_cache')
@@ -167,34 +167,23 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         .eq('location_id', currentLocation.id)
         .eq('sale_date', dateStr)
         .maybeSingle(),
+      // Week sales + payments (single round-trip)
       supabase
         .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
+        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, payments_data')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', weekStartStr)
         .lte('sale_date', weekEndStr)
         .order('sale_date'),
-      // Week payments data for payment cubes
+      // Month sales + payments (single round-trip)
       supabase
         .from('sales_cache')
-        .select('sale_date, payments_data')
-        .eq('location_id', currentLocation.id)
-        .gte('sale_date', weekStartStr)
-        .lte('sale_date', weekEndStr),
-      // Month payments data for payment cubes
-      supabase
-        .from('sales_cache')
-        .select('sale_date, payments_data')
-        .eq('location_id', currentLocation.id)
-        .gte('sale_date', monthStartStr)
-        .lte('sale_date', monthEndStr),
-      supabase
-        .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
+        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, payments_data')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', monthStartStr)
         .lte('sale_date', monthEndStr)
         .order('sale_date'),
+
       // Fetch labor from dedicated labor_cache table for selected day
       supabase
         .from('labor_cache')
@@ -266,7 +255,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
     const cached = dailyResult.data;
     
-    console.log(`[CACHE] Date ${dateStr}: daily=${!!cached}, week=${weekResult.data?.length || 0} days, month=${monthResult.data?.length || 0} days`);
     
     // Aggregate weekly data - always include all 7 days Mon-Sun
     const weekData = weekResult.data || [];
@@ -405,14 +393,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       overtimeHours: Number(preferredRow.overtime_hours) || 0
     } : { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
     
-    console.log('[SalesOverview] Labor from labor_cache:', { 
-      labor_cost: aggregatedLabor.laborCost, 
-      labor_hours: aggregatedLabor.hoursWorked,
-      selectedSource: preferredRow?.source || 'none',
-      availableSources: laborData.map((r: any) => r.source),
-      net_sales: cached?.net_sales,
-      hasLabor: aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0
-    });
     
     const dailyLabor = (aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0) ? {
       laborPercent: cached?.net_sales && Number(cached.net_sales) > 0 
@@ -423,7 +403,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       regularHours: aggregatedLabor.regularHours || aggregatedLabor.hoursWorked,
       overtimeHours: aggregatedLabor.overtimeHours
     } : null;
-    console.log('[SalesOverview] Built dailyLabor:', dailyLabor);
     
     // Calculate weekly labor totals from weeklyLaborMap
     const weeklyLaborTotalCost = weeklyBreakdown.reduce((sum, d) => sum + (d.laborCost || 0), 0);
@@ -435,7 +414,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       regularHours: weeklyLaborTotalHours, // We don't have breakdown, use total
       overtimeHours: 0
     } : null;
-    console.log('[SalesOverview] Built weeklyLabor:', weeklyLabor);
     
     // Calculate monthly labor totals from monthlyLaborMap
     const monthlyLaborTotalCost = monthlyBreakdownFull.reduce((sum, d) => sum + (d.laborCost || 0), 0);
@@ -447,7 +425,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       regularHours: monthlyLaborTotalHours,
       overtimeHours: 0
     } : null;
-    console.log('[SalesOverview] Built monthlyLabor:', { monthlyLaborTotalCost, monthlyLaborTotalHours, monthlyLaborMapSize: monthlyLaborMap.size, monthlySales, monthlyLabor: monthlyLabor ? 'has data' : 'null', monthStartStr, monthEndStr });
     
     // Build payments data from cache for cubes
     const aggregatePayments = (rows: any[]): Array<{ paymentType: string; amount: number }> => {
@@ -479,8 +456,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const dailyPayments = cached?.payments_data && Array.isArray(cached.payments_data)
       ? (cached.payments_data as Array<{ paymentType: string; amount: number }>)
       : [];
-    const weeklyPayments = aggregatePayments(weekPaymentsResult.data || []);
-    const monthlyPayments = aggregatePayments(monthPaymentsResult.data || []);
+    const weeklyPayments = aggregatePayments(weekResult.data || []);
+    const monthlyPayments = aggregatePayments(monthResult.data || []);
+
     const productMix = normalizeProductMix(cached?.product_mix);
 
     return {
@@ -803,12 +781,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const initialData = useMemo(() => {
     if (!isTodayQuery || !currentLocation?.id) return undefined;
     const cached = getCachedLiveSales(currentLocation.id);
-    console.log('[SalesOverview] Checking cache for initial data:', { 
-      isTodayQuery, 
-      locationId: currentLocation?.id,
-      hasCached: !!cached,
-      cachedData: cached?.data ? 'has data' : 'no data'
-    });
     return cached?.data || undefined;
   }, [isTodayQuery, currentLocation?.id]);
   
@@ -850,7 +822,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       if (isTodayQuery && currentLocation?.id) {
         const cached = getCachedLiveSales(currentLocation.id);
         if (cached?.isFresh && cached.data) {
-          console.log('[SalesOverview] Using fresh cached data (< 3 min old), skipping API call');
           // Update the fetch timestamp to reflect cached data age
           if (cached.cachedAt) {
             setLastFetchTimestamp(cached.cachedAt);
@@ -909,11 +880,46 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }, [currentLocation?.id, isToday, refetch]);
 
   // Visibility-based auto-refresh: only refresh when dashboard is visible/focused
-  // This prevents unnecessary API calls when user isn't looking at the dashboard
+  // AND the store is within operating hours (+1h grace after close).
+  // Prevents overnight polling of a POS that has nothing new to report.
   useEffect(() => {
     if (!currentLocation?.id) return;
 
     const VISIBILITY_REFRESH_INTERVAL = 3 * 60 * 1000; // 3 minutes - matches cache TTL
+
+    // If hours aren't configured we fall back to always-on (previous behavior).
+    const isWithinOperatingHours = () => {
+      const openStr = locationSettings?.hours_open;
+      const closeStr = locationSettings?.hours_close;
+      if (!openStr || !closeStr) return true;
+
+      const now = DateTime.now().setZone(locationZone);
+      const nowMin = now.hour * 60 + now.minute;
+      const [oh, om] = openStr.split(':').map(Number);
+      const [ch, cm] = closeStr.split(':').map(Number);
+      const openMin = oh * 60 + (om || 0);
+      // 60 min grace after close so end-of-night totals still settle
+      const closeMin = ch * 60 + (cm || 0) + 60;
+
+      // Overnight close (e.g. open 11:00, close 02:00)
+      if (closeMin <= openMin) return nowMin >= openMin || nowMin <= closeMin;
+      return nowMin >= openMin && nowMin <= closeMin;
+    };
+
+    const startInterval = () => {
+      visibilityRefreshInterval.current = setInterval(() => {
+        if (
+          document.visibilityState === 'visible' &&
+          !isBackgroundRefreshing.current &&
+          isWithinOperatingHours()
+        ) {
+          isBackgroundRefreshing.current = true;
+          refetch().finally(() => {
+            isBackgroundRefreshing.current = false;
+          });
+        }
+      }, VISIBILITY_REFRESH_INTERVAL);
+    };
 
     const handleVisibilityChange = () => {
       // Clear any existing interval
@@ -924,6 +930,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
       // If page becomes visible and we're viewing today, start refresh interval
       if (document.visibilityState === 'visible' && isToday) {
+
         // Check if cache is stale (> 3 min) - if fresh, don't refresh yet
         const cached = getCachedLiveSales(currentLocation.id);
         if (!cached?.isFresh) {
@@ -931,14 +938,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         }
 
         // Start interval for periodic refresh while visible
-        visibilityRefreshInterval.current = setInterval(() => {
-          if (document.visibilityState === 'visible' && !isBackgroundRefreshing.current) {
-            isBackgroundRefreshing.current = true;
-            refetch().finally(() => {
-              isBackgroundRefreshing.current = false;
-            });
-          }
-        }, VISIBILITY_REFRESH_INTERVAL);
+        startInterval();
       }
     };
 
@@ -947,14 +947,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     
     // Initial check - if page is already visible, start interval
     if (document.visibilityState === 'visible' && isToday) {
-      visibilityRefreshInterval.current = setInterval(() => {
-        if (document.visibilityState === 'visible' && !isBackgroundRefreshing.current) {
-          isBackgroundRefreshing.current = true;
-          refetch().finally(() => {
-            isBackgroundRefreshing.current = false;
-          });
-        }
-      }, VISIBILITY_REFRESH_INTERVAL);
+      startInterval();
     }
 
     return () => {
@@ -963,7 +956,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         clearInterval(visibilityRefreshInterval.current);
       }
     };
-  }, [currentLocation?.id, isToday, refetch]);
+  }, [currentLocation?.id, isToday, refetch, locationSettings?.hours_open, locationSettings?.hours_close, locationZone]);
+
 
   // Calculate how long ago data was fetched
   const dataAgeText = useMemo(() => {
