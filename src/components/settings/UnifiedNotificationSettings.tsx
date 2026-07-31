@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
 
 interface NotificationSetting {
   notification_type: string;
