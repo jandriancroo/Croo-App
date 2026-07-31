@@ -107,7 +107,7 @@ export default function Dashboard() {
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
     ['user-checklists'],
-    ['checklist-stats'],
+    
     ['dashboard-widgets'],
     ['catering-orders'],
     ['temporary-tasks'],

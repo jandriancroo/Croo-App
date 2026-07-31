@@ -99,6 +99,39 @@ function mapRow(row: DashboardWidgetRow, userId: string, locationId: string): Un
 }
 
 /**
+ * Shared fetcher so the splash prefetch and the hook produce the IDENTICAL
+ * cache shape under the IDENTICAL key.
+ */
+export async function fetchDashboardWidgets(
+  userId: string,
+  locationId: string
+): Promise<UnifiedWidgetConfig[]> {
+  const { data, error } = await supabase
+    .from('dashboard_widgets')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('[useDashboardWidgets] error:', error);
+    return [];
+  }
+
+  const rows = (data || []) as DashboardWidgetRow[];
+  const filtered = rows.filter(r => {
+    if (r.authority_scope === 'org' || r.authority_scope === 'brand' || r.authority_scope === 'app') {
+      return true;
+    }
+    return r.location_id === locationId;
+  });
+
+  return filtered.map(r => mapRow(r, userId, locationId));
+}
+
+export const DASHBOARD_WIDGETS_STALE_TIME = 30 * 1000;
+
+
+/**
  * Fetch all widgets visible to the current user for the given location.
  * RLS filters by visibility/role; we filter client-side to widgets that
  * apply to this location (self/location bound to id, or org/brand/app cascading down).
@@ -114,31 +147,11 @@ export function useDashboardWidgets(locationId: string | null | undefined) {
     queryKey: ['dashboard-widgets', user?.id, locationId],
     queryFn: async (): Promise<UnifiedWidgetConfig[]> => {
       if (!user?.id || !locationId) return [];
-
-      const { data, error } = await supabase
-        .from('dashboard_widgets')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-
-      if (error) {
-        console.error('[useDashboardWidgets] error:', error);
-        return [];
-      }
-
-      const rows = (data || []) as DashboardWidgetRow[];
-
-      const filtered = rows.filter(r => {
-        if (r.authority_scope === 'org' || r.authority_scope === 'brand' || r.authority_scope === 'app') {
-          return true;
-        }
-        return r.location_id === locationId;
-      });
-
-      return filtered.map(r => mapRow(r, user.id, locationId));
+      return fetchDashboardWidgets(user.id, locationId);
     },
     enabled: !!user?.id && !!locationId,
-    staleTime: 30 * 1000,
+    staleTime: DASHBOARD_WIDGETS_STALE_TIME,
+
     placeholderData: (prev) => prev,
   });
 }

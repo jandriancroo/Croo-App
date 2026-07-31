@@ -31,7 +31,11 @@ const AddWidgetDialog = lazyWithRetry(addWidgetDialogImport);
 const prefetchAddWidgetDialog = () => { addWidgetDialogImport().catch(() => {}); };
 import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
 import { DataCube3D } from './DataCube3D';
-import { SalesSummary } from './SalesSummary';
+// Code-split the sales chart (Recharts + framer) out of the first-paint bundle.
+// It still mounts with the dashboard (it is the master writer for shared sales
+// cache), but its JS loads in parallel instead of blocking cubes/checklists.
+const SalesSummary = lazyWithRetry(() => import('./SalesSummary').then(m => ({ default: m.SalesSummary })));
+
 import { TrackerWidget } from './TrackerWidget';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -135,7 +139,10 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
             </div>
           )}
           <div className={isReorderMode ? 'opacity-85' : ''}>
-            <SalesSummary locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
+            <Suspense fallback={<div className="h-[320px] w-full animate-pulse bg-muted/40" />}>
+              <SalesSummary locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
+            </Suspense>
+
           </div>
         </Card>
       </div>
