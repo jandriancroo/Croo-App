@@ -2,6 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, startOfMonth } from 'date-fns';
+import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+
 
 /**
  * Prefetches critical dashboard data in the background.
