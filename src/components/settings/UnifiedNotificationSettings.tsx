@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
 
 interface NotificationSetting {
   notification_type: string;
@@ -152,23 +153,20 @@ export const UnifiedNotificationSettings = () => {
       }
 
       const registration = await navigator.serviceWorker.ready;
-      const vapidPublicKey = 'BA4iHtMMThy4LwpxYB7cIokOK9dVRTLZbSqySIlYNuXpVRZn9zNBSg3OJOZ4m_ruFWzzjRGZiwtIGHn9B7a35_M';
-      
-      const urlBase64ToUint8Array = (base64String: string) => {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-          outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
-      };
+      const vapidPublicKey = await getVapidPublicKey();
+      const { subscription, staleEndpoint } = await ensureSubscriptionForKey(
+        registration,
+        vapidPublicKey
+      );
 
-      const subscription = await (registration as any).pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-      });
+      // Drop any stored token that pointed at the replaced subscription
+      if (staleEndpoint) {
+        await supabase
+          .from('push_notification_tokens')
+          .delete()
+          .eq('user_id', user.id)
+          .like('token', `%${staleEndpoint.substring(0, 80)}%`);
+      }
 
       await supabase
         .from('push_notification_tokens')
@@ -179,6 +177,7 @@ export const UnifiedNotificationSettings = () => {
         }, {
           onConflict: 'user_id,platform'
         });
+
 
       toast({
         title: "Notifications Enabled!",

@@ -10,6 +10,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { triggerForceReload, getCurrentAppVersion } from '@/hooks/useForceReload';
 import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
+import { checkPassword } from '@/utils/passwordPolicy';
 
 export interface UserProfile {
   id: string;
@@ -430,10 +431,12 @@ export const useUserManagementData = () => {
 
   const handleSetTempPassword = async () => {
     if (!tempPasswordUser || !tempPassword.trim()) return;
-    if (tempPassword.length < 6) {
-      toast({ title: 'Error', description: 'Password must be at least 6 characters', variant: 'destructive' });
+    const check = checkPassword(tempPassword);
+    if (!check.valid) {
+      toast({ title: 'Error', description: check.message!, variant: 'destructive' });
       return;
     }
+
     try {
       setSettingTempPassword(true);
       const { data, error } = await supabase.functions.invoke('user-service', {

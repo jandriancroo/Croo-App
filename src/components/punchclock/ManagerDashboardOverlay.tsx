@@ -77,7 +77,8 @@ interface ActiveShift {
   breakStartTime: string | null;
   breakType: string | null;
   position?: string;
-  hourlyWage?: number;
+  /** null when the current session isn't allowed to read wages (kiosk device). */
+  hourlyWage?: number | null;
   scheduledStartTime?: string; // HH:mm format from shift template
   scheduledEndTime?: string; // HH:mm format from shift template
 }
@@ -415,15 +416,30 @@ export function ManagerDashboardOverlay({
         .in('id', userIds);
 
       // Wages are no longer readable directly from profiles by the kiosk
-      // (unauthenticated PII protection). Use the security-definer helper,
-      // which returns only { user_id, hourly_wage } for the given users.
-      const { data: wageRows } = await (supabase as any).rpc('get_current_wages_batch', {
-        p_user_ids: userIds,
-        p_date: todayStr,
-      });
-      const wageMap = new Map<string, number>(
-        (wageRows || []).map((w: any) => [w.user_id, Number(w.hourly_wage)])
-      );
+      // (unauthenticated PII protection). The security-definer helper returns a
+      // flat 15.00 placeholder for non-manager callers — and the kiosk device
+      // session has no role — so only trust the numbers when the signed-in user
+      // is actually a manager. Otherwise wages stay null and we hide dollars.
+      const { data: authData } = await supabase.auth.getUser();
+      const authUserId = authData?.user?.id ?? null;
+      let wagesReadable = false;
+      if (authUserId) {
+        const { data: priv } = await (supabase as any).rpc('has_role_or_higher', {
+          _user_id: authUserId,
+          _minimum_role: 'manager',
+        });
+        wagesReadable = priv === true;
+      }
+
+      const wageMap = new Map<string, number>();
+      if (wagesReadable) {
+        const { data: wageRows } = await (supabase as any).rpc('get_current_wages_batch', {
+          p_user_ids: userIds,
+          p_date: todayStr,
+        });
+        (wageRows || []).forEach((w: any) => wageMap.set(w.user_id, Number(w.hourly_wage)));
+      }
+
 
       // Get today's shifts for positions and start/end times
       const { data: shifts } = await supabase
@@ -452,7 +468,7 @@ export function ManagerDashboardOverlay({
           breakStartTime: u.breakStartTime,
           breakType: u.breakType,
           position: shiftInfo?.position || undefined,
-          hourlyWage: wageMap.get(u.userId) || 16, // Default to $16/hr if not set
+          hourlyWage: wagesReadable ? (wageMap.get(u.userId) ?? null) : null,
           scheduledStartTime: shiftInfo?.startTime || undefined,
           scheduledEndTime: shiftInfo?.endTime || undefined,
         } as ActiveShift;
@@ -986,17 +1002,23 @@ export function ManagerDashboardOverlay({
     setShowPreviewModal(false);
   };
 
-  // Calculate labor savings
+  // Calculate labor savings. Dollar figures are only meaningful when the
+  // session can actually read wages — otherwise we report minutes only.
+  const wagesKnown = useMemo(
+    () => activeShifts.length > 0 && activeShifts.every(s => typeof s.hourlyWage === 'number'),
+    [activeShifts]
+  );
+
   const calculateLaborSavings = useMemo(() => {
     let totalMinutesSaved = 0;
     let totalCostSaved = 0;
-    
+
     laborCuts.forEach(cut => {
       const employee = activeShifts.find(s => s.userId === cut.userId);
       if (employee) {
         totalMinutesSaved += cut.minutesCut;
         const hoursSaved = cut.minutesCut / 60;
-        totalCostSaved += hoursSaved * (employee.hourlyWage || 16);
+        totalCostSaved += hoursSaved * (employee.hourlyWage ?? 0);
       }
     });
 
@@ -1016,6 +1038,7 @@ export function ManagerDashboardOverlay({
       percentSaved: currentLaborPercent - newLaborPercent,
     };
   }, [laborCuts, activeShifts, laborData?.laborCost, totalSales]);
+
 
   const hasAnyCuts = laborCuts.length > 0;
 
@@ -1221,14 +1244,14 @@ export function ManagerDashboardOverlay({
                         <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Labor</h3>
                         <div className="mt-2 flex items-end gap-2">
                           <span className={`text-3xl font-bold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
-                            {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
+                            {(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
                           </span>
                           <span className={`pb-1 text-xs ${laborStatus === 'good' ? 'text-emerald-500/80' : laborStatus === 'warning' ? 'text-amber-500/80' : 'text-red-500/80'}`}>
                             {laborStatus === 'good' ? 'on target' : laborStatus === 'warning' ? 'watching' : 'over target'}
                           </span>
                         </div>
                         <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
+                          {formatCurrency(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
                         </p>
                       </div>
                         <div className={`rounded-full p-2 ${isDayMode ? 'bg-white' : 'bg-neutral-900/60'}`}>
@@ -1468,7 +1491,7 @@ export function ManagerDashboardOverlay({
                   const employee = activeShifts.find(s => s.userId === cut.userId);
                   if (!employee) return null;
                   const hoursSaved = cut.minutesCut / 60;
-                  const costSaved = hoursSaved * (employee.hourlyWage || 16);
+                  const costSaved = hoursSaved * (employee.hourlyWage ?? 0);
                   return (
                     <div key={cut.userId} className={`flex items-center justify-between p-2 rounded ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
                       <div className="flex items-center gap-2">
@@ -1482,62 +1505,81 @@ export function ManagerDashboardOverlay({
                       </div>
                       <div className="text-right">
                         <Badge className="bg-red-500/30 text-red-500 text-xs">-{cut.minutesCut}m</Badge>
-                        <p className="text-green-500 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
+                        {wagesKnown && (
+                          <p className="text-green-500 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Comparison */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Current Labor */}
-                <div className={`p-4 rounded-lg text-center ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
-                  <p className={`text-xs mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Current Projected</p>
-                  <p className={`text-2xl font-bold ${
-                    calculateLaborSavings.currentLaborPercent > laborTarget ? 'text-red-500' : isDayMode ? 'text-foreground' : 'text-white'
-                  }`}>
-                    {calculateLaborSavings.currentLaborPercent.toFixed(1)}%
-                  </p>
-                  <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                    {formatCurrency(calculateLaborSavings.currentLaborCost)}
-                  </p>
+              {/* Comparison — only meaningful when wages are readable */}
+              {wagesKnown && (
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Current Labor */}
+                  <div className={`p-4 rounded-lg text-center ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
+                    <p className={`text-xs mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Current Projected</p>
+                    <p className={`text-2xl font-bold ${
+                      calculateLaborSavings.currentLaborPercent > laborTarget ? 'text-red-500' : isDayMode ? 'text-foreground' : 'text-white'
+                    }`}>
+                      {calculateLaborSavings.currentLaborPercent.toFixed(1)}%
+                    </p>
+                    <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
+                      {formatCurrency(calculateLaborSavings.currentLaborCost)}
+                    </p>
+                  </div>
+
+                  {/* New Labor */}
+                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
+                    <p className="text-green-500/80 text-xs mb-1">After Cuts</p>
+                    <p className={`text-2xl font-bold ${
+                      calculateLaborSavings.newLaborPercent <= laborTarget ? 'text-green-500' : 'text-yellow-500'
+                    }`}>
+                      {calculateLaborSavings.newLaborPercent.toFixed(1)}%
+                    </p>
+                    <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
+                      {formatCurrency(calculateLaborSavings.newLaborCost)}
+                    </p>
+                  </div>
                 </div>
-                
-                {/* New Labor */}
-                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
-                  <p className="text-green-500/80 text-xs mb-1">After Cuts</p>
-                  <p className={`text-2xl font-bold ${
-                    calculateLaborSavings.newLaborPercent <= laborTarget ? 'text-green-500' : 'text-yellow-500'
-                  }`}>
-                    {calculateLaborSavings.newLaborPercent.toFixed(1)}%
-                  </p>
-                  <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                    {formatCurrency(calculateLaborSavings.newLaborCost)}
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* Summary */}
               <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-                <div className="flex justify-between items-center">
+                {wagesKnown ? (
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Total Savings</p>
+                      <p className="text-green-500 text-xl font-bold">
+                        {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Labor % Saved</p>
+                      <p className="text-green-500 text-xl font-bold">
+                        -{calculateLaborSavings.percentSaved.toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                ) : (
                   <div>
-                    <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Total Savings</p>
+                    <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Hours Saved</p>
                     <p className="text-green-500 text-xl font-bold">
-                      {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                      {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m
+                    </p>
+                    <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
+                      Dollar savings hidden — wages aren't available on this device.
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Labor % Saved</p>
-                    <p className="text-green-500 text-xl font-bold">
-                      -{calculateLaborSavings.percentSaved.toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-                <p className={`text-xs mt-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                  {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m total hours cut
-                </p>
+                )}
+                {wagesKnown && (
+                  <p className={`text-xs mt-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
+                    {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m total hours cut
+                  </p>
+                )}
               </div>
+
 
               {/* Actions */}
               <div className="flex gap-3">

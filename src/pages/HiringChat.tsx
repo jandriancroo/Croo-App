@@ -35,20 +35,11 @@ interface ConversationData {
   };
 }
 
-const VAPID_PUBLIC_KEY = 'BMFAfiqavc1nPrnxT3UlNQ7QmxL3bZYpzbgmQiXs3WL0jcDEKMX-6VTVLeGodW2XVCfmaQTsbdCwkjXutsVXzKU';
+// VAPID key is served by the backend so it can never drift from the key the
+// push sender signs with. See src/utils/pushVapid.ts.
+import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
 
-const urlBase64ToUint8Array = (base64String: string) => {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-};
+
 
 export default function HiringChat() {
   const { token } = useParams<{ token: string }>();
@@ -113,17 +104,11 @@ export default function HiringChat() {
 
         // Wait for service worker
         const registration = await navigator.serviceWorker.ready;
-        
-        // Check for existing subscription
-        let subscription = await (registration as any).pushManager.getSubscription();
-        
-        if (!subscription) {
-          console.log('[Applicant Push] Creating new subscription...');
-          subscription = await (registration as any).pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-          });
-        }
+
+        // Reuse the existing subscription only if it matches the server's key
+        const vapidPublicKey = await getVapidPublicKey();
+        const { subscription } = await ensureSubscriptionForKey(registration, vapidPublicKey);
+
 
         const subscriptionData = JSON.stringify(subscription);
 
@@ -364,14 +349,9 @@ export default function HiringChat() {
       try {
         if ('serviceWorker' in navigator && 'PushManager' in window && conversation) {
           const registration = await navigator.serviceWorker.ready;
-          let subscription = await (registration as any).pushManager.getSubscription();
-          
-          if (!subscription) {
-            subscription = await (registration as any).pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-          }
+          const vapidPublicKey = await getVapidPublicKey();
+          const { subscription } = await ensureSubscriptionForKey(registration, vapidPublicKey);
+
 
           const subscriptionData = JSON.stringify(subscription);
 

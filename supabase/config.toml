@@ -118,3 +118,6 @@ verify_jwt = false
 
 [functions.genius-usage-engine]
 verify_jwt = true
+
+[functions.push-vapid-key]
+verify_jwt = false
