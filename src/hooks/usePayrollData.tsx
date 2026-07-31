@@ -654,11 +654,12 @@ export function usePayrollData() {
 
     // Include inactive employees too — payroll history must surface
     // punches from deactivated users for legal/audit compliance.
-    const { data: profiles } = await supabase
+    const { data: profilesRaw } = await supabase
       .from('profiles')
       .select(PROFILE_SAFE_COLUMNS)
       .in('id', allUserIds)
       .order('full_name');
+    const profiles = (profilesRaw || []) as any[];
 
     if (!profiles) return;
 
