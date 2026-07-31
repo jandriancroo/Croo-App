@@ -415,30 +415,24 @@ export function ManagerDashboardOverlay({
         .select('id, full_name, profile_photo_url')
         .in('id', userIds);
 
-      // Wages are no longer readable directly from profiles by the kiosk
-      // (unauthenticated PII protection). The security-definer helper returns a
-      // flat 15.00 placeholder for non-manager callers — and the kiosk device
-      // session has no role — so only trust the numbers when the signed-in user
-      // is actually a manager. Otherwise wages stay null and we hide dollars.
-      const { data: authData } = await supabase.auth.getUser();
-      const authUserId = authData?.user?.id ?? null;
+      // Wages aren't readable directly by the client (PII protection), and the
+      // paired kiosk device session has no role. The `kiosk-wages` edge function
+      // authorizes either a manager+ human session OR an active paired device
+      // bound to this location, then returns real wages for on-shift users.
+      const wageMap = new Map<string, number>();
       let wagesReadable = false;
-      if (authUserId) {
-        const { data: priv } = await (supabase as any).rpc('has_role_or_higher', {
-          _user_id: authUserId,
-          _minimum_role: 'manager',
+      try {
+        const { data: wageRes, error: wageErr } = await supabase.functions.invoke('kiosk-wages', {
+          body: { location_id: locationId, user_ids: userIds, date: todayStr },
         });
-        wagesReadable = priv === true;
+        if (!wageErr && Array.isArray(wageRes?.wages)) {
+          wageRes.wages.forEach((w: any) => wageMap.set(w.user_id, Number(w.hourly_wage)));
+          wagesReadable = wageMap.size > 0;
+        }
+      } catch (e) {
+        console.warn('[ManagerDashboardOverlay] wage lookup unavailable', e);
       }
 
-      const wageMap = new Map<string, number>();
-      if (wagesReadable) {
-        const { data: wageRows } = await (supabase as any).rpc('get_current_wages_batch', {
-          p_user_ids: userIds,
-          p_date: todayStr,
-        });
-        (wageRows || []).forEach((w: any) => wageMap.set(w.user_id, Number(w.hourly_wage)));
-      }
 
 
       // Get today's shifts for positions and start/end times
