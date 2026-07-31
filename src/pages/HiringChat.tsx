@@ -347,14 +347,9 @@ export default function HiringChat() {
       try {
         if ('serviceWorker' in navigator && 'PushManager' in window && conversation) {
           const registration = await navigator.serviceWorker.ready;
-          let subscription = await (registration as any).pushManager.getSubscription();
-          
-          if (!subscription) {
-            subscription = await (registration as any).pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-          }
+          const vapidPublicKey = await getVapidPublicKey();
+          const { subscription } = await ensureSubscriptionForKey(registration, vapidPublicKey);
+
 
           const subscriptionData = JSON.stringify(subscription);
 
