@@ -102,17 +102,11 @@ export default function HiringChat() {
 
         // Wait for service worker
         const registration = await navigator.serviceWorker.ready;
-        
-        // Check for existing subscription
-        let subscription = await (registration as any).pushManager.getSubscription();
-        
-        if (!subscription) {
-          console.log('[Applicant Push] Creating new subscription...');
-          subscription = await (registration as any).pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-          });
-        }
+
+        // Reuse the existing subscription only if it matches the server's key
+        const vapidPublicKey = await getVapidPublicKey();
+        const { subscription } = await ensureSubscriptionForKey(registration, vapidPublicKey);
+
 
         const subscriptionData = JSON.stringify(subscription);
 
