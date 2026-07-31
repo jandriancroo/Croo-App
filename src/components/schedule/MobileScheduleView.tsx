@@ -1022,7 +1022,7 @@ export function MobileScheduleView({
                         setShiftDialogOpen(true);
                       }
                     }}
-                    actionButton={!isAdmin && !isManager ? (
+                    actionButton={!isAdmin && !isManager && shift.user_id === user?.id ? (
                       <Button
                         variant="outline"
                         size="sm"
