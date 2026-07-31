@@ -10,6 +10,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { triggerForceReload, getCurrentAppVersion } from '@/hooks/useForceReload';
 import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
+import { checkPassword } from '@/utils/passwordPolicy';
 
 export interface UserProfile {
   id: string;
