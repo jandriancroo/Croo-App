@@ -1002,17 +1002,23 @@ export function ManagerDashboardOverlay({
     setShowPreviewModal(false);
   };
 
-  // Calculate labor savings
+  // Calculate labor savings. Dollar figures are only meaningful when the
+  // session can actually read wages — otherwise we report minutes only.
+  const wagesKnown = useMemo(
+    () => activeShifts.length > 0 && activeShifts.every(s => typeof s.hourlyWage === 'number'),
+    [activeShifts]
+  );
+
   const calculateLaborSavings = useMemo(() => {
     let totalMinutesSaved = 0;
     let totalCostSaved = 0;
-    
+
     laborCuts.forEach(cut => {
       const employee = activeShifts.find(s => s.userId === cut.userId);
       if (employee) {
         totalMinutesSaved += cut.minutesCut;
         const hoursSaved = cut.minutesCut / 60;
-        totalCostSaved += hoursSaved * (employee.hourlyWage || 16);
+        totalCostSaved += hoursSaved * (employee.hourlyWage ?? 0);
       }
     });
 
@@ -1032,6 +1038,7 @@ export function ManagerDashboardOverlay({
       percentSaved: currentLaborPercent - newLaborPercent,
     };
   }, [laborCuts, activeShifts, laborData?.laborCost, totalSales]);
+
 
   const hasAnyCuts = laborCuts.length > 0;
 
