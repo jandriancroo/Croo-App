@@ -142,9 +142,9 @@ export default function Schedule() {
 
   const isTeamMemberView = !isAdmin && !isManager;
   const isTeamMemberDesktopView = !isMobile && isTeamMemberView;
-  // Mobile parity: team members only get their own shifts/profile passed down
-  const mobileShifts = isTeamMemberView && currentUserId ? shifts.filter(s => s.user_id === currentUserId) : shifts;
-  const mobileProfiles = isTeamMemberView && currentUserId ? profiles.filter(p => p.id === currentUserId) : profiles;
+  // Mobile: pass full data — MobileScheduleView applies its own canSeeFullSchedule gating
+  const mobileShifts = shifts;
+  const mobileProfiles = profiles;
   const filteredProfiles = isTeamMemberDesktopView && currentUserId ? profiles.filter(p => p.id === currentUserId) : profiles;
   const filteredShifts = isTeamMemberDesktopView && currentUserId ? shifts.filter(s => s.user_id === currentUserId) : shifts;
 
