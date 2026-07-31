@@ -547,6 +547,7 @@ export default function Schedule() {
                                         holidays={holidays}
                                         allShifts={lastWeekShifts}
                                         onSmartTap={onSmartTap}
+                                        onNewShift={onNewShiftFromCell}
                                         stations={useStationGrouping ? stations : undefined}
                                         currentStationId={stationAssignments[profile.id] ?? null}
                                         onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
@@ -615,6 +616,7 @@ export default function Schedule() {
                                     holidays={holidays}
                                     allShifts={lastWeekShifts}
                                     onSmartTap={onSmartTap}
+                                        onNewShift={onNewShiftFromCell}
                                     stations={stations}
                                     currentStationId={stationAssignments[profile.id] ?? null}
                                     onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
