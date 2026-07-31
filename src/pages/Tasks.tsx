@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek } from "date-fns";
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
-import { ChecklistHeatmap } from '@/components/history/ChecklistHeatmap';
 import { useTasksData } from '@/hooks/useTasksData';
 import { Layers, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,22 +14,26 @@ import { PageTitle } from '@/components/PageTitle';
 
 // Lazy-load Edit tab components to defer DnD bundle
 const EditTabContent = lazyWithRetry(() => import('@/components/tasks/EditTabContent'));
+// Heatmap only mounts when the user selects it
+const ChecklistHeatmap = lazyWithRetry(() =>
+  import('@/components/history/ChecklistHeatmap').then(m => ({ default: m.ChecklistHeatmap }))
+);
 
 export default function Tasks() {
+  const [activeTab, setActiveTab] = useState('history');
+
   const {
     isAdmin,
     isManager,
     checklists,
     checklistsLoading,
-    submissionStats,
-    statsLoading,
     historyStats,
     completedTempTasks,
     eventCompletions,
     logbookEntries,
     historyDate,
     setHistoryDate,
-  } = useTasksData();
+  } = useTasksData({ editTabActive: activeTab === 'edit' });
 
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'grouped' | 'heatmap'>('grouped');
@@ -44,8 +47,8 @@ export default function Tasks() {
   }, [historyStats]);
 
   // Track if we're in initial load (no cached data yet)
-  const hasNoData = checklists.length === 0 && !submissionStats;
-  const isInitialLoading = (checklistsLoading || statsLoading) && hasNoData;
+  const isInitialLoading = checklistsLoading && checklists.length === 0 && !historyStats;
+
 
   // SVG circle params
   const circleSize = 62;
@@ -57,7 +60,7 @@ export default function Tasks() {
   return (
     <Layout>
       <div className="space-y-4">
-        <Tabs defaultValue="history" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="mb-4">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-3">
@@ -184,7 +187,9 @@ export default function Tasks() {
                     onTaskClick={setSelectedCompletedTask}
                   />
                 ) : (
-                  <ChecklistHeatmap anchorDate={historyDate} range={heatmapRange} />
+                  <Suspense fallback={<PageSkeleton variant="grid" />}>
+                    <ChecklistHeatmap anchorDate={historyDate} range={heatmapRange} />
+                  </Suspense>
                 )}
               </>
             )}

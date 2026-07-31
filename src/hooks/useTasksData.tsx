@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -7,21 +7,27 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import {
-  getDateInTimezone,
   getDayOfWeekInTimezone,
   getDateDayOfWeekInTimezone,
 } from "@/utils/dateUtils";
 
-export function useTasksData() {
+interface UseTasksDataOptions {
+  /** When true, the Edit tab is mounted and needs the full checklist edit payload. */
+  editTabActive?: boolean;
+}
+
+export function useTasksData(options: UseTasksDataOptions = {}) {
+  const { editTabActive = false } = options;
   const { user } = useAuth();
   const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
-  const { timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
+  const { timezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [historyDate, setHistoryDate] = useState(new Date());
 
   const historyDateStr = format(historyDate, 'yyyy-MM-dd');
   const isHistoryToday = historyDateStr === format(new Date(), 'yyyy-MM-dd');
+
 
   // ─── Checklists ───────────────────────────────────────────────
   const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
@@ -84,55 +90,14 @@ export function useTasksData() {
         return true;
       });
     },
-    enabled: !!user && !!currentLocation?.id,
+    // Only the Edit tab (or managers/admins who can act on templates) need this
+    // heavy payload — the History tab never reads it.
+    enabled: !!user && !!currentLocation?.id && (editTabActive || isAdmin || isManager),
   });
 
-  // ─── Submission Stats ─────────────────────────────────────────
-  const { data: submissionStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['submission-stats', user?.id, currentLocation?.id],
-    staleTime: 2 * 60 * 1000,
-    placeholderData: (prev) => prev,
-    queryFn: async () => {
-      if (!currentLocation?.id) return { today: 0, thisWeek: 0, thisMonth: 0 };
-
-      const todayStr = getBusinessDateInTimezone();
-      const today = new Date();
-      const thisWeekStart = new Date(today);
-      thisWeekStart.setDate(today.getDate() - today.getDay());
-      const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-      const [todayResult, weekResult, monthResult] = await Promise.all([
-        supabase
-          .from('checklist_submissions')
-          .select('id', { count: 'exact' })
-          .eq('submitted_by', user!.id)
-          .eq('location_id', currentLocation.id)
-          .gte('submitted_at', todayStr),
-        supabase
-          .from('checklist_submissions')
-          .select('id', { count: 'exact' })
-          .eq('submitted_by', user!.id)
-          .eq('location_id', currentLocation.id)
-          .gte('submitted_at', getDateInTimezone(thisWeekStart, timezone)),
-        supabase
-          .from('checklist_submissions')
-          .select('id', { count: 'exact' })
-          .eq('submitted_by', user!.id)
-          .eq('location_id', currentLocation.id)
-          .gte('submitted_at', getDateInTimezone(thisMonthStart, timezone)),
-      ]);
-
-      return {
-        today: todayResult.count || 0,
-        thisWeek: weekResult.count || 0,
-        thisMonth: monthResult.count || 0,
-      };
-    },
-    enabled: !!user && !!currentLocation?.id,
-  });
 
   // ─── Completion History ───────────────────────────────────────
-  const { data: historyStats } = useQuery({
+  const { data: rawHistoryStats } = useQuery({
     queryKey: ['completion-history', historyDateStr, user?.id, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
@@ -214,21 +179,16 @@ export function useTasksData() {
       const dailyChecklistIds = dailyChecklists.map(c => c.id);
       const monthlyChecklistIds = monthlyChecklists.map(c => c.id);
 
-      const [allChecklistItemsResult, dailyResponsesResult, monthlyResponsesResult] = await Promise.all([
-        supabase
-          .from('checklist_items')
-          .select('id, checklist_id, days_of_week')
-          .in('checklist_id', checklistInfo.map(c => c.id)),
+      const [dailyResponsesResult, monthlyResponsesResult] = await Promise.all([
         dailyChecklistIds.length > 0
           ? supabase
               .from('checklist_responses')
               .select(`
-                id,
                 item_id,
                 submission_id,
                 completed_by,
                 created_at,
-                checklist_submissions!inner(id, checklist_id, location_id)
+                checklist_submissions!inner(id, checklist_id)
               `)
               .in('checklist_submissions.checklist_id', dailyChecklistIds)
               .eq('checklist_submissions.location_id', currentLocation.id)
@@ -240,12 +200,11 @@ export function useTasksData() {
           ? supabase
               .from('checklist_responses')
               .select(`
-                id,
                 item_id,
                 submission_id,
                 completed_by,
                 created_at,
-                checklist_submissions!inner(id, checklist_id, location_id)
+                checklist_submissions!inner(id, checklist_id)
               `)
               .in('checklist_submissions.checklist_id', monthlyChecklistIds)
               .eq('checklist_submissions.location_id', currentLocation.id)
@@ -255,11 +214,11 @@ export function useTasksData() {
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
-      const allChecklistItems = allChecklistItemsResult.data || [];
       const allResponses = [
         ...(dailyResponsesResult.data || []),
         ...(monthlyResponsesResult.data || []),
       ];
+
 
       const allSubmissions = allResponses.reduce((acc: Array<{ id: string; checklist_id: string }>, response: any) => {
         const submission = response.checklist_submissions;
@@ -269,17 +228,8 @@ export function useTasksData() {
         return acc;
       }, []);
 
-      const allContributorIds = [...new Set(allResponses.map(r => r.completed_by).filter(Boolean))];
-      let profilesMap: Record<string, { name: string; photo: string | null }> = {};
-      if (allContributorIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, profile_photo_url')
-          .in('id', allContributorIds);
-        profiles?.forEach((p: any) => {
-          profilesMap[p.id] = { name: p.full_name, photo: p.profile_photo_url };
-        });
-      }
+      // Profiles are resolved once per history date by a shared lookup below.
+
 
       const submissionsByChecklist = (allSubmissions || []).reduce((acc: Record<string, any[]>, s) => {
         if (!acc[s.checklist_id]) acc[s.checklist_id] = [];
@@ -322,10 +272,6 @@ export function useTasksData() {
           });
         });
 
-        const contributors = Array.from(contributorIds)
-          .map(id => profilesMap[id])
-          .filter(Boolean);
-
         const completedCount = Math.min(uniqueItemIds.size, checklist.itemCount);
         const completionRate = checklist.itemCount > 0 ? Math.min(completedCount / checklist.itemCount, 1) : 0;
 
@@ -336,17 +282,18 @@ export function useTasksData() {
           completionRate,
           itemCount: checklist.itemCount,
           completedCount,
-          contributors,
+          contributorIds: Array.from(contributorIds) as string[],
           lastCompletedAt,
           dueByTime: checklist.due_by_time || null,
         };
       });
+
     },
     enabled: !!user && !!currentLocation?.id && !timezoneLoading,
   });
 
   // ─── Completed Quick Tasks ────────────────────────────────────
-  const { data: completedTempTasks = [] } = useQuery({
+  const { data: rawTempTasks = [] } = useQuery({
     queryKey: ['completed-temp-tasks', historyDateStr, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
@@ -492,28 +439,15 @@ export function useTasksData() {
       const allItems = [...oneTimeItems, ...alarmTaskItems];
       if (allItems.length === 0) return [];
 
-      const completerIds = [...new Set(allItems.map(t => t.completed_by).filter(Boolean))] as string[];
       const oneTimeTaskIds = (oneTimeTasks || []).map(t => t.id);
 
-      const [{ data: subtasks }, { data: completers }] = await Promise.all([
-        oneTimeTaskIds.length > 0
-          ? supabase
-              .from('temporary_task_subtasks')
-              .select('task_id, completed_at')
-              .in('task_id', oneTimeTaskIds)
-          : Promise.resolve({ data: [] }),
-        completerIds.length > 0
-          ? supabase
-              .from('profiles')
-              .select('id, full_name, profile_photo_url')
-              .in('id', completerIds)
-          : Promise.resolve({ data: [] as any[] } as any),
-      ]);
+      const { data: subtasks } = oneTimeTaskIds.length > 0
+        ? await supabase
+            .from('temporary_task_subtasks')
+            .select('task_id, completed_at')
+            .in('task_id', oneTimeTaskIds)
+        : { data: [] as any[] };
 
-      const completerMap = (completers || []).reduce((acc: Record<string, any>, p: any) => {
-        acc[p.id] = p;
-        return acc;
-      }, {});
 
       const subtaskAgg = (subtasks || []).reduce(
         (acc: Record<string, { total: number; completed: number }>, s: any) => {
@@ -528,13 +462,10 @@ export function useTasksData() {
 
       return allItems.map(t => {
         const agg = subtaskAgg[t.id] || { total: 0, completed: 0 };
-        const completer = t.completed_by ? completerMap[t.completed_by] : null;
         return {
           ...t,
           subtaskTotal: agg.total,
           subtaskCompleted: agg.completed,
-          completerName: completer?.full_name || null,
-          completerPhoto: completer?.profile_photo_url || null,
         };
       });
     },
@@ -542,7 +473,7 @@ export function useTasksData() {
   });
 
   // ─── Event Completions ────────────────────────────────────────
-  const { data: eventCompletions = [] } = useQuery({
+  const { data: rawEventCompletions = [] } = useQuery({
     queryKey: ['event-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     placeholderData: (prev) => prev,
@@ -567,18 +498,6 @@ export function useTasksData() {
       if (error) throw error;
       if (!completions || completions.length === 0) return [];
 
-      const completerIds = [...new Set(completions.map(c => c.completed_by).filter(Boolean))];
-      let completersMap: Record<string, any> = {};
-      if (completerIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, profile_photo_url')
-          .in('id', completerIds);
-        profiles?.forEach((p: any) => {
-          completersMap[p.id] = p;
-        });
-      }
-
       return completions.map(c => ({
         id: c.id,
         title: (c.event as any)?.event_name || 'Event',
@@ -586,15 +505,13 @@ export function useTasksData() {
         completed_by: c.completed_by,
         accent_color: null,
         task_style: 'event' as const,
-        completerName: completersMap[c.completed_by]?.full_name || null,
-        completerPhoto: completersMap[c.completed_by]?.profile_photo_url || null,
       }));
     },
     enabled: !!currentLocation?.id,
   });
 
   // ─── Logbook Entries ──────────────────────────────────────────
-  const { data: logbookEntries = [] } = useQuery({
+  const { data: rawLogbookEntries = [] } = useQuery({
     queryKey: ['logbook-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     placeholderData: (prev) => prev,
@@ -615,18 +532,6 @@ export function useTasksData() {
 
       if (error) throw error;
       if (!entries || entries.length === 0) return [];
-
-      const creatorIds = [...new Set(entries.map(e => e.created_by).filter(Boolean))];
-      let creatorsMap: Record<string, any> = {};
-      if (creatorIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, profile_photo_url')
-          .in('id', creatorIds);
-        profiles?.forEach((p: any) => {
-          creatorsMap[p.id] = p;
-        });
-      }
 
       return entries.map(e => {
         let title = (e.category as any)?.name || 'Logbook Entry';
@@ -649,13 +554,60 @@ export function useTasksData() {
           completed_by: e.created_by,
           accent_color: null,
           task_style: 'logbook' as const,
-          completerName: creatorsMap[e.created_by]?.full_name || null,
-          completerPhoto: creatorsMap[e.created_by]?.profile_photo_url || null,
         };
       });
     },
     enabled: !!currentLocation?.id,
   });
+
+  // ─── Shared profile lookup (one query per history date) ───────
+  const profileIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    (rawHistoryStats || []).forEach((h: any) => (h.contributorIds || []).forEach((id: string) => ids.add(id)));
+    (rawTempTasks || []).forEach((t: any) => t.completed_by && ids.add(t.completed_by));
+    (rawEventCompletions || []).forEach((c: any) => c.completed_by && ids.add(c.completed_by));
+    (rawLogbookEntries || []).forEach((e: any) => e.completed_by && ids.add(e.completed_by));
+    return Array.from(ids).sort().join(',');
+  }, [rawHistoryStats, rawTempTasks, rawEventCompletions, rawLogbookEntries]);
+
+  const { data: profilesMap = {} } = useQuery({
+    queryKey: ['history-profiles', profileIdsKey],
+    enabled: profileIdsKey.length > 0,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const ids = profileIdsKey.split(',').filter(Boolean);
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', ids);
+      const map: Record<string, { name: string; photo: string | null }> = {};
+      (data || []).forEach((p: any) => {
+        map[p.id] = { name: p.full_name, photo: p.profile_photo_url };
+      });
+      return map;
+    },
+  });
+
+  const historyStats = useMemo(
+    () =>
+      (rawHistoryStats || []).map((h: any) => ({
+        ...h,
+        contributors: (h.contributorIds || []).map((id: string) => profilesMap[id]).filter(Boolean),
+      })),
+    [rawHistoryStats, profilesMap]
+  );
+
+  const decorate = (items: any[]) =>
+    items.map((t: any) => {
+      const p = t.completed_by ? profilesMap[t.completed_by] : null;
+      return { ...t, completerName: p?.name || null, completerPhoto: p?.photo || null };
+    });
+
+  const completedTempTasks = useMemo(() => decorate(rawTempTasks || []), [rawTempTasks, profilesMap]);
+  const eventCompletions = useMemo(() => decorate(rawEventCompletions || []), [rawEventCompletions, profilesMap]);
+  const logbookEntries = useMemo(() => decorate(rawLogbookEntries || []), [rawLogbookEntries, profilesMap]);
 
   return {
     // Auth / role
@@ -668,8 +620,6 @@ export function useTasksData() {
     // Data
     checklists,
     checklistsLoading,
-    submissionStats,
-    statsLoading,
     historyStats,
     completedTempTasks,
     eventCompletions,
@@ -680,3 +630,4 @@ export function useTasksData() {
     historyDateStr,
   };
 }
+

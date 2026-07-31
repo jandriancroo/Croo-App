@@ -66,9 +66,29 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
 
   const rangeKey = `${format(startDate, 'yyyy-MM-dd')}_${format(endDate, 'yyyy-MM-dd')}`;
 
+  // Cache policy: current period stays fresh-ish, recent history is stable,
+  // anything older than 30 days is dropped from cache on navigate-away.
+  const cachePolicy = useMemo(() => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const endStr = format(endDate, 'yyyy-MM-dd');
+    const thirtyDaysAgo = format(addDays(new Date(), -30), 'yyyy-MM-dd');
+    if (endStr >= todayStr) {
+      // Current / in-progress period
+      return { staleTime: 2 * 60 * 1000, gcTime: 10 * 60 * 1000, refetchOnMount: true as const };
+    }
+    if (endStr >= thirtyDaysAgo) {
+      // Settled recent history — treat as stable, keep cached
+      return { staleTime: 60 * 60 * 1000, gcTime: 60 * 60 * 1000, refetchOnMount: false as const };
+    }
+    // Deep history — do not retain after navigate-away
+    return { staleTime: 60 * 60 * 1000, gcTime: 0, refetchOnMount: false as const };
+  }, [endDate]);
+
   const { data: heatmapData, isLoading } = useQuery({
     queryKey: ['checklist-heatmap', currentLocation?.id, rangeKey, closeTime, timezone],
-    staleTime: 5 * 60 * 1000,
+    staleTime: cachePolicy.staleTime,
+    gcTime: cachePolicy.gcTime,
+    refetchOnMount: cachePolicy.refetchOnMount,
     enabled: !!user && !!currentLocation?.id && !tzLoading,
     queryFn: async (): Promise<Record<string, { completedChecklists: number; totalChecklists: number; pct: number | null }>> => {
       if (!currentLocation?.id) return {};
@@ -99,7 +119,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         .select(`
           item_id,
           created_at,
-          checklist_submissions!inner(checklist_id, location_id)
+          checklist_submissions!inner(checklist_id)
         `)
         .in('checklist_submissions.checklist_id', checklistIds)
         .eq('checklist_submissions.location_id', currentLocation.id)
@@ -182,7 +202,9 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
   // Fetch per-day sales & labor for the range
   const { data: salesLaborByDate } = useQuery({
     queryKey: ['heatmap-sales-labor', currentLocation?.id, rangeKey],
-    staleTime: 5 * 60 * 1000,
+    staleTime: cachePolicy.staleTime,
+    gcTime: cachePolicy.gcTime,
+    refetchOnMount: cachePolicy.refetchOnMount,
     enabled: !!currentLocation?.id,
     queryFn: async (): Promise<Record<string, DaySalesLabor>> => {
       const startStr = format(startDate, 'yyyy-MM-dd');
