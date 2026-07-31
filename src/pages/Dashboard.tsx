@@ -63,14 +63,6 @@ interface Checklist {
   due_by_time: string | null;
   lock_until_time: string | null;
 }
-interface ChecklistStats {
-  checklist_id: string;
-  total_submissions: number;
-  last_submission: string | null;
-  submissions_this_week: number;
-  submissions_this_month: number;
-  submissions_today: number;
-}
 export default function Dashboard() {
   // Themed dashboard backgrounds (beach + playa)
   useEffect(() => {
