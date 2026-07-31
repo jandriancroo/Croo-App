@@ -316,7 +316,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       const userIds = activeUsers.map(u => u.userId);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, nickname, profile_photo_url, hourly_wage')
+        .select('id, full_name, nickname, profile_photo_url')
         .in('id', userIds);
 
       // Get today's shifts for end times
@@ -325,6 +325,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
         .select('user_id, template:shift_templates(end_time)')
         .eq('shift_date', todayStr)
         .in('user_id', userIds);
+
+      const { data: wageRows } = await supabase.rpc('get_current_wages_batch', { p_user_ids: userIds });
+      const wageMap = new Map<string, number>(((wageRows || []) as any[]).map(w => [w.user_id, Number(w.hourly_wage)]));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
       const shiftMap = new Map((shifts || []).map(s => [s.user_id, s.template?.end_time]));
@@ -337,7 +340,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           profilePhoto: profile?.profile_photo_url || null,
           clockInTime: u.clockInTime,
           isOnBreak: u.isOnBreak,
-          hourlyWage: profile?.hourly_wage ?? 16,
+          hourlyWage: wageMap.get(u.userId) ?? 16,
           scheduledEndTime: shiftMap.get(u.userId) || undefined,
         } as ActiveShift;
       });

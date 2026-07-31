@@ -83,18 +83,16 @@ export function usePersonalPayData(periodOffset: number = 0) {
       if (!user?.id || !currentLocation?.id) return null;
 
       // Get user's hourly wage
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('hourly_wage')
-        .eq('id', user.id)
-        .single();
+      const { data: wageValue, error: profileError } = await supabase.rpc('get_current_wage', {
+        p_user_id: user.id,
+      });
 
       if (profileError) {
-        console.error('[usePersonalPayData] Error fetching profile:', profileError);
+        console.error('[usePersonalPayData] Error fetching wage:', profileError);
         return null;
       }
 
-      const hourlyWage = profile?.hourly_wage || 0;
+      const hourlyWage = Number(wageValue) || 0;
 
       // Fetch labor rules for OT thresholds (passed to shared utility)
       const { data: laborRules } = await supabase

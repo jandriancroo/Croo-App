@@ -172,7 +172,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
             .eq("location_id", locationId),
           supabase
             .from("profiles")
-            .select(`id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability`)
+            .select(`id, full_name, profile_photo_url, display_order, appears_on_schedule, weekly_availability`)
             .eq("is_active", true)
             .eq("appears_on_schedule", true),
           supabase.from("user_roles").select("user_id, role"),
@@ -190,10 +190,16 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
         const locationUserIds = new Set((userLocationsResult.data || []).filter(ul => ul.show_on_schedule !== false).map((ul) => ul.user_id));
         const locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
         
+        const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
+          p_user_ids: locationProfiles.map((p) => p.id),
+        });
+        const wageMap = new Map<string, number>(((wageRows || []) as any[]).map((w) => [w.user_id, Number(w.hourly_wage)]));
+
         const profilesWithRoles = locationProfiles.map(profile => {
           const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
           return {
             ...profile,
+            hourly_wage: wageMap.get(profile.id) ?? 15,
             role: userRole?.role || 'team_member',
             display_order: profile.display_order ?? 0
           };
