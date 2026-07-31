@@ -95,26 +95,29 @@ export const usePushNotifications = () => {
         const registration = await navigator.serviceWorker.ready;
         console.log('[Push Web] ✅ Service worker ready');
 
-        // Check for existing subscription first - reuse if valid
-        let subscription = await (registration as any).pushManager.getSubscription();
-        
-        if (subscription) {
-          console.log('[Push Web] ✅ Reusing existing subscription:', subscription.endpoint);
-        } else {
-          // Only create new subscription if none exists
-          console.log('[Push Web] Creating new push subscription...');
-          subscription = await (registration as any).pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-          });
-          console.log('[Push Web] ✅ New push subscription created:', subscription.endpoint);
-        }
+        // Reuse the existing subscription only when it was created with the
+        // key the server signs with; otherwise resubscribe.
+        const vapidPublicKey = await getVapidPublicKey();
+        const { subscription, staleEndpoint } = await ensureSubscriptionForKey(
+          registration,
+          vapidPublicKey
+        );
+        console.log('[Push Web] ✅ Subscription ready:', subscription.endpoint);
 
         // Save subscription to database - deduplicate by endpoint
         const subscriptionData = JSON.stringify(subscription);
         const endpoint = subscription.endpoint;
         console.log('[Push Web] Saving subscription to database...');
-        
+
+        // Drop the stored token for a subscription we just replaced
+        if (staleEndpoint) {
+          await supabase
+            .from('push_notification_tokens')
+            .delete()
+            .eq('user_id', userId)
+            .like('token', `%${staleEndpoint.substring(0, 80)}%`);
+        }
+
         // Delete any old tokens for this user with the same endpoint (different keys)
         // This prevents duplicate tokens for the same browser
         await supabase
@@ -122,6 +125,7 @@ export const usePushNotifications = () => {
           .delete()
           .eq('user_id', userId)
           .like('token', `%${endpoint.substring(0, 80)}%`);
+
         
         // Limit tokens per user to prevent accumulation (keep latest 10 per user)
         const { data: userTokens } = await supabase
