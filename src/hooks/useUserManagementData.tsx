@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { triggerForceReload, getCurrentAppVersion } from '@/hooks/useForceReload';
+import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 
 export interface UserProfile {
   id: string;
