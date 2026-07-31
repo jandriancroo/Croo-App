@@ -182,7 +182,11 @@ export function EmployeeProfileDialog({
       setNickname((user as any).nickname || '');
       setPhoneNumber(user.phone_number || '');
       setBirthday(user.birthday ? parseDateOnlyToLocalDate(user.birthday) : undefined);
-      setEmployeePin(user.employee_pin || '');
+      // Legacy 4-digit PIN is not readable from `profiles` — admin-only RPC.
+      setEmployeePin('');
+      supabase
+        .rpc('admin_get_employee_pin', { _user_id: user.id })
+        .then(({ data }) => setEmployeePin((data as string) || ''));
       setProfilePhotoUrl(user.profile_photo_url);
       setRole(user.role || 'team_member');
       setAppearsOnSchedule(user.appears_on_schedule);
