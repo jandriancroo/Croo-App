@@ -165,21 +165,22 @@ export const useUserManagementData = () => {
 
       const wageMap = new Map<string, number>();
       if (wageHistoryResult.data) {
-        for (const wh of wageHistoryResult.data) {
-          if (!wageMap.has(wh.user_id)) wageMap.set(wh.user_id, wh.hourly_wage);
+        for (const wh of wageHistoryResult.data as any[]) {
+          if (!wageMap.has(wh.user_id)) wageMap.set(wh.user_id, Number(wh.hourly_wage));
         }
       }
 
       const certificationMap = new Map(certificationsResult.data?.map(cert => [cert.user_id, true]) || []);
 
-      const usersWithRoles = profilesResult.data.map((profile) => ({
+      const usersWithRoles = ((profilesResult.data || []) as any[]).map((profile) => ({
         ...profile,
         role: rolesResult.data.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
         paid_hours: hoursByUser[profile.id]?.paid || 0,
         unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
-        hourly_wage: wageMap.get(profile.id) ?? profile.hourly_wage ?? 15.00,
+        hourly_wage: wageMap.get(profile.id) ?? 15.00,
         has_certification: certificationMap.has(profile.id),
       }));
+
 
       console.log(`[UserManagement] fetchUsers completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
       return usersWithRoles as UserProfile[];
