@@ -258,16 +258,39 @@ export const UserManagementDialogs = ({ data }: UserManagementDialogsProps) => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="temp-password">Temporary Password</Label>
-              <Input id="temp-password" type="text" value={data.tempPassword} onChange={(e) => data.setTempPassword(e.target.value)} placeholder="Enter temporary password" minLength={6} />
-              <p className="text-xs text-muted-foreground">Password must be at least 6 characters. Share this password with the employee so they can log in.</p>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="temp-password">Temporary Password</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => data.setTempPassword(generateTempPassword())}
+                >
+                  Generate
+                </Button>
+              </div>
+              <Input id="temp-password" type="text" value={data.tempPassword} onChange={(e) => data.setTempPassword(e.target.value)} placeholder="Enter temporary password" minLength={PASSWORD_MIN_LENGTH} />
+              <ul className="space-y-1 pt-1">
+                {checkPassword(data.tempPassword).rules.map((rule) => (
+                  <li
+                    key={rule.label}
+                    className={`text-xs flex items-center gap-1.5 ${rule.met ? 'text-emerald-600' : 'text-muted-foreground'}`}
+                  >
+                    <span aria-hidden="true">{rule.met ? '✓' : '•'}</span>
+                    {rule.label}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-muted-foreground">Share this password with the employee so they can log in.</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => data.setIsTempPasswordDialogOpen(false)}>Cancel</Button>
-            <Button onClick={data.handleSetTempPassword} disabled={data.settingTempPassword || data.tempPassword.length < 6}>
+            <Button onClick={data.handleSetTempPassword} disabled={data.settingTempPassword || !checkPassword(data.tempPassword).valid}>
               {data.settingTempPassword ? 'Setting...' : 'Set Password'}
             </Button>
+
           </DialogFooter>
         </DialogContent>
       </Dialog>
