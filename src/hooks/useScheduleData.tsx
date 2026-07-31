@@ -273,7 +273,8 @@ export function useScheduleData() {
               week_end_date: format(weekEnd, "yyyy-MM-dd"),
               location_id: currentLocation.id,
             })
-            .select()
+            .select(SCHEDULE_COLUMNS)
+
             .single();
 
           if (createError) throw createError;
