@@ -4,19 +4,12 @@ import { Capacitor } from '@capacitor/core';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import {
+  getVapidPublicKey,
+  ensureSubscriptionForKey,
+  urlBase64ToUint8Array,
+} from '@/utils/pushVapid';
 
-const urlBase64ToUint8Array = (base64String: string) => {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-};
 
 // Decode hex string to UTF-8 string (for FCM token from native)
 const hexToString = (hex: string): string => {
