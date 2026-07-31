@@ -768,12 +768,8 @@ export default function PunchClock() {
     playSuccessSound();
     
     // Fetch user role for event filtering
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', data.id)
-      .single();
-    const role = roleData?.role || 'team_member';
+    const { data: roleData } = await supabase.rpc('punch_clock_get_role', { _user_id: data.id });
+    const role = (roleData as string) || 'team_member';
     
     setCurrentUser(data);
     setCurrentUserRole(role);
@@ -1287,13 +1283,9 @@ export default function PunchClock() {
     toast.success('Clocked out successfully!');
     
     // Check if user is admin - if not, return to PIN screen after 2 seconds
-    const { data: userRole } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', currentUser.id)
-      .single();
+    const { data: userRole } = await supabase.rpc('punch_clock_get_role', { _user_id: currentUser.id });
 
-    const isAdmin = userRole?.role === 'admin';
+    const isAdmin = userRole === 'admin';
     
     if (!isAdmin) {
       setTimeout(() => {

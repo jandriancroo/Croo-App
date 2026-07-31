@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -112,7 +113,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
 
     const { data } = await supabase
       .from('profiles')
-      .select('*')
+      .select(PROFILE_SAFE_COLUMNS)
       .eq('is_active', true)
       .in('id', userIds)
       .order('full_name');

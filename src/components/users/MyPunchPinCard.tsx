@@ -47,13 +47,11 @@ export function MyPunchPinCard() {
     queryKey: ["my-punch-pin", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("pin_pending, pin_pending_plaintext, pin_pending_set_at")
-        .eq("id", user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_punch_pin_for_user", {
+        _user_id: user.id,
+      });
       if (error) throw error;
-      return data;
+      return (data as any[])?.[0] ?? null;
     },
     enabled: !!user?.id,
     staleTime: 60 * 1000,

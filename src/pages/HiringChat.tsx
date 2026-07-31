@@ -277,16 +277,12 @@ export default function HiringChat() {
       ));
       
       // Send a response message
-      await supabase
-        .from('hiring_messages')
-        .insert({
-          conversation_id: conversation.id,
-          sender_type: 'applicant',
-          sender_id: null,
-          content: accepted 
-            ? "I've accepted the interview invitation. Looking forward to meeting you!"
-            : "I'm unable to make that time. Could we schedule for a different time?"
-        });
+      await supabase.rpc('applicant_send_hiring_message', {
+        _token: token,
+        _content: accepted
+          ? "I've accepted the interview invitation. Looking forward to meeting you!"
+          : "I'm unable to make that time. Could we schedule for a different time?",
+      });
       
       toast.success(accepted ? 'Interview accepted!' : 'Interview declined');
     } catch (err) {
@@ -308,14 +304,19 @@ export default function HiringChat() {
         return;
       }
 
-      const { error: sendError } = await supabase
-        .from('hiring_messages')
-        .insert({
-          conversation_id: conversation.id,
-          sender_type: isStaffView ? 'staff' : 'applicant',
-          sender_id: isStaffView ? staffUserId : null,
-          content: messageContent
-        });
+      const { error: sendError } = isStaffView
+        ? await supabase
+            .from('hiring_messages')
+            .insert({
+              conversation_id: conversation.id,
+              sender_type: 'staff',
+              sender_id: staffUserId,
+              content: messageContent,
+            })
+        : await supabase.rpc('applicant_send_hiring_message', {
+            _token: token,
+            _content: messageContent,
+          });
 
       if (sendError) throw sendError;
       setNewMessage('');
