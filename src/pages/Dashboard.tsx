@@ -449,30 +449,24 @@ export default function Dashboard() {
     staleTime: 2 * 60 * 1000, // 2 min cache
     placeholderData: (prev) => prev, // Keep previous data during refetch to prevent double-spinner
     queryFn: async () => {
-      if (!currentLocation?.id) return { checklists: [], stats: {} };
+      if (!currentLocation?.id) return { checklists: [] };
       
       const currentDay = getDayOfWeekInTimezone(timezone);
 
-      // Parallel fetch: checklists + submissions
-      const [checklistsResult, submissionsResult] = await Promise.all([
-        supabase.from('checklists').select(`
+      // Only the checklist definitions are needed here — the dashboard renders
+      // today's list and pulls completion counts from useChecklistCompletion.
+      const checklistsResult = await supabase.from('checklists').select(`
             *,
             checklist_items(id, days_of_week)
           `)
-          .eq('is_active', true)
-          .eq('location_id', currentLocation.id)
-          .order('display_order', { ascending: true })
-          .order('created_at', { ascending: false }),
-        supabase.from('checklist_submissions')
-          .select('checklist_id, submitted_at')
-          .eq('location_id', currentLocation.id)
-      ]);
+        .eq('is_active', true)
+        .eq('location_id', currentLocation.id)
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false });
 
       if (checklistsResult.error) throw checklistsResult.error;
-      if (submissionsResult.error) throw submissionsResult.error;
 
       const checklistsData = checklistsResult.data || [];
-      const submissions = submissionsResult.data || [];
 
       // Filter checklists
       const filteredChecklists = checklistsData.filter(checklist => {
@@ -493,33 +487,9 @@ export default function Dashboard() {
         return true;
       });
 
-      // Calculate stats
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      
-      const statsMap: Record<string, ChecklistStats> = {};
-      checklistsData.forEach(checklist => {
-        const checklistSubmissions = submissions.filter(sub => sub.checklist_id === checklist.id);
-        const submissionsToday = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= startOfToday).length;
-        const submissionsThisWeek = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= oneWeekAgo).length;
-        const submissionsThisMonth = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= oneMonthAgo).length;
-        const sortedSubmissions = [...checklistSubmissions].sort((a, b) => 
-          new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
-        );
-        statsMap[checklist.id] = {
-          checklist_id: checklist.id,
-          total_submissions: checklistSubmissions.length,
-          last_submission: sortedSubmissions[0]?.submitted_at || null,
-          submissions_this_week: submissionsThisWeek,
-          submissions_this_month: submissionsThisMonth,
-          submissions_today: submissionsToday
-        };
-      });
-
-      return { checklists: filteredChecklists as Checklist[], stats: statsMap };
+      return { checklists: filteredChecklists as Checklist[] };
     },
+
     enabled: !!currentLocation?.id,
   });
 
