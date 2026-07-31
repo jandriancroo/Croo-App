@@ -77,7 +77,8 @@ interface ActiveShift {
   breakStartTime: string | null;
   breakType: string | null;
   position?: string;
-  hourlyWage?: number;
+  /** null when the current session isn't allowed to read wages (kiosk device). */
+  hourlyWage?: number | null;
   scheduledStartTime?: string; // HH:mm format from shift template
   scheduledEndTime?: string; // HH:mm format from shift template
 }
