@@ -60,7 +60,7 @@ export default function Tasks() {
   return (
     <Layout>
       <div className="space-y-4">
-        <Tabs defaultValue="history" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="mb-4">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-3">
