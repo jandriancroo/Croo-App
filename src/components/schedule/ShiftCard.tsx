@@ -94,21 +94,15 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       ref={setNodeRef}
       style={{ 
         ...style, 
-        backgroundColor: `${bgColor}20`,
-        borderColor: `${bgColor}40`,
+        backgroundColor: `${bgColor}14`,
+        borderColor: `${bgColor}59`,
+        borderLeftColor: bgColor,
       }}
-      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid shadow-none' : 'p-1.5 min-h-[46px] rounded-md border-2'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[100px]' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid border-l-[3px] shadow-none' : 'px-2 py-1.5 min-h-[46px] rounded-md border border-l-[3px] shadow-none'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[100px]' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
-      {/* Inset accent stripe - non-compact only */}
-      {!isCompactMode && (
-        <div 
-          className="absolute left-1 top-1 bottom-1 w-[3px] rounded-full"
-          style={{ backgroundColor: bgColor }}
-        />
-      )}
       {/* Time-off conflict stripe overlay */}
       {hasTimeOffConflict && (
         <div 
@@ -116,10 +110,9 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           style={stripeOverlayStyle}
         />
       )}
-      <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left pl-2.5'}`}>
+      <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left'}`}>
         <div 
-          className={`font-semibold leading-tight flex items-center gap-0.5 whitespace-nowrap ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[10px] lg:text-xs'}`}
-          style={{ color: bgColor }}
+          className={`font-semibold leading-tight flex items-center gap-0.5 whitespace-nowrap tracking-tight text-foreground ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[10px] lg:text-xs'}`}
         >
           <span className="lg:hidden">{`${formatTime12Hour(shiftData.start_time, true, true)} - ${formatTime12Hour(shiftData.end_time, true, true)}`}</span>
           <span className="hidden lg:inline">{`${formatTime12Hour(shiftData.start_time, true)} - ${formatTime12Hour(shiftData.end_time, true)}`}</span>
@@ -137,10 +130,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-muted-foreground text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(templatePosition)}</div>
+          <div className="text-muted-foreground font-medium text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(templatePosition)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-muted-foreground text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(position)}</div>
+          <div className="text-muted-foreground font-medium text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(position)}</div>
         )}
        {shift.is_time_off && (
           <div className={`text-foreground font-medium text-left ${isCompactMode ? 'text-[8px] leading-none' : 'text-xs lg:text-sm'}`}>TIME OFF</div>
@@ -148,15 +141,16 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div 
-          className="absolute bottom-0 right-0 rounded-tl-lg px-1.5 py-0.5 flex items-center justify-center"
-          style={{ backgroundColor: bgColor }}
+          className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-[3px] flex items-center justify-center"
+          style={{ backgroundColor: `${bgColor}26` }}
           title="30-minute unpaid break"
         >
-          <Coffee className="h-3 w-3 text-white" />
+          <Coffee className="h-2.5 w-2.5" style={{ color: bgColor }} />
         </div>
       )}
     </Card>
   );
+
 
   if (!hasConflictDetails) return cardEl;
 
