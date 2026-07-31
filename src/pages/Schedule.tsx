@@ -734,8 +734,8 @@ export default function Schedule() {
         {(isAdmin || isManager) && isCreatingShift && (
           <Suspense fallback={null}>
             <MobileShiftDialog
-              open={isCreatingShift} onOpenChange={setIsCreatingShift}
-              shift={{ id: '', user_id: null, day_of_week: 0, start_time: '09:00', end_time: '17:00', shift_date: format(currentWeekStart, 'yyyy-MM-dd') }}
+              open={isCreatingShift} onOpenChange={(open) => { setIsCreatingShift(open); if (!open) setNewShiftPreset(null); }}
+              shift={{ id: '', user_id: newShiftPreset?.userId ?? null, day_of_week: newShiftPreset?.dayIndex ?? 0, start_time: '09:00', end_time: '17:00', shift_date: newShiftPreset?.shiftDate || format(currentWeekStart, 'yyyy-MM-dd') }}
               profiles={profiles} isAdmin={isAdmin || isManager}
               onShiftUpdated={fetchScheduleData} isCreating={true}
               scheduleId={scheduleId} templates={templates} locationId={currentLocation?.id}
@@ -743,6 +743,7 @@ export default function Schedule() {
             />
           </Suspense>
         )}
+
 
         {(isAdmin || isManager) && (
           <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>
