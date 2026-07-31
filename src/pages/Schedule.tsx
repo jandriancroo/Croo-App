@@ -651,7 +651,13 @@ export default function Schedule() {
               <div className="w-8 h-4 rounded bg-muted/30 border border-dashed border-muted-foreground/30" style={{ background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 4px, transparent 4px, transparent 8px)" }} />
               <span>Time Off</span>
             </div>
+            <div className="ml-auto">
+              <Button variant="outline" size="sm" onClick={handlePrintSchedule} className="h-7 gap-1.5 text-xs">
+                <Printer className="h-3.5 w-3.5" />Print
+              </Button>
+            </div>
           </div>
+
 
           {/* Floating Templates Bar */}
            {(isAdmin || isManager) && (
