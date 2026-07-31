@@ -187,7 +187,9 @@ export default function Tasks() {
                     onTaskClick={setSelectedCompletedTask}
                   />
                 ) : (
-                  <ChecklistHeatmap anchorDate={historyDate} range={heatmapRange} />
+                  <Suspense fallback={<PageSkeleton variant="grid" />}>
+                    <ChecklistHeatmap anchorDate={historyDate} range={heatmapRange} />
+                  </Suspense>
                 )}
               </>
             )}
