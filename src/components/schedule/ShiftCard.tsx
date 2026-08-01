@@ -94,11 +94,12 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       ref={setNodeRef}
       style={{ 
         ...style, 
-        backgroundColor: `${bgColor}14`,
-        borderColor: `${bgColor}59`,
+        backgroundColor: `${bgColor}1A`,
+        borderColor: 'transparent',
         borderLeftColor: bgColor,
       }}
-      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid border-l-[3px] shadow-none' : 'px-2 py-1.5 min-h-[46px] rounded-md border border-l-[3px] shadow-none'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[100px]' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid border-l-[3px] shadow-none' : 'px-2 py-1.5 min-h-[46px] rounded-[9px] border border-l-[3px] shadow-none'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[100px]' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
