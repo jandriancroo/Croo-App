@@ -423,10 +423,10 @@ export default function Schedule() {
                 return (
                   <div
                     key={index}
-                    className={`text-left ${isCompactMode ? 'px-2 py-1' : 'px-3 py-2.5'} border-r last:border-r-0 ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    className={`relative text-left ${isCompactMode ? 'px-2 py-1' : 'px-3 py-2.5'} border-r last:border-r-0 ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                     style={{
                       borderColor: 'hsl(var(--border)/0.45)',
-                      ...(isToday ? { background: 'linear-gradient(180deg, hsl(var(--accent)/0.07), hsl(var(--accent)/0.02))' } : {}),
+                      ...(isToday ? { background: 'linear-gradient(180deg, hsl(var(--primary)/0.16), hsl(var(--primary)/0.06))' } : {}),
                     }}
                     onClick={() => {
                       if (isAdmin || isManager) {
@@ -435,8 +435,11 @@ export default function Schedule() {
                       }
                     }}
                   >
-                    <div className={`font-bold uppercase tracking-[0.13em] leading-none ${isCompactMode ? 'text-[9px]' : 'text-[10px]'} ${isToday ? 'text-accent' : 'text-muted-foreground'}`}>{format(day, "EEE")}</div>
-                    <div className={`font-bold tracking-tight leading-none text-foreground ${isCompactMode ? 'text-[13px] mt-0.5' : 'text-[17px] mt-1'}`} style={{ fontVariantNumeric: 'tabular-nums' }}>{format(day, "M/d")}</div>
+                    {isToday && (
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-primary" />
+                    )}
+                    <div className={`font-bold uppercase tracking-[0.13em] leading-none ${isCompactMode ? 'text-[9px]' : 'text-[10px]'} ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>{format(day, "EEE")}</div>
+                    <div className={`font-bold tracking-tight leading-none ${isToday ? 'text-primary' : 'text-foreground'} ${isCompactMode ? 'text-[13px] mt-0.5' : 'text-[17px] mt-1'}`} style={{ fontVariantNumeric: 'tabular-nums' }}>{format(day, "M/d")}</div>
                     {!isCompactMode && dayHolidays.length > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {dayHolidays.map(holiday => (
