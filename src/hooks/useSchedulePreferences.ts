@@ -76,13 +76,13 @@ export function useSchedulePreferences() {
     const uid = auth.user?.id;
     if (!uid) return;
 
-    const payload: Record<string, unknown> = { user_id: uid };
-    if ("compactView" in patch) payload.compact_view = patch.compactView;
-    if ("dragDropEnabled" in patch) payload.drag_drop_enabled = patch.dragDropEnabled;
+    const payload: { user_id: string; compact_view?: boolean | null; drag_drop_enabled?: boolean } = { user_id: uid };
+    if ("compactView" in patch) payload.compact_view = patch.compactView ?? null;
+    if ("dragDropEnabled" in patch) payload.drag_drop_enabled = !!patch.dragDropEnabled;
 
     await supabase
       .from("user_schedule_preferences")
-      .upsert(payload, { onConflict: "user_id" });
+      .upsert(payload as any, { onConflict: "user_id" });
   }, []);
 
   return {
