@@ -284,7 +284,7 @@ export default function Schedule() {
           lastWeekShifts={lastWeekShifts}
         />
       ) : (
-        <div className="pb-56">
+        <div className="pb-56 -mx-2">
         <DndContext
           sensors={activeSensors}
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart}
