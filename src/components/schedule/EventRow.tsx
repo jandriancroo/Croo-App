@@ -398,7 +398,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
               }
             }}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-white/20 text-white">
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-foreground/10 text-muted-foreground">
                   <Plus className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
