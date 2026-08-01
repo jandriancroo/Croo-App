@@ -88,13 +88,14 @@ export default function Schedule() {
   const [pendingRoleChange, setPendingRoleChange] = useState<{ userId: string; userName: string; newRole: string } | null>(null);
   const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
   const [pendingEditAction, setPendingEditAction] = useState<(() => void) | null>(null);
-  const [isCompactModeManual, setIsCompactModeManual] = useState<boolean | null>(null);
-  
-  // Auto-compact on tablet (< 1024px), but allow manual override
+  const { compactView, dragDropEnabled, setCompactView, setDragDropEnabled } = useSchedulePreferences();
+
+  // Auto-compact on tablet (< 1024px), but allow manual override (saved per user)
   const isTablet = typeof window !== 'undefined' && window.innerWidth < 1024;
-  const isCompactMode = isCompactModeManual !== null ? isCompactModeManual : isTablet;
-  const setIsCompactMode = (val: boolean) => setIsCompactModeManual(val);
-  const [hideTemplatesBar, setHideTemplatesBar] = useState(() => localStorage.getItem('schedule-hide-templates') === 'true');
+  const isCompactMode = compactView !== null ? compactView : isTablet;
+  const setIsCompactMode = (val: boolean) => setCompactView(val);
+  const hideTemplatesBar = !dragDropEnabled;
+  const setHideTemplatesBar = (val: boolean) => setDragDropEnabled(!val);
 
   // Stations (Phase 2) — group schedule by Station → Role when enabled
   const { data: liveStationSettings } = useQuery({
