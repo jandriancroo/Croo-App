@@ -746,24 +746,33 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                     <div
                       key={`${event.id}-${dayIndex}`}
                       onClick={() => isEditable && handleEdit(event)}
-                      className={`w-full overflow-hidden rounded-lg text-[10px] md:text-[11px] transition-colors flex items-center gap-1 px-1.5 py-1 ${
-                        isEditable ? 'cursor-pointer hover:brightness-110' : ''
+                      className={`quick-task-card group w-full overflow-hidden text-[10px] md:text-[11px] transition-all flex items-center gap-1.5 ${
+                        isEditable ? 'cursor-pointer hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]' : ''
                       }`}
                       style={{
-                        backgroundColor: `${categoryColor}15`,
+                        backgroundColor: categoryColor,
+                        borderRadius: 10,
+                        padding: '5px 7px',
+                        boxShadow: `0 1px 2px ${categoryColor}55, inset 0 1px 0 rgba(255,255,255,0.12)`,
                       }}
                     >
-                      <div 
-                        className="w-[3px] self-stretch rounded-full shrink-0"
-                        style={{ backgroundColor: categoryColor }}
-                      />
-                      {event.is_daily_task ? (
-                        <ClipboardCheck className="h-3 w-3 flex-shrink-0" style={{ color: categoryColor }} />
-                      ) : (
-                        <CalendarDays className="h-3 w-3 flex-shrink-0" style={{ color: categoryColor }} />
-                      )}
+                      <div
+                        className="flex items-center justify-center shrink-0"
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 6,
+                          backgroundColor: 'rgba(255,255,255,0.22)',
+                        }}
+                      >
+                        {event.is_daily_task ? (
+                          <ClipboardCheck style={{ width: 11, height: 11, color: '#fff' }} strokeWidth={2.25} />
+                        ) : (
+                          <CalendarDays style={{ width: 11, height: 11, color: '#fff' }} strokeWidth={2.25} />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 text-foreground font-medium">
+                        <div className="flex items-center gap-1 font-medium" style={{ color: '#fff' }}>
                           <span className="truncate">{event.event_name}</span>
                           {!isExpanded && hasMultiple && (
                             <button
@@ -771,17 +780,19 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                                 e.stopPropagation();
                                 setIsExpanded(true);
                               }}
-                              className="ml-auto px-1 py-0.5 bg-foreground/10 hover:bg-foreground/20 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
+                              className="ml-auto px-1 py-0.5 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
+                              style={{ backgroundColor: 'rgba(255,255,255,0.22)', color: '#fff' }}
                             >
                               +{hiddenCount}
                             </button>
                           )}
                         </div>
-                        <div className="text-muted-foreground text-[10px]">
+                        <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.78)' }}>
                           {formatTime12Hour(event.event_time, true)}
                         </div>
                       </div>
                     </div>
+
                   );
                 })}
                 {isExpanded && dayEvents.length > 1 && (
