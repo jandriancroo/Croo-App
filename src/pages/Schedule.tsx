@@ -96,7 +96,7 @@ export default function Schedule() {
   const isCompactMode = compactView !== null ? compactView : isTablet;
   const setIsCompactMode = (val: boolean) => setCompactView(val);
   const hideTemplatesBar = !dragDropEnabled;
-  const setHideTemplatesBar = (val: boolean) => setDragDropEnabled(!val);
+  
 
   // Stations (Phase 2) — group schedule by Station → Role when enabled
   const { data: liveStationSettings } = useQuery({
