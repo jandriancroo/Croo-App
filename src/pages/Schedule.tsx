@@ -6,6 +6,7 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useScheduleData } from "@/hooks/useScheduleData";
+import { useSchedulePreferences } from "@/hooks/useSchedulePreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Settings, Calendar, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History, Minimize2, Maximize2, Printer } from "lucide-react";
@@ -88,13 +89,14 @@ export default function Schedule() {
   const [pendingRoleChange, setPendingRoleChange] = useState<{ userId: string; userName: string; newRole: string } | null>(null);
   const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
   const [pendingEditAction, setPendingEditAction] = useState<(() => void) | null>(null);
-  const [isCompactModeManual, setIsCompactModeManual] = useState<boolean | null>(null);
-  
-  // Auto-compact on tablet (< 1024px), but allow manual override
+  const { compactView, dragDropEnabled, setCompactView, setDragDropEnabled } = useSchedulePreferences();
+
+  // Auto-compact on tablet (< 1024px), but allow manual override (saved per user)
   const isTablet = typeof window !== 'undefined' && window.innerWidth < 1024;
-  const isCompactMode = isCompactModeManual !== null ? isCompactModeManual : isTablet;
-  const setIsCompactMode = (val: boolean) => setIsCompactModeManual(val);
-  const [hideTemplatesBar, setHideTemplatesBar] = useState(() => localStorage.getItem('schedule-hide-templates') === 'true');
+  const isCompactMode = compactView !== null ? compactView : isTablet;
+  const setIsCompactMode = (val: boolean) => setCompactView(val);
+  const hideTemplatesBar = !dragDropEnabled;
+  
 
   // Stations (Phase 2) — group schedule by Station → Role when enabled
   const { data: liveStationSettings } = useQuery({
@@ -330,20 +332,14 @@ export default function Schedule() {
                       <DropdownMenuItem
                         onSelect={(e) => {
                           e.preventDefault();
-                          const next = !hideTemplatesBar;
-                          setHideTemplatesBar(next);
-                          localStorage.setItem('schedule-hide-templates', String(next));
+                          setDragDropEnabled(hideTemplatesBar);
                         }}
                         className="cursor-pointer flex items-center justify-between gap-3"
                       >
                         <span>Drag and Drop UI</span>
                         <Switch
                           checked={!hideTemplatesBar}
-                          onCheckedChange={(v) => {
-                            const next = !v;
-                            setHideTemplatesBar(next);
-                            localStorage.setItem('schedule-hide-templates', String(next));
-                          }}
+                          onCheckedChange={(v) => setDragDropEnabled(!!v)}
                           className="scale-75"
                         />
                       </DropdownMenuItem>
