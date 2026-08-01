@@ -86,7 +86,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         itemNumber: d.item_number,
         name: d.vendor_description || d.vendor_name || d.item_number,
         fullDescription: d.vendor_description || d.vendor_name || '',
-        brand: '',
+        brand: d.vendor_name || '',
         packSize: d.pack_size || '',
         categoryName: d.category_name || 'Uncategorized',
         price: null,
@@ -863,6 +863,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                       <div className="flex items-center gap-1.5 mt-0.5 text-muted-foreground flex-wrap">
                         <span>#{item.itemNumber}</span>
                         {item.packSize && <span>• {item.packSize}</span>}
+                        {item.brand && item.brand !== item.name && <span>• {item.brand}</span>}
                         {item.reportedByLocations.length > 0 && (
                           <span className="flex items-center gap-1 text-foreground/70">
                             <MapPin className="h-2.5 w-2.5" />
