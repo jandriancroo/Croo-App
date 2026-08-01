@@ -127,7 +127,7 @@ export function LiveStatusBadge({
       {statusInfo && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="absolute right-0 top-full mt-1 text-[10px] text-muted-foreground hidden md:inline leading-none whitespace-nowrap">
+            <span className="absolute right-0 top-full mt-1.5 text-[10px] text-muted-foreground hidden md:inline leading-none whitespace-nowrap">
               {statusInfo.actionLabel} by {statusInfo.byName}
             </span>
           </TooltipTrigger>

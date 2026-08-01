@@ -301,7 +301,7 @@ export default function Schedule() {
               style={{ top: `${navbarHeight}px` }}
             >
             {/* Header toolbar */}
-            <div className="flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:py-2 border-b border-border">
+            <div className="flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:pt-2 md:pb-5 border-b border-border">
               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 overflow-hidden">
                 <DateNavigator
                   onPrev={handlePreviousWeek}
