@@ -386,9 +386,9 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
 
   return (
     <>
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 bg-[hsl(215,20%,27%)] min-w-[700px]">
-        <div className="flex items-center gap-2 px-4 py-2 border-r border-white/10">
-          <h3 className="font-semibold text-white text-sm">Events</h3>
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 bg-muted/40 min-w-[700px]">
+        <div className="flex items-center gap-2 px-4 py-2 border-r border-border/45">
+          <h3 className="font-semibold text-foreground text-sm">Events</h3>
           {isEditable && (
             <Dialog open={dialogOpen} onOpenChange={(open) => {
               setDialogOpen(open);
@@ -398,7 +398,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
               }
             }}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-white/20 text-white">
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-foreground/10 text-muted-foreground">
                   <Plus className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
@@ -738,7 +738,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
           const hiddenCount = dayEvents.length - 1;
           
           return (
-            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-white/10 bg-[hsl(215,20%,27%)] overflow-hidden">
+            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/45 bg-muted/40 overflow-hidden">
               <div className="space-y-1">
                 {visibleEvents.map((event) => {
                   const categoryColor = getCategoryColor(event) || '#6366f1';
@@ -763,7 +763,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                         <CalendarDays className="h-3 w-3 flex-shrink-0" style={{ color: categoryColor }} />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 text-white font-medium">
+                        <div className="flex items-center gap-1 text-foreground font-medium">
                           <span className="truncate">{event.event_name}</span>
                           {!isExpanded && hasMultiple && (
                             <button
@@ -771,13 +771,13 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                                 e.stopPropagation();
                                 setIsExpanded(true);
                               }}
-                              className="ml-auto px-1 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
+                              className="ml-auto px-1 py-0.5 bg-foreground/10 hover:bg-foreground/20 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
                             >
                               +{hiddenCount}
                             </button>
                           )}
                         </div>
-                        <div className="text-white/70 text-[10px]">
+                        <div className="text-muted-foreground text-[10px]">
                           {formatTime12Hour(event.event_time)}
                         </div>
                       </div>
@@ -787,7 +787,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                 {isExpanded && dayEvents.length > 1 && (
                   <button
                     onClick={() => setIsExpanded(false)}
-                    className="w-full text-[9px] text-white/60 hover:text-white/80 py-0.5 transition-colors"
+                    className="w-full text-[9px] text-muted-foreground hover:text-foreground py-0.5 transition-colors"
                   >
                     collapse
                   </button>
