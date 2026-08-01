@@ -950,6 +950,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                           <div className="flex items-center gap-1.5 mt-0.5 text-muted-foreground flex-wrap">
                             <span>#{item.itemNumber}</span>
                             {item.packSize && <span>• {item.packSize}</span>}
+                            {item.brand && item.brand !== item.name && <span>• {item.brand}</span>}
                             {item.reportedByLocations.length > 0 && (
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-2.5 w-2.5" />
