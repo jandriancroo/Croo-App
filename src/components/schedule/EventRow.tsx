@@ -777,7 +777,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                             </button>
                           )}
                         </div>
-                        <div className="text-white/70 text-[10px]">
+                        <div className="text-muted-foreground text-[10px]">
                           {formatTime12Hour(event.event_time)}
                         </div>
                       </div>
