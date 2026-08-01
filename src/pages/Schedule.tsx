@@ -332,20 +332,14 @@ export default function Schedule() {
                       <DropdownMenuItem
                         onSelect={(e) => {
                           e.preventDefault();
-                          const next = !hideTemplatesBar;
-                          setHideTemplatesBar(next);
-                          localStorage.setItem('schedule-hide-templates', String(next));
+                          setDragDropEnabled(hideTemplatesBar);
                         }}
                         className="cursor-pointer flex items-center justify-between gap-3"
                       >
                         <span>Drag and Drop UI</span>
                         <Switch
                           checked={!hideTemplatesBar}
-                          onCheckedChange={(v) => {
-                            const next = !v;
-                            setHideTemplatesBar(next);
-                            localStorage.setItem('schedule-hide-templates', String(next));
-                          }}
+                          onCheckedChange={(v) => setDragDropEnabled(!!v)}
                           className="scale-75"
                         />
                       </DropdownMenuItem>
