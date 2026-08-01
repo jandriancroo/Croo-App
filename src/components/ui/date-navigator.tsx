@@ -14,6 +14,8 @@ interface DateNavigatorProps {
   narrow?: boolean;
   /** When true, left-aligns on md+ screens (for schedule page) */
   leftAlignOnDesktop?: boolean;
+  /** Visual style: 'solid' (teal fill, default) or 'subtle' (neutral outlined) */
+  variant?: 'solid' | 'subtle';
 }
 
 export function DateNavigator({ 
@@ -25,8 +27,13 @@ export function DateNavigator({
   canGoPrev = true,
   className,
   narrow = false,
-  leftAlignOnDesktop = false
+  leftAlignOnDesktop = false,
+  variant = 'solid'
 }: DateNavigatorProps) {
+  const isSubtle = variant === 'subtle';
+  const arrowClasses = isSubtle
+    ? "h-7 w-7 p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:text-muted-foreground/40 rounded-md"
+    : "h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full";
   return (
     <div className={cn(
       "flex justify-center",
@@ -35,7 +42,9 @@ export function DateNavigator({
       className
     )}>
       <div className={cn(
-        "inline-flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 gap-1",
+        isSubtle
+          ? "inline-flex items-center justify-between rounded-lg border border-border bg-background px-1.5 py-0.5 gap-0.5"
+          : "inline-flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 gap-1",
         className?.includes("w-full") && "w-full"
       )}>
         <Button 
@@ -43,14 +52,17 @@ export function DateNavigator({
           size="sm" 
           onClick={onPrev}
           disabled={!canGoPrev}
-          className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+          className={arrowClasses}
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <div className="text-center px-1">
-          <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">{label}</span>
+          <span className={cn(
+            "whitespace-nowrap font-semibold",
+            isSubtle ? "text-sm md:text-base text-foreground tracking-tight" : "text-base md:text-lg text-primary-foreground"
+          )} style={isSubtle ? { fontVariantNumeric: 'tabular-nums' } : undefined}>{label}</span>
           {sublabel && (
-            <span className="text-sm text-primary-foreground/80 ml-1">{sublabel}</span>
+            <span className={cn("text-sm ml-1", isSubtle ? "text-muted-foreground" : "text-primary-foreground/80")}>{sublabel}</span>
           )}
         </div>
         <Button 
@@ -58,7 +70,7 @@ export function DateNavigator({
           size="sm" 
           onClick={onNext} 
           disabled={!canGoNext}
-          className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+          className={arrowClasses}
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
