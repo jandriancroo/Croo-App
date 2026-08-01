@@ -297,7 +297,7 @@ export default function Schedule() {
             {/* Sticky floating header */}
             <div
               ref={stickyHeaderRef}
-              className="sticky z-30 bg-card rounded-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-border overflow-hidden"
+              className="sticky z-30 bg-card rounded-t-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-border overflow-hidden"
               style={{ top: `${navbarHeight}px` }}
             >
             {/* Header toolbar */}
@@ -467,7 +467,7 @@ export default function Schedule() {
             {/* Schedule grid content */}
             <div
               ref={scheduleBodyRef}
-              className="overflow-x-auto bg-card rounded-xl border border-border shadow-md mt-1"
+              className="overflow-x-auto bg-card rounded-b-xl border border-t-0 border-border shadow-md mt-0"
               onScroll={(e) => {
                 if (stickyHeaderScrollRef.current && stickyHeaderScrollRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
                   stickyHeaderScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
