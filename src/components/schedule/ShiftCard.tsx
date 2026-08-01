@@ -55,7 +55,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // Draft styling: reduced opacity, dashed border, and grayscale filter for unpublished shifts
   const isDraft = !isPublished && !shift.isTemplate;
   const draftStyles = isDraft
-    ? "opacity-70 border-2 border-dashed border-white/60 grayscale-[30%]"
+    ? "opacity-70 border-2 border-dashed border-foreground/25 grayscale-[30%]"
     : "";
 
   // Check if shift was trimmed by auto-scheduler
@@ -94,11 +94,12 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       ref={setNodeRef}
       style={{ 
         ...style, 
-        backgroundColor: `${bgColor}14`,
-        borderColor: `${bgColor}59`,
+        backgroundColor: `${bgColor}1A`,
+        borderColor: 'transparent',
         borderLeftColor: bgColor,
       }}
-      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid border-l-[3px] shadow-none' : 'px-2 py-1.5 min-h-[46px] rounded-md border border-l-[3px] shadow-none'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[100px]' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid border-l-[3px] shadow-none' : 'px-2 py-1.5 min-h-[46px] rounded-[9px] border border-l-[3px] shadow-none'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[100px]' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
@@ -112,8 +113,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       )}
       <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left'}`}>
         <div 
-          className={`font-semibold leading-tight flex items-center gap-0.5 whitespace-nowrap tracking-tight text-foreground ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[10px] lg:text-xs'}`}
+          className={`font-extrabold leading-tight flex items-center gap-0.5 whitespace-nowrap tracking-tight text-foreground ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[11px] lg:text-[12.5px]'}`}
+          style={{ fontVariantNumeric: 'tabular-nums' }}
         >
+
           <span className="lg:hidden">{`${formatTime12Hour(shiftData.start_time, true, true)} - ${formatTime12Hour(shiftData.end_time, true, true)}`}</span>
           <span className="hidden lg:inline">{`${formatTime12Hour(shiftData.start_time, true)} - ${formatTime12Hour(shiftData.end_time, true)}`}</span>
           {!isCompactMode && wasTrimmed && (
@@ -130,10 +133,11 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-muted-foreground font-medium text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(templatePosition)}</div>
+          <div className="text-muted-foreground font-bold uppercase tracking-[0.09em] text-[9px] lg:text-[9.5px] mt-0.5 leading-tight text-left truncate">{formatPosition(templatePosition)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-muted-foreground font-medium text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(position)}</div>
+          <div className="text-muted-foreground font-bold uppercase tracking-[0.09em] text-[9px] lg:text-[9.5px] mt-0.5 leading-tight text-left truncate">{formatPosition(position)}</div>
+
         )}
        {shift.is_time_off && (
           <div className={`text-foreground font-medium text-left ${isCompactMode ? 'text-[8px] leading-none' : 'text-xs lg:text-sm'}`}>TIME OFF</div>
