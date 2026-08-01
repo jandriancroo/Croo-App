@@ -133,10 +133,11 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-muted-foreground font-medium text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(templatePosition)}</div>
+          <div className="text-muted-foreground font-bold uppercase tracking-[0.09em] text-[9px] lg:text-[9.5px] mt-0.5 leading-tight text-left truncate">{formatPosition(templatePosition)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-muted-foreground font-medium text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(position)}</div>
+          <div className="text-muted-foreground font-bold uppercase tracking-[0.09em] text-[9px] lg:text-[9.5px] mt-0.5 leading-tight text-left truncate">{formatPosition(position)}</div>
+
         )}
        {shift.is_time_off && (
           <div className={`text-foreground font-medium text-left ${isCompactMode ? 'text-[8px] leading-none' : 'text-xs lg:text-sm'}`}>TIME OFF</div>
