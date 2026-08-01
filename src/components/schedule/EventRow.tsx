@@ -763,7 +763,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                         <CalendarDays className="h-3 w-3 flex-shrink-0" style={{ color: categoryColor }} />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 text-white font-medium">
+                        <div className="flex items-center gap-1 text-foreground font-medium">
                           <span className="truncate">{event.event_name}</span>
                           {!isExpanded && hasMultiple && (
                             <button
