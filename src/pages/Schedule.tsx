@@ -426,7 +426,7 @@ export default function Schedule() {
                 return (
                   <div
                     key={index}
-                    className={`text-center ${isCompactMode ? 'py-1 px-0.5' : 'p-2'} border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    className={`text-center ${isCompactMode ? 'py-0.5 px-0.5' : 'py-1 px-2'} border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                     onClick={() => {
                       if (isAdmin || isManager) {
                         setSelectedDayForBreakdown(day);
@@ -434,8 +434,8 @@ export default function Schedule() {
                       }
                     }}
                   >
-                    <div className={`font-semibold ${isCompactMode ? 'text-xs' : 'text-sm'}`}>{format(day, "EEE")}</div>
-                    <div className={`${isCompactMode ? 'text-[10px]' : 'text-xs'} ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
+                    <div className={`font-semibold leading-tight ${isCompactMode ? 'text-xs' : 'text-sm'}`}>{format(day, "EEE")}</div>
+                    <div className={`leading-tight ${isCompactMode ? 'text-[10px]' : 'text-xs'} ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
                     {!isCompactMode && dayHolidays.length > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {dayHolidays.map(holiday => (
