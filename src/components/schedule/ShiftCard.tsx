@@ -113,8 +113,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       )}
       <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left'}`}>
         <div 
-          className={`font-semibold leading-tight flex items-center gap-0.5 whitespace-nowrap tracking-tight text-foreground ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[10px] lg:text-xs'}`}
+          className={`font-extrabold leading-tight flex items-center gap-0.5 whitespace-nowrap tracking-tight text-foreground ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[11px] lg:text-[12.5px]'}`}
+          style={{ fontVariantNumeric: 'tabular-nums' }}
         >
+
           <span className="lg:hidden">{`${formatTime12Hour(shiftData.start_time, true, true)} - ${formatTime12Hour(shiftData.end_time, true, true)}`}</span>
           <span className="hidden lg:inline">{`${formatTime12Hour(shiftData.start_time, true)} - ${formatTime12Hour(shiftData.end_time, true)}`}</span>
           {!isCompactMode && wasTrimmed && (
