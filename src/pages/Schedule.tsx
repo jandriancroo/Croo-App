@@ -308,8 +308,9 @@ export default function Schedule() {
                   onNext={handleNextWeek}
                   label={`${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d")}`}
                   leftAlignOnDesktop
+                  variant="subtle"
                 />
-                <Badge variant={getWeekLabel().variant} className="whitespace-nowrap hidden lg:flex">
+                <Badge variant="outline" className="whitespace-nowrap hidden lg:flex text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
                   {getWeekLabel().label}
                 </Badge>
               </div>
