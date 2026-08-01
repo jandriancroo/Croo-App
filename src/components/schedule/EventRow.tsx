@@ -787,7 +787,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                 {isExpanded && dayEvents.length > 1 && (
                   <button
                     onClick={() => setIsExpanded(false)}
-                    className="w-full text-[9px] text-white/60 hover:text-white/80 py-0.5 transition-colors"
+                    className="w-full text-[9px] text-muted-foreground hover:text-foreground py-0.5 transition-colors"
                   >
                     collapse
                   </button>
