@@ -237,12 +237,18 @@ function TemplateOption({
         style={{ backgroundColor: template.color || "#ef4444" }}
       />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate">{displayName}</p>
-        <p className="text-[10px] text-muted-foreground">
+        <p
+          className="text-[12.5px] font-extrabold tracking-tight leading-tight text-foreground truncate"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
           {formatTime12Hour(template.start_time)} –{" "}
           {formatTime12Hour(template.end_time)}
         </p>
+        <p className="text-[9.5px] font-bold uppercase tracking-[0.09em] text-muted-foreground mt-0.5 leading-tight truncate">
+          {displayName}
+        </p>
       </div>
+
     </button>
   );
 }
