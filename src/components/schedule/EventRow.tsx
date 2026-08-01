@@ -771,7 +771,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                                 e.stopPropagation();
                                 setIsExpanded(true);
                               }}
-                              className="ml-auto px-1 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
+                              className="ml-auto px-1 py-0.5 bg-foreground/10 hover:bg-foreground/20 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
                             >
                               +{hiddenCount}
                             </button>
