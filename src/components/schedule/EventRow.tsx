@@ -756,7 +756,21 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                         boxShadow: `0 1px 2px ${categoryColor}55, inset 0 1px 0 rgba(255,255,255,0.12)`,
                       }}
                     >
-                      
+                      <div
+                        className="flex items-center justify-center shrink-0"
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 6,
+                          backgroundColor: 'rgba(255,255,255,0.22)',
+                        }}
+                      >
+                        {event.is_daily_task ? (
+                          <ClipboardCheck style={{ width: 11, height: 11, color: '#fff' }} strokeWidth={2.25} />
+                        ) : (
+                          <CalendarDays style={{ width: 11, height: 11, color: '#fff' }} strokeWidth={2.25} />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1 font-medium" style={{ color: '#fff' }}>
                           <span className="truncate">{event.event_name}</span>
