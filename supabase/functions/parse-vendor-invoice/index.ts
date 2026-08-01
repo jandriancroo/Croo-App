@@ -146,6 +146,39 @@ serve(async (req) => {
     // Use delivery_date from AI, falling back to invoice_date so the order is discoverable by date
     const effectiveDeliveryDate = parsed.delivery_date || parsed.invoice_date || null;
 
+    // Location + brand (fetched first so we can reject buyer-side names as "vendor")
+    const { data: locationRow } = await admin
+      .from("locations")
+      .select("id, name, organization_id")
+      .eq("id", invoice.location_id)
+      .single();
+
+    let brandId: string | null = null;
+    let orgName: string | null = null;
+    if (locationRow?.organization_id) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("brand_id, name")
+        .eq("id", locationRow.organization_id)
+        .single();
+      brandId = org?.brand_id || null;
+      orgName = org?.name || null;
+    }
+
+    // Guard: the AI sometimes grabs the "Bill To"/"Sold To" party (our own org/location)
+    // as the vendor. Never let a buyer-side name become the vendor name.
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/\b(inc|llc|l\.l\.c|corp|co|ltd)\b\.?/g, "").replace(/[^a-z0-9]/g, "").trim();
+    const buyerNames = [orgName, locationRow?.name].filter(Boolean).map((n) => normalize(n as string));
+    const parsedVendor = parsed.vendor_name?.trim() || "";
+    const isBuyerName =
+      !!parsedVendor &&
+      buyerNames.some((b) => b.length > 3 && (normalize(parsedVendor) === b || normalize(parsedVendor).includes(b) || b.includes(normalize(parsedVendor))));
+    if (isBuyerName) {
+      console.warn(`Rejected buyer-side vendor_name from AI: "${parsedVendor}"`);
+      parsed.vendor_name = invoice.vendor_name && invoice.vendor_name !== "Unknown" ? invoice.vendor_name : undefined;
+    }
+
     await admin.from("vendor_invoices").update({
       vendor_name: parsed.vendor_name || invoice.vendor_name,
       invoice_number: parsed.invoice_number || invoice.invoice_number,
@@ -156,22 +189,6 @@ serve(async (req) => {
       status: "parsed",
     }).eq("id", invoiceId);
 
-    // Location + brand
-    const { data: locationRow } = await admin
-      .from("locations")
-      .select("id, organization_id")
-      .eq("id", invoice.location_id)
-      .single();
-
-    let brandId: string | null = null;
-    if (locationRow?.organization_id) {
-      const { data: org } = await admin
-        .from("organizations")
-        .select("brand_id")
-        .eq("id", locationRow.organization_id)
-        .single();
-      brandId = org?.brand_id || null;
-    }
 
     // Fetch location items
     const { data: locationItems } = await admin
