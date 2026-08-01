@@ -411,8 +411,8 @@ export default function Schedule() {
               }}
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-            <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b-2 border-border min-w-[700px]">
-              <div className="font-semibold p-2 border-r border-border bg-muted/50 text-xs"></div>
+            <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b min-w-[700px]" style={{ borderColor: 'hsl(var(--border)/0.45)' }}>
+              <div className="font-semibold p-2 border-r text-xs" style={{ borderColor: 'hsl(var(--border)/0.45)' }}></div>
               {weekDays.map((day, index) => {
                 const dayString = format(day, "yyyy-MM-dd");
                 const dayHolidays = holidays.filter(h => h.holiday_date === dayString);
@@ -422,7 +422,11 @@ export default function Schedule() {
                 return (
                   <div
                     key={index}
-                    className={`text-center ${isCompactMode ? 'py-0.5 px-0.5' : 'py-1 px-2'} border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    className={`text-left ${isCompactMode ? 'px-2 py-1' : 'px-3 py-2.5'} border-r last:border-r-0 ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    style={{
+                      borderColor: 'hsl(var(--border)/0.45)',
+                      ...(isToday ? { background: 'linear-gradient(180deg, hsl(var(--accent)/0.07), hsl(var(--accent)/0.02))' } : {}),
+                    }}
                     onClick={() => {
                       if (isAdmin || isManager) {
                         setSelectedDayForBreakdown(day);
@@ -430,12 +434,12 @@ export default function Schedule() {
                       }
                     }}
                   >
-                    <div className={`font-semibold leading-tight ${isCompactMode ? 'text-xs' : 'text-sm'}`}>{format(day, "EEE")}</div>
-                    <div className={`leading-tight ${isCompactMode ? 'text-[10px]' : 'text-xs'} ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
+                    <div className={`font-bold uppercase tracking-[0.13em] leading-none ${isCompactMode ? 'text-[9px]' : 'text-[10px]'} ${isToday ? 'text-accent' : 'text-muted-foreground'}`}>{format(day, "EEE")}</div>
+                    <div className={`font-bold tracking-tight leading-none text-foreground ${isCompactMode ? 'text-[13px] mt-0.5' : 'text-[17px] mt-1'}`} style={{ fontVariantNumeric: 'tabular-nums' }}>{format(day, "M/d")}</div>
                     {!isCompactMode && dayHolidays.length > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {dayHolidays.map(holiday => (
-                          <div key={holiday.id} className="text-[10px] text-primary font-medium leading-tight">
+                          <div key={holiday.id} className="text-[10px] text-primary font-medium leading-tight text-left">
                             {holiday.holiday_type === 'birthday'
                               ? `🎂 ${holiday.holiday_name.replace(/🎂\s*/, '').split(' ')[0]}'s B-Day`
                               : holiday.holiday_name}
@@ -444,12 +448,13 @@ export default function Schedule() {
                       </div>
                     )}
                     {!isCompactMode && isBlackout && (
-                      <div className="mt-1 text-[10px] text-destructive font-medium leading-tight">🚫 Blackout</div>
+                      <div className="mt-1 text-[10px] text-destructive font-medium leading-tight text-left">🚫 Blackout</div>
                     )}
                   </div>
                 );
               })}
             </div>
+
 
             {!isCompactMode && (
             <div className="border-b border-border">
