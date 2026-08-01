@@ -84,7 +84,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       return (data || []).map((d: any) => ({
         id: d.id,
         itemNumber: d.item_number,
-        name: d.vendor_name || d.item_number,
+        name: d.vendor_description || d.vendor_name || d.item_number,
         fullDescription: d.vendor_description || d.vendor_name || '',
         brand: '',
         packSize: d.pack_size || '',
