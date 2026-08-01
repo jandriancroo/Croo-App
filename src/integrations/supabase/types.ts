@@ -12104,6 +12104,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_schedule_preferences: {
+        Row: {
+          compact_view: boolean | null
+          created_at: string
+          drag_drop_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          compact_view?: boolean | null
+          created_at?: string
+          drag_drop_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          compact_view?: boolean | null
+          created_at?: string
+          drag_drop_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_signup_alerts: {
         Row: {
           created_at: string
