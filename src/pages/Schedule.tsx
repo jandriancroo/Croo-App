@@ -523,10 +523,10 @@ export default function Schedule() {
                         const roleProfiles = scopedProfiles.filter(p => p.role === roleFilter);
                         if (roleProfiles.length === 0) return null;
                         const roleColorClass = ['super_admin', 'org_admin', 'admin'].includes(roleFilter)
-                          ? 'bg-role-admin/5 border-l-4 border-role-admin'
+                          ? 'bg-role-admin/5'
                           : ['shift_manager', 'manager'].includes(roleFilter)
-                          ? 'bg-role-manager/5 border-l-4 border-role-manager'
-                          : 'bg-role-team-member/5 border-l-4 border-role-team-member';
+                          ? 'bg-role-manager/5'
+                          : 'bg-role-team-member/5';
                         const roleShifts = shifts.filter(s => roleProfiles.some(p => p.id === s.user_id));
                         const roleTotalHours = calcHours(roleShifts);
                         return (
