@@ -738,7 +738,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
           const hiddenCount = dayEvents.length - 1;
           
           return (
-            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-white/10 bg-[hsl(215,20%,27%)] overflow-hidden">
+            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/45 bg-muted/40 overflow-hidden">
               <div className="space-y-1">
                 {visibleEvents.map((event) => {
                   const categoryColor = getCategoryColor(event) || '#6366f1';
