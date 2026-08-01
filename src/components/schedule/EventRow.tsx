@@ -772,7 +772,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 font-medium" style={{ color: '#fff' }}>
+                        <div className="flex items-center gap-1 font-medium leading-none" style={{ color: '#fff' }}>
                           <span className="truncate">{event.event_name}</span>
                           {!isExpanded && hasMultiple && (
                             <button
@@ -780,14 +780,14 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                                 e.stopPropagation();
                                 setIsExpanded(true);
                               }}
-                              className="ml-auto px-1 py-0.5 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
+                              className="ml-auto px-1 py-0.5 rounded text-[9px] font-semibold flex-shrink-0 transition-colors leading-none"
                               style={{ backgroundColor: 'rgba(255,255,255,0.22)', color: '#fff' }}
                             >
                               +{hiddenCount}
                             </button>
                           )}
                         </div>
-                        <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.78)' }}>
+                        <div className="text-[10px] leading-none mt-[3px]" style={{ color: 'rgba(255,255,255,0.78)' }}>
                           {formatTime12Hour(event.event_time, true)}
                         </div>
                       </div>
