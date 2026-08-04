@@ -832,6 +832,24 @@ export default function DynamicChecklistCalendar() {
         .eq('id', checklist.id);
       if (titleError) throw titleError;
 
+      // Persist visibility (roles + specific people)
+      await supabase.from('checklist_role_tags').delete().eq('checklist_id', checklist.id);
+      await supabase.from('checklist_user_tags').delete().eq('checklist_id', checklist.id);
+      if (selectedRoles.length > 0) {
+        const { error: roleErr } = await supabase.from('checklist_role_tags').insert(
+          selectedRoles.map((role) => ({ checklist_id: checklist.id, role: role as any }))
+        );
+        if (roleErr) throw roleErr;
+      }
+      if (selectedUserIds.length > 0) {
+        const { error: userErr } = await supabase.from('checklist_user_tags').insert(
+          selectedUserIds.map((user_id) => ({ checklist_id: checklist.id, user_id }))
+        );
+        if (userErr) throw userErr;
+      }
+
+
+
       // Update all items with their day assignments
       for (const item of items) {
         const assignedDays: number[] = [];
