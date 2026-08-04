@@ -93,6 +93,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
     { id: "admin", label: "Admins", count: getEmployeesByRole("admin").length },
     { id: "manager", label: "Managers", count: getEmployeesByRole("manager").length },
     { id: "shift_manager", label: "Shift Managers", count: getEmployeesByRole("shift_manager").length },
+    { id: "shift_manager_in_training", label: "Shift Managers in Training", count: getEmployeesByRole("shift_manager_in_training").length },
     { id: "team_member", label: "Team Members", count: getEmployeesByRole("team_member").length },
   ];
 
