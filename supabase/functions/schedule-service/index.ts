@@ -109,6 +109,7 @@ interface TrimSuggestion {
 const ROLE_CUT_PRIORITY: Record<string, number> = {
   'team_member': 1,
   'shift_manager': 2,
+  'shift_manager_in_training': 2,
   'manager': 3,
   'general_manager': 4,
   'admin': 5,
@@ -311,7 +312,7 @@ async function handleAutoSchedule(req: Request, supabase: any) {
     if (allowedRoles.includes(employeeRole)) return true;
 
     if (allowedRoles.includes('manager')) {
-      if (['shift_manager', 'general_manager', 'admin', 'org_admin', 'super_admin'].includes(employeeRole)) {
+      if (['shift_manager', 'shift_manager_in_training', 'general_manager', 'admin', 'org_admin', 'super_admin'].includes(employeeRole)) {
         return true;
       }
     }
@@ -388,7 +389,7 @@ async function handleAutoSchedule(req: Request, supabase: any) {
     };
 
     const isManagerRole = (role: string | null): boolean => {
-      return ['manager', 'shift_manager', 'general_manager', 'admin', 'org_admin', 'super_admin'].includes(role || '');
+      return ['manager', 'shift_manager', 'shift_manager_in_training', 'general_manager', 'admin', 'org_admin', 'super_admin'].includes(role || '');
     };
 
     const hasMetMinHours = (employeeId: string): boolean => {

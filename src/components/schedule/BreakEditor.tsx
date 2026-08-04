@@ -26,7 +26,7 @@ interface BreakEditorProps {
 
 const ROLE_GROUPS: Array<{ label: string; roles: string[] }> = [
   { label: 'Admins', roles: ['super_admin', 'admin'] },
-  { label: 'Managers', roles: ['manager', 'shift_lead', 'shift_manager'] },
+  { label: 'Managers', roles: ['manager', 'shift_lead', 'shift_manager', 'shift_manager_in_training'] },
   { label: 'Team', roles: ['team_member', 'crew', 'employee', 'staff'] },
 ];
 

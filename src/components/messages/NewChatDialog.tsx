@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useUserRole, ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
 import { Badge } from '@/components/ui/badge';
 import { Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -28,13 +28,7 @@ interface NewChatDialogProps {
   locationName?: string;
 }
 
-const ROLE_OPTIONS = [
-  { value: 'team_member', label: 'Team Member' },
-  { value: 'shift_manager', label: 'Shift Manager' },
-  { value: 'shift_manager_in_training', label: 'Shift Manager in Training' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'admin', label: 'Admin' },
-];
+const ROLE_OPTIONS = ASSIGNABLE_ROLE_OPTIONS;
 
 export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGroup, locationId, locationName }: NewChatDialogProps) {
   const { isSuperAdmin, isOrgAdmin, isAdmin } = useUserRole();

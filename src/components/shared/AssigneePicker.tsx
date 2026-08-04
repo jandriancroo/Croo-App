@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -8,13 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
-const DEFAULT_ROLE_OPTIONS = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'shift_manager', label: 'Shift Manager' },
-  { value: 'shift_manager_in_training', label: 'Shift Manager in Training' },
-  { value: 'team_member', label: 'Team Member' },
-];
+const DEFAULT_ROLE_OPTIONS = ASSIGNABLE_ROLE_OPTIONS;
 
 interface Profile {
   id: string;

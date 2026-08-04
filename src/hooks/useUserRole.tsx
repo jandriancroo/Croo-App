@@ -20,6 +20,24 @@ export const ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
 // All roles for selection UIs (excluding super_admin which is system-only)
 export const SELECTABLE_ROLES: AppRole[] = ['team_member', 'shift_manager_in_training', 'shift_manager', 'manager', 'admin', 'org_admin', 'brand_admin'];
 
+// ---- Master role option lists for pickers (single source of truth) ----
+// Build {value,label} options for any subset of roles, labels from ROLE_DISPLAY_NAMES.
+export const buildRoleOptions = (roles: AppRole[]) =>
+  roles.map((role) => ({ value: role, label: ROLE_DISPLAY_NAMES[role] }));
+
+// Every selectable role, lowest → highest.
+export const ROLE_OPTIONS = buildRoleOptions(SELECTABLE_ROLES);
+
+// Location-level roles only (no org/brand admin) — schedule, checklists, tasks, chats.
+export const ASSIGNABLE_ROLE_OPTIONS = buildRoleOptions([
+  'team_member',
+  'shift_manager_in_training',
+  'shift_manager',
+  'manager',
+  'admin',
+]);
+
+
 export const useUserRole = () => {
   const { user, loading: authLoading } = useAuth();
 

@@ -67,7 +67,7 @@ async function getOrgBranding(supabaseAdmin: any, locationId?: string) {
 interface InviteUserPayload {
   email: string;
   fullName: string;
-  role: 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
+  role: 'admin' | 'general_manager' | 'shift_manager' | 'shift_manager_in_training' | 'manager' | 'team_member';
   profilePhotoUrl?: string;
   locationId?: string;
   phoneNumber?: string;

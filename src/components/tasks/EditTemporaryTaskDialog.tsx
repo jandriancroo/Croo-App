@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,12 +42,7 @@ const ACCENT_COLORS = [
   { value: "#14B8A6", label: "Teal" },
 ];
 
-const ROLE_OPTIONS = [
-  { value: "admin", label: "Admin" },
-  { value: "manager", label: "Manager" },
-  { value: "shift_manager", label: "Shift Manager" },
-  { value: "team_member", label: "Team Member" },
-];
+const ROLE_OPTIONS = ASSIGNABLE_ROLE_OPTIONS;
 
 const DAYS_OF_WEEK = [
   { value: 1, label: "Mon" },

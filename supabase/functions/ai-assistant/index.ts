@@ -2302,7 +2302,7 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .single();
     
-    const managerRoles = ["shift_manager", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
+    const managerRoles = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
     if (!roleData || !managerRoles.includes(roleData.role)) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
@@ -2578,7 +2578,7 @@ ${userRole === 'team_member' ? `- TEAM MEMBER: You can see your OWN schedule, yo
 - CANNOT see: other people's pay rates, wages, labor costs with dollar amounts, overtime costs, employee notes/write-ups about others, or any HR data.
 - If asked about pay or labor costs, respond: "That info is restricted to managers — check with your GM."` :
 
-userRole === 'shift_manager' ? `- SHIFT MANAGER: You can see schedules, labor HOURS and PERCENTAGES, checklists, tasks, guest reviews, and basic operational data.
+(userRole === 'shift_manager' || userRole === 'shift_manager_in_training') ? `- SHIFT MANAGER: You can see schedules, labor HOURS and PERCENTAGES, checklists, tasks, guest reviews, and basic operational data.
 - CANNOT see: individual pay rates, wage history, dollar-amount labor costs per person (e.g. "$127.50"), overtime dollar costs, or HR write-ups/notes you didn't create.
 - When showing labor data, show HOURS only — never dollar amounts per person. Total labor cost and labor % are OK.
 - If asked about someone's pay rate or wage, respond: "Pay data is restricted to admin roles."` :

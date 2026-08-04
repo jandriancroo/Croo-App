@@ -829,6 +829,7 @@ export default function Schedule() {
                 Would you like to change {pendingRoleChange?.userName}'s role to {
                   pendingRoleChange?.newRole === 'team_member' ? 'Team Member'
                   : pendingRoleChange?.newRole === 'shift_manager' ? 'Shift Manager'
+                  : pendingRoleChange?.newRole === 'shift_manager_in_training' ? 'Shift Manager in Training'
                   : pendingRoleChange?.newRole === 'manager' ? 'Manager'
                   : pendingRoleChange?.newRole
                 }?
