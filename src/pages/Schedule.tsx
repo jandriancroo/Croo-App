@@ -529,7 +529,7 @@ export default function Schedule() {
                         if (roleProfiles.length === 0) return null;
                         const roleColorClass = ['super_admin', 'org_admin', 'admin'].includes(roleFilter)
                           ? 'bg-role-admin/5'
-                          : ['shift_manager', 'manager'].includes(roleFilter)
+                          : ['shift_manager', 'shift_manager_in_training', 'manager'].includes(roleFilter)
                           ? 'bg-role-manager/5'
                           : 'bg-role-team-member/5';
                         const roleShifts = shifts.filter(s => roleProfiles.some(p => p.id === s.user_id));
