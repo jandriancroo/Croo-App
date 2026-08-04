@@ -52,7 +52,9 @@ export const useUserRole = () => {
   const isOrgAdmin = role === 'org_admin' || isBrandAdmin;
   const isAdmin = role === 'admin' || isOrgAdmin;
   const isManager = role === 'manager' || isAdmin;
-  const isShiftManager = role === 'shift_manager' || isManager;
+  // Shift Manager in Training defaults to the same access as Shift Manager
+  const isShiftManagerInTraining = role === 'shift_manager_in_training';
+  const isShiftManager = role === 'shift_manager' || isShiftManagerInTraining || isManager;
   
   // Permission checks
   // Shift managers can SEE schedule/sales/labor but CANNOT edit schedule, manage templates, or view wages
