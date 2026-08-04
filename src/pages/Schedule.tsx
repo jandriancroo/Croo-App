@@ -510,7 +510,8 @@ export default function Schedule() {
                   const ROLE_ORDER = ['super_admin', 'org_admin', 'admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'team_member'];
                   const roleLabels: Record<string, string> = {
                     super_admin: 'Super Admins', org_admin: 'Org Admins', admin: 'Admins',
-                    manager: 'Managers', shift_manager: 'Shift Managers', team_member: 'Team Members'
+                    manager: 'Managers', shift_manager: 'Shift Managers',
+                    shift_manager_in_training: 'Shift Managers in Training', team_member: 'Team Members'
                   };
                   const calcHours = (list: typeof shifts) => list.reduce((total, shift) => {
                     const [sh, sm] = shift.start_time.split(':').map(Number);
@@ -528,7 +529,7 @@ export default function Schedule() {
                         if (roleProfiles.length === 0) return null;
                         const roleColorClass = ['super_admin', 'org_admin', 'admin'].includes(roleFilter)
                           ? 'bg-role-admin/5'
-                          : ['shift_manager', 'manager'].includes(roleFilter)
+                          : ['shift_manager', 'shift_manager_in_training', 'manager'].includes(roleFilter)
                           ? 'bg-role-manager/5'
                           : 'bg-role-team-member/5';
                         const roleShifts = shifts.filter(s => roleProfiles.some(p => p.id === s.user_id));
