@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, Shield, Users, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
-type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
+type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
 
 interface NotificationSetting {
   id: string;

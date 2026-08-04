@@ -332,7 +332,7 @@ export default function CreateChecklist() {
     if (selectedRoles.length > 0) {
       const roleTagsToInsert = selectedRoles.map((role) => ({
         checklist_id: checklist.id,
-        role: role as 'super_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member',
+        role: role as 'super_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member',
       }));
       const { error: roleTagsError } = await supabase.from('checklist_role_tags').insert(roleTagsToInsert);
       if (roleTagsError) throw roleTagsError;
@@ -375,7 +375,7 @@ export default function CreateChecklist() {
     if (selectedRoles.length > 0) {
       const roleTagsToInsert = selectedRoles.map((role) => ({
         checklist_id: checklist.id,
-        role: role as 'super_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member',
+        role: role as 'super_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member',
       }));
       const { error: roleTagsError } = await supabase.from('checklist_role_tags').insert(roleTagsToInsert);
       if (roleTagsError) throw roleTagsError;

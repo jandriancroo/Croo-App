@@ -130,7 +130,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
         .from('user_roles')
         .select('user_id')
         .in('user_id', userIds)
-        .in('role', ['admin', 'general_manager', 'shift_manager', 'manager']);
+        .in('role', ['admin', 'general_manager', 'shift_manager', 'shift_manager_in_training', 'manager']);
       
       if (!managerRoles) return;
       

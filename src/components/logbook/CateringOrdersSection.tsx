@@ -161,7 +161,7 @@ export function CateringOrdersSection({ showHeader: _showHeader = true, external
               title: `New Catering Order - ${currentLocation?.name || 'Location'}`,
               body: `${orderData.customer_name} - ${format(parseISO(orderData.pickup_date), "MMM d")} at ${orderData.pickup_time}`,
               location_id: currentLocation.id,
-              roles: ['admin', 'manager', 'shift_manager'],
+              roles: ['admin', 'manager', 'shift_manager', 'shift_manager_in_training'],
             }
           });
         } catch (notifError) {
