@@ -25,6 +25,7 @@ export function canUserSeeEvent(
   // Role hierarchy (higher index = higher privilege)
   const roleHierarchy: Record<string, number> = {
     team_member: 0,
+    shift_manager_in_training: 1,
     shift_manager: 1,
     manager: 2,
     admin: 3,
