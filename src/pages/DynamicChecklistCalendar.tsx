@@ -657,6 +657,15 @@ export default function DynamicChecklistCalendar() {
 
       setUnassignedItems(unassigned);
       setAssignedByDay(byDay);
+
+      // Load role + individual visibility tags
+      const [{ data: roleTags }, { data: userTags }] = await Promise.all([
+        supabase.from('checklist_role_tags').select('role').eq('checklist_id', id),
+        supabase.from('checklist_user_tags').select('user_id').eq('checklist_id', id),
+      ]);
+      setSelectedRoles((roleTags ?? []).map((r: any) => r.role));
+      setSelectedUserIds((userTags ?? []).map((u: any) => u.user_id));
+
     } catch (error) {
       console.error('Error fetching checklist:', error);
       toast.error('Failed to load checklist');
