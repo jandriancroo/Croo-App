@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -31,13 +32,7 @@ interface AnnouncementDialogProps {
   locationName?: string;
 }
 
-const ROLE_OPTIONS = [
-  { value: 'team_member', label: 'Team Member' },
-  { value: 'shift_manager', label: 'Shift Manager' },
-  { value: 'shift_manager_in_training', label: 'Shift Manager in Training' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'admin', label: 'Admin' },
-];
+const ROLE_OPTIONS = ASSIGNABLE_ROLE_OPTIONS;
 
 export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, locationId, locationName }: AnnouncementDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);

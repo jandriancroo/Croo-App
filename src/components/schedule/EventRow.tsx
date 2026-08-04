@@ -1,4 +1,5 @@
 import { memo, useState, useEffect } from "react";
+import { ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -632,12 +633,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                 <div>
                   <Label>Tag Roles (optional)</Label>
                   <div className="space-y-2 mt-2">
-                    {[
-                      { value: "admin", label: "Admin" },
-                      { value: "manager", label: "Manager" },
-                      { value: "shift_manager", label: "Shift Manager" },
-                      { value: "team_member", label: "Team Member" },
-                    ].map((role) => (
+                    {ASSIGNABLE_ROLE_OPTIONS.map((role) => (
                       <div key={role.value} className="flex items-center space-x-2">
                         <Checkbox
                           id={`role-${role.value}`}

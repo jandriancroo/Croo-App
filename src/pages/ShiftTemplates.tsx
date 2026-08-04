@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useUserRole, ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { Plus, Trash2, Pencil, Copy, MoreVertical, Briefcase, X, Check } from "lucide-react";
@@ -374,12 +374,7 @@ export default function ShiftTemplates() {
                     Select which roles can be assigned to this shift
                   </p>
                   <div className="space-y-2">
-                    {[
-                      { value: "team_member", label: "Team Member" },
-                      { value: "shift_manager", label: "Shift Manager" },
-                      { value: "manager", label: "Manager" },
-                      { value: "admin", label: "Admin" },
-                    ].map((roleOption) => (
+                    {ASSIGNABLE_ROLE_OPTIONS.map((roleOption) => (
                       <div key={roleOption.value} className="flex items-center space-x-2">
                         <input
                           type="checkbox"

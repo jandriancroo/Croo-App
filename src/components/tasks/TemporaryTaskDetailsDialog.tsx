@@ -30,6 +30,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   manager: "Manager",
   shift_manager: "Shift Manager",
+  shift_manager_in_training: "Shift Manager in Training",
   team_member: "Team Member",
 };
 
