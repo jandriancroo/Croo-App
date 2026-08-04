@@ -80,6 +80,7 @@ export const useUserRole = () => {
     isAdmin, 
     isGeneralManager, // kept for backwards compatibility
     isShiftManager,
+    isShiftManagerInTraining,
     isManager,
     canManageSchedule,
     canViewAllWages,
