@@ -510,7 +510,8 @@ export default function Schedule() {
                   const ROLE_ORDER = ['super_admin', 'org_admin', 'admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'team_member'];
                   const roleLabels: Record<string, string> = {
                     super_admin: 'Super Admins', org_admin: 'Org Admins', admin: 'Admins',
-                    manager: 'Managers', shift_manager: 'Shift Managers', team_member: 'Team Members'
+                    manager: 'Managers', shift_manager: 'Shift Managers',
+                    shift_manager_in_training: 'Shift Managers in Training', team_member: 'Team Members'
                   };
                   const calcHours = (list: typeof shifts) => list.reduce((total, shift) => {
                     const [sh, sm] = shift.start_time.split(':').map(Number);
