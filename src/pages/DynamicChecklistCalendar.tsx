@@ -976,7 +976,7 @@ export default function DynamicChecklistCalendar() {
 
         <Card className="p-4">
           <AssigneePicker
-            locationId={checklist?.location_id ?? currentLocation?.id}
+            locationId={currentLocation?.id}
             selectedRoles={selectedRoles}
             onRolesChange={setSelectedRoles}
             selectedUserIds={selectedUserIds}
