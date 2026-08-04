@@ -216,7 +216,7 @@ export function useScheduleData() {
 
       const roleOrder: Record<string, number> = {
         super_admin: 0, brand_admin: 1, org_admin: 2, admin: 3,
-        manager: 4, shift_manager: 5, team_member: 6
+        manager: 4, shift_manager: 5, shift_manager_in_training: 5.5, team_member: 6
       };
       profilesWithRoles.sort((a, b) => {
         const aRoleOrder = roleOrder[a.role as string] ?? 5;
@@ -823,7 +823,7 @@ export function useScheduleData() {
       const { error } = await supabase.from('user_roles').update({ role: newRole as any }).eq('user_id', userId);
       if (error) throw error;
       fetchScheduleData(false);
-      const roleDisplayName = newRole === 'team_member' ? 'Team Member' : newRole === 'shift_manager' ? 'Shift Manager' : newRole === 'manager' ? 'Manager' : newRole;
+      const roleDisplayName = newRole === 'team_member' ? 'Team Member' : newRole === 'shift_manager' ? 'Shift Manager' : newRole === 'shift_manager_in_training' ? 'Shift Manager in Training' : newRole === 'manager' ? 'Manager' : newRole;
       toast.success(`${userName}'s role changed to ${roleDisplayName}`);
     } catch (error) {
       console.error('Error changing role:', error);
