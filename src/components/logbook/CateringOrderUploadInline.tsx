@@ -81,7 +81,7 @@ export function CateringOrderUploadInline({
             title: `New Catering Order - ${currentLocationName}`,
             body: `${orderData.customer_name} - ${format(parseISO(orderData.pickup_date), "MMM d")} at ${orderData.pickup_time}`,
             location_id: currentLocationId,
-            roles: ["admin", "manager", "shift_manager"],
+            roles: ["admin", "manager", "shift_manager", "shift_manager_in_training"],
           },
         });
       } catch (err) {
