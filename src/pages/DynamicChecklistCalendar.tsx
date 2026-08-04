@@ -18,6 +18,8 @@ import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation } from "@/hooks/useLocation";
+import { AssigneePicker } from "@/components/shared/AssigneePicker";
+
 
 interface ChecklistItem {
   id: string;
@@ -501,6 +503,9 @@ export default function DynamicChecklistCalendar() {
   const [assignDialogDays, setAssignDialogDays] = useState<number[]>([]);
   const [assignDialogShift, setAssignDialogShift] = useState<'am' | 'pm' | null>(null);
   const [assignSaving, setAssignSaving] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
   
   // Quick add form state
   const [newQuestion, setNewQuestion] = useState("");
@@ -657,6 +662,15 @@ export default function DynamicChecklistCalendar() {
 
       setUnassignedItems(unassigned);
       setAssignedByDay(byDay);
+
+      // Load role + individual visibility tags
+      const [{ data: roleTags }, { data: userTags }] = await Promise.all([
+        supabase.from('checklist_role_tags').select('role').eq('checklist_id', id),
+        supabase.from('checklist_user_tags').select('user_id').eq('checklist_id', id),
+      ]);
+      setSelectedRoles((roleTags ?? []).map((r: any) => r.role));
+      setSelectedUserIds((userTags ?? []).map((u: any) => u.user_id));
+
     } catch (error) {
       console.error('Error fetching checklist:', error);
       toast.error('Failed to load checklist');
@@ -818,6 +832,24 @@ export default function DynamicChecklistCalendar() {
         .eq('id', checklist.id);
       if (titleError) throw titleError;
 
+      // Persist visibility (roles + specific people)
+      await supabase.from('checklist_role_tags').delete().eq('checklist_id', checklist.id);
+      await supabase.from('checklist_user_tags').delete().eq('checklist_id', checklist.id);
+      if (selectedRoles.length > 0) {
+        const { error: roleErr } = await supabase.from('checklist_role_tags').insert(
+          selectedRoles.map((role) => ({ checklist_id: checklist.id, role: role as any }))
+        );
+        if (roleErr) throw roleErr;
+      }
+      if (selectedUserIds.length > 0) {
+        const { error: userErr } = await supabase.from('checklist_user_tags').insert(
+          selectedUserIds.map((user_id) => ({ checklist_id: checklist.id, user_id }))
+        );
+        if (userErr) throw userErr;
+      }
+
+
+
       // Update all items with their day assignments
       for (const item of items) {
         const assignedDays: number[] = [];
@@ -941,6 +973,20 @@ export default function DynamicChecklistCalendar() {
             {saving ? 'Saving...' : 'Save Template'}
           </Button>
         </div>
+
+        <Card className="p-4">
+          <AssigneePicker
+            locationId={currentLocation?.id}
+            selectedRoles={selectedRoles}
+            onRolesChange={setSelectedRoles}
+            selectedUserIds={selectedUserIds}
+            onUserIdsChange={setSelectedUserIds}
+            label="Visible to"
+            helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role. Saves with the template."
+          />
+        </Card>
+
+
 
         <DndContext
           sensors={sensors}
