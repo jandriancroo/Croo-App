@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Shield, User, Bell } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
+type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
 type DbRole = AppRole | 'fbc' | 'general_manager';
 
 type RolePermission = {
