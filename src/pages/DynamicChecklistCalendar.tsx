@@ -18,6 +18,8 @@ import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation } from "@/hooks/useLocation";
+import { AssigneePicker } from "@/components/shared/AssigneePicker";
+
 
 interface ChecklistItem {
   id: string;
