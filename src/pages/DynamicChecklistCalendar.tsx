@@ -974,6 +974,20 @@ export default function DynamicChecklistCalendar() {
           </Button>
         </div>
 
+        <Card className="p-4">
+          <AssigneePicker
+            locationId={checklist?.location_id ?? currentLocation?.id}
+            selectedRoles={selectedRoles}
+            onRolesChange={setSelectedRoles}
+            selectedUserIds={selectedUserIds}
+            onUserIdsChange={setSelectedUserIds}
+            label="Visible to"
+            helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role. Saves with the template."
+          />
+        </Card>
+
+
+
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
