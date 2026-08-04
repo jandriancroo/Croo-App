@@ -501,6 +501,9 @@ export default function DynamicChecklistCalendar() {
   const [assignDialogDays, setAssignDialogDays] = useState<number[]>([]);
   const [assignDialogShift, setAssignDialogShift] = useState<'am' | 'pm' | null>(null);
   const [assignSaving, setAssignSaving] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
   
   // Quick add form state
   const [newQuestion, setNewQuestion] = useState("");
