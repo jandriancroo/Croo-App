@@ -22,6 +22,7 @@ const roleConfig: { role: AppRole; label: string; icon: React.ReactNode; descrip
   { role: 'admin', label: 'Admin', icon: <Shield className="h-4 w-4" />, description: 'Full location access' },
   { role: 'manager', label: 'Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Management notifications' },
   { role: 'shift_manager', label: 'Shift Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Shift supervisory notifications' },
+  { role: 'shift_manager_in_training', label: 'Shift Manager in Training', icon: <UserCheck className="h-4 w-4" />, description: 'Trainee shift supervisory notifications' },
   { role: 'team_member', label: 'Team Member', icon: <Users className="h-4 w-4" />, description: 'Basic notifications' },
 ];
 

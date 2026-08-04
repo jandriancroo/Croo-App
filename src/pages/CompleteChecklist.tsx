@@ -876,7 +876,7 @@ export default function CompleteChecklist() {
               .from('user_locations')
               .select('user_id, user_roles!inner(role)')
               .eq('location_id', taskLocationId)
-              .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager']);
+              .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager', 'shift_manager_in_training']);
 
             const managerIds = managerUsers?.map((u: any) => u.user_id) || [];
 

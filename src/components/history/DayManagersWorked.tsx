@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { Shield } from 'lucide-react';
 import { getDisplayName } from '@/utils/displayName';
 
-const MANAGER_ROLES = ['shift_manager', 'manager', 'admin', 'org_admin', 'brand_admin', 'super_admin'];
+const MANAGER_ROLES = ['shift_manager', 'shift_manager_in_training', 'manager', 'admin', 'org_admin', 'brand_admin', 'super_admin'];
 
 interface Props {
   dateStr: string; // yyyy-MM-dd
