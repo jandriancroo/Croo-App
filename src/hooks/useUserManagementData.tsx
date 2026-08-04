@@ -59,6 +59,7 @@ export const getRoleDisplayName = (role: AppRole) => {
     admin: 'Admin',
     manager: 'Manager',
     shift_manager: 'Shift Manager',
+    shift_manager_in_training: 'Shift Manager in Training',
     team_member: 'Team Member',
   };
   return names[role] || String(role).replace('_', ' ');

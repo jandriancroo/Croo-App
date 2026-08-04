@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
 // Unified roles list (in hierarchy order, highest to lowest)
-export type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
+export type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
 
 // Display names for roles
 export const ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
@@ -13,11 +13,12 @@ export const ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
   admin: 'Admin',
   manager: 'Manager',
   shift_manager: 'Shift Manager',
+  shift_manager_in_training: 'Shift Manager in Training',
   team_member: 'Team Member',
 };
 
 // All roles for selection UIs (excluding super_admin which is system-only)
-export const SELECTABLE_ROLES: AppRole[] = ['team_member', 'shift_manager', 'manager', 'admin', 'org_admin', 'brand_admin'];
+export const SELECTABLE_ROLES: AppRole[] = ['team_member', 'shift_manager_in_training', 'shift_manager', 'manager', 'admin', 'org_admin', 'brand_admin'];
 
 export const useUserRole = () => {
   const { user, loading: authLoading } = useAuth();
@@ -51,7 +52,9 @@ export const useUserRole = () => {
   const isOrgAdmin = role === 'org_admin' || isBrandAdmin;
   const isAdmin = role === 'admin' || isOrgAdmin;
   const isManager = role === 'manager' || isAdmin;
-  const isShiftManager = role === 'shift_manager' || isManager;
+  // Shift Manager in Training defaults to the same access as Shift Manager
+  const isShiftManagerInTraining = role === 'shift_manager_in_training';
+  const isShiftManager = role === 'shift_manager' || isShiftManagerInTraining || isManager;
   
   // Permission checks
   // Shift managers can SEE schedule/sales/labor but CANNOT edit schedule, manage templates, or view wages
@@ -77,6 +80,7 @@ export const useUserRole = () => {
     isAdmin, 
     isGeneralManager, // kept for backwards compatibility
     isShiftManager,
+    isShiftManagerInTraining,
     isManager,
     canManageSchedule,
     canViewAllWages,

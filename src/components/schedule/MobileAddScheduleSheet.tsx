@@ -31,7 +31,7 @@ interface Profile {
 const ROLE_GROUPS: { key: string; label: string; roles: string[] }[] = [
   { key: 'admin', label: 'Admins', roles: ['super_admin', 'brand_admin', 'org_admin', 'admin'] },
   { key: 'manager', label: 'Managers', roles: ['manager'] },
-  { key: 'shift_manager', label: 'Shift Managers', roles: ['shift_manager'] },
+  { key: 'shift_manager', label: 'Shift Managers', roles: ['shift_manager', 'shift_manager_in_training'] },
   { key: 'team_member', label: 'Team Members', roles: ['team_member'] },
 ];
 

@@ -535,7 +535,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                   try {
                     const overUnderText = drawerData.variance > 0 ? `OVER $${drawerData.variance.toFixed(2)}` : drawerData.variance < 0 ? `SHORT $${Math.abs(drawerData.variance).toFixed(2)}` : 'BALANCED';
                     await supabase.functions.invoke('send-push-notification', {
-                      body: { notification_type: 'drawer_count', title: `Drawer Count - ${currentLocation?.name || 'Location'}`, body: `Deposit: $${drawerData.actualDeposit.toFixed(2)} | ${overUnderText}`, location_id: currentLocation?.id, roles: ['admin', 'manager', 'shift_manager', 'super_admin'] }
+                      body: { notification_type: 'drawer_count', title: `Drawer Count - ${currentLocation?.name || 'Location'}`, body: `Deposit: $${drawerData.actualDeposit.toFixed(2)} | ${overUnderText}`, location_id: currentLocation?.id, roles: ['admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'super_admin'] }
                     });
                   } catch (notifError) { console.error('Error sending drawer count notification:', notifError); }
                 }
@@ -650,7 +650,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 if (locationSettings?.safe_count_notifications_enabled !== false) {
                   try {
                     await supabase.functions.invoke('send-push-notification', {
-                      body: { notification_type: 'safe_count', title: `Safe Count - ${currentLocation?.name || 'Location'}`, body: `${safeData.shift} Safe Count Complete - $${safeData.totalSafe.toFixed(2)} balanced`, location_id: currentLocation?.id, roles: ['admin', 'manager', 'shift_manager', 'super_admin'] }
+                      body: { notification_type: 'safe_count', title: `Safe Count - ${currentLocation?.name || 'Location'}`, body: `${safeData.shift} Safe Count Complete - $${safeData.totalSafe.toFixed(2)} balanced`, location_id: currentLocation?.id, roles: ['admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'super_admin'] }
                     });
                   } catch (notifError) { console.error('Error sending safe count notification:', notifError); }
                 }

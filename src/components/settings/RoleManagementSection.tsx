@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Shield, User, Bell } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
+type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
 type DbRole = AppRole | 'fbc' | 'general_manager';
 
 type RolePermission = {
@@ -121,6 +121,7 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
       case 'admin': return 'Admin (Location)';
       case 'manager': return 'Manager';
       case 'shift_manager': return 'Shift Manager';
+      case 'shift_manager_in_training': return 'Shift Manager in Training';
       default: return 'Team Member';
     }
   };
@@ -140,41 +141,16 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
     <div className="space-y-4">
       {/* Role selector buttons */}
       <div className="flex flex-wrap gap-2">
-        <Button
-          variant={selectedRole === 'org_admin' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSelectedRole('org_admin')}
-        >
-          Org Admin
-        </Button>
-        <Button
-          variant={selectedRole === 'admin' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSelectedRole('admin')}
-        >
-          Admin
-        </Button>
-        <Button
-          variant={selectedRole === 'manager' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSelectedRole('manager')}
-        >
-          Manager
-        </Button>
-        <Button
-          variant={selectedRole === 'shift_manager' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSelectedRole('shift_manager')}
-        >
-          Shift Manager
-        </Button>
-        <Button
-          variant={selectedRole === 'team_member' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSelectedRole('team_member')}
-        >
-          Team Member
-        </Button>
+        {(['org_admin', 'admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'team_member'] as AppRole[]).map((r) => (
+          <Button
+            key={r}
+            variant={selectedRole === r ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedRole(r)}
+          >
+            {r === 'admin' ? 'Admin' : getRoleLabel(r)}
+          </Button>
+        ))}
       </div>
 
       {/* Two column layout for Permissions and Notifications */}

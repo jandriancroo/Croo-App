@@ -31,6 +31,7 @@ interface NewChatDialogProps {
 const ROLE_OPTIONS = [
   { value: 'team_member', label: 'Team Member' },
   { value: 'shift_manager', label: 'Shift Manager' },
+  { value: 'shift_manager_in_training', label: 'Shift Manager in Training' },
   { value: 'manager', label: 'Manager' },
   { value: 'admin', label: 'Admin' },
 ];

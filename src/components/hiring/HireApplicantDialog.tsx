@@ -22,7 +22,7 @@ interface HireApplicantDialogProps {
   onSuccess: () => void;
 }
 
-type AppRole = 'team_member' | 'shift_manager' | 'manager' | 'admin' | 'org_admin' | 'brand_admin';
+type AppRole = 'team_member' | 'shift_manager_in_training' | 'shift_manager' | 'manager' | 'admin' | 'org_admin' | 'brand_admin';
 
 export function HireApplicantDialog({ open, onOpenChange, applicant, onSuccess }: HireApplicantDialogProps) {
   const { currentLocation } = useLocation();

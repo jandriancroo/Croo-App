@@ -507,7 +507,7 @@ export default function Schedule() {
                 )
               ) : (
                 (() => {
-                  const ROLE_ORDER = ['super_admin', 'org_admin', 'admin', 'manager', 'shift_manager', 'team_member'];
+                  const ROLE_ORDER = ['super_admin', 'org_admin', 'admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'team_member'];
                   const roleLabels: Record<string, string> = {
                     super_admin: 'Super Admins', org_admin: 'Org Admins', admin: 'Admins',
                     manager: 'Managers', shift_manager: 'Shift Managers', team_member: 'Team Members'

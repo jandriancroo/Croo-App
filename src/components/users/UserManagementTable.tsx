@@ -42,6 +42,7 @@ const getRoleIcon = (role: AppRole) => {
       return <Shield className="h-4 w-4" />;
     case 'manager':
     case 'shift_manager':
+    case 'shift_manager_in_training':
       return <UserCog className="h-4 w-4" />;
     default:
       return <User className="h-4 w-4" />;
@@ -55,7 +56,8 @@ const getRoleBadgeVariant = (role: AppRole) => {
     case 'org_admin':
     case 'admin': return 'default';
     case 'manager':
-    case 'shift_manager': return 'secondary';
+    case 'shift_manager':
+    case 'shift_manager_in_training': return 'secondary';
     default: return 'outline';
   }
 };

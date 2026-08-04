@@ -548,7 +548,7 @@ export function useLogBookData() {
       if (currentCategory?.push_notification_enabled && currentLocation) {
         try {
           await supabase.functions.invoke('send-push-notification', {
-            body: { notification_type: 'logbook_entry', title: `New Log Entry - ${currentLocation.name}`, body: `${currentCategory.name} entry submitted`, location_id: currentLocation.id, roles: ['admin', 'manager', 'shift_manager'] }
+            body: { notification_type: 'logbook_entry', title: `New Log Entry - ${currentLocation.name}`, body: `${currentCategory.name} entry submitted`, location_id: currentLocation.id, roles: ['admin', 'manager', 'shift_manager', 'shift_manager_in_training'] }
           });
         } catch (notifError) { console.error('Failed to send push notification:', notifError); }
       }

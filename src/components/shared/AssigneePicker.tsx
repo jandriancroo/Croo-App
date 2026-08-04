@@ -12,6 +12,7 @@ const DEFAULT_ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
   { value: 'manager', label: 'Manager' },
   { value: 'shift_manager', label: 'Shift Manager' },
+  { value: 'shift_manager_in_training', label: 'Shift Manager in Training' },
   { value: 'team_member', label: 'Team Member' },
 ];
 
