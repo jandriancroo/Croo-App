@@ -76,7 +76,9 @@ export default function PayrollReview() {
     exportToPDF,
     tipsLoading,
     totalTipPool,
+    dailyTips,
   } = usePayrollData();
+
 
   if (!isAdmin && !isManager) {
     return (
@@ -291,6 +293,11 @@ export default function PayrollReview() {
                 </CardContent>
               </Card>
             )}
+
+            {!tipsLoading && dailyTips.length > 0 && (
+              <DailyTipsStrip dailyTips={dailyTips} totalTipPool={totalTipPool} />
+            )}
+
 
             {/* Approval Controls - only show when period is open */}
             {!isPeriodClosed && (() => {
