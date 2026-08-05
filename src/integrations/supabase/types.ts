@@ -13068,6 +13068,7 @@ export type Database = {
         }
         Returns: number
       }
+      oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
       pfg_swap_credentials: {
         Args: {
           p_expected_old_refresh_token: string
