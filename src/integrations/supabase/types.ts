@@ -12860,6 +12860,7 @@ export type Database = {
         }
         Returns: string
       }
+      cron_edge_headers: { Args: never; Returns: Json }
       delete_dashboard_widget: {
         Args: { _widget_id: string }
         Returns: undefined
