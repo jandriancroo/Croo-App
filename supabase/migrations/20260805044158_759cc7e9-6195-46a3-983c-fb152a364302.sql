@@ -1,0 +1,1 @@
+SELECT cron.schedule('oneshot-pmix-backfill', '* * * * *', $job$ SELECT public.oneshot_backfill_qu_pmix(); $job$);
