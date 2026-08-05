@@ -1283,30 +1283,47 @@ export function usePayrollData() {
     setClosingPeriod(true);
 
     try {
-      toast.info('Syncing tips from QuBeyond...');
+      // Detect which POS this location uses so we sync tips from the right source
+      const { data: cloverIntegration } = await supabase
+        .from('location_integrations')
+        .select('id')
+        .eq('location_id', currentLocation.id)
+        .eq('integration_type', 'clover')
+        .eq('is_active', true)
+        .maybeSingle();
 
-      const syncResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-service?action=sync-tips`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            locationId: currentLocation.id,
-            startDate,
-            endDate,
-          }),
-        }
-      );
+      const isClover = !!cloverIntegration;
+      toast.info(isClover ? 'Syncing tips from Clover...' : 'Syncing tips from QuBeyond...');
+
+      const url = isClover
+        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clover-sync`
+        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-service?action=sync-tips`;
+
+      const payload = isClover
+        ? { action: 'sync_range', locationId: currentLocation.id, startDate, endDate }
+        : { locationId: currentLocation.id, startDate, endDate };
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      const syncResponse = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (syncResponse.ok) {
         const syncData = await syncResponse.json();
         console.log('[PayrollReview] Tips sync result:', syncData);
-        if (syncData.synced > 0) {
-          toast.success(`Synced tips for ${syncData.synced} days`);
+        const syncedDays = isClover
+          ? (Array.isArray(syncData.results) ? syncData.results.length : 0)
+          : (syncData.synced ?? 0);
+        if (syncedDays > 0) {
+          toast.success(`Synced tips for ${syncedDays} days`);
         }
       } else {
         console.warn('[PayrollReview] Tips sync failed, continuing with close');
@@ -1314,6 +1331,7 @@ export function usePayrollData() {
     } catch (tipSyncError) {
       console.warn('[PayrollReview] Tips sync error (non-blocking):', tipSyncError);
     }
+
 
     const { error } = await supabase
       .from('pay_periods')
