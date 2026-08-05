@@ -217,8 +217,12 @@ export const calculateOvertimeBreakdown = (
   laborRules: LaborRules | null,
   timezone: string
 ): OvertimeBreakdown => {
-  const dailyOTThreshold = laborRules?.daily_overtime_threshold ?? 8;
-  const dailyDTThreshold = laborRules?.daily_double_time_threshold ?? 12;
+  // A 0/null daily threshold means the state has NO daily OT/DT rule (e.g. TX, GA, IN).
+  // Treat it as disabled — otherwise every hour spills into double time and Reg reads 0.
+  const rawDailyOT = laborRules?.daily_overtime_threshold;
+  const rawDailyDT = laborRules?.daily_double_time_threshold;
+  const dailyOTThreshold = rawDailyOT && rawDailyOT > 0 ? rawDailyOT : Infinity;
+  const dailyDTThreshold = rawDailyDT && rawDailyDT > 0 ? rawDailyDT : Infinity;
   const weeklyOTThreshold = laborRules?.weekly_overtime_threshold ?? 40;
 
   // Group days by week

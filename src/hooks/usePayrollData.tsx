@@ -1376,8 +1376,12 @@ export function usePayrollData() {
   };
 
   const calculatePayrollSummary = () => {
-    const dailyOTThreshold = laborRules?.daily_overtime_threshold ?? 8;
-    const dailyDTThreshold = laborRules?.daily_double_time_threshold ?? 12;
+    // A 0/null daily threshold means no daily OT/DT rule for that state — treat as disabled
+    // so hours land in Regular instead of collapsing into double time.
+    const rawDailyOT = laborRules?.daily_overtime_threshold;
+    const rawDailyDT = laborRules?.daily_double_time_threshold;
+    const dailyOTThreshold = rawDailyOT && rawDailyOT > 0 ? rawDailyOT : Infinity;
+    const dailyDTThreshold = rawDailyDT && rawDailyDT > 0 ? rawDailyDT : Infinity;
     const weeklyOTThreshold = laborRules?.weekly_overtime_threshold ?? 40;
     const otMultiplier = laborRules?.overtime_multiplier ?? 1.5;
     const dtMultiplier = laborRules?.double_time_multiplier ?? 2.0;
