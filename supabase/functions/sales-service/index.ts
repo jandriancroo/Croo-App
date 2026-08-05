@@ -520,9 +520,12 @@ function buildUpsertPayload(locationId: string, dateStr: string, data: Awaited<R
     net_sales: data.netSales,
     guest_count: data.guestCount,
     avg_ticket: data.avgTicket,
-    pizza_count: Math.round(data.pizzaCount),
     hourly_data: data.formattedHourly,
-    product_mix: data.productMix,
+    // Never overwrite good item-level detail with an empty array when the
+    // product-mix endpoint errors out / rate limits — leave prior data intact.
+    ...(data.productMix.length > 0
+      ? { product_mix: data.productMix, pizza_count: Math.round(data.pizzaCount) }
+      : {}),
     ...(data.paymentsData.length > 0 ? { payments_data: data.paymentsData } : {}),
     yoy_net_sales: data.yoyNetSales,
     yoy_hourly_data: data.yoyHourlyData,
