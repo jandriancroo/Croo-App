@@ -12860,6 +12860,7 @@ export type Database = {
         }
         Returns: string
       }
+      cron_edge_headers: { Args: never; Returns: Json }
       delete_dashboard_widget: {
         Args: { _widget_id: string }
         Returns: undefined
@@ -13067,6 +13068,7 @@ export type Database = {
         }
         Returns: number
       }
+      oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
       pfg_swap_credentials: {
         Args: {
           p_expected_old_refresh_token: string
