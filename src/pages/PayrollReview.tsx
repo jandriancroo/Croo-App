@@ -17,6 +17,8 @@ import { MobileDayByDayCard } from '@/components/timetracking/MobileDayByDayCard
 import { EditShiftForm } from '@/components/timetracking/EditShiftForm';
 import { Users, CalendarDays, Flag } from 'lucide-react';
 import { usePayrollData } from '@/hooks/usePayrollData';
+import { DailyTipsStrip } from '@/components/payroll/DailyTipsStrip';
+
 import {
   formatDateTimeInTimezone,
   parseDateStringInTimezone,
