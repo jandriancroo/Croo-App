@@ -118,6 +118,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           title,
           template_type,
           frequency,
+          scheduled_date,
           visible_days_before_month_end,
           due_by_time,
           checklist_items(id, days_of_week, item_type)
