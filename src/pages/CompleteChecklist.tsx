@@ -1825,6 +1825,14 @@ export default function CompleteChecklist() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Deep-linked recipe / log / person opened from a checklist chip */}
+        <ChecklistLinkDialog
+          linkRef={activeLink}
+          onClose={() => setActiveLink(null)}
+          locationId={currentLocation?.id || checklist?.location_id || null}
+          timezone={locationTimezone}
+        />
       </div>
     </Layout>;
 }
