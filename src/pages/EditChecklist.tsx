@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash, Heading, ClipboardList } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash, Heading, ClipboardList, ShieldCheck } from 'lucide-react';
 import { PrepListEditor, type PrepRow } from '@/components/checklists/PrepListEditor';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -27,7 +27,7 @@ import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header' | 'prep_list';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header' | 'prep_list' | 'manager_approval';
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
@@ -128,6 +128,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               {item.item_type === 'multiple_choice' && <List className="h-3.5 w-3.5" />}
               {item.item_type === 'section_header' && <Heading className="h-3.5 w-3.5" />}
               {item.item_type === 'prep_list' && <ClipboardList className="h-3.5 w-3.5" />}
+              {item.item_type === 'manager_approval' && <ShieldCheck className="h-3.5 w-3.5" />}
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
@@ -138,6 +139,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
               <SelectItem value="prep_list"><span className="flex items-center gap-2"><ClipboardList className="h-3.5 w-3.5" /> Prep List</span></SelectItem>
               <SelectItem value="section_header"><span className="flex items-center gap-2"><Heading className="h-3.5 w-3.5" /> Section Header</span></SelectItem>
+              <SelectItem value="manager_approval"><span className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> Manager Approval</span></SelectItem>
             </SelectContent>
           </Select>
 
@@ -302,11 +304,12 @@ export default function EditChecklist() {
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'single_day'>('daily');
+  const [scheduledDate, setScheduledDate] = useState('');
   const [dueByTime, setDueByTime] = useState('');
   const [lockUntilTime, setLockUntilTime] = useState('');
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
-  const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
+  const [templateType, setTemplateType] = useState<'standard' | 'dynamic' | 'training'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
@@ -390,7 +393,8 @@ export default function EditChecklist() {
 
       setTitle(checklist.title);
       setDescription(checklist.description || '');
-      setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
+      setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly' | 'single_day');
+      setScheduledDate((checklist as any).scheduled_date || '');
       setDueByTime(normalizeTimeForInput(checklist.due_by_time));
 
       const savedLockTimeRaw = checklist.lock_until_time;
@@ -398,7 +402,7 @@ export default function EditChecklist() {
       setLockUntilTime(savedLockTime);
       setLockTimeEnabled(!!savedLockTime);
 
-      setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
+      setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic' | 'training');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
@@ -535,6 +539,7 @@ export default function EditChecklist() {
         title,
         description,
         frequency,
+        scheduled_date: frequency === 'single_day' ? (scheduledDate || null) : null,
         due_by_time: dueDb,
         lock_until_time: lockDb,
         template_type: templateType,
@@ -844,18 +849,36 @@ export default function EditChecklist() {
                 <Label htmlFor="title" className="text-xs">Title</Label>
                 <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Morning Kitchen Check" />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="frequency" className="text-xs">Frequency</Label>
-                <Select value={frequency} onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setFrequency(value)}>
-                  <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {templateType === 'training' ? (
+                <div className="space-y-1">
+                  <Label className="text-xs">Scheduling</Label>
+                  <div className="h-10 flex items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">
+                    Set per assignment
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label htmlFor="frequency" className="text-xs">Frequency</Label>
+                  <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
+                    <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="single_day">Single Day</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+
+            {templateType !== 'training' && frequency === 'single_day' && (
+              <div className="space-y-1">
+                <Label className="text-xs">Date</Label>
+                <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground">Shows only on this date, then moves to history.</p>
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label htmlFor="description" className="text-xs">Description</Label>
@@ -894,17 +917,23 @@ export default function EditChecklist() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              <AssigneePicker
-                locationId={checklistLocationId}
-                selectedRoles={selectedRoles}
-                onRolesChange={setSelectedRoles}
-                selectedUserIds={selectedUserIds}
-                onUserIdsChange={setSelectedUserIds}
-                label="Visible to"
-                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
-              />
-            </div>
+            {templateType === 'training' ? (
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                Training template — visibility is controlled by who you assign it to.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                <AssigneePicker
+                  locationId={checklistLocationId}
+                  selectedRoles={selectedRoles}
+                  onRolesChange={setSelectedRoles}
+                  selectedUserIds={selectedUserIds}
+                  onUserIdsChange={setSelectedUserIds}
+                  label="Visible to"
+                  helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+                />
+              </div>
+            )}
 
             {/* Toggle row */}
             <div className="flex flex-wrap gap-4 pt-2 border-t">

@@ -1734,6 +1734,78 @@ export type Database = {
           },
         ]
       }
+      checklist_assignments: {
+        Row: {
+          approval_signature: string | null
+          approved_at: string | null
+          approved_by: string | null
+          approver_roles: Database["public"]["Enums"]["app_role"][]
+          approver_user_ids: string[]
+          assigned_by: string | null
+          assigned_date: string
+          assignee_id: string
+          checklist_id: string
+          created_at: string
+          id: string
+          location_id: string | null
+          manager_note: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          approval_signature?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approver_roles?: Database["public"]["Enums"]["app_role"][]
+          approver_user_ids?: string[]
+          assigned_by?: string | null
+          assigned_date: string
+          assignee_id: string
+          checklist_id: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          manager_note?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approval_signature?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approver_roles?: Database["public"]["Enums"]["app_role"][]
+          approver_user_ids?: string[]
+          assigned_by?: string | null
+          assigned_date?: string
+          assignee_id?: string
+          checklist_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          manager_note?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_assignments_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_assignments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_items: {
         Row: {
           checklist_id: string
@@ -2026,6 +2098,7 @@ export type Database = {
       }
       checklist_responses: {
         Row: {
+          assignment_id: string | null
           completed_by: string | null
           created_at: string | null
           extracted_temperature: number | null
@@ -2039,6 +2112,7 @@ export type Database = {
           temperature_validated_at: string | null
         }
         Insert: {
+          assignment_id?: string | null
           completed_by?: string | null
           created_at?: string | null
           extracted_temperature?: number | null
@@ -2052,6 +2126,7 @@ export type Database = {
           temperature_validated_at?: string | null
         }
         Update: {
+          assignment_id?: string | null
           completed_by?: string | null
           created_at?: string | null
           extracted_temperature?: number | null
@@ -2065,6 +2140,13 @@ export type Database = {
           temperature_validated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "checklist_responses_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_assignments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklist_responses_item_id_fkey"
             columns: ["item_id"]
@@ -2115,6 +2197,7 @@ export type Database = {
           approval_signature: string | null
           approved_at: string | null
           approved_by: string | null
+          assignment_id: string | null
           checklist_id: string
           id: string
           location_id: string | null
@@ -2126,6 +2209,7 @@ export type Database = {
           approval_signature?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          assignment_id?: string | null
           checklist_id: string
           id?: string
           location_id?: string | null
@@ -2137,6 +2221,7 @@ export type Database = {
           approval_signature?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          assignment_id?: string | null
           checklist_id?: string
           id?: string
           location_id?: string | null
@@ -2150,6 +2235,13 @@ export type Database = {
             columns: ["approved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_assignments"
             referencedColumns: ["id"]
           },
           {
@@ -2220,6 +2312,7 @@ export type Database = {
           lock_until_time: string | null
           position_filtering_enabled: boolean | null
           requires_manager_approval: boolean
+          scheduled_date: string | null
           template_type: string | null
           title: string
           updated_at: string | null
@@ -2240,6 +2333,7 @@ export type Database = {
           lock_until_time?: string | null
           position_filtering_enabled?: boolean | null
           requires_manager_approval?: boolean
+          scheduled_date?: string | null
           template_type?: string | null
           title: string
           updated_at?: string | null
@@ -2260,6 +2354,7 @@ export type Database = {
           lock_until_time?: string | null
           position_filtering_enabled?: boolean | null
           requires_manager_approval?: boolean
+          scheduled_date?: string | null
           template_type?: string | null
           title?: string
           updated_at?: string | null
@@ -13063,6 +13158,13 @@ export type Database = {
       is_brand_or_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_chat_member: {
         Args: { _chat_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_checklist_assignment_approver: {
+        Args: {
+          _assignment: Database["public"]["Tables"]["checklist_assignments"]["Row"]
+          _user_id: string
+        }
         Returns: boolean
       }
       is_org_active: { Args: { _org_id: string }; Returns: boolean }

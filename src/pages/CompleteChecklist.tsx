@@ -29,6 +29,7 @@ import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { serverDebugLog } from '@/utils/serverDebugLog';
 import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText';
+import { ManagerApprovalItem } from '@/components/tasks/ManagerApprovalItem';
 import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 interface ChecklistItem {
@@ -74,6 +75,8 @@ export default function CompleteChecklist() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
+  // Training assignments scope a checklist to a single trainee (own submission + responses)
+  const assignmentId = searchParams.get('assignment');
   const isIOS = useIsIOS();
 
   // Parse YYYY-MM-DD as a LOCAL date (not UTC) to avoid off-by-one day issues
@@ -258,7 +261,7 @@ export default function CompleteChecklist() {
   // Calculate completion percentage
   useEffect(() => {
     if (items.length === 0) return;
-    const answerableItems = items.filter(item => item.item_type !== 'section_header');
+    const answerableItems = items.filter(item => item.item_type !== 'section_header' && item.item_type !== 'manager_approval');
     if (answerableItems.length === 0) {
       setCompletionPercentage(100);
       return;
@@ -318,20 +321,29 @@ export default function CompleteChecklist() {
 
         // Check if there's already ANY submission for this period (shared by all users)
         // Get the submission with responses, or the most recent one if there are duplicates from race conditions
-        const {
-          data: submissions,
-          error: submissionsError,
-        } = await supabase
+        let submissionQuery = supabase
           .from('checklist_submissions')
           .select(`
             id,
             checklist_responses(count)
           `)
           .eq('checklist_id', id)
-          .eq('location_id', locationId)
+          .eq('location_id', locationId);
+
+        // Training assignments get their own submission per trainee; standard
+        // checklists share one submission per period (assignment_id IS NULL).
+        submissionQuery = assignmentId
+          ? submissionQuery.eq('assignment_id', assignmentId)
+          : submissionQuery.is('assignment_id', null);
+
+        const {
+          data: submissions,
+          error: submissionsError,
+        } = await submissionQuery
           .gte('submitted_at', periodStart.toISOString())
           .lte('submitted_at', periodEnd.toISOString())
           .order('submitted_at', { ascending: false });
+
 
         console.log('Submission query result:', { submissions, submissionsError });
 
@@ -358,6 +370,7 @@ export default function CompleteChecklist() {
             checklist_id: id,
             submitted_by: user.id,
             location_id: locationId,
+            assignment_id: assignmentId,
             notes: ''
           }).select().single();
           console.log('New submission result:', { newSubmission, error });
@@ -369,7 +382,7 @@ export default function CompleteChecklist() {
       }
     };
     createDraftSubmission();
-  }, [id, user, submissionId, viewDate, currentLocation?.id, checklist]);
+  }, [id, user, submissionId, viewDate, currentLocation?.id, checklist, assignmentId]);
 
   // Load existing responses (and completer info) whenever we have a submissionId
   useEffect(() => {
@@ -546,6 +559,7 @@ export default function CompleteChecklist() {
         .upsert(
           {
             submission_id: submissionId,
+            assignment_id: assignmentId,
             item_id: itemId,
             response_text: isImage ? null : typeof value === 'boolean' ? String(value) : value,
             response_image_url: isImage ? value : null,
@@ -602,7 +616,7 @@ export default function CompleteChecklist() {
       });
       toast.error('Could not save your entry — check your connection and try again.');
     }
-  }, [submissionId, user]);
+  }, [submissionId, user, assignmentId]);
   const handleResponseChange = (itemId: string, value: any, isImage: boolean = false) => {
     setResponses({
       ...responses,
@@ -750,7 +764,7 @@ export default function CompleteChecklist() {
       } else {
         const { data: newResponse, error: insertError } = await supabase
           .from('checklist_responses')
-          .insert({ submission_id: submissionId, item_id: itemId, ...responseData })
+          .insert({ submission_id: submissionId, assignment_id: assignmentId, item_id: itemId, ...responseData })
           .select('id')
           .single();
         if (insertError) throw insertError;
@@ -989,6 +1003,7 @@ export default function CompleteChecklist() {
             .from('checklist_responses')
             .insert({
               submission_id: submissionId,
+              assignment_id: assignmentId,
               item_id: itemId,
               ...responseData
             })
@@ -1238,6 +1253,21 @@ export default function CompleteChecklist() {
               </div>
             );
           }
+
+          if (item.item_type === 'manager_approval') {
+            return (
+              <div key={item.id} className="pt-1">
+                <ManagerApprovalItem
+                  question={item.question}
+                  assignmentId={assignmentId}
+                  completionPercent={completionPercentage}
+                  currentUserId={user?.id}
+                  isApproverByRole={isAdmin || isManager || isShiftManager}
+                />
+              </div>
+            );
+          }
+
 
           if (item.item_type === 'prep_list') {
             const businessDate = dateParam || (() => {

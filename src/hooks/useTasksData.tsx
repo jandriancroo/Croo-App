@@ -118,17 +118,24 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           title,
           template_type,
           frequency,
+          scheduled_date,
           visible_days_before_month_end,
           due_by_time,
           checklist_items(id, days_of_week, item_type)
         `)
         .eq('is_active', true)
+        .neq('template_type', 'training')
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
 
       if (!checklistsData || checklistsData.length === 0) return [];
 
       const checklistInfo = checklistsData.map(checklist => {
+        // Single-day checklists only exist on their scheduled date
+        if (checklist.frequency === 'single_day') {
+          const sd = (checklist as any).scheduled_date;
+          if (sd && sd !== historyDateStr) return null;
+        }
         // Exclude section_header rows from the expected count — they're
         // visual dividers, not answerable items. Counting them makes a fully
         // completed checklist show as e.g. "21/24" (3 headers unanswered).

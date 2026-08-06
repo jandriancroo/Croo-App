@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Zap, ClipboardList, Copy } from "lucide-react";
+import { Plus, Zap, ClipboardList, Copy, GraduationCap, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { CopyChecklistDialog } from './CopyChecklistDialog';
 import { TemporaryTasksSection } from './TemporaryTasksSection';
 import { supabase } from "@/integrations/supabase/client";
 import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
+import { AssignTrainingDialog } from "./AssignTrainingDialog";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { UnderlineGroup } from "@/components/ui/folder-tabs";
@@ -34,6 +35,10 @@ export default function EditTabContent({
   const [copyChecklistIds, setCopyChecklistIds] = useState<string[]>([]);
   const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("quick-tasks");
+  const [assignChecklist, setAssignChecklist] = useState<{ id: string; title: string } | null>(null);
+
+  const standardChecklists = checklists.filter((c: any) => c.template_type !== 'training');
+  const trainingChecklists = checklists.filter((c: any) => c.template_type === 'training');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -183,7 +188,7 @@ export default function EditTabContent({
             </div>
 
             {/* Checklist list */}
-            {checklists.length === 0 ? (
+            {standardChecklists.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No checklist templates available</p>
             ) : (
               <DndContext
@@ -192,11 +197,11 @@ export default function EditTabContent({
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={checklists.map((c: any) => c.id)}
+                  items={standardChecklists.map((c: any) => c.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-2">
-                    {checklists.map((checklist: any) => {
+                    {standardChecklists.map((checklist: any) => {
                       const isDynamicChecklist = checklist.template_type === 'dynamic';
                       return (
                         <SortableChecklistItem
@@ -219,6 +224,60 @@ export default function EditTabContent({
                 </SortableContext>
               </DndContext>
             )}
+
+            {/* Training templates divider */}
+            {trainingChecklists.length > 0 && (
+              <div className="space-y-2 pt-4">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Training Templates
+                  </h4>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Reusable — assign to one team member at a time for a specific date.
+                </p>
+                <DndContext sensors={sensors} collisionDetection={closestCenter}>
+                <SortableContext items={trainingChecklists.map((c: any) => c.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {trainingChecklists.map((checklist: any) => (
+                    <div key={checklist.id} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <SortableChecklistItem
+                          checklist={checklist}
+                          isDynamic={false}
+                          isReordering={false}
+                          isAdmin={isAdmin}
+                          currentDay={currentDayIndex}
+                          dayNames={dayNames}
+                          onNavigate={navigate}
+                          onDeactivate={handleToggleActive}
+                          onDelete={handleDelete}
+                          onCopyTo={handleCopyTo}
+                          editMode={true}
+                        />
+                      </div>
+                      {isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 shrink-0"
+                          onClick={() => {
+                            setAssignChecklist({ id: checklist.id, title: checklist.title });
+                          }}
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Assign</span>
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                </SortableContext>
+                </DndContext>
+              </div>
+            )}
           </div>
         )}
 
@@ -228,6 +287,13 @@ export default function EditTabContent({
         onOpenChange={setCopyDialogOpen}
         checklistIds={copyChecklistIds}
         checklistTitles={copyChecklistTitles}
+      />
+      <AssignTrainingDialog
+        open={!!assignChecklist}
+        onOpenChange={(o) => !o && setAssignChecklist(null)}
+        checklistId={assignChecklist?.id ?? null}
+        checklistTitle={assignChecklist?.title}
+        locationId={trainingChecklists.find((c: any) => c.id === assignChecklist?.id)?.location_id}
       />
     </div>
   );

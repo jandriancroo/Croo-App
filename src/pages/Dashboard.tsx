@@ -27,6 +27,7 @@ import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
+import { TrainingAssignmentsSection } from '@/components/dashboard/TrainingAssignmentsSection';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
@@ -452,6 +453,7 @@ export default function Dashboard() {
             checklist_items(id, days_of_week)
           `)
         .eq('is_active', true)
+        .neq('template_type', 'training')
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
@@ -496,12 +498,21 @@ export default function Dashboard() {
   );
 
   const checklistsGridContent = (
-    <ChecklistsGrid
-      checklists={checklists}
-      getCompletionData={getCompletionData}
-      timezone={timezone}
-    />
+    <>
+      <TrainingAssignmentsSection
+        locationId={currentLocation?.id}
+        userId={user?.id}
+        timezone={timezone}
+        canApprove={isAdmin || isManager || isShiftManager || isGeneralManager}
+      />
+      <ChecklistsGrid
+        checklists={checklists}
+        getCompletionData={getCompletionData}
+        timezone={timezone}
+      />
+    </>
   );
+
 
   const cateringDialogs = (
     <CateringOrderDialog

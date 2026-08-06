@@ -24,7 +24,7 @@ import type { ChecklistLinkRef } from '@/lib/checklistLinks';
 
 interface ChecklistItem {
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header' | 'manager_approval';
   options?: string[];
   is_required: boolean;
   temperature_alert_enabled?: boolean;
@@ -39,11 +39,12 @@ interface ChecklistItem {
 export default function CreateChecklist() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'single_day'>('daily');
+  const [scheduledDate, setScheduledDate] = useState('');
   const [dueByTime, setDueByTime] = useState('');
   const [lockUntilTime, setLockUntilTime] = useState('');
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
-  const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
+  const [templateType, setTemplateType] = useState<'standard' | 'dynamic' | 'training'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
@@ -113,6 +114,7 @@ export default function CreateChecklist() {
       setTitle(parsed.title ?? '');
       setDescription(parsed.description ?? '');
       setFrequency(parsed.frequency ?? 'daily');
+      setScheduledDate(parsed.scheduledDate ?? '');
       setDueByTime(parsed.dueByTime ?? '');
       const savedLockTime = parsed.lockUntilTime ?? '';
       setLockUntilTime(savedLockTime);
@@ -141,7 +143,7 @@ export default function CreateChecklist() {
       localStorage.setItem(
         draftKey,
         JSON.stringify({
-          title, description, frequency, dueByTime,
+          title, description, frequency, scheduledDate, dueByTime,
           lockUntilTime: lockTimeEnabled ? lockUntilTime : '',
           templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText,
         })
@@ -149,7 +151,7 @@ export default function CreateChecklist() {
     } catch {
       // ignore storage errors
     }
-  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
+  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
 
   const clearDraft = () => {
     try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
@@ -318,10 +320,12 @@ export default function CreateChecklist() {
     const { data: checklist, error: checklistError } = await supabase
       .from('checklists')
       .insert({
-        title, description, frequency,
+        title, description,
+        frequency: templateType === 'training' ? 'single_day' : frequency,
+        scheduled_date: templateType !== 'training' && frequency === 'single_day' ? (scheduledDate || null) : null,
         due_by_time: dueByTime || null,
         lock_until_time: lockTimeEnabled && lockUntilTime ? lockUntilTime : null,
-        template_type: 'standard',
+        template_type: templateType === 'training' ? 'training' : 'standard',
         created_by: userId,
         location_id: locationId,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
@@ -422,18 +426,36 @@ export default function CreateChecklist() {
                   <Label htmlFor="title" className="text-xs">Title</Label>
                   <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Morning Kitchen Check" required />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Frequency</Label>
-                  <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {templateType === 'training' ? (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Scheduling</Label>
+                    <div className="h-10 flex items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">
+                      Set per assignment
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Frequency</Label>
+                    <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="single_day">Single Day</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
+
+              {templateType !== 'training' && frequency === 'single_day' && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Date</Label>
+                  <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+                  <p className="text-[10px] text-muted-foreground">Shows only on this date, then moves to history. Leave blank for today.</p>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <Label htmlFor="description" className="text-xs">Description (Optional)</Label>
@@ -479,20 +501,24 @@ export default function CreateChecklist() {
                   <SelectContent>
                     <SelectItem value="standard">Standard</SelectItem>
                     <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
+                    <SelectItem value="training">Training</SelectItem>
                   </SelectContent>
                 </Select>
                 {templateType === 'dynamic' && <p className="text-[10px] text-muted-foreground">After creating, assign tasks to days on calendar</p>}
+                {templateType === 'training' && <p className="text-[10px] text-muted-foreground">Reusable training list. It only appears once you assign it to a team member for a date.</p>}
               </div>
 
-              <AssigneePicker
-                locationId={currentLocation?.id}
-                selectedRoles={selectedRoles}
-                onRolesChange={setSelectedRoles}
-                selectedUserIds={selectedUserIds}
-                onUserIdsChange={setSelectedUserIds}
-                label="Visible to"
-                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
-              />
+              {templateType !== 'training' && (
+                <AssigneePicker
+                  locationId={currentLocation?.id}
+                  selectedRoles={selectedRoles}
+                  onRolesChange={setSelectedRoles}
+                  selectedUserIds={selectedUserIds}
+                  onUserIdsChange={setSelectedUserIds}
+                  label="Visible to"
+                  helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+                />
+              )}
 
               {/* Toggle row */}
               <div className="flex flex-wrap gap-4 pt-2 border-t">
@@ -643,6 +669,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             <SelectItem value="temperature">Temp Photo</SelectItem>
             <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
             <SelectItem value="section_header">— Section Header —</SelectItem>
+            <SelectItem value="manager_approval">Manager Approval</SelectItem>
           </SelectContent>
         </Select>
 

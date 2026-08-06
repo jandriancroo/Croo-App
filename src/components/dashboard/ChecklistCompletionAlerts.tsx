@@ -42,6 +42,7 @@ export function ChecklistCompletionAlerts() {
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
+        .neq('template_type', 'training')
         .eq('location_id', currentLocation.id);
 
       if (checklistsError) throw checklistsError;
