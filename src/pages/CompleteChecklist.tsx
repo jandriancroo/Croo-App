@@ -28,7 +28,7 @@ import { useUserPosition } from '@/hooks/useUserPosition';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { serverDebugLog } from '@/utils/serverDebugLog';
-import { ChecklistLinkChips } from '@/components/tasks/ChecklistLinkChips';
+import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText';
 import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 interface ChecklistItem {
