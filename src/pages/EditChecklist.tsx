@@ -849,18 +849,36 @@ export default function EditChecklist() {
                 <Label htmlFor="title" className="text-xs">Title</Label>
                 <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Morning Kitchen Check" />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="frequency" className="text-xs">Frequency</Label>
-                <Select value={frequency} onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setFrequency(value)}>
-                  <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {templateType === 'training' ? (
+                <div className="space-y-1">
+                  <Label className="text-xs">Scheduling</Label>
+                  <div className="h-10 flex items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">
+                    Set per assignment
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label htmlFor="frequency" className="text-xs">Frequency</Label>
+                  <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
+                    <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="single_day">Single Day</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+
+            {templateType !== 'training' && frequency === 'single_day' && (
+              <div className="space-y-1">
+                <Label className="text-xs">Date</Label>
+                <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground">Shows only on this date, then moves to history.</p>
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label htmlFor="description" className="text-xs">Description</Label>
