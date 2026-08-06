@@ -21,6 +21,8 @@ import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
+import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
+import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 
 interface ChecklistItem {
   id?: string;
@@ -37,6 +39,7 @@ interface ChecklistItem {
   manager_shift?: 'am' | 'pm' | null;
   position?: string | null;
   prep_rows?: PrepRow[];
+  link_refs?: ChecklistLinkRef[];
 }
 
 interface SortableChecklistItemProps {
