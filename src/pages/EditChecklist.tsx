@@ -304,11 +304,12 @@ export default function EditChecklist() {
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'single_day'>('daily');
+  const [scheduledDate, setScheduledDate] = useState('');
   const [dueByTime, setDueByTime] = useState('');
   const [lockUntilTime, setLockUntilTime] = useState('');
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
-  const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
+  const [templateType, setTemplateType] = useState<'standard' | 'dynamic' | 'training'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
