@@ -273,6 +273,8 @@ export default function EditTabContent({
                     </div>
                   ))}
                 </div>
+                </SortableContext>
+                </DndContext>
               </div>
             )}
           </div>
