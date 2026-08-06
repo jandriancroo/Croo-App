@@ -917,17 +917,23 @@ export default function EditChecklist() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              <AssigneePicker
-                locationId={checklistLocationId}
-                selectedRoles={selectedRoles}
-                onRolesChange={setSelectedRoles}
-                selectedUserIds={selectedUserIds}
-                onUserIdsChange={setSelectedUserIds}
-                label="Visible to"
-                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
-              />
-            </div>
+            {templateType === 'training' ? (
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                Training template — visibility is controlled by who you assign it to.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                <AssigneePicker
+                  locationId={checklistLocationId}
+                  selectedRoles={selectedRoles}
+                  onRolesChange={setSelectedRoles}
+                  selectedUserIds={selectedUserIds}
+                  onUserIdsChange={setSelectedUserIds}
+                  label="Visible to"
+                  helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+                />
+              </div>
+            )}
 
             {/* Toggle row */}
             <div className="flex flex-wrap gap-4 pt-2 border-t">
