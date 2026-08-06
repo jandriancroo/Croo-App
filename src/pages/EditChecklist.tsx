@@ -499,6 +499,7 @@ export default function EditChecklist() {
           manager_shift: (item as any).manager_shift || null,
           position: (item as any).position || null,
           prep_rows: itemType === 'prep_list' ? (prepRowsByItem[item.id] || []) : undefined,
+          link_refs: parseLinkRefs((item as any).link_refs),
         };
       }));
     } catch (error: any) {
@@ -592,6 +593,7 @@ export default function EditChecklist() {
           order_index: index,
           manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
           position: positionFilteringEnabled ? (item.position || null) : null,
+          link_refs: (item.link_refs && item.link_refs.length > 0 ? item.link_refs : null) as any,
         };
 
         let savedItemId = item.id;
