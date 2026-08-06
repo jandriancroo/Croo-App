@@ -12,6 +12,7 @@ import { TemporaryTasksSection } from './TemporaryTasksSection';
 import { supabase } from "@/integrations/supabase/client";
 import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 import { AssignTrainingDialog } from "./AssignTrainingDialog";
+import { TrainingAssignmentSummary } from "./TrainingAssignmentSummary";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { UnderlineGroup } from "@/components/ui/folder-tabs";
@@ -257,6 +258,9 @@ export default function EditTabContent({
                           onCopyTo={handleCopyTo}
                           editMode={true}
                         />
+                        <div className="px-3 pt-1">
+                          <TrainingAssignmentSummary checklistId={checklist.id} />
+                        </div>
                       </div>
                       {isAdmin && (
                         <Button
