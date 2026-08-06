@@ -29,18 +29,19 @@ interface TipDistributionResult {
 
 export function useTipDistribution(
   locationId: string | null,
-  startDate: Date | null,
-  endDate: Date | null,
+  // Plain business-date strings (yyyy-MM-dd) that already represent the
+  // location's business day — no Date objects, no timezone conversion.
+  startDateStr: string | null,
+  endDateStr: string | null,
   timeCards: any[],
   enabled: boolean = true
 ): TipDistributionResult {
-  const { timezone } = useLocationTimezone(locationId || undefined);
   const [dailyTips, setDailyTips] = useState<DailyTipData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTipsFromCache = async () => {
-    if (!locationId || !startDate || !endDate || !enabled) {
+    if (!locationId || !startDateStr || !endDateStr || !enabled) {
       setIsLoading(false);
       return;
     }
@@ -49,9 +50,10 @@ export function useTipDistribution(
     setError(null);
     
     try {
-      // Resolve the period window in the LOCATION's timezone — never UTC, never browser-local
-      const startStr = DateTime.fromJSDate(startDate).setZone(timezone).toFormat('yyyy-MM-dd');
-      const endStr = DateTime.fromJSDate(endDate).setZone(timezone).toFormat('yyyy-MM-dd');
+      // daily_tips.tip_date is already keyed to the store's business day.
+      const startStr = startDateStr;
+      const endStr = endDateStr;
+
 
       // Read directly from the daily_tips cache table
       const { data, error: fetchError } = await supabase
