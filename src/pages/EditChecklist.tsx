@@ -539,6 +539,7 @@ export default function EditChecklist() {
         title,
         description,
         frequency,
+        scheduled_date: frequency === 'single_day' ? (scheduledDate || null) : null,
         due_by_time: dueDb,
         lock_until_time: lockDb,
         template_type: templateType,
