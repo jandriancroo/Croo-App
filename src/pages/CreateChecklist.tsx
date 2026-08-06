@@ -24,7 +24,7 @@ import type { ChecklistLinkRef } from '@/lib/checklistLinks';
 
 interface ChecklistItem {
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header' | 'manager_approval';
   options?: string[];
   is_required: boolean;
   temperature_alert_enabled?: boolean;
