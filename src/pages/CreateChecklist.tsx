@@ -310,7 +310,7 @@ export default function CreateChecklist() {
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
       position: positionFilteringEnabled ? (item.position || null) : null,
-      link_refs: (item.link_refs && item.link_refs.length > 0 ? item.link_refs : null) as any,
+      link_refs: (item.link_refs ?? []) as any,
     }));
   };
 
