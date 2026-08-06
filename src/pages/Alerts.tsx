@@ -174,6 +174,7 @@ export default function Alerts() {
             checklist_items(id, days_of_week)
           `)
           .eq('is_active', true)
+          .neq('template_type', 'training')
           .eq('location_id', currentLocation.id),
         
         supabase
