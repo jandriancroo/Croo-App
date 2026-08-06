@@ -139,6 +139,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
               <SelectItem value="prep_list"><span className="flex items-center gap-2"><ClipboardList className="h-3.5 w-3.5" /> Prep List</span></SelectItem>
               <SelectItem value="section_header"><span className="flex items-center gap-2"><Heading className="h-3.5 w-3.5" /> Section Header</span></SelectItem>
+              <SelectItem value="manager_approval"><span className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> Manager Approval</span></SelectItem>
             </SelectContent>
           </Select>
 
