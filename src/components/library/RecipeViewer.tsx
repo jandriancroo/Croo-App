@@ -241,28 +241,3 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
     </div>
   );
 }
-
-function toEmbedUrl(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    // YouTube
-    if (u.hostname.includes("youtube.com")) {
-      const v = u.searchParams.get("v");
-      if (v) return `https://www.youtube.com/embed/${v}`;
-    }
-    if (u.hostname === "youtu.be") {
-      return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
-    }
-    // Vimeo
-    if (u.hostname.includes("vimeo.com")) {
-      const id = u.pathname.split("/").filter(Boolean).pop();
-      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
-    }
-    // Direct video file
-    if (/\.(mp4|webm|mov)$/i.test(u.pathname)) return url;
-  } catch {
-    return null;
-  }
-  return null;
-}
