@@ -92,21 +92,26 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
       <div className="flex-1 space-y-1.5 min-w-0">
         {/* Row 1: title (auto-grow) + type icons + position + delete */}
         <div className="flex items-start gap-1.5">
-          <Textarea
-            data-checklist-item-input
+          <ChecklistMentionInput
+            multiline
+            rows={1}
+            fieldProps={{ 'data-checklist-item-input': true }}
             value={item.question}
-            onChange={(e) => updateItem(index, 'question', e.target.value)}
+            onChange={(v) => updateItem(index, 'question', v)}
+            refs={item.link_refs || []}
+            onRefsChange={(next) => updateItem(index, 'link_refs', next)}
+            locationId={locationId}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 onEnterKey?.(index);
               }
             }}
-            onFocus={() => onFocus?.(index)}
-            onBlur={() => onBlur?.()}
-            placeholder={isSection ? 'Section heading' : 'Task name'}
-            rows={1}
-            className="flex-1 min-w-0 min-h-[32px] text-sm resize-none py-1.5"
+            onFieldFocus={() => onFocus?.(index)}
+            onFieldBlur={() => onBlur?.()}
+            placeholder={isSection ? 'Section heading' : 'Task name — type @ to link'}
+            className="min-h-[32px] text-sm resize-none py-1.5"
+            wrapperClassName="flex-1 min-w-0"
           />
 
           {/* Type dropdown with icons */}
