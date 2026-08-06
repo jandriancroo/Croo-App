@@ -253,7 +253,6 @@ export default function EditTabContent({
                           onDelete={handleDelete}
                           onCopyTo={handleCopyTo}
                           editMode={true}
-                          disableDrag
                         />
                       </div>
                       {isAdmin && (
