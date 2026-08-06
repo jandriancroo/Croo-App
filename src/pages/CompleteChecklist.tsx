@@ -28,6 +28,9 @@ import { useUserPosition } from '@/hooks/useUserPosition';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { serverDebugLog } from '@/utils/serverDebugLog';
+import { ChecklistLinkChips } from '@/components/tasks/ChecklistLinkChips';
+import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
+import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -104,6 +107,8 @@ export default function CompleteChecklist() {
   const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
   const [positionStartTimes, setPositionStartTimes] = useState<Record<string, string>>({});
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
+  // Tapped deep-link chip — opens over the checklist so the user never loses their place
+  const [activeLink, setActiveLink] = useState<ChecklistLinkRef | null>(null);
   
   // Position filter toggle - default to true (show only my position) when position filtering is enabled
   const posFilterKey = `positionFilter_${id}`;
