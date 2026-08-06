@@ -669,6 +669,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             <SelectItem value="temperature">Temp Photo</SelectItem>
             <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
             <SelectItem value="section_header">— Section Header —</SelectItem>
+            <SelectItem value="manager_approval">Manager Approval</SelectItem>
           </SelectContent>
         </Select>
 
