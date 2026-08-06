@@ -261,7 +261,7 @@ export default function CompleteChecklist() {
   // Calculate completion percentage
   useEffect(() => {
     if (items.length === 0) return;
-    const answerableItems = items.filter(item => item.item_type !== 'section_header');
+    const answerableItems = items.filter(item => item.item_type !== 'section_header' && item.item_type !== 'manager_approval');
     if (answerableItems.length === 0) {
       setCompletionPercentage(100);
       return;
