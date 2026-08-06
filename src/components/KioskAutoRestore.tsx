@@ -81,5 +81,50 @@ export const KioskAutoRestore = () => {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Daily self-heal: paired kiosk tablets that stay open for days accumulate
+  // stale JS, stale query caches and stale auth state. Once per day, in the
+  // pre-open window (4:00–5:59 AM local), reload the page so the tablet starts
+  // every business day on fresh code and fresh data.
+  //
+  // Guards (never interrupt a human mid-punch):
+  //   - only on paired devices
+  //   - only while sitting on /punch-clock
+  //   - only if no touch/click/keypress in the last 3 minutes
+  // Purely a page reload — no punch clock logic, UI or access rules change.
+  useEffect(() => {
+    if (!isPaired()) return;
+
+    const LAST_KEY = 'croohq_kiosk_daily_reload_v1';
+    let lastInteraction = Date.now();
+    const touch = () => { lastInteraction = Date.now(); };
+    const events: (keyof DocumentEventMap)[] = ['pointerdown', 'keydown', 'touchstart'];
+    events.forEach((e) => document.addEventListener(e, touch, { passive: true }));
+
+    const tick = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      if (hour < 4 || hour >= 6) return;
+      if (window.location.pathname !== '/punch-clock') return;
+      if (Date.now() - lastInteraction < 3 * 60 * 1000) return;
+
+      const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+      let last: string | null = null;
+      try { last = localStorage.getItem(LAST_KEY); } catch {}
+      if (last === today) return;
+      try { localStorage.setItem(LAST_KEY, today); } catch {}
+
+      console.log('[KioskAutoRestore] Daily pre-open refresh — reloading tablet.');
+      window.location.reload();
+    };
+
+    const id = window.setInterval(tick, 60 * 1000);
+    tick();
+    return () => {
+      window.clearInterval(id);
+      events.forEach((e) => document.removeEventListener(e, touch));
+    };
+  }, []);
+
   return null;
 };
+
