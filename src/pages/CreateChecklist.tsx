@@ -19,6 +19,8 @@ import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
+import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
+import type { ChecklistLinkRef } from '@/lib/checklistLinks';
 
 interface ChecklistItem {
   question: string;
@@ -31,6 +33,7 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   position?: string | null;
+  link_refs?: ChecklistLinkRef[];
 }
 
 export default function CreateChecklist() {
