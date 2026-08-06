@@ -297,7 +297,7 @@ export default function PayrollReview() {
             )}
 
             {!tipsLoading && dailyTips.length > 0 && (
-              <DailyTipsStrip dailyTips={dailyTips} totalTipPool={totalTipPool} />
+              <DailyTipsStrip dailyTips={dailyTips} totalTipPool={totalTipPool} timezone={timezone} />
             )}
 
 
