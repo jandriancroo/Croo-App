@@ -1318,7 +1318,12 @@ export default function CompleteChecklist() {
               {/* Title above divider - never blurred */}
               <div className="px-1 flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-medium">
-                  {item.question}
+                  {/* Tags render inline, inside the sentence */}
+                  <ChecklistQuestionText
+                    text={item.question || ''}
+                    refs={parseLinkRefs((item as any).link_refs)}
+                    onOpen={(ref) => setActiveLink(ref)}
+                  />
                   {item.is_required && <span className="text-destructive ml-1">*</span>}
                 </h3>
                 {item.manager_shift === 'am' && (
@@ -1333,12 +1338,6 @@ export default function CompleteChecklist() {
                 )}
               </div>
 
-              {/* Deep-link chips: recipes, logs, teammates, roles tagged by the author */}
-              <ChecklistLinkChips
-                refs={parseLinkRefs((item as any).link_refs)}
-                onOpen={(ref) => setActiveLink(ref)}
-                className="px-1"
-              />
               
               {/* Horizontal divider */}
               <div className="border-t border-border" />
