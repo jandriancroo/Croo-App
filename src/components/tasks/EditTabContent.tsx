@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Zap, ClipboardList, Copy } from "lucide-react";
+import { Plus, Zap, ClipboardList, Copy, GraduationCap, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
