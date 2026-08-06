@@ -374,9 +374,9 @@ export default function PayrollReview() {
                         <TableRow key={index}>
                           <TableCell className="font-medium">{emp.name}</TableCell>
                           <TableCell className="text-right text-muted-foreground">${emp.wage.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{emp.regularHours.toFixed(1)}</TableCell>
-                          <TableCell className="text-right">{emp.overtimeHours.toFixed(1)}</TableCell>
-                          <TableCell className="text-right">{emp.ptoHours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right">{emp.regularHours.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{emp.overtimeHours.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{emp.ptoHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right text-green-600">{emp.tips > 0 ? `$${emp.tips.toFixed(2)}` : '-'}</TableCell>
                           <TableCell className="text-right font-semibold">${emp.grossWages.toFixed(2)}</TableCell>
                         </TableRow>
@@ -384,9 +384,9 @@ export default function PayrollReview() {
                       <TableRow className="font-bold bg-muted/50">
                         <TableCell>TOTALS</TableCell>
                         <TableCell></TableCell>
-                        <TableCell className="text-right">{calculatePayrollSummary().totals.regularHours.toFixed(1)}</TableCell>
-                        <TableCell className="text-right">{calculatePayrollSummary().totals.overtimeHours.toFixed(1)}</TableCell>
-                        <TableCell className="text-right">{calculatePayrollSummary().totals.ptoHours.toFixed(1)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.regularHours.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.overtimeHours.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.ptoHours.toFixed(2)}</TableCell>
                         <TableCell className="text-right text-green-600">{calculatePayrollSummary().totals.tips > 0 ? `$${calculatePayrollSummary().totals.tips.toFixed(2)}` : '-'}</TableCell>
                         <TableCell className="text-right text-lg">${calculatePayrollSummary().totals.grossWages.toFixed(2)}</TableCell>
                       </TableRow>
