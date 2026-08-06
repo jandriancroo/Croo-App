@@ -28,6 +28,18 @@ interface Props {
   locationId?: string | null;
   placeholder?: string;
   required?: boolean;
+  /** Render as an auto-growing Textarea instead of a single-line Input */
+  multiline?: boolean;
+  rows?: number;
+  /** Class applied to the field itself */
+  className?: string;
+  /** Class applied to the wrapper (field + chips) */
+  wrapperClassName?: string;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onFieldFocus?: () => void;
+  onFieldBlur?: () => void;
+  /** Extra DOM attributes forwarded to the field (e.g. data-* hooks) */
+  fieldProps?: Record<string, any>;
 }
 
 interface TargetOption {
@@ -52,8 +64,16 @@ export function ChecklistMentionInput({
   locationId,
   placeholder,
   required,
+  multiline,
+  rows = 1,
+  className,
+  wrapperClassName,
+  onKeyDown,
+  onFieldFocus,
+  onFieldBlur,
+  fieldProps,
 }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<any>(null);
   const [open, setOpen] = useState(false);
   const [mentionStart, setMentionStart] = useState<number | null>(null);
   const [category, setCategory] = useState<MentionCategory | null>(null);
