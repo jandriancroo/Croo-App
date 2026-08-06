@@ -306,7 +306,7 @@ export default function CreateChecklist() {
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
       position: positionFilteringEnabled ? (item.position || null) : null,
-      link_refs: item.link_refs && item.link_refs.length > 0 ? item.link_refs : null,
+      link_refs: (item.link_refs && item.link_refs.length > 0 ? item.link_refs : null) as any,
     }));
   };
 
@@ -522,6 +522,7 @@ export default function CreateChecklist() {
                   uploadingImage={uploadingImage}
                   positionFilteringEnabled={positionFilteringEnabled}
                   availablePositions={availablePositions}
+                  locationId={currentLocation?.id}
                 />
               ))}
 
@@ -577,9 +578,10 @@ interface ChecklistItemCardProps {
   uploadingImage: string | null;
   positionFilteringEnabled: boolean;
   availablePositions: string[];
+  locationId?: string | null;
 }
 
-function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, handleReferenceImageUpload, uploadingImage, positionFilteringEnabled, availablePositions }: ChecklistItemCardProps) {
+function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, handleReferenceImageUpload, uploadingImage, positionFilteringEnabled, availablePositions, locationId }: ChecklistItemCardProps) {
   const [showReference, setShowReference] = useState(false);
   const isSection = item.item_type === 'section_header';
 
