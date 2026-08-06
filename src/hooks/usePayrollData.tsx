@@ -78,8 +78,8 @@ export function usePayrollData() {
     dailyTips 
   } = useTipDistribution(
     currentLocation?.id || null,
-    selectedPeriod?.start || null,
-    selectedPeriod?.end || null,
+    selectedPeriod?.startDate || null,
+    selectedPeriod?.endDate || null,
     timeCards,
     periodClosedForTips
   );
@@ -91,10 +91,13 @@ export function usePayrollData() {
   }, [isAdmin, isManager, currentLocation]);
 
   useEffect(() => {
-    if (laborRules) {
+    // Wait for the location's real timezone before building period boundaries —
+    // generating them against the default zone silently shifts the end date.
+    if (laborRules && !timezoneLoading) {
       generatePayPeriods();
     }
-  }, [laborRules]);
+  }, [laborRules, timezone, timezoneLoading]);
+
 
   useEffect(() => {
     if (selectedPeriod && currentLocation && timezone) {
