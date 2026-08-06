@@ -32,6 +32,8 @@ import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText'
 import { ManagerApprovalItem } from '@/components/tasks/ManagerApprovalItem';
 import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
+import { InlineVideoPlayer } from '@/components/ui/inline-video-player';
+
 interface ChecklistItem {
   id: string;
   question: string;
@@ -1542,12 +1544,11 @@ export default function CompleteChecklist() {
                           </a>
                         </div>}
                       
-                      {item.reference_video_url && <div className="space-y-0.5">
+                      {item.reference_video_url && <div className="space-y-1">
                           <Badge variant="secondary" className="text-[10px] h-4">Video</Badge>
-                          <a href={item.reference_video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block break-all">
-                            {item.reference_video_url}
-                          </a>
+                          <InlineVideoPlayer url={item.reference_video_url} title={item.question} />
                         </div>}
+
                     </div>
                 </CardHeader>
                 )}

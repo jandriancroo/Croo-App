@@ -11,6 +11,7 @@ import {
   useToggleFavorite,
 } from "@/hooks/useLibrary";
 import { RecipeVersionHistorySheet } from "./RecipeVersionHistorySheet";
+import { InlineVideoPlayer, toEmbedUrl } from "@/components/ui/inline-video-player";
 
 interface Props {
   open: boolean;
@@ -162,26 +163,12 @@ export function RecipeViewer({ open, onOpenChange, recipeId, canEdit, onEdit }: 
                   </div>
                 )}
 
-                {embedUrl && (
+                {doc.video_url && (
                   <div className="print:hidden">
                     <h3 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
                       <Video className="h-4 w-4" />Video
                     </h3>
-                    <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
-                      <iframe
-                        src={embedUrl}
-                        className="absolute inset-0 w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                  </div>
-                )}
-                {!embedUrl && doc.video_url && (
-                  <div className="print:hidden">
-                    <a href={doc.video_url} target="_blank" rel="noreferrer" className="text-sm text-primary underline inline-flex items-center gap-1">
-                      <Video className="h-4 w-4" /> Watch video
-                    </a>
+                    <InlineVideoPlayer url={doc.video_url} title={doc.title} />
                   </div>
                 )}
 
@@ -240,29 +227,4 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
       <span className="font-medium">{value}</span>
     </div>
   );
-}
-
-function toEmbedUrl(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    // YouTube
-    if (u.hostname.includes("youtube.com")) {
-      const v = u.searchParams.get("v");
-      if (v) return `https://www.youtube.com/embed/${v}`;
-    }
-    if (u.hostname === "youtu.be") {
-      return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
-    }
-    // Vimeo
-    if (u.hostname.includes("vimeo.com")) {
-      const id = u.pathname.split("/").filter(Boolean).pop();
-      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
-    }
-    // Direct video file
-    if (/\.(mp4|webm|mov)$/i.test(u.pathname)) return url;
-  } catch {
-    return null;
-  }
-  return null;
 }
