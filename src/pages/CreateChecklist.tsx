@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -37,6 +37,8 @@ interface ChecklistItem {
 }
 
 export default function CreateChecklist() {
+  const [searchParams] = useSearchParams();
+  const initialType = searchParams.get('type') === 'training' ? 'training' : 'standard';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'single_day'>('daily');
@@ -44,7 +46,7 @@ export default function CreateChecklist() {
   const [dueByTime, setDueByTime] = useState('');
   const [lockUntilTime, setLockUntilTime] = useState('');
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
-  const [templateType, setTemplateType] = useState<'standard' | 'dynamic' | 'training'>('standard');
+  const [templateType, setTemplateType] = useState<'standard' | 'dynamic' | 'training'>(initialType);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
