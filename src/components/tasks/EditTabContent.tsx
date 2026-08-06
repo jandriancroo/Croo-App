@@ -287,6 +287,13 @@ export default function EditTabContent({
         checklistIds={copyChecklistIds}
         checklistTitles={copyChecklistTitles}
       />
+      <AssignTrainingDialog
+        open={!!assignChecklist}
+        onOpenChange={(o) => !o && setAssignChecklist(null)}
+        checklistId={assignChecklist?.id ?? null}
+        checklistTitle={assignChecklist?.title}
+        locationId={trainingChecklists.find((c: any) => c.id === assignChecklist?.id)?.location_id}
+      />
     </div>
   );
 }
