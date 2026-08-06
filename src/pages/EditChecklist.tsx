@@ -766,9 +766,13 @@ export default function EditChecklist() {
   };
 
   const updateItem = (index: number, field: keyof ChecklistItem, value: any) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
+    // Functional update — two fields can be written in the same tick (e.g. an
+    // @mention sets both `question` and `link_refs`) without clobbering each other.
+    setItems((prev) => {
+      const newItems = [...prev];
+      newItems[index] = { ...newItems[index], [field]: value };
+      return newItems;
+    });
   };
 
   const sensors = useSensors(
