@@ -138,7 +138,7 @@ function LogLinkDialog({ linkRef, onClose, locationId, timezone }: Props & { lin
               type="button"
               variant="outline"
               className="w-full"
-              onClick={() => navigate(`/logbook?category=${linkRef.id}`)}
+              onClick={() => navigate(`/logbook?category=${encodeURIComponent(linkRef.label)}`)}
             >
               <ExternalLink className="h-4 w-4 mr-2" /> Open in LogBook
             </Button>
