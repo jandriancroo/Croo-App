@@ -32,6 +32,8 @@ import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText'
 import { ManagerApprovalItem } from '@/components/tasks/ManagerApprovalItem';
 import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
+import { InlineVideoPlayer } from '@/components/ui/inline-video-player';
+
 interface ChecklistItem {
   id: string;
   question: string;
