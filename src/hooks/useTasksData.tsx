@@ -123,6 +123,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           checklist_items(id, days_of_week, item_type)
         `)
         .eq('is_active', true)
+        .neq('template_type', 'training')
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
 
