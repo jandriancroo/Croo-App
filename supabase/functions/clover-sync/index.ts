@@ -268,9 +268,20 @@ function aggregateOrders(orders: any[], startMs: number) {
 
 function aggregatePayments(payments: any[]) {
   // Build a payments_data structure: { tenders: [{label, count, amount, tips}], total_tips }
+  // Only SUCCESSful, non-voided/refunded payments count toward tips. Clover keeps
+  // FAIL / declined attempts in the payments feed and they must never inflate the pool.
   const byTender = new Map<string, { label: string; count: number; amount: number; tips: number }>();
   let totalTips = 0;
+  let excludedCount = 0;
+  let excludedTips = 0;
   for (const p of payments) {
+    const result = String(p.result ?? "SUCCESS").toUpperCase();
+    const voided = p.voided === true || Boolean(p.voidReason);
+    if (result !== "SUCCESS" || voided) {
+      excludedCount += 1;
+      excludedTips += (Number(p.tipAmount) || 0) / 100;
+      continue;
+    }
     const label = String(p.tender?.label ?? p.tender?.labelKey ?? "Unknown");
     const amount = (Number(p.amount) || 0) / 100;
     const tip = (Number(p.tipAmount) || 0) / 100;
@@ -281,12 +292,18 @@ function aggregatePayments(payments: any[]) {
     prev.tips += tip;
     byTender.set(label, prev);
   }
+  if (excludedCount > 0) {
+    console.log(
+      `[clover-sync] excluded ${excludedCount} non-success/voided payment(s), $${excludedTips.toFixed(2)} in tips`,
+    );
+  }
   return {
     source: "clover",
     tenders: Array.from(byTender.values()),
     total_tips: totalTips,
   };
 }
+
 
 // ── Sync one day ────────────────────────────────────────────────────────────
 async function syncOneDay(
