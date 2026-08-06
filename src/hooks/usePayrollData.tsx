@@ -30,7 +30,7 @@ import {
 export function usePayrollData() {
   const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
-  const { timezone } = useLocationTimezone();
+  const { timezone, loading: timezoneLoading } = useLocationTimezone();
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
   const [periodSummaries, setPeriodSummaries] = useState<Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null }>>({});
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
