@@ -29,6 +29,7 @@ import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { serverDebugLog } from '@/utils/serverDebugLog';
 import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText';
+import { ManagerApprovalItem } from '@/components/tasks/ManagerApprovalItem';
 import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 interface ChecklistItem {
