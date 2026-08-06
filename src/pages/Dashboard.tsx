@@ -27,6 +27,7 @@ import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
+import { TrainingAssignmentsSection } from '@/components/dashboard/TrainingAssignmentsSection';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
