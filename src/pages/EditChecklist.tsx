@@ -21,6 +21,8 @@ import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
+import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
+import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 
 interface ChecklistItem {
   id?: string;
@@ -37,6 +39,7 @@ interface ChecklistItem {
   manager_shift?: 'am' | 'pm' | null;
   position?: string | null;
   prep_rows?: PrepRow[];
+  link_refs?: ChecklistLinkRef[];
 }
 
 interface SortableChecklistItemProps {
@@ -89,21 +92,26 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
       <div className="flex-1 space-y-1.5 min-w-0">
         {/* Row 1: title (auto-grow) + type icons + position + delete */}
         <div className="flex items-start gap-1.5">
-          <Textarea
-            data-checklist-item-input
+          <ChecklistMentionInput
+            multiline
+            rows={1}
+            fieldProps={{ 'data-checklist-item-input': true }}
             value={item.question}
-            onChange={(e) => updateItem(index, 'question', e.target.value)}
+            onChange={(v) => updateItem(index, 'question', v)}
+            refs={item.link_refs || []}
+            onRefsChange={(next) => updateItem(index, 'link_refs', next)}
+            locationId={locationId}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 onEnterKey?.(index);
               }
             }}
-            onFocus={() => onFocus?.(index)}
-            onBlur={() => onBlur?.()}
-            placeholder={isSection ? 'Section heading' : 'Task name'}
-            rows={1}
-            className="flex-1 min-w-0 min-h-[32px] text-sm resize-none py-1.5"
+            onFieldFocus={() => onFocus?.(index)}
+            onFieldBlur={() => onBlur?.()}
+            placeholder={isSection ? 'Section heading' : 'Task name — type @ to link'}
+            className="min-h-[32px] text-sm resize-none py-1.5"
+            wrapperClassName="flex-1 min-w-0"
           />
 
           {/* Type dropdown with icons */}
@@ -491,6 +499,7 @@ export default function EditChecklist() {
           manager_shift: (item as any).manager_shift || null,
           position: (item as any).position || null,
           prep_rows: itemType === 'prep_list' ? (prepRowsByItem[item.id] || []) : undefined,
+          link_refs: parseLinkRefs((item as any).link_refs),
         };
       }));
     } catch (error: any) {
@@ -584,6 +593,7 @@ export default function EditChecklist() {
           order_index: index,
           manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
           position: positionFilteringEnabled ? (item.position || null) : null,
+          link_refs: (item.link_refs && item.link_refs.length > 0 ? item.link_refs : null) as any,
         };
 
         let savedItemId = item.id;
@@ -756,9 +766,13 @@ export default function EditChecklist() {
   };
 
   const updateItem = (index: number, field: keyof ChecklistItem, value: any) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
+    // Functional update — two fields can be written in the same tick (e.g. an
+    // @mention sets both `question` and `link_refs`) without clobbering each other.
+    setItems((prev) => {
+      const newItems = [...prev];
+      newItems[index] = { ...newItems[index], [field]: value };
+      return newItems;
+    });
   };
 
   const sensors = useSensors(

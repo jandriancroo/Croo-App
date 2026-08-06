@@ -1742,6 +1742,7 @@ export type Database = {
           id: string
           is_required: boolean | null
           item_type: string
+          link_refs: Json
           manager_shift: string | null
           options: Json | null
           order_index: number
@@ -1761,6 +1762,7 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           item_type: string
+          link_refs?: Json
           manager_shift?: string | null
           options?: Json | null
           order_index: number
@@ -1780,6 +1782,7 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           item_type?: string
+          link_refs?: Json
           manager_shift?: string | null
           options?: Json | null
           order_index?: number
@@ -2109,6 +2112,9 @@ export type Database = {
       }
       checklist_submissions: {
         Row: {
+          approval_signature: string | null
+          approved_at: string | null
+          approved_by: string | null
           checklist_id: string
           id: string
           location_id: string | null
@@ -2117,6 +2123,9 @@ export type Database = {
           submitted_by: string
         }
         Insert: {
+          approval_signature?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           checklist_id: string
           id?: string
           location_id?: string | null
@@ -2125,6 +2134,9 @@ export type Database = {
           submitted_by: string
         }
         Update: {
+          approval_signature?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           checklist_id?: string
           id?: string
           location_id?: string | null
@@ -2133,6 +2145,13 @@ export type Database = {
           submitted_by?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "checklist_submissions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklist_submissions_checklist_id_fkey"
             columns: ["checklist_id"]
@@ -2200,6 +2219,7 @@ export type Database = {
           location_id: string | null
           lock_until_time: string | null
           position_filtering_enabled: boolean | null
+          requires_manager_approval: boolean
           template_type: string | null
           title: string
           updated_at: string | null
@@ -2219,6 +2239,7 @@ export type Database = {
           location_id?: string | null
           lock_until_time?: string | null
           position_filtering_enabled?: boolean | null
+          requires_manager_approval?: boolean
           template_type?: string | null
           title: string
           updated_at?: string | null
@@ -2238,6 +2259,7 @@ export type Database = {
           location_id?: string | null
           lock_until_time?: string | null
           position_filtering_enabled?: boolean | null
+          requires_manager_approval?: boolean
           template_type?: string | null
           title?: string
           updated_at?: string | null

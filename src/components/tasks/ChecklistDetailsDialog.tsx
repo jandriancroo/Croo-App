@@ -44,7 +44,7 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
         .select(`
           id,
           submitted_by,
-          profiles(full_name, profile_photo_url),
+          profiles!checklist_submissions_submitted_by_fkey(full_name, profile_photo_url),
           checklist_responses(
             id,
             item_id,

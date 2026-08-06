@@ -19,6 +19,8 @@ import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
+import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
+import type { ChecklistLinkRef } from '@/lib/checklistLinks';
 
 interface ChecklistItem {
   question: string;
@@ -31,6 +33,7 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   position?: string | null;
+  link_refs?: ChecklistLinkRef[];
 }
 
 export default function CreateChecklist() {
@@ -171,9 +174,13 @@ export default function CreateChecklist() {
   };
 
   const updateItem = (index: number, field: keyof ChecklistItem, value: any) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
+    // Functional update — two fields can be written in the same tick (e.g. an
+    // @mention sets both `question` and `link_refs`) without clobbering each other.
+    setItems((prev) => {
+      const newItems = [...prev];
+      newItems[index] = { ...newItems[index], [field]: value };
+      return newItems;
+    });
   };
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
@@ -303,6 +310,7 @@ export default function CreateChecklist() {
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
       position: positionFilteringEnabled ? (item.position || null) : null,
+      link_refs: (item.link_refs && item.link_refs.length > 0 ? item.link_refs : null) as any,
     }));
   };
 
@@ -518,6 +526,7 @@ export default function CreateChecklist() {
                   uploadingImage={uploadingImage}
                   positionFilteringEnabled={positionFilteringEnabled}
                   availablePositions={availablePositions}
+                  locationId={currentLocation?.id}
                 />
               ))}
 
@@ -573,9 +582,10 @@ interface ChecklistItemCardProps {
   uploadingImage: string | null;
   positionFilteringEnabled: boolean;
   availablePositions: string[];
+  locationId?: string | null;
 }
 
-function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, handleReferenceImageUpload, uploadingImage, positionFilteringEnabled, availablePositions }: ChecklistItemCardProps) {
+function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, handleReferenceImageUpload, uploadingImage, positionFilteringEnabled, availablePositions, locationId }: ChecklistItemCardProps) {
   const [showReference, setShowReference] = useState(false);
   const isSection = item.item_type === 'section_header';
 
@@ -585,10 +595,13 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
         {/* Top row: question + position badge + delete */}
         <div className="flex items-start gap-2">
           <div className="flex-1 space-y-1 min-w-0">
-            <Input
+            <ChecklistMentionInput
               value={item.question}
-              onChange={(e) => updateItem(index, 'question', e.target.value)}
-              placeholder={isSection ? 'Section heading' : 'Question / task name'}
+              onChange={(v) => updateItem(index, 'question', v)}
+              refs={item.link_refs || []}
+              onRefsChange={(next) => updateItem(index, 'link_refs', next)}
+              locationId={locationId}
+              placeholder={isSection ? 'Section heading' : 'Question / task name — type @ to link a recipe, log, role or teammate'}
               required
             />
           </div>

@@ -28,6 +28,9 @@ import { useUserPosition } from '@/hooks/useUserPosition';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { serverDebugLog } from '@/utils/serverDebugLog';
+import { ChecklistLinkChips } from '@/components/tasks/ChecklistLinkChips';
+import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
+import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -42,6 +45,7 @@ interface ChecklistItem {
   manager_shift?: string | null;
   position?: string | null;
   order_index?: number;
+  link_refs?: any;
 }
 interface Checklist {
   id: string;
@@ -103,6 +107,8 @@ export default function CompleteChecklist() {
   const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
   const [positionStartTimes, setPositionStartTimes] = useState<Record<string, string>>({});
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
+  // Tapped deep-link chip — opens over the checklist so the user never loses their place
+  const [activeLink, setActiveLink] = useState<ChecklistLinkRef | null>(null);
   
   // Position filter toggle - default to true (show only my position) when position filtering is enabled
   const posFilterKey = `positionFilter_${id}`;
@@ -1326,6 +1332,13 @@ export default function CompleteChecklist() {
                   </span>
                 )}
               </div>
+
+              {/* Deep-link chips: recipes, logs, teammates, roles tagged by the author */}
+              <ChecklistLinkChips
+                refs={parseLinkRefs((item as any).link_refs)}
+                onOpen={(ref) => setActiveLink(ref)}
+                className="px-1"
+              />
               
               {/* Horizontal divider */}
               <div className="border-t border-border" />
@@ -1812,6 +1825,14 @@ export default function CompleteChecklist() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Deep-linked recipe / log / person opened from a checklist chip */}
+        <ChecklistLinkDialog
+          linkRef={activeLink}
+          onClose={() => setActiveLink(null)}
+          locationId={currentLocation?.id || checklist?.location_id || null}
+          timezone={locationTimezone}
+        />
       </div>
     </Layout>;
 }
