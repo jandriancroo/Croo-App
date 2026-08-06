@@ -126,3 +126,6 @@ verify_jwt = true
 
 [functions.push-vapid-key]
 verify_jwt = false
+[functions.notify-training-approval]
+verify_jwt = true
+
