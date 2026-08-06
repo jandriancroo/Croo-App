@@ -42,6 +42,7 @@ interface ChecklistItem {
   manager_shift?: string | null;
   position?: string | null;
   order_index?: number;
+  link_refs?: any;
 }
 interface Checklist {
   id: string;
@@ -1326,6 +1327,13 @@ export default function CompleteChecklist() {
                   </span>
                 )}
               </div>
+
+              {/* Deep-link chips: recipes, logs, teammates, roles tagged by the author */}
+              <ChecklistLinkChips
+                refs={parseLinkRefs((item as any).link_refs)}
+                onOpen={(ref) => setActiveLink(ref)}
+                className="px-1"
+              />
               
               {/* Horizontal divider */}
               <div className="border-t border-border" />
