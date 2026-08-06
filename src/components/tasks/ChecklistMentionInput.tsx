@@ -206,22 +206,33 @@ export function ChecklistMentionInput({
     setSearch('');
   }, [category?.type]);
 
+  const Field: any = multiline ? Textarea : Input;
+
   return (
-    <div className="space-y-1.5">
+    <div className={cn('space-y-1.5', wrapperClassName)}>
       <Popover open={open} onOpenChange={(o) => (o ? setOpen(true) : closePicker())}>
         <PopoverAnchor asChild>
-          <Input
+          <Field
             ref={inputRef}
             value={value}
-            onChange={(e) => handleChange(e.target.value)}
-            onKeyDown={(e) => {
+            onChange={(e: any) => handleChange(e.target.value)}
+            onKeyDown={(e: any) => {
               if (e.key === 'Escape' && open) {
                 e.preventDefault();
                 closePicker();
+                return;
               }
+              // While the picker is open, let Enter/arrows belong to the picker
+              if (open && (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp')) return;
+              onKeyDown?.(e);
             }}
+            onFocus={() => onFieldFocus?.()}
+            onBlur={() => onFieldBlur?.()}
             placeholder={placeholder}
             required={required}
+            className={className}
+            {...(multiline ? { rows } : {})}
+            {...fieldProps}
           />
         </PopoverAnchor>
         <PopoverContent
