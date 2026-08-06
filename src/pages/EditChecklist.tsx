@@ -593,7 +593,7 @@ export default function EditChecklist() {
           order_index: index,
           manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
           position: positionFilteringEnabled ? (item.position || null) : null,
-          link_refs: (item.link_refs && item.link_refs.length > 0 ? item.link_refs : null) as any,
+          link_refs: (item.link_refs ?? []) as any,
         };
 
         let savedItemId = item.id;
