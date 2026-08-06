@@ -402,7 +402,7 @@ export default function EditChecklist() {
       setLockUntilTime(savedLockTime);
       setLockTimeEnabled(!!savedLockTime);
 
-      setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
+      setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic' | 'training');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
