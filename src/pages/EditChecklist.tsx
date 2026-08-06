@@ -393,7 +393,8 @@ export default function EditChecklist() {
 
       setTitle(checklist.title);
       setDescription(checklist.description || '');
-      setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
+      setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly' | 'single_day');
+      setScheduledDate((checklist as any).scheduled_date || '');
       setDueByTime(normalizeTimeForInput(checklist.due_by_time));
 
       const savedLockTimeRaw = checklist.lock_until_time;
