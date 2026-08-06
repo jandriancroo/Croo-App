@@ -26,6 +26,7 @@ import {
   getEndOfDateStringInTimezone,
   calculateCutoffHour,
 } from '@/utils/timezoneUtils';
+import { bucketPunchesByUserAndDay } from '@/utils/payrollDayBucketing';
 
 export function usePayrollData() {
   const { isAdmin, isManager } = useUserRole();
@@ -161,6 +162,14 @@ export function usePayrollData() {
   // ─── Pay Periods ───────────────────────────────────────────────────
   const getPeriodKey = (period: any) => `${period.startDate}_${period.endDate}`;
 
+  /**
+   * Pay-period summary cards.
+   *
+   * Hours/cost come from the SAME punch data and the SAME calculateDayHours()
+   * engine the payroll grid uses, so the card can never disagree with the grid.
+   * labor_cache is used only as a fallback for days with no punches (e.g.
+   * POS-sourced labor at locations that don't use the punch clock).
+   */
   const fetchPeriodSummaries = async (periods: any[]) => {
     if (!currentLocation?.id || periods.length === 0) {
       setPeriodSummaries({});
@@ -170,7 +179,16 @@ export function usePayrollData() {
     const oldestPeriod = periods[periods.length - 1];
     const newestPeriod = periods[0];
 
-    const [salesResult, laborResult] = await Promise.all([
+    // Widen the punch query past the period edges so overnight shifts that
+    // roll back a day are still captured.
+    const punchQueryStart = parseDateStringInTimezone(oldestPeriod.startDate, timezone);
+    punchQueryStart.setDate(punchQueryStart.getDate() - 1);
+    const punchQueryEnd = new Date(
+      getEndOfDateStringInTimezone(newestPeriod.endDate, timezone)
+    );
+    punchQueryEnd.setDate(punchQueryEnd.getDate() + 1);
+
+    const [salesResult, laborResult, punchesResult, hoursResult] = await Promise.all([
       supabase
         .from('sales_cache')
         .select('sale_date, net_sales')
@@ -183,6 +201,17 @@ export function usePayrollData() {
         .eq('location_id', currentLocation.id)
         .gte('labor_date', oldestPeriod.startDate)
         .lte('labor_date', newestPeriod.endDate),
+      supabase
+        .from('time_punches')
+        .select('id, user_id, punch_type, punch_time, notes')
+        .eq('location_id', currentLocation.id)
+        .gte('punch_time', punchQueryStart.toISOString())
+        .lte('punch_time', punchQueryEnd.toISOString())
+        .order('punch_time', { ascending: true }),
+      supabase
+        .from('location_hours')
+        .select('day_of_week, close_time')
+        .eq('location_id', currentLocation.id),
     ]);
 
     if (salesResult.error || laborResult.error) {
@@ -196,6 +225,42 @@ export function usePayrollData() {
       salesByDate.set(row.sale_date, (salesByDate.get(row.sale_date) || 0) + (Number(row.net_sales) || 0));
     });
 
+    // ── Punch-derived hours/cost (authoritative, matches the payroll grid) ──
+    const cutoffByDayOfWeek = new Map<number, number>();
+    ((hoursResult as any).data || []).forEach((h: any) => {
+      cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
+    });
+
+    const allPunches = (punchesResult as any).data || [];
+    const punchUserIds = [...new Set(allPunches.map((p: any) => p.user_id))] as string[];
+
+    const wageByUserId = new Map<string, number>();
+    if (punchUserIds.length > 0) {
+      const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
+        p_user_ids: punchUserIds,
+      });
+      ((wageRows as any[]) || []).forEach((row: any) => {
+        if (row.hourly_wage != null) wageByUserId.set(row.user_id, Number(row.hourly_wage));
+      });
+    }
+
+    const punchByDate = new Map<string, { hours: number; cost: number }>();
+    if (allPunches.length > 0) {
+      const bucketed = bucketPunchesByUserAndDay(allPunches, timezone, cutoffByDayOfWeek, 5);
+      bucketed.forEach((daysForUser, userId) => {
+        const wage = wageByUserId.get(userId) ?? 15;
+        Object.entries(daysForUser).forEach(([day, dayPunches]) => {
+          const hours = calculateDayHours(dayPunches as any[], false);
+          if (!(hours > 0)) return;
+          const existing = punchByDate.get(day) || { hours: 0, cost: 0 };
+          existing.hours += hours;
+          existing.cost += hours * wage;
+          punchByDate.set(day, existing);
+        });
+      });
+    }
+
+    // ── labor_cache fallback (POS-sourced labor, punch-clock-free stores) ──
     const laborByDate = new Map<string, { hours: number; cost: number; priority: number }>();
     (laborResult.data || []).forEach((row: any) => {
       const priority = row.source === 'punch_clock' ? 2 : 1;
@@ -217,10 +282,24 @@ export function usePayrollData() {
       salesByDate.forEach((value, date) => {
         if (date >= period.startDate && date <= period.endDate) sales += value;
       });
-      laborByDate.forEach((value, date) => {
-        if (date >= period.startDate && date <= period.endDate) {
-          hours += value.hours;
-          cost += value.cost;
+
+      // Walk each day in the period: punches win, cache fills the gaps.
+      const dayCursor = new Set<string>([
+        ...Array.from(punchByDate.keys()),
+        ...Array.from(laborByDate.keys()),
+      ]);
+      dayCursor.forEach((date) => {
+        if (date < period.startDate || date > period.endDate) return;
+        const fromPunches = punchByDate.get(date);
+        if (fromPunches) {
+          hours += fromPunches.hours;
+          cost += fromPunches.cost;
+          return;
+        }
+        const fromCache = laborByDate.get(date);
+        if (fromCache) {
+          hours += fromCache.hours;
+          cost += fromCache.cost;
         }
       });
 
@@ -235,6 +314,7 @@ export function usePayrollData() {
 
     setPeriodSummaries(nextSummaries);
   };
+
 
   const generatePayPeriods = async () => {
     const today = getStartOfTodayInTimezone(timezone);
