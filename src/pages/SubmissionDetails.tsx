@@ -52,7 +52,7 @@ export default function SubmissionDetails() {
         .select(`
           *,
           checklists (title, frequency),
-          profiles (full_name, email, profile_photo_url)
+          profiles!checklist_submissions_submitted_by_fkey (full_name, email, profile_photo_url)
         `)
         .eq('id', id)
         .single();
