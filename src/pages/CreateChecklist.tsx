@@ -320,10 +320,12 @@ export default function CreateChecklist() {
     const { data: checklist, error: checklistError } = await supabase
       .from('checklists')
       .insert({
-        title, description, frequency,
+        title, description,
+        frequency: templateType === 'training' ? 'single_day' : frequency,
+        scheduled_date: templateType !== 'training' && frequency === 'single_day' ? (scheduledDate || null) : null,
         due_by_time: dueByTime || null,
         lock_until_time: lockTimeEnabled && lockUntilTime ? lockUntilTime : null,
-        template_type: 'standard',
+        template_type: templateType === 'training' ? 'training' : 'standard',
         created_by: userId,
         location_id: locationId,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
