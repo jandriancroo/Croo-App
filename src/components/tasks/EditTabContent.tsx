@@ -237,6 +237,8 @@ export default function EditTabContent({
                 <p className="text-[11px] text-muted-foreground">
                   Reusable — assign to one team member at a time for a specific date.
                 </p>
+                <DndContext sensors={sensors} collisionDetection={closestCenter}>
+                <SortableContext items={trainingChecklists.map((c: any) => c.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {trainingChecklists.map((checklist: any) => (
                     <div key={checklist.id} className="flex items-center gap-2">
