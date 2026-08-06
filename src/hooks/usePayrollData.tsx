@@ -1269,7 +1269,7 @@ export function usePayrollData() {
     return periodStatuses[key];
   };
 
-  const handleClosePeriod = async () => {
+  const handleClosePeriod = async (opts?: { resyncTips?: boolean }) => {
     if (!selectedPeriod || !currentLocation) return;
 
     if (totalPunchesAwaitingApproval > 0) {
@@ -1285,7 +1285,29 @@ export function usePayrollData() {
 
     setClosingPeriod(true);
 
+    // ── Closed-period guard ──────────────────────────────────────────
+    // A period that was already closed once has audited tip numbers. Re-closing
+    // it (after a reopen) must NOT silently re-pull tips from the POS and restate
+    // history — only an explicit resyncTips request may do that.
+    let hasBeenClosedBefore = false;
     try {
+      const { data: existingPeriod } = await supabase
+        .from('pay_periods')
+        .select('closed_at')
+        .eq('start_date', startDate)
+        .eq('end_date', endDate)
+        .maybeSingle();
+      hasBeenClosedBefore = !!existingPeriod?.closed_at;
+    } catch { /* non-blocking */ }
+
+    const shouldSyncTips = opts?.resyncTips === true || !hasBeenClosedBefore;
+
+    if (!shouldSyncTips) {
+      console.log('[PayrollReview] Closed-period guard: skipping tip re-sync (period previously closed)');
+    }
+
+    if (shouldSyncTips) try {
+
       // Detect which POS this location uses so we sync tips from the right source
       const { data: cloverIntegration } = await supabase
         .from('location_integrations')
