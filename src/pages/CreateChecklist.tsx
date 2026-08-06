@@ -501,20 +501,24 @@ export default function CreateChecklist() {
                   <SelectContent>
                     <SelectItem value="standard">Standard</SelectItem>
                     <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
+                    <SelectItem value="training">Training</SelectItem>
                   </SelectContent>
                 </Select>
                 {templateType === 'dynamic' && <p className="text-[10px] text-muted-foreground">After creating, assign tasks to days on calendar</p>}
+                {templateType === 'training' && <p className="text-[10px] text-muted-foreground">Reusable training list. It only appears once you assign it to a team member for a date.</p>}
               </div>
 
-              <AssigneePicker
-                locationId={currentLocation?.id}
-                selectedRoles={selectedRoles}
-                onRolesChange={setSelectedRoles}
-                selectedUserIds={selectedUserIds}
-                onUserIdsChange={setSelectedUserIds}
-                label="Visible to"
-                helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
-              />
+              {templateType !== 'training' && (
+                <AssigneePicker
+                  locationId={currentLocation?.id}
+                  selectedRoles={selectedRoles}
+                  onRolesChange={setSelectedRoles}
+                  selectedUserIds={selectedUserIds}
+                  onUserIdsChange={setSelectedUserIds}
+                  label="Visible to"
+                  helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
+                />
+              )}
 
               {/* Toggle row */}
               <div className="flex flex-wrap gap-4 pt-2 border-t">
