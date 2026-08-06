@@ -143,7 +143,7 @@ export default function CreateChecklist() {
       localStorage.setItem(
         draftKey,
         JSON.stringify({
-          title, description, frequency, dueByTime,
+          title, description, frequency, scheduledDate, dueByTime,
           lockUntilTime: lockTimeEnabled ? lockUntilTime : '',
           templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText,
         })
@@ -151,7 +151,7 @@ export default function CreateChecklist() {
     } catch {
       // ignore storage errors
     }
-  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
+  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
 
   const clearDraft = () => {
     try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
