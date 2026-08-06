@@ -872,6 +872,26 @@ export default function EditChecklist() {
               )}
             </div>
 
+            {templateType !== 'dynamic' && (
+              <div className="space-y-1">
+                <Label className="text-xs">Template Type</Label>
+                <Select value={templateType} onValueChange={(v: any) => setTemplateType(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="training">Training</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  {templateType === 'training'
+                    ? 'Reusable training list — it only appears once assigned to a team member for a date.'
+                    : 'Switch to Training to assign this list per person and per date.'}
+                </p>
+              </div>
+            )}
+
+
+
             {templateType !== 'training' && frequency === 'single_day' && (
               <div className="space-y-1">
                 <Label className="text-xs">Date</Label>
