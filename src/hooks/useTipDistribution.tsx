@@ -91,7 +91,7 @@ export function useTipDistribution(
     if (enabled) {
       fetchTipsFromCache();
     }
-  }, [locationId, startDate?.toISOString(), endDate?.toISOString(), enabled]);
+  }, [locationId, startDate?.toISOString(), endDate?.toISOString(), enabled, timezone]);
 
   // Calculate tip distributions based on hours worked per day
   const employeeTipShares = useMemo(() => {
