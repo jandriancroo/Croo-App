@@ -184,7 +184,7 @@ export default function PayrollReview() {
                       Re-Open Pay Period
                     </Button>
                   ) : (
-                    <Button variant="outline" onClick={handleClosePeriod}>
+                    <Button variant="outline" onClick={() => handleClosePeriod()}>
                       Close Pay Period
                     </Button>
                   )}
