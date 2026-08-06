@@ -131,6 +131,11 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
       if (!checklistsData || checklistsData.length === 0) return [];
 
       const checklistInfo = checklistsData.map(checklist => {
+        // Single-day checklists only exist on their scheduled date
+        if (checklist.frequency === 'single_day') {
+          const sd = (checklist as any).scheduled_date;
+          if (sd && sd !== historyDateStr) return null;
+        }
         // Exclude section_header rows from the expected count — they're
         // visual dividers, not answerable items. Counting them makes a fully
         // completed checklist show as e.g. "21/24" (3 headers unanswered).
