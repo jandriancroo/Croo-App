@@ -114,6 +114,7 @@ export default function CreateChecklist() {
       setTitle(parsed.title ?? '');
       setDescription(parsed.description ?? '');
       setFrequency(parsed.frequency ?? 'daily');
+      setScheduledDate(parsed.scheduledDate ?? '');
       setDueByTime(parsed.dueByTime ?? '');
       const savedLockTime = parsed.lockUntilTime ?? '';
       setLockUntilTime(savedLockTime);
