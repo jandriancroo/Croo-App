@@ -1253,6 +1253,21 @@ export default function CompleteChecklist() {
             );
           }
 
+          if (item.item_type === 'manager_approval') {
+            return (
+              <div key={item.id} className="pt-1">
+                <ManagerApprovalItem
+                  question={item.question}
+                  assignmentId={assignmentId}
+                  completionPercent={completionPercentage}
+                  currentUserId={user?.id}
+                  isApproverByRole={isAdmin || isManager || isShiftManager}
+                />
+              </div>
+            );
+          }
+
+
           if (item.item_type === 'prep_list') {
             const businessDate = dateParam || (() => {
               const y = viewDate.getFullYear();
