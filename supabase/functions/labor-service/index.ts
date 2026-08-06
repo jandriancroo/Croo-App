@@ -651,7 +651,17 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'backfill';
+    // Action may arrive as a query param (?action=…) OR inside the JSON body
+    // ({"action":"refresh-stale"}) — the nightly cron uses the body form, and
+    // ignoring it silently fell through to `backfill` and 400'd, so stale
+    // punch-clock labor was never recomputed.
+    let bodyAction: string | null = null;
+    try {
+      const peeked = await req.clone().json();
+      if (peeked && typeof peeked.action === 'string') bodyAction = peeked.action;
+    } catch { /* no/invalid JSON body */ }
+
+    const action = url.searchParams.get('action') || bodyAction || 'backfill';
 
     console.log(`[labor-service] Action: ${action}`);
 
