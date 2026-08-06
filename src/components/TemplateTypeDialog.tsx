@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileText, Calendar } from "lucide-react";
+import { FileText, Calendar, GraduationCap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface TemplateTypeDialogProps {
@@ -23,10 +23,16 @@ export function TemplateTypeDialog({ open, onOpenChange }: TemplateTypeDialogPro
     navigate('/create-checklist');
   };
 
+  const handleSelectTraining = () => {
+    onOpenChange(false);
+    navigate('/create-checklist?type=training');
+  };
+
   const handleSelectDynamic = () => {
     onOpenChange(false);
     navigate('/dynamic-checklist/new');
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
