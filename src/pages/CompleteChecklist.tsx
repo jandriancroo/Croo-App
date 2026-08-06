@@ -320,21 +320,29 @@ export default function CompleteChecklist() {
 
         // Check if there's already ANY submission for this period (shared by all users)
         // Get the submission with responses, or the most recent one if there are duplicates from race conditions
-        const {
-          data: submissions,
-          error: submissionsError,
-        } = await supabase
+        let submissionQuery = supabase
           .from('checklist_submissions')
           .select(`
             id,
             checklist_responses(count)
           `)
           .eq('checklist_id', id)
-          .eq('location_id', locationId)
-          .eq('assignment_id', assignmentId ?? null as any)
+          .eq('location_id', locationId);
+
+        // Training assignments get their own submission per trainee; standard
+        // checklists share one submission per period (assignment_id IS NULL).
+        submissionQuery = assignmentId
+          ? submissionQuery.eq('assignment_id', assignmentId)
+          : submissionQuery.is('assignment_id', null);
+
+        const {
+          data: submissions,
+          error: submissionsError,
+        } = await submissionQuery
           .gte('submitted_at', periodStart.toISOString())
           .lte('submitted_at', periodEnd.toISOString())
           .order('submitted_at', { ascending: false });
+
 
         console.log('Submission query result:', { submissions, submissionsError });
 
