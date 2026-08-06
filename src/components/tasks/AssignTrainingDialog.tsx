@@ -43,6 +43,7 @@ export function AssignTrainingDialog({
   const [approverUserIds, setApproverUserIds] = useState<string[]>([]);
   const [date, setDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [existing, setExisting] = useState<Record<string, { date: string; status: string }>>({});
 
   const today = useMemo(
     () => DateTime.now().setZone(timezone || 'America/Los_Angeles').toFormat('yyyy-MM-dd'),
@@ -80,7 +81,28 @@ export function AssignTrainingDialog({
     return () => { cancelled = true; };
   }, [open, locationId]);
 
+  // Who already has this training assigned (and not yet approved)?
+  useEffect(() => {
+    if (!open || !checklistId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('checklist_assignments')
+        .select('assignee_id, assigned_date, status')
+        .eq('checklist_id', checklistId)
+        .neq('status', 'approved');
+      if (cancelled) return;
+      const map: Record<string, { date: string; status: string }> = {};
+      (data || []).forEach((r: any) => {
+        map[r.assignee_id] = { date: r.assigned_date, status: r.status };
+      });
+      setExisting(map);
+    })();
+    return () => { cancelled = true; };
+  }, [open, checklistId]);
+
   const toggleTrainee = (id: string) => {
+    if (existing[id]) return;
     setTraineeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
@@ -135,24 +157,37 @@ export function AssignTrainingDialog({
                 {profiles.length === 0 ? (
                   <p className="text-xs text-muted-foreground p-2">No team members found</p>
                 ) : (
-                  profiles.map((p) => (
-                    <label
-                      key={p.id}
-                      className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer"
-                    >
-                      <Checkbox
-                        checked={traineeIds.includes(p.id)}
-                        onCheckedChange={() => toggleTrainee(p.id)}
-                      />
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={p.profile_photo_url || undefined} />
-                        <AvatarFallback className="text-[10px]">
-                          {(p.full_name || '?').charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm truncate">{p.full_name}</span>
-                    </label>
-                  ))
+                  profiles.map((p) => {
+                    const already = existing[p.id];
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${
+                          already
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:bg-muted/50 cursor-pointer'
+                        }`}
+                      >
+                        <Checkbox
+                          checked={traineeIds.includes(p.id)}
+                          disabled={!!already}
+                          onCheckedChange={() => toggleTrainee(p.id)}
+                        />
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={p.profile_photo_url || undefined} />
+                          <AvatarFallback className="text-[10px]">
+                            {(p.full_name || '?').charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm truncate flex-1">{p.full_name}</span>
+                        {already && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            Assigned {already.date}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>
