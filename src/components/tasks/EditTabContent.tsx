@@ -11,6 +11,7 @@ import { CopyChecklistDialog } from './CopyChecklistDialog';
 import { TemporaryTasksSection } from './TemporaryTasksSection';
 import { supabase } from "@/integrations/supabase/client";
 import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
+import { AssignTrainingDialog } from "./AssignTrainingDialog";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { UnderlineGroup } from "@/components/ui/folder-tabs";
