@@ -34,6 +34,10 @@ export default function EditTabContent({
   const [copyChecklistIds, setCopyChecklistIds] = useState<string[]>([]);
   const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("quick-tasks");
+  const [assignChecklist, setAssignChecklist] = useState<{ id: string; title: string } | null>(null);
+
+  const standardChecklists = checklists.filter((c: any) => c.template_type !== 'training');
+  const trainingChecklists = checklists.filter((c: any) => c.template_type === 'training');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
