@@ -752,9 +752,15 @@ export default function PunchClock() {
     let data: any = null;
     let error: any = null;
 
+    // GUARD: repair a missing location before the lookup, otherwise the RPC is
+    // scoped to null and downstream screens falsely report "Not scheduled today".
+    if (!currentLocation?.id) {
+      await ensureLocationLoaded();
+    }
+
     const rpc = await (supabase as any).rpc('punch_clock_lookup_pin', {
       _pin: pinValue,
-      _location_id: currentLocation?.id ?? null,
+      _location_id: currentLocationRef.current?.id ?? null,
     });
     if (rpc.error) {
       error = rpc.error;
@@ -1019,8 +1025,8 @@ export default function PunchClock() {
     isPunchingRef.current = true;
     try {
     // HARD GUARD: never write a punch with NULL location_id
-    if (!currentLocation?.id) {
-      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
+    if (!(await ensureLocationLoaded())) {
+      toast.error('Reconnecting to your location — try again in a moment.');
       return;
     }
     // Block if already clocked in
@@ -1143,8 +1149,8 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
-    if (!currentLocation?.id) {
-      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
+    if (!(await ensureLocationLoaded())) {
+      toast.error('Reconnecting to your location — try again in a moment.');
       return;
     }
     // Use timezone-aware timestamp for punch recording
@@ -1228,8 +1234,8 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
-    if (!currentLocation?.id) {
-      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
+    if (!(await ensureLocationLoaded())) {
+      toast.error('Reconnecting to your location — try again in a moment.');
       return;
     }
     if (!breakStatus?.canEnd) {
@@ -1280,8 +1286,8 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
-    if (!currentLocation?.id) {
-      toast.error('Reconnecting to your location — try again in a moment.'); refetchLocations().catch(() => {});
+    if (!(await ensureLocationLoaded())) {
+      toast.error('Reconnecting to your location — try again in a moment.');
       return;
     }
     // Use the open shift_id from the last punch (handles overnight shifts).
