@@ -62,8 +62,15 @@ function getDateRange(startDate: string, endDate: string): string[] {
 }
 
 function calculateTimeDifferenceHours(startTime: Date, endTime: Date): number {
-  let hours = (endTime.getTime() - startTime.getTime()) / 3600000;
-  if (hours < 0) hours += 24;
+  const hours = (endTime.getTime() - startTime.getTime()) / 3600000;
+  if (hours < 0) {
+    console.error(
+      `[labor-service] Negative shift duration: start=${startTime.toISOString()} ` +
+      `end=${endTime.toISOString()}. Skipping this segment (returning 0) — ` +
+      `check for a manual edit that put clock-out before clock-in.`
+    );
+    return 0;
+  }
   return hours;
 }
 
