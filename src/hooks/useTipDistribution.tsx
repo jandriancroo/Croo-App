@@ -34,6 +34,7 @@ export function useTipDistribution(
   timeCards: any[],
   enabled: boolean = true
 ): TipDistributionResult {
+  const { timezone } = useLocationTimezone(locationId || undefined);
   const [dailyTips, setDailyTips] = useState<DailyTipData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +49,9 @@ export function useTipDistribution(
     setError(null);
     
     try {
-      // Use local wall-clock dates — toISOString() shifts to UTC and pulls in an extra day
-      const startStr = DateTime.fromJSDate(startDate).toFormat('yyyy-MM-dd');
-      const endStr = DateTime.fromJSDate(endDate).toFormat('yyyy-MM-dd');
+      // Resolve the period window in the LOCATION's timezone — never UTC, never browser-local
+      const startStr = DateTime.fromJSDate(startDate).setZone(timezone).toFormat('yyyy-MM-dd');
+      const endStr = DateTime.fromJSDate(endDate).setZone(timezone).toFormat('yyyy-MM-dd');
 
       // Read directly from the daily_tips cache table
       const { data, error: fetchError } = await supabase
