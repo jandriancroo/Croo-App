@@ -47,8 +47,9 @@ export function useTipDistribution(
     setError(null);
     
     try {
-      const startStr = startDate.toISOString().slice(0, 10);
-      const endStr = endDate.toISOString().slice(0, 10);
+      // Use local wall-clock dates — toISOString() shifts to UTC and pulls in an extra day
+      const startStr = DateTime.fromJSDate(startDate).toFormat('yyyy-MM-dd');
+      const endStr = DateTime.fromJSDate(endDate).toFormat('yyyy-MM-dd');
 
       // Read directly from the daily_tips cache table
       const { data, error: fetchError } = await supabase
