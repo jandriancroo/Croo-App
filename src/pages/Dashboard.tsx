@@ -497,12 +497,21 @@ export default function Dashboard() {
   );
 
   const checklistsGridContent = (
-    <ChecklistsGrid
-      checklists={checklists}
-      getCompletionData={getCompletionData}
-      timezone={timezone}
-    />
+    <>
+      <TrainingAssignmentsSection
+        locationId={currentLocation?.id}
+        userId={user?.id}
+        timezone={timezone}
+        canApprove={isAdmin || isManager || isShiftManager || isGeneralManager}
+      />
+      <ChecklistsGrid
+        checklists={checklists}
+        getCompletionData={getCompletionData}
+        timezone={timezone}
+      />
+    </>
   );
+
 
   const cateringDialogs = (
     <CateringOrderDialog
