@@ -306,6 +306,7 @@ export default function CreateChecklist() {
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
       position: positionFilteringEnabled ? (item.position || null) : null,
+      link_refs: item.link_refs && item.link_refs.length > 0 ? item.link_refs : null,
     }));
   };
 
@@ -588,10 +589,13 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
         {/* Top row: question + position badge + delete */}
         <div className="flex items-start gap-2">
           <div className="flex-1 space-y-1 min-w-0">
-            <Input
+            <ChecklistMentionInput
               value={item.question}
-              onChange={(e) => updateItem(index, 'question', e.target.value)}
-              placeholder={isSection ? 'Section heading' : 'Question / task name'}
+              onChange={(v) => updateItem(index, 'question', v)}
+              refs={item.link_refs || []}
+              onRefsChange={(next) => updateItem(index, 'link_refs', next)}
+              locationId={locationId}
+              placeholder={isSection ? 'Section heading' : 'Question / task name — type @ to link a recipe, log, role or teammate'}
               required
             />
           </div>
