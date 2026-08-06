@@ -128,6 +128,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               {item.item_type === 'multiple_choice' && <List className="h-3.5 w-3.5" />}
               {item.item_type === 'section_header' && <Heading className="h-3.5 w-3.5" />}
               {item.item_type === 'prep_list' && <ClipboardList className="h-3.5 w-3.5" />}
+              {item.item_type === 'manager_approval' && <ShieldCheck className="h-3.5 w-3.5" />}
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
