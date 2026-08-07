@@ -225,6 +225,19 @@ export function CopyChecklistDialog({
     );
   };
 
+  const groupedLocations = (() => {
+    const map = new Map<string, { key: string; brandName: string | null; locations: TargetLocation[] }>();
+    for (const loc of targetLocations) {
+      const key = loc.brandName || '__none__';
+      if (!map.has(key)) map.set(key, { key, brandName: loc.brandName ?? null, locations: [] });
+      map.get(key)!.locations.push(loc);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      (a.brandName || 'zzz').localeCompare(b.brandName || 'zzz')
+    );
+  })();
+
+
   const getReplacementInfo = () => {
     const willReplace: string[] = [];
     const willCreate: string[] = [];
