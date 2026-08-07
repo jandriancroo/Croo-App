@@ -16,6 +16,8 @@ import { useEffect, useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useUserRole } from '@/hooks/useUserRole';
+import { supabase } from '@/integrations/supabase/client';
+
 
 
 const ICONS_BY_KEY: Record<string, React.ReactNode> = {
