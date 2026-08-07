@@ -518,7 +518,15 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
               <>
                 {/* Daily breakdown */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Daily Breakdown</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Daily Breakdown</Label>
+                    {verificationEnabled && (
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        <Camera className="h-3 w-3" />
+                        Deposit slip required
+                      </Badge>
+                    )}
+                  </div>
                   <div className="rounded-lg border divide-y max-h-48 overflow-y-auto">
                     {summary.entries.map((entry) => (
                       <div 
@@ -532,6 +540,22 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                           <span className="text-sm font-medium">
                             {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
                           </span>
+                          {verificationEnabled && !entry.alreadyDeposited && currentLocation && (
+                            <BankVerificationPhoto
+                              locationId={currentLocation.id}
+                              slug={`slip-${entry.entryDate}`}
+                              label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
+                              value={slipPaths[entry.entryDate] || null}
+                              onChange={(path) =>
+                                setSlipPaths((prev) => {
+                                  const next = { ...prev };
+                                  if (path) next[entry.entryDate] = path;
+                                  else delete next[entry.entryDate];
+                                  return next;
+                                })
+                              }
+                            />
+                          )}
                           {entry.alreadyDeposited && (
                             <Badge variant="secondary" className="text-xs">Already deposited</Badge>
                           )}
@@ -545,6 +569,11 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                       </div>
                     ))}
                   </div>
+                  {verificationEnabled && missingSlips > 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {missingSlips} day{missingSlips !== 1 ? 's' : ''} still need a deposit slip photo.
+                    </p>
+                  )}
                 </div>
                 
                 {/* Totals */}
@@ -566,11 +595,31 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                       {formatCurrency(summary.totalAmount)}
                     </span>
                   </div>
+                  {verificationEnabled && currentLocation && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-medium">Bank Receipt</div>
+                        <div className="text-xs text-muted-foreground">
+                          {receiptPath ? "Receipt attached" : "Required before submitting"}
+                        </div>
+                      </div>
+                      <BankVerificationPhoto
+                        locationId={currentLocation.id}
+                        slug="receipt"
+                        label="Upload bank receipt"
+                        variant="button"
+                        value={receiptPath}
+                        onChange={setReceiptPath}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-muted-foreground">Days Included</span>
                     <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
                   </div>
                 </div>
+                
+
                 
                 {/* Notes */}
                 <div className="space-y-2">
