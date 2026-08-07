@@ -30,6 +30,8 @@ import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
 import { TrainingAssignmentsSection } from '@/components/dashboard/TrainingAssignmentsSection';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
+import { useTrainingAssignments } from '@/hooks/useTrainingAssignments';
+import { groupTrainingAssignments } from '@/components/dashboard/TrainingAssignmentsSection';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
 import { getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
@@ -493,6 +495,20 @@ export default function Dashboard() {
   // Checklist completion data (cached via React Query)
   const { getCompletionData } = useChecklistCompletion(checklists, currentLocation?.id);
 
+  // Trainee rows count toward the Checklists header rollup (one row = one item).
+  const canApproveTraining = isAdmin || isManager || isShiftManager || isGeneralManager;
+  const { data: trainingAssignments = [] } = useTrainingAssignments({
+    locationId: currentLocation?.id,
+    userId: user?.id,
+    timezone,
+  });
+  const trainingRowsFlat = useMemo(
+    () => groupTrainingAssignments(trainingAssignments, user?.id, canApproveTraining).flatMap(g => g.trainees),
+    [trainingAssignments, user?.id, canApproveTraining]
+  );
+  const trainingTotal = trainingRowsFlat.filter(a => a.expected > 0).length;
+  const trainingRemaining = trainingRowsFlat.filter(a => a.expected > 0 && a.completed < a.expected).length;
+
   const quickTasksContent = (
     <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
   );
@@ -502,12 +518,14 @@ export default function Dashboard() {
       checklists={checklists}
       getCompletionData={getCompletionData}
       timezone={timezone}
+      trainingRemaining={trainingRemaining}
+      trainingTotal={trainingTotal}
       trainingRows={
         <TrainingAssignmentsSection
           locationId={currentLocation?.id}
           userId={user?.id}
           timezone={timezone}
-          canApprove={isAdmin || isManager || isShiftManager || isGeneralManager}
+          canApprove={canApproveTraining}
         />
       }
     />
