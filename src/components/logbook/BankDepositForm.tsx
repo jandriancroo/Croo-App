@@ -20,12 +20,15 @@ export interface BankDepositData {
     entryId: string;
     entryDate: string;
     depositAmount: number;
+    slipPath?: string;
   }>;
   totalDollars: number;
   totalChange: number;
   totalAmount: number;
   daysIncluded: number;
   notes?: string;
+  receiptPath?: string;
+  verificationRequired?: boolean;
 }
 
 interface BankDepositFormProps {
@@ -41,6 +44,24 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [notes, setNotes] = useState("");
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
+  const [slipPaths, setSlipPaths] = useState<Record<string, string>>({});
+  const [receiptPath, setReceiptPath] = useState<string | null>(null);
+
+  // Bank Verification toggle (per location)
+  const { data: verificationEnabled = false } = useQuery({
+    queryKey: ["bank-verification-enabled", currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return false;
+      const { data } = await supabase
+        .from("location_settings")
+        .select("bank_verification_enabled")
+        .eq("location_id", currentLocation.id)
+        .maybeSingle();
+      return !!data?.bank_verification_enabled;
+    },
+    enabled: !!currentLocation,
+  });
+
   
   // Fetch bank deposit category to find existing deposits
   const { data: bankDepositCategory } = useQuery({
