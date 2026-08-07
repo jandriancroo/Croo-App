@@ -42,14 +42,20 @@ export function useTrainingAssignments({ locationId, userId, timezone, enabled =
     staleTime: 60 * 1000,
     enabled: enabled && !!locationId && !!userId,
     queryFn: async (): Promise<TrainingAssignment[]> => {
-      const { data: rows, error } = await supabase
+      const { data: allRows, error } = await supabase
         .from('checklist_assignments')
         .select('*, checklists(title)')
         .eq('location_id', locationId!)
-        .eq('assigned_date', today);
+        .lte('assigned_date', today)
+        .neq('status', 'cancelled');
 
       if (error) throw error;
-      if (!rows || rows.length === 0) return [];
+      // Open sessions stay visible every day until finished; approved ones only on their own day.
+      const rows = (allRows || []).filter(
+        (r: any) => r.status !== 'approved' || r.assigned_date === today
+      );
+      if (rows.length === 0) return [];
+
 
       const assigneeIds = [...new Set(rows.map((r: any) => r.assignee_id))];
       const checklistIds = [...new Set(rows.map((r: any) => r.checklist_id))];
