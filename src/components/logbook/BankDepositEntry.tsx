@@ -130,9 +130,15 @@ export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
                 <div className="font-medium text-sm">Daily Breakdown</div>
                 <div className="space-y-1">
                   {data.entries.map((entry, idx) => (
-                    <div key={entry.entryId || idx} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
+                    <div key={entry.entryId || idx} className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
                         {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
+                        {entry.slipPath && (
+                          <VerificationPhotoLink
+                            path={entry.slipPath}
+                            label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
+                          />
+                        )}
                       </span>
                       <span className="font-medium">{formatCurrency(entry.depositAmount)}</span>
                     </div>
@@ -151,12 +157,18 @@ export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
                   <span className="font-medium">{formatCurrency(data.totalChange)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t">
-                  <span className="font-medium">Total Deposit:</span>
+                  <span className="font-medium flex items-center gap-1">
+                    Total Deposit:
+                    {data.receiptPath && (
+                      <VerificationPhotoLink path={data.receiptPath} label="Bank receipt" />
+                    )}
+                  </span>
                   <span className="font-bold text-teal-600 dark:text-teal-400 text-lg">
                     {formatCurrency(data.totalAmount)}
                   </span>
                 </div>
               </div>
+
               
               {/* Notes */}
               {data.notes && (
