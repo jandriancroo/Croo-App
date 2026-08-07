@@ -43,12 +43,50 @@ export default function Billing() {
   const [searchParams] = useSearchParams();
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [skipTrial, setSkipTrial] = useState(false);
+  const [savingSkipTrial, setSavingSkipTrial] = useState(false);
 
   // Filter to current org's locations, exclude sandbox
   const billableLocations = locations.filter(l => 
     l.store_number !== '7777' && 
     (!currentOrgId || l.organization_id === currentOrgId)
   );
+
+  // Load the saved skip-trial setting for the selected location
+  useEffect(() => {
+    if (!selectedLocationId) {
+      setSkipTrial(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('location_plan_overrides')
+        .select('skip_trial')
+        .eq('location_id', selectedLocationId)
+        .maybeSingle();
+      if (!cancelled) setSkipTrial(!!data?.skip_trial);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedLocationId]);
+
+  const handleSkipTrialChange = async (next: boolean) => {
+    if (!selectedLocationId || !isSuperAdmin) return;
+    setSkipTrial(next);
+    setSavingSkipTrial(true);
+    const { error } = await supabase
+      .from('location_plan_overrides')
+      .upsert(
+        { location_id: selectedLocationId, skip_trial: next },
+        { onConflict: 'location_id' }
+      );
+    setSavingSkipTrial(false);
+    if (error) {
+      setSkipTrial(!next);
+      toast.error('Could not save trial setting');
+    } else {
+      toast.success(next ? 'Trial will be skipped for this location' : 'Free trial enabled for this location');
+    }
+  };
 
   useEffect(() => {
     const checkout = searchParams.get('checkout');
@@ -62,12 +100,13 @@ export default function Billing() {
 
   const handleCheckout = async (priceId: string, locationId: string) => {
     try {
-      toast.info(skipTrial && isSuperAdmin ? 'Opening checkout (trial skipped)…' : 'Opening checkout…');
-      await startCheckout(priceId, skipTrial && isSuperAdmin, locationId);
+      toast.info('Opening checkout…');
+      await startCheckout(priceId, undefined, locationId);
     } catch (err: any) {
       toast.error(err.message || 'Failed to start checkout');
     }
   };
+
 
   const handlePortal = async () => {
     try {
