@@ -242,9 +242,7 @@ export function TemporaryTasksSection() {
           {isLoading ? (
             <p className="text-center text-muted-foreground py-4">Loading...</p>
           ) : tasks.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              No active quick tasks. Create one to assign temporary tasks to employees.
-            </p>
+            <QuickTaskEmptyState onCreate={canManage ? () => setShowCreateDialog(true) : undefined} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {tasks.map((task: any) => {
