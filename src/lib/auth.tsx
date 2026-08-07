@@ -82,6 +82,25 @@ const checkFirstLogin = async (userId: string): Promise<boolean> => {
 
 const isDeviceSession = (session: Session | null | undefined) => isPunchDeviceUser(session?.user);
 
+export const DEACTIVATED_MESSAGE =
+  'This account has been deactivated. Please contact your manager if you believe this is a mistake.';
+
+// Returns true when the profile is deactivated. Fails open on network errors so a
+// transient failure never locks out a legitimate active user.
+const isDeactivatedProfile = async (userId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_active')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) return false;
+    return data ? data.is_active === false : false;
+  } catch {
+    return false;
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
