@@ -47,6 +47,8 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       return completed < expected;
     }).length + trainingRemaining;
   const totalCount = countableChecklists.length + trainingTotal;
+  const completedCount = totalCount - remainingCount;
+
 
   // Compute current time in location timezone ONCE for all rows
   const now = new Date();
@@ -70,13 +72,35 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
+  // Color intensity ramps in 10% increments — full green only at 90%+
+  const segmentFillClass = (percent: number) => {
+    if (percent >= 100) return 'bg-emerald-600';
+    if (percent >= 90) return 'bg-emerald-500';
+    if (percent >= 80) return 'bg-emerald-500/80';
+    if (percent >= 70) return 'bg-emerald-500/70';
+    if (percent >= 60) return 'bg-emerald-500/60';
+    if (percent >= 50) return 'bg-emerald-500/50';
+    if (percent >= 40) return 'bg-emerald-500/40';
+    if (percent >= 30) return 'bg-emerald-500/35';
+    if (percent >= 20) return 'bg-emerald-500/30';
+    if (percent >= 10) return 'bg-emerald-500/25';
+    return 'bg-emerald-500/20';
+  };
+
   return (
     <div className="flex flex-col gap-1 w-full">
       <DashSectionTitle
-        action={remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${totalCount} remaining`}
+        action={
+          totalCount === 0
+            ? undefined
+            : completedCount === totalCount
+              ? 'All done ✓'
+              : `${completedCount} of ${totalCount} completed`
+        }
       >
         Checklists
       </DashSectionTitle>
+
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {checklists.map((checklist, idx) => {
