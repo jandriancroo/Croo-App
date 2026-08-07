@@ -44,6 +44,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
           .from('checklists')
           .select('*, checklist_items(id, days_of_week)')
           .eq('is_active', true)
+          .neq('template_type', 'training')
           .eq('location_id', locationId)
           .order('display_order', { ascending: true })
           .order('created_at', { ascending: false });
