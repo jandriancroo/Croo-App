@@ -762,7 +762,9 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                             .maybeSingle();
                           
                           const updateData: any = {};
-                          if (categoryName === 'safe count') {
+                          if (isBankDeposit) {
+                            updateData.bank_verification_enabled = bankVerification;
+                          } else if (categoryName === 'safe count') {
                             updateData.safe_target = safeTarget;
                             updateData.am_safe_count_window_minutes = amSafeCountWindow;
                             updateData.pm_safe_count_window_minutes = pmSafeCountWindow;
@@ -771,6 +773,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                             updateData.drawer_bank = drawerBank;
                             updateData.drawer_count_notifications_enabled = drawerCountNotifications;
                           }
+
                           
                           if (existingSettings) {
                             await supabase
