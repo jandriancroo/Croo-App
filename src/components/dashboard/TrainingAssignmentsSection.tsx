@@ -65,7 +65,10 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
                   <GraduationCap className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{a.checklist_title}</p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-sm font-semibold truncate">{a.checklist_title}</p>
+                    <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0">TRAINING</Badge>
+                  </div>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                       <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(a)}%` }} />
@@ -91,6 +94,7 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">
                       {group.title}
                     </p>
+                    <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0">TRAINING</Badge>
                   </div>
                   <div className="space-y-1.5">
                     {others.map(a => {
