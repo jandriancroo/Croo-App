@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
+import { useAuth, DEACTIVATED_MESSAGE } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,6 +72,12 @@ export default function Auth() {
   const activeIndex = images.length ? index % images.length : 0;
   const touchStartX = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('deactivated') === '1') {
+      toast.error(DEACTIVATED_MESSAGE);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     const id = setInterval(() => setIsDay(isDaytime()), 5 * 60_000);
