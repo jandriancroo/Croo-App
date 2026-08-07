@@ -790,8 +790,9 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                           }
                           queryClient.invalidateQueries({ queryKey: ['location-settings'] });
                           queryClient.invalidateQueries({ queryKey: ['location-settings-cash'] });
+                          queryClient.invalidateQueries({ queryKey: ['bank-verification-enabled'] });
                         } catch (error) {
-                          console.error('Error saving cash handling settings:', error);
+                          console.error('Error saving settings:', error);
                         }
                       }
                       if (!isCashHandling) {
@@ -803,6 +804,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                       }
                     }}>
                       {isCashHandling ? 'Save Settings' : 'Save Fields'}
+
                     </Button>
                   </>
                 );
