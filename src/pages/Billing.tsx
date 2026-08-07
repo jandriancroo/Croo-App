@@ -220,10 +220,11 @@ export default function Billing() {
                     <div>
                       <Label htmlFor="skip-trial" className="text-sm font-medium">Skip free trial (Super Admin)</Label>
                       <p className="text-xs text-muted-foreground">
-                        Bills the card immediately. Use for locations that already consumed their trial.
+                        Saved on this location. When on, whoever subscribes is billed immediately instead of starting a trial.
                       </p>
                     </div>
-                    <Switch id="skip-trial" checked={skipTrial} onCheckedChange={setSkipTrial} />
+                    <Switch id="skip-trial" checked={skipTrial} disabled={savingSkipTrial} onCheckedChange={handleSkipTrialChange} />
+
                   </div>
                 )}
                 <h2 className="text-lg font-semibold">
