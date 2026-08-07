@@ -47,6 +47,8 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       return completed < expected;
     }).length + trainingRemaining;
   const totalCount = countableChecklists.length + trainingTotal;
+  const completedCount = totalCount - remainingCount;
+
 
   // Compute current time in location timezone ONCE for all rows
   const now = new Date();
@@ -70,13 +72,35 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
+  // Color intensity ramps in 10% increments — full green only at 90%+
+  const segmentFillClass = (percent: number) => {
+    if (percent >= 100) return 'bg-emerald-600';
+    if (percent >= 90) return 'bg-emerald-500';
+    if (percent >= 80) return 'bg-emerald-500/80';
+    if (percent >= 70) return 'bg-emerald-500/70';
+    if (percent >= 60) return 'bg-emerald-500/60';
+    if (percent >= 50) return 'bg-emerald-500/50';
+    if (percent >= 40) return 'bg-emerald-500/40';
+    if (percent >= 30) return 'bg-emerald-500/35';
+    if (percent >= 20) return 'bg-emerald-500/30';
+    if (percent >= 10) return 'bg-emerald-500/25';
+    return 'bg-emerald-500/20';
+  };
+
   return (
     <div className="flex flex-col gap-1 w-full">
       <DashSectionTitle
-        action={remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${totalCount} remaining`}
+        action={
+          totalCount === 0
+            ? undefined
+            : completedCount === totalCount
+              ? 'All done ✓'
+              : `${completedCount} of ${totalCount} completed`
+        }
       >
         Checklists
       </DashSectionTitle>
+
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {checklists.map((checklist, idx) => {
@@ -113,19 +137,24 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </div>
 
-              {expected > 0 && (
-                <div className="flex items-center gap-[3px] w-full">
-                  {Array.from({ length: expected }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'h-[3px] flex-1 rounded-full transition-colors duration-200',
-                        i < completed ? 'bg-emerald-500' : 'bg-muted'
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
+              {expected > 0 && (() => {
+                const pct = Math.round((completed / expected) * 100);
+                const fill = segmentFillClass(pct);
+                return (
+                  <div className="flex items-center gap-[3px] w-full">
+                    {Array.from({ length: expected }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          'h-[3px] flex-1 rounded-full transition-colors duration-200',
+                          i < completed ? fill : 'bg-muted'
+                        )}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
+
             </div>
 
           );
