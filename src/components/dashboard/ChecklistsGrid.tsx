@@ -137,17 +137,21 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </div>
 
-              {expected > 0 && (
-                <div className="flex items-center gap-[3px] w-full">
-                  {Array.from({ length: expected }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'h-[3px] flex-1 rounded-full transition-colors duration-200',
-                        i < completed ? 'bg-emerald-500' : 'bg-muted'
-                      )}
-                    />
-                  ))}
+              {expected > 0 && (() => {
+                const pct = Math.round((completed / expected) * 100);
+                const fill = segmentFillClass(pct);
+                return (
+                  <div className="flex items-center gap-[3px] w-full">
+                    {Array.from({ length: expected }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          'h-[3px] flex-1 rounded-full transition-colors duration-200',
+                          i < completed ? fill : 'bg-muted'
+                        )}
+                      />
+                    ))}
+
                 </div>
               )}
             </div>
