@@ -12,6 +12,7 @@ import { EditTemporaryTaskDialog } from "./EditTemporaryTaskDialog";
 import { QRTaskCodeDialog } from "./QRTaskCodeDialog";
 import { QuickTaskTemplateLibrary } from "./QuickTaskTemplateLibrary";
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
+import { QuickTaskEmptyState } from "./QuickTaskEmptyState";
 import { formatDistanceToNow, isPast, format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -242,7 +243,7 @@ export function TemporaryTasksSection() {
           {isLoading ? (
             <p className="text-center text-muted-foreground py-4">Loading...</p>
           ) : tasks.length === 0 ? (
-            <QuickTaskEmptyState onCreate={canManage ? () => setShowCreateDialog(true) : undefined} />
+            <QuickTaskEmptyState onCreate={effectiveCanCreateTasks ? () => setShowCreateDialog(true) : undefined} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {tasks.map((task: any) => {
