@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChevronRight, Check, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTrainingAssignments, shortName, type TrainingAssignment } from '@/hooks/useTrainingAssignments';
@@ -35,15 +34,6 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
   const { data: assignments = [] } = useTrainingAssignments({ locationId, userId, timezone });
 
   const mine = useMemo(() => assignments.filter(a => a.assignee_id === userId), [assignments, userId]);
-  const grouped = useMemo(() => {
-    const map = new Map<string, { title: string; rows: TrainingAssignment[] }>();
-    assignments.forEach(a => {
-      const g = map.get(a.checklist_id) || { title: a.checklist_title, rows: [] };
-      g.rows.push(a);
-      map.set(a.checklist_id, g);
-    });
-    return [...map.values()];
-  }, [assignments]);
 
   if (assignments.length === 0) return null;
 
