@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Building2, Eye } from "lucide-react";
+import { Building2, Eye, Image as ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { getBankVerificationUrl } from "./BankVerificationPhoto";
 
 export interface BankDepositData {
   startDate: string;
@@ -12,13 +13,43 @@ export interface BankDepositData {
     entryId: string;
     entryDate: string;
     depositAmount: number;
+    slipPath?: string;
   }>;
   totalDollars: number;
   totalChange: number;
   totalAmount: number;
   daysIncluded: number;
   notes?: string;
+  receiptPath?: string;
+  verificationRequired?: boolean;
 }
+
+function VerificationPhotoLink({ path, label }: { path: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+
+  const handleOpen = async (next: boolean) => {
+    setOpen(next);
+    if (next && !url) setUrl(await getBankVerificationUrl(path));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={label}>
+          <ImageIcon className="h-3.5 w-3.5 text-teal-600" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{label}</DialogTitle>
+        </DialogHeader>
+        {url ? <img src={url} alt={label} className="w-full rounded-lg" /> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 export function parseBankDepositData(valueText: string): BankDepositData | null {
   try {
