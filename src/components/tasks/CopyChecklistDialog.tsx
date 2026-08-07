@@ -20,6 +20,9 @@ interface CopyChecklistDialogProps {
 interface TargetLocation {
   id: string;
   name: string;
+  storeNumber?: string | null;
+  orgName?: string | null;
+  brandName?: string | null;
   existingTitles: string[];
 }
 
@@ -48,7 +51,7 @@ export function CopyChecklistDialog({
       // Get all locations the user has access to (except current)
       const { data: locations, error: locError } = await supabase
         .from('locations')
-        .select('id, name')
+        .select('id, name, store_number, organization_id, organizations(name, brand_name, brands(name))')
         .neq('id', currentLocation?.id)
         .order('name');
 
@@ -56,7 +59,7 @@ export function CopyChecklistDialog({
 
       // For each location, check which of the selected checklists already exist
       const locationsWithExisting: TargetLocation[] = await Promise.all(
-        (locations || []).map(async (loc) => {
+        (locations || []).map(async (loc: any) => {
           const { data: existing } = await supabase
             .from('checklists')
             .select('title')
@@ -66,6 +69,9 @@ export function CopyChecklistDialog({
           return {
             id: loc.id,
             name: loc.name,
+            storeNumber: loc.store_number ?? null,
+            orgName: loc.organizations?.name ?? null,
+            brandName: loc.organizations?.brands?.name ?? loc.organizations?.brand_name ?? null,
             existingTitles: existing?.map(c => c.title) || []
           };
         })
@@ -219,6 +225,19 @@ export function CopyChecklistDialog({
     );
   };
 
+  const groupedLocations = (() => {
+    const map = new Map<string, { key: string; brandName: string | null; locations: TargetLocation[] }>();
+    for (const loc of targetLocations) {
+      const key = loc.brandName || '__none__';
+      if (!map.has(key)) map.set(key, { key, brandName: loc.brandName ?? null, locations: [] });
+      map.get(key)!.locations.push(loc);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      (a.brandName || 'zzz').localeCompare(b.brandName || 'zzz')
+    );
+  })();
+
+
   const getReplacementInfo = () => {
     const willReplace: string[] = [];
     const willCreate: string[] = [];
@@ -271,28 +290,45 @@ export function CopyChecklistDialog({
             {/* Target locations */}
             <div className="space-y-2">
               <Label>Select target locations:</Label>
-              <div className="border rounded-lg max-h-48 overflow-y-auto">
+              <div className="border rounded-lg max-h-64 overflow-y-auto">
                 {targetLocations.length === 0 ? (
                   <p className="text-sm text-muted-foreground p-3">No other locations available</p>
                 ) : (
-                  targetLocations.map(loc => (
-                    <div 
-                      key={loc.id}
-                      className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer"
-                      onClick={() => toggleLocation(loc.id)}
-                    >
-                      <Checkbox 
-                        checked={selectedLocationIds.includes(loc.id)}
-                        onCheckedChange={() => toggleLocation(loc.id)}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{loc.name}</div>
-                        {loc.existingTitles.length > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {loc.existingTitles.length} will be replaced
-                          </div>
-                        )}
+                  groupedLocations.map(group => (
+                    <div key={group.key}>
+                      <div className="sticky top-0 z-10 bg-muted/70 backdrop-blur px-3 py-1.5 flex items-center justify-between gap-2 border-b">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground truncate">
+                          {group.brandName || 'Unassigned brand'}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground shrink-0">
+                          {group.locations.length}
+                        </span>
                       </div>
+                      {group.locations.map(loc => (
+                        <div
+                          key={loc.id}
+                          className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer"
+                          onClick={() => toggleLocation(loc.id)}
+                        >
+                          <Checkbox
+                            checked={selectedLocationIds.includes(loc.id)}
+                            onCheckedChange={() => toggleLocation(loc.id)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">
+                              {loc.storeNumber ? `#${loc.storeNumber} ` : ''}{loc.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[loc.brandName, loc.orgName].filter(Boolean).join(' · ') || 'No brand / org'}
+                            </div>
+                            {loc.existingTitles.length > 0 && (
+                              <div className="text-xs text-amber-600">
+                                {loc.existingTitles.length} will be replaced
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ))
                 )}

@@ -127,7 +127,7 @@ export function SortableChecklistItem({
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                 {onCopyTo && (
                   <>
                     <DropdownMenuItem onClick={() => onCopyTo(checklist.id, checklist.title)}>
