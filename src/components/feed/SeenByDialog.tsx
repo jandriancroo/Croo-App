@@ -52,7 +52,7 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
         if (cancelled) return;
 
         const activeProfiles = ((profilesRes.data ?? []) as any[]).filter(
-          p => p.is_active !== false && p.appears_on_schedule !== false,
+          p => p.is_active !== false && p.appears_on_schedule !== false && p.id !== post.author_id,
         );
         setMembers(activeProfiles.map(p => ({
           user_id: p.id,
