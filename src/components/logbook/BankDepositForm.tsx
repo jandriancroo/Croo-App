@@ -7,7 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2, Camera } from "lucide-react";
+import { BankVerificationPhoto } from "./BankVerificationPhoto";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { format, eachDayOfInterval, isBefore, startOfDay, isAfter, parse, isSameDay, isWithinInterval } from "date-fns";
@@ -20,12 +21,15 @@ export interface BankDepositData {
     entryId: string;
     entryDate: string;
     depositAmount: number;
+    slipPath?: string;
   }>;
   totalDollars: number;
   totalChange: number;
   totalAmount: number;
   daysIncluded: number;
   notes?: string;
+  receiptPath?: string;
+  verificationRequired?: boolean;
 }
 
 interface BankDepositFormProps {
@@ -41,6 +45,24 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [notes, setNotes] = useState("");
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
+  const [slipPaths, setSlipPaths] = useState<Record<string, string>>({});
+  const [receiptPath, setReceiptPath] = useState<string | null>(null);
+
+  // Bank Verification toggle (per location)
+  const { data: verificationEnabled = false } = useQuery({
+    queryKey: ["bank-verification-enabled", currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return false;
+      const { data } = await supabase
+        .from("location_settings")
+        .select("bank_verification_enabled")
+        .eq("location_id", currentLocation.id)
+        .maybeSingle();
+      return !!data?.bank_verification_enabled;
+    },
+    enabled: !!currentLocation,
+  });
+
   
   // Fetch bank deposit category to find existing deposits
   const { data: bankDepositCategory } = useQuery({
@@ -305,12 +327,15 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         entryId: e.entryId,
         entryDate: e.entryDate,
         depositAmount: e.depositAmount,
+        slipPath: slipPaths[e.entryDate] || undefined,
       })),
       totalDollars: summary.totalDollars,
       totalChange: summary.totalChange,
       totalAmount: summary.totalAmount,
       daysIncluded: summary.daysIncluded,
       notes: notes || undefined,
+      receiptPath: receiptPath || undefined,
+      verificationRequired: verificationEnabled || undefined,
     };
     
     onSave(data);
@@ -325,7 +350,14 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   }
   
   const canShowPreview = startDate && endDate && !loadingEntries;
-  const canSubmit = canShowPreview && summary.includableEntries.length > 0;
+  const missingSlips = verificationEnabled
+    ? summary.includableEntries.filter((e) => !slipPaths[e.entryDate]).length
+    : 0;
+  const missingReceipt = verificationEnabled && !receiptPath;
+  const canSubmit =
+    canShowPreview && summary.includableEntries.length > 0 && missingSlips === 0 && !missingReceipt;
+  
+
   
   return (
     <div className="space-y-6">
@@ -487,7 +519,15 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
               <>
                 {/* Daily breakdown */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Daily Breakdown</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Daily Breakdown</Label>
+                    {verificationEnabled && (
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        <Camera className="h-3 w-3" />
+                        Deposit slip required
+                      </Badge>
+                    )}
+                  </div>
                   <div className="rounded-lg border divide-y max-h-48 overflow-y-auto">
                     {summary.entries.map((entry) => (
                       <div 
@@ -501,6 +541,22 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                           <span className="text-sm font-medium">
                             {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
                           </span>
+                          {verificationEnabled && !entry.alreadyDeposited && currentLocation && (
+                            <BankVerificationPhoto
+                              locationId={currentLocation.id}
+                              slug={`slip-${entry.entryDate}`}
+                              label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
+                              value={slipPaths[entry.entryDate] || null}
+                              onChange={(path) =>
+                                setSlipPaths((prev) => {
+                                  const next = { ...prev };
+                                  if (path) next[entry.entryDate] = path;
+                                  else delete next[entry.entryDate];
+                                  return next;
+                                })
+                              }
+                            />
+                          )}
                           {entry.alreadyDeposited && (
                             <Badge variant="secondary" className="text-xs">Already deposited</Badge>
                           )}
@@ -514,6 +570,11 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                       </div>
                     ))}
                   </div>
+                  {verificationEnabled && missingSlips > 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {missingSlips} day{missingSlips !== 1 ? 's' : ''} still need a deposit slip photo.
+                    </p>
+                  )}
                 </div>
                 
                 {/* Totals */}
@@ -535,11 +596,31 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                       {formatCurrency(summary.totalAmount)}
                     </span>
                   </div>
+                  {verificationEnabled && currentLocation && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-medium">Bank Receipt</div>
+                        <div className="text-xs text-muted-foreground">
+                          {receiptPath ? "Receipt attached" : "Required before submitting"}
+                        </div>
+                      </div>
+                      <BankVerificationPhoto
+                        locationId={currentLocation.id}
+                        slug="receipt"
+                        label="Upload bank receipt"
+                        variant="button"
+                        value={receiptPath}
+                        onChange={setReceiptPath}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-muted-foreground">Days Included</span>
                     <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
                   </div>
                 </div>
+                
+
                 
                 {/* Notes */}
                 <div className="space-y-2">

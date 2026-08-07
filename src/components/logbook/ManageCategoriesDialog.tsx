@@ -222,6 +222,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [pmSafeCountWindow, setPmSafeCountWindow] = useState<number>(120);
   const [drawerCountNotifications, setDrawerCountNotifications] = useState<boolean>(true);
   const [safeCountNotifications, setSafeCountNotifications] = useState<boolean>(true);
+  const [bankVerification, setBankVerification] = useState<boolean>(false);
 
   // Fetch location settings for cash handling values
   const { data: locationSettings } = useQuery({
@@ -230,7 +231,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
       if (!currentLocation) return null;
       const { data, error } = await supabase
         .from('location_settings')
-        .select('safe_target, drawer_bank, am_safe_count_window_minutes, pm_safe_count_window_minutes, drawer_count_notifications_enabled, safe_count_notifications_enabled')
+        .select('safe_target, drawer_bank, am_safe_count_window_minutes, pm_safe_count_window_minutes, drawer_count_notifications_enabled, safe_count_notifications_enabled, bank_verification_enabled')
         .eq('location_id', currentLocation.id)
         .maybeSingle();
       if (error) throw error;
@@ -241,11 +242,13 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
         setPmSafeCountWindow(data.pm_safe_count_window_minutes ?? 120);
         setDrawerCountNotifications(data.drawer_count_notifications_enabled ?? true);
         setSafeCountNotifications(data.safe_count_notifications_enabled ?? true);
+        setBankVerification(data.bank_verification_enabled ?? false);
       }
       return data;
     },
     enabled: open && !!currentLocation,
   });
+
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -711,10 +714,33 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
               );
             })()}
 
+            {/* Bank Verification - only for Bank Deposit category */}
+            {(() => {
+              const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase() || '';
+              if (!categoryName.includes('bank deposit')) return null;
+
+              return (
+                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                  <Label className="text-sm font-medium">Bank Verification</Label>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={bankVerification} onCheckedChange={setBankVerification} />
+                    <Label className="text-xs">Require deposit slip &amp; bank receipt photos</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    When on, each day included in a bank deposit requires a photo of that day's deposit slip,
+                    and the total requires a photo of the bank receipt. Photos are kept for one year.
+                  </p>
+                </div>
+              );
+            })()}
+
             <div className="flex gap-2">
               {(() => {
-                const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase();
+                const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase() || '';
                 const isCashHandling = categoryName === 'safe count' || categoryName === 'drawer count';
+                const isBankDeposit = categoryName.includes('bank deposit');
+                
+
                 
                 return (
                   <>
@@ -725,9 +751,10 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                       </Button>
                     )}
                     <Button onClick={async () => {
-                      // Save cash handling settings if applicable
-                      if (isCashHandling && currentLocation) {
+                      // Save cash handling / bank verification settings if applicable
+                      if ((isCashHandling || isBankDeposit) && currentLocation) {
                         try {
+
                           const { data: existingSettings } = await supabase
                             .from('location_settings')
                             .select('id')
@@ -735,7 +762,9 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                             .maybeSingle();
                           
                           const updateData: any = {};
-                          if (categoryName === 'safe count') {
+                          if (isBankDeposit) {
+                            updateData.bank_verification_enabled = bankVerification;
+                          } else if (categoryName === 'safe count') {
                             updateData.safe_target = safeTarget;
                             updateData.am_safe_count_window_minutes = amSafeCountWindow;
                             updateData.pm_safe_count_window_minutes = pmSafeCountWindow;
@@ -744,6 +773,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                             updateData.drawer_bank = drawerBank;
                             updateData.drawer_count_notifications_enabled = drawerCountNotifications;
                           }
+
                           
                           if (existingSettings) {
                             await supabase
@@ -760,8 +790,9 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                           }
                           queryClient.invalidateQueries({ queryKey: ['location-settings'] });
                           queryClient.invalidateQueries({ queryKey: ['location-settings-cash'] });
+                          queryClient.invalidateQueries({ queryKey: ['bank-verification-enabled'] });
                         } catch (error) {
-                          console.error('Error saving cash handling settings:', error);
+                          console.error('Error saving settings:', error);
                         }
                       }
                       if (!isCashHandling) {
@@ -773,6 +804,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                       }
                     }}>
                       {isCashHandling ? 'Save Settings' : 'Save Fields'}
+
                     </Button>
                   </>
                 );

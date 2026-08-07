@@ -7357,6 +7357,7 @@ export type Database = {
         Row: {
           am_safe_count_window_minutes: number
           average_pizza_price: number | null
+          bank_verification_enabled: boolean
           birthday_events_enabled: boolean | null
           blackout_dates: string[] | null
           break_coverage_enabled: boolean
@@ -7391,6 +7392,7 @@ export type Database = {
         Insert: {
           am_safe_count_window_minutes?: number
           average_pizza_price?: number | null
+          bank_verification_enabled?: boolean
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           break_coverage_enabled?: boolean
@@ -7425,6 +7427,7 @@ export type Database = {
         Update: {
           am_safe_count_window_minutes?: number
           average_pizza_price?: number | null
+          bank_verification_enabled?: boolean
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           break_coverage_enabled?: boolean
