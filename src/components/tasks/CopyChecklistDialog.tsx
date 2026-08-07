@@ -51,7 +51,7 @@ export function CopyChecklistDialog({
       // Get all locations the user has access to (except current)
       const { data: locations, error: locError } = await supabase
         .from('locations')
-        .select('id, name')
+        .select('id, name, store_number, organization_id, organizations(name, brand_name, brands(name))')
         .neq('id', currentLocation?.id)
         .order('name');
 
@@ -59,7 +59,7 @@ export function CopyChecklistDialog({
 
       // For each location, check which of the selected checklists already exist
       const locationsWithExisting: TargetLocation[] = await Promise.all(
-        (locations || []).map(async (loc) => {
+        (locations || []).map(async (loc: any) => {
           const { data: existing } = await supabase
             .from('checklists')
             .select('title')
@@ -69,6 +69,9 @@ export function CopyChecklistDialog({
           return {
             id: loc.id,
             name: loc.name,
+            storeNumber: loc.store_number ?? null,
+            orgName: loc.organizations?.name ?? null,
+            brandName: loc.organizations?.brands?.name ?? loc.organizations?.brand_name ?? null,
             existingTitles: existing?.map(c => c.title) || []
           };
         })
