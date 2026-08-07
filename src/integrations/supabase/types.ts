@@ -1749,6 +1749,7 @@ export type Database = {
           id: string
           location_id: string | null
           manager_note: string | null
+          session_id: string
           status: string
           submitted_at: string | null
           updated_at: string
@@ -1767,6 +1768,7 @@ export type Database = {
           id?: string
           location_id?: string | null
           manager_note?: string | null
+          session_id?: string
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -1785,6 +1787,7 @@ export type Database = {
           id?: string
           location_id?: string | null
           manager_note?: string | null
+          session_id?: string
           status?: string
           submitted_at?: string | null
           updated_at?: string
