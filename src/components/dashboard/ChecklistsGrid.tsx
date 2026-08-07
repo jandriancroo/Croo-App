@@ -1,7 +1,9 @@
 import React from 'react';
-import { Card } from '@/components/ui/card';
-import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
+import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 
 interface ChecklistItem {
   id: string;
@@ -15,8 +17,12 @@ interface ChecklistsGridProps {
   checklists: ChecklistItem[];
   getCompletionData: (id: string) => { expected: number; completed: number };
   timezone: string;
-  /** Training assignment rows appended to the bottom of the same card */
+  /** Training group (header + trainee rows) appended inside the same card */
   trainingRows?: React.ReactNode;
+  /** Incomplete trainee rows — added to the header's remaining count */
+  trainingRemaining?: number;
+  /** Total trainee rows — added to the header's total */
+  trainingTotal?: number;
 }
 
 export const ChecklistsGrid = React.memo(function ChecklistsGrid({
@@ -24,15 +30,23 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   getCompletionData,
   timezone,
   trainingRows,
+  trainingRemaining = 0,
+  trainingTotal = 0,
 }: ChecklistsGridProps) {
+  const navigate = useNavigate();
+
   // Monthly checklists (e.g. deep cleaning) appear in the list when they're
   // close to their due date, but should NOT count toward the daily "remaining"
   // rollup — they're on their own cadence.
   const dailyChecklists = checklists.filter(cl => cl.frequency !== 'monthly');
-  const remainingCount = dailyChecklists.filter(cl => {
-    const { expected, completed } = getCompletionData(cl.id);
-    return expected === 0 || completed < expected;
-  }).length;
+  // Remaining = incomplete tappable rows. Zero-item lists don't count.
+  const countableChecklists = dailyChecklists.filter(cl => getCompletionData(cl.id).expected > 0);
+  const remainingCount =
+    countableChecklists.filter(cl => {
+      const { expected, completed } = getCompletionData(cl.id);
+      return completed < expected;
+    }).length + trainingRemaining;
+  const totalCount = countableChecklists.length + trainingTotal;
 
   // Compute current time in location timezone ONCE for all rows
   const now = new Date();
@@ -47,7 +61,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   const nowH = Number(timeParts.find(p => p.type === 'hour')?.value ?? '0');
   const nowM = Number(timeParts.find(p => p.type === 'minute')?.value ?? '0');
   const nowS = Number(timeParts.find(p => p.type === 'second')?.value ?? '0');
-  const nowMinutes = nowH * 60 + nowM;
   const nowSeconds = nowH * 3600 + nowM * 60 + nowS;
 
   const formatLockTime = (time: string) => {
@@ -59,43 +72,50 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
 
   return (
     <div className="flex flex-col gap-1 w-full">
-      <DashSectionTitle action={remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${dailyChecklists.length} remaining`}>
+      <DashSectionTitle
+        action={remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${totalCount} remaining`}
+      >
         Checklists
       </DashSectionTitle>
-      <Card className="border-0 overflow-hidden p-0">
-        <div className="divide-y divide-border/30">
-          {checklists.map(checklist => {
-            const { expected, completed } = getCompletionData(checklist.id);
-            const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-            const isComplete = completionRate === 100;
 
-            const isOverdue = !isComplete && !!checklist.due_by_time && (() => {
-              const [dueH, dueM] = checklist.due_by_time!.split(':').map(Number);
-              return nowMinutes > dueH * 60 + dueM;
-            })();
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {checklists.map((checklist, idx) => {
+          const { expected, completed } = getCompletionData(checklist.id);
 
-            const isLocked = !!checklist.lock_until_time && (() => {
-              const [lH, lM, lS] = checklist.lock_until_time!.split(':').map(Number);
-              return nowSeconds < lH * 3600 + lM * 60 + (lS || 0);
-            })();
+          const isLocked = !!checklist.lock_until_time && (() => {
+            const [lH, lM, lS] = checklist.lock_until_time!.split(':').map(Number);
+            return nowSeconds < lH * 3600 + lM * 60 + (lS || 0);
+          })();
 
-            return (
-              <ChecklistCard
-                key={checklist.id}
-                checklistId={checklist.id}
-                title={checklist.title}
+          return (
+            <div
+              key={checklist.id}
+              onClick={() => { if (!isLocked) navigate(`/complete/${checklist.id}`); }}
+              className={cn(
+                'flex items-center gap-3 px-[14px] py-[13px] transition-colors duration-150',
+                idx > 0 && 'border-t border-border',
+                isLocked ? 'opacity-60' : 'cursor-pointer hover:bg-muted/40'
+              )}
+            >
+              <span className="flex-1 text-[15px] font-medium tracking-[-0.01em] text-foreground truncate">
+                {checklist.title}
+              </span>
+              <ChecklistStat
                 completed={completed}
-                expected={expected}
-                isOverdue={isOverdue}
-                isLocked={isLocked}
-                lockUntilTime={isLocked && checklist.lock_until_time ? formatLockTime(checklist.lock_until_time) : undefined}
-                variant="row"
+                total={expected}
+                countOverride={
+                  isLocked && checklist.lock_until_time
+                    ? `Locked until ${formatLockTime(checklist.lock_until_time)}`
+                    : undefined
+                }
               />
-            );
-          })}
-          {trainingRows}
-        </div>
-      </Card>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </div>
+          );
+        })}
+
+        {trainingRows}
+      </div>
     </div>
   );
 });
