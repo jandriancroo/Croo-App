@@ -7315,6 +7315,7 @@ export type Database = {
           is_hidden_from_chooser: boolean
           location_id: string
           notes: string | null
+          skip_trial: boolean
           updated_at: string
         }
         Insert: {
@@ -7323,6 +7324,7 @@ export type Database = {
           is_hidden_from_chooser?: boolean
           location_id: string
           notes?: string | null
+          skip_trial?: boolean
           updated_at?: string
         }
         Update: {
@@ -7331,6 +7333,7 @@ export type Database = {
           is_hidden_from_chooser?: boolean
           location_id?: string
           notes?: string | null
+          skip_trial?: boolean
           updated_at?: string
         }
         Relationships: [

@@ -39,23 +39,21 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    const { priceId, organizationId, locationId, skipTrial } = await req.json();
+    const { priceId, organizationId, locationId } = await req.json();
     if (!priceId) throw new Error("priceId is required");
     if (!locationId) throw new Error("locationId is required");
-    logStep("Request params", { priceId, organizationId, locationId, skipTrial: !!skipTrial });
+    logStep("Request params", { priceId, organizationId, locationId });
 
-    // Gate skipTrial to super_admin only
-    let allowSkipTrial = false;
-    if (skipTrial) {
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "super_admin")
-        .maybeSingle();
-      allowSkipTrial = !!roleRow;
-      if (!allowSkipTrial) logStep("skipTrial requested but user is not super_admin — ignoring");
-    }
+    // Skip-trial is a persisted, super-admin-only setting on the location.
+    // It is never taken from the request body.
+    const { data: overrideRow } = await supabase
+      .from("location_plan_overrides")
+      .select("skip_trial")
+      .eq("location_id", locationId)
+      .maybeSingle();
+    const allowSkipTrial = !!overrideRow?.skip_trial;
+    logStep("Resolved skip_trial from location override", { allowSkipTrial });
+
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 

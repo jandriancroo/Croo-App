@@ -114,16 +114,18 @@ export function useSubscription() {
     }
   }, [isStandalone]);
 
-  const startCheckout = useCallback(async (priceId: string, skipTrial?: boolean, locationId?: string) => {
+  const startCheckout = useCallback(async (priceId: string, _skipTrialUnused?: boolean, locationId?: string) => {
     if (!locationId) throw new Error('Please select a location to subscribe');
+    // Trial handling is resolved server-side from the location's saved setting.
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { priceId, organizationId, locationId, skipTrial: !!skipTrial },
+      body: { priceId, organizationId, locationId },
     });
     if (error) throw error;
     if (data?.url) {
       openUrl(data.url);
     }
   }, [organizationId, openUrl]);
+
 
   const openPortal = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke('customer-portal');
