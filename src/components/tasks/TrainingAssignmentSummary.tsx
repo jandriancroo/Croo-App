@@ -20,7 +20,7 @@ export function TrainingAssignmentSummary({ checklistId }: Props) {
         .from('checklist_assignments')
         .select('assignee_id, assigned_date, status, approver_roles, approver_user_ids')
         .eq('checklist_id', checklistId)
-        .neq('status', 'approved')
+        .not('status', 'in', '("approved","cancelled")')
         .order('assigned_date', { ascending: true });
 
       if (!rows || rows.length === 0) return { trainees: [], approvers: [] };
