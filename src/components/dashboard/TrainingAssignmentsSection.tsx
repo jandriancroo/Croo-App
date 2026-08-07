@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Check, GraduationCap } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useTrainingAssignments, shortName, type TrainingAssignment } from '@/hooks/useTrainingAssignments';
+import { ChevronRight, GraduationCap } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn, getInitials } from '@/lib/utils';
+import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
+import { useTrainingAssignments, type TrainingAssignment } from '@/hooks/useTrainingAssignments';
 
 interface Props {
   locationId?: string | null;
@@ -13,99 +14,88 @@ interface Props {
   canApprove: boolean;
 }
 
-const statusBadge = (status: string) => {
-  switch (status) {
-    case 'submitted':
-      return { label: 'Needs approval', className: 'bg-amber-500/15 text-amber-600' };
-    case 'approved':
-      return { label: 'Approved', className: 'bg-primary/15 text-primary' };
-    case 'changes_requested':
-      return { label: 'Changes requested', className: 'bg-destructive/15 text-destructive' };
-    default:
-      return { label: 'In progress', className: 'bg-muted text-muted-foreground' };
-  }
-};
-
-const pct = (a: TrainingAssignment) =>
-  a.expected > 0 ? Math.min(100, Math.round((a.completed / a.expected) * 100)) : 0;
+/** Groups training assignments into one header per checklist, one row per trainee. */
+export function groupTrainingAssignments(
+  assignments: TrainingAssignment[],
+  userId?: string | null,
+  canApprove?: boolean
+) {
+  const visible = assignments.filter(a => canApprove || a.assignee_id === userId);
+  const map = new Map<string, { checklistId: string; title: string; expected: number; trainees: TrainingAssignment[] }>();
+  visible.forEach(a => {
+    const group = map.get(a.checklist_id) || {
+      checklistId: a.checklist_id,
+      title: a.checklist_title,
+      expected: a.expected,
+      trainees: [],
+    };
+    group.trainees.push(a);
+    map.set(a.checklist_id, group);
+  });
+  return [...map.values()].map(g => ({
+    ...g,
+    trainees: [...g.trainees].sort((x, y) => x.assignee_name.localeCompare(y.assignee_name)),
+  }));
+}
 
 export function TrainingAssignmentsSection({ locationId, userId, timezone, canApprove }: Props) {
   const navigate = useNavigate();
   const { data: assignments = [] } = useTrainingAssignments({ locationId, userId, timezone });
 
-  const mine = useMemo(() => assignments.filter(a => a.assignee_id === userId), [assignments, userId]);
+  const groups = useMemo(
+    () => groupTrainingAssignments(assignments, userId, canApprove),
+    [assignments, userId, canApprove]
+  );
 
-  if (assignments.length === 0) return null;
-
-  const open = (a: TrainingAssignment) =>
-    navigate(`/complete/${a.checklist_id}?assignment=${a.id}`);
-
-  const Row = ({ a, showTrainee }: { a: TrainingAssignment; showTrainee: boolean }) => {
-    const badge = statusBadge(a.status);
-    const rate = pct(a);
-    const isComplete = rate === 100;
-    return (
-      <div
-        onClick={() => open(a)}
-        className="overflow-hidden relative cursor-pointer hover:bg-muted/30 transition-colors duration-150"
-      >
-        <div className="flex items-center gap-3 pl-5 pr-4 py-2.5">
-          {/* Progress ring — identical to checklist rows */}
-          <div className="relative shrink-0 w-10 h-10">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
-              <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
-              <circle
-                cx="24" cy="24" r="20" fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="3" strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 20}
-                strokeDashoffset={(2 * Math.PI * 20) - (rate / 100) * (2 * Math.PI * 20)}
-                className="transition-all duration-700"
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              {isComplete ? (
-                <Check className="h-5 w-5 text-primary" strokeWidth={3} />
-              ) : (
-                <span className="text-[11px] font-black text-primary">{rate}%</span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-semibold text-sm truncate">
-                {showTrainee ? `${a.checklist_title} — ${shortName(a.assignee_name)}` : a.checklist_title}
-              </span>
-              <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0 px-1.5 py-0 gap-1">
-                <GraduationCap className="h-2.5 w-2.5" />
-                TRAINING
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${rate}%` }} />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground">{a.completed}/{a.expected}</span>
-              <Badge className={cn('border-0 text-[10px] shrink-0', badge.className)}>{badge.label}</Badge>
-            </div>
-          </div>
-
-          <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-        </div>
-      </div>
-    );
-  };
+  if (groups.length === 0) return null;
 
   return (
     <>
-      {mine.map(a => (
-        <Row key={a.id} a={a} showTrainee={false} />
+      {/* Training break — labels the section */}
+      <div className="flex items-center gap-2.5 px-[14px] pt-[14px] pb-0.5">
+        <span className="text-[11px] uppercase tracking-[0.09em] text-primary">Training</span>
+        <div className="flex-1 border-t border-dashed border-border" />
+      </div>
+
+      {groups.map(group => (
+        <div key={group.checklistId}>
+          {/* Group header — same title treatment as a regular checklist */}
+          <div className="flex items-center gap-2 px-[14px] pt-2.5 pb-1">
+            <span className="text-[15px] font-medium tracking-[-0.01em] text-foreground truncate">
+              {group.title}
+            </span>
+            <GraduationCap className="h-4 w-4 text-primary shrink-0" aria-label="Training checklist" />
+            <div className="flex-1" />
+            <span className="text-[12px] text-muted-foreground shrink-0">
+              {group.trainees.length} {group.trainees.length === 1 ? 'trainee' : 'trainees'} · {group.expected} items
+            </span>
+          </div>
+
+          {/* Trainee rows */}
+          <div className="px-[14px] pb-2.5">
+            {group.trainees.map((a, idx) => (
+              <div
+                key={a.id}
+                onClick={() => navigate(`/complete/${a.checklist_id}?assignment=${a.id}`)}
+                className={cn(
+                  'flex items-center gap-3 py-3 min-h-[44px] cursor-pointer transition-colors duration-150 hover:bg-muted/40',
+                  idx > 0 && 'border-t border-border'
+                )}
+              >
+                <Avatar className="h-[26px] w-[26px] shrink-0">
+                  <AvatarImage src={a.assignee_photo || undefined} alt="" />
+                  <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
+                    {getInitials(a.assignee_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="flex-1 text-[13px] text-foreground truncate">{a.assignee_name}</span>
+                <ChecklistStat completed={a.completed} total={a.expected} />
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
       ))}
-      {canApprove &&
-        assignments
-          .filter(a => a.assignee_id !== userId)
-          .map(a => <Row key={a.id} a={a} showTrainee />)}
     </>
   );
 }

@@ -22,3 +22,15 @@ export function formatTime12Hour(time24: string | undefined | null, compact?: bo
   }
   return `${hours12}:${minutes.toString().padStart(2, '0')}${compact ? '' : ' '}${period}`;
 }
+
+/**
+ * Two-letter monogram: first char of first word + first char of last word.
+ * Single word → one letter. Empty/null → "?".
+ */
+export function getInitials(name?: string | null): string {
+  const cleaned = (name || '').trim().replace(/\s+/g, ' ');
+  if (!cleaned) return '?';
+  const parts = cleaned.split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
