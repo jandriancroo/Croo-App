@@ -1097,8 +1097,35 @@ async function handleRetentionJanitor(
       : { deleted: data ?? 0, days };
   }
 
+  // Bank verification photos (deposit slips + bank receipts): keep 1 year
+  let bankPhotosDeleted = 0;
+  try {
+    const cutoff = Date.now() - 365 * 24 * 60 * 60 * 1000;
+    const { data: folders } = await supabase.storage
+      .from("bank-verification")
+      .list("", { limit: 1000 });
+
+    for (const folder of folders || []) {
+      const { data: files } = await supabase.storage
+        .from("bank-verification")
+        .list(folder.name, { limit: 1000 });
+      const stale = (files || [])
+        .filter((f: any) => f.created_at && new Date(f.created_at).getTime() < cutoff)
+        .map((f: any) => `${folder.name}/${f.name}`);
+      if (stale.length > 0) {
+        const { error } = await supabase.storage.from("bank-verification").remove(stale);
+        if (!error) bankPhotosDeleted += stale.length;
+      }
+    }
+    console.log(`[RETENTION] Removed ${bankPhotosDeleted} bank verification photos older than 1 year`);
+  } catch (e) {
+    console.error("[RETENTION] bank-verification prune failed:", e);
+  }
+  results["bank_verification_photos"] = { deleted: bankPhotosDeleted, days: 365 };
+
   const totalDeleted = Object.values(results).reduce((s, r) => s + r.deleted, 0);
-  console.log(`[RETENTION] Pruned ${totalDeleted} rows across ${tasks.length} tables`);
+  console.log(`[RETENTION] Pruned ${totalDeleted} rows/files`);
+
 
   return new Response(
     JSON.stringify({ success: true, totalDeleted, results, timestamp: new Date().toISOString() }),
