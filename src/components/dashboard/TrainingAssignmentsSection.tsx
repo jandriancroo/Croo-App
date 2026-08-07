@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, GraduationCap } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn, getInitials } from '@/lib/utils';
+import { getInitials } from '@/lib/utils';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useTrainingAssignments, type TrainingAssignment } from '@/hooks/useTrainingAssignments';
 
@@ -52,7 +52,7 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
   return (
     <>
       {/* Training break — labels the section */}
-      <div className="flex items-center gap-2.5 px-[14px] pt-[14px] pb-0.5">
+      <div className="flex items-center gap-2.5 px-[14px] pt-2.5 pb-0.5">
         <span className="text-[11px] uppercase tracking-[0.09em] text-primary">Training</span>
         <div className="flex-1 border-t border-dashed border-border" />
       </div>
@@ -60,7 +60,7 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
       {groups.map(group => (
         <div key={group.checklistId}>
           {/* Group header — same title treatment as a regular checklist */}
-          <div className="flex items-center gap-2 px-[14px] pt-2.5 pb-1">
+          <div className="flex items-center gap-2 px-[14px] pt-1.5 pb-1">
             <span className="text-[15px] font-medium tracking-[-0.01em] text-foreground truncate">
               {group.title}
             </span>
@@ -72,15 +72,12 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
           </div>
 
           {/* Trainee rows */}
-          <div className="px-[14px] pb-2.5">
-            {group.trainees.map((a, idx) => (
+          <div className="px-[14px] pb-1.5 space-y-1">
+            {group.trainees.map((a) => (
               <div
                 key={a.id}
                 onClick={() => navigate(`/complete/${a.checklist_id}?assignment=${a.id}`)}
-                className={cn(
-                  'flex items-center gap-3 py-3 min-h-[44px] cursor-pointer transition-colors duration-150 hover:bg-muted/40',
-                  idx > 0 && 'border-t border-border'
-                )}
+                className="flex items-center gap-2.5 rounded-full border border-border bg-card px-2.5 py-1.5 min-h-[40px] cursor-pointer transition-colors duration-150 hover:bg-muted/40"
               >
                 <Avatar className="h-[26px] w-[26px] shrink-0">
                   <AvatarImage src={a.assignee_photo || undefined} alt="" />
