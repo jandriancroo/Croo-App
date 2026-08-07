@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { GraduationCap, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Check, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTrainingAssignments, shortName, type TrainingAssignment } from '@/hooks/useTrainingAssignments';
 
@@ -50,79 +50,72 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
   const open = (a: TrainingAssignment) =>
     navigate(`/complete/${a.checklist_id}?assignment=${a.id}`);
 
+  const Row = ({ a, showTrainee }: { a: TrainingAssignment; showTrainee: boolean }) => {
+    const badge = statusBadge(a.status);
+    const rate = pct(a);
+    const isComplete = rate === 100;
+    return (
+      <div
+        onClick={() => open(a)}
+        className="overflow-hidden relative cursor-pointer hover:bg-muted/30 transition-colors duration-150"
+      >
+        <div className="flex items-center gap-3 pl-5 pr-4 py-2.5">
+          {/* Progress ring — identical to checklist rows */}
+          <div className="relative shrink-0 w-10 h-10">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
+              <circle
+                cx="24" cy="24" r="20" fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth="3" strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 20}
+                strokeDashoffset={(2 * Math.PI * 20) - (rate / 100) * (2 * Math.PI * 20)}
+                className="transition-all duration-700"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              {isComplete ? (
+                <Check className="h-5 w-5 text-primary" strokeWidth={3} />
+              ) : (
+                <span className="text-[11px] font-black text-primary">{rate}%</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-semibold text-sm truncate">
+                {showTrainee ? `${a.checklist_title} — ${shortName(a.assignee_name)}` : a.checklist_title}
+              </span>
+              <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0 px-1.5 py-0 gap-1">
+                <GraduationCap className="h-2.5 w-2.5" />
+                TRAINING
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${rate}%` }} />
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground">{a.completed}/{a.expected}</span>
+              <Badge className={cn('border-0 text-[10px] shrink-0', badge.className)}>{badge.label}</Badge>
+            </div>
+          </div>
+
+          <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
-          {/* My own training assignments always come first */}
-          {mine.map(a => {
-            const badge = statusBadge(a.status);
-            return (
-              <button
-                key={a.id}
-                onClick={() => open(a)}
-                className="w-full text-left flex items-center gap-3 px-4 py-3 active:bg-muted/50 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <GraduationCap className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <p className="text-sm font-semibold truncate">{a.checklist_title}</p>
-                    <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0">TRAINING</Badge>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(a)}%` }} />
-                    </div>
-                    <span className="text-[11px] font-medium text-muted-foreground">{a.completed}/{a.expected}</span>
-                  </div>
-                </div>
-                <Badge className={cn('border-0 text-[10px] shrink-0', badge.className)}>{badge.label}</Badge>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-              </button>
-            );
-          })}
-
-          {/* Manager roll-up: one row per template, trainees nested beneath */}
-          {canApprove &&
-            grouped.map(group => {
-              const others = group.rows.filter(r => r.assignee_id !== userId);
-              if (others.length === 0) return null;
-              return (
-                <div key={group.title} className="px-4 py-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">
-                      {group.title}
-                    </p>
-                    <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0">TRAINING</Badge>
-                  </div>
-                  <div className="space-y-1.5">
-                    {others.map(a => {
-                      const badge = statusBadge(a.status);
-                      return (
-                        <button
-                          key={a.id}
-                          onClick={() => open(a)}
-                          className="w-full flex items-center gap-2.5 rounded-lg px-2 py-1.5 active:bg-muted/50 transition-colors"
-                        >
-                          <Avatar className="h-6 w-6 shrink-0">
-                            {a.assignee_photo && <AvatarImage src={a.assignee_photo} alt={a.assignee_name} />}
-                            <AvatarFallback className="text-[10px]">
-                              {a.assignee_name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium truncate flex-1 text-left">
-                            {shortName(a.assignee_name)}
-                          </span>
-                          <span className="text-xs font-semibold text-muted-foreground tabular-nums">{pct(a)}%</span>
-                          <Badge className={cn('border-0 text-[10px] shrink-0', badge.className)}>{badge.label}</Badge>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+      {mine.map(a => (
+        <Row key={a.id} a={a} showTrainee={false} />
+      ))}
+      {canApprove &&
+        assignments
+          .filter(a => a.assignee_id !== userId)
+          .map(a => <Row key={a.id} a={a} showTrainee />)}
     </>
   );
 }
