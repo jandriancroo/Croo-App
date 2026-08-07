@@ -72,20 +72,21 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  // Color intensity ramps in 10% increments — full green only at 90%+
+  // Fill color shifts hue with progress — red → amber → lime → green
   const segmentFillClass = (percent: number) => {
     if (percent >= 100) return 'bg-emerald-600';
     if (percent >= 90) return 'bg-emerald-500';
-    if (percent >= 80) return 'bg-emerald-500/80';
-    if (percent >= 70) return 'bg-emerald-500/70';
-    if (percent >= 60) return 'bg-emerald-500/60';
-    if (percent >= 50) return 'bg-emerald-500/50';
-    if (percent >= 40) return 'bg-emerald-500/40';
-    if (percent >= 30) return 'bg-emerald-500/35';
-    if (percent >= 20) return 'bg-emerald-500/30';
-    if (percent >= 10) return 'bg-emerald-500/25';
-    return 'bg-emerald-500/20';
+    if (percent >= 80) return 'bg-green-500';
+    if (percent >= 70) return 'bg-lime-500';
+    if (percent >= 60) return 'bg-yellow-500';
+    if (percent >= 50) return 'bg-amber-500';
+    if (percent >= 40) return 'bg-amber-600';
+    if (percent >= 30) return 'bg-orange-500';
+    if (percent >= 20) return 'bg-orange-600';
+    if (percent >= 10) return 'bg-red-500';
+    return 'bg-red-600';
   };
+
 
   return (
     <div className="flex flex-col gap-1 w-full">
