@@ -74,6 +74,12 @@ export default function Auth() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (new URLSearchParams(location.search).get('deactivated') === '1') {
+      toast.error(DEACTIVATED_MESSAGE);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     const id = setInterval(() => setIsDay(isDaytime()), 5 * 60_000);
     return () => clearInterval(id);
   }, []);
