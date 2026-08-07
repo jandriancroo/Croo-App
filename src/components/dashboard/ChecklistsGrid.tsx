@@ -151,9 +151,10 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                         )}
                       />
                     ))}
+                  </div>
+                );
+              })()}
 
-                </div>
-              )}
             </div>
 
           );
