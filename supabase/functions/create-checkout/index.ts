@@ -119,9 +119,12 @@ serve(async (req) => {
     };
 
     if (allowSkipTrial) {
-      // Override any plan-default trial period
-      subscriptionData.trial_end = "now";
+      // No trial: bill immediately. (Stripe Checkout rejects trial_end: "now";
+      // omitting trial fields means the subscription starts active.)
+      delete subscriptionData.trial_period_days;
+      delete subscriptionData.trial_end;
     }
+
 
     // Per-location billing: quantity is always 1
     const session = await stripe.checkout.sessions.create({
