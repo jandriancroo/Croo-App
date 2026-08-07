@@ -123,6 +123,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (!checkedFirstLoginRef.current.has(userId)) {
             checkedFirstLoginRef.current.add(userId);
             setTimeout(async () => {
+              // Never stamp a login for a deactivated account.
+              if (await isDeactivatedProfile(userId)) return;
               const isFirst = await checkFirstLogin(userId);
               if (isFirst) {
                 navigate('/welcome');
