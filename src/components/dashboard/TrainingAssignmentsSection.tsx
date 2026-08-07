@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { GraduationCap, ChevronRight, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTrainingAssignments, shortName, type TrainingAssignment } from '@/hooks/useTrainingAssignments';
@@ -49,19 +47,11 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
 
   if (assignments.length === 0) return null;
 
-  const needsApproval = assignments.filter(a => a.status === 'submitted').length;
-
   const open = (a: TrainingAssignment) =>
     navigate(`/complete/${a.checklist_id}?assignment=${a.id}`);
 
   return (
-    <div className="flex flex-col gap-1 w-full">
-      <DashSectionTitle action={needsApproval > 0 ? `${needsApproval} need approval` : undefined}>
-        Training
-      </DashSectionTitle>
-
-      <Card className="border-0 overflow-hidden p-0">
-        <div className="divide-y divide-border/30">
+    <>
           {/* My own training assignments always come first */}
           {mine.map(a => {
             const badge = statusBadge(a.status);
@@ -75,7 +65,10 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
                   <GraduationCap className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{a.checklist_title}</p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-sm font-semibold truncate">{a.checklist_title}</p>
+                    <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0">TRAINING</Badge>
+                  </div>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                       <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct(a)}%` }} />
@@ -101,6 +94,7 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">
                       {group.title}
                     </p>
+                    <Badge className="border-0 bg-primary/10 text-primary text-[9px] tracking-wide shrink-0">TRAINING</Badge>
                   </div>
                   <div className="space-y-1.5">
                     {others.map(a => {
@@ -129,8 +123,6 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
                 </div>
               );
             })}
-        </div>
-      </Card>
-    </div>
+    </>
   );
 }

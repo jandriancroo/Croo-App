@@ -15,12 +15,15 @@ interface ChecklistsGridProps {
   checklists: ChecklistItem[];
   getCompletionData: (id: string) => { expected: number; completed: number };
   timezone: string;
+  /** Training assignment rows appended to the bottom of the same card */
+  trainingRows?: React.ReactNode;
 }
 
 export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   checklists,
   getCompletionData,
   timezone,
+  trainingRows,
 }: ChecklistsGridProps) {
   // Monthly checklists (e.g. deep cleaning) appear in the list when they're
   // close to their due date, but should NOT count toward the daily "remaining"
@@ -90,6 +93,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
               />
             );
           })}
+          {trainingRows}
         </div>
       </Card>
     </div>
