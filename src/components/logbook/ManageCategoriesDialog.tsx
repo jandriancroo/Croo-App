@@ -751,9 +751,10 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                       </Button>
                     )}
                     <Button onClick={async () => {
-                      // Save cash handling settings if applicable
-                      if (isCashHandling && currentLocation) {
+                      // Save cash handling / bank verification settings if applicable
+                      if ((isCashHandling || isBankDeposit) && currentLocation) {
                         try {
+
                           const { data: existingSettings } = await supabase
                             .from('location_settings')
                             .select('id')
