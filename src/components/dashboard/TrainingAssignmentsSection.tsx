@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, GraduationCap } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn, getInitials } from '@/lib/utils';
+import { getInitials } from '@/lib/utils';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useTrainingAssignments, type TrainingAssignment } from '@/hooks/useTrainingAssignments';
 
