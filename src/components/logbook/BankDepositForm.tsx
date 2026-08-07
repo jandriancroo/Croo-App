@@ -326,12 +326,15 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         entryId: e.entryId,
         entryDate: e.entryDate,
         depositAmount: e.depositAmount,
+        slipPath: slipPaths[e.entryDate] || undefined,
       })),
       totalDollars: summary.totalDollars,
       totalChange: summary.totalChange,
       totalAmount: summary.totalAmount,
       daysIncluded: summary.daysIncluded,
       notes: notes || undefined,
+      receiptPath: receiptPath || undefined,
+      verificationRequired: verificationEnabled || undefined,
     };
     
     onSave(data);
@@ -346,7 +349,14 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   }
   
   const canShowPreview = startDate && endDate && !loadingEntries;
-  const canSubmit = canShowPreview && summary.includableEntries.length > 0;
+  const missingSlips = verificationEnabled
+    ? summary.includableEntries.filter((e) => !slipPaths[e.entryDate]).length
+    : 0;
+  const missingReceipt = verificationEnabled && !receiptPath;
+  const canSubmit =
+    canShowPreview && summary.includableEntries.length > 0 && missingSlips === 0 && !missingReceipt;
+  
+
   
   return (
     <div className="space-y-6">
