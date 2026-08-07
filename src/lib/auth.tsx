@@ -140,7 +140,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       AUTH_TIMEOUT_MS,
       'Session check timed out. Please refresh and try again.'
     )
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
+        // Deactivated accounts must not keep a live session around.
+        if (session?.user && !isDeviceSession(session)) {
+          if (await isDeactivatedProfile(session.user.id)) {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            navigate('/auth?deactivated=1');
+            return;
+          }
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -176,6 +187,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       );
 
       if (!error && data.session) {
+        // Block deactivated employees: tear the session down immediately.
+        if (!isDeviceSession(data.session) && (await isDeactivatedProfile(data.session.user.id))) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          return { error: { name: 'AccountDeactivated', message: DEACTIVATED_MESSAGE } };
+        }
+
         setSession(data.session);
         setUser(data.user ?? null);
       }
