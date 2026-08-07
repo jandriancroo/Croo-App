@@ -714,10 +714,33 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
               );
             })()}
 
+            {/* Bank Verification - only for Bank Deposit category */}
+            {(() => {
+              const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase() || '';
+              if (!categoryName.includes('bank deposit')) return null;
+
+              return (
+                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                  <Label className="text-sm font-medium">Bank Verification</Label>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={bankVerification} onCheckedChange={setBankVerification} />
+                    <Label className="text-xs">Require deposit slip &amp; bank receipt photos</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    When on, each day included in a bank deposit requires a photo of that day's deposit slip,
+                    and the total requires a photo of the bank receipt. Photos are kept for one year.
+                  </p>
+                </div>
+              );
+            })()}
+
             <div className="flex gap-2">
               {(() => {
-                const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase();
+                const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase() || '';
                 const isCashHandling = categoryName === 'safe count' || categoryName === 'drawer count';
+                const isBankDeposit = categoryName.includes('bank deposit');
+                
+
                 
                 return (
                   <>
