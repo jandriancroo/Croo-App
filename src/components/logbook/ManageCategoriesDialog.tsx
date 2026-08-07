@@ -222,6 +222,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [pmSafeCountWindow, setPmSafeCountWindow] = useState<number>(120);
   const [drawerCountNotifications, setDrawerCountNotifications] = useState<boolean>(true);
   const [safeCountNotifications, setSafeCountNotifications] = useState<boolean>(true);
+  const [bankVerification, setBankVerification] = useState<boolean>(false);
 
   // Fetch location settings for cash handling values
   const { data: locationSettings } = useQuery({
@@ -230,7 +231,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
       if (!currentLocation) return null;
       const { data, error } = await supabase
         .from('location_settings')
-        .select('safe_target, drawer_bank, am_safe_count_window_minutes, pm_safe_count_window_minutes, drawer_count_notifications_enabled, safe_count_notifications_enabled')
+        .select('safe_target, drawer_bank, am_safe_count_window_minutes, pm_safe_count_window_minutes, drawer_count_notifications_enabled, safe_count_notifications_enabled, bank_verification_enabled')
         .eq('location_id', currentLocation.id)
         .maybeSingle();
       if (error) throw error;
@@ -241,11 +242,13 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
         setPmSafeCountWindow(data.pm_safe_count_window_minutes ?? 120);
         setDrawerCountNotifications(data.drawer_count_notifications_enabled ?? true);
         setSafeCountNotifications(data.safe_count_notifications_enabled ?? true);
+        setBankVerification(data.bank_verification_enabled ?? false);
       }
       return data;
     },
     enabled: open && !!currentLocation,
   });
+
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
