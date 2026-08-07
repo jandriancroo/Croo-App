@@ -77,14 +77,15 @@ export function TrainingAssignmentsSection({ locationId, userId, timezone, canAp
               <div
                 key={a.id}
                 onClick={() => navigate(`/complete/${a.checklist_id}?assignment=${a.id}`)}
-                className="flex items-center gap-2.5 rounded-full border border-border bg-card px-2.5 py-1.5 min-h-[40px] cursor-pointer transition-colors duration-150 hover:bg-muted/40"
+                className="flex items-center gap-2.5 rounded-[14px] bg-primary/10 px-2.5 py-1.5 min-h-[40px] cursor-pointer transition-colors duration-150 hover:bg-primary/15"
               >
                 <Avatar className="h-[26px] w-[26px] shrink-0">
                   <AvatarImage src={a.assignee_photo || undefined} alt="" />
-                  <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
+                  <AvatarFallback className="bg-card text-primary text-[10px] font-medium">
                     {getInitials(a.assignee_name)}
                   </AvatarFallback>
                 </Avatar>
+
                 <span className="flex-1 text-[13px] text-foreground truncate">{a.assignee_name}</span>
                 <ChecklistStat completed={a.completed} total={a.expected} />
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
