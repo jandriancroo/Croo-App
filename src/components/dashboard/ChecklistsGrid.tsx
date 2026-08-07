@@ -92,25 +92,42 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
               key={checklist.id}
               onClick={() => { if (!isLocked) navigate(`/complete/${checklist.id}`); }}
               className={cn(
-                'flex items-center gap-3 px-[14px] py-[13px] transition-colors duration-150',
+                'flex flex-col gap-[7px] px-[14px] py-[11px] transition-colors duration-150',
                 idx > 0 && 'border-t border-border',
                 isLocked ? 'opacity-60' : 'cursor-pointer hover:bg-muted/40'
               )}
             >
-              <span className="flex-1 text-[15px] font-medium tracking-[-0.01em] text-foreground truncate">
-                {checklist.title}
-              </span>
-              <ChecklistStat
-                completed={completed}
-                total={expected}
-                countOverride={
-                  isLocked && checklist.lock_until_time
-                    ? `Locked until ${formatLockTime(checklist.lock_until_time)}`
-                    : undefined
-                }
-              />
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex items-center gap-3">
+                <span className="flex-1 text-[15px] font-medium tracking-[-0.01em] text-foreground truncate">
+                  {checklist.title}
+                </span>
+                <ChecklistStat
+                  completed={completed}
+                  total={expected}
+                  countOverride={
+                    isLocked && checklist.lock_until_time
+                      ? `Locked until ${formatLockTime(checklist.lock_until_time)}`
+                      : undefined
+                  }
+                />
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </div>
+
+              {expected > 0 && (
+                <div className="flex items-center gap-[3px] w-full">
+                  {Array.from({ length: expected }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        'h-[3px] flex-1 rounded-full transition-colors duration-200',
+                        i < completed ? 'bg-emerald-500' : 'bg-muted'
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
+
           );
         })}
 
