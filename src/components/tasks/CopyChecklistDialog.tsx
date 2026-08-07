@@ -20,6 +20,9 @@ interface CopyChecklistDialogProps {
 interface TargetLocation {
   id: string;
   name: string;
+  storeNumber?: string | null;
+  orgName?: string | null;
+  brandName?: string | null;
   existingTitles: string[];
 }
 
