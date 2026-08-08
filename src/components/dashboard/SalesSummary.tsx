@@ -562,14 +562,32 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const cached = isTodayCheck && currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
     const useFastMode = isTodayCheck && !!cached?.data;
     
-    const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-      body: { 
-        locationId: currentLocation?.id,
-        targetDate: dateStr,
-        skipProjections,
-        fastMode: useFastMode // Skip historical data for faster refresh when we have cached data
-      }
-    });
+    // Ensure the access token is still valid — an expired JWT makes the edge
+    // function reject the call with 401 before the client auto-refreshes.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const expiresAt = sessionData?.session?.expires_at ?? 0;
+    if (expiresAt && expiresAt * 1000 - Date.now() < 60_000) {
+      await supabase.auth.refreshSession();
+    }
+
+    const invokeSales = () =>
+      supabase.functions.invoke("fetch-qubeyond-sales", {
+        body: {
+          locationId: currentLocation?.id,
+          targetDate: dateStr,
+          skipProjections,
+          fastMode: useFastMode // Skip historical data for faster refresh when we have cached data
+        }
+      });
+
+    let { data, error } = await invokeSales();
+
+    // One retry after a forced token refresh when the function rejects auth.
+    if (error && /401|unauthor/i.test(error.message || "")) {
+      await supabase.auth.refreshSession();
+      ({ data, error } = await invokeSales());
+    }
+
 
     // Capture diagnostic info for debugging
     setDiagnosticInfo({
