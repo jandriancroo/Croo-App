@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Camera, Check, Loader2, Trash2 } from "lucide-react";
+import { Camera, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 
 const BUCKET = "bank-verification";
 
@@ -76,6 +75,8 @@ export function BankVerificationPhoto({
   const handleRemove = async () => {
     if (!value) return;
     await supabase.storage.from(BUCKET).remove([value]);
+    setPreviewUrl(null);
+    setPreviewOpen(false);
     onChange(null);
   };
 
