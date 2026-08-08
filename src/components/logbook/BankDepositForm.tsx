@@ -597,22 +597,20 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     </span>
                   </div>
                   {verificationEnabled && currentLocation && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 border rounded-lg">
-                      <div className="space-y-0.5">
-                        <div className="text-sm font-medium">Bank Receipt</div>
-                        <div className="text-xs text-muted-foreground">
-                          {receiptPath ? "Receipt attached" : "Required before submitting"}
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 border rounded-lg">
+                      <span className="text-xs text-muted-foreground">
+                        {receiptPath ? "Bank receipt attached" : "Bank receipt required"}
+                      </span>
                       <BankVerificationPhoto
                         locationId={currentLocation.id}
                         slug="receipt"
-                        label="Upload bank receipt"
+                        label="Receipt"
                         variant="button"
                         value={receiptPath}
                         onChange={setReceiptPath}
                       />
                     </div>
+
                   )}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-muted-foreground">Days Included</span>
