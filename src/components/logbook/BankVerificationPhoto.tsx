@@ -97,10 +97,10 @@ export function BankVerificationPhoto({
         <div className="flex items-center gap-1">
           <Button
             type="button"
-            variant="ghost"
-            size="icon"
+            variant="secondary"
+            size="sm"
             className={cn(
-              "h-7 w-7 rounded-full",
+              "h-7 px-2 rounded-full gap-1.5 text-xs",
               value ? "text-emerald-600 hover:text-emerald-700" : "text-muted-foreground"
             )}
             disabled={disabled || uploading}
@@ -114,6 +114,7 @@ export function BankVerificationPhoto({
             ) : (
               <Camera className="h-4 w-4" />
             )}
+            <span className="font-medium">{value ? "View Slip" : "Upload Slip"}</span>
           </Button>
         </div>
       ) : (
