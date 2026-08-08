@@ -114,7 +114,7 @@ export function BankVerificationPhoto({
             ) : (
               <Camera className="h-4 w-4" />
             )}
-            <span className="font-medium">{value ? "View Slip" : "Upload Slip"}</span>
+            <span className="font-medium">Deposit Slip</span>
           </Button>
         </div>
       ) : (
