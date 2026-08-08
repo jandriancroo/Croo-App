@@ -97,11 +97,11 @@ export function BankVerificationPhoto({
         <div className="flex items-center gap-1">
           <Button
             type="button"
-            variant="secondary"
+            variant={value ? "outline" : "secondary"}
             size="sm"
             className={cn(
-              "h-7 px-2 rounded-full gap-1.5 text-xs",
-              value ? "text-emerald-600 hover:text-emerald-700" : "text-muted-foreground"
+              "gap-2",
+              value && "text-emerald-600 hover:text-emerald-700"
             )}
             disabled={disabled || uploading}
             aria-label={value ? `View ${label}` : `Upload ${label}`}
