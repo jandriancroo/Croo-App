@@ -908,6 +908,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <img 
                   src={headerLogo} 
                   alt={headerLogoAlt} 
+                  decoding="async"
+                  onError={() => setBrandLogoBroken(true)}
                 />
               ) : (
                 <div className="h-8 w-8 rounded-lg bg-white/20" />
@@ -1093,6 +1095,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <img 
                   src={headerLogo} 
                   alt={headerLogoAlt} 
+                  decoding="async"
+                  onError={() => setBrandLogoBroken(true)}
                 />
               ) : (
                 <div className="h-8 w-8 rounded-lg bg-white/20" />
