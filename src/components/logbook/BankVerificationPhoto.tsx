@@ -93,66 +93,38 @@ export function BankVerificationPhoto({
         }}
       />
 
-      {variant === "icon" ? (
-        <div className="flex items-center gap-1">
-          <Button
+      {value ? (
+        <div className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 h-9 overflow-hidden">
+          <button
             type="button"
-            variant={value ? "outline" : "secondary"}
-            size="sm"
-            className={cn(
-              "gap-2",
-              value && "text-emerald-600 hover:text-emerald-700"
-            )}
+            className="h-full px-2.5 flex items-center text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 disabled:opacity-50"
             disabled={disabled || uploading}
-            aria-label={value ? `View ${label}` : `Upload ${label}`}
-            onClick={() => (value ? setPreviewOpen(true) : inputRef.current?.click())}
+            aria-label={`Undo ${label} upload`}
+            onClick={handleRemove}
           >
-            {uploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : value ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <Camera className="h-4 w-4" />
-            )}
-            <span className="font-medium">Deposit Slip</span>
-          </Button>
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            className="h-full pl-1 pr-3 flex items-center text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+            onClick={() => setPreviewOpen(true)}
+          >
+            View
+          </button>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={value ? "outline" : "secondary"}
-            size="sm"
-            disabled={disabled || uploading}
-            onClick={() => inputRef.current?.click()}
-          >
-            {uploading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : value ? (
-              <Check className="h-4 w-4 mr-2 text-emerald-600" />
-            ) : (
-              <Camera className="h-4 w-4 mr-2" />
-            )}
-            {value ? "Replace photo" : label}
-          </Button>
-          {value && (
-            <>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setPreviewOpen(true)}>
-                View
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive"
-                onClick={handleRemove}
-                aria-label="Remove photo"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="gap-2"
+          disabled={disabled || uploading}
+          aria-label={`Upload ${label}`}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? <Loader2 className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+          <span className="font-medium">{variant === "icon" ? "Deposit Slip" : label}</span>
+        </Button>
       )}
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
@@ -167,29 +139,9 @@ export function BankVerificationPhoto({
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           )}
-          {variant === "icon" && value && (
-            <div className="flex justify-between">
-              <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-                <Camera className="h-4 w-4 mr-2" />
-                Replace
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={() => {
-                  handleRemove();
-                  setPreviewOpen(false);
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Remove
-              </Button>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
+
     </>
   );
 }
