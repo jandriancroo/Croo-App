@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
+import poweredByStripe from '@/assets/powered-by-stripe.svg.asset.json';
 
 
 
@@ -297,6 +298,14 @@ export default function Billing() {
                               {skipTrial ? 'Subscribe Now' : 'Start Trial'}
                               <ExternalLink className="h-3 w-3 ml-1 flex-shrink-0" />
                             </Button>
+                            <div className="mt-2 flex justify-center">
+                              <img
+                                src={poweredByStripe.url}
+                                alt="Powered by Stripe"
+                                className="h-6 w-auto opacity-70"
+                                loading="lazy"
+                              />
+                            </div>
                           </CardContent>
                         </Card>
                       </div>
