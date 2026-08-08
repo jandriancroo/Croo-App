@@ -201,9 +201,12 @@ export default function Settings() {
 
   // Pill label helpers
   const locationLabel = currentLocation?.name || 'Location';
-  const currentOrgId = (currentLocation as any)?.organization_id || organizationId;
-  const currentOrg = organizations.find(o => o.id === currentOrgId) ?? organizations.find(o => o.id === organizationId);
+  // Org must follow the CURRENT location — never fall back to a different org,
+  // otherwise multi-brand admins see the previous brand's organization here.
+  const currentOrgId = (currentLocation as any)?.organization_id || (currentLocation ? undefined : organizationId);
+  const currentOrg = currentOrgId ? organizations.find(o => o.id === currentOrgId) : undefined;
   const orgLabel = currentOrg?.name || 'Organization';
+
 
   // Pre-flight check used to decide whether the section card should render at all.
   // Mirrors the early `return null` cases inside renderSectionContent so we can

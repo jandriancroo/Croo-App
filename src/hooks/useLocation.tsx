@@ -228,6 +228,34 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('currentLocationId', enriched.id);
     try { localStorage.setItem('currentLocationCache', JSON.stringify(enriched)); } catch {}
 
+    // If neither the caller nor the roster knew the org (e.g. multi-brand admins
+    // switching into a location outside their primary org), resolve it from the
+    // database so org-scoped panels (Settings, members, roles) don't keep
+    // showing the previous organization.
+    if (!enriched.organization_id) {
+      (async () => {
+        const { data } = await supabase
+          .from('locations')
+          .select('organization_id, organizations(brand_name, brands(name))')
+          .eq('id', enriched.id)
+          .maybeSingle();
+        if (!data?.organization_id) return;
+        const resolved: Location = {
+          ...enriched,
+          organization_id: data.organization_id,
+          brand_name:
+            enriched.brand_name ??
+            (data as any).organizations?.brand_name ??
+            (data as any).organizations?.brands?.name ??
+            null,
+        };
+        setCurrentLocationState(prev => (prev?.id === resolved.id ? resolved : prev));
+        setOrganizationId(data.organization_id);
+        try { localStorage.setItem('currentLocationCache', JSON.stringify(resolved)); } catch {}
+      })();
+    }
+
+
     const locationScopedKeys = [
       'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
       'checklists', 'inventory', 'user-data-cubes', 'sales-cache-today',
