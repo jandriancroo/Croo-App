@@ -587,31 +587,33 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     <span className="text-muted-foreground">Coins (Change)</span>
                     <span className="font-semibold">{formatCurrency(summary.totalChange)}</span>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/30 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5 text-primary" />
-                      <span className="font-medium">Total Deposit</span>
-                    </div>
-                    <span className="text-2xl font-bold text-primary">
-                      {formatCurrency(summary.totalAmount)}
-                    </span>
-                  </div>
-                  {verificationEnabled && currentLocation && (
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 border rounded-lg">
-                      <span className="text-xs text-muted-foreground">
-                        {receiptPath ? "Bank receipt attached" : "Bank receipt required"}
+                  <div className="p-4 bg-primary/10 border border-primary/30 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-primary" />
+                        <span className="font-medium">Total Deposit</span>
+                      </div>
+                      <span className="text-2xl font-bold text-primary">
+                        {formatCurrency(summary.totalAmount)}
                       </span>
-                      <BankVerificationPhoto
-                        locationId={currentLocation.id}
-                        slug="receipt"
-                        label="Receipt"
-                        variant="button"
-                        value={receiptPath}
-                        onChange={setReceiptPath}
-                      />
                     </div>
+                    {verificationEnabled && currentLocation && (
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-primary/20">
+                        <span className="text-xs text-muted-foreground">
+                          {receiptPath ? "Bank receipt attached" : "Bank receipt required"}
+                        </span>
+                        <BankVerificationPhoto
+                          locationId={currentLocation.id}
+                          slug="receipt"
+                          label="Receipt"
+                          variant="button"
+                          value={receiptPath}
+                          onChange={setReceiptPath}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                  )}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-muted-foreground">Days Included</span>
                     <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
