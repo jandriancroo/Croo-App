@@ -36,7 +36,9 @@ export const LocationSelector = () => {
             name: loc.name,
             location_type: loc.location_type,
             store_number: loc.store_number,
+            organization_id: loc.organization_id ?? undefined,
           });
+
           const displayName = loc.store_number ? `#${loc.store_number} ${loc.name}` : loc.name;
           toast.success(`Switched to ${displayName}`);
         }}
