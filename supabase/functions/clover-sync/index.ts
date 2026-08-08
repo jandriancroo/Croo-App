@@ -96,6 +96,9 @@ function businessDayWindowMs(date: string, tz: string): { startMs: number; endMs
 }
 
 // ── Brand guard ─────────────────────────────────────────────────────────────
+// Returns null (instead of throwing) when the location isn't a Playa Bowls
+// location. Callers like the drawer-count form probe Clover first and fall back
+// to Qu, so a non-Playa location must be a graceful "not applicable", not a 500.
 async function assertPlayaLocation(supabase: any, locationId: string) {
   const { data, error } = await supabase
     .from("locations")
@@ -106,9 +109,8 @@ async function assertPlayaLocation(supabase: any, locationId: string) {
   if (!data) throw new Error(`Location ${locationId} not found`);
   const brandId = data.organizations?.brand_id;
   if (brandId !== PLAYA_BOWLS_BRAND_ID) {
-    throw new Error(
-      `Brand guard: location ${locationId} brand ${brandId} is not Playa Bowls. Clover sync refused.`,
-    );
+    console.log(`[clover-sync] skip: location ${locationId} brand ${brandId} is not Playa Bowls`);
+    return null;
   }
   return { name: data.name as string };
 }
