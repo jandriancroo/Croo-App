@@ -631,13 +631,20 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     },
     enabled: !!currentLocation?.id,
     staleTime: 5 * 60 * 1000, // 5 min — matches prefetch, logo rarely changes
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
 
-  // Cache the brand logo URL for instant load on next visit
+  // Cache the brand logo URL for instant load on next visit.
+  // We keep BOTH a per-location key and a "last known" key: on slow/flaky
+  // networks (older iPhones, corporate Windows machines) the logo query can
+  // fail or resolve late, and without the last-known fallback the header
+  // snapped to the generic Croo mark instead of the brand.
   useEffect(() => {
     if (orgLogo?.logo_url && currentLocation?.id) {
       localStorage.setItem(`brand-logo-${currentLocation.id}`, orgLogo.logo_url);
+      localStorage.setItem('brand-logo-last', orgLogo.logo_url);
     }
   }, [orgLogo?.logo_url, currentLocation?.id]);
 
@@ -645,11 +652,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const cachedLogoUrl = currentLocation?.id 
     ? localStorage.getItem(`brand-logo-${currentLocation.id}`) 
     : null;
+  const lastKnownLogoUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('brand-logo-last') : null;
+
+  // If the brand image itself fails to decode/download, degrade to the Croo mark
+  const [brandLogoBroken, setBrandLogoBroken] = useState(false);
+  const resolvedBrandLogo = orgLogo?.logo_url || cachedLogoUrl || lastKnownLogoUrl;
+  useEffect(() => { setBrandLogoBroken(false); }, [resolvedBrandLogo]);
 
   // Use cached logo immediately, then update when query completes
-  const headerLogo = orgLogo?.logo_url || cachedLogoUrl || (orgLogoLoading ? null : crooLogo);
+  const headerLogo = (!brandLogoBroken && resolvedBrandLogo) || (orgLogoLoading ? null : crooLogo);
   const orgDisplayName = (orgLogo as any)?.brand_name || orgLogo?.name;
-  const headerLogoAlt = (orgLogo?.logo_url || cachedLogoUrl) ? (orgDisplayName || 'Organization') : 'Croo';
+  const headerLogoAlt = (!brandLogoBroken && resolvedBrandLogo) ? (orgDisplayName || 'Organization') : 'Croo';
+
 
   // Fetch org/brand name for org-dash header label
   const isOnOrgDash = location.pathname === '/org-dash';
