@@ -390,15 +390,16 @@ export function LocationPickerDialog({
   }, [filteredLocations, organizations, activeTab, search]);
 
   const handleSelectLocation = (location: Location) => {
-    
     onSelectLocation({
       id: location.id,
       name: location.name,
       location_type: location.location_type,
       store_number: location.store_number,
+      organization_id: location.organization_id ?? null,
     });
     onOpenChange(false);
   };
+
 
   const handleSetDefault = async (e: React.MouseEvent, locationId: string) => {
     e.stopPropagation();
