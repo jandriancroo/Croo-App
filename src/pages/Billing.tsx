@@ -18,6 +18,8 @@ import { Label } from '@/components/ui/label';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import poweredByStripe from '@/assets/powered-by-stripe.svg.asset.json';
+import poweredByStripeWhite from '@/assets/powered-by-stripe-white.svg.asset.json';
+
 
 
 
@@ -300,12 +302,13 @@ export default function Billing() {
                             </Button>
                             <div className="mt-2 flex justify-center">
                               <img
-                                src={poweredByStripe.url}
+                                src={isFounder ? poweredByStripeWhite.url : poweredByStripe.url}
                                 alt="Powered by Stripe"
-                                className="h-6 w-auto opacity-70"
+                                className={`h-6 w-auto ${isFounder ? 'opacity-90' : 'opacity-70'}`}
                                 loading="lazy"
                               />
                             </div>
+
                           </CardContent>
                         </Card>
                       </div>
