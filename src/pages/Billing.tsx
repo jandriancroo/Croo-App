@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
+import poweredByStripe from '@/assets/powered-by-stripe.svg.asset.json';
 
 
 
