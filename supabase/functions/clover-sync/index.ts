@@ -96,6 +96,9 @@ function businessDayWindowMs(date: string, tz: string): { startMs: number; endMs
 }
 
 // ── Brand guard ─────────────────────────────────────────────────────────────
+// Returns null (instead of throwing) when the location isn't a Playa Bowls
+// location. Callers like the drawer-count form probe Clover first and fall back
+// to Qu, so a non-Playa location must be a graceful "not applicable", not a 500.
 async function assertPlayaLocation(supabase: any, locationId: string) {
   const { data, error } = await supabase
     .from("locations")
@@ -106,9 +109,8 @@ async function assertPlayaLocation(supabase: any, locationId: string) {
   if (!data) throw new Error(`Location ${locationId} not found`);
   const brandId = data.organizations?.brand_id;
   if (brandId !== PLAYA_BOWLS_BRAND_ID) {
-    throw new Error(
-      `Brand guard: location ${locationId} brand ${brandId} is not Playa Bowls. Clover sync refused.`,
-    );
+    console.log(`[clover-sync] skip: location ${locationId} brand ${brandId} is not Playa Bowls`);
+    return null;
   }
   return { name: data.name as string };
 }
@@ -668,7 +670,16 @@ Deno.serve(async (req) => {
     const locationId = body.locationId;
     if (!locationId) throw new Error("locationId required");
 
-    const { name } = await assertPlayaLocation(supabase, locationId);
+    const guard = await assertPlayaLocation(supabase, locationId);
+    if (!guard) {
+      // Not a Clover/Playa location — respond 200 so probing callers can fall
+      // back to their own POS without surfacing a runtime error.
+      return new Response(
+        JSON.stringify({ success: false, skipped: true, reason: "not_clover_location" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const { name } = guard;
     const creds = await getCloverCreds(supabase, locationId);
     const tz = await getLocationTimezone(supabase, locationId);
 
