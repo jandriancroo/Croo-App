@@ -42,7 +42,7 @@ interface Location {
 interface LocationPickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectLocation: (location: { id: string; name: string; location_type: string; store_number?: string | null }) => void;
+  onSelectLocation: (location: { id: string; name: string; location_type: string; store_number?: string | null; organization_id?: string | null }) => void;
   currentLocationId?: string;
 }
 
