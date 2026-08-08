@@ -670,7 +670,16 @@ Deno.serve(async (req) => {
     const locationId = body.locationId;
     if (!locationId) throw new Error("locationId required");
 
-    const { name } = await assertPlayaLocation(supabase, locationId);
+    const guard = await assertPlayaLocation(supabase, locationId);
+    if (!guard) {
+      // Not a Clover/Playa location — respond 200 so probing callers can fall
+      // back to their own POS without surfacing a runtime error.
+      return new Response(
+        JSON.stringify({ success: false, skipped: true, reason: "not_clover_location" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const { name } = guard;
     const creds = await getCloverCreds(supabase, locationId);
     const tz = await getLocationTimezone(supabase, locationId);
 
