@@ -143,6 +143,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'Session check timed out. Please refresh and try again.'
     )
       .then(async ({ data: { session } }) => {
+        // A stored session can be structurally invalid (e.g. missing `sub` claim).
+        // supabase-js then falls back to the anon key for PostgREST calls, which
+        // produces "permission denied for table profiles/user_roles" everywhere.
+        // Validate the token once and tear down a broken session instead.
+        if (session?.user) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            console.warn('Stored session is invalid, signing out:', userError.message);
+            await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+            setSession(null);
+            setUser(null);
+            navigate('/auth');
+            return;
+          }
+        }
+
         // Deactivated accounts must not keep a live session around.
         if (session?.user && !isDeviceSession(session)) {
           if (await isDeactivatedProfile(session.user.id)) {
@@ -153,6 +169,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
         }
+
 
         setSession(session);
         setUser(session?.user ?? null);
