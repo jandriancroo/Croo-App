@@ -49,15 +49,15 @@ export function PunchGroupHeader({
   return (
     <div className="punch-group-header">
       <div className="flex min-w-0 items-baseline gap-2">
-        <span className="truncate text-[17px] font-bold leading-tight text-foreground">{title}</span>
+        <span className="truncate text-[16px] font-extrabold leading-tight text-foreground">{title}</span>
         {subtitle && <span className="truncate text-[13px] font-semibold text-muted-foreground">{subtitle}</span>}
       </div>
       <span className={`punch-num text-[13px] font-bold ${fullyApproved ? 'text-[hsl(var(--success))]' : 'text-muted-foreground'}`}>
         {approvedCount}/{totalCount}
       </span>
-      <span className="punch-num text-[17px] font-bold leading-tight text-foreground">
+      <span className="punch-num text-[17px] font-extrabold leading-tight text-foreground">
         {totalHours.toFixed(1)}
-        <span className="ml-1 text-[12px] font-medium text-muted-foreground">hrs</span>
+        <span className="ml-1 text-[12px] font-semibold text-muted-foreground">hrs</span>
       </span>
     </div>
   );
