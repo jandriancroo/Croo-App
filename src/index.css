@@ -2325,8 +2325,20 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
   padding-left: 11px;
 }
 @container (max-width: 699px) {
-  .punch-mobile-body .punch-num.text-\[14px\] { font-size: 11.5px; }
+  /* Mobile type scale — explicit sizes/weights so the row builds hierarchy */
+  .punch-mobile-body .punch-m-primary { font-size: 16px; font-weight: 800; }
+  .punch-mobile-body .punch-m-secondary { font-size: 15px; font-weight: 600; }
+  .punch-mobile-body .punch-m-hours { font-size: 17px; font-weight: 800; }
+  .punch-mobile-body .punch-badge { font-size: 12.5px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+  .punch-mobile-body .punch-badge-icon { width: 12px; height: 12px; opacity: 0.7; }
+  .punch-mobile-body .punch-actual-line { font-size: 13.5px; font-weight: 700; }
+  .punch-mobile-body .punch-actual-arrow { font-size: 13.5px; font-weight: 500; }
+  .punch-mobile-body .punch-break-line { font-size: 11.5px; font-weight: 500; }
+  .punch-mobile-body .punch-break-paren { opacity: 0.6; }
 }
+
+.punch-badge { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
 
 .punch-badge {
   display: inline-flex;
