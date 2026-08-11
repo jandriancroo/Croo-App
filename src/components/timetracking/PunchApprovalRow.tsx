@@ -162,7 +162,7 @@ function BreakList({ breaks }: { breaks: PunchBreakInfo[] }) {
           }`}
         >
           <Coffee className="h-3 w-3 shrink-0 opacity-70" />
-          <span className="whitespace-nowrap">{b.scheduledLabel}:</span>
+          <span className="punch-break-label whitespace-nowrap">{b.scheduledLabel}:</span>
           <span className="punch-break-times whitespace-nowrap">
             {b.start}
             {b.end && ` → ${b.end}`}

@@ -2260,9 +2260,11 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
   }
   /* Mid widths: keep breaks to duration only so times never wrap */
   .punch-break-times { display: none; }
+  .punch-break-label { display: none; }
 }
 @container (min-width: 1040px) {
   .punch-break-times { display: inline; }
+  .punch-break-label { display: inline; }
 }
 @container (min-width: 1040px) {
   .punch-grid {
