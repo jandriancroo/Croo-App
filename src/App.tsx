@@ -214,6 +214,7 @@ const AppContent = () => {
         <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
         <Route path="/dashboard-preview" element={<DashboardPreview />} />
         <Route path="/dashboard-preview-restaurant" element={<DashboardPreviewRestaurant />} />
+        <Route path="/time-preview" element={<TimeTrackingPreview />} />
         <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
         <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
         <Route path="/my-timecard" element={<ProtectedRoute><MyTimecard /></ProtectedRoute>} />
