@@ -121,10 +121,10 @@ function ActualTimes({ shifts }: { shifts: PunchShiftTimes[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {shifts.map((s, i) => (
-        <span key={i} className="punch-num flex items-center gap-1 whitespace-nowrap text-[13px] font-bold">
+        <span key={i} className="punch-num punch-actual-line flex items-center gap-1 whitespace-nowrap text-[13px] font-bold">
           {shifts.length > 1 && <span className="text-[10px] font-medium text-muted-foreground">#{i + 1}</span>}
           <span className="text-[hsl(var(--clock-in))]">{s.clockIn ?? '—'}</span>
-          <span className="font-medium text-muted-foreground">→</span>
+          <span className="punch-actual-arrow font-medium text-muted-foreground">→</span>
           <span className="text-[hsl(var(--clock-out))]">{s.clockOut ?? '—'}</span>
         </span>
       ))}
@@ -139,7 +139,7 @@ function BreakList({ breaks }: { breaks: PunchBreakInfo[] }) {
       {breaks.map((b, i) => (
         <span
           key={i}
-          className={`punch-num flex items-center gap-1 text-[14px] font-semibold ${
+          className={`punch-num punch-break-line flex items-center gap-1 text-[14px] font-semibold ${
             b.isLong ? 'text-[hsl(var(--warning))]' : 'text-muted-foreground'
           }`}
         >
@@ -149,7 +149,7 @@ function BreakList({ breaks }: { breaks: PunchBreakInfo[] }) {
             {b.start}
             {b.end && ` → ${b.end}`}
           </span>
-          {b.end && <span className="whitespace-nowrap opacity-70">({b.minutes}m)</span>}
+          {b.end && <span className="punch-break-paren whitespace-nowrap opacity-70">({b.minutes}m)</span>}
         </span>
       ))}
     </div>
