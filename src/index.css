@@ -2444,3 +2444,12 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
     content: none;
   }
 }
+
+.punch-breaks-cell {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+.punch-approve-label {
+  text-transform: uppercase;
+}
