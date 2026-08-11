@@ -121,7 +121,7 @@ function ActualTimes({ shifts }: { shifts: PunchShiftTimes[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {shifts.map((s, i) => (
-        <span key={i} className="punch-num flex items-center gap-1 whitespace-nowrap text-[14px] font-semibold">
+        <span key={i} className="punch-num flex items-center gap-1 whitespace-nowrap text-[13px] font-bold">
           {shifts.length > 1 && <span className="text-[10px] font-medium text-muted-foreground">#{i + 1}</span>}
           <span className="text-[hsl(var(--clock-in))]">{s.clockIn ?? '—'}</span>
           <span className="font-medium text-muted-foreground">→</span>
