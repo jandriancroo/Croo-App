@@ -2256,8 +2256,13 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
 }
 @container (min-width: 700px) {
   .punch-grid {
-    grid-template-columns: 1.05fr 1.35fr 1.3fr 1.9fr .55fr 112px;
+    grid-template-columns: 1.15fr 1.3fr 1.2fr 1.15fr .5fr 108px;
   }
+  /* Mid widths: keep breaks to duration only so times never wrap */
+  .punch-break-times { display: none; }
+}
+@container (min-width: 1040px) {
+  .punch-break-times { display: inline; }
 }
 @container (min-width: 1040px) {
   .punch-grid {

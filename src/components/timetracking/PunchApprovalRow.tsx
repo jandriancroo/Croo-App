@@ -139,7 +139,7 @@ function ActualTimes({ shifts }: { shifts: PunchShiftTimes[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {shifts.map((s, i) => (
-        <span key={i} className="punch-num flex items-center gap-1 text-[14px] font-bold">
+        <span key={i} className="punch-num flex items-center gap-1 whitespace-nowrap text-[14px] font-bold">
           {shifts.length > 1 && <span className="text-[10px] font-medium text-muted-foreground">#{i + 1}</span>}
           <span className="text-[hsl(var(--clock-in))]">{s.clockIn ?? '—'}</span>
           <span className="font-medium text-muted-foreground">→</span>
@@ -162,15 +162,12 @@ function BreakList({ breaks }: { breaks: PunchBreakInfo[] }) {
           }`}
         >
           <Coffee className="h-3 w-3 shrink-0 opacity-70" />
-          <span>{b.scheduledLabel}:</span>
-          <span>{b.start}</span>
-          {b.end && (
-            <>
-              <span>→</span>
-              <span>{b.end}</span>
-              <span className="opacity-70">({b.minutes}m)</span>
-            </>
-          )}
+          <span className="whitespace-nowrap">{b.scheduledLabel}:</span>
+          <span className="punch-break-times whitespace-nowrap">
+            {b.start}
+            {b.end && ` → ${b.end}`}
+          </span>
+          {b.end && <span className="whitespace-nowrap opacity-70">({b.minutes}m)</span>}
         </span>
       ))}
     </div>
