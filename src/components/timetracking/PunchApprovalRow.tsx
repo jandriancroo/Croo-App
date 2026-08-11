@@ -77,14 +77,14 @@ export function PunchWeekBand({
   return (
     <div className="punch-week-band">
       <span className="flex items-baseline gap-2">
-        <span className="text-[14px] font-semibold text-muted-foreground">{label}</span>
+        <span className="text-[13px] font-bold text-muted-foreground">{label}</span>
         {typeof approvedCount === 'number' && (
-          <span className="punch-num text-[13px] font-semibold text-muted-foreground/80">
+          <span className="punch-num text-[12px] font-semibold text-muted-foreground/80">
             {approvedCount}/{totalCount}
           </span>
         )}
       </span>
-      <span className="punch-num text-[14px] font-bold text-foreground">{hours.toFixed(1)} hrs</span>
+      <span className="punch-num text-[14px] font-extrabold text-foreground">{hours.toFixed(1)} hrs</span>
     </div>
   );
 }
