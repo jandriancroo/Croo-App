@@ -1,4 +1,3 @@
-import { MobileTimeTrackingCard as _unused } from './MobileTimeTrackingCard';
 import { DayByDayView } from './DayByDayView';
 
 /**
