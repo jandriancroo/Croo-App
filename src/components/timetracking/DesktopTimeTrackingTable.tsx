@@ -194,9 +194,10 @@ export function DesktopTimeTrackingTable({
                       key={`${card.profile.id}-${day}`}
                       primary={formatInTimeZone(dayDate, timezone, 'EEE')}
                       secondary={formatInTimeZone(dayDate, timezone, 'M/d')}
-                      scheduledStart={scheduledShift && !scheduledShift.is_time_off ? formatScheduledTime(scheduledShift.start_time) : null}
-                      scheduledEnd={scheduledShift && !scheduledShift.is_time_off ? formatScheduledTime(scheduledShift.end_time) : null}
+                      scheduledStart={scheduledShift && !scheduledShift.is_time_off && !scheduledShift.is_phantom ? formatScheduledTime(scheduledShift.start_time) : null}
+                      scheduledEnd={scheduledShift && !scheduledShift.is_time_off && !scheduledShift.is_phantom ? formatScheduledTime(scheduledShift.end_time) : null}
                       scheduledIsTimeOff={!!scheduledShift?.is_time_off}
+                      scheduledIsUnscheduled={!scheduledShift || !!scheduledShift?.is_phantom}
                       shifts={shifts.map((s) => ({
                         clockIn: s.clockIn ? formatTimeDisplay(s.clockIn.punch_time, timezone) : null,
                         clockOut: s.clockOut ? formatTimeDisplay(s.clockOut.punch_time, timezone) : null,

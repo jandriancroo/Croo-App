@@ -182,6 +182,7 @@ export interface PunchRowProps {
   scheduledStart: string | null;
   scheduledEnd: string | null;
   scheduledIsTimeOff?: boolean;
+  scheduledIsUnscheduled?: boolean;
   shifts: PunchShiftTimes[];
   breaks: PunchBreakInfo[];
   flags: PunchFlag[];
@@ -200,6 +201,7 @@ export function PunchRow({
   scheduledStart,
   scheduledEnd,
   scheduledIsTimeOff,
+  scheduledIsUnscheduled,
   shifts,
   breaks,
   flags,
@@ -244,7 +246,7 @@ export function PunchRow({
           <span className="punch-num punch-m-hours shrink-0 text-[16px] font-bold text-foreground">{hours.toFixed(1)}</span>
         </div>
         <div className="mt-1 punch-mobile-badge">
-          <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} showIcon />
+          <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} isUnscheduled={scheduledIsUnscheduled} showIcon />
         </div>
         <div className="mt-1 punch-mobile-indent">
           <ActualTimes shifts={shifts} />
@@ -267,7 +269,7 @@ export function PunchRow({
 
       {/* Scheduled */}
       <div className="punch-cell punch-from-md">
-        <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} />
+        <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} isUnscheduled={scheduledIsUnscheduled} />
       </div>
 
       {/* Actual */}
