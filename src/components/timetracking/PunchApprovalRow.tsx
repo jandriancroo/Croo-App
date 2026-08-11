@@ -253,7 +253,10 @@ export function PunchRow({
       {/* Mobile body — stacked lines in fixed column order */}
       <div className="punch-cell punch-mobile-body punch-only-narrow">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[15px] font-extrabold text-foreground">{primary}</span>
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate text-[15px] font-extrabold text-foreground">{primary}</span>
+            {secondary && <span className="punch-num shrink-0 text-[13px] font-bold text-muted-foreground">{secondary}</span>}
+          </span>
           <span className="punch-num shrink-0 text-[15px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
         </div>
         <div className="mt-1">
