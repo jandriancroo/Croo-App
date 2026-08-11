@@ -844,32 +844,13 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
 
 
 /* All themes — header, safe-area bleed, and unified nav share ONE chrome color
-   sourced from --chrome-bg (set by syncChrome() in JS from --header-bg, iOS-clamped).
+   sourced from --chrome-bg (set by syncChrome() in JS from --header-bg).
    The hsl(var(--header-bg)) fallback covers the pre-JS first paint. */
 header.bg-primary,
 .nav-bar-unified {
   background: var(--chrome-bg, hsl(var(--header-bg))) !important;
   color: hsl(var(--header-fg));
 }
-
-/* Status-bar band — iOS 26/27 samples + blurs whatever sits under the status bar.
-   Painting our own flat, opaque band there means the OS scrim blurs a single
-   uniform color, so no visible fade/gradient on any OS version. Mobile only:
-   the desktop header intentionally uses the page background. */
-@media (max-width: 767px) {
-  html::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: env(safe-area-inset-top, 0px);
-    background: var(--chrome-bg, hsl(var(--header-bg)));
-    z-index: 60; /* above the sticky mobile header (z-50) */
-    pointer-events: none;
-  }
-}
-
 
 header.bg-primary *,
 .nav-bar-unified * {
