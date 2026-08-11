@@ -78,13 +78,13 @@ export function PunchColumnHeaders({ firstLabel }: { firstLabel: 'Employee' | 'D
   return (
     <div className="punch-grid punch-col-headers">
       <span className="punch-cell">{firstLabel}</span>
-      <span className="punch-cell hidden md:flex">Scheduled</span>
-      <span className="punch-cell hidden md:flex">Actual</span>
-      <span className="punch-cell hidden md:flex">
-        Breaks<span className="xl:hidden"> / Flags</span>
+      <span className="punch-cell punch-from-md">Scheduled</span>
+      <span className="punch-cell punch-from-md">Actual</span>
+      <span className="punch-cell punch-from-md">
+        Breaks<span className="punch-below-lg"> / Flags</span>
       </span>
-      <span className="punch-cell hidden xl:flex">Flags</span>
-      <span className="punch-cell hidden justify-end md:flex">Hours</span>
+      <span className="punch-cell punch-from-lg">Flags</span>
+      <span className="punch-cell punch-from-md justify-end">Hours</span>
       <span className="punch-cell punch-approve-cell justify-center">Approve</span>
     </div>
   );
@@ -234,7 +234,7 @@ export function PunchRow({
       tabIndex={0}
     >
       {/* Mobile body — stacked lines in fixed column order */}
-      <div className="punch-cell punch-mobile-body md:hidden">
+      <div className="punch-cell punch-mobile-body punch-only-narrow">
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate text-[13px] font-extrabold text-foreground">{primary}</span>
           <span className="punch-num shrink-0 text-[13px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
@@ -256,36 +256,36 @@ export function PunchRow({
       </div>
 
       {/* Employee / Date */}
-      <div className="punch-cell hidden md:flex">
+      <div className="punch-cell punch-from-md">
         <span className="truncate text-[13px] font-extrabold text-foreground">{primary}</span>
         {secondary && <span className="punch-num ml-1 text-xs font-medium text-muted-foreground">{secondary}</span>}
       </div>
 
       {/* Scheduled */}
-      <div className="punch-cell hidden md:flex">
+      <div className="punch-cell punch-from-md">
         <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} />
       </div>
 
       {/* Actual */}
-      <div className="punch-cell hidden md:flex">
+      <div className="punch-cell punch-from-md">
         <ActualTimes shifts={shifts} />
       </div>
 
       {/* Breaks (+ flags merged on tablet) */}
-      <div className="punch-cell hidden md:flex md:flex-col md:items-start md:gap-1">
+      <div className="punch-cell punch-from-md punch-breaks-cell">
         <BreakList breaks={breaks} />
-        <div className="xl:hidden">
+        <div className="punch-below-lg">
           <FlagChips flags={flags} />
         </div>
       </div>
 
       {/* Flags (desktop only) */}
-      <div className="punch-cell hidden xl:flex">
+      <div className="punch-cell punch-from-lg">
         <FlagChips flags={flags} />
       </div>
 
       {/* Hours */}
-      <div className="punch-cell hidden justify-end md:flex">
+      <div className="punch-cell punch-from-md justify-end">
         <span className="punch-num text-[13px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
       </div>
 
