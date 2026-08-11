@@ -52,19 +52,15 @@ export function syncChrome() {
   root.style.setProperty('--chrome-bg', chrome);
 
   /**
-   * iOS 26/27 installed web apps do NOT paint a flat tint behind the status bar:
-   * they lift the sampled color toward white (lighter + desaturated) for clock
-   * legibility. That lift is far too strong to cancel with a darker input
-   * (the math goes negative), so instead of fighting it we MATCH it: publish the
-   * lifted tone as theme-color and blend the top of the header from that tone
-   * down into the real header color, so there is no visible seam.
+   * With apple-mobile-web-app-status-bar-style="default", iOS paints the status
+   * bar with theme-color directly (no glass lift), so any lift/darken bias we
+   * publish shows up as a visible two-tone band. Publish the exact header color
+   * everywhere and keep the safe-area band flat.
    */
-  const ios = isIosStandalone();
-  const statusL = ios ? safeL + 0.55 * (100 - safeL) : safeL;
-  const statusS = ios ? s * 0.45 : s;
-  const statusColor = `hsl(${h} ${statusS}% ${statusL}%)`;
+  const statusColor = chrome;
   root.style.setProperty('--chrome-statusbar', statusColor);
-  root.dataset.iosGlass = ios ? '1' : '0';
+  root.dataset.iosGlass = '0';
+
 
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
   if (metas.length) {
