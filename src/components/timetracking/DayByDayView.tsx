@@ -203,9 +203,10 @@ export function DayByDayView({
                 <PunchRow
                   key={`${day}-${entry.profile.id}`}
                   primary={getDisplayName(entry.profile.full_name, entry.profile.nickname)}
-                  scheduledStart={entry.scheduledShift && !entry.scheduledShift.is_time_off ? formatScheduledTime(entry.scheduledShift.start_time) : null}
-                  scheduledEnd={entry.scheduledShift && !entry.scheduledShift.is_time_off ? formatScheduledTime(entry.scheduledShift.end_time) : null}
+                  scheduledStart={entry.scheduledShift && !entry.scheduledShift.is_time_off && !entry.scheduledShift.is_phantom ? formatScheduledTime(entry.scheduledShift.start_time) : null}
+                  scheduledEnd={entry.scheduledShift && !entry.scheduledShift.is_time_off && !entry.scheduledShift.is_phantom ? formatScheduledTime(entry.scheduledShift.end_time) : null}
                   scheduledIsTimeOff={!!entry.scheduledShift?.is_time_off}
+                  scheduledIsUnscheduled={!entry.scheduledShift || !!entry.scheduledShift?.is_phantom}
                   shifts={entry.shifts.map((s) => ({
                     clockIn: s.clockIn ? formatTimeDisplay(s.clockIn.punch_time, timezone) : null,
                     clockOut: s.clockOut ? formatTimeDisplay(s.clockOut.punch_time, timezone) : null,
