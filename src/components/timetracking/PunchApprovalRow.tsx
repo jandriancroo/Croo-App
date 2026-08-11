@@ -65,11 +65,28 @@ export function PunchGroupHeader({
   );
 }
 
-export function PunchWeekBand({ label, hours }: { label: string; hours: number }) {
+export function PunchWeekBand({
+  label,
+  hours,
+  approvedCount,
+  totalCount,
+}: {
+  label: string;
+  hours: number;
+  approvedCount?: number;
+  totalCount?: number;
+}) {
   return (
     <div className="punch-week-band">
-      <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
-      <span className="punch-num text-[11px] font-bold text-foreground">{hours.toFixed(1)} hrs</span>
+      <span className="flex items-baseline gap-2">
+        <span className="text-xs font-bold text-muted-foreground">{label}</span>
+        {typeof approvedCount === 'number' && (
+          <span className="punch-num text-[11px] font-semibold text-muted-foreground/80">
+            {approvedCount}/{totalCount} approved
+          </span>
+        )}
+      </span>
+      <span className="punch-num text-xs font-bold text-foreground">{hours.toFixed(1)} hrs</span>
     </div>
   );
 }
@@ -78,13 +95,13 @@ export function PunchColumnHeaders({ firstLabel }: { firstLabel: 'Employee' | 'D
   return (
     <div className="punch-grid punch-col-headers">
       <span className="punch-cell">{firstLabel}</span>
-      <span className="punch-cell hidden md:flex">Scheduled</span>
-      <span className="punch-cell hidden md:flex">Actual</span>
-      <span className="punch-cell hidden md:flex">
-        Breaks<span className="xl:hidden"> / Flags</span>
+      <span className="punch-cell punch-from-md">Scheduled</span>
+      <span className="punch-cell punch-from-md">Actual</span>
+      <span className="punch-cell punch-from-md">
+        Breaks<span className="punch-below-lg"> / Flags</span>
       </span>
-      <span className="punch-cell hidden xl:flex">Flags</span>
-      <span className="punch-cell hidden justify-end md:flex">Hours</span>
+      <span className="punch-cell punch-from-lg">Flags</span>
+      <span className="punch-cell punch-from-md justify-end">Hours</span>
       <span className="punch-cell punch-approve-cell justify-center">Approve</span>
     </div>
   );
@@ -122,7 +139,7 @@ function ActualTimes({ shifts }: { shifts: PunchShiftTimes[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {shifts.map((s, i) => (
-        <span key={i} className="punch-num flex items-center gap-1 text-[13px] font-bold">
+        <span key={i} className="punch-num flex items-center gap-1 whitespace-nowrap text-[14px] font-bold">
           {shifts.length > 1 && <span className="text-[10px] font-medium text-muted-foreground">#{i + 1}</span>}
           <span className="text-[hsl(var(--clock-in))]">{s.clockIn ?? '—'}</span>
           <span className="font-medium text-muted-foreground">→</span>
@@ -140,20 +157,17 @@ function BreakList({ breaks }: { breaks: PunchBreakInfo[] }) {
       {breaks.map((b, i) => (
         <span
           key={i}
-          className={`punch-num flex items-center gap-1 text-[11px] font-semibold ${
+          className={`punch-num flex items-center gap-1 text-xs font-semibold ${
             b.isLong ? 'text-[hsl(var(--warning))]' : 'text-muted-foreground'
           }`}
         >
           <Coffee className="h-3 w-3 shrink-0 opacity-70" />
-          <span>{b.scheduledLabel}:</span>
-          <span>{b.start}</span>
-          {b.end && (
-            <>
-              <span>→</span>
-              <span>{b.end}</span>
-              <span className="opacity-70">({b.minutes}m)</span>
-            </>
-          )}
+          <span className="punch-break-label whitespace-nowrap">{b.scheduledLabel}:</span>
+          <span className="punch-break-times whitespace-nowrap">
+            {b.start}
+            {b.end && ` → ${b.end}`}
+          </span>
+          {b.end && <span className="whitespace-nowrap opacity-70">({b.minutes}m)</span>}
         </span>
       ))}
     </div>
@@ -234,10 +248,13 @@ export function PunchRow({
       tabIndex={0}
     >
       {/* Mobile body — stacked lines in fixed column order */}
-      <div className="punch-cell punch-mobile-body md:hidden">
+      <div className="punch-cell punch-mobile-body punch-only-narrow">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[13px] font-extrabold text-foreground">{primary}</span>
-          <span className="punch-num shrink-0 text-[13px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate text-[15px] font-extrabold text-foreground">{primary}</span>
+            {secondary && <span className="punch-num shrink-0 text-[13px] font-bold text-muted-foreground">{secondary}</span>}
+          </span>
+          <span className="punch-num shrink-0 text-[15px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
         </div>
         <div className="mt-1">
           <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} showIcon />
@@ -256,37 +273,37 @@ export function PunchRow({
       </div>
 
       {/* Employee / Date */}
-      <div className="punch-cell hidden md:flex">
-        <span className="truncate text-[13px] font-extrabold text-foreground">{primary}</span>
+      <div className="punch-cell punch-from-md">
+        <span className="truncate text-[15px] font-extrabold text-foreground">{primary}</span>
         {secondary && <span className="punch-num ml-1 text-xs font-medium text-muted-foreground">{secondary}</span>}
       </div>
 
       {/* Scheduled */}
-      <div className="punch-cell hidden md:flex">
+      <div className="punch-cell punch-from-md">
         <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} />
       </div>
 
       {/* Actual */}
-      <div className="punch-cell hidden md:flex">
+      <div className="punch-cell punch-from-md">
         <ActualTimes shifts={shifts} />
       </div>
 
       {/* Breaks (+ flags merged on tablet) */}
-      <div className="punch-cell hidden md:flex md:flex-col md:items-start md:gap-1">
+      <div className="punch-cell punch-from-md punch-breaks-cell">
         <BreakList breaks={breaks} />
-        <div className="xl:hidden">
+        <div className="punch-below-lg">
           <FlagChips flags={flags} />
         </div>
       </div>
 
       {/* Flags (desktop only) */}
-      <div className="punch-cell hidden xl:flex">
+      <div className="punch-cell punch-from-lg">
         <FlagChips flags={flags} />
       </div>
 
       {/* Hours */}
-      <div className="punch-cell hidden justify-end md:flex">
-        <span className="punch-num text-[13px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
+      <div className="punch-cell punch-from-md justify-end">
+        <span className="punch-num text-[15px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
       </div>
 
       {/* Approve — full-height last column */}

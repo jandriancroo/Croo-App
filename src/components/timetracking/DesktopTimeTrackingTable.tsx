@@ -153,6 +153,8 @@ export function DesktopTimeTrackingTable({
                 <PunchWeekBand
                   label={`Week of ${formatInTimeZone(week.weekStart, timezone, 'MMM d')} – ${formatInTimeZone(week.weekEnd, timezone, 'MMM d')}`}
                   hours={week.weekTotalHours}
+                  approvedCount={week.days.filter(({ dayPunches }) => dayPunches.every((p: any) => p.approved_at)).length}
+                  totalCount={week.days.length}
                 />
                 {week.days.map(({ day, dayPunches }) => {
                   const sortedPunches = sortPunches(dayPunches);

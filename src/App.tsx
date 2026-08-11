@@ -80,6 +80,7 @@ const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
 const ToastPreview = lazyWithRetry(() => import("./pages/ToastPreview"));
+const TimeTrackingPreview = lazyWithRetry(() => import("./pages/TimeTrackingPreview"));
 
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
 const Reporting = lazyWithRetry(() => import("./pages/Reporting"));
@@ -214,6 +215,7 @@ const AppContent = () => {
         <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
         <Route path="/dashboard-preview" element={<DashboardPreview />} />
         <Route path="/dashboard-preview-restaurant" element={<DashboardPreviewRestaurant />} />
+        <Route path="/time-preview" element={<TimeTrackingPreview />} />
         <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
         <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
         <Route path="/my-timecard" element={<ProtectedRoute><MyTimecard /></ProtectedRoute>} />
