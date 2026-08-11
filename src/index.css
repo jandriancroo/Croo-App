@@ -2397,9 +2397,9 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
   transition: background-color 140ms ease, color 140ms ease;
 }
 .punch-approve-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
   color: hsl(var(--muted-foreground));
 }
 .punch-tick {
