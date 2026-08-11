@@ -852,6 +852,25 @@ header.bg-primary,
   color: hsl(var(--header-fg));
 }
 
+/* Status-bar band — iOS 26/27 samples + blurs whatever sits under the status bar.
+   Painting our own flat, opaque band there means the OS scrim blurs a single
+   uniform color, so no visible fade/gradient on any OS version. Mobile only:
+   the desktop header intentionally uses the page background. */
+@media (max-width: 767px) {
+  html::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background: var(--chrome-bg, hsl(var(--header-bg)));
+    z-index: 60; /* above the sticky mobile header (z-50) */
+    pointer-events: none;
+  }
+}
+
+
 header.bg-primary *,
 .nav-bar-unified * {
   color: hsl(var(--header-fg));
