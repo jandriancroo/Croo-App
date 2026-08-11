@@ -233,12 +233,12 @@ export function PunchRow({
       <div className="punch-cell punch-mobile-body punch-only-narrow">
         <div className="flex items-baseline justify-between gap-2">
           <span className="flex min-w-0 items-baseline gap-1.5">
-            <span className="truncate text-[16px] font-bold text-foreground">{primary}</span>
-            {secondary && <span className="punch-num shrink-0 text-[13px] font-semibold text-muted-foreground">{secondary}</span>}
+            <span className="punch-m-primary truncate text-[16px] font-bold text-foreground">{primary}</span>
+            {secondary && <span className="punch-num punch-m-secondary shrink-0 text-[13px] font-semibold text-muted-foreground">{secondary}</span>}
           </span>
-          <span className="punch-num shrink-0 text-[16px] font-bold text-foreground">{hours.toFixed(1)}</span>
+          <span className="punch-num punch-m-hours shrink-0 text-[16px] font-bold text-foreground">{hours.toFixed(1)}</span>
         </div>
-        <div className="mt-1">
+        <div className="mt-1 punch-mobile-badge">
           <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} showIcon />
         </div>
         <div className="mt-1 punch-mobile-indent">
