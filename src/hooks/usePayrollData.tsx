@@ -800,12 +800,13 @@ export function usePayrollData() {
         const scheduledShifts = shiftsByUser.get(profile.id) || [];
         const currentWage = wageByUserId.get(profile.id) ?? null;
         
-        const shiftsByDate = new Map<string, { start_time: string; end_time: string; is_time_off: boolean }>();
+        const shiftsByDate = new Map<string, { start_time: string; end_time: string; is_time_off: boolean; is_phantom: boolean }>();
         scheduledShifts.forEach((shift: any) => {
           shiftsByDate.set(shift.shift_date, {
             start_time: shift.start_time,
             end_time: shift.end_time,
-            is_time_off: shift.is_time_off
+            is_time_off: shift.is_time_off,
+            is_phantom: !!shift.is_phantom
           });
         });
 
