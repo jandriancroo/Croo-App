@@ -7,7 +7,6 @@ import {
 import {
   PunchGroupCard,
   PunchGroupHeader,
-  PunchColumnHeaders,
   PunchRow,
   type PunchBreakInfo,
   type PunchFlag,
@@ -192,7 +191,6 @@ export function DayByDayView({
               totalCount={sortedEntries.length}
               totalHours={dayTotal}
             />
-            <PunchColumnHeaders firstLabel="Employee" />
             {sortedEntries.map((entry) => {
               const isApproving = entry.dayPunches.some((p: any) => approvingPunchIds.has(p.id));
               const flags: PunchFlag[] = [];

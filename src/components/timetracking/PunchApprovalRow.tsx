@@ -91,10 +91,6 @@ export function PunchWeekBand({
   );
 }
 
-export function PunchColumnHeaders(_props: { firstLabel: 'Employee' | 'Date' }) {
-  return null;
-}
-
 /* ── Small pieces ───────────────────────────────────────────────────────── */
 
 function ScheduledBadge({

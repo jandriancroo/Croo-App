@@ -8,7 +8,6 @@ import {
 import {
   PunchGroupCard,
   PunchGroupHeader,
-  PunchColumnHeaders,
   PunchWeekBand,
   PunchRow,
   type PunchBreakInfo,
@@ -147,7 +146,6 @@ export function DesktopTimeTrackingTable({
               totalCount={allDays.length}
               totalHours={card.totalHours || 0}
             />
-            <PunchColumnHeaders firstLabel="Date" />
             {weeks.map((week) => (
               <div key={`${card.profile.id}-${week.weekKey}`}>
                 <PunchWeekBand
