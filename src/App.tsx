@@ -80,6 +80,7 @@ const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
 const ToastPreview = lazyWithRetry(() => import("./pages/ToastPreview"));
+const TimeTrackingPreview = lazyWithRetry(() => import("./pages/TimeTrackingPreview"));
 
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
 const Reporting = lazyWithRetry(() => import("./pages/Reporting"));
