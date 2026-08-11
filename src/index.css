@@ -852,6 +852,25 @@ header.bg-primary,
   color: hsl(var(--header-fg));
 }
 
+/* iOS 26/27 installed apps: the OS paints the status strip with a lifted
+   (lighter, desaturated) version of theme-color. We publish that exact lifted
+   tone and fade the top of the header from it into the real chrome color, so
+   the boundary disappears instead of reading as a hard gradient band. */
+html[data-ios-glass="1"] header.bg-primary {
+  background:
+    linear-gradient(
+      to bottom,
+      var(--chrome-statusbar, var(--chrome-bg)) 0,
+      var(--chrome-statusbar, var(--chrome-bg)) env(safe-area-inset-top, 0px),
+      var(--chrome-bg, hsl(var(--header-bg))) calc(env(safe-area-inset-top, 0px) + 22px)
+    ),
+    var(--chrome-bg, hsl(var(--header-bg))) !important;
+}
+
+html[data-ios-glass="1"] {
+  background-color: var(--chrome-statusbar, var(--chrome-bg));
+}
+
 header.bg-primary *,
 .nav-bar-unified * {
   color: hsl(var(--header-fg));
