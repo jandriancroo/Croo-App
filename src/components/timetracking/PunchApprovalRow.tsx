@@ -65,11 +65,28 @@ export function PunchGroupHeader({
   );
 }
 
-export function PunchWeekBand({ label, hours }: { label: string; hours: number }) {
+export function PunchWeekBand({
+  label,
+  hours,
+  approvedCount,
+  totalCount,
+}: {
+  label: string;
+  hours: number;
+  approvedCount?: number;
+  totalCount?: number;
+}) {
   return (
     <div className="punch-week-band">
-      <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
-      <span className="punch-num text-[11px] font-bold text-foreground">{hours.toFixed(1)} hrs</span>
+      <span className="flex items-baseline gap-2">
+        <span className="text-xs font-bold text-muted-foreground">{label}</span>
+        {typeof approvedCount === 'number' && (
+          <span className="punch-num text-[11px] font-semibold text-muted-foreground/80">
+            {approvedCount}/{totalCount} approved
+          </span>
+        )}
+      </span>
+      <span className="punch-num text-xs font-bold text-foreground">{hours.toFixed(1)} hrs</span>
     </div>
   );
 }
@@ -122,7 +139,7 @@ function ActualTimes({ shifts }: { shifts: PunchShiftTimes[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {shifts.map((s, i) => (
-        <span key={i} className="punch-num flex items-center gap-1 text-[13px] font-bold">
+        <span key={i} className="punch-num flex items-center gap-1 text-[14px] font-bold">
           {shifts.length > 1 && <span className="text-[10px] font-medium text-muted-foreground">#{i + 1}</span>}
           <span className="text-[hsl(var(--clock-in))]">{s.clockIn ?? '—'}</span>
           <span className="font-medium text-muted-foreground">→</span>
@@ -140,7 +157,7 @@ function BreakList({ breaks }: { breaks: PunchBreakInfo[] }) {
       {breaks.map((b, i) => (
         <span
           key={i}
-          className={`punch-num flex items-center gap-1 text-[11px] font-semibold ${
+          className={`punch-num flex items-center gap-1 text-xs font-semibold ${
             b.isLong ? 'text-[hsl(var(--warning))]' : 'text-muted-foreground'
           }`}
         >
@@ -236,8 +253,8 @@ export function PunchRow({
       {/* Mobile body — stacked lines in fixed column order */}
       <div className="punch-cell punch-mobile-body punch-only-narrow">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[13px] font-extrabold text-foreground">{primary}</span>
-          <span className="punch-num shrink-0 text-[13px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
+          <span className="truncate text-[15px] font-extrabold text-foreground">{primary}</span>
+          <span className="punch-num shrink-0 text-[15px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
         </div>
         <div className="mt-1">
           <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} showIcon />
@@ -257,7 +274,7 @@ export function PunchRow({
 
       {/* Employee / Date */}
       <div className="punch-cell punch-from-md">
-        <span className="truncate text-[13px] font-extrabold text-foreground">{primary}</span>
+        <span className="truncate text-[15px] font-extrabold text-foreground">{primary}</span>
         {secondary && <span className="punch-num ml-1 text-xs font-medium text-muted-foreground">{secondary}</span>}
       </div>
 
@@ -286,7 +303,7 @@ export function PunchRow({
 
       {/* Hours */}
       <div className="punch-cell punch-from-md justify-end">
-        <span className="punch-num text-[13px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
+        <span className="punch-num text-[15px] font-extrabold text-foreground">{hours.toFixed(1)}</span>
       </div>
 
       {/* Approve — full-height last column */}
