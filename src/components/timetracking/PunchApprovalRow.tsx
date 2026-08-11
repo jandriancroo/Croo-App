@@ -95,15 +95,20 @@ function ScheduledBadge({
   start,
   end,
   isTimeOff,
+  isUnscheduled,
   showIcon,
 }: {
   start: string | null;
   end: string | null;
   isTimeOff?: boolean;
+  isUnscheduled?: boolean;
   showIcon?: boolean;
 }) {
   if (isTimeOff) {
     return <span className="punch-badge">PTO</span>;
+  }
+  if (isUnscheduled) {
+    return <span className="punch-badge text-muted-foreground">Not Scheduled</span>;
   }
   if (!start && !end) {
     return <span className="text-sm font-semibold text-muted-foreground">—</span>;
