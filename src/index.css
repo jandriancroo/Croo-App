@@ -2324,6 +2324,9 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
 .punch-mobile-indent {
   padding-left: 11px;
 }
+@container (max-width: 699px) {
+  .punch-mobile-body .punch-num.text-\[14px\] { font-size: 13px; }
+}
 
 .punch-badge {
   display: inline-flex;
