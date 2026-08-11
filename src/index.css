@@ -130,6 +130,15 @@ All colors MUST be HSL.
      --ovation-panel-foreground: 220 25% 7%;
      --ovation-panel-muted: 220 18% 28%;
      --ovation-panel-border: 220 20% 78%;
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 66% 34%;
+    --success-soft: 142 58% 93%;
+    --success-line: 142 42% 76%;
+    --clock-in: 142 66% 32%;
+    --clock-out: 0 72% 47%;
+    --warning: 38 92% 42%;
+    --warning-soft: 38 92% 94%;
+    --warning-line: 38 80% 70%;
   }
 
   .dark {
@@ -199,6 +208,15 @@ All colors MUST be HSL.
      --quick-task-system: 189 45% 50%;
      --quick-task-system-fg: 220 28% 4%;
      --quick-task-alpha: 1;
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 62% 52%;
+    --success-soft: 142 42% 15%;
+    --success-line: 142 32% 30%;
+    --clock-in: 142 60% 55%;
+    --clock-out: 0 78% 62%;
+    --warning: 38 92% 60%;
+    --warning-soft: 38 55% 15%;
+    --warning-line: 38 45% 32%;
   }
 }
 
@@ -265,6 +283,15 @@ All colors MUST be HSL.
   --chart-4: 160 12% 52%;   /* pine light */
   --chart-5: 29 12% 55%;    /* stone light */
   --chart-6: 226 10% 58%;   /* slate light */
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 62% 52%;
+    --success-soft: 142 42% 15%;
+    --success-line: 142 32% 30%;
+    --clock-in: 142 60% 55%;
+    --clock-out: 0 78% 62%;
+    --warning: 38 92% 60%;
+    --warning-soft: 38 55% 15%;
+    --warning-line: 38 45% 32%;
 }
 
 /* Warm Earth Theme — terracotta, clay, sage, deep bark on warm sand */
@@ -328,6 +355,15 @@ All colors MUST be HSL.
   --chart-4: 32 24% 34%;   /* deep bark */
   --chart-5: 37 45% 72%;   /* sand */
   --chart-6: 15 50% 50%;
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 66% 34%;
+    --success-soft: 142 58% 93%;
+    --success-line: 142 42% 76%;
+    --clock-in: 142 66% 32%;
+    --clock-out: 0 72% 47%;
+    --warning: 38 92% 42%;
+    --warning-soft: 38 92% 94%;
+    --warning-line: 38 80% 70%;
 }
 
 
@@ -381,6 +417,15 @@ All colors MUST be HSL.
   --chart-4: 210 50% 52%;
   --chart-5: 160 45% 48%;
   --chart-6: 35 55% 55%;
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 66% 34%;
+    --success-soft: 142 58% 93%;
+    --success-line: 142 42% 76%;
+    --clock-in: 142 66% 32%;
+    --clock-out: 0 72% 47%;
+    --warning: 38 92% 42%;
+    --warning-soft: 38 92% 94%;
+    --warning-line: 38 80% 70%;
 }
 
 /* Cupcake Theme - Warm layered pinks, soft and inviting */
@@ -433,6 +478,15 @@ All colors MUST be HSL.
   --chart-4: 320 35% 55%;
   --chart-5: 25 50% 55%;
   --chart-6: 350 30% 48%;
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 66% 34%;
+    --success-soft: 142 58% 93%;
+    --success-line: 142 42% 76%;
+    --clock-in: 142 66% 32%;
+    --clock-out: 0 72% 47%;
+    --warning: 38 92% 42%;
+    --warning-soft: 38 92% 94%;
+    --warning-line: 38 80% 70%;
 }
 
 /* Blaze Pizza Theme - Blaze Orange, Fire Red, Charcoal, Cream (official brand palette) */
@@ -501,6 +555,15 @@ All colors MUST be HSL.
   --chart-4: 20 45% 62%;                 /* ember light */
   --chart-5: 42 45% 50%;                 /* gold deep */
   --chart-6: 24 10% 35%;                 /* char light */
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 66% 34%;
+    --success-soft: 142 58% 93%;
+    --success-line: 142 42% 76%;
+    --clock-in: 142 66% 32%;
+    --clock-out: 0 72% 47%;
+    --warning: 38 92% 42%;
+    --warning-soft: 38 92% 94%;
+    --warning-line: 38 80% 70%;
 }
 
 /* Playa Bowls Theme — muted ocean teal, coral, mango on sand; no purple */
@@ -565,6 +628,15 @@ All colors MUST be HSL.
   --chart-4: 176 31% 27%;                /* deep teal */
   --chart-5: 3 40% 45%;                  /* deep coral */
   --chart-6: 39 45% 45%;                 /* deep mango */
+    /* Punch approval semantics — success/clock/warning */
+    --success: 142 66% 34%;
+    --success-soft: 142 58% 93%;
+    --success-line: 142 42% 76%;
+    --clock-in: 142 66% 32%;
+    --clock-out: 0 72% 47%;
+    --warning: 38 92% 42%;
+    --warning-soft: 38 92% 94%;
+    --warning-line: 38 80% 70%;
 }
 
 
