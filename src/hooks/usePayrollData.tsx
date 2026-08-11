@@ -757,7 +757,7 @@ export function usePayrollData() {
         .order('punch_time'),
       supabase
         .from('scheduled_shifts' as any)
-        .select('user_id, shift_date, start_time, end_time, is_time_off')
+        .select('user_id, shift_date, start_time, end_time, is_time_off, is_phantom')
         .in('user_id', allUserIds)
         .gte('shift_date', selectedPeriod.startDate)
         .lte('shift_date', selectedPeriod.endDate) as any,
