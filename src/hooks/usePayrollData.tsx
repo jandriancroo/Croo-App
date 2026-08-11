@@ -944,6 +944,17 @@ export function usePayrollData() {
           totalHours,
           issues
         };
+      })
+      // Roster visibility rules:
+      //  - hidden-from-schedule people never appear
+      //  - deactivated people only appear if they have hours/punches in this period
+      .filter((card: any) => {
+        const p = card.profile || {};
+        if (p.appears_on_schedule === false) return false;
+        if (p.is_active === false) {
+          return (card.totalHours || 0) > 0 || (card.punches?.length || 0) > 0;
+        }
+        return true;
       });
 
     setTimeCards(cards);
