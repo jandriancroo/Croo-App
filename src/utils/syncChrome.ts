@@ -51,11 +51,20 @@ export function syncChrome() {
 
   root.style.setProperty('--chrome-bg', chrome);
 
-  // Compensate for the iOS glass brighten (tune STATUS_BAR_DARKEN if needed).
-  const STATUS_BAR_DARKEN = 9;
-  const statusL = isIosStandalone() ? Math.max(0, safeL - STATUS_BAR_DARKEN) : safeL;
-  const statusColor = `hsl(${h} ${s}% ${statusL}%)`;
+  /**
+   * iOS 26/27 installed web apps do NOT paint a flat tint behind the status bar:
+   * they lift the sampled color toward white (lighter + desaturated) for clock
+   * legibility. That lift is far too strong to cancel with a darker input
+   * (the math goes negative), so instead of fighting it we MATCH it: publish the
+   * lifted tone as theme-color and blend the top of the header from that tone
+   * down into the real header color, so there is no visible seam.
+   */
+  const ios = isIosStandalone();
+  const statusL = ios ? safeL + 0.55 * (100 - safeL) : safeL;
+  const statusS = ios ? s * 0.45 : s;
+  const statusColor = `hsl(${h} ${statusS}% ${statusL}%)`;
   root.style.setProperty('--chrome-statusbar', statusColor);
+  root.dataset.iosGlass = ios ? '1' : '0';
 
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
   if (metas.length) {
