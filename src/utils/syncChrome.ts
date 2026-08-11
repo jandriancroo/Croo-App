@@ -20,6 +20,22 @@ function parseHSL(v: string) {
  *   - --chrome-bg on <html> (html bg + safe-area band + header + nav)
  *   - every <meta name="theme-color"> (incl. media-scoped variants)
  */
+/**
+ * iOS 26/27 installed web apps paint a "liquid glass" scrim over the status bar:
+ * it takes the published theme-color and BRIGHTENS it, so a perfect match with
+ * the header still reads as a light band fading into the header. Only on that
+ * platform do we publish a pre-darkened theme-color so the OS's brighten step
+ * lands back on the header color. Everywhere else theme-color === header color.
+ */
+function isIosStandalone() {
+  if (typeof navigator === 'undefined') return false;
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+  const standalone = (navigator as any).standalone === true ||
+    (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches);
+  return isIos && !!standalone;
+}
+
 export function syncChrome() {
   const root = document.documentElement;
   const raw = getComputedStyle(root).getPropertyValue('--header-bg');
@@ -35,13 +51,20 @@ export function syncChrome() {
 
   root.style.setProperty('--chrome-bg', chrome);
 
+  // Compensate for the iOS glass brighten (tune STATUS_BAR_DARKEN if needed).
+  const STATUS_BAR_DARKEN = 9;
+  const statusL = isIosStandalone() ? Math.max(0, safeL - STATUS_BAR_DARKEN) : safeL;
+  const statusColor = `hsl(${h} ${s}% ${statusL}%)`;
+  root.style.setProperty('--chrome-statusbar', statusColor);
+
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
   if (metas.length) {
-    metas.forEach((m) => m.setAttribute('content', chrome));
+    metas.forEach((m) => m.setAttribute('content', statusColor));
   } else {
-    document.getElementById('theme-color-meta')?.setAttribute('content', chrome);
+    document.getElementById('theme-color-meta')?.setAttribute('content', statusColor);
   }
 }
+
 
 // Backward-compat alias — existing callers use syncChromeColor().
 export const syncChromeColor = syncChrome;
