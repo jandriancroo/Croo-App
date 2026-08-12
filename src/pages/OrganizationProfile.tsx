@@ -290,6 +290,12 @@ export default function OrganizationProfile() {
           <PunchDeviceManager organizationId={id} locations={locations as any[]} />
         )}
 
+        {/* Apple Watch Devices (org admins only) */}
+        {!isNew && id && (
+          <WatchDeviceManager organizationId={id} locations={locations as any[]} />
+        )}
+
+
         {/* Locations */}
         {!isNew && (
           <Card>
