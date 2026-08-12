@@ -133,3 +133,69 @@ struct EmptyStateView: View {
         .padding()
     }
 }
+
+// MARK: - Preview
+
+#Preview("Cubes") {
+    let store = WatchDataStore.shared
+    store.snapshot = WatchSnapshot(
+        updatedAt: Date().ISO8601Format(),
+        locationName: "Palm Springs",
+        cubes: [
+            WatchCube(
+                id: "preview-1",
+                title: "Today",
+                accentColor: "#2A8399",
+                faces: [
+                    WatchCubeFace(
+                        title: "",
+                        metrics: [
+                            WatchMetric(label: "Sales", value: "$4,218"),
+                            WatchMetric(label: "Pace", value: "+8%"),
+                            WatchMetric(label: "Guests", value: "312"),
+                            WatchMetric(label: "Avg Ticket", value: "$13.52"),
+                        ]
+                    )
+                ]
+            ),
+            WatchCube(
+                id: "preview-2",
+                title: "D/W/M",
+                accentColor: "#EB7D3C",
+                faces: [
+                    WatchCubeFace(
+                        title: "Day",
+                        metrics: [
+                            WatchMetric(label: "Sales", value: "$4,218"),
+                            WatchMetric(label: "Labor %", value: "22.4%"),
+                            WatchMetric(label: "SPLH", value: "$41.20"),
+                        ]
+                    ),
+                    WatchCubeFace(
+                        title: "Week",
+                        metrics: [
+                            WatchMetric(label: "Sales", value: "$31,405"),
+                            WatchMetric(label: "Labor %", value: "24.1%"),
+                            WatchMetric(label: "SPLH", value: "$38.75"),
+                        ]
+                    ),
+                    WatchCubeFace(
+                        title: "Month",
+                        metrics: [
+                            WatchMetric(label: "Sales", value: "$142,800"),
+                            WatchMetric(label: "Labor %", value: "23.8%"),
+                            WatchMetric(label: "SPLH", value: "$39.10"),
+                        ]
+                    )
+                ]
+            )
+        ],
+        schedule: [],
+        sales: []
+    )
+    return CubesView().environmentObject(store)
+}
+
+#Preview("Empty") {
+    CubesView().environmentObject(WatchDataStore.shared)
+}
