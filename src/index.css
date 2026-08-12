@@ -141,6 +141,21 @@ All colors MUST be HSL.
     --warning-line: 38 80% 70%;
   }
 
+  /* Pay-period ledger semantics — shared across every theme.
+     Green anchored to the rgba(34,197,94) used by statusGlow. */
+  :root, .dark, [data-theme] {
+    --up: 0 72% 47%;      /* metric moving the wrong way */
+    --down: 142 71% 45%;  /* metric moving the right way */
+    --anchor: 220 16% 97%;
+  }
+  .dark, [data-theme="oled"] {
+    --up: 0 72% 58%;
+    --down: 142 62% 52%;
+    --anchor: 220 14% 11%;
+  }
+
+
+
   .dark {
     --background: 220 28% 4%;
     --foreground: 186 28% 95%;

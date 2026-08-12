@@ -18,6 +18,7 @@ import { EditShiftForm } from '@/components/timetracking/EditShiftForm';
 import { Users, CalendarDays, Flag } from 'lucide-react';
 import { usePayrollData } from '@/hooks/usePayrollData';
 import { DailyTipsStrip } from '@/components/payroll/DailyTipsStrip';
+import { PayPeriodSelector } from '@/components/timetracking/PayPeriodSelector';
 
 import {
   formatDateTimeInTimezone,
@@ -98,73 +99,13 @@ export default function PayrollReview() {
     <Layout>
       <div className="space-y-6">
         {!selectedPeriod ? (
-          <>
-            <div>
-              <h1 className="text-3xl font-bold">Time Tracking</h1>
-              <p className="text-muted-foreground">Select a pay period to review time cards</p>
-            </div>
-            <div className="space-y-3">
-              {payPeriods.map((period, index) => {
-                const status = getPeriodStatus(period);
-                const isClosed = status?.status === 'closed';
-                const periodLabel = index === 0 ? 'This Period' : index === 1 ? 'Last Period' : null;
-                const summary = periodSummaries?.[`${period.startDate}_${period.endDate}`];
-                const summaryStats = [
-                  { label: 'Sales', value: summary ? summary.sales.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '—' },
-                  { label: 'Hours', value: summary ? summary.hours.toFixed(1) : '—' },
-                  { label: 'Labor', value: summary ? summary.cost.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '—' },
-                  { label: 'Labor %', value: summary?.laborPercent != null ? `${summary.laborPercent.toFixed(1)}%` : '—' },
-                ];
-                
-                return (
-                  <Card
-                    key={index}
-                    className="cursor-pointer transition-shadow hover:shadow-lg"
-                    onClick={() => setSelectedPeriod(period)}
-                  >
-                    <CardHeader className="p-4 sm:p-5">
-                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                        <div className="min-w-0 space-y-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {periodLabel && (
-                              <Badge 
-                                variant={index === 0 ? "default" : "secondary"}
-                                className="text-xs"
-                              >
-                                {periodLabel}
-                              </Badge>
-                            )}
-                            {isClosed ? (
-                              <Badge variant="outline" className="bg-muted">
-                                <Lock className="mr-1 h-3 w-3" />
-                                Closed
-                              </Badge>
-                            ) : (
-                              <Badge variant="default">
-                                <CheckCircle2 className="mr-1 h-3 w-3" />
-                                Open
-                              </Badge>
-                            )}
-                          </div>
-                          <CardTitle className="max-w-3xl text-xl leading-snug break-words whitespace-normal sm:text-2xl lg:text-3xl">
-                            {period.label}
-                          </CardTitle>
-                        </div>
-                        <div className="grid grid-cols-4 overflow-hidden rounded-full border bg-muted/35 sm:min-w-[520px]">
-                          {summaryStats.map((stat) => (
-                            <div key={stat.label} className="border-r px-2 py-2 text-center last:border-r-0 sm:px-4">
-                              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs">{stat.label}</div>
-                              <div className="mt-0.5 text-base font-bold leading-tight sm:text-lg">{stat.value}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                );
-              })}
-            </div>
-          </>
+          <PayPeriodSelector
+            payPeriods={payPeriods}
+            periodSummaries={periodSummaries}
+            getPeriodStatus={getPeriodStatus}
+            timezone={timezone}
+            onSelect={setSelectedPeriod}
+          />
         ) : (
           <div className="space-y-6">
             {/* Header */}

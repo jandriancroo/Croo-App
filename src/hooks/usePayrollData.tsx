@@ -33,7 +33,7 @@ export function usePayrollData() {
   const { currentLocation } = useAppLocation();
   const { timezone, loading: timezoneLoading } = useLocationTimezone();
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
-  const [periodSummaries, setPeriodSummaries] = useState<Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null }>>({});
+  const [periodSummaries, setPeriodSummaries] = useState<Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null; totalShifts: number; approvedShifts: number }>>({});
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
   const [timeCards, setTimeCards] = useState<any[]>([]);
   const [editingShift, setEditingShift] = useState<{ dayPunches: any[], userId: string, locationId: string, shiftDate: string } | null>(null);
@@ -203,7 +203,7 @@ export function usePayrollData() {
         .lte('labor_date', newestPeriod.endDate),
       supabase
         .from('time_punches')
-        .select('id, user_id, punch_type, punch_time, notes')
+        .select('id, user_id, punch_type, punch_time, notes, approved_at')
         .eq('location_id', currentLocation.id)
         .gte('punch_time', punchQueryStart.toISOString())
         .lte('punch_time', punchQueryEnd.toISOString())
@@ -245,6 +245,8 @@ export function usePayrollData() {
     }
 
     const punchByDate = new Map<string, { hours: number; cost: number }>();
+    // Shift-level approval tally (same buckets the payroll grid approves against).
+    const shiftsByDate = new Map<string, { total: number; approved: number }>();
     if (allPunches.length > 0) {
       const bucketed = bucketPunchesByUserAndDay(allPunches, timezone, cutoffByDayOfWeek, 5);
       bucketed.forEach((daysForUser, userId) => {
@@ -256,6 +258,11 @@ export function usePayrollData() {
           existing.hours += hours;
           existing.cost += hours * wage;
           punchByDate.set(day, existing);
+
+          const tally = shiftsByDate.get(day) || { total: 0, approved: 0 };
+          tally.total += 1;
+          if ((dayPunches as any[]).every((p: any) => !!p.approved_at)) tally.approved += 1;
+          shiftsByDate.set(day, tally);
         });
       });
     }
@@ -274,13 +281,21 @@ export function usePayrollData() {
       }
     });
 
-    const nextSummaries = periods.reduce((acc: Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null }>, period) => {
+    const nextSummaries = periods.reduce((acc: Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null; totalShifts: number; approvedShifts: number }>, period) => {
       let hours = 0;
       let cost = 0;
       let sales = 0;
+      let totalShifts = 0;
+      let approvedShifts = 0;
 
       salesByDate.forEach((value, date) => {
         if (date >= period.startDate && date <= period.endDate) sales += value;
+      });
+
+      shiftsByDate.forEach((tally, date) => {
+        if (date < period.startDate || date > period.endDate) return;
+        totalShifts += tally.total;
+        approvedShifts += tally.approved;
       });
 
       // Walk each day in the period: punches win, cache fills the gaps.
@@ -308,6 +323,8 @@ export function usePayrollData() {
         cost,
         sales,
         laborPercent: sales > 0 ? (cost / sales) * 100 : null,
+        totalShifts,
+        approvedShifts,
       };
       return acc;
     }, {});
