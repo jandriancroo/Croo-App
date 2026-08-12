@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { formatInTimeZone } from 'date-fns-tz';
+import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 
 const LA_TZ = 'America/Los_Angeles';
 
