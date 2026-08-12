@@ -73,6 +73,14 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             print("[WatchBridge] session not activated yet — payload cached")
             return false
         }
+        guard session.isPaired else {
+            print("[WatchBridge] no Apple Watch is paired with this iPhone")
+            return false
+        }
+        guard session.isWatchAppInstalled else {
+            print("[WatchBridge] CrooWatch is not recognized as this iPhone app's companion — verify its bundle identifier")
+            return false
+        }
         print("[WatchBridge] sending snapshot — paired: \(session.isPaired), watchAppInstalled: \(session.isWatchAppInstalled), reachable: \(session.isReachable)")
         do {
             try session.updateApplicationContext(["snapshot": payload])

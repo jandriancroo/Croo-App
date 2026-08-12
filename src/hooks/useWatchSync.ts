@@ -157,7 +157,29 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
     const { updatedAt, ...comparable } = payload;
     const fingerprint = JSON.stringify(comparable);
     if (fingerprint === lastSentRef.current) return;
-    lastSentRef.current = fingerprint;
-    void pushWatchSnapshot(payload);
+
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const send = async () => {
+      const result = await pushWatchSnapshot(payload);
+      if (cancelled) return;
+
+      if (result.delivered) {
+        lastSentRef.current = fingerprint;
+        return;
+      }
+
+      // WatchConnectivity may still be activating when the dashboard first
+      // renders. Retry instead of permanently treating that first attempt as sent.
+      retryTimer = setTimeout(() => void send(), 5_000);
+    };
+
+    void send();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [payload]);
 }
