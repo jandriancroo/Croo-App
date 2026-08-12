@@ -281,13 +281,21 @@ export function usePayrollData() {
       }
     });
 
-    const nextSummaries = periods.reduce((acc: Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null }>, period) => {
+    const nextSummaries = periods.reduce((acc: Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null; totalShifts: number; approvedShifts: number }>, period) => {
       let hours = 0;
       let cost = 0;
       let sales = 0;
+      let totalShifts = 0;
+      let approvedShifts = 0;
 
       salesByDate.forEach((value, date) => {
         if (date >= period.startDate && date <= period.endDate) sales += value;
+      });
+
+      shiftsByDate.forEach((tally, date) => {
+        if (date < period.startDate || date > period.endDate) return;
+        totalShifts += tally.total;
+        approvedShifts += tally.approved;
       });
 
       // Walk each day in the period: punches win, cache fills the gaps.
@@ -315,6 +323,8 @@ export function usePayrollData() {
         cost,
         sales,
         laborPercent: sales > 0 ? (cost / sales) * 100 : null,
+        totalShifts,
+        approvedShifts,
       };
       return acc;
     }, {});
