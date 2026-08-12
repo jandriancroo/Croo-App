@@ -22,7 +22,7 @@ and remembers the last one so it isn't blank when it opens.
 4. Fill in:
    - Product Name: `CrooWatch`
    - Interface: **SwiftUI**, Language: **Swift**
-   - Bundle Identifier must be: `app.lovable.p9db37c9a728f428da26f854a0e9b29a2.watchkitapp`
+   - Bundle Identifier must be: `com.croohq.kitchenmate.watchkitapp`
    - Uncheck "Include Notification Scene" and any tests.
 5. Press Finish. If Xcode asks to activate a new scheme, click Activate.
 6. In the new `CrooWatch` folder Xcode created, **delete** the sample
