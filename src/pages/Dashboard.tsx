@@ -13,6 +13,7 @@ import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardWidgets } from '@/hooks/useDashboardWidgets';
 import { updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson } from '@/lib/dashboardWidgetsClient';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
+import { useWatchSync } from '@/hooks/useWatchSync';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
@@ -238,6 +239,9 @@ export default function Dashboard() {
     trackerExcludedLocationIds: w.trackerExcludedLocationIds,
     createdBy: w.createdBy,
   })), [unifiedWidgets]);
+
+  // Mirror cubes / today's schedule / sales summary to the Apple Watch (read-only)
+  useWatchSync(dashboardCubes as any, combinedSalesData);
 
   const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
     try {
