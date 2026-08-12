@@ -63,10 +63,17 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
     @discardableResult
     func send(payload: String) -> Bool {
-        guard WCSession.isSupported() else { return false }
+        guard WCSession.isSupported() else {
+            print("[WatchBridge] WCSession not supported on this device")
+            return false
+        }
         latestPayload = payload
         let session = WCSession.default
-        guard session.activationState == .activated else { return false }
+        guard session.activationState == .activated else {
+            print("[WatchBridge] session not activated yet — payload cached")
+            return false
+        }
+        print("[WatchBridge] sending snapshot — paired: \(session.isPaired), watchAppInstalled: \(session.isWatchAppInstalled), reachable: \(session.isReachable)")
         do {
             try session.updateApplicationContext(["snapshot": payload])
             return true
