@@ -341,6 +341,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         });
       }
     }
+    if (liveToday.hours > 0 && liveToday.date >= monthStartStr && liveToday.date <= monthEndStr) {
+      monthlyLaborMap.set(liveToday.date, { laborCost: liveToday.cost, laborHours: liveToday.hours });
+    }
+
     
     const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number }[] = [];
     
