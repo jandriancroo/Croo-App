@@ -203,7 +203,7 @@ export function usePayrollData() {
         .lte('labor_date', newestPeriod.endDate),
       supabase
         .from('time_punches')
-        .select('id, user_id, punch_type, punch_time, notes')
+        .select('id, user_id, punch_type, punch_time, notes, approved_at')
         .eq('location_id', currentLocation.id)
         .gte('punch_time', punchQueryStart.toISOString())
         .lte('punch_time', punchQueryEnd.toISOString())
