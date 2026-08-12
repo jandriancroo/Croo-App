@@ -35,6 +35,24 @@ function toWatchMetrics(metrics: MetricType[] | undefined, salesData: SalesDataF
     });
 }
 
+/**
+ * Cube accents are stored as semantic theme keys on the phone. The watch can't
+ * read CSS variables, so mirror the default (light) theme values as hex here.
+ */
+const THEME_ACCENT_HEX: Record<string, string> = {
+  primary: '#2A8399',
+  accent: '#EB7D3C',
+  destructive: '#F42525',
+  secondary: '#B7D4E2',
+  muted: '#DFE2E9',
+};
+
+function resolveAccentHex(color?: string): string {
+  if (!color) return THEME_ACCENT_HEX.primary;
+  if (color.startsWith('#')) return color;
+  return THEME_ACCENT_HEX[color] || THEME_ACCENT_HEX.primary;
+}
+
 const SALES_SUMMARY_METRICS: MetricType[] = [
   'sales_today',
   'sales_pace',
@@ -136,7 +154,7 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
         return {
           id: c.id,
           title: c.title || 'Cube',
-          accentColor: c.accentColor || '#8B5CF6',
+          accentColor: resolveAccentHex(c.accentColor),
           faces,
         };
       })
