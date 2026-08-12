@@ -106,7 +106,7 @@
 				0223276538FD4DC88390D665 /* Info.plist */,
 				13F8767856034FCAB5EF7E84 /* Assets.xcassets */,
 			);
-			path = watch/CrooWatch;
+			path = ../../watch/CrooWatch;
 			sourceTree = "<group>";
 		};
 		27E2DDA53C4D2A4D1A88CE4A /* Frameworks */ = {
@@ -374,7 +374,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				INFOPLIST_FILE = "watch/CrooWatch/Info.plist";
+				INFOPLIST_FILE = "../../watch/CrooWatch/Info.plist";
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.croohq.kitchenmate.watchkitapp";
@@ -403,7 +403,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				INFOPLIST_FILE = "watch/CrooWatch/Info.plist";
+				INFOPLIST_FILE = "../../watch/CrooWatch/Info.plist";
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
