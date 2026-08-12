@@ -5,22 +5,23 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
-    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-        // Main.storyboard creates and retains CAPBridgeViewController. Keeping
-        // startup storyboard-driven matches Capacitor's stable iOS app shell
-        // while still supporting the scene lifecycle required by newer iOS.
-        SceneDelegateProxy.shared.scene(
-            scene,
-            willConnectTo: session,
-            options: connectionOptions
+    // The scene configuration points at Main.storyboard, so UIKit creates the
+    // window and the CAPBridgeViewController automatically. Nothing to do here.
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let context = URLContexts.first else { return }
+        _ = ApplicationDelegateProxy.shared.application(
+            UIApplication.shared,
+            open: context.url,
+            options: [:]
         )
     }
 
-    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-        SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
-    }
-
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-        SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+        _ = ApplicationDelegateProxy.shared.application(
+            UIApplication.shared,
+            continue: userActivity,
+            restorationHandler: { _ in }
+        )
     }
 }
