@@ -189,7 +189,32 @@ export function usePayrollData() {
     );
     punchQueryEnd.setDate(punchQueryEnd.getDate() + 1);
 
-    const [salesResult, laborResult, punchesResult, hoursResult] = await Promise.all([
+    // Punches can easily exceed the 1000-row default cap across 20 periods, which
+    // silently truncated the newest days (today's live shifts vanished). Page
+    // through the full range instead.
+    const fetchAllPunches = async () => {
+      const pageSize = 1000;
+      const rows: any[] = [];
+      for (let page = 0; page < 40; page++) {
+        const { data, error } = await supabase
+          .from('time_punches')
+          .select('id, user_id, punch_type, punch_time, notes, approved_at')
+          .eq('location_id', currentLocation.id)
+          .gte('punch_time', punchQueryStart.toISOString())
+          .lte('punch_time', punchQueryEnd.toISOString())
+          .order('punch_time', { ascending: true })
+          .range(page * pageSize, page * pageSize + pageSize - 1);
+        if (error) {
+          console.error('[PayrollReview] punch page error:', error);
+          break;
+        }
+        rows.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+      }
+      return rows;
+    };
+
+    const [salesResult, laborResult, allPunchesRows, hoursResult] = await Promise.all([
       supabase
         .from('sales_cache')
         .select('sale_date, net_sales')
@@ -202,18 +227,13 @@ export function usePayrollData() {
         .eq('location_id', currentLocation.id)
         .gte('labor_date', oldestPeriod.startDate)
         .lte('labor_date', newestPeriod.endDate),
-      supabase
-        .from('time_punches')
-        .select('id, user_id, punch_type, punch_time, notes, approved_at')
-        .eq('location_id', currentLocation.id)
-        .gte('punch_time', punchQueryStart.toISOString())
-        .lte('punch_time', punchQueryEnd.toISOString())
-        .order('punch_time', { ascending: true }),
+      fetchAllPunches(),
       supabase
         .from('location_hours')
         .select('day_of_week, close_time')
         .eq('location_id', currentLocation.id),
     ]);
+
 
     if (salesResult.error || laborResult.error) {
       console.error('[PayrollReview] period summary query error:', salesResult.error || laborResult.error);
@@ -232,7 +252,7 @@ export function usePayrollData() {
       cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
     });
 
-    const allPunches = (punchesResult as any).data || [];
+    const allPunches = allPunchesRows || [];
     const punchUserIds = [...new Set(allPunches.map((p: any) => p.user_id))] as string[];
 
     const wageByUserId = new Map<string, number>();
