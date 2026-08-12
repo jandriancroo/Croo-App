@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
+import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 
 interface SalesData {
   daily: number;
@@ -233,7 +234,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     
     // labor_cache only holds CLOSED days, so today's hours/cost come from live
     // punches — otherwise weekly/monthly hours read low while cost keeps moving.
-    const liveToday = await fetchLiveLaborForToday(currentLocation.id, timezone);
+    const liveToday = await fetchLiveLaborForToday(currentLocation.id, locationZone);
 
     // Build a map of daily labor data for the week (prefer punch_clock over qubeyond)
     const weeklyLaborData = weeklyLaborResult.data || [];
