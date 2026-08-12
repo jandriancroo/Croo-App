@@ -113,10 +113,25 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         DispatchQueue.main.async {
-            self.snapshot = decoded
+            // A snapshot that arrives while the phone dashboard is still loading
+            // can have no cubes yet — keep the ones we already have instead of
+            // flashing an empty "No Cubes" state.
+            var merged = decoded
+            if decoded.cubes.isEmpty && !self.snapshot.cubes.isEmpty {
+                merged = WatchSnapshot(
+                    updatedAt: decoded.updatedAt,
+                    locationName: decoded.locationName.isEmpty ? self.snapshot.locationName : decoded.locationName,
+                    cubes: self.snapshot.cubes,
+                    schedule: decoded.schedule,
+                    sales: decoded.sales.isEmpty ? self.snapshot.sales : decoded.sales
+                )
+            }
+            self.snapshot = merged
             self.hasData = true
-            UserDefaults.standard.set(json, forKey: self.cacheKey)
-            print("[WatchBridge] snapshot applied — cubes: \(decoded.cubes.count), shifts: \(decoded.schedule.count), sales: \(decoded.sales.count)")
+            if let out = try? JSONEncoder().encode(merged), let outJson = String(data: out, encoding: .utf8) {
+                UserDefaults.standard.set(outJson, forKey: self.cacheKey)
+            }
+            print("[WatchBridge] snapshot applied — cubes: \(merged.cubes.count), shifts: \(merged.schedule.count), sales: \(merged.sales.count)")
         }
     }
 
