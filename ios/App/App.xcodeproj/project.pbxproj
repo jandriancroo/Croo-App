@@ -50,8 +50,6 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
-
-
 /* Begin PBXFileReference section */
 		6B4360635AA6485CB058E880 /* CrooWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrooWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13F8767856034FCAB5EF7E84 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
