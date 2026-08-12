@@ -268,7 +268,7 @@ export function usePayrollData() {
       });
     }
 
-    // ── labor_cache fallback (POS-sourced labor, punch-clock-free stores) ──
+    // ── labor_cache (authoritative — same source as the dashboard) ──────────
     const laborByDate = new Map<string, { hours: number; cost: number; priority: number }>();
     (laborResult.data || []).forEach((row: any) => {
       const priority = row.source === 'punch_clock' ? 2 : 1;
@@ -299,25 +299,26 @@ export function usePayrollData() {
         approvedShifts += tally.approved;
       });
 
-      // Walk each day in the period: punches win, cache fills the gaps.
+      // Walk each day in the period: labor_cache wins, punches fill the gaps.
       const dayCursor = new Set<string>([
-        ...Array.from(punchByDate.keys()),
         ...Array.from(laborByDate.keys()),
+        ...Array.from(punchByDate.keys()),
       ]);
       dayCursor.forEach((date) => {
         if (date < period.startDate || date > period.endDate) return;
+        const fromCache = laborByDate.get(date);
+        if (fromCache && (fromCache.hours > 0 || fromCache.cost > 0)) {
+          hours += fromCache.hours;
+          cost += fromCache.cost;
+          return;
+        }
         const fromPunches = punchByDate.get(date);
         if (fromPunches) {
           hours += fromPunches.hours;
           cost += fromPunches.cost;
-          return;
-        }
-        const fromCache = laborByDate.get(date);
-        if (fromCache) {
-          hours += fromCache.hours;
-          cost += fromCache.cost;
         }
       });
+
 
       acc[getPeriodKey(period)] = {
         hours,
