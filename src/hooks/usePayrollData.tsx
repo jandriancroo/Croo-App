@@ -245,6 +245,8 @@ export function usePayrollData() {
     }
 
     const punchByDate = new Map<string, { hours: number; cost: number }>();
+    // Shift-level approval tally (same buckets the payroll grid approves against).
+    const shiftsByDate = new Map<string, { total: number; approved: number }>();
     if (allPunches.length > 0) {
       const bucketed = bucketPunchesByUserAndDay(allPunches, timezone, cutoffByDayOfWeek, 5);
       bucketed.forEach((daysForUser, userId) => {
@@ -256,6 +258,11 @@ export function usePayrollData() {
           existing.hours += hours;
           existing.cost += hours * wage;
           punchByDate.set(day, existing);
+
+          const tally = shiftsByDate.get(day) || { total: 0, approved: 0 };
+          tally.total += 1;
+          if ((dayPunches as any[]).every((p: any) => !!p.approved_at)) tally.approved += 1;
+          shiftsByDate.set(day, tally);
         });
       });
     }
