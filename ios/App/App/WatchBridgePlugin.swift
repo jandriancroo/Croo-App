@@ -11,7 +11,8 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "WatchBridge"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "sendSnapshot", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "isPaired", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "isPaired", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pairWatch", returnType: CAPPluginReturnPromise)
     ]
 
     private let session = WatchSessionManager.shared
@@ -30,12 +31,30 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(["delivered": delivered])
     }
 
+    /// One-time handoff of a location-scoped device token so the watch can fetch
+    /// its own data without the iPhone app being open.
+    @objc func pairWatch(_ call: CAPPluginCall) {
+        guard let token = call.getString("token"),
+              let locationId = call.getString("locationId") else {
+            call.reject("Missing token or locationId")
+            return
+        }
+        let delivered = session.sendPairing([
+            "token": token,
+            "locationId": locationId,
+            "locationName": call.getString("locationName") ?? "",
+            "apiUrl": call.getString("apiUrl") ?? ""
+        ])
+        call.resolve(["delivered": delivered])
+    }
+
     @objc func isPaired(_ call: CAPPluginCall) {
         call.resolve([
             "paired": session.isPaired,
             "reachable": session.isReachable
         ])
     }
+
 }
 
 /// Thin WatchConnectivity wrapper. Uses application context so the watch always
@@ -70,14 +89,22 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         print("[WatchBridge] phone session activation requested — cached snapshot: \(latestPayload == nil ? "no" : "yes")")
     }
 
-    @discardableResult
-    func send(payload: String) -> Bool {
-        guard WCSession.isSupported() else {
-            print("[WatchBridge] WCSession not supported on this device")
-            return false
-        }
-        latestPayload = payload
-        let session = WCSession.default
+    private let pairingCacheKey = "croo.phone.watch.pairing"
+    private var latestPairing: [String: String]? {
+        get { UserDefaults.standard.dictionary(forKey: pairingCacheKey) as? [String: String] }
+        set { UserDefaults.standard.set(newValue, forKey: pairingCacheKey) }
+    }
+
+    /// Context always carries the newest snapshot AND the current pairing, since
+    /// updateApplicationContext replaces the whole dictionary.
+    private func currentContext() -> [String: Any] {
+        var ctx: [String: Any] = [:]
+        if let payload = latestPayload { ctx["snapshot"] = payload }
+        if let pairing = latestPairing { ctx["pairing"] = pairing }
+        return ctx
+    }
+
+    private func canTalkToWatch(_ session: WCSession) -> Bool {
         guard session.activationState == .activated else {
             print("[WatchBridge] session not activated yet — payload cached")
             return false
@@ -90,9 +117,21 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             print("[WatchBridge] CrooWatch is not recognized as this iPhone app's companion — verify its bundle identifier")
             return false
         }
-        print("[WatchBridge] sending snapshot — paired: \(session.isPaired), watchAppInstalled: \(session.isWatchAppInstalled), reachable: \(session.isReachable)")
+        return true
+    }
+
+    @discardableResult
+    func send(payload: String) -> Bool {
+        guard WCSession.isSupported() else {
+            print("[WatchBridge] WCSession not supported on this device")
+            return false
+        }
+        latestPayload = payload
+        let session = WCSession.default
+        guard canTalkToWatch(session) else { return false }
+        print("[WatchBridge] sending snapshot — reachable: \(session.isReachable)")
         do {
-            try session.updateApplicationContext(["snapshot": payload])
+            try session.updateApplicationContext(currentContext())
             // Also queue a guaranteed-delivery copy so the watch still gets the
             // snapshot if it was asleep or launched later.
             session.transferUserInfo(["snapshot": payload])
@@ -102,6 +141,25 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             return false
         }
     }
+
+    /// Hands the watch its own location-scoped device token (one-time pairing).
+    @discardableResult
+    func sendPairing(_ pairing: [String: String]) -> Bool {
+        guard WCSession.isSupported() else { return false }
+        latestPairing = pairing
+        let session = WCSession.default
+        guard canTalkToWatch(session) else { return false }
+        do {
+            try session.updateApplicationContext(currentContext())
+            session.transferUserInfo(["pairing": pairing])
+            print("[WatchBridge] pairing sent to watch for location \(pairing["locationId"] ?? "?")")
+            return true
+        } catch {
+            print("[WatchBridge] pairing transfer failed: \(error)")
+            return false
+        }
+    }
+
 
     // MARK: - WCSessionDelegate
 
@@ -123,7 +181,10 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
                  didReceiveMessage message: [String: Any],
                  replyHandler: @escaping ([String: Any]) -> Void) {
         if message["request"] as? String == "snapshot" {
-            replyHandler(["snapshot": latestPayload ?? ""])
+            var reply: [String: Any] = ["snapshot": latestPayload ?? ""]
+            if let pairing = latestPairing { reply["pairing"] = pairing }
+            replyHandler(reply)
+
         } else {
             replyHandler([:])
         }

@@ -17,6 +17,8 @@ import { PositionManagementInline } from '@/components/settings/PositionManageme
 import { useUserRole } from '@/hooks/useUserRole';
 import { OrgLibraryEnableSection } from '@/components/library/OrgLibraryEnableSection';
 import { PunchDeviceManager } from '@/components/organization/PunchDeviceManager';
+import { WatchDeviceManager } from '@/components/organization/WatchDeviceManager';
+
 
 export default function OrganizationProfile() {
   const { id } = useParams<{ id: string }>();
@@ -289,6 +291,12 @@ export default function OrganizationProfile() {
         {!isNew && id && (
           <PunchDeviceManager organizationId={id} locations={locations as any[]} />
         )}
+
+        {/* Apple Watch Devices (org admins only) */}
+        {!isNew && id && (
+          <WatchDeviceManager organizationId={id} locations={locations as any[]} />
+        )}
+
 
         {/* Locations */}
         {!isNew && (
