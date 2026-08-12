@@ -7,7 +7,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Start the Apple Watch link as early as possible so the watch can
+        // receive a snapshot even before the dashboard finishes loading.
+        WatchSessionManager.shared.activate()
         return true
     }
 
