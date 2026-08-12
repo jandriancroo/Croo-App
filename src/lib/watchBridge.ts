@@ -55,10 +55,16 @@ export const isWatchBridgeAvailable = () =>
 
 export const WatchBridge: WatchBridgePlugin = {
   async sendSnapshot(options) {
-    if (!isWatchBridgeAvailable()) return noop.sendSnapshot(options);
+    if (!isWatchBridgeAvailable()) {
+      console.log('[WatchBridge] skipped — not running in the native iOS app');
+      return noop.sendSnapshot(options);
+    }
     try {
-      return await native.sendSnapshot(options);
-    } catch {
+      const res = await native.sendSnapshot(options);
+      console.log('[WatchBridge] sendSnapshot delivered =', res?.delivered, 'bytes =', options.payload.length);
+      return res;
+    } catch (e) {
+      console.log('[WatchBridge] sendSnapshot FAILED (plugin missing from app target?)', e);
       return { delivered: false };
     }
   },
@@ -73,5 +79,7 @@ export const WatchBridge: WatchBridgePlugin = {
 };
 
 export async function pushWatchSnapshot(payload: WatchPayload) {
-  return WatchBridge.sendSnapshot({ payload: JSON.stringify(payload) });
+  const json = JSON.stringify(payload);
+  console.log('[WatchBridge] pushing snapshot — cubes:', payload.cubes.length, 'shifts:', payload.schedule.length, 'sales:', payload.sales.length);
+  return WatchBridge.sendSnapshot({ payload: json });
 }
