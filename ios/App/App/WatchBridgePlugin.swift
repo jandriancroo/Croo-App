@@ -11,7 +11,8 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "WatchBridge"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "sendSnapshot", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "isPaired", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "isPaired", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pairWatch", returnType: CAPPluginReturnPromise)
     ]
 
     private let session = WatchSessionManager.shared
@@ -30,12 +31,30 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(["delivered": delivered])
     }
 
+    /// One-time handoff of a location-scoped device token so the watch can fetch
+    /// its own data without the iPhone app being open.
+    @objc func pairWatch(_ call: CAPPluginCall) {
+        guard let token = call.getString("token"),
+              let locationId = call.getString("locationId") else {
+            call.reject("Missing token or locationId")
+            return
+        }
+        let delivered = session.sendPairing([
+            "token": token,
+            "locationId": locationId,
+            "locationName": call.getString("locationName") ?? "",
+            "apiUrl": call.getString("apiUrl") ?? ""
+        ])
+        call.resolve(["delivered": delivered])
+    }
+
     @objc func isPaired(_ call: CAPPluginCall) {
         call.resolve([
             "paired": session.isPaired,
             "reachable": session.isReachable
         ])
     }
+
 }
 
 /// Thin WatchConnectivity wrapper. Uses application context so the watch always
