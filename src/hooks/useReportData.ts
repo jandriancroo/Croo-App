@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { calculateCountItemValue } from '@/utils/countItemValue';
 import { fetchRecipeCosts } from '@/utils/recipeCostCalculation';
+import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 
 export interface CogsCategoryRow {
   category: string;
