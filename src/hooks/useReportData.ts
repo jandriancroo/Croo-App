@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { calculateCountItemValue } from '@/utils/countItemValue';
 import { fetchRecipeCosts } from '@/utils/recipeCostCalculation';
+import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 
 export interface CogsCategoryRow {
   category: string;
@@ -119,6 +120,22 @@ async function fetchLocationData(
       byDay.set(key, r);
     }
   }
+  // labor_cache only holds CLOSED days. If the window includes today, patch it
+  // with the shared live-punch helper so reports agree with the dashboard.
+  const liveToday = await fetchLiveLaborForToday(locationId);
+  if (liveToday.hours > 0 && liveToday.date >= fromISO && liveToday.date <= toISO) {
+    const existingToday = byDay.get(liveToday.date);
+    if (!existingToday || !(Number(existingToday.labor_hours || 0) > 0)) {
+      byDay.set(liveToday.date, {
+        ...(existingToday || {}),
+        labor_date: liveToday.date,
+        source: 'punch_clock',
+        labor_hours: liveToday.hours,
+        labor_cost: liveToday.cost,
+      });
+    }
+  }
+
   const dayRows = Array.from(byDay.entries()).map(([date, r]) => ({
     date,
     totalHours: Number(r.labor_hours || 0),
