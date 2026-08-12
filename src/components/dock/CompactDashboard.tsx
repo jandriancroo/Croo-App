@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { getTimezoneOffset } from '@/utils/timezoneUtils';
+import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 import { useAuth } from '@/lib/auth';
 
 interface CompactDashboardProps {
