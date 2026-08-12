@@ -205,11 +205,31 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
         .gte('labor_date', mtdStart)
         .lte('labor_date', effectiveToday);
 
+      // labor_cache only holds CLOSED days — pull today's live labor per location
+      // from the shared punch helper so org cards match each store's dashboard.
+      const liveTodayByLoc = new Map<string, { date: string; hours: number; cost: number }>();
+      if (!isHistorical) {
+        const lives = await Promise.all(
+          locationIds.map(id => fetchLiveLaborForToday(id).catch(() => null))
+        );
+        lives.forEach((live, i) => {
+          if (live && live.hours > 0) liveTodayByLoc.set(locationIds[i], live);
+        });
+      }
+
       const result: Record<string, Omit<OrgLocationData, 'locationId' | 'locationName' | 'storeNumber'>> = {};
 
       for (const locId of locationIds) {
         const locSales = (salesRows || []).filter(r => r.location_id === locId);
-        const locLabor = (laborRows || []).filter(r => r.location_id === locId);
+        const liveToday = liveTodayByLoc.get(locId);
+        const locLaborRaw = (laborRows || []).filter(r => r.location_id === locId);
+        const locLabor =
+          liveToday && !locLaborRaw.some(r => r.labor_date === liveToday.date && Number(r.labor_cost) > 0)
+            ? [
+                ...locLaborRaw.filter(r => r.labor_date !== liveToday.date),
+                { location_id: locId, labor_date: liveToday.date, labor_cost: liveToday.cost, source: 'punch_clock' } as any,
+              ]
+            : locLaborRaw;
 
         // Today's row
         const todayRow = locSales.find(r => r.sale_date === effectiveToday);
