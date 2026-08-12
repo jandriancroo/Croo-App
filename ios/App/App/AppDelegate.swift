@@ -1,11 +1,47 @@
 import UIKit
 import Capacitor
+import WebKit
+
+/// A direct WebKit channel for dashboard snapshots. App-local Swift files are
+/// not included in Capacitor's generated package plugin list, so this channel
+/// deliberately avoids depending on plugin auto-discovery.
+private final class WatchSnapshotMessageHandler: NSObject, WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "WatchBridge" else { return }
+
+        let payload: String?
+        if let value = message.body as? String {
+            payload = value
+        } else if let body = message.body as? [String: Any] {
+            payload = body["payload"] as? String
+        } else {
+            payload = nil
+        }
+
+        guard let payload, !payload.isEmpty else {
+            print("[WatchBridge] direct channel rejected an empty snapshot")
+            return
+        }
+
+        let delivered = WatchSessionManager.shared.send(payload: payload)
+        print("[WatchBridge] direct channel accepted snapshot — delivered: \(delivered), bytes: \(payload.utf8.count)")
+    }
+}
 
 /// The one Capacitor screen used by every iPhone launch path. Keeping this in
 /// AppDelegate.swift ensures Xcode cannot omit the local Watch plugin because
 /// of SceneDelegate.swift target-membership drift.
 @objc(CrooBridgeViewController)
 final class CrooBridgeViewController: CAPBridgeViewController {
+    private let watchSnapshotHandler = WatchSnapshotMessageHandler()
+
+    override func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
+        let configuration = super.webViewConfiguration(for: instanceConfiguration)
+        configuration.userContentController.add(watchSnapshotHandler, name: "WatchBridge")
+        print("[WatchBridge] direct WebKit channel installed")
+        return configuration
+    }
+
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         print("[WatchBridge] registering Capacitor plugin")

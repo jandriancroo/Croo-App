@@ -38,6 +38,17 @@ interface WatchBridgePlugin {
   isPaired(): Promise<{ paired: boolean; reachable: boolean }>;
 }
 
+type NativeWatchMessageHandler = {
+  postMessage(message: string | { payload: string }): void;
+};
+
+const getDirectNativeHandler = (): NativeWatchMessageHandler | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  return (window as Window & {
+    webkit?: { messageHandlers?: { WatchBridge?: NativeWatchMessageHandler } };
+  }).webkit?.messageHandlers?.WatchBridge;
+};
+
 const noop: WatchBridgePlugin = {
   async sendSnapshot() {
     return { delivered: false };
@@ -59,6 +70,14 @@ export const WatchBridge: WatchBridgePlugin = {
       console.log('[WatchBridge] skipped — not running in the native iOS app');
       return noop.sendSnapshot(options);
     }
+
+    const directHandler = getDirectNativeHandler();
+    if (directHandler) {
+      directHandler.postMessage(options.payload);
+      console.log('[WatchBridge] snapshot queued through direct iPhone channel — bytes =', options.payload.length);
+      return { delivered: true };
+    }
+
     try {
       const res = await native.sendSnapshot(options);
       console.log('[WatchBridge] sendSnapshot delivered =', res?.delivered, 'bytes =', options.payload.length);
