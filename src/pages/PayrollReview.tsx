@@ -18,6 +18,7 @@ import { EditShiftForm } from '@/components/timetracking/EditShiftForm';
 import { Users, CalendarDays, Flag } from 'lucide-react';
 import { usePayrollData } from '@/hooks/usePayrollData';
 import { DailyTipsStrip } from '@/components/payroll/DailyTipsStrip';
+import { PayPeriodSelector } from '@/components/timetracking/PayPeriodSelector';
 
 import {
   formatDateTimeInTimezone,
