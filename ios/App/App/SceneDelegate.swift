@@ -4,7 +4,9 @@ import Capacitor
 /// Registers CrooHQ's native plugins before the web dashboard starts.
 final class CrooBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
-        bridge?.registerPluginType(WatchBridgePlugin.self)
+        // Local plugins must be registered as instances in Capacitor 8.
+        // registerPluginType is ignored while automatic package registration is on.
+        bridge?.registerPluginInstance(WatchBridgePlugin())
     }
 }
 
