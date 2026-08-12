@@ -47,6 +47,9 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
 
     @Published var snapshot: WatchSnapshot = .empty
     @Published var hasData: Bool = false
+    /// Human-readable link state, shown on the Status tab for troubleshooting.
+    @Published var statusLine: String = "Starting…"
+    @Published var lastEvent: String = "none"
 
     private let cacheKey = "croo.watch.snapshot"
 
@@ -60,7 +63,26 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         let session = WCSession.default
         session.delegate = self
         session.activate()
+        refreshStatus()
         requestRefresh()
+    }
+
+    func refreshStatus() {
+        guard WCSession.isSupported() else {
+            DispatchQueue.main.async { self.statusLine = "WatchConnectivity unsupported" }
+            return
+        }
+        let s = WCSession.default
+        let state: String
+        switch s.activationState {
+        case .activated: state = "activated"
+        case .inactive: state = "inactive"
+        case .notActivated: state = "not activated"
+        @unknown default: state = "unknown"
+        }
+        let companion = s.isCompanionAppInstalled ? "yes" : "no"
+        let line = "session: \(state)\niPhone app installed: \(companion)\nreachable: \(s.isReachable ? "yes" : "no")"
+        DispatchQueue.main.async { self.statusLine = line }
     }
 
     func requestRefresh() {
@@ -69,8 +91,13 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         session.sendMessage(["request": "snapshot"], replyHandler: { reply in
             if let json = reply["snapshot"] as? String, !json.isEmpty {
                 self.apply(json: json)
+                DispatchQueue.main.async { self.lastEvent = "reply from iPhone" }
+            } else {
+                DispatchQueue.main.async { self.lastEvent = "iPhone replied but had no snapshot yet" }
             }
-        }, errorHandler: nil)
+        }, errorHandler: { error in
+            DispatchQueue.main.async { self.lastEvent = "request failed: \(error.localizedDescription)" }
+        })
     }
 
     private func apply(json: String) {
@@ -95,6 +122,10 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: WCSessionDelegate
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        DispatchQueue.main.async {
+            self.lastEvent = error == nil ? "watch session activated" : "activation error: \(error!.localizedDescription)"
+        }
+        refreshStatus()
         if activationState == .activated {
             if let json = session.receivedApplicationContext["snapshot"] as? String {
                 apply(json: json)
@@ -106,7 +137,22 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         if let json = applicationContext["snapshot"] as? String {
             apply(json: json)
+            DispatchQueue.main.async { self.lastEvent = "received context" }
         }
+        refreshStatus()
+    }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        if let json = userInfo["snapshot"] as? String {
+            apply(json: json)
+            DispatchQueue.main.async { self.lastEvent = "received queued snapshot" }
+        }
+        refreshStatus()
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        refreshStatus()
+        requestRefresh()
     }
 }
 
