@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
+import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 
 interface SalesData {
   daily: number;
@@ -231,6 +232,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return null;
     }
     
+    // labor_cache only holds CLOSED days, so today's hours/cost come from live
+    // punches — otherwise weekly/monthly hours read low while cost keeps moving.
+    const liveToday = await fetchLiveLaborForToday(currentLocation.id, locationZone);
+
     // Build a map of daily labor data for the week (prefer punch_clock over qubeyond)
     const weeklyLaborData = weeklyLaborResult.data || [];
     const weeklyLaborMap = new Map<string, { laborCost: number; laborHours: number }>();
@@ -245,6 +250,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         });
       }
     }
+    if (liveToday.hours > 0 && liveToday.date >= weekStartStr && liveToday.date <= weekEndStr) {
+      weeklyLaborMap.set(liveToday.date, { laborCost: liveToday.cost, laborHours: liveToday.hours });
+    }
+
 
     // Check if we have ANY cached data for the period (week or month)
     const hasWeekData = weekResult.data && weekResult.data.length > 0;
@@ -332,6 +341,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         });
       }
     }
+    if (liveToday.hours > 0 && liveToday.date >= monthStartStr && liveToday.date <= monthEndStr) {
+      monthlyLaborMap.set(liveToday.date, { laborCost: liveToday.cost, laborHours: liveToday.hours });
+    }
+
     
     const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number }[] = [];
     
@@ -386,12 +399,19 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const externalRow = laborData.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
     const preferredRow = punchClockRow || externalRow;
     
-    const aggregatedLabor = preferredRow ? {
+    const aggregatedLabor = (dateStr === liveToday.date && liveToday.hours > 0) ? {
+      // Today has no cache row yet — use live punch math
+      laborCost: liveToday.cost,
+      hoursWorked: liveToday.hours,
+      regularHours: liveToday.hours,
+      overtimeHours: 0
+    } : preferredRow ? {
       laborCost: Number(preferredRow.labor_cost) || 0,
       hoursWorked: Number(preferredRow.labor_hours) || 0,
       regularHours: Number(preferredRow.regular_hours) || 0,
       overtimeHours: Number(preferredRow.overtime_hours) || 0
     } : { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
+
     
     
     const dailyLabor = (aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0) ? {
@@ -694,6 +714,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               });
             }
           }
+
+          // Today has no labor_cache row yet — use live punch math so hours and
+          // cost move together (same helper the pay period cards use).
+          const liveTodayLabor = await fetchLiveLaborForToday(currentLocation.id, locationZone);
+          if (liveTodayLabor.hours > 0) {
+            laborMap.set(liveTodayLabor.date, { cost: liveTodayLabor.cost, hours: liveTodayLabor.hours });
+          }
+
 
           const repairedWeeklyBreakdown = salesData.weeklyBreakdown.map((d) => {
             // For today: only patch labor from labor_cache (keep live sales/pace intact)
