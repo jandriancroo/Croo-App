@@ -607,6 +607,17 @@ export function MobileScheduleView({
       const punchClockRow = laborRows.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
       const externalRow = laborRows.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
       const preferredRow = punchClockRow || externalRow;
+
+      // labor_cache only holds CLOSED days — for today fall back to the shared
+      // live-punch helper so this matches the dashboard.
+      if (isToday && !(Number(preferredRow?.labor_hours) > 0)) {
+        const { fetchLiveLaborForToday } = await import('@/utils/liveLabor');
+        const live = await fetchLiveLaborForToday(currentLocation.id);
+        if (live.hours > 0) {
+          return { sales, laborCost: live.cost, laborHours: live.hours };
+        }
+      }
+
       return {
         sales,
         laborCost: Number(preferredRow?.labor_cost) || 0,
