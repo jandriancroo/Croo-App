@@ -101,12 +101,23 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func apply(json: String) {
-        guard let data = json.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode(WatchSnapshot.self, from: data) else { return }
+        guard let data = json.data(using: .utf8) else {
+            DispatchQueue.main.async { self.lastEvent = "snapshot was not valid text" }
+            return
+        }
+        let decoded: WatchSnapshot
+        do {
+            decoded = try JSONDecoder().decode(WatchSnapshot.self, from: data)
+        } catch {
+            print("[WatchBridge] snapshot decode failed: \(error.localizedDescription)")
+            DispatchQueue.main.async { self.lastEvent = "snapshot decode failed: \(error.localizedDescription)" }
+            return
+        }
         DispatchQueue.main.async {
             self.snapshot = decoded
             self.hasData = true
             UserDefaults.standard.set(json, forKey: self.cacheKey)
+            print("[WatchBridge] snapshot applied — cubes: \(decoded.cubes.count), shifts: \(decoded.schedule.count), sales: \(decoded.sales.count)")
         }
     }
 
@@ -129,6 +140,10 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         if activationState == .activated {
             if let json = session.receivedApplicationContext["snapshot"] as? String {
                 apply(json: json)
+                DispatchQueue.main.async { self.lastEvent = "loaded latest phone context" }
+            } else {
+                print("[WatchBridge] application context has no snapshot")
+                DispatchQueue.main.async { self.lastEvent = "phone has not sent a snapshot yet" }
             }
             requestRefresh()
         }
