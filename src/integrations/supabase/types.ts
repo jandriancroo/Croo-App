@@ -12624,6 +12624,66 @@ export type Database = {
           },
         ]
       }
+      watch_devices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          device_kind: string
+          id: string
+          label: string
+          last_active_at: string | null
+          location_id: string
+          organization_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          token_hash: string
+          token_hint: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          device_kind?: string
+          id?: string
+          label?: string
+          last_active_at?: string | null
+          location_id: string
+          organization_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          token_hash: string
+          token_hint?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          device_kind?: string
+          id?: string
+          label?: string
+          last_active_at?: string | null
+          location_id?: string
+          organization_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          token_hash?: string
+          token_hint?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_devices_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_devices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       week_template_assignments: {
         Row: {
           am_splh_goal: number | null
