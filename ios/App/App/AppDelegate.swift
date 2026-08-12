@@ -1,6 +1,41 @@
 import UIKit
 import Capacitor
 
+/// The one Capacitor screen used by every iPhone launch path. Keeping this in
+/// AppDelegate.swift ensures Xcode cannot omit the local Watch plugin because
+/// of SceneDelegate.swift target-membership drift.
+@objc(CrooBridgeViewController)
+final class CrooBridgeViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        print("[WatchBridge] registering Capacitor plugin")
+        bridge?.registerPluginInstance(WatchBridgePlugin())
+    }
+}
+
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+
+        let appWindow = UIWindow(windowScene: windowScene)
+        appWindow.rootViewController = CrooBridgeViewController()
+        appWindow.makeKeyAndVisible()
+        window = appWindow
+
+        SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+    }
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
