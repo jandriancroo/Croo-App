@@ -245,6 +245,11 @@ export function usePayrollData() {
       });
     }
 
+    // Business date "today" — in-progress shifts on this date count live hours
+    // (clock-in → now) so the current period reflects labor already on the floor,
+    // matching what the dashboard shows for today.
+    const todayBusinessDate = getDateInTimezone(new Date(), timezone);
+
     const punchByDate = new Map<string, { hours: number; cost: number }>();
     // Shift-level approval tally (same buckets the payroll grid approves against).
     const shiftsByDate = new Map<string, { total: number; approved: number }>();
@@ -253,8 +258,9 @@ export function usePayrollData() {
       bucketed.forEach((daysForUser, userId) => {
         const wage = wageByUserId.get(userId) ?? 15;
         Object.entries(daysForUser).forEach(([day, dayPunches]) => {
-          const hours = calculateDayHours(dayPunches as any[], false);
+          const hours = calculateDayHours(dayPunches as any[], day >= todayBusinessDate);
           if (!(hours > 0)) return;
+
           const existing = punchByDate.get(day) || { hours: 0, cost: 0 };
           existing.hours += hours;
           existing.cost += hours * wage;
