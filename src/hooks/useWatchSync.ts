@@ -154,7 +154,7 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
         return {
           id: c.id,
           title: c.title || 'Cube',
-          accentColor: c.accentColor || '#8B5CF6',
+          accentColor: resolveAccentHex(c.accentColor),
           faces,
         };
       })
