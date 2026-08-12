@@ -8,20 +8,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // Build the Capacitor web view controller directly so we never depend on
-        // the storyboard resolving correctly at launch.
-        let rootViewController: UIViewController
-        if let fromStoryboard = UIStoryboard(name: "Main", bundle: nil).instantiateInitialViewController(),
-           fromStoryboard is CAPBridgeViewController {
-            rootViewController = fromStoryboard
-        } else {
-            rootViewController = CAPBridgeViewController()
-        }
-
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = rootViewController
+        window.rootViewController = CAPBridgeViewController()
         window.backgroundColor = .white
         self.window = window
         window.makeKeyAndVisible()
+
+        SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        SceneDelegateProxy.shared.scene(scene, continue: userActivity)
     }
 }
