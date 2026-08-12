@@ -180,7 +180,7 @@
 			name = CrooWatch;
 			productName = CrooWatch;
 			productReference = 6B4360635AA6485CB058E880 /* CrooWatch.app */;
-			productType = "com.apple.product-type.application.watchapp2";
+			productType = "com.apple.product-type.application";
 		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
