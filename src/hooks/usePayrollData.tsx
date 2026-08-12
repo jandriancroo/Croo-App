@@ -252,7 +252,7 @@ export function usePayrollData() {
       cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
     });
 
-    const allPunches = (punchesResult as any).data || [];
+    const allPunches = allPunchesRows || [];
     const punchUserIds = [...new Set(allPunches.map((p: any) => p.user_id))] as string[];
 
     const wageByUserId = new Map<string, number>();
