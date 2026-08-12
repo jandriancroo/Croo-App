@@ -33,7 +33,7 @@ export function usePayrollData() {
   const { currentLocation } = useAppLocation();
   const { timezone, loading: timezoneLoading } = useLocationTimezone();
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
-  const [periodSummaries, setPeriodSummaries] = useState<Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null }>>({});
+  const [periodSummaries, setPeriodSummaries] = useState<Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null; totalShifts: number; approvedShifts: number }>>({});
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
   const [timeCards, setTimeCards] = useState<any[]>([]);
   const [editingShift, setEditingShift] = useState<{ dayPunches: any[], userId: string, locationId: string, shiftDate: string } | null>(null);
