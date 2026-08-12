@@ -29,6 +29,12 @@ struct StatusView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                if !store.isPaired {
+                    Text("Not paired yet. On the iPhone app open Settings → Organization → Apple Watch Devices, pick this location and tap Pair.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.orange)
+                }
+
                 Button {
                     store.refreshStatus()
                     store.requestRefresh()
@@ -37,6 +43,16 @@ struct StatusView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .padding(.top, 4)
+
+                if store.isPaired {
+                    Button(role: .destructive) {
+                        store.unpair()
+                    } label: {
+                        Text("Unpair this watch")
+                    }
+                    .font(.system(size: 12))
+                }
+
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 4)
