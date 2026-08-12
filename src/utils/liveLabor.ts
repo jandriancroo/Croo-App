@@ -71,7 +71,7 @@ export const fetchLiveLaborForToday = async (
 
   let hours = 0;
   let cost = 0;
-  const bucketed = bucketPunchesByUserAndDay(punches as any[], timezone, cutoffByDayOfWeek, 5);
+  const bucketed = bucketPunchesByUserAndDay(punches as any[], timezoneResolved, cutoffByDayOfWeek, 5);
   bucketed.forEach((daysForUser, userId) => {
     const wage = wageByUserId.get(userId) ?? 15;
     const dayPunches = (daysForUser as any)[today];
