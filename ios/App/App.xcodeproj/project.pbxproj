@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		86A8D1677C4044B5B3A9BB0F /* CrooWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 6B4360635AA6485CB058E880 /* CrooWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C1DB58957DBA464EBD777E36 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13F8767856034FCAB5EF7E84 /* Assets.xcassets */; };
+		30495C619E4C49D4B58DA37F /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFFD3593888549798B2BF514 /* StatusView.swift */; };
+		1719B5794A16435CA97AAE39 /* WatchDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */; };
+		F0353A8E87E34AFA834B6BB9 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92AB601A6AA5442A96F14E01 /* ScheduleView.swift */; };
+		0576420AE434419FAA09B17A /* SalesSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67381E66D8514CACB89FA447 /* SalesSummaryView.swift */; };
+		0DA94250F6D74B22BEC8EEF2 /* CubesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0967835FE6A34F72A9436121 /* CubesView.swift */; };
+		5B8759525FA543FCAA2A9820 /* CrooWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43F15FEFDB74F9DA96A5792 /* CrooWatchApp.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -18,7 +26,42 @@
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		B18D815B15994BC090A96E84 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B8B50115CEE146C3B871B988;
+			remoteInfo = CrooWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2AD2707A94614CC4AF0794B5 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				86A8D1677C4044B5B3A9BB0F /* CrooWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+
+
 /* Begin PBXFileReference section */
+		6B4360635AA6485CB058E880 /* CrooWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrooWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13F8767856034FCAB5EF7E84 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0223276538FD4DC88390D665 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CFFD3593888549798B2BF514 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
+		E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchDataStore.swift; sourceTree = "<group>"; };
+		92AB601A6AA5442A96F14E01 /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
+		67381E66D8514CACB89FA447 /* SalesSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SalesSummaryView.swift; sourceTree = "<group>"; };
+		0967835FE6A34F72A9436121 /* CubesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubesView.swift; sourceTree = "<group>"; };
+		B43F15FEFDB74F9DA96A5792 /* CrooWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrooWatchApp.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -35,6 +78,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		BFB4B855D485498398B2B7C3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3011FED79650016851F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -46,6 +96,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F75F117CF82246D79B1B2EF7 /* CrooWatch */ = {
+			isa = PBXGroup;
+			children = (
+				B43F15FEFDB74F9DA96A5792 /* CrooWatchApp.swift */,
+				0967835FE6A34F72A9436121 /* CubesView.swift */,
+				67381E66D8514CACB89FA447 /* SalesSummaryView.swift */,
+				92AB601A6AA5442A96F14E01 /* ScheduleView.swift */,
+				E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */,
+				CFFD3593888549798B2BF514 /* StatusView.swift */,
+				0223276538FD4DC88390D665 /* Info.plist */,
+				13F8767856034FCAB5EF7E84 /* Assets.xcassets */,
+			);
+			path = watch/CrooWatch;
+			sourceTree = "<group>";
+		};
 		27E2DDA53C4D2A4D1A88CE4A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -59,6 +124,7 @@
 			children = (
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				F75F117CF82246D79B1B2EF7 /* CrooWatch */,
 				7F8756D8B27F46E3366F6CEA /* Pods */,
 				27E2DDA53C4D2A4D1A88CE4A /* Frameworks */,
 			);
@@ -68,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				6B4360635AA6485CB058E880 /* CrooWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -100,6 +167,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B8B50115CEE146C3B871B988 /* CrooWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8449C15B9DCE4151A38CBB61 /* Build configuration list for PBXNativeTarget "CrooWatch" */;
+			buildPhases = (
+				E286A53ED7AB4D999ADDD766 /* Sources */,
+				BFB4B855D485498398B2B7C3 /* Frameworks */,
+				BAA3CDC3943E4970B024F836 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				64A9CB36D0C94DD090183DFA /* PBXTargetDependency */,
+			);
+			name = CrooWatch;
+			productName = CrooWatch;
+			productReference = 6B4360635AA6485CB058E880 /* CrooWatch.app */;
+			productType = "com.apple.product-type.application.watchapp2";
+		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -109,6 +194,7 @@
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
 				9592DBEFFC6D2A0C8D5DEB22 /* [CP] Embed Pods Frameworks */,
+				2AD2707A94614CC4AF0794B5 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
@@ -151,11 +237,20 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				B8B50115CEE146C3B871B988 /* CrooWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		BAA3CDC3943E4970B024F836 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1DB58957DBA464EBD777E36 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -208,6 +303,19 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		E286A53ED7AB4D999ADDD766 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5B8759525FA543FCAA2A9820 /* CrooWatchApp.swift in Sources */,
+				0DA94250F6D74B22BEC8EEF2 /* CubesView.swift in Sources */,
+				0576420AE434419FAA09B17A /* SalesSummaryView.swift in Sources */,
+				F0353A8E87E34AFA834B6BB9 /* ScheduleView.swift in Sources */,
+				1719B5794A16435CA97AAE39 /* WatchDataStore.swift in Sources */,
+				30495C619E4C49D4B58DA37F /* StatusView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -218,6 +326,15 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		64A9CB36D0C94DD090183DFA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B8B50115CEE146C3B871B988 /* CrooWatch */;
+			targetProxy = B18D815B15994BC090A96E84 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -239,6 +356,67 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		9FFA8D7D3CA042AB837F86BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = "watch/CrooWatch/Info.plist";
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.croohq.kitchenmate.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		408FEA12020C489FBF0C031C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = "watch/CrooWatch/Info.plist";
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.croohq.kitchenmate.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -388,6 +566,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		8449C15B9DCE4151A38CBB61 /* Build configuration list for PBXNativeTarget "CrooWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				408FEA12020C489FBF0C031C /* Debug */,
+				9FFA8D7D3CA042AB837F86BB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
