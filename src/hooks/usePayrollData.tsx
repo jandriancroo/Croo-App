@@ -165,11 +165,12 @@ export function usePayrollData() {
   /**
    * Pay-period summary cards.
    *
-   * Hours/cost come from the SAME punch data and the SAME calculateDayHours()
-   * engine the payroll grid uses, so the card can never disagree with the grid.
-   * labor_cache is used only as a fallback for days with no punches (e.g.
-   * POS-sourced labor at locations that don't use the punch clock).
+   * Hours/cost come from labor_cache — the SAME source the dashboard Sales
+   * Summary reads (punch_clock row wins over qubeyond for a given day), so the
+   * period cards can never disagree with the dashboard. Punch-derived hours are
+   * only a fallback for days that have no labor_cache row yet.
    */
+
   const fetchPeriodSummaries = async (periods: any[]) => {
     if (!currentLocation?.id || periods.length === 0) {
       setPeriodSummaries({});
@@ -267,7 +268,7 @@ export function usePayrollData() {
       });
     }
 
-    // ── labor_cache fallback (POS-sourced labor, punch-clock-free stores) ──
+    // ── labor_cache (authoritative — same source as the dashboard) ──────────
     const laborByDate = new Map<string, { hours: number; cost: number; priority: number }>();
     (laborResult.data || []).forEach((row: any) => {
       const priority = row.source === 'punch_clock' ? 2 : 1;
@@ -298,25 +299,26 @@ export function usePayrollData() {
         approvedShifts += tally.approved;
       });
 
-      // Walk each day in the period: punches win, cache fills the gaps.
+      // Walk each day in the period: labor_cache wins, punches fill the gaps.
       const dayCursor = new Set<string>([
-        ...Array.from(punchByDate.keys()),
         ...Array.from(laborByDate.keys()),
+        ...Array.from(punchByDate.keys()),
       ]);
       dayCursor.forEach((date) => {
         if (date < period.startDate || date > period.endDate) return;
+        const fromCache = laborByDate.get(date);
+        if (fromCache && (fromCache.hours > 0 || fromCache.cost > 0)) {
+          hours += fromCache.hours;
+          cost += fromCache.cost;
+          return;
+        }
         const fromPunches = punchByDate.get(date);
         if (fromPunches) {
           hours += fromPunches.hours;
           cost += fromPunches.cost;
-          return;
-        }
-        const fromCache = laborByDate.get(date);
-        if (fromCache) {
-          hours += fromCache.hours;
-          cost += fromCache.cost;
         }
       });
+
 
       acc[getPeriodKey(period)] = {
         hours,
