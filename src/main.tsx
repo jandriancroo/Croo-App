@@ -34,8 +34,18 @@ if (isStandaloneMode) {
 // "Load failed" stale-cache bug that the old cleanup was guarding against.
 const PUSH_SW_URL = '/sw-push.js';
 
+// Native (Capacitor) shells load from capacitor://localhost where service workers
+// and version-based location.replace() reloads are unsupported and can leave the
+// webview on a blank screen. Detect and skip both paths there.
+const isNativeShell =
+  typeof window !== 'undefined' &&
+  (((window as any).Capacitor?.isNativePlatform?.() ?? false) ||
+    !/^https?:$/.test(window.location.protocol));
+
 const setupServiceWorkers = async () => {
+  if (isNativeShell) return;
   if (!('serviceWorker' in navigator)) return;
+
 
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
