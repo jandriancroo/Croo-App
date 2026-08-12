@@ -55,7 +55,7 @@ const SALES_SUMMARY_METRICS: MetricType[] = [
 export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets | null) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
-  const timezone = useLocationTimezone();
+  const { timezone } = useLocationTimezone();
   const lastSentRef = useRef<string>('');
 
   const enabled = isWatchBridgeAvailable() && !!currentLocation?.id;
@@ -72,14 +72,16 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
     queryFn: async (): Promise<WatchShift[]> => {
       const { data, error } = await supabase
         .from('scheduled_shifts')
-        .select('id, user_id, position, start_time, end_time, schedule:schedules!inner(is_published, location_id), template:shift_templates(name, start_time, end_time)')
+        .select('id, user_id, start_time, end_time, is_time_off, schedule:schedules!inner(is_published, location_id), template:shift_templates(name)')
         .eq('shift_date', todayStr)
         .eq('schedule.location_id', currentLocation!.id)
         .eq('schedule.is_published', true);
 
       if (error || !data) return [];
 
-      const userIds = [...new Set(data.map((s: any) => s.user_id).filter(Boolean))];
+      const rows = (data as any[]).filter(s => !s.is_time_off);
+
+      const userIds = [...new Set(rows.map((s: any) => s.user_id).filter(Boolean))];
       const profileMap = new Map<string, any>();
       if (userIds.length) {
         const { data: profiles } = await supabase
@@ -95,15 +97,15 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
         return dt.isValid ? dt.toFormat('h:mma').replace(':00', '').toLowerCase() : t;
       };
 
-      return (data as any[])
+      return rows
         .map(s => {
-          const start = s.start_time || s.template?.start_time;
-          const end = s.end_time || s.template?.end_time;
+          const start = s.start_time;
+          const end = s.end_time;
           const profile = profileMap.get(s.user_id);
           return {
             id: s.id,
             name: getDisplayName(profile?.full_name, profile?.nickname) || 'Open Shift',
-            role: s.position || s.template?.name || '',
+            role: s.template?.name || '',
             time: [fmt(start), fmt(end)].filter(Boolean).join(' – '),
             isMe: !!user?.id && s.user_id === user.id,
             _sort: start || '',
