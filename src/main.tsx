@@ -122,7 +122,8 @@ const performDeferrableReload = (doReload: () => void) => {
 
 try {
   const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined;
-  if (currentVersion) {
+  if (currentVersion && !isNativeShell) {
+
     const storedVersion = localStorage.getItem('app-version');
     if (storedVersion && storedVersion !== currentVersion) {
       localStorage.setItem('app-version', currentVersion);
