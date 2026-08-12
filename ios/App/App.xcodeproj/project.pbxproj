@@ -175,10 +175,9 @@
 				BFB4B855D485498398B2B7C3 /* Frameworks */,
 				BAA3CDC3943E4970B024F836 /* Resources */,
 			);
-			buildRules = (
+		buildRules = (
 			);
 			dependencies = (
-				64A9CB36D0C94DD090183DFA /* PBXTargetDependency */,
 			);
 			name = CrooWatch;
 			productName = CrooWatch;
