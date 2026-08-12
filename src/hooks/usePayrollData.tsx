@@ -165,11 +165,12 @@ export function usePayrollData() {
   /**
    * Pay-period summary cards.
    *
-   * Hours/cost come from the SAME punch data and the SAME calculateDayHours()
-   * engine the payroll grid uses, so the card can never disagree with the grid.
-   * labor_cache is used only as a fallback for days with no punches (e.g.
-   * POS-sourced labor at locations that don't use the punch clock).
+   * Hours/cost come from labor_cache — the SAME source the dashboard Sales
+   * Summary reads (punch_clock row wins over qubeyond for a given day), so the
+   * period cards can never disagree with the dashboard. Punch-derived hours are
+   * only a fallback for days that have no labor_cache row yet.
    */
+
   const fetchPeriodSummaries = async (periods: any[]) => {
     if (!currentLocation?.id || periods.length === 0) {
       setPeriodSummaries({});
