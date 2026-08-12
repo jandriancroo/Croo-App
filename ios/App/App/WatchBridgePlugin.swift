@@ -5,9 +5,9 @@ import WatchConnectivity
 /// Bridges the CrooHQ web app to the Apple Watch app.
 /// Read-only mirror: it forwards a snapshot of the dashboard (Data Cubes,
 /// today's schedule, sales summary) to the watch. It never changes phone data.
-@objc(WatchBridgePlugin)
+@objc(WatchBridge)
 public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
-    public let identifier = "WatchBridgePlugin"
+    public let identifier = "WatchBridge"
     public let jsName = "WatchBridge"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "sendSnapshot", returnType: CAPPluginReturnPromise),
