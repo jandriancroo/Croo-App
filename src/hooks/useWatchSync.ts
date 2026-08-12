@@ -169,8 +169,14 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
     };
   }, [enabled, cubes, salesData, schedule, currentLocation?.name]);
 
+  const sentCubesRef = useRef(false);
+
   useEffect(() => {
     if (!payload) return;
+    // Never let an early "still loading" snapshot (no cubes yet) overwrite a
+    // good one on the watch — that's what makes the watch say "No Cubes".
+    if (payload.cubes.length === 0 && sentCubesRef.current) return;
+
     // Ignore the timestamp when deciding whether anything actually changed.
     const { updatedAt, ...comparable } = payload;
     const fingerprint = JSON.stringify(comparable);
@@ -185,6 +191,7 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
 
       if (result.delivered) {
         lastSentRef.current = fingerprint;
+        if (payload.cubes.length > 0) sentCubesRef.current = true;
         return;
       }
 
@@ -200,4 +207,16 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, [payload]);
+
+  // Re-send after the app comes back to the foreground so a freshly installed
+  // or restarted watch app always gets the current snapshot.
+  useEffect(() => {
+    if (!enabled) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') lastSentRef.current = '';
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [enabled]);
 }
+
