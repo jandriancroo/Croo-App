@@ -97,19 +97,19 @@ private struct CubeFacePage: View {
     var body: some View {
         VStack(spacing: 0) {
             Image(systemName: "chevron.compact.up")
-                .font(.system(size: 10, weight: .semibold))
-                .opacity(showUpArrow ? 0.35 : 0)
-                .frame(height: 8)
+                .font(.system(size: 9, weight: .semibold))
+                .opacity(showUpArrow ? 0.3 : 0)
+                .frame(height: 6)
 
             HStack(alignment: .center, spacing: 4) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(cubeTitle.uppercased())
-                        .font(.system(size: 11, weight: .heavy))
+                        .font(.system(size: 10, weight: .heavy))
                         .tracking(0.5)
                         .lineLimit(1)
                     if !face.title.isEmpty {
                         Text(face.title)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 8, weight: .semibold))
                             .opacity(0.75)
                             .lineLimit(1)
                     }
@@ -130,15 +130,15 @@ private struct CubeFacePage: View {
                 }
             }
             .padding(.horizontal, 6)
-            .padding(.bottom, 2)
+            .padding(.bottom, 1)
 
             metricsLayout
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Image(systemName: "chevron.compact.down")
-                .font(.system(size: 10, weight: .semibold))
-                .opacity(showDownArrow ? 0.35 : 0)
-                .frame(height: 8)
+                .font(.system(size: 9, weight: .semibold))
+                .opacity(showDownArrow ? 0.3 : 0)
+                .frame(height: 6)
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -150,35 +150,35 @@ private struct CubeFacePage: View {
         case 0:
             EmptyView()
         case 1:
-            metricCell(metrics[0], size: 36)
+            metricCell(metrics[0], size: 42)
         case 2:
             HStack(spacing: 0) {
-                metricCell(metrics[0], size: 30)
+                metricCell(metrics[0], size: 34)
                 verticalDivider
-                metricCell(metrics[1], size: 30)
+                metricCell(metrics[1], size: 34)
             }
         case 3:
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    metricCell(metrics[0], size: 26)
+                    metricCell(metrics[0], size: 30)
                     verticalDivider
-                    metricCell(metrics[1], size: 26)
+                    metricCell(metrics[1], size: 30)
                 }
                 horizontalDivider
-                metricCell(metrics[2], size: 28)
+                metricCell(metrics[2], size: 32)
             }
         default:
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    metricCell(metrics.count > 0 ? metrics[0] : nil, size: 24)
+                    metricCell(metrics.count > 0 ? metrics[0] : nil, size: 28)
                     verticalDivider
-                    metricCell(metrics.count > 1 ? metrics[1] : nil, size: 24)
+                    metricCell(metrics.count > 1 ? metrics[1] : nil, size: 28)
                 }
                 horizontalDivider
                 HStack(spacing: 0) {
-                    metricCell(metrics.count > 2 ? metrics[2] : nil, size: 24)
+                    metricCell(metrics.count > 2 ? metrics[2] : nil, size: 28)
                     verticalDivider
-                    metricCell(metrics.count > 3 ? metrics[3] : nil, size: 24)
+                    metricCell(metrics.count > 3 ? metrics[3] : nil, size: 28)
                 }
             }
         }
@@ -191,10 +191,10 @@ private struct CubeFacePage: View {
                 Text(metric.value)
                     .font(.system(size: size, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .minimumScaleFactor(0.4)
+                    .minimumScaleFactor(0.35)
                     .lineLimit(1)
                 Text(metric.label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .opacity(0.85)
                     .lineLimit(1)
                 Spacer(minLength: 0)
@@ -203,14 +203,14 @@ private struct CubeFacePage: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 5)
     }
 
     private var verticalDivider: some View {
         Rectangle()
             .fill(Color.white.opacity(0.25))
             .frame(width: 1)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
     }
 
     private var horizontalDivider: some View {
