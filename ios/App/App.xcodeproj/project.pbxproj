@@ -213,13 +213,17 @@
 			attributes = {
 				LastSwiftUpdateCheck = 0920;
 				LastUpgradeCheck = 0920;
-				TargetAttributes = {
-					504EC3031FED79650016851F = {
-						CreatedOnToolsVersion = 9.2;
-						LastSwiftMigration = 1100;
-						ProvisioningStyle = Automatic;
-					};
+			TargetAttributes = {
+				504EC3031FED79650016851F = {
+					CreatedOnToolsVersion = 9.2;
+					LastSwiftMigration = 1100;
+					ProvisioningStyle = Automatic;
 				};
+				B8B50115CEE146C3B871B988 = {
+					CreatedOnToolsVersion = 15.0;
+					ProvisioningStyle = Automatic;
+				};
+			};
 			};
 			buildConfigurationList = 504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */;
 			compatibilityVersion = "Xcode 8.0";
