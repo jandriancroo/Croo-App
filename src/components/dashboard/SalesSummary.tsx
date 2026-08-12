@@ -231,6 +231,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return null;
     }
     
+    // labor_cache only holds CLOSED days, so today's hours/cost come from live
+    // punches — otherwise weekly/monthly hours read low while cost keeps moving.
+    const liveToday = await fetchLiveLaborForToday(currentLocation.id, timezone);
+
     // Build a map of daily labor data for the week (prefer punch_clock over qubeyond)
     const weeklyLaborData = weeklyLaborResult.data || [];
     const weeklyLaborMap = new Map<string, { laborCost: number; laborHours: number }>();
@@ -245,6 +249,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         });
       }
     }
+    if (liveToday.hours > 0 && liveToday.date >= weekStartStr && liveToday.date <= weekEndStr) {
+      weeklyLaborMap.set(liveToday.date, { laborCost: liveToday.cost, laborHours: liveToday.hours });
+    }
+
 
     // Check if we have ANY cached data for the period (week or month)
     const hasWeekData = weekResult.data && weekResult.data.length > 0;
