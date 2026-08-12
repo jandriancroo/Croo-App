@@ -33,9 +33,17 @@ export interface WatchPayload {
   sales: WatchMetric[];
 }
 
+export interface WatchPairing {
+  token: string;
+  locationId: string;
+  locationName?: string;
+  apiUrl?: string;
+}
+
 interface WatchBridgePlugin {
   sendSnapshot(options: { payload: string }): Promise<{ delivered: boolean }>;
   isPaired(): Promise<{ paired: boolean; reachable: boolean }>;
+  pairWatch(options: WatchPairing): Promise<{ delivered: boolean }>;
 }
 
 type NativeWatchMessageHandler = {
@@ -55,6 +63,9 @@ const noop: WatchBridgePlugin = {
   },
   async isPaired() {
     return { paired: false, reachable: false };
+  },
+  async pairWatch() {
+    return { delivered: false };
   },
 };
 
@@ -84,6 +95,18 @@ export const WatchBridge: WatchBridgePlugin = {
       return res;
     } catch (e) {
       console.log('[WatchBridge] sendSnapshot FAILED (plugin missing from app target?)', e);
+      return { delivered: false };
+    }
+  },
+  async pairWatch(options) {
+    if (!isWatchBridgeAvailable()) {
+      console.log('[WatchBridge] pairWatch skipped — not running in the native iOS app');
+      return { delivered: false };
+    }
+    try {
+      return await native.pairWatch(options);
+    } catch (e) {
+      console.log('[WatchBridge] pairWatch FAILED', e);
       return { delivered: false };
     }
   },
