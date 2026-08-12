@@ -17,6 +17,7 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     private let session = WatchSessionManager.shared
 
     override public func load() {
+        print("[WatchBridge] Capacitor plugin loaded — JavaScript calls are ready")
         session.activate()
     }
 
@@ -42,7 +43,11 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 final class WatchSessionManager: NSObject, WCSessionDelegate {
     static let shared = WatchSessionManager()
 
-    private var latestPayload: String?
+    private let payloadCacheKey = "croo.phone.watch.latestSnapshot"
+    private var latestPayload: String? {
+        get { UserDefaults.standard.string(forKey: payloadCacheKey) }
+        set { UserDefaults.standard.set(newValue, forKey: payloadCacheKey) }
+    }
 
     var isPaired: Bool {
         guard WCSession.isSupported() else { return false }
@@ -55,10 +60,14 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     }
 
     func activate() {
-        guard WCSession.isSupported() else { return }
+        guard WCSession.isSupported() else {
+            print("[WatchBridge] WCSession not supported on this device")
+            return
+        }
         let session = WCSession.default
         session.delegate = self
         session.activate()
+        print("[WatchBridge] phone session activation requested — cached snapshot: \(latestPayload == nil ? "no" : "yes")")
     }
 
     @discardableResult
@@ -99,7 +108,7 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         print("[WatchBridge] phone session activation = \(activationState.rawValue), error = \(error?.localizedDescription ?? "none"), paired = \(session.isPaired), watchAppInstalled = \(session.isWatchAppInstalled)")
         if let payload = latestPayload, activationState == .activated {
-            send(payload: payload)
+            _ = send(payload: payload)
         }
     }
 
