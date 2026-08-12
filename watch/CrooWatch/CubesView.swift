@@ -65,11 +65,17 @@ private struct CubeCard: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(accent.opacity(0.14))
+                .fill(
+                    LinearGradient(
+                        colors: [accent.opacity(0.05), accent.opacity(0.14)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(accent.opacity(0.35), lineWidth: 1)
+                .stroke(accent.opacity(0.25), lineWidth: 1)
         )
     }
 }
@@ -79,14 +85,21 @@ private struct CubeFaceView: View {
     let accent: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 0) {
             if !face.title.isEmpty {
                 Text(face.title)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
+                    .padding(.bottom, 4)
             }
-            ForEach(face.metrics, id: \.self) { metric in
+            ForEach(Array(face.metrics.enumerated()), id: \.offset) { index, metric in
+                if index > 0 {
+                    Rectangle()
+                        .fill(accent.opacity(0.18))
+                        .frame(height: 1)
+                        .padding(.vertical, 2)
+                }
                 HStack(alignment: .firstTextBaseline) {
                     Text(metric.label)
                         .font(.system(size: 12))
@@ -96,7 +109,9 @@ private struct CubeFaceView: View {
                     Text(metric.value)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .monospacedDigit()
+                        .foregroundStyle(accent)
                 }
+                .padding(.vertical, 1)
             }
         }
     }
