@@ -181,7 +181,10 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
                  didReceiveMessage message: [String: Any],
                  replyHandler: @escaping ([String: Any]) -> Void) {
         if message["request"] as? String == "snapshot" {
-            replyHandler(["snapshot": latestPayload ?? ""])
+            var reply: [String: Any] = ["snapshot": latestPayload ?? ""]
+            if let pairing = latestPairing { reply["pairing"] = pairing }
+            replyHandler(reply)
+
         } else {
             replyHandler([:])
         }
