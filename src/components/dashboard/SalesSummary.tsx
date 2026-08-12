@@ -715,6 +715,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             }
           }
 
+          // Today has no labor_cache row yet — use live punch math so hours and
+          // cost move together (same helper the pay period cards use).
+          const liveTodayLabor = await fetchLiveLaborForToday(currentLocation.id, locationZone);
+          if (liveTodayLabor.hours > 0) {
+            laborMap.set(liveTodayLabor.date, { cost: liveTodayLabor.cost, hours: liveTodayLabor.hours });
+          }
+
+
           const repairedWeeklyBreakdown = salesData.weeklyBreakdown.map((d) => {
             // For today: only patch labor from labor_cache (keep live sales/pace intact)
             if (d.date === todayStr) {
