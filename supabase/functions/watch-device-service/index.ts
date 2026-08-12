@@ -170,7 +170,9 @@ async function buildSnapshot(sb: any, device: any) {
     num(row?.override_projection) ?? num(row?.living_projection) ?? num(row?.projected_sales) ?? num(row?.initial_projection);
 
   const dayPace = (() => {
-    const pace = num(todayRow?.pace_adjusted_projection);
+    // Prefer the stored pace projection; fall back to the living projection so
+    // the watch shows a pace even before the nightly pace job stamps a value.
+    const pace = num(todayRow?.pace_adjusted_projection) ?? num(todayRow?.living_projection);
     return pace != null ? Math.max(pace, dailySales || 0) : undefined;
   })();
 
