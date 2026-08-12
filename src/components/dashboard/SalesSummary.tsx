@@ -399,12 +399,19 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const externalRow = laborData.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
     const preferredRow = punchClockRow || externalRow;
     
-    const aggregatedLabor = preferredRow ? {
+    const aggregatedLabor = (dateStr === liveToday.date && liveToday.hours > 0) ? {
+      // Today has no cache row yet — use live punch math
+      laborCost: liveToday.cost,
+      hoursWorked: liveToday.hours,
+      regularHours: liveToday.hours,
+      overtimeHours: 0
+    } : preferredRow ? {
       laborCost: Number(preferredRow.labor_cost) || 0,
       hoursWorked: Number(preferredRow.labor_hours) || 0,
       regularHours: Number(preferredRow.regular_hours) || 0,
       overtimeHours: Number(preferredRow.overtime_hours) || 0
     } : { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
+
     
     
     const dailyLabor = (aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0) ? {
