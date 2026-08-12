@@ -13,11 +13,22 @@ import { calculateCutoffHour, getDateInTimezone } from '@/utils/timezoneUtils';
  */
 export const fetchLiveLaborForToday = async (
   locationId: string,
-  timezone: string
+  timezone?: string
 ): Promise<{ date: string; hours: number; cost: number }> => {
-  const today = getDateInTimezone(new Date(), timezone);
+  let zone = timezone;
+  if (!zone && locationId) {
+    const { data } = await supabase
+      .from('locations')
+      .select('timezone')
+      .eq('id', locationId)
+      .maybeSingle();
+    zone = (data as any)?.timezone || 'America/Los_Angeles';
+  }
+  zone = zone || 'America/Los_Angeles';
+  const today = getDateInTimezone(new Date(), zone);
   const empty = { date: today, hours: 0, cost: 0 };
   if (!locationId) return empty;
+  const timezoneResolved = zone;
 
   // Widen a day on each side so overnight shifts bucket correctly.
   const start = new Date(`${today}T00:00:00Z`);
