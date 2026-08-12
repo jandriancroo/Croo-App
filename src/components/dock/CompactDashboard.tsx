@@ -210,13 +210,23 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
         .eq('labor_date', todayStr);
 
       if (error) throw error;
-      if (!data || data.length === 0) return null;
+      if (!data || data.length === 0) {
+        // labor_cache only holds CLOSED days — use the shared live-punch helper
+        // so the dock agrees with the dashboard for today.
+        const live = await fetchLiveLaborForToday(locationId, timezone);
+        return live.hours > 0 ? { labor_cost: live.cost, labor_hours: live.hours } : null;
+      }
 
       const punchClockRow = data.find(
         (r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0)
       );
       const externalRow = data.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
       const preferred = punchClockRow || externalRow || data[0];
+
+      if (!(Number(preferred.labor_hours) > 0)) {
+        const live = await fetchLiveLaborForToday(locationId, timezone);
+        if (live.hours > 0) return { labor_cost: live.cost, labor_hours: live.hours };
+      }
 
       return {
         labor_cost: Number(preferred.labor_cost) || 0,
