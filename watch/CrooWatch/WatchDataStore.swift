@@ -63,8 +63,8 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         let session = WCSession.default
         session.delegate = self
         session.activate()
-        refreshStatus()
-        requestRefresh()
+        // Status + refresh happen in the activation callback — reading session
+        // properties before activation completes logs noisy warnings.
     }
 
     func refreshStatus() {
@@ -73,13 +73,11 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         let s = WCSession.default
-        let state: String
-        switch s.activationState {
-        case .activated: state = "activated"
-        case .inactive: state = "inactive"
-        case .notActivated: state = "not activated"
-        @unknown default: state = "unknown"
+        guard s.activationState == .activated else {
+            DispatchQueue.main.async { self.statusLine = "session: starting…" }
+            return
         }
+        let state = "activated"
         let companion = s.isCompanionAppInstalled ? "yes" : "no"
         let line = "session: \(state)\niPhone app installed: \(companion)\nreachable: \(s.isReachable ? "yes" : "no")"
         DispatchQueue.main.async { self.statusLine = line }
@@ -88,6 +86,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     func requestRefresh() {
         let session = WCSession.default
         guard session.activationState == .activated, session.isReachable else { return }
+
         session.sendMessage(["request": "snapshot"], replyHandler: { reply in
             if let json = reply["snapshot"] as? String, !json.isEmpty {
                 self.apply(json: json)
