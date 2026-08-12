@@ -84,6 +84,9 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         print("[WatchBridge] sending snapshot — paired: \(session.isPaired), watchAppInstalled: \(session.isWatchAppInstalled), reachable: \(session.isReachable)")
         do {
             try session.updateApplicationContext(["snapshot": payload])
+            // Also queue a guaranteed-delivery copy so the watch still gets the
+            // snapshot if it was asleep or launched later.
+            session.transferUserInfo(["snapshot": payload])
             return true
         } catch {
             print("[WatchBridge] updateApplicationContext failed: \(error)")
@@ -94,6 +97,7 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     // MARK: - WCSessionDelegate
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        print("[WatchBridge] phone session activation = \(activationState.rawValue), error = \(error?.localizedDescription ?? "none"), paired = \(session.isPaired), watchAppInstalled = \(session.isWatchAppInstalled)")
         if let payload = latestPayload, activationState == .activated {
             send(payload: payload)
         }

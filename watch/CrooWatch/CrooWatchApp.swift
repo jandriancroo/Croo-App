@@ -21,6 +21,7 @@ struct RootView: View {
             CubesView()
             ScheduleView()
             SalesSummaryView()
+            StatusView()
         }
         .tabViewStyle(.page)
     }
