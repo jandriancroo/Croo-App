@@ -210,9 +210,9 @@
 /* Begin PBXProject section */
 		504EC2FC1FED79650016851F /* Project object */ = {
 			isa = PBXProject;
-			attributes = {
-				LastSwiftUpdateCheck = 0920;
-				LastUpgradeCheck = 0920;
+		attributes = {
+			LastSwiftUpdateCheck = 0920;
+			LastUpgradeCheck = 0920;
 			TargetAttributes = {
 				504EC3031FED79650016851F = {
 					CreatedOnToolsVersion = 9.2;
@@ -224,7 +224,7 @@
 					ProvisioningStyle = Automatic;
 				};
 			};
-			};
+		};
 			buildConfigurationList = 504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */;
 			compatibilityVersion = "Xcode 8.0";
 			developmentRegion = en;
