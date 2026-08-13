@@ -90,18 +90,36 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
 
     // Hand the token straight to the watch when we're inside the iOS app.
     if (isWatchBridgeAvailable()) {
+      setPairState('pairing');
       const res = await WatchBridge.pairWatch({ ...payload, apiUrl: FUNCTION_URL });
-      if (res.delivered) toast.success('Sent to your Apple Watch');
-      else toast.message('Token created — open the watch app to finish pairing');
+      if (res.delivered) {
+        setPairState('paired');
+        toast.success('Sent to your Apple Watch');
+      } else {
+        setPairState('unreachable');
+        toast.message('Token created — open the watch app to finish pairing');
+      }
     }
   };
 
   const sendToWatch = async () => {
     if (!freshToken) return;
+    setPairState('pairing');
     const res = await WatchBridge.pairWatch({ ...freshToken, apiUrl: FUNCTION_URL });
-    if (res.delivered) toast.success('Sent to your Apple Watch');
-    else toast.error('Could not reach the watch — open the CrooHQ watch app and try again');
+    if (res.delivered) {
+      setPairState('paired');
+      toast.success('Sent to your Apple Watch');
+    } else {
+      setPairState('unreachable');
+      toast.error('Could not reach the watch — open the CrooHQ watch app and try again');
+    }
   };
+
+  const pairStatusLabel =
+    pairState === 'pairing' ? 'Pairing…'
+    : pairState === 'paired' ? 'Paired — watch received the token'
+    : pairState === 'unreachable' ? 'Watch not reachable — open the CrooHQ watch app and tap Send to Watch'
+    : null;
 
   const revokeDevice = async (device: WatchDevice) => {
     if (!confirm(`Revoke "${device.label}"? That watch will stop receiving data.`)) return;
