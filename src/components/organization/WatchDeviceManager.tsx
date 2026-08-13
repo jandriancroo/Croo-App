@@ -49,6 +49,7 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
   const [labelDraft, setLabelDraft] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [freshToken, setFreshToken] = useState<{ token: string; locationId: string; locationName: string } | null>(null);
+  const [pairState, setPairState] = useState<'idle' | 'pairing' | 'paired' | 'unreachable'>('idle');
 
   const loadDevices = async () => {
     setLoading(true);
