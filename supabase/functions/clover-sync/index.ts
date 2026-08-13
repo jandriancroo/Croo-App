@@ -171,7 +171,7 @@ async function fetchOrdersForWindow(creds: CloverCreds, startMs: number, endMs: 
     const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/orders`, [
       ["filter", `clientCreatedTime>=${startMs}`],
       ["filter", `clientCreatedTime<${endMs}`],
-      ["expand", "lineItems,payments"],
+      ["expand", "lineItems,payments,discounts,lineItems.discounts,lineItems.modifications"],
       ["limit", limit],
       ["offset", offset],
     ]);
@@ -208,61 +208,129 @@ async function fetchPaymentsForWindow(creds: CloverCreds, startMs: number, endMs
 // ── Aggregation ─────────────────────────────────────────────────────────────
 type Hour = { hour: string; sales: number; checksCount: number };
 
+// Clover "Net sales" definition (verified against the merchant dashboard):
+//   item sales (line price + modifier amounts, revenue items only)
+//   − discounts (line-level + order-level, capped at the order subtotal)
+//   and it EXCLUDES tax, tips, service/order fees and non-revenue items
+//   (gift cards, delivery fees, courier tips).
+// All math is done in integer cents so days reconcile to the penny.
+const cts = (v: unknown) => Math.round(Number(v ?? 0) || 0);
+
+function lineBaseCents(li: any): number {
+  return cts(li.price);
+}
+function lineModifierCents(li: any): number {
+  const mods: any[] = li.modifications?.elements ?? [];
+  return mods.reduce((s, m) => s + cts(m.amount), 0);
+}
+function isNonRevenueLine(li: any): boolean {
+  return li.isRevenue === false || li.isOrderFee === true;
+}
+// A discount can be a fixed amount (negative cents) or a percentage.
+// Percentage line discounts apply to the line's base price (not its modifiers).
+function discountCents(d: any, baseCents: number): number {
+  if (d?.amount) return Math.abs(cts(d.amount));
+  const pct = Number(d?.percentage ?? 0) || 0;
+  return pct ? Math.round((baseCents * pct) / 100) : 0;
+}
+
+// Per-order breakdown in cents.
+function orderBreakdown(o: any) {
+  let grossCents = 0;        // revenue item sales incl. modifiers
+  let nonRevenueCents = 0;   // gift cards, delivery fees, courier tips
+  let lineDiscountCents = 0;
+
+  for (const li of (o.lineItems?.elements ?? []) as any[]) {
+    if (li.deleted) continue;
+    const base = lineBaseCents(li);
+    const withMods = base + lineModifierCents(li);
+    if (isNonRevenueLine(li)) { nonRevenueCents += withMods; continue; }
+    grossCents += withMods;
+    for (const d of (li.discounts?.elements ?? []) as any[]) {
+      lineDiscountCents += discountCents(d, base);
+    }
+  }
+
+  const subtotalCents = grossCents - lineDiscountCents;
+  let orderDiscountCents = 0;
+  for (const d of (o.discounts?.elements ?? []) as any[]) {
+    if (d.lineItemRef) continue; // already counted at the line level
+    orderDiscountCents += discountCents(d, subtotalCents);
+  }
+  // Clover never discounts below zero on an order.
+  orderDiscountCents = Math.min(orderDiscountCents, Math.max(subtotalCents, 0));
+
+  return {
+    grossCents,
+    nonRevenueCents,
+    discountCents: lineDiscountCents + orderDiscountCents,
+    netCents: subtotalCents - orderDiscountCents,
+  };
+}
+
 function aggregateOrders(orders: any[], startMs: number) {
-  // Clover amounts are in cents.
-  let netSales = 0;
+  let netCents = 0;
+  let grossCents = 0;
+  let discountsCents = 0;
+  let nonRevenueCents = 0;
   let guestCount = 0;
   let checkCount = 0;
-  const hourly: Hour[] = Array.from({ length: 24 }, (_, h) => ({
-    hour: `${String(h).padStart(2, "0")}:00`,
-    sales: 0,
-    checksCount: 0,
-  }));
+  const hourlyCents: number[] = Array.from({ length: 24 }, () => 0);
+  const hourlyChecks: number[] = Array.from({ length: 24 }, () => 0);
 
   // Product mix: aggregate line items by item id/name.
   const mix = new Map<string, { item_id: string; name: string; quantity: number; gross: number }>();
 
   for (const o of orders) {
-    // Skip voided/refunded orders entirely.
+    // Skip open/voided/deleted orders entirely.
     if (o.state === "open" || o.state === "voided") continue;
     if (o.deletedTimestamp) continue;
 
-    // Net sales = total − tax (matches Clover dashboard "Net Sales" and Blaze/QU convention)
-    const gross = (o.total ?? 0) / 100; // cents → dollars (tax-inclusive)
-    const tax = (o.taxAmount ?? 0) / 100;
-    const total = gross - tax;
-    if (total <= 0) continue;
+    const b = orderBreakdown(o);
+    if (b.netCents <= 0 && b.grossCents <= 0) continue;
 
-    netSales += total;
+    netCents += b.netCents;
+    grossCents += b.grossCents;
+    discountsCents += b.discountCents;
+    nonRevenueCents += b.nonRevenueCents;
     checkCount += 1;
-    // Guest count: Clover stores in o.note rarely; fall back to 1 per order.
     const guests = Math.max(1, Number(o.guestCount ?? 0) || 1);
     guestCount += guests;
 
-    // Hour bucket (PST hour within window). Use clientCreatedTime if present.
+    // Hour bucket (store-local hour within the window).
     const t = o.clientCreatedTime ?? o.createdTime ?? startMs;
     const hourIdx = Math.max(0, Math.min(23, Math.floor((t - startMs) / (60 * 60 * 1000))));
-    hourly[hourIdx].sales += total;
-    hourly[hourIdx].checksCount += 1;
+    hourlyCents[hourIdx] += b.netCents;
+    hourlyChecks[hourIdx] += 1;
 
-    // Line items.
-    const li: any[] = o.lineItems?.elements ?? [];
-    for (const item of li) {
+    // Line items → product mix (revenue items only, modifiers included).
+    for (const item of (o.lineItems?.elements ?? []) as any[]) {
+      if (item.deleted || isNonRevenueLine(item)) continue;
       const id = String(item.item?.id ?? item.id ?? item.name ?? "unknown");
       const name = String(item.name ?? "Unknown");
       const qty = Number(item.unitQty ?? 1) || 1;
-      const gross = Number(item.price ?? 0) / 100;
+      const lineGross = (lineBaseCents(item) + lineModifierCents(item)) / 100;
       const prev = mix.get(id) ?? { item_id: id, name, quantity: 0, gross: 0 };
       prev.quantity += qty;
-      prev.gross += gross;
+      prev.gross += lineGross;
       mix.set(id, prev);
     }
   }
 
+  const netSales = netCents / 100;
+  const hourly: Hour[] = hourlyCents.map((cents, h) => ({
+    hour: `${String(h).padStart(2, "0")}:00`,
+    sales: cents / 100,
+    checksCount: hourlyChecks[h],
+  }));
+
   return {
     netSales,
+    grossSales: grossCents / 100,
+    discounts: discountsCents / 100,
+    nonRevenue: nonRevenueCents / 100,
     guestCount,
-    avgTicket: checkCount > 0 ? netSales / checkCount : 0,
+    avgTicket: checkCount > 0 ? netCents / 100 / checkCount : 0,
     hourly,
     productMix: Array.from(mix.values()),
   };
@@ -331,6 +399,12 @@ async function syncOneDay(
     .eq("location_id", locationId)
     .eq("sale_date", date)
     .maybeSingle();
+
+  console.log(
+    `[clover-sync] ${date} recon: gross=$${agg.grossSales.toFixed(2)} ` +
+    `discounts=-$${agg.discounts.toFixed(2)} net=$${agg.netSales.toFixed(2)} ` +
+    `(excluded non-revenue $${agg.nonRevenue.toFixed(2)}, tax/tips/fees excluded)`,
+  );
 
   const row = {
     ...(existing ?? {}),
