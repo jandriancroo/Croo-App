@@ -28,6 +28,15 @@ struct WatchShift: Codable, Hashable, Identifiable {
     let role: String
     let time: String
     let isMe: Bool
+    /// "active" | "later" | "completed" — optional so older cached payloads still decode.
+    let status: String?
+    let hours: Double?
+
+    var resolvedStatus: String { status ?? "later" }
+    var hoursLabel: String {
+        guard let hours, hours > 0 else { return "" }
+        return String(format: hours.rounded() == hours ? "%.0fh" : "%.1fh", hours)
+    }
 }
 
 struct WatchSnapshot: Codable {

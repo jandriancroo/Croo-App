@@ -6,7 +6,12 @@ struct CubesView: View {
 
     var body: some View {
         Group {
-            if store.snapshot.cubes.isEmpty {
+            if !store.isPaired && store.snapshot.cubes.isEmpty {
+                EmptyStateView(
+                    title: "Not Paired",
+                    message: "Pair this Watch from CrooHQ on iPhone."
+                )
+            } else if store.snapshot.cubes.isEmpty {
                 EmptyStateView(
                     title: "No Cubes Yet",
                     message: "Set up your Data Cubes on the iPhone app. They appear here automatically."
