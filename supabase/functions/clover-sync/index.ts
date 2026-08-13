@@ -456,7 +456,19 @@ async function syncOneDay(
       0,
       Math.round(paymentsData.total_tips * 100) - ref.tipRefundCents,
     ) / 100;
+    // Card refunds return the tip on the card, so net it out of the largest
+    // non-cash tender bucket that feeds daily_tips.
+    const cardTenders = (paymentsData.tenders ?? [])
+      .filter((t: any) => !String(t.label ?? "").toLowerCase().includes("cash"))
+      .sort((a: any, b: any) => (b.tips ?? 0) - (a.tips ?? 0));
+    if (cardTenders.length > 0) {
+      cardTenders[0].tips = Math.max(
+        0,
+        Math.round((cardTenders[0].tips ?? 0) * 100) - ref.tipRefundCents,
+      ) / 100;
+    }
   }
+
 
   // Conditional spread merge — protect projections / overrides that came from elsewhere.
   const { data: existing } = await supabase
