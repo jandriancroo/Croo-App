@@ -26,7 +26,6 @@ struct CubesView: View {
                     }
                 }
             } else {
-                // Pill sits ON the orange face — not in the black system chrome above it.
                 ZStack(alignment: .top) {
                     TabView {
                         ForEach(Array(store.snapshot.cubes.enumerated()), id: \.element.id) { index, cube in
@@ -50,7 +49,6 @@ struct CubesView: View {
         }
     }
 
-    /// One switcher for all pages — pick once, API refresh reloads cubes/schedule/sales.
     private var locationPill: some View {
         let name = store.currentLocationName.isEmpty ? "Location" : store.currentLocationName
         return Button {
@@ -99,7 +97,7 @@ private struct CubeScreen: View {
             showUpArrow: cubeIndex > 0,
             showDownArrow: cubeIndex < cubeCount - 1
         )
-        .padding(.top, 18) // room for the location pill overlay
+        .padding(.top, 18)
         .background(pastelOrange)
         .containerBackground(pastelOrange.gradient, for: .tabView)
         .contentShape(Rectangle())
@@ -286,38 +284,25 @@ struct EmptyStateView: View {
     }
 }
 
-#Preview("Cubes page") {
-    let store = WatchDataStore.shared
-    store.isPaired = true
-    store.locations = [
-        WatchLocation(id: "hemet", name: "Hemet"),
-        WatchLocation(id: "tem", name: "Temecula")
-    ]
-    store.selectedLocationId = "hemet"
-    store.snapshot = WatchSnapshot(
-        updatedAt: "now",
-        locationName: "Hemet",
-        cubes: [
-            WatchCube(
-                id: "weekly",
-                title: "Weekly Sales",
-                accentColor: "#E8833A",
-                faces: [
-                    WatchCubeFace(
-                        title: "This Week",
-                        metrics: [
-                            WatchMetric(label: "WTD", value: "$5,448"),
-                            WatchMetric(label: "EOW Goal", value: "$20,195"),
-                            WatchMetric(label: "Wkly Pace", value: "$19,719"),
-                            WatchMetric(label: "SWLY", value: "$21,160")
-                        ]
-                    )
-                ]
-            )
-        ],
-        schedule: [],
-        sales: []
+#Preview("Cube face") {
+    CubeScreen(
+        cube: WatchCube(
+            id: "weekly",
+            title: "Weekly Sales",
+            accentColor: "#E8833A",
+            faces: [
+                WatchCubeFace(
+                    title: "This Week",
+                    metrics: [
+                        WatchMetric(label: "WTD", value: "$5,448"),
+                        WatchMetric(label: "EOW Goal", value: "$20,195"),
+                        WatchMetric(label: "Wkly Pace", value: "$19,719"),
+                        WatchMetric(label: "SWLY", value: "$21,160")
+                    ]
+                )
+            ]
+        ),
+        cubeIndex: 0,
+        cubeCount: 1
     )
-    return CubesView()
-        .environmentObject(store)
 }
