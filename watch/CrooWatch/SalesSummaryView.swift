@@ -9,10 +9,15 @@ struct SalesSummaryView: View {
 
     var body: some View {
         Group {
-            if store.snapshot.sales.isEmpty {
+            if !store.isPaired {
+                EmptyStateView(
+                    title: "Not Paired",
+                    message: "Pair this Watch from CrooHQ on iPhone."
+                )
+            } else if store.snapshot.sales.isEmpty {
                 EmptyStateView(
                     title: "No Sales Data",
-                    message: "Open CrooHQ on your iPhone to refresh today's numbers."
+                    message: "Pull to refresh from the Status tab."
                 )
             } else {
                 ScrollView {
