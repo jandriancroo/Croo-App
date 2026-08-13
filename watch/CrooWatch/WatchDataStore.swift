@@ -28,6 +28,15 @@ struct WatchShift: Codable, Hashable, Identifiable {
     let role: String
     let time: String
     let isMe: Bool
+    /// "active" | "later" | "completed" — optional so older cached payloads still decode.
+    let status: String?
+    let hours: Double?
+
+    var resolvedStatus: String { status ?? "later" }
+    var hoursLabel: String {
+        guard let hours, hours > 0 else { return "" }
+        return String(format: hours.rounded() == hours ? "%.0fh" : "%.1fh", hours)
+    }
 }
 
 struct WatchSnapshot: Codable {
@@ -135,6 +144,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var snapshot: WatchSnapshot = .empty
     @Published var hasData: Bool = false
     @Published var isPaired: Bool = false
+    @Published var pairedLocationName: String = ""
     /// Human-readable link state, shown on the Status tab for troubleshooting.
     @Published var statusLine: String = "Starting…"
     @Published var lastEvent: String = "none"
@@ -144,7 +154,13 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     private var refreshTimer: Timer?
 
     private(set) var pairing: WatchPairing? {
-        didSet { DispatchQueue.main.async { self.isPaired = self.pairing != nil } }
+        didSet {
+            let name = pairing?.locationName ?? ""
+            DispatchQueue.main.async {
+                self.isPaired = self.pairing != nil
+                self.pairedLocationName = name
+            }
+        }
     }
 
     override private init() {
@@ -346,6 +362,34 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
             DispatchQueue.main.async { self.lastEvent = "received queued snapshot" }
         }
         refreshStatus()
+    }
+
+    /// Direct pair message from the iPhone: {"type":"watch_pair", token, locationId/location_id, locationName/location_name}
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        handleIncoming(message)
+        replyHandler(["ok": true])
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        handleIncoming(message)
+    }
+
+    private func handleIncoming(_ payload: [String: Any]) {
+        if let pairingDict = payload["pairing"] as? [String: Any] {
+            applyPairing(pairingDict)
+            return
+        }
+        if (payload["type"] as? String) == "watch_pair" {
+            var dict: [String: Any] = [:]
+            dict["token"] = payload["token"]
+            dict["locationId"] = payload["locationId"] ?? payload["location_id"]
+            dict["locationName"] = payload["locationName"] ?? payload["location_name"] ?? ""
+            dict["apiUrl"] = payload["apiUrl"] ?? payload["api_url"] ?? ""
+            applyPairing(dict)
+        }
+        if let json = payload["snapshot"] as? String, !json.isEmpty {
+            apply(json: json)
+        }
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {

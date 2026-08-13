@@ -340,20 +340,43 @@ async function buildSnapshot(sb: any, device: any) {
     return dt.isValid ? dt.toFormat('h:mma').replace(':00', '').toLowerCase() : String(t);
   };
 
+  const nowMinutes = now.hour * 60 + now.minute;
+  const toMinutes = (t?: string | null) => {
+    if (!t) return null;
+    const [h, m] = String(t).slice(0, 5).split(':').map(Number);
+    if (Number.isNaN(h)) return null;
+    return h * 60 + (m || 0);
+  };
+
   const schedule = shifts
     .map((s: any) => {
       const p = profileMap.get(s.user_id);
+      const start = toMinutes(s.start_time);
+      let end = toMinutes(s.end_time);
+      // Overnight shift: end wraps past midnight.
+      if (start !== null && end !== null && end < start) end += 24 * 60;
+      const hours = start !== null && end !== null
+        ? Math.round(((end - start) / 60) * 100) / 100
+        : 0;
+      let status = 'later';
+      if (start !== null && end !== null) {
+        if (nowMinutes >= end) status = 'completed';
+        else if (nowMinutes >= start) status = 'active';
+      }
       return {
         id: s.id,
         name: (p?.nickname || p?.full_name || 'Open Shift'),
         role: s.template?.name || '',
         time: [fmtTime(s.start_time), fmtTime(s.end_time)].filter(Boolean).join(' – '),
+        status,
+        hours,
         isMe: false,
         _sort: s.start_time || '',
       };
     })
     .sort((a: any, b: any) => String(a._sort).localeCompare(String(b._sort)))
     .map(({ _sort, ...rest }: any) => rest);
+
 
   const SALES_SUMMARY_METRICS = [
     'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_year_day',

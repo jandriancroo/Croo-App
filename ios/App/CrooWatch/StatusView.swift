@@ -11,6 +11,12 @@ struct StatusView: View {
                 Text("Connection")
                     .font(.headline)
 
+                if store.isPaired {
+                    Text("Paired to \(store.pairedLocationName.isEmpty ? "this location" : store.pairedLocationName)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.green)
+                }
+
                 Text(store.statusLine)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.secondary)
