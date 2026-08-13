@@ -12626,6 +12626,7 @@ export type Database = {
       }
       watch_devices: {
         Row: {
+          allowed_location_ids: string[] | null
           created_at: string
           created_by: string | null
           device_kind: string
@@ -12640,6 +12641,7 @@ export type Database = {
           token_hint: string | null
         }
         Insert: {
+          allowed_location_ids?: string[] | null
           created_at?: string
           created_by?: string | null
           device_kind?: string
@@ -12654,6 +12656,7 @@ export type Database = {
           token_hint?: string | null
         }
         Update: {
+          allowed_location_ids?: string[] | null
           created_at?: string
           created_by?: string | null
           device_kind?: string
