@@ -205,6 +205,48 @@ async function fetchPaymentsForWindow(creds: CloverCreds, startMs: number, endMs
   return all;
 }
 
+// Refunds issued inside the window. Clover's "Net sales" is
+// gross − discounts − refunds, and the refund's tax/tip/service-charge portion
+// is NOT part of net sales (those live in their own report rows).
+async function fetchRefundsForWindow(creds: CloverCreds, startMs: number, endMs: number) {
+  const all: any[] = [];
+  const limit = 1000;
+  let offset = 0;
+  while (true) {
+    const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/refunds`, [
+      ["filter", `createdTime>=${startMs}`],
+      ["filter", `createdTime<${endMs}`],
+      ["limit", limit],
+      ["offset", offset],
+    ]);
+    const items: any[] = page.elements ?? [];
+    all.push(...items);
+    if (items.length < limit) break;
+    offset += limit;
+    if (offset > 20000) break;
+  }
+  return all;
+}
+
+function aggregateRefunds(refunds: any[]) {
+  // Each refund's `amount` is the full money returned (item value + tax + tip
+  // + service charge). Only the item portion reduces net sales.
+  let netRefundCents = 0;
+  let taxRefundCents = 0;
+  let tipRefundCents = 0;
+  for (const r of refunds) {
+    const amount = Math.abs(Math.round(Number(r.amount ?? 0) || 0));
+    const tax = Math.abs(Math.round(Number(r.taxAmount ?? 0) || 0));
+    const tip = Math.abs(Math.round(Number(r.tipAmount ?? 0) || 0));
+    const svc = Math.abs(Math.round(Number(r.serviceChargeAmount ?? 0) || 0));
+    netRefundCents += Math.max(0, amount - tax - tip - svc);
+    taxRefundCents += tax;
+    tipRefundCents += tip;
+  }
+  return { netRefundCents, taxRefundCents, tipRefundCents, count: refunds.length };
+}
+
+
 // ── Aggregation ─────────────────────────────────────────────────────────────
 type Hour = { hour: string; sales: number; checksCount: number };
 
