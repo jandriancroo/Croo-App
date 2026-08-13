@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CubesView: View {
     @EnvironmentObject var store: WatchDataStore
+    @State private var showLocationSwitcher = false
 
     var body: some View {
         Group {
@@ -11,36 +12,69 @@ struct CubesView: View {
                     message: "Pair this Watch from CrooHQ on iPhone."
                 )
             } else if store.snapshot.cubes.isEmpty {
-                EmptyStateView(
-                    title: "No Cubes Yet",
-                    message: "Set up your Data Cubes on the iPhone app. They appear here automatically."
-                )
-            } else {
-                TabView {
-                    ForEach(Array(store.snapshot.cubes.enumerated()), id: \.element.id) { index, cube in
-                        CubeScreen(
-                            cube: cube,
-                            cubeIndex: index,
-                            cubeCount: store.snapshot.cubes.count
-                        )
-                    }
+                VStack(spacing: 6) {
+                    locationPill
+                    EmptyStateView(
+                        title: "No Cubes Yet",
+                        message: "Set up your Data Cubes on the iPhone app. They appear here automatically."
+                    )
                 }
-                .tabViewStyle(.verticalPage)
+            } else {
+                VStack(spacing: 2) {
+                    locationPill
+
+                    TabView {
+                        ForEach(Array(store.snapshot.cubes.enumerated()), id: \.element.id) { index, cube in
+                            CubeScreen(
+                                cube: cube,
+                                cubeIndex: index,
+                                cubeCount: store.snapshot.cubes.count
+                            )
+                        }
+                    }
+                    .tabViewStyle(.verticalPage)
+                }
             }
         }
+        .sheet(isPresented: $showLocationSwitcher) {
+            LocationSwitcherView()
+                .environmentObject(store)
+        }
+    }
+
+    /// One switcher for the whole Watch — changing location reloads cubes, schedule, sales.
+    private var locationPill: some View {
+        let name = store.currentLocationName.isEmpty ? "Location" : store.currentLocationName
+        return Button {
+            showLocationSwitcher = true
+        } label: {
+            HStack(spacing: 3) {
+                Text(name)
+                    .font(.system(size: 11, weight: .bold))
+                    .lineLimit(1)
+                if store.locations.count > 1 || !store.currentLocationName.isEmpty {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .opacity(0.7)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color.white.opacity(0.18)))
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
     }
 }
 
 private struct CubeScreen: View {
-    @EnvironmentObject var store: WatchDataStore
-
     let cube: WatchCube
     let cubeIndex: Int
     let cubeCount: Int
 
     @State private var faceIndex = 0
     @State private var isPaused = false
-    @State private var showLocationSwitcher = false
 
     private let pastelOrange = Color(red: 0.96, green: 0.62, blue: 0.38)
     private let rotateInterval: TimeInterval = 10
@@ -58,10 +92,7 @@ private struct CubeScreen: View {
             faceCount: max(cube.faces.count, 1),
             isPaused: isPaused,
             showUpArrow: cubeIndex > 0,
-            showDownArrow: cubeIndex < cubeCount - 1,
-            locationName: store.currentLocationName,
-            canSwitchLocation: store.locations.count > 1,
-            onLocationTap: { showLocationSwitcher = true }
+            showDownArrow: cubeIndex < cubeCount - 1
         )
         .background(pastelOrange)
         .containerBackground(pastelOrange.gradient, for: .tabView)
@@ -89,10 +120,6 @@ private struct CubeScreen: View {
                 faceIndex = (faceIndex + 1) % cube.faces.count
             }
         }
-        .sheet(isPresented: $showLocationSwitcher) {
-            LocationSwitcherView()
-                .environmentObject(store)
-        }
     }
 }
 
@@ -104,9 +131,6 @@ private struct CubeFacePage: View {
     let isPaused: Bool
     let showUpArrow: Bool
     let showDownArrow: Bool
-    var locationName: String = ""
-    var canSwitchLocation: Bool = false
-    var onLocationTap: (() -> Void)? = nil
 
     private var metrics: [WatchMetric] {
         face.metrics.filter { !$0.value.isEmpty }
@@ -133,27 +157,6 @@ private struct CubeFacePage: View {
                     }
                 }
                 Spacer(minLength: 2)
-
-                if !locationName.isEmpty {
-                    Button {
-                        onLocationTap?()
-                    } label: {
-                        HStack(spacing: 2) {
-                            Text(locationName)
-                                .font(.system(size: 8, weight: .bold))
-                                .lineLimit(1)
-                            if canSwitchLocation {
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 6, weight: .bold))
-                            }
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.white.opacity(0.22)))
-                    }
-                    .buttonStyle(.plain)
-                }
-
                 if faceCount > 1 {
                     HStack(spacing: 2) {
                         ForEach(0..<faceCount, id: \.self) { i in
@@ -278,13 +281,7 @@ struct EmptyStateView: View {
 }
 
 #Preview("Cube face") {
-    let store = WatchDataStore.shared
-    store.locations = [
-        WatchLocation(id: "hemet", name: "Hemet"),
-        WatchLocation(id: "tem", name: "Temecula")
-    ]
-    store.selectedLocationId = "hemet"
-    return CubeScreen(
+    CubeScreen(
         cube: WatchCube(
             id: "weekly",
             title: "Weekly Sales",
@@ -298,18 +295,10 @@ struct EmptyStateView: View {
                         WatchMetric(label: "Wkly Pace", value: "$19,719"),
                         WatchMetric(label: "SWLY", value: "$21,160")
                     ]
-                ),
-                WatchCubeFace(
-                    title: "Labor",
-                    metrics: [
-                        WatchMetric(label: "Lab%", value: "24.1%"),
-                        WatchMetric(label: "Hrs", value: "186")
-                    ]
                 )
             ]
         ),
         cubeIndex: 0,
-        cubeCount: 2
+        cubeCount: 1
     )
-    .environmentObject(store)
 }
