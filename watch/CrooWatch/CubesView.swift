@@ -19,6 +19,7 @@ struct CubesView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 10) {
+                        LocationHeaderButton()
                         ForEach(store.snapshot.cubes) { cube in
                             CubeCard(cube: cube)
                         }

@@ -118,8 +118,8 @@ const num = (v: any): number | undefined => (v === null || v === undefined ? und
 const sum = (arr: any[], key: string) =>
   arr.reduce((s, r) => s + (Number(r?.[key]) || 0), 0);
 
-async function buildSnapshot(sb: any, device: any) {
-  const locationId = device.location_id;
+async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) {
+  const locationId = overrideLocationId || device.location_id;
 
   const [{ data: location }, { data: settings }] = await Promise.all([
     sb.from('locations').select('id, name, organization_id, brand_id').eq('id', locationId).maybeSingle(),
@@ -386,6 +386,7 @@ async function buildSnapshot(sb: any, device: any) {
 
   return {
     updatedAt: new Date().toISOString(),
+    locationId,
     locationName: location?.name || '',
     cubes,
     schedule,
@@ -409,15 +410,29 @@ serve(async (req) => {
       const hash = await sha256(String(token));
       const { data: device } = await sb
         .from('watch_devices')
-        .select('id, location_id, label, revoked_at')
+        .select('id, location_id, label, revoked_at, allowed_location_ids')
         .eq('token_hash', hash)
         .maybeSingle();
 
       if (!device || device.revoked_at) return json({ error: 'Device not paired' }, 401);
 
-      const snapshot = await buildSnapshot(sb, device);
+      // A watch token is scoped to every location the pairing user could access.
+      const allowedIds: string[] = (device.allowed_location_ids?.length
+        ? device.allowed_location_ids
+        : [device.location_id]).filter(Boolean);
+
+      const requested = body.locationId ? String(body.locationId) : null;
+      const activeLocationId = requested && allowedIds.includes(requested) ? requested : device.location_id;
+
+      const { data: allowedLocations } = await sb
+        .from('locations')
+        .select('id, name')
+        .in('id', allowedIds)
+        .order('name');
+
+      const snapshot = await buildSnapshot(sb, device, activeLocationId);
       await sb.from('watch_devices').update({ last_active_at: new Date().toISOString() }).eq('id', device.id);
-      return json({ snapshot });
+      return json({ snapshot: { ...snapshot, locations: allowedLocations || [] } });
     }
 
     // -------------------------------------------------- issue (authed admin)
@@ -432,6 +447,18 @@ serve(async (req) => {
       if (!loc) return json({ error: 'Location not found' }, 404);
       await assertOrgAdmin(sb, userId, loc.organization_id);
 
+      // Scope the token to every location the pairing user can access.
+      const { data: userLocRows } = await sb.rpc('get_user_location_ids', { _user_id: userId });
+      const userLocIds: string[] = (userLocRows || [])
+        .map((r: any) => (typeof r === 'string' ? r : r?.get_user_location_ids || r?.id))
+        .filter(Boolean);
+      const allowedIds = Array.from(new Set([locationId, ...userLocIds]));
+      const { data: allowedLocations } = await sb
+        .from('locations')
+        .select('id, name')
+        .in('id', allowedIds)
+        .order('name');
+
       const token = randomToken();
       const hash = await sha256(token);
       const { data: device, error } = await sb
@@ -442,13 +469,14 @@ serve(async (req) => {
           label: (label || '').trim() || 'Apple Watch',
           token_hash: hash,
           token_hint: token.slice(-6),
+          allowed_location_ids: allowedIds,
           created_by: userId,
         })
         .select('id, label, location_id, created_at')
         .single();
       if (error) throw error;
 
-      return json({ token, device, locationId, locationName: loc.name });
+      return json({ token, device, locationId, locationName: loc.name, locations: allowedLocations || [] });
     }
 
     // -------------------------------------------------- list (authed admin)

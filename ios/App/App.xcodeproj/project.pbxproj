@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		86A8D1677C4044B5B3A9BB0F /* CrooWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 6B4360635AA6485CB058E880 /* CrooWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C1DB58957DBA464EBD777E36 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13F8767856034FCAB5EF7E84 /* Assets.xcassets */; };
+		A1B2C3D40002444488880002AAAA0002 /* LocationSwitcherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001444488880001AAAA0001 /* LocationSwitcherView.swift */; };
 		30495C619E4C49D4B58DA37F /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFFD3593888549798B2BF514 /* StatusView.swift */; };
 		1719B5794A16435CA97AAE39 /* WatchDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */; };
 		F0353A8E87E34AFA834B6BB9 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92AB601A6AA5442A96F14E01 /* ScheduleView.swift */; };
@@ -54,6 +55,7 @@
 		6B4360635AA6485CB058E880 /* CrooWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrooWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13F8767856034FCAB5EF7E84 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0223276538FD4DC88390D665 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1B2C3D40001444488880001AAAA0001 /* LocationSwitcherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSwitcherView.swift; sourceTree = "<group>"; };
 		CFFD3593888549798B2BF514 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
 		E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchDataStore.swift; sourceTree = "<group>"; };
 		92AB601A6AA5442A96F14E01 /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
@@ -102,6 +104,7 @@
 				67381E66D8514CACB89FA447 /* SalesSummaryView.swift */,
 				92AB601A6AA5442A96F14E01 /* ScheduleView.swift */,
 				E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */,
+				A1B2C3D40001444488880001AAAA0001 /* LocationSwitcherView.swift */,
 				CFFD3593888549798B2BF514 /* StatusView.swift */,
 				0223276538FD4DC88390D665 /* Info.plist */,
 				13F8767856034FCAB5EF7E84 /* Assets.xcassets */,
@@ -314,6 +317,7 @@
 				0576420AE434419FAA09B17A /* SalesSummaryView.swift in Sources */,
 				F0353A8E87E34AFA834B6BB9 /* ScheduleView.swift in Sources */,
 				1719B5794A16435CA97AAE39 /* WatchDataStore.swift in Sources */,
+				A1B2C3D40002444488880002AAAA0002 /* LocationSwitcherView.swift in Sources */,
 				30495C619E4C49D4B58DA37F /* StatusView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

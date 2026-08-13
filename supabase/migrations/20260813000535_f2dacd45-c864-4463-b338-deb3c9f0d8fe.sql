@@ -1,0 +1,1 @@
+ALTER TABLE public.watch_devices ADD COLUMN IF NOT EXISTS allowed_location_ids uuid[];

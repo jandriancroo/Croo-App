@@ -10,3 +10,10 @@ type: feature
 - Day pace = `pace_adjusted_projection ?? living_projection`, floored at actual sales. Week starts Monday. Timezone from `location_settings.timezone` (fallback America/Los_Angeles).
 - Pairing handoff: iPhone `WatchBridge.pairWatch({token, locationId, locationName, apiUrl})` → WatchConnectivity applicationContext/userInfo key `pairing`. Watch stores the token in Keychain, metadata in UserDefaults, then polls the API every 5 min and on scene activation.
 - Phone-mirroring snapshot path (`useWatchSync`) still works as a fallback; the API path is authoritative and works with the phone app closed.
+
+## Multi-location (Aug 2026)
+- `watch_devices.allowed_location_ids uuid[]` — set at issue time from `get_user_location_ids(pairing user)` plus the chosen location. Null/empty falls back to `location_id`.
+- Snapshot action accepts optional `locationId` in the body; it is only honored when present in the allowed list, otherwise falls back to `location_id`. Response includes `locations: [{id,name}]` and `locationId`.
+- Watch persists `croo.watch.selectedLocationId` + `croo.watch.locations` in UserDefaults (token stays in Keychain). Default: last selected → first available → paired location.
+- Cubes header pill (`LocationHeaderButton`) opens `LocationSwitcherView`; selecting refetches the snapshot which reloads Cubes, Schedule and Sales.
+- Pair payload may carry `locations` as a JSON string (`locationsJson` from the JS bridge).

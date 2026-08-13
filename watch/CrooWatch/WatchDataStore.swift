@@ -39,12 +39,31 @@ struct WatchShift: Codable, Hashable, Identifiable {
     }
 }
 
+struct WatchLocation: Codable, Hashable, Identifiable {
+    let id: String
+    let name: String
+}
+
 struct WatchSnapshot: Codable {
     let updatedAt: String
     let locationName: String
     let cubes: [WatchCube]
     let schedule: [WatchShift]
     let sales: [WatchMetric]
+    /// Which location this snapshot is for, and every location this watch may switch to.
+    let locationId: String?
+    let locations: [WatchLocation]?
+
+    init(updatedAt: String, locationName: String, cubes: [WatchCube], schedule: [WatchShift],
+         sales: [WatchMetric], locationId: String? = nil, locations: [WatchLocation]? = nil) {
+        self.updatedAt = updatedAt
+        self.locationName = locationName
+        self.cubes = cubes
+        self.schedule = schedule
+        self.sales = sales
+        self.locationId = locationId
+        self.locations = locations
+    }
 
     static let empty = WatchSnapshot(updatedAt: "", locationName: "", cubes: [], schedule: [], sales: [])
 }
@@ -113,7 +132,7 @@ final class WatchAPIClient {
     static let shared = WatchAPIClient()
 
     /// Read-only snapshot fetch. Works with the iPhone app closed.
-    func fetchSnapshot(pairing: WatchPairing) async throws -> WatchSnapshot {
+    func fetchSnapshot(pairing: WatchPairing, locationId: String?) async throws -> WatchSnapshot {
         let urlString = pairing.apiUrl.isEmpty ? WatchPairing.defaultApiUrl : pairing.apiUrl
         guard let url = URL(string: urlString) else { throw URLError(.badURL) }
 
@@ -122,7 +141,9 @@ final class WatchAPIClient {
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(pairing.token, forHTTPHeaderField: "x-watch-token")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["action": "snapshot"])
+        var payload: [String: Any] = ["action": "snapshot"]
+        if let locationId, !locationId.isEmpty { payload["locationId"] = locationId }
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
@@ -145,12 +166,18 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var hasData: Bool = false
     @Published var isPaired: Bool = false
     @Published var pairedLocationName: String = ""
+    /// Every location this watch may show, and the one currently selected.
+    @Published var locations: [WatchLocation] = []
+    @Published var selectedLocationId: String = ""
+    @Published var isSwitchingLocation: Bool = false
     /// Human-readable link state, shown on the Status tab for troubleshooting.
     @Published var statusLine: String = "Starting…"
     @Published var lastEvent: String = "none"
 
     private let cacheKey = "croo.watch.snapshot"
     private let pairingKey = "croo.watch.pairing"
+    private let selectedLocationKey = "croo.watch.selectedLocationId"
+    private let locationsKey = "croo.watch.locations"
     private var refreshTimer: Timer?
 
     private(set) var pairing: WatchPairing? {
@@ -166,6 +193,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     override private init() {
         super.init()
         loadPairing()
+        loadLocations()
         loadCache()
     }
 
@@ -192,16 +220,63 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         }
         Task {
             do {
-                let fresh = try await WatchAPIClient.shared.fetchSnapshot(pairing: pairing)
+                let target = selectedLocationId.isEmpty ? pairing.locationId : selectedLocationId
+                let fresh = try await WatchAPIClient.shared.fetchSnapshot(pairing: pairing, locationId: target)
                 await MainActor.run {
                     self.merge(fresh)
-                    self.lastEvent = "loaded from CrooHQ (\(pairing.locationName.isEmpty ? "location" : pairing.locationName))"
+                    self.isSwitchingLocation = false
+                    self.lastEvent = "loaded from CrooHQ (\(fresh.locationName.isEmpty ? "location" : fresh.locationName))"
                 }
             } catch {
                 await MainActor.run {
+                    self.isSwitchingLocation = false
                     self.lastEvent = "fetch failed: \(error.localizedDescription)"
                 }
             }
+        }
+    }
+
+    // MARK: Location selection
+
+    var currentLocationName: String {
+        if let match = locations.first(where: { $0.id == selectedLocationId }) { return match.name }
+        if !snapshot.locationName.isEmpty { return snapshot.locationName }
+        return pairedLocationName
+    }
+
+    /// Persist the pick and immediately reload cubes / schedule / sales for it.
+    func selectLocation(_ id: String) {
+        guard id != selectedLocationId else { return }
+        selectedLocationId = id
+        UserDefaults.standard.set(id, forKey: selectedLocationKey)
+        isSwitchingLocation = true
+        refreshFromAPI()
+    }
+
+    private func loadLocations() {
+        if let json = UserDefaults.standard.string(forKey: locationsKey),
+           let data = json.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([WatchLocation].self, from: data) {
+            locations = decoded
+        }
+        // Default: last selected, else first available, else the paired location.
+        let saved = UserDefaults.standard.string(forKey: selectedLocationKey) ?? ""
+        if !saved.isEmpty && (locations.isEmpty || locations.contains(where: { $0.id == saved })) {
+            selectedLocationId = saved
+        } else {
+            selectedLocationId = locations.first?.id ?? (pairing?.locationId ?? "")
+        }
+    }
+
+    private func storeLocations(_ list: [WatchLocation]) {
+        guard !list.isEmpty else { return }
+        locations = list
+        if let out = try? JSONEncoder().encode(list), let json = String(data: out, encoding: .utf8) {
+            UserDefaults.standard.set(json, forKey: locationsKey)
+        }
+        if selectedLocationId.isEmpty || !list.contains(where: { $0.id == selectedLocationId }) {
+            selectedLocationId = list.first?.id ?? selectedLocationId
+            UserDefaults.standard.set(selectedLocationId, forKey: selectedLocationKey)
         }
     }
 
@@ -231,6 +306,25 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
             forKey: pairingKey
         )
         pairing = WatchPairing(token: token, locationId: locationId, locationName: locationName, apiUrl: apiUrl)
+
+        // Optional initial location list sent with the pair payload.
+        var incoming: [WatchLocation] = []
+        if let raw = dict["locations"] as? String, let data = raw.data(using: .utf8) {
+            incoming = (try? JSONDecoder().decode([WatchLocation].self, from: data)) ?? []
+        } else if let arr = dict["locations"] as? [[String: Any]] {
+            incoming = arr.compactMap { item in
+                guard let id = item["id"] as? String, let name = item["name"] as? String else { return nil }
+                return WatchLocation(id: id, name: name)
+            }
+        }
+        let savedSelection = UserDefaults.standard.string(forKey: selectedLocationKey) ?? ""
+        DispatchQueue.main.async {
+            if !incoming.isEmpty { self.storeLocations(incoming) }
+            if savedSelection.isEmpty || (!incoming.isEmpty && !incoming.contains(where: { $0.id == savedSelection })) {
+                self.selectedLocationId = locationId
+                UserDefaults.standard.set(locationId, forKey: self.selectedLocationKey)
+            }
+        }
         DispatchQueue.main.async {
             self.isPaired = true
             self.lastEvent = "paired with \(locationName.isEmpty ? "location" : locationName)"
@@ -241,7 +335,13 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     func unpair() {
         TokenKeychain.clear()
         UserDefaults.standard.removeObject(forKey: pairingKey)
+        UserDefaults.standard.removeObject(forKey: locationsKey)
+        UserDefaults.standard.removeObject(forKey: selectedLocationKey)
         pairing = nil
+        DispatchQueue.main.async {
+            self.locations = []
+            self.selectedLocationId = ""
+        }
         DispatchQueue.main.async {
             self.isPaired = false
             self.lastEvent = "unpaired"
@@ -305,10 +405,14 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
                 locationName: decoded.locationName.isEmpty ? snapshot.locationName : decoded.locationName,
                 cubes: snapshot.cubes,
                 schedule: decoded.schedule,
-                sales: decoded.sales.isEmpty ? snapshot.sales : decoded.sales
+                sales: decoded.sales.isEmpty ? snapshot.sales : decoded.sales,
+                locationId: decoded.locationId ?? snapshot.locationId,
+                locations: (decoded.locations?.isEmpty == false) ? decoded.locations : snapshot.locations
             )
         }
         snapshot = merged
+        if let list = merged.locations, !list.isEmpty { storeLocations(list) }
+        if let id = merged.locationId, !id.isEmpty, selectedLocationId.isEmpty { selectedLocationId = id }
         hasData = true
         if let out = try? JSONEncoder().encode(merged), let outJson = String(data: out, encoding: .utf8) {
             UserDefaults.standard.set(outJson, forKey: cacheKey)
@@ -385,6 +489,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
             dict["locationId"] = payload["locationId"] ?? payload["location_id"]
             dict["locationName"] = payload["locationName"] ?? payload["location_name"] ?? ""
             dict["apiUrl"] = payload["apiUrl"] ?? payload["api_url"] ?? ""
+            if let locs = payload["locations"] { dict["locations"] = locs }
             applyPairing(dict)
         }
         if let json = payload["snapshot"] as? String, !json.isEmpty {

@@ -48,7 +48,13 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
   const [issuing, setIssuing] = useState(false);
   const [labelDraft, setLabelDraft] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
-  const [freshToken, setFreshToken] = useState<{ token: string; locationId: string; locationName: string } | null>(null);
+  const [freshToken, setFreshToken] = useState<{
+    token: string;
+    locationId: string;
+    locationName: string;
+    locationsJson?: string;
+    locationCount?: number;
+  } | null>(null);
   const [pairState, setPairState] = useState<'idle' | 'pairing' | 'paired' | 'unreachable'>('idle');
 
   const loadDevices = async () => {
@@ -79,10 +85,17 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
       toast.error(data?.error || error?.message || 'Failed to create watch device');
       return;
     }
+    // The token covers every location the pairing user can access — hand that
+    // list to the watch so it can offer its location switcher right away.
+    const scoped: { id: string; name: string }[] = Array.isArray(data.locations) && data.locations.length
+      ? data.locations
+      : locations.map(l => ({ id: l.id, name: l.name }));
     const payload = {
       token: data.token as string,
       locationId: selectedLocation,
       locationName: data.locationName || locations.find(l => l.id === selectedLocation)?.name || '',
+      locationsJson: JSON.stringify(scoped),
+      locationCount: scoped.length,
     };
     setFreshToken(payload);
     setLabelDraft('');
@@ -91,7 +104,8 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
     // Hand the token straight to the watch when we're inside the iOS app.
     if (isWatchBridgeAvailable()) {
       setPairState('pairing');
-      const res = await WatchBridge.pairWatch({ ...payload, apiUrl: FUNCTION_URL });
+      const { locationCount: _c, ...bridgePayload } = payload;
+      const res = await WatchBridge.pairWatch({ ...bridgePayload, apiUrl: FUNCTION_URL });
       if (res.delivered) {
         setPairState('paired');
         toast.success('Sent to your Apple Watch');
@@ -105,7 +119,8 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
   const sendToWatch = async () => {
     if (!freshToken) return;
     setPairState('pairing');
-    const res = await WatchBridge.pairWatch({ ...freshToken, apiUrl: FUNCTION_URL });
+    const { locationCount: _c, ...bridgePayload } = freshToken;
+    const res = await WatchBridge.pairWatch({ ...bridgePayload, apiUrl: FUNCTION_URL });
     if (res.delivered) {
       setPairState('paired');
       toast.success('Sent to your Apple Watch');
@@ -188,6 +203,9 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
               <div className="text-xs text-muted-foreground">
                 {freshToken.locationName} · this token is shown once
+                {freshToken.locationCount && freshToken.locationCount > 1
+                  ? ` · covers ${freshToken.locationCount} locations`
+                  : ''}
               </div>
               <div className="font-mono text-xs break-all text-primary">{freshToken.token}</div>
               <div className="flex gap-2">
