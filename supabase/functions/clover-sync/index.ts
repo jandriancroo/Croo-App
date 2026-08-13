@@ -205,6 +205,48 @@ async function fetchPaymentsForWindow(creds: CloverCreds, startMs: number, endMs
   return all;
 }
 
+// Refunds issued inside the window. Clover's "Net sales" is
+// gross − discounts − refunds, and the refund's tax/tip/service-charge portion
+// is NOT part of net sales (those live in their own report rows).
+async function fetchRefundsForWindow(creds: CloverCreds, startMs: number, endMs: number) {
+  const all: any[] = [];
+  const limit = 1000;
+  let offset = 0;
+  while (true) {
+    const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/refunds`, [
+      ["filter", `createdTime>=${startMs}`],
+      ["filter", `createdTime<${endMs}`],
+      ["limit", limit],
+      ["offset", offset],
+    ]);
+    const items: any[] = page.elements ?? [];
+    all.push(...items);
+    if (items.length < limit) break;
+    offset += limit;
+    if (offset > 20000) break;
+  }
+  return all;
+}
+
+function aggregateRefunds(refunds: any[]) {
+  // Each refund's `amount` is the full money returned (item value + tax + tip
+  // + service charge). Only the item portion reduces net sales.
+  let netRefundCents = 0;
+  let taxRefundCents = 0;
+  let tipRefundCents = 0;
+  for (const r of refunds) {
+    const amount = Math.abs(Math.round(Number(r.amount ?? 0) || 0));
+    const tax = Math.abs(Math.round(Number(r.taxAmount ?? 0) || 0));
+    const tip = Math.abs(Math.round(Number(r.tipAmount ?? 0) || 0));
+    const svc = Math.abs(Math.round(Number(r.serviceChargeAmount ?? 0) || 0));
+    netRefundCents += Math.max(0, amount - tax - tip - svc);
+    taxRefundCents += tax;
+    tipRefundCents += tip;
+  }
+  return { netRefundCents, taxRefundCents, tipRefundCents, count: refunds.length };
+}
+
+
 // ── Aggregation ─────────────────────────────────────────────────────────────
 type Hour = { hour: string; sales: number; checksCount: number };
 
@@ -388,9 +430,45 @@ async function syncOneDay(
   const orders = await fetchOrdersForWindow(creds, startMs, endMs);
   await sleep(150);
   const payments = await fetchPaymentsForWindow(creds, startMs, endMs);
+  await sleep(150);
+  const refunds = await fetchRefundsForWindow(creds, startMs, endMs);
 
-  const agg = aggregateOrders(orders, startMs);
+  const rawAgg = aggregateOrders(orders, startMs);
+  const ref = aggregateRefunds(refunds);
   const paymentsData = aggregatePayments(payments);
+
+  // Net sales = item sales − discounts − refunds (item portion only).
+  // Refunded tips leave the pool too, so the tip total nets them out.
+  const netAfterRefunds = Math.max(
+    0,
+    Math.round(rawAgg.netSales * 100) - ref.netRefundCents,
+  ) / 100;
+  const agg = {
+    ...rawAgg,
+    netSales: netAfterRefunds,
+    refunds: ref.netRefundCents / 100,
+    avgTicket: rawAgg.guestCount > 0 && rawAgg.avgTicket > 0
+      ? netAfterRefunds / Math.max(1, Math.round(rawAgg.netSales / rawAgg.avgTicket))
+      : rawAgg.avgTicket,
+  };
+  if (ref.tipRefundCents > 0) {
+    paymentsData.total_tips = Math.max(
+      0,
+      Math.round(paymentsData.total_tips * 100) - ref.tipRefundCents,
+    ) / 100;
+    // Card refunds return the tip on the card, so net it out of the largest
+    // non-cash tender bucket that feeds daily_tips.
+    const cardTenders = (paymentsData.tenders ?? [])
+      .filter((t: any) => !String(t.label ?? "").toLowerCase().includes("cash"))
+      .sort((a: any, b: any) => (b.tips ?? 0) - (a.tips ?? 0));
+    if (cardTenders.length > 0) {
+      cardTenders[0].tips = Math.max(
+        0,
+        Math.round((cardTenders[0].tips ?? 0) * 100) - ref.tipRefundCents,
+      ) / 100;
+    }
+  }
+
 
   // Conditional spread merge — protect projections / overrides that came from elsewhere.
   const { data: existing } = await supabase
@@ -402,9 +480,12 @@ async function syncOneDay(
 
   console.log(
     `[clover-sync] ${date} recon: gross=$${agg.grossSales.toFixed(2)} ` +
-    `discounts=-$${agg.discounts.toFixed(2)} net=$${agg.netSales.toFixed(2)} ` +
-    `(excluded non-revenue $${agg.nonRevenue.toFixed(2)}, tax/tips/fees excluded)`,
+    `discounts=-$${agg.discounts.toFixed(2)} refunds=-$${agg.refunds.toFixed(2)} ` +
+    `net=$${agg.netSales.toFixed(2)} ` +
+    `(excluded non-revenue $${agg.nonRevenue.toFixed(2)}, refunded tax $${(ref.taxRefundCents / 100).toFixed(2)}, ` +
+    `refunded tips $${(ref.tipRefundCents / 100).toFixed(2)}, tax/tips/fees excluded)`,
   );
+
 
   const row = {
     ...(existing ?? {}),
