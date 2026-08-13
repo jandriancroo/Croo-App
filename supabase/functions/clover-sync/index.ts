@@ -171,7 +171,7 @@ async function fetchOrdersForWindow(creds: CloverCreds, startMs: number, endMs: 
     const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/orders`, [
       ["filter", `clientCreatedTime>=${startMs}`],
       ["filter", `clientCreatedTime<${endMs}`],
-      ["expand", "lineItems,payments,discounts,lineItems.discounts,lineItems.modifications"],
+      ["expand", "lineItems,lineItems.item,payments,discounts,lineItems.discounts,lineItems.modifications"],
       ["limit", limit],
       ["offset", offset],
     ]);
@@ -265,50 +265,72 @@ function lineModifierCents(li: any): number {
   const mods: any[] = li.modifications?.elements ?? [];
   return mods.reduce((s, m) => s + cts(m.amount), 0);
 }
+// Fee / non-revenue lines. Clover keeps these OUT of gross and net sales but
+// inside "amount collected". Third-party delivery lines are custom line items
+// with no catalog item, so `isRevenue` is absent — match them by name too.
+// Note: "Convenience Fee" IS revenue in Clover's reports, so it is not listed.
+const NON_REVENUE_NAME = /(delivery\s*fee|courier\s*tip|driver\s*tip|gift\s*card|service\s*fee)/i;
 function isNonRevenueLine(li: any): boolean {
-  return li.isRevenue === false || li.isOrderFee === true;
+  if (li.isRevenue === false || li.isOrderFee === true) return true;
+  if (li.item && li.item.isRevenue === false) return true;
+  return NON_REVENUE_NAME.test(String(li.name ?? ""));
 }
-// A discount can be a fixed amount (negative cents) or a percentage.
-// Percentage line discounts apply to the line's base price (not its modifiers).
+// A discount is either a fixed amount (negative cents) or a percentage.
+// Percentages apply to the line total including its modifiers. Fractional cents
+// are carried through and only rounded once for the day, which is how Clover's
+// own reports land.
 function discountCents(d: any, baseCents: number): number {
   if (d?.amount) return Math.abs(cts(d.amount));
   const pct = Number(d?.percentage ?? 0) || 0;
-  return pct ? Math.round((baseCents * pct) / 100) : 0;
+  return pct ? (baseCents * pct) / 100 : 0;
 }
 
-// Per-order breakdown in cents.
+// Per-order breakdown in cents (may carry fractions; rounded at day level).
 function orderBreakdown(o: any) {
   let grossCents = 0;        // revenue item sales incl. modifiers
   let nonRevenueCents = 0;   // gift cards, delivery fees, courier tips
   let lineDiscountCents = 0;
+  let subtotalCents = 0;     // every line after line discounts (fees included)
+  let revenueSubCents = 0;   // revenue lines only, after line discounts
 
   for (const li of (o.lineItems?.elements ?? []) as any[]) {
     if (li.deleted) continue;
-    const base = lineBaseCents(li);
-    const withMods = base + lineModifierCents(li);
-    if (isNonRevenueLine(li)) { nonRevenueCents += withMods; continue; }
-    grossCents += withMods;
+    const withMods = lineBaseCents(li) + lineModifierCents(li);
+    let lineDisc = 0;
     for (const d of (li.discounts?.elements ?? []) as any[]) {
-      lineDiscountCents += discountCents(d, base);
+      lineDisc += discountCents(d, withMods);
     }
+    const after = withMods - lineDisc;
+    subtotalCents += after;
+    if (isNonRevenueLine(li)) {
+      nonRevenueCents += withMods;
+      continue;
+    }
+    grossCents += withMods;
+    lineDiscountCents += lineDisc;
+    revenueSubCents += after;
   }
 
-  const subtotalCents = grossCents - lineDiscountCents;
   let orderDiscountCents = 0;
   for (const d of (o.discounts?.elements ?? []) as any[]) {
     if (d.lineItemRef) continue; // already counted at the line level
     orderDiscountCents += discountCents(d, subtotalCents);
   }
-  // Clover never discounts below zero on an order.
+  // Clover never discounts an order below zero.
   orderDiscountCents = Math.min(orderDiscountCents, Math.max(subtotalCents, 0));
+
+  // Order-level discounts spread proportionally across EVERY line, so the part
+  // that lands on a delivery fee does not reduce net sales.
+  const factor = subtotalCents > 0 ? (subtotalCents - orderDiscountCents) / subtotalCents : 1;
 
   return {
     grossCents,
     nonRevenueCents,
     discountCents: lineDiscountCents + orderDiscountCents,
-    netCents: subtotalCents - orderDiscountCents,
+    netCents: revenueSubCents * factor,
   };
 }
+
 
 function aggregateOrders(orders: any[], startMs: number) {
   let netCents = 0;
@@ -359,20 +381,21 @@ function aggregateOrders(orders: any[], startMs: number) {
     }
   }
 
-  const netSales = netCents / 100;
+  // Round once, at the day level — matches Clover's reports to the penny.
+  const netSales = Math.round(netCents) / 100;
   const hourly: Hour[] = hourlyCents.map((cents, h) => ({
     hour: `${String(h).padStart(2, "0")}:00`,
-    sales: cents / 100,
+    sales: Math.round(cents) / 100,
     checksCount: hourlyChecks[h],
   }));
 
   return {
     netSales,
-    grossSales: grossCents / 100,
-    discounts: discountsCents / 100,
-    nonRevenue: nonRevenueCents / 100,
+    grossSales: Math.round(grossCents) / 100,
+    discounts: Math.round(discountsCents) / 100,
+    nonRevenue: Math.round(nonRevenueCents) / 100,
     guestCount,
-    avgTicket: checkCount > 0 ? netCents / 100 / checkCount : 0,
+    avgTicket: checkCount > 0 ? netSales / checkCount : 0,
     hourly,
     productMix: Array.from(mix.values()),
   };
