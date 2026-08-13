@@ -364,6 +364,34 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         refreshStatus()
     }
 
+    /// Direct pair message from the iPhone: {"type":"watch_pair", token, locationId/location_id, locationName/location_name}
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        handleIncoming(message)
+        replyHandler(["ok": true])
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        handleIncoming(message)
+    }
+
+    private func handleIncoming(_ payload: [String: Any]) {
+        if let pairingDict = payload["pairing"] as? [String: Any] {
+            applyPairing(pairingDict)
+            return
+        }
+        if (payload["type"] as? String) == "watch_pair" {
+            var dict: [String: Any] = [:]
+            dict["token"] = payload["token"]
+            dict["locationId"] = payload["locationId"] ?? payload["location_id"]
+            dict["locationName"] = payload["locationName"] ?? payload["location_name"] ?? ""
+            dict["apiUrl"] = payload["apiUrl"] ?? payload["api_url"] ?? ""
+            applyPairing(dict)
+        }
+        if let json = payload["snapshot"] as? String, !json.isEmpty {
+            apply(json: json)
+        }
+    }
+
     func sessionReachabilityDidChange(_ session: WCSession) {
         refreshStatus()
         requestRefresh()
