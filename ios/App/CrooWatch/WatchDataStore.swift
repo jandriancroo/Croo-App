@@ -144,6 +144,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var snapshot: WatchSnapshot = .empty
     @Published var hasData: Bool = false
     @Published var isPaired: Bool = false
+    @Published var pairedLocationName: String = ""
     /// Human-readable link state, shown on the Status tab for troubleshooting.
     @Published var statusLine: String = "Starting…"
     @Published var lastEvent: String = "none"
@@ -153,7 +154,13 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     private var refreshTimer: Timer?
 
     private(set) var pairing: WatchPairing? {
-        didSet { DispatchQueue.main.async { self.isPaired = self.pairing != nil } }
+        didSet {
+            let name = pairing?.locationName ?? ""
+            DispatchQueue.main.async {
+                self.isPaired = self.pairing != nil
+                self.pairedLocationName = name
+            }
+        }
     }
 
     override private init() {
