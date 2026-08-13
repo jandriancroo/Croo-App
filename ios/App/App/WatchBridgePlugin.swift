@@ -39,12 +39,18 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Missing token or locationId")
             return
         }
-        let delivered = session.sendPairing([
+        var payload: [String: Any] = [
             "token": token,
             "locationId": locationId,
             "locationName": call.getString("locationName") ?? "",
             "apiUrl": call.getString("apiUrl") ?? ""
-        ])
+        ]
+        // Optional initial location list (JSON string of [{id,name}]) so the watch
+        // can offer its location switcher before the first snapshot lands.
+        if let locationsJson = call.getString("locationsJson"), !locationsJson.isEmpty {
+            payload["locations"] = locationsJson
+        }
+        let delivered = session.sendPairing(payload)
         call.resolve(["delivered": delivered])
     }
 

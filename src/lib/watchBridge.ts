@@ -38,6 +38,8 @@ export interface WatchPairing {
   locationId: string;
   locationName?: string;
   apiUrl?: string;
+  /** JSON string of [{ id, name }] — every location this watch may switch to. */
+  locationsJson?: string;
 }
 
 interface WatchBridgePlugin {
