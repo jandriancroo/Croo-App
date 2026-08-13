@@ -11,43 +11,36 @@ struct CubesView: View {
                     message: "Pair this Watch from CrooHQ on iPhone."
                 )
             } else if store.snapshot.cubes.isEmpty {
-                VStack(spacing: 8) {
-                    LocationHeaderButton()
-                        .padding(.horizontal, 4)
-                    EmptyStateView(
-                        title: "No Cubes Yet",
-                        message: "Set up your Data Cubes on the iPhone app. They appear here automatically."
-                    )
-                }
+                EmptyStateView(
+                    title: "No Cubes Yet",
+                    message: "Set up your Data Cubes on the iPhone app. They appear here automatically."
+                )
             } else {
-                VStack(spacing: 0) {
-                    LocationHeaderButton()
-                        .padding(.horizontal, 4)
-                        .padding(.bottom, 2)
-
-                    TabView {
-                        ForEach(Array(store.snapshot.cubes.enumerated()), id: \.element.id) { index, cube in
-                            CubeScreen(
-                                cube: cube,
-                                cubeIndex: index,
-                                cubeCount: store.snapshot.cubes.count
-                            )
-                        }
+                TabView {
+                    ForEach(Array(store.snapshot.cubes.enumerated()), id: \.element.id) { index, cube in
+                        CubeScreen(
+                            cube: cube,
+                            cubeIndex: index,
+                            cubeCount: store.snapshot.cubes.count
+                        )
                     }
-                    .tabViewStyle(.verticalPage)
                 }
+                .tabViewStyle(.verticalPage)
             }
         }
     }
 }
 
 private struct CubeScreen: View {
+    @EnvironmentObject var store: WatchDataStore
+
     let cube: WatchCube
     let cubeIndex: Int
     let cubeCount: Int
 
     @State private var faceIndex = 0
     @State private var isPaused = false
+    @State private var showLocationSwitcher = false
 
     private let pastelOrange = Color(red: 0.96, green: 0.62, blue: 0.38)
     private let rotateInterval: TimeInterval = 10
@@ -65,7 +58,10 @@ private struct CubeScreen: View {
             faceCount: max(cube.faces.count, 1),
             isPaused: isPaused,
             showUpArrow: cubeIndex > 0,
-            showDownArrow: cubeIndex < cubeCount - 1
+            showDownArrow: cubeIndex < cubeCount - 1,
+            locationName: store.currentLocationName,
+            canSwitchLocation: store.locations.count > 1,
+            onLocationTap: { showLocationSwitcher = true }
         )
         .background(pastelOrange)
         .containerBackground(pastelOrange.gradient, for: .tabView)
@@ -93,6 +89,10 @@ private struct CubeScreen: View {
                 faceIndex = (faceIndex + 1) % cube.faces.count
             }
         }
+        .sheet(isPresented: $showLocationSwitcher) {
+            LocationSwitcherView()
+                .environmentObject(store)
+        }
     }
 }
 
@@ -104,6 +104,9 @@ private struct CubeFacePage: View {
     let isPaused: Bool
     let showUpArrow: Bool
     let showDownArrow: Bool
+    var locationName: String = ""
+    var canSwitchLocation: Bool = false
+    var onLocationTap: (() -> Void)? = nil
 
     private var metrics: [WatchMetric] {
         face.metrics.filter { !$0.value.isEmpty }
@@ -116,6 +119,7 @@ private struct CubeFacePage: View {
                 .opacity(showUpArrow ? 0.3 : 0)
                 .frame(height: 6)
 
+            // Title row + location badge (on the orange, not a separate bar)
             HStack(alignment: .center, spacing: 4) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(cubeTitle.uppercased())
@@ -130,6 +134,27 @@ private struct CubeFacePage: View {
                     }
                 }
                 Spacer(minLength: 2)
+
+                if !locationName.isEmpty {
+                    Button {
+                        onLocationTap?()
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text(locationName)
+                                .font(.system(size: 8, weight: .bold))
+                                .lineLimit(1)
+                            if canSwitchLocation {
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 6, weight: .bold))
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.white.opacity(0.22)))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 if faceCount > 1 {
                     HStack(spacing: 2) {
                         ForEach(0..<faceCount, id: \.self) { i in
@@ -281,4 +306,5 @@ struct EmptyStateView: View {
         cubeIndex: 0,
         cubeCount: 2
     )
+    .environmentObject(WatchDataStore.shared)
 }
