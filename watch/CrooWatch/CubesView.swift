@@ -253,56 +253,32 @@ struct EmptyStateView: View {
     }
 }
 
-#Preview {
-    let store = WatchDataStore.shared
-    store.isPaired = true
-    store.snapshot = WatchSnapshot(
-        updatedAt: "2026-08-12T15:00:00Z",
-        locationName: "Hemet",
-        cubes: [
-            WatchCube(
-                id: "weekly",
-                title: "Weekly Sales",
-                accentColor: "#E8833A",
-                faces: [
-                    WatchCubeFace(
-                        title: "This Week",
-                        metrics: [
-                            WatchMetric(label: "WTD", value: "$5,448"),
-                            WatchMetric(label: "EOW Goal", value: "$20,195"),
-                            WatchMetric(label: "Wkly Pace", value: "$19,719"),
-                            WatchMetric(label: "SWLY", value: "$21,160")
-                        ]
-                    ),
-                    WatchCubeFace(
-                        title: "Labor",
-                        metrics: [
-                            WatchMetric(label: "Lab%", value: "24.1%"),
-                            WatchMetric(label: "Hrs", value: "186")
-                        ]
-                    )
-                ]
-            ),
-            WatchCube(
-                id: "monthly",
-                title: "D/W/M",
-                accentColor: "#E8833A",
-                faces: [
-                    WatchCubeFace(
-                        title: "Monthly",
-                        metrics: [
-                            WatchMetric(label: "MTD", value: "$32.8k"),
-                            WatchMetric(label: "Pace", value: "$89.7k"),
-                            WatchMetric(label: "SMLY", value: "$95.2k")
-                        ]
-                    )
-                ]
-            )
-        ],
-        schedule: [],
-        sales: []
+#Preview("Cube face") {
+    CubeScreen(
+        cube: WatchCube(
+            id: "weekly",
+            title: "Weekly Sales",
+            accentColor: "#E8833A",
+            faces: [
+                WatchCubeFace(
+                    title: "This Week",
+                    metrics: [
+                        WatchMetric(label: "WTD", value: "$5,448"),
+                        WatchMetric(label: "EOW Goal", value: "$20,195"),
+                        WatchMetric(label: "Wkly Pace", value: "$19,719"),
+                        WatchMetric(label: "SWLY", value: "$21,160")
+                    ]
+                ),
+                WatchCubeFace(
+                    title: "Labor",
+                    metrics: [
+                        WatchMetric(label: "Lab%", value: "24.1%"),
+                        WatchMetric(label: "Hrs", value: "186")
+                    ]
+                )
+            ]
+        ),
+        cubeIndex: 0,
+        cubeCount: 2
     )
-    store.hasData = true
-    return CubesView()
-        .environmentObject(store)
 }
