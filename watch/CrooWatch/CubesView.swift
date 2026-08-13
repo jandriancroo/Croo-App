@@ -4,6 +4,8 @@ struct CubesView: View {
     @EnvironmentObject var store: WatchDataStore
     @State private var showLocationSwitcher = false
 
+    private let pastelOrange = Color(red: 0.96, green: 0.62, blue: 0.38)
+
     var body: some View {
         Group {
             if !store.isPaired && store.snapshot.cubes.isEmpty {
@@ -12,17 +14,20 @@ struct CubesView: View {
                     message: "Pair this Watch from CrooHQ on iPhone."
                 )
             } else if store.snapshot.cubes.isEmpty {
-                VStack(spacing: 6) {
-                    locationPill
-                    EmptyStateView(
-                        title: "No Cubes Yet",
-                        message: "Set up your Data Cubes on the iPhone app. They appear here automatically."
-                    )
+                ZStack(alignment: .top) {
+                    pastelOrange.ignoresSafeArea()
+                    VStack(spacing: 8) {
+                        locationPill
+                        EmptyStateView(
+                            title: "No Cubes Yet",
+                            message: "Set up your Data Cubes on the iPhone app. They appear here automatically."
+                        )
+                        .foregroundStyle(.white)
+                    }
                 }
             } else {
-                VStack(spacing: 2) {
-                    locationPill
-
+                // Pill sits ON the orange face — not in the black system chrome above it.
+                ZStack(alignment: .top) {
                     TabView {
                         ForEach(Array(store.snapshot.cubes.enumerated()), id: \.element.id) { index, cube in
                             CubeScreen(
@@ -33,6 +38,9 @@ struct CubesView: View {
                         }
                     }
                     .tabViewStyle(.verticalPage)
+
+                    locationPill
+                        .padding(.top, 1)
                 }
             }
         }
@@ -42,7 +50,7 @@ struct CubesView: View {
         }
     }
 
-    /// One switcher for the whole Watch — changing location reloads cubes, schedule, sales.
+    /// One switcher for all pages — pick once, API refresh reloads cubes/schedule/sales.
     private var locationPill: some View {
         let name = store.currentLocationName.isEmpty ? "Location" : store.currentLocationName
         return Button {
@@ -50,21 +58,18 @@ struct CubesView: View {
         } label: {
             HStack(spacing: 3) {
                 Text(name)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .lineLimit(1)
-                if store.locations.count > 1 || !store.currentLocationName.isEmpty {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 8, weight: .bold))
-                        .opacity(0.7)
-                }
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 7, weight: .bold))
+                    .opacity(0.75)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(Color.white.opacity(0.18)))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Color.black.opacity(0.22)))
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -94,6 +99,7 @@ private struct CubeScreen: View {
             showUpArrow: cubeIndex > 0,
             showDownArrow: cubeIndex < cubeCount - 1
         )
+        .padding(.top, 18) // room for the location pill overlay
         .background(pastelOrange)
         .containerBackground(pastelOrange.gradient, for: .tabView)
         .contentShape(Rectangle())
@@ -280,25 +286,38 @@ struct EmptyStateView: View {
     }
 }
 
-#Preview("Cube face") {
-    CubeScreen(
-        cube: WatchCube(
-            id: "weekly",
-            title: "Weekly Sales",
-            accentColor: "#E8833A",
-            faces: [
-                WatchCubeFace(
-                    title: "This Week",
-                    metrics: [
-                        WatchMetric(label: "WTD", value: "$5,448"),
-                        WatchMetric(label: "EOW Goal", value: "$20,195"),
-                        WatchMetric(label: "Wkly Pace", value: "$19,719"),
-                        WatchMetric(label: "SWLY", value: "$21,160")
-                    ]
-                )
-            ]
-        ),
-        cubeIndex: 0,
-        cubeCount: 1
+#Preview("Cubes page") {
+    let store = WatchDataStore.shared
+    store.isPaired = true
+    store.locations = [
+        WatchLocation(id: "hemet", name: "Hemet"),
+        WatchLocation(id: "tem", name: "Temecula")
+    ]
+    store.selectedLocationId = "hemet"
+    store.snapshot = WatchSnapshot(
+        updatedAt: "now",
+        locationName: "Hemet",
+        cubes: [
+            WatchCube(
+                id: "weekly",
+                title: "Weekly Sales",
+                accentColor: "#E8833A",
+                faces: [
+                    WatchCubeFace(
+                        title: "This Week",
+                        metrics: [
+                            WatchMetric(label: "WTD", value: "$5,448"),
+                            WatchMetric(label: "EOW Goal", value: "$20,195"),
+                            WatchMetric(label: "Wkly Pace", value: "$19,719"),
+                            WatchMetric(label: "SWLY", value: "$21,160")
+                        ]
+                    )
+                ]
+            )
+        ],
+        schedule: [],
+        sales: []
     )
+    return CubesView()
+        .environmentObject(store)
 }
