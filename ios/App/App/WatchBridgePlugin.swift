@@ -39,7 +39,7 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Missing token or locationId")
             return
         }
-        var payload: [String: Any] = [
+        var payload: [String: String] = [
             "token": token,
             "locationId": locationId,
             "locationName": call.getString("locationName") ?? "",
