@@ -119,7 +119,6 @@ private struct CubeFacePage: View {
                 .opacity(showUpArrow ? 0.3 : 0)
                 .frame(height: 6)
 
-            // Title row + location badge (on the orange, not a separate bar)
             HStack(alignment: .center, spacing: 4) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(cubeTitle.uppercased())
@@ -279,7 +278,13 @@ struct EmptyStateView: View {
 }
 
 #Preview("Cube face") {
-    CubeScreen(
+    let store = WatchDataStore.shared
+    store.locations = [
+        WatchLocation(id: "hemet", name: "Hemet"),
+        WatchLocation(id: "tem", name: "Temecula")
+    ]
+    store.selectedLocationId = "hemet"
+    return CubeScreen(
         cube: WatchCube(
             id: "weekly",
             title: "Weekly Sales",
@@ -306,5 +311,5 @@ struct EmptyStateView: View {
         cubeIndex: 0,
         cubeCount: 2
     )
-    .environmentObject(WatchDataStore.shared)
+    .environmentObject(store)
 }
