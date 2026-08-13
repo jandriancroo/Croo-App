@@ -204,6 +204,11 @@ export const WatchDeviceManager = ({ organizationId, locations }: Props) => {
                   </Button>
                 )}
               </div>
+              {pairStatusLabel && (
+                <div className={`text-xs ${pairState === 'unreachable' ? 'text-destructive' : pairState === 'paired' ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {pairStatusLabel}
+                </div>
+              )}
             </div>
           )}
         </div>
