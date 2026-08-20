@@ -733,9 +733,11 @@ export function AddWidgetDialog({
         imageSrc={promoImageToCrop}
         onCropComplete={handlePromoImageCropComplete}
         cropShape="rect"
-        aspect={1 / 0.58}
-        cropAreaClassName="!h-[232px]"
+        aspect={PROMO_BANNER_ASPECT}
+        cropAreaClassName={`!h-auto ${PROMO_BANNER_ASPECT_CLASS} w-full`}
+        overlay={<PromoBadgeOverlay label={config.trackerItemRefs?.[0] || config.title || 'Promo item'} />}
       />
+
     </Dialog>
   );
 }
