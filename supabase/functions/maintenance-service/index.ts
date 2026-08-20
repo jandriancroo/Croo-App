@@ -953,17 +953,45 @@ async function handleGenerateWeeklySummary(
     }
   }
 
+  // Resolve a creator: system runs have no user, so fall back to a manager at this location
+  let creatorId = user_id as string | undefined;
+  if (!creatorId) {
+    const { data: fallbackUser } = await supabase
+      .from('user_locations')
+      .select('user_id')
+      .eq('location_id', location_id)
+      .limit(1)
+      .maybeSingle();
+    creatorId = fallbackUser?.user_id;
+  }
+  if (!creatorId) {
+    const { data: anyAdmin } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'super_admin')
+      .limit(1)
+      .maybeSingle();
+    creatorId = anyAdmin?.user_id;
+  }
+  if (!creatorId) {
+    return new Response(
+      JSON.stringify({ error: 'No user available to attribute the weekly summary to' }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   // Create entry
   const { data: entryData, error: entryError } = await supabase
     .from('logbook_entries')
     .insert({
       category_id: summaryCategory.id,
       entry_date: week_end,
-      created_by: user_id,
+      created_by: creatorId,
       location_id: location_id,
     })
     .select()
     .single();
+
 
   if (entryError) {
     return new Response(
