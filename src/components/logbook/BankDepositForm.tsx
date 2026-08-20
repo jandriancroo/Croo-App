@@ -519,28 +519,55 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
               <>
                 {/* Daily breakdown */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <Label className="text-sm font-medium">Daily Breakdown</Label>
-                    {verificationEnabled && (
+                    <div className="flex items-center gap-1.5">
+                      {verificationEnabled && (
+                        <Badge variant="outline" className="text-[10px] gap-1">
+                          <Camera className="h-3 w-3" />
+                          = deposit slip
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="text-[10px] gap-1">
-                        <Camera className="h-3 w-3" />
-                        Deposit slip required
+                        <ShieldCheck className="h-3 w-3" />
+                        = audit
                       </Badge>
-                    )}
+                    </div>
                   </div>
-                  <div className="rounded-lg border divide-y max-h-48 overflow-y-auto">
-                    {summary.entries.map((entry) => (
+                  <div className="rounded-lg border divide-y max-h-56 overflow-y-auto">
+                    {summary.entries.map((entry) => {
+                      const audit = audits[entry.entryDate];
+                      const dateLabel = format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d');
+                      return (
                       <div 
                         key={entry.entryId}
                         className={cn(
-                          "flex items-center justify-between p-3",
+                          "flex items-center justify-between gap-2 p-3",
                           entry.alreadyDeposited && "opacity-50 bg-muted"
                         )}
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
-                            {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
-                          </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{dateLabel}</span>
+                            {entry.alreadyDeposited && (
+                              <Badge variant="secondary" className="text-xs">Already deposited</Badge>
+                            )}
+                          </div>
+                          {audit && (
+                            <p className={cn(
+                              "mt-0.5 text-[11px]",
+                              audit.variance === 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-amber-600 dark:text-amber-400"
+                            )}>
+                              Audited {formatCurrency(audit.countedAmount)}
+                              {audit.variance !== 0 && ` · ${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)}`}
+                              {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {verificationEnabled && !entry.alreadyDeposited && currentLocation && (
                             <BankVerificationPhoto
                               locationId={currentLocation.id}
@@ -557,25 +584,45 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                               }
                             />
                           )}
-                          {entry.alreadyDeposited && (
-                            <Badge variant="secondary" className="text-xs">Already deposited</Badge>
+                          {!entry.alreadyDeposited && (
+                            <Button
+                              type="button"
+                              variant={audit ? "outline" : "secondary"}
+                              size="icon"
+                              className={cn(
+                                "h-9 w-9",
+                                audit && "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                              )}
+                              title={audit ? "Audited — tap to re-audit" : "Audit this deposit"}
+                              aria-label={`Audit deposit for ${dateLabel}`}
+                              onClick={() => setAuditTarget(entry.entryDate)}
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                            </Button>
                           )}
+                          <span className={cn(
+                            "font-mono text-sm w-20 text-right",
+                            entry.alreadyDeposited ? "line-through" : "font-semibold"
+                          )}>
+                            {formatCurrency(entry.depositAmount)}
+                          </span>
                         </div>
-                        <span className={cn(
-                          "font-mono text-sm",
-                          entry.alreadyDeposited ? "line-through" : "font-semibold"
-                        )}>
-                          {formatCurrency(entry.depositAmount)}
-                        </span>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {verificationEnabled && missingSlips > 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
                       {missingSlips} day{missingSlips !== 1 ? 's' : ''} still need a deposit slip photo.
                     </p>
                   )}
+                  {unaudited > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {unaudited} day{unaudited !== 1 ? 's' : ''} not audited yet (optional).
+                    </p>
+                  )}
                 </div>
+
                 
                 {/* Totals */}
                 <div className="space-y-2 pt-2">
