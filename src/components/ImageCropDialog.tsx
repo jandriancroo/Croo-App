@@ -14,7 +14,10 @@ interface ImageCropDialogProps {
   cropShape?: 'rect' | 'round';
   aspect?: number;
   cropAreaClassName?: string;
+  /** Rendered on top of the crop area so users see exactly how the result will look in-app. */
+  overlay?: React.ReactNode;
 }
+
 
 interface Area {
   x: number;
@@ -67,7 +70,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
   });
 }
 
-export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, cropShape = 'round', aspect = 1, cropAreaClassName }: ImageCropDialogProps) {
+export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, cropShape = 'round', aspect = 1, cropAreaClassName, overlay }: ImageCropDialogProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -111,14 +114,16 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, 
               minZoom={0.5}
               aspect={aspect}
               cropShape={cropShape}
-              showGrid={cropShape === 'rect'}
+              showGrid={cropShape === 'rect' && !overlay}
               onCropChange={onCropChange}
               onZoomChange={onZoomChange}
               onCropComplete={onCropAreaChange}
               objectFit="contain"
               restrictPosition={false}
             />
+            {overlay && <div className="pointer-events-none absolute inset-0 z-30">{overlay}</div>}
           </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
