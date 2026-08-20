@@ -36,21 +36,21 @@ interface LogBookNewEntrySheetProps {
 
 const getCategoryIcon = (name: string) => {
   const lower = name.toLowerCase();
-  if (lower.includes('cash count tool')) return <Calculator className="h-6 w-6" />;
-  if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
-  if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
-  if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
-  if (lower.includes('write') || lower.includes('up')) return <AlertTriangle className="h-6 w-6" />;
-  if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-6 w-6" />;
-  if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
-  if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
-  if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
-  if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-6 w-6" />;
-  if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
-  if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
-  if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
-  if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-6 w-6" />;
-  return <ClipboardList className="h-6 w-6" />;
+  if (lower.includes('cash count tool')) return <Calculator className="h-5 w-5" />;
+  if (lower.includes('drawer')) return <DollarSign className="h-5 w-5" />;
+  if (lower.includes('safe')) return <ShieldCheck className="h-5 w-5" />;
+  if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-5 w-5" />;
+  if (lower.includes('write') || lower.includes('up')) return <AlertTriangle className="h-5 w-5" />;
+  if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-5 w-5" />;
+  if (lower.includes('maintenance')) return <Wrench className="h-5 w-5" />;
+  if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-5 w-5" />;
+  if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-5 w-5" />;
+  if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-5 w-5" />;
+  if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-5 w-5" />;
+  if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-5 w-5" />;
+  if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-5 w-5" />;
+  if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-5 w-5" />;
+  return <ClipboardList className="h-5 w-5" />;
 };
 
 export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
