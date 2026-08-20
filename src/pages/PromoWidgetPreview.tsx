@@ -190,7 +190,19 @@ function PromoWidgetCard({ period, setPeriod }: { period: 'day' | 'week' | 'prom
           <div className="absolute left-0 top-3 rounded-r-full bg-amber-400 py-1 pl-3 pr-3 text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-lg">
             Promo · Live
           </div>
-          <div className="absolute left-3 top-10">
+          <div className="absolute right-3 top-3 inline-flex overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+            {PERIOD_OPTIONS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
+                className={`px-2.5 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="absolute left-3 top-[3.25rem]">
             <p className="text-2xl font-black leading-none text-white drop-shadow-lg">{PROMO_TITLE}</p>
           </div>
           <div className="absolute inset-x-0 bottom-0 p-3">
