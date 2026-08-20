@@ -92,6 +92,7 @@ function useTrackerData(period: 'day' | 'promo') {
             sales: 0,
             pmix: 0,
             totalSales: 0,
+            itemStats: Object.fromEntries(TRACKED_ITEMS.map(i => [i, { units: 0, sales: 0, pmix: 0 }])),
             rank: 0,
           };
           byLoc.set(row.location_id, entry);
@@ -104,11 +105,21 @@ function useTrackerData(period: 'day' | 'promo') {
           if (matched) {
             entry.units += item.quantity;
             entry.sales += item.netSales;
+            entry.itemStats[matched] ||= { units: 0, sales: 0, pmix: 0 };
+            entry.itemStats[matched].units += item.quantity;
+            entry.itemStats[matched].sales += item.netSales;
           }
         }
       }
       return Array.from(byLoc.values())
-        .map(s => ({ ...s, pmix: s.totalSales > 0 ? (s.sales / s.totalSales) * 100 : 0 }))
+        .map(s => ({
+          ...s,
+          pmix: s.totalSales > 0 ? (s.sales / s.totalSales) * 100 : 0,
+          itemStats: Object.fromEntries(Object.entries(s.itemStats).map(([name, st]) => [
+            name,
+            { ...st, pmix: s.totalSales > 0 ? (st.sales / s.totalSales) * 100 : 0 },
+          ])),
+        }))
         .sort((a, b) => b.pmix - a.pmix)
         .map((s, i) => ({ ...s, rank: i + 1 }));
     },
@@ -117,22 +128,73 @@ function useTrackerData(period: 'day' | 'promo') {
   });
 }
 
-function useMyStats(period: 'day' | 'promo') {
+/** Item switcher state shared by every preview option (mirrors the live widget). */
+function useItemSwitcher() {
+  const [item, setItem] = useState<string>(ALL_ITEMS);
+  const cycle = (dir: 'prev' | 'next') => {
+    const i = Math.max(0, ITEM_OPTIONS.indexOf(item));
+    const next = dir === 'next'
+      ? (i + 1) % ITEM_OPTIONS.length
+      : (i - 1 + ITEM_OPTIONS.length) % ITEM_OPTIONS.length;
+    setItem(ITEM_OPTIONS[next]);
+  };
+  return { item, cycle, label: itemLabel(item) };
+}
+
+function ItemSwitcher({ label, cycle, className = '' }: { label: string; cycle: (dir: 'prev' | 'next') => void; className?: string }) {
+  return (
+    <div className={`flex min-w-0 items-center gap-1 ${className}`}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); cycle('prev'); }}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+        aria-label="Previous item"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="min-w-0 truncate">{label}</span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); cycle('next'); }}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+        aria-label="Next item"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
   const { currentLocation } = useAppLocation();
   const { data, isLoading } = useTrackerData(period);
-  const rows = data || [];
+  const pick = (r: Row): ItemStat => (item === ALL_ITEMS
+    ? { units: r.units, sales: r.sales, pmix: r.pmix }
+    : r.itemStats?.[item] || { units: 0, sales: 0, pmix: 0 });
+
+  const rows = useMemo(() => {
+    const base = data || [];
+    if (item === ALL_ITEMS) return base;
+    return [...base]
+      .sort((a, b) => pick(b).pmix - pick(a).pmix || pick(b).units - pick(a).units)
+      .map((r, i) => ({ ...r, rank: i + 1 }));
+  }, [data, item]);
+
   const mine = useMemo(() => rows.find(r => r.locationId === currentLocation?.id), [rows, currentLocation?.id]);
+  const mineStats = mine ? pick(mine) : { units: 0, sales: 0, pmix: 0 };
   return {
     isLoading,
     rows,
+    pick,
     total: rows.length,
     rank: mine?.rank ?? 0,
-    units: mine?.units ?? 0,
-    sales: mine?.sales ?? 0,
-    pmix: mine?.pmix ?? 0,
+    units: mineStats.units,
+    sales: mineStats.sales,
+    pmix: mineStats.pmix,
     name: currentLocation?.name || 'My Store',
   };
 }
+
 
 /* ---------------- Option A: Poster ---------------- */
 function OptionA({ period }: { period: 'day' | 'promo' }) {
