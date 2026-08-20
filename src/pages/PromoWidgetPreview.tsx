@@ -61,12 +61,18 @@ function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: numb
   }));
 }
 
-function useTrackerData(period: 'day' | 'promo') {
+function useTrackerData(period: 'day' | 'week' | 'promo') {
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
   const tz = timezone || 'America/Los_Angeles';
-  const today = DateTime.now().setZone(tz).toFormat('yyyy-MM-dd');
-  const range = period === 'day' ? { start: today, end: today } : { start: PROMO_START, end: today };
+  const today = DateTime.now().setZone(tz);
+  const todayStr = today.toFormat('yyyy-MM-dd');
+  const weekStart = today.startOf('week').toFormat('yyyy-MM-dd');
+  const range = period === 'day'
+    ? { start: todayStr, end: todayStr }
+    : period === 'week'
+      ? { start: weekStart, end: todayStr }
+      : { start: PROMO_START, end: todayStr };
 
   return useQuery({
     queryKey: ['promo-preview-ranking', currentLocation?.id, range.start, range.end],
@@ -141,7 +147,7 @@ function useItemSwitcher() {
   return { item, cycle, label: itemLabel(item) };
 }
 
-function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
+function useMyStats(period: 'day' | 'week' | 'promo', item: string = ALL_ITEMS) {
   const { currentLocation } = useAppLocation();
   const { data, isLoading } = useTrackerData(period);
   const pick = (r: Row): ItemStat => (item === ALL_ITEMS
@@ -171,7 +177,7 @@ function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
   };
 }
 
-function PromoWidgetCard({ period }: { period: 'day' | 'promo' }) {
+function PromoWidgetCard({ period, setPeriod }: { period: 'day' | 'week' | 'promo'; setPeriod: (p: 'day' | 'week' | 'promo') => void }) {
   const sw = useItemSwitcher();
   const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
@@ -184,7 +190,19 @@ function PromoWidgetCard({ period }: { period: 'day' | 'promo' }) {
           <div className="absolute left-0 top-3 rounded-r-full bg-amber-400 py-1 pl-3 pr-3 text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-lg">
             Promo · Live
           </div>
-          <div className="absolute left-3 top-10">
+          <div className="absolute right-3 top-3 inline-flex overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+            {PERIOD_OPTIONS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
+                className={`px-2.5 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="absolute left-3 top-[3.25rem]">
             <p className="text-2xl font-black leading-none text-white drop-shadow-lg">{PROMO_TITLE}</p>
           </div>
           <div className="absolute inset-x-0 bottom-0 p-3">
@@ -280,8 +298,14 @@ function PromoWidgetCard({ period }: { period: 'day' | 'promo' }) {
   );
 }
 
+const PERIOD_OPTIONS: { key: 'day' | 'week' | 'promo'; label: string }[] = [
+  { key: 'day', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'promo', label: 'Campaign' },
+];
+
 export default function PromoWidgetPreview() {
-  const [period, setPeriod] = useState<'day' | 'promo'>('promo');
+  const [period, setPeriod] = useState<'day' | 'week' | 'promo'>('promo');
   const s = useMyStats(period);
 
   return (
@@ -291,10 +315,6 @@ export default function PromoWidgetPreview() {
         <p className="text-sm text-muted-foreground">
           Live data for {s.name}. Tap the card to expand. Nothing here changes your dashboard.
         </p>
-        <div className="inline-flex overflow-hidden rounded-md border border-border">
-          <button type="button" onClick={() => setPeriod('day')} className={`px-3 py-1.5 text-xs font-semibold ${period === 'day' ? 'bg-accent text-accent-foreground' : ''}`}>Today</button>
-          <button type="button" onClick={() => setPeriod('promo')} className={`px-3 py-1.5 text-xs font-semibold ${period === 'promo' ? 'bg-accent text-accent-foreground' : ''}`}>Campaign</button>
-        </div>
       </header>
 
       <section className="space-y-2">
@@ -302,7 +322,7 @@ export default function PromoWidgetPreview() {
           <h2 className="text-sm font-semibold">Option C — Full hero</h2>
           <p className="text-xs text-muted-foreground">Tallest, most magazine-like. Item name huge, one pill with all metrics. Tap for full detail.</p>
         </div>
-        <PromoWidgetCard period={period} />
+        <PromoWidgetCard period={period} setPeriod={setPeriod} />
       </section>
 
       <p className="pb-10 text-xs text-muted-foreground">
