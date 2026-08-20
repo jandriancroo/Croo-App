@@ -337,8 +337,9 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
                 >
                   <span className="w-6 font-bold tabular-nums">#{r.rank}</span>
                   <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                  <span className="w-16 text-right tabular-nums">{num(r.units)}</span>
-                  <span className="w-16 text-right tabular-nums">{money(r.sales)}</span>
+                  <span className="w-16 text-right tabular-nums">{num(s.pick(r).units)}</span>
+                  <span className="w-16 text-right tabular-nums">{money(s.pick(r).sales)}</span>
+
                 </div>
               ))}
             </div>
