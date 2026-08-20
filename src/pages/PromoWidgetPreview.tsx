@@ -228,7 +228,7 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
                 <Trophy className="h-3 w-3" /> #{s.isLoading ? '-' : s.rank || '-'} of {s.total || '-'}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm tabular-nums">
-                <TrendingUp className="h-3 w-3" /> {s.isLoading ? '--' : num(s.units)} sold
+                <TrendingUp className="h-3 w-3" /> {s.isLoading ? '--' : `${num(s.units)} sold · ${money(s.sales)}`}
               </span>
             </div>
           </div>
@@ -243,13 +243,25 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
                 </div>
               ))}
             </div>
-            {s.rows.slice(0, 5).map(r => (
-              <div key={r.locationId} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${r.rank === s.rank ? 'bg-accent text-accent-foreground' : 'bg-muted/45'}`}>
-                <span className="w-6 font-semibold">#{r.rank}</span>
-                <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                <span className="w-14 text-right tabular-nums">{pct(r.pmix)}</span>
+            <div className="rounded-xl border border-border/60 bg-background p-1 shadow-sm">
+              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="w-6">Rank</span>
+                <span className="min-w-0 flex-1">Location</span>
+                <span className="w-16 text-right">Units</span>
+                <span className="w-16 text-right">Sales</span>
               </div>
-            ))}
+              {s.rows.slice(0, 6).map((r, idx) => (
+                <div
+                  key={r.locationId}
+                  className={`flex items-center gap-2 px-2 py-2 text-[12px] ${r.rank === s.rank ? 'rounded-lg bg-accent text-accent-foreground font-medium' : ''} ${idx !== s.rows.slice(0, 6).length - 1 && r.rank !== s.rank ? 'border-b border-border/40' : ''}`}
+                >
+                  <span className="w-6 font-bold tabular-nums">#{r.rank}</span>
+                  <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
+                  <span className="w-16 text-right tabular-nums">{num(r.units)}</span>
+                  <span className="w-16 text-right tabular-nums">{money(r.sales)}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
