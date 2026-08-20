@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ChevronDown, ChevronLeft, ChevronRight, Crown, Flame, TrendingUp, Trophy } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Crown, Flame, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
