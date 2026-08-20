@@ -33,6 +33,8 @@ import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey }
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { PROMO_BANNER_ASPECT, PROMO_BANNER_ASPECT_CLASS, PromoBadgeOverlay, PromoImageLayers } from "./PromoBannerPreview";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
