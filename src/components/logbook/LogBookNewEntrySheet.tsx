@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { CalendarIcon, Paperclip, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine, Calculator } from "lucide-react";
+import { CalendarIcon, Paperclip, Plus, ChevronLeft, ChevronRight, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine, Calculator } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DrawerCountForm, type PriorPull } from "@/components/logbook/DrawerCountForm";
@@ -807,40 +807,50 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
             <SheetHeader>
               <SheetTitle>New Log Entry</SheetTitle>
             </SheetHeader>
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {[
-                ...[...categories].sort((a: any, b: any) => {
-                  const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
-                  const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
-                  const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
-                  if (aIsCash && !bIsCash) return 1;
-                  if (!aIsCash && bIsCash) return -1;
-                  return (a.display_order || 0) - (b.display_order || 0);
-                }),
+            {(() => {
+              const all = [
+                ...[...categories].sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0)),
                 { id: 'catering-order', name: 'Catering Order', __synthetic: true },
                 { id: 'cash-count-tool', name: 'Cash Count Tool', __synthetic: true },
+              ];
+              const isCash = (name: string) =>
+                ['drawer', 'safe', 'bank', 'deposit', 'cash count tool'].some(term => name.toLowerCase().includes(term));
+              const logs = all.filter((c: any) => !isCash(c.name));
+              const cash = all.filter((c: any) => isCash(c.name));
 
-              ]
-                .map((category: any) => {
-                  const isCashHandling = ['drawer', 'safe', 'bank', 'deposit', 'cash count tool'].some(term => category.name.toLowerCase().includes(term));
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => { setSelectedCategory(category.id); setWizardStep('form'); }}
-                      className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all text-center min-h-[100px] group ${
-                        isCashHandling
-                          ? "border-teal-500/50 bg-teal-500/10 hover:border-primary hover:bg-primary"
-                          : "border-border bg-card hover:border-primary hover:bg-primary"
-                      }`}
-                    >
-                      <div className={`${isCashHandling ? "text-teal-500" : "text-primary"} group-hover:text-primary-foreground transition-colors`}>
-                        {getCategoryIcon(category.name)}
+              const Row = ({ category, cashStyle }: { category: any; cashStyle: boolean }) => (
+                <button
+                  key={category.id}
+                  onClick={() => { setSelectedCategory(category.id); setWizardStep('form'); }}
+                  className="w-full flex items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted"
+                >
+                  <div className={`shrink-0 flex items-center justify-center h-9 w-9 rounded-lg ${cashStyle ? "bg-teal-500/10 text-teal-500" : "bg-primary/10 text-primary"}`}>
+                    {getCategoryIcon(category.name)}
+                  </div>
+                  <span className="flex-1 font-medium text-sm">{category.name}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+              );
+
+              return (
+                <div className="mt-4 space-y-5 pb-4">
+                  <div>
+                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Logs</p>
+                    <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
+                      {logs.map((c: any) => <Row key={c.id} category={c} cashStyle={false} />)}
+                    </div>
+                  </div>
+                  {cash.length > 0 && (
+                    <div>
+                      <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cash Handling</p>
+                      <div className="rounded-xl border border-teal-500/40 bg-teal-500/5 divide-y divide-teal-500/20 overflow-hidden">
+                        {cash.map((c: any) => <Row key={c.id} category={c} cashStyle />)}
                       </div>
-                      <span className="font-medium text-sm group-hover:text-primary-foreground transition-colors">{category.name}</span>
-                    </button>
-                  );
-                })}
-            </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </>
         ) : (
           <>
