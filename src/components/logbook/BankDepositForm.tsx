@@ -741,6 +741,21 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
           )}
         </Button>
       )}
+
+      {auditTargetEntry && (
+        <DepositAuditDialog
+          open={!!auditTarget}
+          onOpenChange={(o) => !o && setAuditTarget(null)}
+          expectedAmount={auditTargetEntry.depositAmount}
+          dateLabel={format(new Date(auditTargetEntry.entryDate + 'T12:00:00'), 'EEEE, MMM d, yyyy')}
+          auditorName={auditorName}
+          existing={audits[auditTargetEntry.entryDate] || null}
+          onSubmit={(audit) =>
+            setAudits((prev) => ({ ...prev, [auditTargetEntry.entryDate]: audit }))
+          }
+        />
+      )}
     </div>
+
   );
 }
