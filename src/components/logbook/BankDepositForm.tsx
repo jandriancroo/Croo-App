@@ -355,6 +355,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         entryDate: e.entryDate,
         depositAmount: e.depositAmount,
         slipPath: slipPaths[e.entryDate] || undefined,
+        audit: audits[e.entryDate] || undefined,
       })),
       totalDollars: summary.totalDollars,
       totalChange: summary.totalChange,
