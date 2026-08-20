@@ -613,29 +613,31 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                               <ShieldCheck className="h-4 w-4" />
                             </Button>
                           )}
-                          <span className={cn(
-                            "font-mono text-sm w-20 text-right",
-                            entry.alreadyDeposited ? "line-through" : "font-semibold"
-                          )}>
-                            {formatCurrency(entry.depositAmount)}
-                          </span>
-                        </div>
-                        </div>
-                        {audit && (
-                          <div className="mt-2 flex">
-                            <Badge
-                              variant="outline"
-                              className="w-full justify-start gap-1.5 border-destructive/40 bg-destructive/10 text-destructive text-[11px] font-medium"
+                          {audit ? (
+                            <button
+                              type="button"
+                              onClick={() => setAuditInfoTarget(entry.entryDate)}
+                              className="w-24 text-right leading-tight"
+                              aria-label={`View audit details for ${dateLabel}`}
                             >
-                              <ShieldCheck className="h-3 w-3 shrink-0" />
-                              <span className="truncate">
-                                Audited {formatCurrency(audit.countedAmount)}
-                                {audit.variance !== 0 && ` · ${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)}`}
-                                {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
+                              <span className="block font-mono text-xs text-muted-foreground line-through">
+                                {formatCurrency(entry.depositAmount)}
                               </span>
-                            </Badge>
-                          </div>
-                        )}
+                              <span className="block font-mono text-sm font-semibold text-destructive underline decoration-dotted">
+                                {formatCurrency(audit.countedAmount)}
+                              </span>
+                            </button>
+                          ) : (
+                            <span className={cn(
+                              "font-mono text-sm w-20 text-right",
+                              entry.alreadyDeposited ? "line-through" : "font-semibold"
+                            )}>
+                              {formatCurrency(entry.depositAmount)}
+                            </span>
+                          )}
+                        </div>
+                        </div>
+
                       </div>
 
                       );
