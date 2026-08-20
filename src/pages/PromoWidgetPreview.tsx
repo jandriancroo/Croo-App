@@ -300,9 +300,10 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
           <div className="absolute left-0 top-3 rounded-r-full bg-amber-400 py-1 pl-3 pr-3 text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-lg">
             Promo · Live
           </div>
+          <div className="absolute left-3 top-10">
+            <p className="text-2xl font-black leading-none text-white drop-shadow-lg">{PROMO_TITLE}</p>
+          </div>
           <div className="absolute inset-x-0 bottom-0 p-3">
-            <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-2xl font-black leading-none text-white drop-shadow-lg" />
-
             <div className="mt-2 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-black">
                 <Trophy className="h-3 w-3" /> #{s.isLoading ? '-' : s.rank || '-'} of {s.total || '-'}
@@ -315,6 +316,28 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
         </button>
         {open && (
           <div className="space-y-2 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1 text-sm font-bold text-foreground">
+                <button
+                  type="button"
+                  onClick={() => sw.cycle('prev')}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                  aria-label="Previous item"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-0 truncate">{sw.label}</span>
+                <button
+                  type="button"
+                  onClick={() => sw.cycle('next')}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                  aria-label="Next item"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Ranking</span>
+            </div>
             <div className="flex gap-2">
               {[['Units', num(s.units)], ['Sales', money(s.sales)], ['PMIX', pct(s.pmix)]].map(([l, v]) => (
                 <div key={l} className="flex-1 rounded-lg border border-border/60 bg-muted/40 px-2 py-1.5">
