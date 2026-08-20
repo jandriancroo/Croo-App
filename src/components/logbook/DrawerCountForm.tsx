@@ -55,6 +55,7 @@ export interface DrawerCountData {
   variance: number;
   removalSuggestions: { denomination: string; count: number; value: number }[];
   priorPullsTotal?: number;
+  priorPulls?: PriorPull[];
 }
 
 export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate, priorPulls = [] }: DrawerCountFormProps) {
@@ -230,6 +231,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       variance: calculations.variance,
       removalSuggestions: calculations.removalSuggestions,
       priorPullsTotal: calculations.priorPullsTotal,
+      priorPulls: priorPulls.map((p) => ({ amount: p.amount, time: p.time, createdBy: p.createdBy })),
     };
     onSave(data);
   };
