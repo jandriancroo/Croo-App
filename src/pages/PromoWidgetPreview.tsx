@@ -317,7 +317,7 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
         {open && (
           <div className="space-y-2 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-1 text-sm font-bold text-foreground">
+              <div className="flex min-w-0 items-center gap-1 text-xs font-bold text-foreground">
                 <button
                   type="button"
                   onClick={() => sw.cycle('prev')}
