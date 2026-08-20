@@ -15,6 +15,8 @@ import {
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { PROMO_BANNER_ASPECT, PROMO_BANNER_ASPECT_CLASS, PromoBadgeOverlay, PromoImageLayers } from "./PromoBannerPreview";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useQuery } from "@tanstack/react-query";
