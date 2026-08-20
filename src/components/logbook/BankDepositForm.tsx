@@ -629,7 +629,24 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                             {formatCurrency(entry.depositAmount)}
                           </span>
                         </div>
+                        </div>
+                        {audit && (
+                          <div className="mt-2 flex">
+                            <Badge
+                              variant="outline"
+                              className="w-full justify-start gap-1.5 border-destructive/40 bg-destructive/10 text-destructive text-[11px] font-medium"
+                            >
+                              <ShieldCheck className="h-3 w-3 shrink-0" />
+                              <span className="truncate">
+                                Audited {formatCurrency(audit.countedAmount)}
+                                {audit.variance !== 0 && ` · ${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)}`}
+                                {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
+                              </span>
+                            </Badge>
+                          </div>
+                        )}
                       </div>
+
                       );
                     })}
                   </div>
