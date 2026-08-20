@@ -198,7 +198,8 @@ function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
 
 /* ---------------- Option A: Poster ---------------- */
 function OptionA({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
@@ -215,8 +216,9 @@ function OptionA({ period }: { period: 'day' | 'promo' }) {
                 </span>
                 Promo
               </span>
-              <p className="truncate text-lg font-extrabold leading-tight text-white drop-shadow">{PROMO_TITLE}</p>
+              <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-lg font-extrabold leading-tight text-white drop-shadow" />
             </div>
+
             <div className="shrink-0 rounded-xl bg-white/15 px-2.5 py-1.5 text-right backdrop-blur-md">
               <p className="text-[9px] font-semibold uppercase tracking-wider text-white/70">Rank</p>
               <p className="text-xl font-black leading-none tabular-nums text-white">
