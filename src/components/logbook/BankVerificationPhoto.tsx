@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Camera, Check, Loader2 } from "lucide-react";
+import { Camera, Check, Eye, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -107,12 +107,30 @@ export function BankVerificationPhoto({
           </button>
           <button
             type="button"
-            className="h-full pl-1 pr-3 flex items-center text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+            className={
+              variant === "icon"
+                ? "h-full px-2 flex items-center hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                : "h-full pl-1 pr-3 flex items-center text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+            }
+            aria-label={`View ${label}`}
             onClick={() => setPreviewOpen(true)}
           >
-            View
+            {variant === "icon" ? <Eye className="h-4 w-4" /> : "View"}
           </button>
         </div>
+      ) : variant === "icon" ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="h-9 w-9"
+          disabled={disabled || uploading}
+          aria-label={`Upload ${label}`}
+          title={label}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+        </Button>
       ) : (
         <Button
           type="button"
@@ -123,10 +141,11 @@ export function BankVerificationPhoto({
           aria-label={`Upload ${label}`}
           onClick={() => inputRef.current?.click()}
         >
-          {uploading ? <Loader2 className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-          <span className="font-medium">{variant === "icon" ? "Deposit Slip" : label}</span>
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+          <span className="font-medium">{label}</span>
         </Button>
       )}
+
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-lg">

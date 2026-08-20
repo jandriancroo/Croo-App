@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Building2, Eye, Image as ImageIcon } from "lucide-react";
+import { Building2, Eye, Image as ImageIcon, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -14,7 +14,14 @@ export interface BankDepositData {
     entryDate: string;
     depositAmount: number;
     slipPath?: string;
+    audit?: {
+      countedAmount: number;
+      variance: number;
+      auditedAt: string;
+      auditedByName?: string;
+    };
   }>;
+
   totalDollars: number;
   totalChange: number;
   totalAmount: number;
@@ -130,21 +137,34 @@ export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
                 <div className="font-medium text-sm">Daily Breakdown</div>
                 <div className="space-y-1">
                   {data.entries.map((entry, idx) => (
-                    <div key={entry.entryId || idx} className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
-                        {entry.slipPath && (
-                          <VerificationPhotoLink
-                            path={entry.slipPath}
-                            label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
-                          />
-                        )}
-                      </span>
-                      <span className="font-medium">{formatCurrency(entry.depositAmount)}</span>
+                    <div key={entry.entryId || idx} className="space-y-0.5">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
+                          {entry.slipPath && (
+                            <VerificationPhotoLink
+                              path={entry.slipPath}
+                              label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
+                            />
+                          )}
+                        </span>
+                        <span className="font-medium">{formatCurrency(entry.depositAmount)}</span>
+                      </div>
+                      {entry.audit && (
+                        <div className={`flex items-center gap-1 text-[11px] ${entry.audit.variance === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          <ShieldCheck className="h-3 w-3" />
+                          <span>
+                            Audited {formatCurrency(entry.audit.countedAmount)}
+                            {entry.audit.variance !== 0 && ` · ${entry.audit.variance > 0 ? '+' : ''}${formatCurrency(entry.audit.variance)}`}
+                            {entry.audit.auditedByName ? ` · ${entry.audit.auditedByName}` : ''}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
+
               
               {/* Totals */}
               <div className="border-t pt-3 space-y-2">
