@@ -248,21 +248,12 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
           const data = JSON.parse(valueText);
           const depositAmount = data.actualDeposit || 0;
           
-          // Calculate dollars vs change from removal suggestions
-          let dollars = 0;
-          let change = 0;
-          
-          if (data.removalSuggestions) {
-            data.removalSuggestions.forEach((s: any) => {
-              if (s.denomination.includes("$")) {
-                dollars += s.value;
-              } else {
-                change += s.value;
-              }
-            });
-          } else {
-            dollars = depositAmount;
-          }
+          // Exact split: whole dollars in bills, remaining cents as coin.
+          // The deposit must match the drawer math to the penny (change included).
+          const cents = Math.round(depositAmount * 100);
+          const dollars = Math.floor(cents / 100);
+          const change = (cents - dollars * 100) / 100;
+
           
           availableEntries.push({
             entryId: entry.id,
