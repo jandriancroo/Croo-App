@@ -552,18 +552,15 @@ export function AddWidgetDialog({
                   <input ref={promoImageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePromoImageSelect} disabled={isPromoImageUploading} />
                   {config.trackerPromoImageUrl ? (
                     <div className="space-y-2">
-                      <div className="relative h-[58px] overflow-hidden rounded-lg border bg-primary">
+                      <div className={`relative ${PROMO_BANNER_ASPECT_CLASS} w-full overflow-hidden rounded-lg border bg-primary`}>
                         <img src={config.trackerPromoImageUrl} alt="Promo preview" className="absolute inset-0 h-full w-full object-cover" />
-                        <div className="absolute inset-0 bg-background/30" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
-                        <div className="absolute left-3 top-2 inline-flex max-w-[68%] flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md">
-                          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase leading-none tracking-[0.18em] text-background"><span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" /></span>LIVE</p>
-                          <p className="mt-1 max-w-full truncate text-sm font-semibold leading-tight">{config.title || 'Promo'}</p>
-                        </div>
-                        <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
+                        <PromoImageLayers />
+                        <PromoBadgeOverlay label={config.trackerItemRefs?.[0] || config.title || 'Promo item'} />
+                        <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 z-50 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
                           <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
+
                       <div className="flex gap-2">
                         <Button type="button" variant="outline" size="sm" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
                           <Upload className="mr-2 h-4 w-4" />
