@@ -29,6 +29,16 @@ const money = (v: number) => `$${Math.round(v).toLocaleString()}`;
 const num = (v: number) => Math.round(v).toLocaleString();
 const pct = (v: number) => `${v.toFixed(1)}%`;
 
+const ALL_ITEMS = '__ALL__';
+const ITEM_OPTIONS = [ALL_ITEMS, ...TRACKED_ITEMS];
+const itemLabel = (item: string) => (item === ALL_ITEMS ? 'All Items' : item);
+
+interface ItemStat {
+  units: number;
+  sales: number;
+  pmix: number;
+}
+
 interface Row {
   locationId: string;
   locationName: string;
@@ -36,8 +46,10 @@ interface Row {
   sales: number;
   pmix: number;
   totalSales: number;
+  itemStats: Record<string, ItemStat>;
   rank: number;
 }
+
 
 function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: number; netSales: number }> {
   const mix = typeof rowMix === 'string' ? JSON.parse(rowMix) : rowMix;
