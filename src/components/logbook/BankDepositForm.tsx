@@ -7,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2, Camera, ShieldCheck } from "lucide-react";
 import { BankVerificationPhoto } from "./BankVerificationPhoto";
 import { DepositAuditDialog, type DepositAudit } from "./DepositAuditDialog";
@@ -58,6 +60,8 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
   const [audits, setAudits] = useState<Record<string, DepositAudit>>({});
   const [auditTarget, setAuditTarget] = useState<string | null>(null);
+  const [auditInfoTarget, setAuditInfoTarget] = useState<string | null>(null);
+
   const { user } = useAuth();
 
   const { data: auditorName } = useQuery({
@@ -248,21 +252,12 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
           const data = JSON.parse(valueText);
           const depositAmount = data.actualDeposit || 0;
           
-          // Calculate dollars vs change from removal suggestions
-          let dollars = 0;
-          let change = 0;
-          
-          if (data.removalSuggestions) {
-            data.removalSuggestions.forEach((s: any) => {
-              if (s.denomination.includes("$")) {
-                dollars += s.value;
-              } else {
-                change += s.value;
-              }
-            });
-          } else {
-            dollars = depositAmount;
-          }
+          // Exact split: whole dollars in bills, remaining cents as coin.
+          // The deposit must match the drawer math to the penny (change included).
+          const cents = Math.round(depositAmount * 100);
+          const dollars = Math.floor(cents / 100);
+          const change = (cents - dollars * 100) / 100;
+
           
           availableEntries.push({
             entryId: entry.id,
@@ -622,29 +617,31 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                               <ShieldCheck className="h-4 w-4" />
                             </Button>
                           )}
-                          <span className={cn(
-                            "font-mono text-sm w-20 text-right",
-                            entry.alreadyDeposited ? "line-through" : "font-semibold"
-                          )}>
-                            {formatCurrency(entry.depositAmount)}
-                          </span>
-                        </div>
-                        </div>
-                        {audit && (
-                          <div className="mt-2 flex">
-                            <Badge
-                              variant="outline"
-                              className="w-full justify-start gap-1.5 border-destructive/40 bg-destructive/10 text-destructive text-[11px] font-medium"
+                          {audit ? (
+                            <button
+                              type="button"
+                              onClick={() => setAuditInfoTarget(entry.entryDate)}
+                              className="w-24 text-right leading-tight"
+                              aria-label={`View audit details for ${dateLabel}`}
                             >
-                              <ShieldCheck className="h-3 w-3 shrink-0" />
-                              <span className="truncate">
-                                Audited {formatCurrency(audit.countedAmount)}
-                                {audit.variance !== 0 && ` · ${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)}`}
-                                {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
+                              <span className="block font-mono text-xs text-muted-foreground line-through">
+                                {formatCurrency(entry.depositAmount)}
                               </span>
-                            </Badge>
-                          </div>
-                        )}
+                              <span className="block font-mono text-sm font-semibold text-destructive underline decoration-dotted">
+                                {formatCurrency(audit.countedAmount)}
+                              </span>
+                            </button>
+                          ) : (
+                            <span className={cn(
+                              "font-mono text-sm w-20 text-right",
+                              entry.alreadyDeposited ? "line-through" : "font-semibold"
+                            )}>
+                              {formatCurrency(entry.depositAmount)}
+                            </span>
+                          )}
+                        </div>
+                        </div>
+
                       </div>
 
                       );
@@ -762,7 +759,67 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
           }
         />
       )}
+
+      <Dialog open={!!auditInfoTarget} onOpenChange={(o) => !o && setAuditInfoTarget(null)}>
+        <DialogContent className="max-w-sm">
+          {auditInfoTarget && audits[auditInfoTarget] && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <ShieldCheck className="h-4 w-4 text-destructive" />
+                  Audit — {format(new Date(auditInfoTarget + 'T12:00:00'), 'EEE, MMM d, yyyy')}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Drawer count</span>
+                  <span className="font-mono line-through text-muted-foreground">
+                    {formatCurrency(
+                      summary.entries.find((e) => e.entryDate === auditInfoTarget)?.depositAmount || 0
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Audited amount</span>
+                  <span className="font-mono font-semibold text-destructive">
+                    {formatCurrency(audits[auditInfoTarget].countedAmount)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t pt-2">
+                  <span className="text-muted-foreground">Variance</span>
+                  <span className="font-mono font-semibold">
+                    {audits[auditInfoTarget].variance > 0 ? '+' : ''}
+                    {formatCurrency(audits[auditInfoTarget].variance)}
+                  </span>
+                </div>
+                {audits[auditInfoTarget].auditedByName && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Audited by</span>
+                    <span className="font-medium">{audits[auditInfoTarget].auditedByName}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Time</span>
+                  <span>{format(new Date(audits[auditInfoTarget].auditedAt), 'MMM d, h:mm a')}</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const d = auditInfoTarget;
+                  setAuditInfoTarget(null);
+                  setAuditTarget(d);
+                }}
+              >
+                Re-audit
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
 
   );
 }
