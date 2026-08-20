@@ -131,35 +131,51 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCo
                 </div>
               )}
               
-              {(data.priorPullsTotal != null && data.priorPullsTotal > 0) && (
-                <div className="border-t pt-3 space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Cash Handled Today
-                  </div>
-                  {(data.priorPulls && data.priorPulls.length > 0
+              {(data.priorPullsTotal != null && data.priorPullsTotal > 0) && (() => {
+                const pulls = [
+                  ...((data.priorPulls && data.priorPulls.length > 0
                     ? data.priorPulls
-                    : [{ amount: data.priorPullsTotal, time: "" }]
-                  ).map((pull, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {idx === 0 ? "" : "+ "}Pull #{idx + 1}
-                        {pull.time ? ` · ${format(new Date(pull.time), 'h:mm a')}` : " · earlier pulls"}
-                      </span>
-                      <span className="tabular-nums">{formatCurrency(pull.amount)}</span>
+                    : [{ amount: data.priorPullsTotal, time: "", createdBy: undefined }]) as {
+                    amount: number; time: string; createdBy?: string;
+                  }[]),
+                  { amount: data.actualDeposit, time: createdAt, createdBy: createdByName, isCurrent: true } as any,
+                ];
+                return (
+                  <div className="border-t pt-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Cash Handled Today
                     </div>
-                  ))}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      + Pull #{(data.priorPulls?.length || 1) + 1} · {countTime} (this count)
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(data.actualDeposit)}</span>
+                    <div className="rounded-lg border bg-muted/40 divide-y">
+                      {pulls.map((pull, idx) => (
+                        <div key={idx} className="flex items-start justify-between gap-3 px-3 py-2">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium">
+                              Pull #{idx + 1}
+                              {pull.isCurrent && (
+                                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-primary">this count</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {pull.time ? format(new Date(pull.time), 'h:mm a') : 'Earlier today'}
+                              {pull.createdBy ? ` · ${pull.createdBy}` : ''}
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold tabular-nums shrink-0">
+                            {idx > 0 && '+ '}{formatCurrency(pull.amount)}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-muted/70">
+                        <span className="text-sm font-semibold">Total Cash Handled</span>
+                        <span className="text-base font-bold tabular-nums">
+                          {formatCurrency(data.actualDeposit + data.priorPullsTotal)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between border-t pt-2">
-                    <span className="font-medium">= Total Cash Handled</span>
-                    <span className="font-bold tabular-nums">{formatCurrency(data.actualDeposit + data.priorPullsTotal)}</span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
+
 
 
               <div className="border-t pt-3 space-y-2">
