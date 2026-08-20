@@ -352,7 +352,9 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
 
 /* ---------------- Option D: Framed poster with metal rank medal ---------------- */
 function OptionD({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
+
   const [open, setOpen] = useState(false);
   const [metric, setMetric] = useState<'rank' | 'units' | 'sales'>('rank');
   const badge = metric === 'rank'
