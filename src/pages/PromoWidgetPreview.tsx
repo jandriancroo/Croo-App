@@ -235,6 +235,8 @@ function PromoWidgetCard({ period, setPeriod }: { period: 'day' | 'week' | 'prom
                 <span className="tabular-nums">{s.isLoading ? '--' : money(s.sales)}</span>
                 <span className="h-3.5 w-px bg-black/15" />
                 <span className="tabular-nums">{s.isLoading ? '--' : pct(s.pmix)}</span>
+                <span className="h-3.5 w-px bg-black/15" />
+                {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </span>
             </div>
           </div>
