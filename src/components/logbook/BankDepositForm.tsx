@@ -7,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2, Camera, ShieldCheck } from "lucide-react";
 import { BankVerificationPhoto } from "./BankVerificationPhoto";
 import { DepositAuditDialog, type DepositAudit } from "./DepositAuditDialog";
