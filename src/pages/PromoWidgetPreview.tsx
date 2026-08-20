@@ -286,8 +286,14 @@ function PromoWidgetCard({ period, setPeriod }: { period: 'day' | 'week' | 'prom
   );
 }
 
+const PERIOD_OPTIONS: { key: 'day' | 'week' | 'promo'; label: string }[] = [
+  { key: 'day', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'promo', label: 'Campaign' },
+];
+
 export default function PromoWidgetPreview() {
-  const [period, setPeriod] = useState<'day' | 'promo'>('promo');
+  const [period, setPeriod] = useState<'day' | 'week' | 'promo'>('promo');
   const s = useMyStats(period);
 
   return (
@@ -297,10 +303,6 @@ export default function PromoWidgetPreview() {
         <p className="text-sm text-muted-foreground">
           Live data for {s.name}. Tap the card to expand. Nothing here changes your dashboard.
         </p>
-        <div className="inline-flex overflow-hidden rounded-md border border-border">
-          <button type="button" onClick={() => setPeriod('day')} className={`px-3 py-1.5 text-xs font-semibold ${period === 'day' ? 'bg-accent text-accent-foreground' : ''}`}>Today</button>
-          <button type="button" onClick={() => setPeriod('promo')} className={`px-3 py-1.5 text-xs font-semibold ${period === 'promo' ? 'bg-accent text-accent-foreground' : ''}`}>Campaign</button>
-        </div>
       </header>
 
       <section className="space-y-2">
@@ -308,7 +310,7 @@ export default function PromoWidgetPreview() {
           <h2 className="text-sm font-semibold">Option C — Full hero</h2>
           <p className="text-xs text-muted-foreground">Tallest, most magazine-like. Item name huge, one pill with all metrics. Tap for full detail.</p>
         </div>
-        <PromoWidgetCard period={period} />
+        <PromoWidgetCard period={period} setPeriod={setPeriod} />
       </section>
 
       <p className="pb-10 text-xs text-muted-foreground">
