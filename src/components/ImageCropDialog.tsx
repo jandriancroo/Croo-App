@@ -14,7 +14,10 @@ interface ImageCropDialogProps {
   cropShape?: 'rect' | 'round';
   aspect?: number;
   cropAreaClassName?: string;
+  /** Rendered on top of the crop area so users see exactly how the result will look in-app. */
+  overlay?: React.ReactNode;
 }
+
 
 interface Area {
   x: number;
