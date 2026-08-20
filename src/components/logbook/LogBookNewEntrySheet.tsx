@@ -461,6 +461,37 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                   .from('logbook_entry_values')
                   .insert({ entry_id: entryData.id, field_id: fieldId, value_text: JSON.stringify(depositData) });
                 if (valuesError) throw valuesError;
+
+                // Write audits back onto the drawer counts so the audited amount
+                // becomes the authoritative data point for reporting/summaries.
+                const auditedEntries = (depositData.entries || []).filter((e: any) => e.audit);
+                if (auditedEntries.length > 0) {
+                  const { data: drawerValues } = await supabase
+                    .from('logbook_entry_values')
+                    .select('id, entry_id, value_text')
+                    .in('entry_id', auditedEntries.map((e: any) => e.entryId));
+                  for (const row of drawerValues || []) {
+                    const target = auditedEntries.find((e: any) => e.entryId === row.entry_id);
+                    if (!target?.audit) continue;
+                    try {
+                      const parsed = JSON.parse(row.value_text || '{}');
+                      if (parsed.actualDeposit === undefined) continue;
+                      const recorded = Number(parsed.actualDeposit) || 0;
+                      const counted = Number(target.audit.countedAmount) || 0;
+                      const updated = {
+                        ...parsed,
+                        audit: target.audit,
+                        auditedDeposit: counted,
+                        auditedVariance: (Number(parsed.variance) || 0) + (counted - recorded),
+                      };
+                      await supabase
+                        .from('logbook_entry_values')
+                        .update({ value_text: JSON.stringify(updated) })
+                        .eq('id', row.id);
+                    } catch (e) { console.error('Failed to write audit back to drawer count:', e); }
+                  }
+                }
+
                 toast({ title: "Bank deposit recorded successfully" });
                 queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
                 queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
