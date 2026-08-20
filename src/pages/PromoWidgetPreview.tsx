@@ -188,6 +188,25 @@ function PromoWidgetCard({ period }: { period: 'day' | 'promo' }) {
             <p className="text-2xl font-black leading-none text-white drop-shadow-lg">{PROMO_TITLE}</p>
           </div>
           <div className="absolute inset-x-0 bottom-0 p-3">
+            <div className="mb-2 flex items-center gap-1 text-xs font-bold text-white drop-shadow">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); sw.cycle('prev'); }}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                aria-label="Previous item"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-0 truncate">{sw.label}</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); sw.cycle('next'); }}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                aria-label="Next item"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
             <div className="mt-2 flex items-center">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[11px] font-bold text-black shadow-sm">
                 <Trophy className="h-3 w-3" />
