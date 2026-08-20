@@ -822,9 +822,9 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 <button
                   key={category.id}
                   onClick={() => { setSelectedCategory(category.id); setWizardStep('form'); }}
-                  className="w-full flex items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted"
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/60 active:bg-muted"
                 >
-                  <div className={`shrink-0 flex items-center justify-center h-9 w-9 rounded-lg ${cashStyle ? "bg-teal-500/10 text-teal-500" : "bg-primary/10 text-primary"}`}>
+                  <div className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-lg ${cashStyle ? "bg-teal-500/10 text-teal-500" : "bg-primary/10 text-primary"}`}>
                     {getCategoryIcon(category.name)}
                   </div>
                   <span className="flex-1 font-medium text-sm">{category.name}</span>
@@ -833,16 +833,16 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
               );
 
               return (
-                <div className="mt-4 space-y-5 pb-4">
+                <div className="mt-3 space-y-3 pb-2">
                   <div>
-                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Logs</p>
+                    <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Logs</p>
                     <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
                       {logs.map((c: any) => <Row key={c.id} category={c} cashStyle={false} />)}
                     </div>
                   </div>
                   {cash.length > 0 && (
                     <div>
-                      <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cash Handling</p>
+                      <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Cash Handling</p>
                       <div className="rounded-xl border border-teal-500/40 bg-teal-500/5 divide-y divide-teal-500/20 overflow-hidden">
                         {cash.map((c: any) => <Row key={c.id} category={c} cashStyle />)}
                       </div>
