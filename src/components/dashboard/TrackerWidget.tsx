@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -218,6 +218,19 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     touchStartXRef.current = null;
     if (Math.abs(dx) > 40) cycleItem(dx < 0 ? 'next' : 'prev');
   };
+
+  const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
+    <button
+      type="button"
+      onClick={() => setSortMetric(metric)}
+      className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-left transition-colors ${
+        sortMetric === metric ? 'border-primary/35 bg-primary/10' : 'border-border/60 bg-muted/40 hover:bg-muted/60'
+      }`}
+    >
+      <p className="text-[9px] font-medium uppercase leading-none text-muted-foreground">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-bold leading-none tabular-nums">{value}</p>
+    </button>
+  );
 
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
