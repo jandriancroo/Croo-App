@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -235,6 +235,8 @@ function PromoWidgetCard({ period, setPeriod }: { period: 'day' | 'week' | 'prom
                 <span className="tabular-nums">{s.isLoading ? '--' : money(s.sales)}</span>
                 <span className="h-3.5 w-px bg-black/15" />
                 <span className="tabular-nums">{s.isLoading ? '--' : pct(s.pmix)}</span>
+                <span className="h-3.5 w-px bg-black/15" />
+                {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </span>
             </div>
           </div>
