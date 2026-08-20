@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ChevronDown, ChevronLeft, ChevronRight, Crown, Flame, TrendingUp, Trophy } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Crown, Flame, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -304,12 +304,16 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
             <p className="text-2xl font-black leading-none text-white drop-shadow-lg">{PROMO_TITLE}</p>
           </div>
           <div className="absolute inset-x-0 bottom-0 p-3">
-            <div className="mt-2 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-black">
-                <Trophy className="h-3 w-3" /> #{s.isLoading ? '-' : s.rank || '-'} of {s.total || '-'}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm tabular-nums">
-                <TrendingUp className="h-3 w-3" /> {s.isLoading ? '--' : `${num(s.units)} sold · ${money(s.sales)}`}
+            <div className="mt-2 flex items-center">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[11px] font-bold text-black shadow-sm">
+                <Trophy className="h-3 w-3" />
+                <span className="tabular-nums">Rank #{s.isLoading ? '-' : s.rank || '-'} / {s.total || '-'}</span>
+                <span className="h-3.5 w-px bg-black/15" />
+                <span className="tabular-nums">{s.isLoading ? '--' : num(s.units)} sold</span>
+                <span className="h-3.5 w-px bg-black/15" />
+                <span className="tabular-nums">{s.isLoading ? '--' : money(s.sales)}</span>
+                <span className="h-3.5 w-px bg-black/15" />
+                <span className="tabular-nums">{s.isLoading ? '--' : pct(s.pmix)}</span>
               </span>
             </div>
           </div>
