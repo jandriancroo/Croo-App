@@ -443,23 +443,39 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                 </div>
               </div>
 
-              {/* Total Cash Handled breakdown (when prior pulls exist) */}
-              {priorPulls.length > 0 && expectedDeposit && parseFloat(expectedDeposit) > 0 && (
+              {/* Total Cash Handled ladder (when prior pulls exist) */}
+              {priorPulls.length > 0 && (
                 <div className="space-y-1.5 p-3 bg-muted/50 rounded-lg text-sm">
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
+                    Cash Handled Today
+                  </div>
+                  {priorPulls.map((pull, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {idx === 0 ? "" : "+ "}Pull #{idx + 1} · {new Date(pull.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                      <span className="tabular-nums">{formatCurrency(pull.amount)}</span>
+                    </div>
+                  ))}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">This Count Deposit</span>
-                    <span>{formatCurrency(calculations.actualDeposit)}</span>
+                    <span className="text-muted-foreground">
+                      + Pull #{priorPulls.length + 1} · This count (now)
+                    </span>
+                    <span className="tabular-nums">{formatCurrency(calculations.actualDeposit)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">+ Prior Pulls</span>
-                    <span>{formatCurrency(calculations.priorPullsTotal)}</span>
+                  <div className="flex justify-between font-semibold border-t pt-1.5">
+                    <span>= Total Cash Handled</span>
+                    <span className="tabular-nums">{formatCurrency(calculations.totalCashHandled)}</span>
                   </div>
-                  <div className="flex justify-between font-medium border-t pt-1.5">
-                    <span>Total Cash Handled</span>
-                    <span>{formatCurrency(calculations.totalCashHandled)}</span>
-                  </div>
+                  {parseFloat(expectedDeposit) > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>− Expected from POS</span>
+                      <span className="tabular-nums">{formatCurrency(parseFloat(expectedDeposit))}</span>
+                    </div>
+                  )}
                 </div>
               )}
+
 
               {expectedDeposit && parseFloat(expectedDeposit) > 0 && (
                 <div className={`flex items-center justify-between p-4 rounded-lg ${
