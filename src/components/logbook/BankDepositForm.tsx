@@ -381,8 +381,12 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
     ? summary.includableEntries.filter((e) => !slipPaths[e.entryDate]).length
     : 0;
   const missingReceipt = verificationEnabled && !receiptPath;
+  const unaudited = summary.includableEntries.filter((e) => !audits[e.entryDate]).length;
   const canSubmit =
     canShowPreview && summary.includableEntries.length > 0 && missingSlips === 0 && !missingReceipt;
+  const auditTargetEntry = auditTarget
+    ? summary.includableEntries.find((e) => e.entryDate === auditTarget)
+    : undefined;
   
 
   
