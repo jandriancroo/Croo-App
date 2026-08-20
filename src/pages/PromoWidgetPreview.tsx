@@ -288,7 +288,8 @@ function OptionB({ period }: { period: 'day' | 'promo' }) {
 
 /* ---------------- Option C: Full-bleed hero, image only until tapped ---------------- */
 function OptionC({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
@@ -300,7 +301,8 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
             Promo · Live
           </div>
           <div className="absolute inset-x-0 bottom-0 p-3">
-            <p className="text-2xl font-black leading-none text-white drop-shadow-lg">{PROMO_TITLE}</p>
+            <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-2xl font-black leading-none text-white drop-shadow-lg" />
+
             <div className="mt-2 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-black">
                 <Trophy className="h-3 w-3" /> #{s.isLoading ? '-' : s.rank || '-'} of {s.total || '-'}
