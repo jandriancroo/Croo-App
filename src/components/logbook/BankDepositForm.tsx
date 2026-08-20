@@ -56,6 +56,24 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [endOpen, setEndOpen] = useState(false);
   const [slipPaths, setSlipPaths] = useState<Record<string, string>>({});
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
+  const [audits, setAudits] = useState<Record<string, DepositAudit>>({});
+  const [auditTarget, setAuditTarget] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const { data: auditorName } = useQuery({
+    queryKey: ["bank-deposit-auditor-name", user?.id],
+    queryFn: async () => {
+      if (!user) return undefined;
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      return data?.full_name || undefined;
+    },
+    enabled: !!user,
+  });
+
 
   // Bank Verification toggle (per location)
   const { data: verificationEnabled = false } = useQuery({
