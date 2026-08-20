@@ -233,14 +233,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-visible border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0 md:p-0">
-        <div className="relative min-h-[88px] rounded-t-lg bg-primary text-primary-foreground">
+        <div className={`relative ${PROMO_BANNER_ASPECT_CLASS} min-h-[88px] w-full rounded-t-lg bg-primary text-primary-foreground`}>
           {promoImageUrl && (
             <div className="absolute inset-0 overflow-hidden rounded-t-lg">
               <img src={promoImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-              <div className="absolute inset-0 bg-background/10" />
-              <div className="absolute inset-0 bg-gradient-to-r from-background/15 via-transparent to-background/15" />
+              <PromoImageLayers />
             </div>
           )}
+
           <div className="absolute inset-0 z-40 flex items-center justify-center px-3">
             <div
               className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
