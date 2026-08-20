@@ -131,16 +131,34 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCo
               
               {(data.priorPullsTotal != null && data.priorPullsTotal > 0) && (
                 <div className="border-t pt-3 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">Prior Pulls Total:</span>
-                    <span className="font-medium">{formatCurrency(data.priorPullsTotal)}</span>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Cash Handled Today
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">Total Cash Handled:</span>
-                    <span className="font-bold">{formatCurrency(data.actualDeposit + data.priorPullsTotal)}</span>
+                  {(data.priorPulls && data.priorPulls.length > 0
+                    ? data.priorPulls
+                    : [{ amount: data.priorPullsTotal, time: "" }]
+                  ).map((pull, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {idx === 0 ? "" : "+ "}Pull #{idx + 1}
+                        {pull.time ? ` · ${format(new Date(pull.time), 'h:mm a')}` : " · earlier pulls"}
+                      </span>
+                      <span className="tabular-nums">{formatCurrency(pull.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      + Pull #{(data.priorPulls?.length || 1) + 1} · {countTime} (this count)
+                    </span>
+                    <span className="tabular-nums">{formatCurrency(data.actualDeposit)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="font-medium">= Total Cash Handled</span>
+                    <span className="font-bold tabular-nums">{formatCurrency(data.actualDeposit + data.priorPullsTotal)}</span>
                   </div>
                 </div>
               )}
+
 
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
