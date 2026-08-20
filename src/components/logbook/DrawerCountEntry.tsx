@@ -213,15 +213,43 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
 
 
 
+              {audit && (
+                <div className="border-t pt-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-destructive mb-2 flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Audit Details
+                  </div>
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 divide-y divide-destructive/20 text-sm">
+                    <div className="flex justify-between px-3 py-2">
+                      <span className="text-muted-foreground">Original count</span>
+                      <span className="line-through tabular-nums">{formatCurrency(data.actualDeposit)}</span>
+                    </div>
+                    <div className="flex justify-between px-3 py-2">
+                      <span className="text-muted-foreground">Audited amount</span>
+                      <span className="font-semibold text-destructive tabular-nums">{formatCurrency(audit.countedAmount)}</span>
+                    </div>
+                    <div className="flex justify-between px-3 py-2">
+                      <span className="text-muted-foreground">Difference</span>
+                      <span className="font-semibold tabular-nums">
+                        {audit.variance > 0 ? '+' : ''}{formatCurrency(audit.variance)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between px-3 py-2 text-xs text-muted-foreground">
+                      <span>{audit.auditedByName || 'Auditor'}</span>
+                      <span>{format(new Date(audit.auditedAt), 'MMM d, h:mm a')}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground text-sm">Expected (from Qu):</span>
                   <span className="font-medium">{formatCurrency(data.expectedDeposit)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Variance:</span>
+                  <span className="text-muted-foreground">Variance{audit ? ' (audited)' : ''}:</span>
                   <span className={`font-bold ${varianceColor}`}>
-                    {varianceLabel} {formatCurrency(Math.abs(data.variance))}
+                    {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
                   </span>
                 </div>
               </div>
