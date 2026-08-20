@@ -114,14 +114,16 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, 
               minZoom={0.5}
               aspect={aspect}
               cropShape={cropShape}
-              showGrid={cropShape === 'rect'}
+              showGrid={cropShape === 'rect' && !overlay}
               onCropChange={onCropChange}
               onZoomChange={onZoomChange}
               onCropComplete={onCropAreaChange}
               objectFit="contain"
               restrictPosition={false}
             />
+            {overlay && <div className="pointer-events-none absolute inset-0 z-30">{overlay}</div>}
           </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
