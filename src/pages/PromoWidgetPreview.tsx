@@ -61,12 +61,18 @@ function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: numb
   }));
 }
 
-function useTrackerData(period: 'day' | 'promo') {
+function useTrackerData(period: 'day' | 'week' | 'promo') {
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
   const tz = timezone || 'America/Los_Angeles';
-  const today = DateTime.now().setZone(tz).toFormat('yyyy-MM-dd');
-  const range = period === 'day' ? { start: today, end: today } : { start: PROMO_START, end: today };
+  const today = DateTime.now().setZone(tz);
+  const todayStr = today.toFormat('yyyy-MM-dd');
+  const weekStart = today.startOf('week').toFormat('yyyy-MM-dd');
+  const range = period === 'day'
+    ? { start: todayStr, end: todayStr }
+    : period === 'week'
+      ? { start: weekStart, end: todayStr }
+      : { start: PROMO_START, end: todayStr };
 
   return useQuery({
     queryKey: ['promo-preview-ranking', currentLocation?.id, range.start, range.end],
