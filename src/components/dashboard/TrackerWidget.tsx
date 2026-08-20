@@ -238,7 +238,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         <button
           type="button"
           onClick={() => canExpand && setExpanded(v => !v)}
-          className="relative block w-full aspect-[4/3] overflow-hidden text-left"
+          className="relative block w-full aspect-[4/2.55] overflow-hidden text-left"
           onTouchStart={handleItemTouchStart}
           onTouchEnd={handleItemTouchEnd}
         >
