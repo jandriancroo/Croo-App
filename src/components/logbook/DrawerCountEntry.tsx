@@ -20,6 +20,7 @@ interface DrawerCountEntryProps {
   data: DrawerCountData;
   createdAt: string;
   drawerBank?: number;
+  createdByName?: string;
 }
 
 const formatCurrency = (value: number) => {
@@ -29,7 +30,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCountEntryProps) {
+export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByName }: DrawerCountEntryProps) {
   const [open, setOpen] = useState(false);
   
   const varianceColor = data.variance > 0 

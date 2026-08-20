@@ -209,7 +209,7 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                         if (bankDepositData) return <BankDepositEntry key={val.id} data={bankDepositData} createdAt={entry.created_at} />;
 
                         const drawerData = val.value_text ? parseDrawerCountData(val.value_text) : null;
-                        if (drawerData && drawerData.actualDeposit !== undefined) return <DrawerCountEntry key={val.id} data={drawerData} createdAt={entry.created_at} drawerBank={locationSettings?.drawer_bank || 200} />;
+                        if (drawerData && drawerData.actualDeposit !== undefined) return <DrawerCountEntry key={val.id} data={drawerData} createdAt={entry.created_at} drawerBank={locationSettings?.drawer_bank || 200} createdByName={getDisplayName(entry.profiles?.full_name, entry.profiles?.nickname)} />;
 
                         const safeData = val.value_text ? parseSafeCountData(val.value_text) : null;
                         if (safeData) {
