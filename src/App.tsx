@@ -241,6 +241,7 @@ const AppContent = () => {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
         <Route path="/toast-preview" element={<ProtectedRoute><ToastPreview /></ProtectedRoute>} />
+        <Route path="/promo-widget-preview" element={<ProtectedRoute><PromoWidgetPreview /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
         
