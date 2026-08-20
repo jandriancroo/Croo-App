@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { CalendarIcon, Paperclip, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine, Calculator } from "lucide-react";
+import { CalendarIcon, Paperclip, Plus, ChevronLeft, ChevronRight, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine, Calculator } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DrawerCountForm, type PriorPull } from "@/components/logbook/DrawerCountForm";
