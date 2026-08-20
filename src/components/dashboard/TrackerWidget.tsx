@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import type { TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
+import { PROMO_BANNER_ASPECT_CLASS, PromoImageLayers } from './PromoBannerPreview';
+
 
 interface TrackerConfig {
   id: string;
