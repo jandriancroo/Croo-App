@@ -7,8 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2, Camera } from "lucide-react";
+import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2, Camera, ShieldCheck } from "lucide-react";
 import { BankVerificationPhoto } from "./BankVerificationPhoto";
+import { DepositAuditDialog, type DepositAudit } from "./DepositAuditDialog";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { format, eachDayOfInterval, isBefore, startOfDay, isAfter, parse, isSameDay, isWithinInterval } from "date-fns";
