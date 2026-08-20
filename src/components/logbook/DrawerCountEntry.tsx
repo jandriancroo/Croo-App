@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Eye } from "lucide-react";
+import { Eye, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 
 interface DrawerCountData {
@@ -13,7 +13,16 @@ interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
   priorPullsTotal?: number;
   priorPulls?: { amount: number; time: string; createdBy?: string }[];
-
+  /** Set when the deposit for this day was audited during Bank Deposit. */
+  audit?: {
+    countedAmount: number;
+    variance: number;
+    auditedAt: string;
+    auditedByName?: string;
+  };
+  /** Audited amount becomes the authoritative deposit for reporting. */
+  auditedDeposit?: number;
+  auditedVariance?: number;
 }
 
 interface DrawerCountEntryProps {
