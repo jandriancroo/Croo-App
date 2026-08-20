@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -223,158 +223,175 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     <button
       type="button"
       onClick={() => setSortMetric(metric)}
-      className={`min-w-0 flex-1 rounded-md border px-2 py-1 text-left transition-colors ${
-        sortMetric === metric ? 'border-primary/35 bg-primary/10' : 'border-border/60 bg-muted/35 hover:bg-muted/60'
+      className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-left transition-colors ${
+        sortMetric === metric ? 'border-primary/35 bg-primary/10' : 'border-border/60 bg-muted/40 hover:bg-muted/60'
       }`}
     >
       <p className="text-[9px] font-medium uppercase leading-none text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-[13px] font-semibold leading-none tabular-nums">{value}</p>
+      <p className="mt-0.5 truncate text-sm font-bold leading-none tabular-nums">{value}</p>
     </button>
   );
 
   return (
-    <Card className="overflow-visible border-border/50 bg-card shadow-lg shadow-background/20">
-      <CardContent className="p-0 md:p-0">
-        <div className={`relative ${PROMO_BANNER_ASPECT_CLASS} min-h-[88px] w-full rounded-t-lg bg-primary text-primary-foreground`}>
-          {promoImageUrl && (
-            <div className="absolute inset-0 overflow-hidden rounded-t-lg">
-              <img src={promoImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-              <PromoImageLayers />
-            </div>
+    <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
+      <CardContent className="p-0">
+        <button
+          type="button"
+          onClick={() => canExpand && setExpanded(v => !v)}
+          className="relative block w-full aspect-[4/3] overflow-hidden text-left"
+          onTouchStart={handleItemTouchStart}
+          onTouchEnd={handleItemTouchEnd}
+        >
+          {promoImageUrl ? (
+            <img src={promoImageUrl} alt={tracker.title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+          ) : (
+            <div className="absolute inset-0 bg-primary" />
           )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
 
-          <div className="absolute inset-0 z-40 flex items-center justify-center px-3">
-            <div
-              className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
-              onTouchStart={handleItemTouchStart}
-              onTouchEnd={handleItemTouchEnd}
-            >
-              <span className="flex items-center gap-1.5 leading-none">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
-                </span>
-                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-background/90">PROMO</span>
+          <div className="absolute left-0 top-3 rounded-r-full bg-amber-400 py-1 pl-3 pr-3 text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-lg">
+            Promo · Live
+          </div>
+
+          <div className="absolute right-3 top-3 inline-flex overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+            {PERIOD_MODES.map(key => (
+              <button
+                key={key}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
+                className={`px-2.5 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
+              >
+                {PERIOD_LABELS[key]}
+              </button>
+            ))}
+          </div>
+
+          <div className="absolute left-3 top-[3.25rem] right-3">
+            <p className="truncate text-2xl font-black leading-none text-white drop-shadow-lg">{tracker.title}</p>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 p-3">
+            <div className="mb-2 flex items-center gap-1 text-xs font-bold text-white drop-shadow">
+              {itemSwitchOptions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                  aria-label="Previous item"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              )}
+              <span className="min-w-0 truncate">{activeItemLabel}</span>
+              {itemSwitchOptions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                  aria-label="Next item"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="mt-2 flex items-center">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[11px] font-bold text-black shadow-sm">
+                <Trophy className="h-3 w-3" />
+                <span className="tabular-nums">Rank #{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
+                {rankMetrics.includes('units') && (
+                  <>
+                    <span className="h-3.5 w-px bg-black/15" />
+                    <span className="tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
+                  </>
+                )}
+                {rankMetrics.includes('sales') && (
+                  <>
+                    <span className="h-3.5 w-px bg-black/15" />
+                    <span className="tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
+                  </>
+                )}
+                {rankMetrics.includes('pmix') && (
+                  <>
+                    <span className="h-3.5 w-px bg-black/15" />
+                    <span className="tabular-nums">{isPending ? '--' : percent(myVisibleStats.pmix)}</span>
+                  </>
+                )}
+                {canExpand && (
+                  <>
+                    <span className="h-3.5 w-px bg-black/15" />
+                    {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </>
+                )}
               </span>
-              <div className="flex items-center gap-2">
+            </div>
+          </div>
+        </button>
+
+        {canExpand && expanded && (
+          <div className="space-y-2 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1 text-xs font-bold text-foreground">
                 {itemSwitchOptions.length > 1 && (
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
+                    onClick={() => cycleItem('prev')}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
                     aria-label="Previous item"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                 )}
-                <span className="min-w-0 truncate text-sm font-bold leading-tight">{activeItemLabel}</span>
+                <span className="min-w-0 truncate">{activeItemLabel}</span>
                 {itemSwitchOptions.length > 1 && (
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
+                    onClick={() => cycleItem('next')}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
                     aria-label="Next item"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div className={`flex items-center justify-between gap-2 bg-card text-[12px] rounded-b-lg px-[12px] my-0 py-[6px] ${canExpand && expanded ? '' : 'rounded-b-lg'}`}>
-          <span className="min-w-0 truncate text-muted-foreground text-sm">
-            You're <span className="font-bold text-orange-500">{rankChipLabel}</span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2 font-medium tabular-nums text-muted-foreground">
-            <span>{isLoading ? '--' : money(myVisibleStats.sales)} sales · {isLoading ? '--' : number(myVisibleStats.units)} units</span>
-            {canExpand && (
-              <button
-                type="button"
-                onClick={() => setExpanded(v => !v)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label={expanded ? 'Collapse rankings' : 'Expand rankings'}
-              >
-                <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-              </button>
-            )}
-          </span>
-        </div>
-
-        {canExpand && expanded && (
-          <>
-            <div className="relative z-10 -mt-px flex justify-center px-6">
-              <div className="flex max-w-full items-stretch overflow-hidden rounded-b-md border border-t-0 border-border/70 bg-card/95 text-foreground shadow-md shadow-background/15">
-                <button
-                  type="button"
-                  onClick={() => cyclePeriod('prev')}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
-                  aria-label="Previous period"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => cyclePeriod('next')}
-                  className="flex h-8 min-w-[118px] items-center justify-center px-4 text-sm font-semibold leading-none transition-colors hover:bg-muted/50"
-                >
-                  <span className="truncate">{activePeriodLabel}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => cyclePeriod('next')}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
-                  aria-label="Next period"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Ranking</span>
             </div>
 
-            <div className="space-y-3 bg-card px-3 pb-3 pt-3">
-              <div className="flex gap-2">
-                {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
-                {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
-                {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
-                <div className="ml-auto flex min-w-[72px] items-center justify-between gap-1 rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm">
-                  <span className="min-w-0">
-                    <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
-                    <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
-                  </span>
-                </div>
-              </div>
+            <div className="flex gap-2">
+              {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isPending ? '--' : number(myVisibleStats.units)} />}
+              {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isPending ? '--' : money(myVisibleStats.sales)} />}
+              {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isPending ? '--' : percent(myVisibleStats.pmix)} />}
             </div>
 
-            <div className="space-y-1 px-1 pb-2 pt-0.5">
-              <div className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 px-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-                <span>#</span>
-                <span>Store</span>
-                {(['units', 'sales', 'pmix'] as TrackerSortMetric[]).map(metric => (
-                  <button key={metric} type="button" onClick={() => setSortMetric(metric)} className="flex items-center justify-end gap-0.5">
-                    {metric === 'units' ? 'Items' : metric === 'sales' ? 'Sales' : 'PMIX'}
-                    {sortMetric === metric && <ArrowDown className="h-2.5 w-2.5" />}
-                  </button>
-                ))}
+            <div className="rounded-xl border border-border/60 bg-background p-1 shadow-sm">
+              <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="w-6">Rank</span>
+                <span className="min-w-0 flex-1">Location</span>
+                <button type="button" onClick={() => setSortMetric('units')} className="flex w-16 items-center justify-end gap-0.5">
+                  Units {sortMetric === 'units' && <ArrowDown className="h-2.5 w-2.5" />}
+                </button>
+                <button type="button" onClick={() => setSortMetric('sales')} className="flex w-16 items-center justify-end gap-0.5">
+                  Sales {sortMetric === 'sales' && <ArrowDown className="h-2.5 w-2.5" />}
+                </button>
               </div>
-              {sortedRanking.slice(0, 20).map(store => (
+              {sortedRanking.slice(0, 20).map((store, idx, arr) => (
                 <div
                   key={store.locationId}
-                  className={`grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] ${
+                  className={`flex items-center gap-2 px-2 py-2 text-[12px] ${
                     store.locationId === currentLocation?.id
-                      ? 'bg-accent text-accent-foreground shadow-sm'
-                      : 'bg-muted/45'
+                      ? 'rounded-lg bg-accent font-medium text-accent-foreground'
+                      : idx !== arr.length - 1
+                        ? 'border-b border-border/40'
+                        : ''
                   }`}
                 >
-                  <span className="font-semibold">#{store.rank}</span>
-                  <span className="truncate">{store.locationName}</span>
-                  <span className="text-right font-medium tabular-nums">{number(getMetricValue(store, 'units'))}</span>
-                  <span className="text-right font-medium tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
-                  <span className="text-right font-medium tabular-nums">{percent(getMetricValue(store, 'pmix'))}</span>
+                  <span className="w-6 font-bold tabular-nums">#{store.rank}</span>
+                  <span className="min-w-0 flex-1 truncate">{store.locationName}</span>
+                  <span className="w-16 text-right tabular-nums">{number(getMetricValue(store, 'units'))}</span>
+                  <span className="w-16 text-right tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
                 </div>
               ))}
             </div>
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
