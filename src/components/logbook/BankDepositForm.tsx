@@ -58,6 +58,8 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
   const [audits, setAudits] = useState<Record<string, DepositAudit>>({});
   const [auditTarget, setAuditTarget] = useState<string | null>(null);
+  const [auditInfoTarget, setAuditInfoTarget] = useState<string | null>(null);
+
   const { user } = useAuth();
 
   const { data: auditorName } = useQuery({
