@@ -246,7 +246,8 @@ function OptionA({ period }: { period: 'day' | 'promo' }) {
 
 /* ---------------- Option B: Glass ticker ---------------- */
 function OptionB({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
@@ -257,7 +258,7 @@ function OptionB({ period }: { period: 'day' | 'promo' }) {
           <div className="absolute inset-x-2 bottom-2 flex items-center gap-2 rounded-2xl border border-white/20 bg-black/35 px-2.5 py-2 backdrop-blur-xl">
             <Flame className="h-4 w-4 shrink-0 text-amber-300" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-bold leading-tight text-white">{PROMO_TITLE}</p>
+              <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-[13px] font-bold leading-tight text-white" />
               <p className="text-[10px] font-medium leading-tight text-white/70 tabular-nums">
                 {s.isLoading ? '--' : `${num(s.units)} units · ${money(s.sales)}`}
               </p>
@@ -273,12 +274,13 @@ function OptionB({ period }: { period: 'day' | 'promo' }) {
               <div key={r.locationId} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${r.rank === s.rank ? 'bg-accent text-accent-foreground' : 'bg-muted/45'}`}>
                 <span className="w-6 font-semibold">#{r.rank}</span>
                 <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                <span className="tabular-nums">{num(r.units)}</span>
-                <span className="w-14 text-right tabular-nums">{money(r.sales)}</span>
+                <span className="tabular-nums">{num(s.pick(r).units)}</span>
+                <span className="w-14 text-right tabular-nums">{money(s.pick(r).sales)}</span>
               </div>
             ))}
           </div>
         )}
+
       </CardContent>
     </Card>
   );
