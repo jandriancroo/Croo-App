@@ -757,7 +757,67 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
           }
         />
       )}
+
+      <Dialog open={!!auditInfoTarget} onOpenChange={(o) => !o && setAuditInfoTarget(null)}>
+        <DialogContent className="max-w-sm">
+          {auditInfoTarget && audits[auditInfoTarget] && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <ShieldCheck className="h-4 w-4 text-destructive" />
+                  Audit — {format(new Date(auditInfoTarget + 'T12:00:00'), 'EEE, MMM d, yyyy')}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Drawer count</span>
+                  <span className="font-mono line-through text-muted-foreground">
+                    {formatCurrency(
+                      summary.entries.find((e) => e.entryDate === auditInfoTarget)?.depositAmount || 0
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Audited amount</span>
+                  <span className="font-mono font-semibold text-destructive">
+                    {formatCurrency(audits[auditInfoTarget].countedAmount)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t pt-2">
+                  <span className="text-muted-foreground">Variance</span>
+                  <span className="font-mono font-semibold">
+                    {audits[auditInfoTarget].variance > 0 ? '+' : ''}
+                    {formatCurrency(audits[auditInfoTarget].variance)}
+                  </span>
+                </div>
+                {audits[auditInfoTarget].auditedByName && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Audited by</span>
+                    <span className="font-medium">{audits[auditInfoTarget].auditedByName}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Time</span>
+                  <span>{format(new Date(audits[auditInfoTarget].auditedAt), 'MMM d, h:mm a')}</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const d = auditInfoTarget;
+                  setAuditInfoTarget(null);
+                  setAuditTarget(d);
+                }}
+              >
+                Re-audit
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
 
   );
 }
