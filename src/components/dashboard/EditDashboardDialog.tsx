@@ -33,6 +33,8 @@ import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey }
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { PROMO_BANNER_ASPECT, PROMO_BANNER_ASPECT_CLASS, PromoBadgeOverlay, PromoImageLayers } from "./PromoBannerPreview";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -1163,18 +1165,15 @@ export function EditDashboardDialog({
                     <input ref={promoImageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePromoImageSelect} disabled={isPromoImageUploading} />
                     {editForm.trackerPromoImageUrl ? (
                       <div className="space-y-2">
-                        <div className="relative h-[58px] overflow-hidden rounded-lg border bg-primary">
+                        <div className={`relative ${PROMO_BANNER_ASPECT_CLASS} w-full overflow-hidden rounded-lg border bg-primary`}>
                           <img src={editForm.trackerPromoImageUrl} alt="Promo preview" className="absolute inset-0 h-full w-full object-cover" />
-                          <div className="absolute inset-0 bg-background/30" />
-                          <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
-                          <div className="absolute left-3 top-2 inline-flex max-w-[68%] flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md">
-                            <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</p>
-                            <p className="mt-1 max-w-full truncate text-sm font-semibold leading-tight">{editForm.title || 'Promo'}</p>
-                          </div>
-                          <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setEditForm(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
+                          <PromoImageLayers />
+                          <PromoBadgeOverlay label={editForm.trackerItemRefs?.[0] || editForm.title || 'Promo item'} />
+                          <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 z-50 h-7 w-7" onClick={() => setEditForm(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
                             <X className="h-3.5 w-3.5" />
                           </Button>
                         </div>
+
                         <div className="flex gap-2">
                           <Button type="button" variant="outline" size="sm" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
                             <Upload className="mr-2 h-4 w-4" />
@@ -1310,8 +1309,10 @@ export function EditDashboardDialog({
         imageSrc={promoImageToCrop}
         onCropComplete={handlePromoImageCropComplete}
         cropShape="rect"
-        aspect={1 / 0.58}
-        cropAreaClassName="!h-[232px]"
+        aspect={PROMO_BANNER_ASPECT}
+        cropAreaClassName={`!h-auto ${PROMO_BANNER_ASPECT_CLASS} w-full`}
+        overlay={<PromoBadgeOverlay label={editForm.trackerItemRefs?.[0] || editForm.title || 'Promo item'} />}
+
       />
 
       {/* Delete confirmation */}
