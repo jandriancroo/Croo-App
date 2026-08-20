@@ -801,7 +801,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
           <Plus className="h-4 w-4" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[92vh] overflow-y-auto">
         {wizardStep === 'category' ? (
           <>
             <SheetHeader>
