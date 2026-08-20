@@ -69,6 +69,16 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
     <div className="space-y-3">
       {/* Time label */}
       <div className="text-xs text-muted-foreground">{countTime}</div>
+      {audit && (
+        <div className="flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] font-medium text-destructive">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Audited at deposit · {formatCurrency(audit.countedAmount)}
+            {audit.variance !== 0 && ` (${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)})`}
+            {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
+          </span>
+        </div>
+      )}
       {/* Mobile: Stack vertically, Desktop: inline */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm flex-1">
