@@ -574,10 +574,11 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                       <div 
                         key={entry.entryId}
                         className={cn(
-                          "flex items-center justify-between gap-2 p-3",
+                          "p-3",
                           entry.alreadyDeposited && "opacity-50 bg-muted"
                         )}
                       >
+                        <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">{dateLabel}</span>
@@ -585,19 +586,8 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                               <Badge variant="secondary" className="text-xs">Already deposited</Badge>
                             )}
                           </div>
-                          {audit && (
-                            <p className={cn(
-                              "mt-0.5 text-[11px]",
-                              audit.variance === 0
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : "text-amber-600 dark:text-amber-400"
-                            )}>
-                              Audited {formatCurrency(audit.countedAmount)}
-                              {audit.variance !== 0 && ` · ${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)}`}
-                              {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
-                            </p>
-                          )}
                         </div>
+
 
                         <div className="flex items-center gap-1.5 shrink-0">
                           {verificationEnabled && !entry.alreadyDeposited && currentLocation && (
