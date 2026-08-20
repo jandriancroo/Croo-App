@@ -41,18 +41,26 @@ const formatCurrency = (value: number) => {
 
 export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByName }: DrawerCountEntryProps) {
   const [open, setOpen] = useState(false);
-  
-  const varianceColor = data.variance > 0 
-    ? 'text-green-600' 
-    : data.variance < 0 
-      ? 'text-red-600' 
+
+  const audit = data.audit;
+  // Once audited, the counted amount is the number of record.
+  const effectiveDeposit = audit ? audit.countedAmount : data.actualDeposit;
+  const effectiveVariance = audit
+    ? (data.auditedVariance ?? data.variance + (audit.countedAmount - data.actualDeposit))
+    : data.variance;
+
+  const varianceColor = effectiveVariance > 0
+    ? 'text-green-600'
+    : effectiveVariance < 0
+      ? 'text-red-600'
       : 'text-muted-foreground';
-  
-  const varianceLabel = data.variance > 0 
-    ? 'OVER' 
-    : data.variance < 0 
-      ? 'UNDER' 
+
+  const varianceLabel = effectiveVariance > 0
+    ? 'OVER'
+    : effectiveVariance < 0
+      ? 'UNDER'
       : 'EXACT';
+
 
   const hasPriorPulls = (data.priorPullsTotal ?? 0) > 0;
   const countTime = format(new Date(createdAt), 'h:mm a');
