@@ -29,6 +29,16 @@ const money = (v: number) => `$${Math.round(v).toLocaleString()}`;
 const num = (v: number) => Math.round(v).toLocaleString();
 const pct = (v: number) => `${v.toFixed(1)}%`;
 
+const ALL_ITEMS = '__ALL__';
+const ITEM_OPTIONS = [ALL_ITEMS, ...TRACKED_ITEMS];
+const itemLabel = (item: string) => (item === ALL_ITEMS ? 'All Items' : item);
+
+interface ItemStat {
+  units: number;
+  sales: number;
+  pmix: number;
+}
+
 interface Row {
   locationId: string;
   locationName: string;
@@ -36,8 +46,10 @@ interface Row {
   sales: number;
   pmix: number;
   totalSales: number;
+  itemStats: Record<string, ItemStat>;
   rank: number;
 }
+
 
 function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: number; netSales: number }> {
   const mix = typeof rowMix === 'string' ? JSON.parse(rowMix) : rowMix;
@@ -80,6 +92,7 @@ function useTrackerData(period: 'day' | 'promo') {
             sales: 0,
             pmix: 0,
             totalSales: 0,
+            itemStats: Object.fromEntries(TRACKED_ITEMS.map(i => [i, { units: 0, sales: 0, pmix: 0 }])),
             rank: 0,
           };
           byLoc.set(row.location_id, entry);
@@ -92,11 +105,21 @@ function useTrackerData(period: 'day' | 'promo') {
           if (matched) {
             entry.units += item.quantity;
             entry.sales += item.netSales;
+            entry.itemStats[matched] ||= { units: 0, sales: 0, pmix: 0 };
+            entry.itemStats[matched].units += item.quantity;
+            entry.itemStats[matched].sales += item.netSales;
           }
         }
       }
       return Array.from(byLoc.values())
-        .map(s => ({ ...s, pmix: s.totalSales > 0 ? (s.sales / s.totalSales) * 100 : 0 }))
+        .map(s => ({
+          ...s,
+          pmix: s.totalSales > 0 ? (s.sales / s.totalSales) * 100 : 0,
+          itemStats: Object.fromEntries(Object.entries(s.itemStats).map(([name, st]) => [
+            name,
+            { ...st, pmix: s.totalSales > 0 ? (st.sales / s.totalSales) * 100 : 0 },
+          ])),
+        }))
         .sort((a, b) => b.pmix - a.pmix)
         .map((s, i) => ({ ...s, rank: i + 1 }));
     },
@@ -105,26 +128,78 @@ function useTrackerData(period: 'day' | 'promo') {
   });
 }
 
-function useMyStats(period: 'day' | 'promo') {
+/** Item switcher state shared by every preview option (mirrors the live widget). */
+function useItemSwitcher() {
+  const [item, setItem] = useState<string>(ALL_ITEMS);
+  const cycle = (dir: 'prev' | 'next') => {
+    const i = Math.max(0, ITEM_OPTIONS.indexOf(item));
+    const next = dir === 'next'
+      ? (i + 1) % ITEM_OPTIONS.length
+      : (i - 1 + ITEM_OPTIONS.length) % ITEM_OPTIONS.length;
+    setItem(ITEM_OPTIONS[next]);
+  };
+  return { item, cycle, label: itemLabel(item) };
+}
+
+function ItemSwitcher({ label, cycle, className = '' }: { label: string; cycle: (dir: 'prev' | 'next') => void; className?: string }) {
+  return (
+    <div className={`flex min-w-0 items-center gap-1 ${className}`}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); cycle('prev'); }}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+        aria-label="Previous item"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="min-w-0 truncate">{label}</span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); cycle('next'); }}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+        aria-label="Next item"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
   const { currentLocation } = useAppLocation();
   const { data, isLoading } = useTrackerData(period);
-  const rows = data || [];
+  const pick = (r: Row): ItemStat => (item === ALL_ITEMS
+    ? { units: r.units, sales: r.sales, pmix: r.pmix }
+    : r.itemStats?.[item] || { units: 0, sales: 0, pmix: 0 });
+
+  const rows = useMemo(() => {
+    const base = data || [];
+    if (item === ALL_ITEMS) return base;
+    return [...base]
+      .sort((a, b) => pick(b).pmix - pick(a).pmix || pick(b).units - pick(a).units)
+      .map((r, i) => ({ ...r, rank: i + 1 }));
+  }, [data, item]);
+
   const mine = useMemo(() => rows.find(r => r.locationId === currentLocation?.id), [rows, currentLocation?.id]);
+  const mineStats = mine ? pick(mine) : { units: 0, sales: 0, pmix: 0 };
   return {
     isLoading,
     rows,
+    pick,
     total: rows.length,
     rank: mine?.rank ?? 0,
-    units: mine?.units ?? 0,
-    sales: mine?.sales ?? 0,
-    pmix: mine?.pmix ?? 0,
+    units: mineStats.units,
+    sales: mineStats.sales,
+    pmix: mineStats.pmix,
     name: currentLocation?.name || 'My Store',
   };
 }
 
+
 /* ---------------- Option A: Poster ---------------- */
 function OptionA({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
@@ -141,8 +216,9 @@ function OptionA({ period }: { period: 'day' | 'promo' }) {
                 </span>
                 Promo
               </span>
-              <p className="truncate text-lg font-extrabold leading-tight text-white drop-shadow">{PROMO_TITLE}</p>
+              <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-lg font-extrabold leading-tight text-white drop-shadow" />
             </div>
+
             <div className="shrink-0 rounded-xl bg-white/15 px-2.5 py-1.5 text-right backdrop-blur-md">
               <p className="text-[9px] font-semibold uppercase tracking-wider text-white/70">Rank</p>
               <p className="text-xl font-black leading-none tabular-nums text-white">
@@ -170,7 +246,8 @@ function OptionA({ period }: { period: 'day' | 'promo' }) {
 
 /* ---------------- Option B: Glass ticker ---------------- */
 function OptionB({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
@@ -181,7 +258,7 @@ function OptionB({ period }: { period: 'day' | 'promo' }) {
           <div className="absolute inset-x-2 bottom-2 flex items-center gap-2 rounded-2xl border border-white/20 bg-black/35 px-2.5 py-2 backdrop-blur-xl">
             <Flame className="h-4 w-4 shrink-0 text-amber-300" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-bold leading-tight text-white">{PROMO_TITLE}</p>
+              <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-[13px] font-bold leading-tight text-white" />
               <p className="text-[10px] font-medium leading-tight text-white/70 tabular-nums">
                 {s.isLoading ? '--' : `${num(s.units)} units · ${money(s.sales)}`}
               </p>
@@ -197,12 +274,13 @@ function OptionB({ period }: { period: 'day' | 'promo' }) {
               <div key={r.locationId} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${r.rank === s.rank ? 'bg-accent text-accent-foreground' : 'bg-muted/45'}`}>
                 <span className="w-6 font-semibold">#{r.rank}</span>
                 <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                <span className="tabular-nums">{num(r.units)}</span>
-                <span className="w-14 text-right tabular-nums">{money(r.sales)}</span>
+                <span className="tabular-nums">{num(s.pick(r).units)}</span>
+                <span className="w-14 text-right tabular-nums">{money(s.pick(r).sales)}</span>
               </div>
             ))}
           </div>
         )}
+
       </CardContent>
     </Card>
   );
@@ -210,7 +288,8 @@ function OptionB({ period }: { period: 'day' | 'promo' }) {
 
 /* ---------------- Option C: Full-bleed hero, image only until tapped ---------------- */
 function OptionC({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
@@ -222,7 +301,8 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
             Promo · Live
           </div>
           <div className="absolute inset-x-0 bottom-0 p-3">
-            <p className="text-2xl font-black leading-none text-white drop-shadow-lg">{PROMO_TITLE}</p>
+            <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-2xl font-black leading-none text-white drop-shadow-lg" />
+
             <div className="mt-2 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-black">
                 <Trophy className="h-3 w-3" /> #{s.isLoading ? '-' : s.rank || '-'} of {s.total || '-'}
@@ -257,8 +337,9 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
                 >
                   <span className="w-6 font-bold tabular-nums">#{r.rank}</span>
                   <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                  <span className="w-16 text-right tabular-nums">{num(r.units)}</span>
-                  <span className="w-16 text-right tabular-nums">{money(r.sales)}</span>
+                  <span className="w-16 text-right tabular-nums">{num(s.pick(r).units)}</span>
+                  <span className="w-16 text-right tabular-nums">{money(s.pick(r).sales)}</span>
+
                 </div>
               ))}
             </div>
@@ -271,7 +352,9 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
 
 /* ---------------- Option D: Framed poster with metal rank medal ---------------- */
 function OptionD({ period }: { period: 'day' | 'promo' }) {
-  const s = useMyStats(period);
+  const sw = useItemSwitcher();
+  const s = useMyStats(period, sw.item);
+
   const [open, setOpen] = useState(false);
   const [metric, setMetric] = useState<'rank' | 'units' | 'sales'>('rank');
   const badge = metric === 'rank'
@@ -301,7 +384,7 @@ function OptionD({ period }: { period: 'day' | 'promo' }) {
             </button>
           </div>
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-8">
-            <p className="truncate text-base font-extrabold text-white">{PROMO_TITLE}</p>
+            <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-base font-extrabold text-white" />
             <button type="button" onClick={() => setOpen(v => !v)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-white/80">
               {open ? 'Hide standings' : 'See standings'}
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -314,9 +397,10 @@ function OptionD({ period }: { period: 'day' | 'promo' }) {
               <div key={r.locationId} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${r.rank === s.rank ? 'bg-accent text-accent-foreground' : 'bg-muted/45'}`}>
                 <span className="w-6 font-semibold">#{r.rank}</span>
                 <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                <span className="tabular-nums">{num(r.units)}</span>
-                <span className="w-14 text-right tabular-nums">{money(r.sales)}</span>
-                <span className="w-11 text-right tabular-nums">{pct(r.pmix)}</span>
+                <span className="tabular-nums">{num(s.pick(r).units)}</span>
+                <span className="w-14 text-right tabular-nums">{money(s.pick(r).sales)}</span>
+                <span className="w-11 text-right tabular-nums">{pct(s.pick(r).pmix)}</span>
+
               </div>
             ))}
           </div>
