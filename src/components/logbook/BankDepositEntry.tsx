@@ -14,7 +14,14 @@ export interface BankDepositData {
     entryDate: string;
     depositAmount: number;
     slipPath?: string;
+    audit?: {
+      countedAmount: number;
+      variance: number;
+      auditedAt: string;
+      auditedByName?: string;
+    };
   }>;
+
   totalDollars: number;
   totalChange: number;
   totalAmount: number;
