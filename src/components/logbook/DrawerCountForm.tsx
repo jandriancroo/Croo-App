@@ -383,36 +383,39 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
             </CardContent>
           </Card>
 
-          {/* Prior Pulls (mid-day counts) */}
+          {/* Earlier Pulls (mid-day counts) */}
           {priorPulls.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Prior Pulls Today
+                  Earlier Pulls Today ({priorPulls.length})
                 </CardTitle>
-                <CardDescription>These earlier counts are locked and included in your total</CardDescription>
+                <CardDescription>
+                  Cash already removed from the drawer earlier today. These are locked and added to your total below.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {priorPulls.map((pull, idx) => (
                   <div key={idx} className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2 text-sm">
-                      <Badge variant="outline" className="text-[10px] px-1.5">#{idx + 1}</Badge>
+                      <Badge variant="outline" className="text-[10px] px-1.5">Pull #{idx + 1}</Badge>
                       <span className="text-muted-foreground">
                         {new Date(pull.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                       </span>
                       {pull.createdBy && <span className="text-muted-foreground">· {pull.createdBy}</span>}
                     </div>
-                    <span className="font-semibold text-sm">{formatCurrency(pull.amount)}</span>
+                    <span className="font-semibold text-sm tabular-nums">{formatCurrency(pull.amount)}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between p-2.5 border-t pt-3">
-                  <span className="text-sm font-medium">Prior Pulls Subtotal</span>
-                  <span className="font-bold">{formatCurrency(calculations.priorPullsTotal)}</span>
+                  <span className="text-sm font-medium">Earlier Pulls Subtotal</span>
+                  <span className="font-bold tabular-nums">{formatCurrency(calculations.priorPullsTotal)}</span>
                 </div>
               </CardContent>
             </Card>
           )}
+
 
           {/* Expected Deposit Comparison */}
           <Card>
