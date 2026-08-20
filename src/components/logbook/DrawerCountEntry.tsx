@@ -12,6 +12,8 @@ interface DrawerCountData {
   variance: number;
   removalSuggestions: { denomination: string; count: number; value: number }[];
   priorPullsTotal?: number;
+  priorPulls?: { amount: number; time: string; createdBy?: string }[];
+
 }
 
 interface DrawerCountEntryProps {
