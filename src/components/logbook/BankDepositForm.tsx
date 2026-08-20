@@ -250,7 +250,10 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         const valueText = entry.logbook_entry_values?.[0]?.value_text;
         if (valueText) {
           const data = JSON.parse(valueText);
-          const depositAmount = data.actualDeposit || 0;
+          const recorded = data.actualDeposit || 0;
+          // If this day was audited, the audited (physically counted) amount wins.
+          const audit = audits[entry.entry_date];
+          const depositAmount = audit ? audit.countedAmount : recorded;
           
           // Exact split: whole dollars in bills, remaining cents as coin.
           // The deposit must match the drawer math to the penny (change included).
@@ -262,7 +265,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
           availableEntries.push({
             entryId: entry.id,
             entryDate: entry.entry_date,
-            depositAmount,
+            depositAmount: recorded,
             alreadyDeposited,
           });
           
@@ -277,6 +280,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
     });
     
     const includableEntries = availableEntries.filter(e => !e.alreadyDeposited);
+    const auditedDays = includableEntries.filter(e => !!audits[e.entryDate]).length;
     
     return {
       entries: availableEntries,
@@ -285,8 +289,9 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
       totalChange,
       totalAmount: totalDollars + totalChange,
       daysIncluded: includableEntries.length,
+      auditedDays,
     };
-  }, [drawerEntries, depositedEntryIds]);
+  }, [drawerEntries, depositedEntryIds, audits]);
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -697,6 +702,11 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                       </div>
                     )}
 
+                    {summary.auditedDays > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Includes audited amounts for {summary.auditedDays} day{summary.auditedDays !== 1 ? 's' : ''}.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -704,6 +714,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
                   </div>
                 </div>
+
                 
 
                 
