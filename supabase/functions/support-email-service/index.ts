@@ -1100,7 +1100,8 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
               safeCountTotal++;
             }
             if (entry.category?.name === "Bank Deposit" && parsed.actualDeposit !== undefined) {
-              depositTotal += Number(parsed.actualDeposit);
+              // Audited amount wins once a deposit audit exists.
+              depositTotal += Number(parsed.auditedDeposit ?? parsed.actualDeposit);
             }
           } catch {}
         }
