@@ -702,17 +702,19 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                       </div>
                     )}
 
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="text-muted-foreground">Days Included</span>
-                    <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
-                    </div>
                     {summary.auditedDays > 0 && (
                       <p className="text-xs text-muted-foreground">
                         Includes audited amounts for {summary.auditedDays} day{summary.auditedDays !== 1 ? 's' : ''}.
                       </p>
                     )}
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-muted-foreground">Days Included</span>
+                    <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
+                  </div>
+                </div>
+
                 
 
                 
