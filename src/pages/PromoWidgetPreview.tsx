@@ -318,9 +318,23 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
           <div className="space-y-2 p-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1 text-sm font-bold text-foreground">
-                <ChevronLeft className="h-4 w-4 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => sw.cycle('prev')}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                  aria-label="Previous item"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
                 <span className="min-w-0 truncate">{sw.label}</span>
-                <ChevronRight className="h-4 w-4 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => sw.cycle('next')}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                  aria-label="Next item"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
               <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Ranking</span>
             </div>
