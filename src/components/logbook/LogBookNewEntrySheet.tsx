@@ -36,21 +36,21 @@ interface LogBookNewEntrySheetProps {
 
 const getCategoryIcon = (name: string) => {
   const lower = name.toLowerCase();
-  if (lower.includes('cash count tool')) return <Calculator className="h-6 w-6" />;
-  if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
-  if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
-  if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
-  if (lower.includes('write') || lower.includes('up')) return <AlertTriangle className="h-6 w-6" />;
-  if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-6 w-6" />;
-  if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
-  if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
-  if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
-  if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-6 w-6" />;
-  if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
-  if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
-  if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
-  if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-6 w-6" />;
-  return <ClipboardList className="h-6 w-6" />;
+  if (lower.includes('cash count tool')) return <Calculator className="h-5 w-5" />;
+  if (lower.includes('drawer')) return <DollarSign className="h-5 w-5" />;
+  if (lower.includes('safe')) return <ShieldCheck className="h-5 w-5" />;
+  if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-5 w-5" />;
+  if (lower.includes('write') || lower.includes('up')) return <AlertTriangle className="h-5 w-5" />;
+  if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-5 w-5" />;
+  if (lower.includes('maintenance')) return <Wrench className="h-5 w-5" />;
+  if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-5 w-5" />;
+  if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-5 w-5" />;
+  if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-5 w-5" />;
+  if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-5 w-5" />;
+  if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-5 w-5" />;
+  if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-5 w-5" />;
+  if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-5 w-5" />;
+  return <ClipboardList className="h-5 w-5" />;
 };
 
 export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
@@ -801,7 +801,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
           <Plus className="h-4 w-4" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[92vh] overflow-y-auto">
         {wizardStep === 'category' ? (
           <>
             <SheetHeader>
@@ -822,9 +822,9 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 <button
                   key={category.id}
                   onClick={() => { setSelectedCategory(category.id); setWizardStep('form'); }}
-                  className="w-full flex items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted"
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/60 active:bg-muted"
                 >
-                  <div className={`shrink-0 flex items-center justify-center h-9 w-9 rounded-lg ${cashStyle ? "bg-teal-500/10 text-teal-500" : "bg-primary/10 text-primary"}`}>
+                  <div className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-lg ${cashStyle ? "bg-teal-500/10 text-teal-500" : "bg-primary/10 text-primary"}`}>
                     {getCategoryIcon(category.name)}
                   </div>
                   <span className="flex-1 font-medium text-sm">{category.name}</span>
@@ -833,16 +833,16 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
               );
 
               return (
-                <div className="mt-4 space-y-5 pb-4">
+                <div className="mt-3 space-y-3 pb-2">
                   <div>
-                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Logs</p>
+                    <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Logs</p>
                     <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
                       {logs.map((c: any) => <Row key={c.id} category={c} cashStyle={false} />)}
                     </div>
                   </div>
                   {cash.length > 0 && (
                     <div>
-                      <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cash Handling</p>
+                      <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Cash Handling</p>
                       <div className="rounded-xl border border-teal-500/40 bg-teal-500/5 divide-y divide-teal-500/20 overflow-hidden">
                         {cash.map((c: any) => <Row key={c.id} category={c} cashStyle />)}
                       </div>
