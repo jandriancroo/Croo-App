@@ -147,7 +147,7 @@ function useItemSwitcher() {
   return { item, cycle, label: itemLabel(item) };
 }
 
-function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
+function useMyStats(period: 'day' | 'week' | 'promo', item: string = ALL_ITEMS) {
   const { currentLocation } = useAppLocation();
   const { data, isLoading } = useTrackerData(period);
   const pick = (r: Row): ItemStat => (item === ALL_ITEMS
@@ -177,7 +177,7 @@ function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
   };
 }
 
-function PromoWidgetCard({ period }: { period: 'day' | 'promo' }) {
+function PromoWidgetCard({ period, setPeriod }: { period: 'day' | 'week' | 'promo'; setPeriod: (p: 'day' | 'week' | 'promo') => void }) {
   const sw = useItemSwitcher();
   const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
