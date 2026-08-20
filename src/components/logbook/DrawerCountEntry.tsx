@@ -79,13 +79,20 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">{hasPriorPulls ? 'Total Handled:' : 'Actual:'}</span>
             <span className="font-medium ml-2 sm:ml-1">
-              {formatCurrency(hasPriorPulls ? data.actualDeposit + (data.priorPullsTotal || 0) : data.actualDeposit)}
+              {audit && (
+                <span className="line-through text-muted-foreground mr-1.5">
+                  {formatCurrency(hasPriorPulls ? data.actualDeposit + (data.priorPullsTotal || 0) : data.actualDeposit)}
+                </span>
+              )}
+              <span className={audit ? 'text-destructive font-semibold' : ''}>
+                {formatCurrency(hasPriorPulls ? effectiveDeposit + (data.priorPullsTotal || 0) : effectiveDeposit)}
+              </span>
             </span>
           </div>
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">Variance:</span>
             <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
-              {varianceLabel} {formatCurrency(Math.abs(data.variance))}
+              {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
             </span>
           </div>
         </div>
