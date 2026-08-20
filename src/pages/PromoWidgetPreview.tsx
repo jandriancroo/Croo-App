@@ -384,7 +384,7 @@ function OptionD({ period }: { period: 'day' | 'promo' }) {
             </button>
           </div>
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-8">
-            <p className="truncate text-base font-extrabold text-white">{PROMO_TITLE}</p>
+            <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-base font-extrabold text-white" />
             <button type="button" onClick={() => setOpen(v => !v)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-white/80">
               {open ? 'Hide standings' : 'See standings'}
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -397,9 +397,10 @@ function OptionD({ period }: { period: 'day' | 'promo' }) {
               <div key={r.locationId} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${r.rank === s.rank ? 'bg-accent text-accent-foreground' : 'bg-muted/45'}`}>
                 <span className="w-6 font-semibold">#{r.rank}</span>
                 <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                <span className="tabular-nums">{num(r.units)}</span>
-                <span className="w-14 text-right tabular-nums">{money(r.sales)}</span>
-                <span className="w-11 text-right tabular-nums">{pct(r.pmix)}</span>
+                <span className="tabular-nums">{num(s.pick(r).units)}</span>
+                <span className="w-14 text-right tabular-nums">{money(s.pick(r).sales)}</span>
+                <span className="w-11 text-right tabular-nums">{pct(s.pick(r).pmix)}</span>
+
               </div>
             ))}
           </div>
