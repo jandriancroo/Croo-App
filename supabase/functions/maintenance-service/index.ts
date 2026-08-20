@@ -768,7 +768,11 @@ async function handleGenerateWeeklySummary(
       entry.logbook_entry_values?.forEach((val: any) => {
         try {
           const data = JSON.parse(val.value_text || '{}');
-          const varianceAmount = data.variance ?? data.overUnder ?? null;
+          // Audited (physically counted) amount is the number of record once a
+          // bank deposit audit has been performed for that day.
+          const varianceAmount = data.audit
+            ? (data.auditedVariance ?? ((data.variance ?? 0) + ((data.audit.countedAmount ?? 0) - (data.actualDeposit ?? 0))))
+            : (data.variance ?? data.overUnder ?? null);
           if (varianceAmount !== null && varianceAmount !== undefined) {
             totalOverShort += varianceAmount;
             drawerCountDays++;
