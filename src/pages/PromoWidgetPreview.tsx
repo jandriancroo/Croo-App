@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ChevronDown, ChevronLeft, ChevronRight, Crown, Flame, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -141,30 +141,6 @@ function useItemSwitcher() {
   return { item, cycle, label: itemLabel(item) };
 }
 
-function ItemSwitcher({ label, cycle, className = '' }: { label: string; cycle: (dir: 'prev' | 'next') => void; className?: string }) {
-  return (
-    <div className={`flex min-w-0 items-center gap-1 ${className}`}>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); e.preventDefault(); cycle('prev'); }}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
-        aria-label="Previous item"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-      <span className="min-w-0 truncate">{label}</span>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); e.preventDefault(); cycle('next'); }}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
-        aria-label="Next item"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
 function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
   const { currentLocation } = useAppLocation();
   const { data, isLoading } = useTrackerData(period);
@@ -195,99 +171,7 @@ function useMyStats(period: 'day' | 'promo', item: string = ALL_ITEMS) {
   };
 }
 
-
-/* ---------------- Option A: Poster ---------------- */
-function OptionA({ period }: { period: 'day' | 'promo' }) {
-  const sw = useItemSwitcher();
-  const s = useMyStats(period, sw.item);
-  const [open, setOpen] = useState(false);
-  return (
-    <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
-      <CardContent className="p-0">
-        <button type="button" onClick={() => setOpen(v => !v)} className="relative block w-full aspect-[16/9] overflow-hidden text-left">
-          <img src={PROMO_IMAGE} alt={PROMO_TITLE} className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3">
-            <div className="min-w-0">
-              <span className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white backdrop-blur-sm">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                </span>
-                Promo
-              </span>
-              <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-lg font-extrabold leading-tight text-white drop-shadow" />
-            </div>
-
-            <div className="shrink-0 rounded-xl bg-white/15 px-2.5 py-1.5 text-right backdrop-blur-md">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-white/70">Rank</p>
-              <p className="text-xl font-black leading-none tabular-nums text-white">
-                #{s.isLoading ? '-' : s.rank || '-'}
-                <span className="text-xs font-semibold text-white/70">/{s.total || '-'}</span>
-              </p>
-            </div>
-          </div>
-          <ChevronDown className={`absolute right-2 top-2 h-5 w-5 rounded-full bg-black/35 p-0.5 text-white transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-        {open && (
-          <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60">
-            {[['Units', num(s.units)], ['Sales', money(s.sales)], ['PMIX', pct(s.pmix)]].map(([l, v]) => (
-              <div key={l} className="px-2 py-2 text-center">
-                <p className="text-[9px] font-medium uppercase text-muted-foreground">{l}</p>
-                <p className="text-sm font-bold tabular-nums">{s.isLoading ? '--' : v}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ---------------- Option B: Glass ticker ---------------- */
-function OptionB({ period }: { period: 'day' | 'promo' }) {
-  const sw = useItemSwitcher();
-  const s = useMyStats(period, sw.item);
-  const [open, setOpen] = useState(false);
-  return (
-    <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
-      <CardContent className="p-0">
-        <button type="button" onClick={() => setOpen(v => !v)} className="relative block w-full aspect-[2/1] overflow-hidden text-left">
-          <img src={PROMO_IMAGE} alt={PROMO_TITLE} className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-br from-black/25 via-transparent to-black/45" />
-          <div className="absolute inset-x-2 bottom-2 flex items-center gap-2 rounded-2xl border border-white/20 bg-black/35 px-2.5 py-2 backdrop-blur-xl">
-            <Flame className="h-4 w-4 shrink-0 text-amber-300" />
-            <div className="min-w-0 flex-1">
-              <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-[13px] font-bold leading-tight text-white" />
-              <p className="text-[10px] font-medium leading-tight text-white/70 tabular-nums">
-                {s.isLoading ? '--' : `${num(s.units)} units · ${money(s.sales)}`}
-              </p>
-            </div>
-            <span className="shrink-0 rounded-lg bg-amber-400/90 px-2 py-1 text-[11px] font-black tabular-nums text-black">
-              #{s.isLoading ? '-' : s.rank || '-'}
-            </span>
-          </div>
-        </button>
-        {open && (
-          <div className="space-y-1 px-2 py-2">
-            {s.rows.slice(0, 6).map(r => (
-              <div key={r.locationId} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${r.rank === s.rank ? 'bg-accent text-accent-foreground' : 'bg-muted/45'}`}>
-                <span className="w-6 font-semibold">#{r.rank}</span>
-                <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                <span className="tabular-nums">{num(s.pick(r).units)}</span>
-                <span className="w-14 text-right tabular-nums">{money(s.pick(r).sales)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ---------------- Option C: Full-bleed hero, image only until tapped ---------------- */
-function OptionC({ period }: { period: 'day' | 'promo' }) {
+function PromoWidgetCard({ period }: { period: 'day' | 'promo' }) {
   const sw = useItemSwitcher();
   const s = useMyStats(period, sw.item);
   const [open, setOpen] = useState(false);
@@ -377,66 +261,6 @@ function OptionC({ period }: { period: 'day' | 'promo' }) {
   );
 }
 
-/* ---------------- Option D: Framed poster with metal rank medal ---------------- */
-function OptionD({ period }: { period: 'day' | 'promo' }) {
-  const sw = useItemSwitcher();
-  const s = useMyStats(period, sw.item);
-
-  const [open, setOpen] = useState(false);
-  const [metric, setMetric] = useState<'rank' | 'units' | 'sales'>('rank');
-  const badge = metric === 'rank'
-    ? `#${s.rank || '-'} / ${s.total || '-'}`
-    : metric === 'units' ? `${num(s.units)} sold` : money(s.sales);
-  return (
-    <Card className="overflow-hidden border-border/50 bg-card shadow-lg">
-      <CardContent className="p-0">
-        <div className="relative aspect-[5/3] w-full overflow-hidden">
-          <img src={PROMO_IMAGE} alt={PROMO_TITLE} className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 ring-1 ring-inset ring-white/15" />
-          <div className="absolute inset-x-0 top-0 flex items-center justify-between p-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-black/45 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-white backdrop-blur-md">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              </span>
-              Promo
-            </span>
-            <button
-              type="button"
-              onClick={() => setMetric(m => (m === 'rank' ? 'units' : m === 'units' ? 'sales' : 'rank'))}
-              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-b from-amber-200 to-amber-500 px-2.5 py-1 text-[11px] font-black tabular-nums text-black shadow-md"
-            >
-              <Crown className="h-3 w-3" />
-              {s.isLoading ? '--' : badge}
-            </button>
-          </div>
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-8">
-            <ItemSwitcher label={sw.label} cycle={sw.cycle} className="text-base font-extrabold text-white" />
-            <button type="button" onClick={() => setOpen(v => !v)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-white/80">
-              {open ? 'Hide standings' : 'See standings'}
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
-        </div>
-        {open && (
-          <div className="space-y-1 px-2 py-2">
-            {s.rows.slice(0, 8).map(r => (
-              <div key={r.locationId} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${r.rank === s.rank ? 'bg-accent text-accent-foreground' : 'bg-muted/45'}`}>
-                <span className="w-6 font-semibold">#{r.rank}</span>
-                <span className="min-w-0 flex-1 truncate">{r.locationName}</span>
-                <span className="tabular-nums">{num(s.pick(r).units)}</span>
-                <span className="w-14 text-right tabular-nums">{money(s.pick(r).sales)}</span>
-                <span className="w-11 text-right tabular-nums">{pct(s.pick(r).pmix)}</span>
-
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function PromoWidgetPreview() {
   const [period, setPeriod] = useState<'day' | 'promo'>('promo');
   const s = useMyStats(period);
@@ -444,9 +268,9 @@ export default function PromoWidgetPreview() {
   return (
     <div className="mx-auto max-w-md space-y-6 px-4 py-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-bold">Promo Widget — Design Options</h1>
+        <h1 className="text-xl font-bold">Promo Widget</h1>
         <p className="text-sm text-muted-foreground">
-          Live data for {s.name}. Tap any card to expand. Nothing here changes your dashboard.
+          Live data for {s.name}. Tap the card to expand. Nothing here changes your dashboard.
         </p>
         <div className="inline-flex overflow-hidden rounded-md border border-border">
           <button type="button" onClick={() => setPeriod('day')} className={`px-3 py-1.5 text-xs font-semibold ${period === 'day' ? 'bg-accent text-accent-foreground' : ''}`}>Today</button>
@@ -454,23 +278,16 @@ export default function PromoWidgetPreview() {
         </div>
       </header>
 
-      {[
-        { label: 'Option A — Poster + rank chip', note: '16:9 image, headline and rank badge sit in the shadow. Stats slide out underneath.', node: <OptionA period={period} /> },
-        { label: 'Option B — Glass ticker', note: 'Big image, one frosted bar with name, units/sales, and a gold rank pill. Expands into standings.', node: <OptionB period={period} /> },
-        { label: 'Option C — Full hero', note: 'Tallest, most magazine-like. Item name huge, two pill stats. Tap for full detail.', node: <OptionC period={period} /> },
-        { label: 'Option D — Framed poster + medal', note: 'Metal rank medal, tap the medal to swap rank / units / sales. Standings on demand.', node: <OptionD period={period} /> },
-      ].map(o => (
-        <section key={o.label} className="space-y-2">
-          <div>
-            <h2 className="text-sm font-semibold">{o.label}</h2>
-            <p className="text-xs text-muted-foreground">{o.note}</p>
-          </div>
-          {o.node}
-        </section>
-      ))}
+      <section className="space-y-2">
+        <div>
+          <h2 className="text-sm font-semibold">Option C — Full hero</h2>
+          <p className="text-xs text-muted-foreground">Tallest, most magazine-like. Item name huge, one pill with all metrics. Tap for full detail.</p>
+        </div>
+        <PromoWidgetCard period={period} />
+      </section>
 
       <p className="pb-10 text-xs text-muted-foreground">
-        Tell me which one (or a mix) and I'll build it into the real widget.
+        Let me know if you want to tweak this layout before I wire it into the real widget.
       </p>
     </div>
   );
