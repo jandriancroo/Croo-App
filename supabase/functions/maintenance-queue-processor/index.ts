@@ -206,18 +206,17 @@ async function processBackfillLabor(supabaseUrl: string, supabaseKey: string, ta
 // WEEKLY SUMMARY — calls maintenance-service generate-weekly-summary
 // ============================================================================
 async function processWeeklySummary(supabaseUrl: string, supabaseKey: string, task: any) {
-  // Calculate week start/end from target_date (which is yesterday = Sunday)
-  const targetDate = new Date(task.target_date + "T12:00:00");
-  const dayOfWeek = targetDate.getDay();
-  
-  // Find the Monday of the previous week
-  const weekStart = new Date(targetDate);
-  weekStart.setDate(weekStart.getDate() - ((dayOfWeek + 6) % 7) - 7); // Previous Monday
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6); // Previous Sunday
+  // target_date is Sunday (yesterday when queued on Monday) = week_end.
+  // week_start is the Monday 6 days earlier — same window the weekly email uses.
+  const weekEnd = new Date(task.target_date + "T12:00:00");
+  const weekStart = new Date(weekEnd);
+  weekStart.setDate(weekStart.getDate() - 6);
 
-  const weekStartStr = weekStart.toISOString().slice(0, 10);
-  const weekEndStr = weekEnd.toISOString().slice(0, 10);
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const weekStartStr = fmt(weekStart);
+  const weekEndStr = fmt(weekEnd);
+
 
   const response = await fetch(`${supabaseUrl}/functions/v1/maintenance-service`, {
     method: "POST",
