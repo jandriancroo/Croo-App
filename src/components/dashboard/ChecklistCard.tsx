@@ -101,6 +101,12 @@ export const ChecklistCard = memo(function ChecklistCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm truncate">{title}</span>
+            {isOverdue && (
+              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4.5 shrink-0 gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Overdue
+              </Badge>
+            )}
           </div>
           {isLocked ? (
             <span className="text-xs text-muted-foreground">
