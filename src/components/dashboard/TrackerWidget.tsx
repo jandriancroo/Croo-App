@@ -270,66 +270,71 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             ))}
           </div>
 
-          <div className="pointer-events-none absolute left-2 top-[3.05rem] right-2 h-10 rounded-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl" />
-
           <div className="absolute left-3 top-[3.25rem] right-3">
-            <p className="truncate text-2xl font-black leading-none text-white drop-shadow-lg">{tracker.title}</p>
+            <p className="truncate text-2xl font-black leading-none text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]">{tracker.title}</p>
           </div>
 
           <div className="absolute inset-x-0 bottom-0 p-3">
-            <div className="pointer-events-none absolute left-2 right-2 top-3 h-7 rounded-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl" />
-            <div className="mb-2 flex items-center gap-1 text-xs font-bold text-white drop-shadow">
-              {itemSwitchOptions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
-                  aria-label="Previous item"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-              )}
-              <span className="min-w-0 truncate">{activeItemLabel}</span>
-              {itemSwitchOptions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/20 hover:text-white"
-                  aria-label="Next item"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <div className="mt-2 flex items-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[11px] font-bold text-black shadow-sm">
-                <Trophy className="h-3 w-3" />
-                <span className="tabular-nums">Rank #{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
-                {rankMetrics.includes('units') && (
-                  <>
-                    <span className="h-3.5 w-px bg-black/15" />
-                    <span className="tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
-                  </>
+            <div className="flex h-7 w-full items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold shadow-lg backdrop-blur-sm">
+              {/* Item selector as the white selected segment */}
+              <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-white px-1.5 py-1 text-black">
+                {itemSwitchOptions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
+                    aria-label="Previous item"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </button>
                 )}
-                {rankMetrics.includes('sales') && (
-                  <>
-                    <span className="h-3.5 w-px bg-black/15" />
-                    <span className="tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
-                  </>
+                <span className="max-w-[100px] truncate">{activeItemLabel}</span>
+                {itemSwitchOptions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
+                    aria-label="Next item"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
                 )}
-                {rankMetrics.includes('pmix') && (
-                  <>
-                    <span className="h-3.5 w-px bg-black/15" />
-                    <span className="tabular-nums">{isPending ? '--' : percent(myVisibleStats.pmix)}</span>
-                  </>
-                )}
-                {canExpand && (
-                  <>
-                    <span className="h-3.5 w-px bg-black/15" />
+              </div>
+
+              {/* Ranking metrics on the dark glass remainder - scrollable on narrow screens */}
+              <div className="flex min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap px-2 py-1 text-white no-scrollbar">
+                <div className="flex items-center gap-1">
+                  <Trophy className="h-2.5 w-2.5 shrink-0" />
+                  <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
+                  {rankMetrics.includes('units') && (
+                    <>
+                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                      <span className="shrink-0 tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
+                    </>
+                  )}
+                  {rankMetrics.includes('sales') && (
+                    <>
+                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                      <span className="shrink-0 tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
+                    </>
+                  )}
+                  {rankMetrics.includes('pmix') && (
+                    <>
+                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                      <span className="shrink-0 tabular-nums">{isPending ? '--' : percent(myVisibleStats.pmix)}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {canExpand && (
+                <div className="flex shrink-0 items-center px-2 py-1 text-white/80">
+                  <span className="h-3 w-px bg-white/25" />
+                  <span className="ml-1.5">
                     {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  </>
-                )}
-              </span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </button>

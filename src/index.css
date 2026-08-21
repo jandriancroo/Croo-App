@@ -1337,6 +1337,15 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
       -4px -4px 12px hsl(0 0% 100% / 0.03);
   }
 
+  /* Hide scrollbar utility for horizontal scrolling pill contents */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   /* ============================================
      Global Frosted Glass Buttons (All Themes)
      ============================================ */
