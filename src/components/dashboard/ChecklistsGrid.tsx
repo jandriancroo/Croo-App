@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 
