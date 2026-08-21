@@ -235,11 +235,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0">
-        <div className="m-2 rounded-2xl border border-white/15 bg-gradient-to-b from-white/10 to-white/5 p-1 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-sm">
+        <div className="relative m-2 rounded-[26px]">
           <button
             type="button"
             onClick={() => canExpand && setExpanded(v => !v)}
-            className="relative block w-full aspect-[4/2.3] overflow-hidden rounded-xl text-left"
+            className="relative block w-full aspect-[4/2.3] overflow-hidden rounded-[26px] text-left shadow-[0_18px_40px_-18px_rgba(0,0,0,0.55)]"
             onTouchStart={handleItemTouchStart}
             onTouchEnd={handleItemTouchEnd}
           >
@@ -249,6 +249,13 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-primary" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+
+            {/* Glass bubble rim */}
+            <div className="pointer-events-none absolute inset-0 rounded-[26px] border border-white/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25),inset_0_2px_6px_rgba(255,255,255,0.55),inset_0_-2px_6px_rgba(255,255,255,0.45),inset_6px_0_10px_-6px_rgba(255,255,255,0.6),inset_-6px_0_10px_-6px_rgba(255,255,255,0.6),0_0_10px_rgba(255,255,255,0.35)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-gradient-to-b from-white/25 via-transparent to-white/10 mix-blend-screen" />
+            <div className="pointer-events-none absolute left-5 right-5 top-[3px] h-[6px] rounded-full bg-white/70 blur-[3px]" />
+            <div className="pointer-events-none absolute left-8 right-8 bottom-[3px] h-[5px] rounded-full bg-white/55 blur-[3px]" />
+
 
             <div className="absolute left-3 top-3 inline-flex h-6 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
