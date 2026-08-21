@@ -288,7 +288,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                     <ChevronLeft className="h-3 w-3" />
                   </button>
                 )}
-                <span className="max-w-[80px] truncate">{activeItemLabel}</span>
+                <span className="max-w-[100px] truncate">{activeItemLabel}</span>
                 {itemSwitchOptions.length > 1 && (
                   <button
                     type="button"
