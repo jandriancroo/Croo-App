@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
+
 import { useVisualAlerts } from "@/hooks/useVisualAlerts";
 import { VisualAlertCard } from "./VisualAlertCard";
 
@@ -19,9 +20,9 @@ const SUPPRESS_PREFIXES = [
 
 export function VisualAlertStack() {
   const { alerts, markSeen } = useVisualAlerts();
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
 
   const suppress = useMemo(
     () => SUPPRESS_PREFIXES.some((p) => location.pathname.startsWith(p)),
@@ -54,19 +55,14 @@ export function VisualAlertStack() {
   // Top card = last in array
   const topIndex = ordered.length - 1;
   const top = ordered[topIndex];
+  const isLast = ordered.length === 1;
 
-  const handleComplete = async () => {
-    await markSeen(top.id);
-    if (top.alert_type === "overdue_checklist") {
-      navigate(`/complete-checklist/${top.ref_id}`);
-    } else {
-      // Quick task: send them to Tasks page where assignments + subtasks live
-      navigate(`/tasks?task=${top.ref_id}`);
-    }
+  const handleNext = () => {
+    markSeen(top.id);
   };
 
-  const handleExit = () => {
-    markSeen(top.id);
+  const handleCloseAll = () => {
+    Promise.all(ordered.map((a) => markSeen(a.id)));
   };
 
   // Render up to 3 stacked layers behind the top card
@@ -97,11 +93,13 @@ export function VisualAlertStack() {
           <VisualAlertCard
             alert={top}
             remaining={ordered.length}
-            onComplete={handleComplete}
-            onExit={handleExit}
+            isLast={isLast}
+            onNext={handleNext}
+            onCloseAll={handleCloseAll}
           />
         </div>
       </div>
     </div>
   );
 }
+

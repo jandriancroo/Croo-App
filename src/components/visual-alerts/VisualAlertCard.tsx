@@ -1,21 +1,30 @@
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, ClipboardList, Zap } from "lucide-react";
+import { ClipboardList, X, Zap } from "lucide-react";
 import type { VisualAlert } from "@/hooks/useVisualAlerts";
 
 interface Props {
   alert: VisualAlert;
   remaining: number; // total cards still in stack including this one
-  onComplete: () => void;
-  onExit: () => void;
+  isLast: boolean;
+  onNext: () => void;
+  onCloseAll: () => void;
 }
 
-export function VisualAlertCard({ alert, remaining, onComplete, onExit }: Props) {
+export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }: Props) {
   const isChecklist = alert.alert_type === "overdue_checklist";
   const Icon = isChecklist ? ClipboardList : Zap;
-  const ctaLabel = isChecklist ? "Complete Checklist" : "Complete Task";
 
   return (
     <div className="relative w-full max-w-sm rounded-2xl bg-card border border-border/40 shadow-2xl p-6 animate-scale-in">
+      {/* Close all / dismiss bubble */}
+      <button
+        onClick={onCloseAll}
+        aria-label="Close all notifications"
+        className="absolute -top-3 -left-3 h-8 w-8 rounded-full bg-card border border-border/40 shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      >
+        <X className="h-4 w-4" />
+      </button>
+
       {remaining > 1 && (
         <div className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow">
           {remaining} pending
@@ -43,20 +52,13 @@ export function VisualAlertCard({ alert, remaining, onComplete, onExit }: Props)
       )}
 
       <Button
-        onClick={onComplete}
+        onClick={onNext}
         className="w-full h-12 text-base font-semibold gap-2"
         size="lg"
       >
-        <CheckCircle2 className="h-5 w-5" />
-        {ctaLabel}
+        {isLast ? "Done" : "Next"}
       </Button>
-
-      <button
-        onClick={onExit}
-        className="block w-full text-center mt-3 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-      >
-        Exit
-      </button>
     </div>
   );
 }
+
