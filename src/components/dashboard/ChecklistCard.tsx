@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
-import { Check, Lock, ChevronRight, GripVertical } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Check, Lock, ChevronRight, GripVertical, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { memo } from "react";
 import { cn } from "@/lib/utils";
