@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
+
 import { useVisualAlerts } from "@/hooks/useVisualAlerts";
 import { VisualAlertCard } from "./VisualAlertCard";
 
