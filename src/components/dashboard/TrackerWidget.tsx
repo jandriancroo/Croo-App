@@ -251,10 +251,10 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
 
             {/* Glass bubble rim */}
-            <div className="pointer-events-none absolute inset-0 rounded-[26px] border border-white/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25),inset_0_2px_6px_rgba(255,255,255,0.55),inset_0_-2px_6px_rgba(255,255,255,0.45),inset_6px_0_10px_-6px_rgba(255,255,255,0.6),inset_-6px_0_10px_-6px_rgba(255,255,255,0.6),0_0_10px_rgba(255,255,255,0.35)]" />
-            <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-gradient-to-b from-white/25 via-transparent to-white/10 mix-blend-screen" />
-            <div className="pointer-events-none absolute left-5 right-5 top-[3px] h-[6px] rounded-full bg-white/70 blur-[3px]" />
-            <div className="pointer-events-none absolute left-8 right-8 bottom-[3px] h-[5px] rounded-full bg-white/55 blur-[3px]" />
+            <div className="pointer-events-none absolute inset-0 rounded-[26px] border-[0.5px] border-white/50 shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.35),inset_0_1px_3px_rgba(255,255,255,0.45),inset_0_-1px_3px_rgba(255,255,255,0.35),0_2px_6px_rgba(0,0,0,0.15)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-gradient-to-b from-white/15 via-transparent to-white/8 mix-blend-screen" />
+            <div className="pointer-events-none absolute left-6 right-6 top-[2px] h-[3px] rounded-full bg-white/50 blur-[2px]" />
+            <div className="pointer-events-none absolute left-8 right-8 bottom-[2px] h-[2px] rounded-full bg-white/35 blur-[2px]" />
 
 
             <div className="absolute left-3 top-3 inline-flex h-6 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
