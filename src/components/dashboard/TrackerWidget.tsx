@@ -270,11 +270,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             ))}
           </div>
 
+          <div className="pointer-events-none absolute left-2 top-[3.05rem] right-2 h-10 rounded-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl" />
+
           <div className="absolute left-3 top-[3.25rem] right-3">
             <p className="truncate text-2xl font-black leading-none text-white drop-shadow-lg">{tracker.title}</p>
           </div>
 
           <div className="absolute inset-x-0 bottom-0 p-3">
+            <div className="pointer-events-none absolute left-2 right-2 top-3 h-7 rounded-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl" />
             <div className="mb-2 flex items-center gap-1 text-xs font-bold text-white drop-shadow">
               {itemSwitchOptions.length > 1 && (
                 <button
