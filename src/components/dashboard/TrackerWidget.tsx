@@ -235,103 +235,105 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0">
-        <button
-          type="button"
-          onClick={() => canExpand && setExpanded(v => !v)}
-          className="relative block w-full aspect-[4/2.3] overflow-hidden text-left"
-          onTouchStart={handleItemTouchStart}
-          onTouchEnd={handleItemTouchEnd}
-        >
-          {promoImageUrl ? (
-            <img src={promoImageUrl} alt={tracker.title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-          ) : (
-            <div className="absolute inset-0 bg-primary" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+        <div className="m-2 rounded-2xl border border-white/15 bg-gradient-to-b from-white/10 to-white/5 p-1 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={() => canExpand && setExpanded(v => !v)}
+            className="relative block w-full aspect-[4/2.3] overflow-hidden rounded-xl text-left"
+            onTouchStart={handleItemTouchStart}
+            onTouchEnd={handleItemTouchEnd}
+          >
+            {promoImageUrl ? (
+              <img src={promoImageUrl} alt={tracker.title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+            ) : (
+              <div className="absolute inset-0 bg-primary" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
 
-          <div className="absolute left-3 top-3 inline-flex h-6 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
-            </span>
-            LIVE
-          </div>
-
-          <div className="absolute right-3 top-3 inline-flex h-6 items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
-            {PERIOD_MODES.map(key => (
-              <button
-                key={key}
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
-                className={`px-2.5 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
-              >
-                {PERIOD_LABELS[key]}
-              </button>
-            ))}
-          </div>
-
-          <div className="absolute left-3 top-[3.25rem] right-3">
-            <p className="truncate text-2xl font-black leading-none text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]">{tracker.title}</p>
-          </div>
-
-          <div className="absolute inset-x-0 bottom-0 p-3">
-            <div className="flex h-7 w-full items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold shadow-lg backdrop-blur-sm">
-              {/* Item selector as the white selected segment */}
-              <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-white px-1.5 py-1 text-black">
-                {itemSwitchOptions.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
-                    aria-label="Previous item"
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </button>
-                )}
-                <span className="max-w-[100px] truncate">{activeItemLabel}</span>
-                {itemSwitchOptions.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
-                    aria-label="Next item"
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-
-              {/* Ranking metrics on the dark glass remainder - scrollable on narrow screens */}
-              <div className="flex min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap px-2 py-1 text-white no-scrollbar">
-                <div className="flex items-center gap-1">
-                  <Trophy className="h-2.5 w-2.5 shrink-0" />
-                  <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
-                  {rankMetrics.includes('units') && (
-                    <>
-                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
-                      <span className="shrink-0 tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
-                    </>
-                  )}
-                  {rankMetrics.includes('sales') && (
-                    <>
-                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
-                      <span className="shrink-0 tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {canExpand && (
-                <div className="flex shrink-0 items-center px-2 py-1 text-white/80">
-                  <span className="h-3 w-px bg-white/25" />
-                  <span className="ml-1.5">
-                    {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  </span>
-                </div>
-              )}
+            <div className="absolute left-3 top-3 inline-flex h-6 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+              </span>
+              LIVE
             </div>
-          </div>
-        </button>
+
+            <div className="absolute right-3 top-3 inline-flex h-6 items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+              {PERIOD_MODES.map(key => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
+                  className={`px-2.5 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
+                >
+                  {PERIOD_LABELS[key]}
+                </button>
+              ))}
+            </div>
+
+            <div className="absolute left-3 top-[3.25rem] right-3">
+              <p className="truncate text-2xl font-black leading-none text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]">{tracker.title}</p>
+            </div>
+
+            <div className="absolute inset-x-0 bottom-0 p-3">
+              <div className="flex h-7 w-full items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold shadow-lg backdrop-blur-sm">
+                {/* Item selector as the white selected segment */}
+                <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-white px-1.5 py-1 text-black">
+                  {itemSwitchOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
+                      aria-label="Previous item"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </button>
+                  )}
+                  <span className="max-w-[100px] truncate">{activeItemLabel}</span>
+                  {itemSwitchOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
+                      aria-label="Next item"
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Ranking metrics on the dark glass remainder - scrollable on narrow screens */}
+                <div className="flex min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap px-2 py-1 text-white no-scrollbar">
+                  <div className="flex items-center gap-1">
+                    <Trophy className="h-2.5 w-2.5 shrink-0" />
+                    <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
+                    {rankMetrics.includes('units') && (
+                      <>
+                        <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                        <span className="shrink-0 tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
+                      </>
+                    )}
+                    {rankMetrics.includes('sales') && (
+                      <>
+                        <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                        <span className="shrink-0 tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {canExpand && (
+                  <div className="flex shrink-0 items-center px-2 py-1 text-white/80">
+                    <span className="h-3 w-px bg-white/25" />
+                    <span className="ml-1.5">
+                      {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+        </div>
 
         {canExpand && expanded && (
           <div className="space-y-2 p-3">
