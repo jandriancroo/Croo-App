@@ -318,12 +318,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                       <span className="shrink-0 tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
                     </>
                   )}
-                  {rankMetrics.includes('pmix') && (
-                    <>
-                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
-                      <span className="shrink-0 tabular-nums">{isPending ? '--' : percent(myVisibleStats.pmix)}</span>
-                    </>
-                  )}
                 </div>
               </div>
 
