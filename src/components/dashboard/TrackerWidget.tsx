@@ -233,7 +233,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   );
 
   return (
-    <Card className="overflow-hidden border-transparent bg-transparent shadow-none">
+    <Card className="overflow-hidden rounded-[26px] border-transparent bg-transparent shadow-none">
       <CardContent className="p-0">
         <div className="relative">
           <button
@@ -249,6 +249,12 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-primary" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+
+            {/* Glass bubble overlay */}
+            <div className="pointer-events-none absolute inset-0 rounded-[26px] border-[0.5px] border-white/60 shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.45),inset_0_2px_6px_rgba(255,255,255,0.55),inset_0_-1px_3px_rgba(255,255,255,0.35),0_4px_12px_rgba(0,0,0,0.2)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-gradient-to-b from-white/18 via-transparent to-white/10 mix-blend-screen" />
+            <div className="pointer-events-none absolute left-5 right-5 top-[1px] h-[4px] rounded-full bg-white/70 blur-[3px]" />
+            <div className="pointer-events-none absolute left-6 right-6 bottom-[2px] h-[2px] rounded-full bg-white/40 blur-[2px]" />
 
             <div className="absolute left-3 top-3 inline-flex h-6 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
