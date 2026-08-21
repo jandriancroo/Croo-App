@@ -92,6 +92,7 @@ const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
 const UsageModelsPage = lazyWithRetry(() => import("./pages/UsageModelsPage"));
 const PeriodSelectorPreview = lazyWithRetry(() => import("./pages/PeriodSelectorPreview"));
 const PromoWidgetPreview = lazyWithRetry(() => import("./pages/PromoWidgetPreview"));
+const VisualAlertPreview = lazyWithRetry(() => import("./pages/VisualAlertPreview"));
 
 const QRCodeGenerator = lazyWithRetry(() => import("./pages/QRCodeGenerator"));
 const QRQuickTaskReport = lazyWithRetry(() => import("./pages/QRQuickTaskReport"));
@@ -242,6 +243,7 @@ const AppContent = () => {
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
         <Route path="/toast-preview" element={<ProtectedRoute><ToastPreview /></ProtectedRoute>} />
         <Route path="/promo-widget-preview" element={<ProtectedRoute><PromoWidgetPreview /></ProtectedRoute>} />
+        <Route path="/visual-alert-preview" element={<ProtectedRoute><VisualAlertPreview /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
         
