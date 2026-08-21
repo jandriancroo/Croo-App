@@ -233,7 +233,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   );
 
   return (
-    <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
+    <Card className="overflow-hidden border-transparent bg-transparent shadow-none">
       <CardContent className="p-0">
         <div className="relative m-2 rounded-[26px]">
           <button
