@@ -20,9 +20,9 @@ const SUPPRESS_PREFIXES = [
 
 export function VisualAlertStack() {
   const { alerts, markSeen } = useVisualAlerts();
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
 
   const suppress = useMemo(
     () => SUPPRESS_PREFIXES.some((p) => location.pathname.startsWith(p)),
