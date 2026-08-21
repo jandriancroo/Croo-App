@@ -92,6 +92,7 @@ const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
 const UsageModelsPage = lazyWithRetry(() => import("./pages/UsageModelsPage"));
 const PeriodSelectorPreview = lazyWithRetry(() => import("./pages/PeriodSelectorPreview"));
 const PromoWidgetPreview = lazyWithRetry(() => import("./pages/PromoWidgetPreview"));
+const VisualAlertPreview = lazyWithRetry(() => import("./pages/VisualAlertPreview"));
 
 const QRCodeGenerator = lazyWithRetry(() => import("./pages/QRCodeGenerator"));
 const QRQuickTaskReport = lazyWithRetry(() => import("./pages/QRQuickTaskReport"));
