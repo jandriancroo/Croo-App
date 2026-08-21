@@ -113,6 +113,11 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
             return nowSeconds < lH * 3600 + lM * 60 + (lS || 0);
           })();
 
+          const isOverdue = !isLocked && expected > 0 && completed < expected && !!checklist.due_by_time && (() => {
+            const [dH, dM, dS] = checklist.due_by_time!.split(':').map(Number);
+            return nowSeconds > dH * 3600 + dM * 60 + (dS || 0);
+          })();
+
           return (
             <div
               key={checklist.id}
@@ -127,6 +132,12 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                 <span className="flex-1 text-[15px] font-medium tracking-[-0.01em] text-foreground truncate">
                   {checklist.title}
                 </span>
+                {isOverdue && (
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4.5 shrink-0 gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Overdue
+                  </Badge>
+                )}
                 <ChecklistStat
                   completed={completed}
                   total={expected}
