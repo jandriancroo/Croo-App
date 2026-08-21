@@ -318,20 +318,17 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
                 {/* Ranking metrics on the dark glass remainder - scrollable on narrow screens */}
                 <div className="flex min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap px-2 py-1 text-white no-scrollbar">
-                  <div className="flex items-center gap-1">
-                    <Trophy className="h-2.5 w-2.5 shrink-0" />
-                    <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <Trophy className="h-2.5 w-2.5 shrink-0" />
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/80">Rank</span>
+                      <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
+                    </div>
                     {rankMetrics.includes('units') && (
-                      <>
+                      <div className="flex items-center gap-1">
                         <span className="h-2.5 w-px shrink-0 bg-white/25" />
                         <span className="shrink-0 tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
-                      </>
-                    )}
-                    {rankMetrics.includes('sales') && (
-                      <>
-                        <span className="h-2.5 w-px shrink-0 bg-white/25" />
-                        <span className="shrink-0 tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
