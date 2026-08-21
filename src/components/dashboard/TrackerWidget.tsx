@@ -248,11 +248,19 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             ) : (
               <div className="absolute inset-0 bg-primary" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+
+            {/* Subtle bottom fade for the pill to read clearly */}
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
+            {/* Title-only fade */}
+            <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
+
+            {/* Corner sheens */}
+            <div className="pointer-events-none absolute left-3 top-3 h-20 w-20 rounded-full bg-white/20 blur-2xl" />
+            <div className="pointer-events-none absolute right-3 top-3 h-16 w-16 rounded-full bg-white/15 blur-2xl" />
+            <div className="pointer-events-none absolute left-1/2 top-0 h-3 w-3/4 -translate-x-1/2 rounded-full bg-white/25 blur-2xl" />
 
             {/* Glass bubble overlay */}
             <div className="pointer-events-none absolute inset-0 rounded-[26px] border-[0.5px] border-white/60 shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.45),inset_0_2px_6px_rgba(255,255,255,0.55),inset_0_-1px_3px_rgba(255,255,255,0.35),0_4px_12px_rgba(0,0,0,0.2)]" />
-            <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-gradient-to-b from-white/18 via-transparent to-white/10 mix-blend-screen" />
             <div className="pointer-events-none absolute left-5 right-5 top-[1px] h-[4px] rounded-full bg-white/70 blur-[3px]" />
             <div className="pointer-events-none absolute left-6 right-6 bottom-[2px] h-[2px] rounded-full bg-white/40 blur-[2px]" />
 
