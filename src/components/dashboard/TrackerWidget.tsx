@@ -288,7 +288,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                     <ChevronLeft className="h-3 w-3" />
                   </button>
                 )}
-                <span className="max-w-[100px] truncate">{activeItemLabel}</span>
+                <span className="max-w-[80px] truncate">{activeItemLabel}</span>
                 {itemSwitchOptions.length > 1 && (
                   <button
                     type="button"
@@ -301,28 +301,30 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                 )}
               </div>
 
-              {/* Ranking metrics on the dark glass remainder */}
-              <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden px-2 py-1 text-white">
-                <Trophy className="h-3 w-3 shrink-0" />
-                <span className="shrink-0 tabular-nums">Rank #{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
-                {rankMetrics.includes('units') && (
-                  <>
-                    <span className="h-3 w-px bg-white/25" />
-                    <span className="shrink-0 tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
-                  </>
-                )}
-                {rankMetrics.includes('sales') && (
-                  <>
-                    <span className="h-3 w-px bg-white/25" />
-                    <span className="shrink-0 tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
-                  </>
-                )}
-                {rankMetrics.includes('pmix') && (
-                  <>
-                    <span className="h-3 w-px bg-white/25" />
-                    <span className="shrink-0 tabular-nums">{isPending ? '--' : percent(myVisibleStats.pmix)}</span>
-                  </>
-                )}
+              {/* Ranking metrics on the dark glass remainder - scrollable on narrow screens */}
+              <div className="flex min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap px-2 py-1 text-white no-scrollbar">
+                <div className="flex items-center gap-1">
+                  <Trophy className="h-2.5 w-2.5 shrink-0" />
+                  <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
+                  {rankMetrics.includes('units') && (
+                    <>
+                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                      <span className="shrink-0 tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
+                    </>
+                  )}
+                  {rankMetrics.includes('sales') && (
+                    <>
+                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                      <span className="shrink-0 tabular-nums">{isPending ? '--' : money(myVisibleStats.sales)}</span>
+                    </>
+                  )}
+                  {rankMetrics.includes('pmix') && (
+                    <>
+                      <span className="h-2.5 w-px shrink-0 bg-white/25" />
+                      <span className="shrink-0 tabular-nums">{isPending ? '--' : percent(myVisibleStats.pmix)}</span>
+                    </>
+                  )}
+                </div>
               </div>
 
               {canExpand && (
