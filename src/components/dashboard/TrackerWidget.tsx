@@ -235,11 +235,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-hidden border-transparent bg-transparent shadow-none">
       <CardContent className="p-0">
-        <div className="relative m-2 rounded-[26px]">
+        <div className="relative">
           <button
             type="button"
             onClick={() => canExpand && setExpanded(v => !v)}
-            className="relative block w-full aspect-[4/2.3] overflow-hidden rounded-[26px] text-left shadow-[0_18px_40px_-18px_rgba(0,0,0,0.55)]"
+            className="relative block w-full aspect-[4/2.3] overflow-hidden text-left shadow-[0_18px_40px_-18px_rgba(0,0,0,0.55)]"
             onTouchStart={handleItemTouchStart}
             onTouchEnd={handleItemTouchEnd}
           >
@@ -249,13 +249,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-primary" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
-
-            {/* Glass bubble rim */}
-            <div className="pointer-events-none absolute inset-0 rounded-[26px] border-[0.5px] border-white/50 shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.35),inset_0_1px_3px_rgba(255,255,255,0.45),inset_0_-1px_3px_rgba(255,255,255,0.35),0_2px_6px_rgba(0,0,0,0.15)]" />
-            <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-gradient-to-b from-white/15 via-transparent to-white/8 mix-blend-screen" />
-            <div className="pointer-events-none absolute left-6 right-6 top-[2px] h-[3px] rounded-full bg-white/50 blur-[2px]" />
-            <div className="pointer-events-none absolute left-8 right-8 bottom-[2px] h-[2px] rounded-full bg-white/35 blur-[2px]" />
-
 
             <div className="absolute left-3 top-3 inline-flex h-6 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
