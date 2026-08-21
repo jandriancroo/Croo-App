@@ -238,7 +238,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         <button
           type="button"
           onClick={() => canExpand && setExpanded(v => !v)}
-          className="relative block w-full aspect-[4/2.55] overflow-hidden text-left"
+          className="relative block w-full aspect-[4/2.3] overflow-hidden text-left"
           onTouchStart={handleItemTouchStart}
           onTouchEnd={handleItemTouchEnd}
         >
@@ -249,11 +249,15 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
 
-          <div className="absolute left-0 top-3 rounded-r-full bg-amber-400 py-1 pl-3 pr-3 text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-lg">
-            Promo · Live
+          <div className="absolute left-0 top-3 inline-flex h-6 items-center gap-1.5 rounded-r-full border border-white/20 bg-black/45 py-1 pl-2.5 pr-3 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-lg backdrop-blur-sm">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+            </span>
+            LIVE
           </div>
 
-          <div className="absolute right-3 top-3 inline-flex overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+          <div className="absolute right-3 top-3 inline-flex h-6 items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
             {PERIOD_MODES.map(key => (
               <button
                 key={key}
@@ -266,11 +270,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             ))}
           </div>
 
+          <div className="pointer-events-none absolute left-2 top-[3.05rem] right-2 h-10 rounded-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl" />
+
           <div className="absolute left-3 top-[3.25rem] right-3">
             <p className="truncate text-2xl font-black leading-none text-white drop-shadow-lg">{tracker.title}</p>
           </div>
 
           <div className="absolute inset-x-0 bottom-0 p-3">
+            <div className="pointer-events-none absolute left-2 right-2 top-3 h-7 rounded-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl" />
             <div className="mb-2 flex items-center gap-1 text-xs font-bold text-white drop-shadow">
               {itemSwitchOptions.length > 1 && (
                 <button
