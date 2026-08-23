@@ -3118,7 +3118,56 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
   }
 
   const { accessToken } = tokenResult;
-  const orderData = await fetchOrderHistory(accessToken, credentials.customer_id);
+
+  // Resolve the customer account for this login if we don't have it yet, and
+  // gather every store this login can reach — works even with zero order history.
+  const PLACEHOLDER_NUMBERS = new Set(['00000', '0', '']);
+  const PLACEHOLDER_GUID = '00000000-0000-0000-0000-000000000000';
+  let resolvedCustomerId = credentials.customer_id;
+  const customerAccounts: { number: string; name: string; orderCount: number }[] = [];
+  try {
+    const customerInfo = await fetchCustomerInfo(accessToken);
+    const list = Array.isArray(customerInfo) ? customerInfo : customerInfo ? [customerInfo] : [];
+    for (const c of list) {
+      const num = c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.Number;
+      const name = c?.CustomerName || c?.Name || c?.DeliverToCustomerName || 'Unknown';
+      if (num && !PLACEHOLDER_NUMBERS.has(String(num))) {
+        customerAccounts.push({ number: String(num), name: String(name).trim(), orderCount: 0 });
+      }
+    }
+    if (!resolvedCustomerId) {
+      const candidate = list[0]?.CustomerId || list[0]?.Id;
+      if (candidate && candidate !== PLACEHOLDER_GUID) {
+        resolvedCustomerId = candidate;
+        await supabase
+          .from('location_integrations')
+          .update({ credentials: { ...credentials, customer_id: resolvedCustomerId } })
+          .eq('id', integration.id);
+      }
+    }
+  } catch (err) {
+    console.warn('[PFG Stores] Customer lookup failed:', (err as Error).message?.slice(0, 120));
+  }
+
+  // TRACS Direct logins return a placeholder customer — their real store list
+  // shows up on the order guides (product list headers) instead.
+  try {
+    const headerResult = await fetchProductListHeaders(accessToken, resolvedCustomerId);
+    for (const g of headerResult.guides || []) {
+      const num = g?.CustomerNumber || g?.DeliverToCustomerNumber;
+      const name = g?.CustomerName || g?.ProductListName || g?.Name || 'Unknown';
+      if (num && !PLACEHOLDER_NUMBERS.has(String(num)) && !customerAccounts.some((a) => a.number === String(num))) {
+        customerAccounts.push({ number: String(num), name: String(name).trim(), orderCount: 0 });
+      }
+    }
+  } catch (err) {
+    console.warn('[PFG Stores] Guide lookup failed:', (err as Error).message?.slice(0, 120));
+  }
+
+
+  const orderData = await fetchOrderHistory(accessToken, resolvedCustomerId, 90);
+  
+
   
   let rawOrders: any[];
   const resultObj = orderData?.ResultObject;
@@ -3135,6 +3184,10 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
 
   // Extract unique delivery locations (handle both GetSubmittedOrderHeaders and GetDeliveries field names)
   const deliveryLocations = new Map<string, { number: string; name: string; orderCount: number }>();
+  // Seed with the customer accounts this login can reach (works with zero order history)
+  for (const acct of customerAccounts) {
+    deliveryLocations.set(acct.number, { ...acct });
+  }
   for (const order of rawOrders) {
     const num = order.DeliverToCustomerNumber || order.CustomerNumber;
     const name = order.DeliverToCustomerName || order.CustomerName || 'Unknown';
@@ -3142,11 +3195,13 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
       const existing = deliveryLocations.get(String(num));
       if (existing) {
         existing.orderCount++;
+        if (existing.name === 'Unknown' && name) existing.name = String(name).trim();
       } else {
         deliveryLocations.set(String(num), { number: String(num), name: name.trim(), orderCount: 1 });
       }
     }
   }
+
 
   const currentDeliverTo = (credentials as any).deliver_to_customer_number || null;
 
