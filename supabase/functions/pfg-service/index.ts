@@ -621,12 +621,25 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
     '/Account/V1/GetCustomerInfo',
   ];
   
-  // Probe ALL endpoints and merge. The single-customer endpoint often answers
+  // Probe endpoints and merge. The single-customer endpoint often answers
   // first with a placeholder record (CustomerNumber "00000") on TRACS Direct
   // logins, while the *list* endpoints hold the real multi-store accounts.
+  // Records are slimmed immediately — the raw list endpoints can return tens of
+  // thousands of rows and blow the function's memory budget.
+  const MAX_CUSTOMERS = 300;
+  const slim = (c: any) => ({
+    CustomerId: c?.CustomerId ?? c?.Id ?? null,
+    CustomerNumber: c?.CustomerNumber ?? null,
+    DeliverToCustomerNumber: c?.DeliverToCustomerNumber ?? null,
+    CustomerName: c?.CustomerName ?? c?.Name ?? c?.DeliverToCustomerName ?? null,
+    OperationCompanyNumber: c?.OperationCompanyNumber ?? null,
+    BusinessUnitERPKey: c?.BusinessUnitERPKey ?? null,
+  });
+
   const merged: any[] = [];
   let firstSingle: any = null;
   for (const path of endpoints) {
+    if (merged.length >= MAX_CUSTOMERS) break;
     try {
       const data = await fetchPfgJson(path, {
         method: 'GET',
@@ -635,15 +648,18 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
           'Accept': 'application/json',
         },
       });
-      console.log('[PFG API] Customer response from', path, '→', JSON.stringify(data).slice(0, 1200));
       const result = data?.ResultObject ?? data;
-      if (Array.isArray(result)) {
-        console.log('[PFG API] Found', result.length, 'customers at', path);
-        for (const r of result) if (r) merged.push(r);
-      } else if (result && Array.isArray(result?.Customers)) {
-        for (const r of result.Customers) if (r) merged.push(r);
+      const list = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.Customers)
+          ? result.Customers
+          : null;
+      if (list) {
+        console.log('[PFG API] Found', list.length, 'customers at', path);
+        for (const r of list.slice(0, MAX_CUSTOMERS - merged.length)) if (r) merged.push(slim(r));
       } else if (result && !firstSingle) {
-        firstSingle = result;
+        firstSingle = slim(result);
+        console.log('[PFG API] Single customer at', path, '→', firstSingle.CustomerNumber, firstSingle.CustomerName);
       }
     } catch (err) {
       console.warn('[PFG API] Customer endpoint failed:', path, (err as Error).message?.slice(0, 100));
@@ -654,7 +670,7 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
     // Dedupe by customer number / id
     const seen = new Set<string>();
     const unique = merged.filter((c) => {
-      const key = String(c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.CustomerId || c?.Id || Math.random());
+      const key = String(c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.CustomerId || Math.random());
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
