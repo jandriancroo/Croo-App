@@ -3119,9 +3119,10 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
 
   const { accessToken } = tokenResult;
 
-  // Resolve the customer account for this login if we don't have it yet.
-  // A shared multi-store login returns a LIST of customer accounts here — those
-  // are the stores we want to offer, even before any orders exist.
+  // Resolve the customer account for this login if we don't have it yet, and
+  // gather every store this login can reach — works even with zero order history.
+  const PLACEHOLDER_NUMBERS = new Set(['00000', '0', '']);
+  const PLACEHOLDER_GUID = '00000000-0000-0000-0000-000000000000';
   let resolvedCustomerId = credentials.customer_id;
   const customerAccounts: { number: string; name: string; orderCount: number }[] = [];
   try {
@@ -3130,11 +3131,14 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
     for (const c of list) {
       const num = c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.Number;
       const name = c?.CustomerName || c?.Name || c?.DeliverToCustomerName || 'Unknown';
-      if (num) customerAccounts.push({ number: String(num), name: String(name).trim(), orderCount: 0 });
+      if (num && !PLACEHOLDER_NUMBERS.has(String(num))) {
+        customerAccounts.push({ number: String(num), name: String(name).trim(), orderCount: 0 });
+      }
     }
-    if (!resolvedCustomerId && list.length > 0) {
-      resolvedCustomerId = list[0]?.CustomerId || list[0]?.Id;
-      if (resolvedCustomerId) {
+    if (!resolvedCustomerId) {
+      const candidate = list[0]?.CustomerId || list[0]?.Id;
+      if (candidate && candidate !== PLACEHOLDER_GUID) {
+        resolvedCustomerId = candidate;
         await supabase
           .from('location_integrations')
           .update({ credentials: { ...credentials, customer_id: resolvedCustomerId } })
@@ -3144,6 +3148,22 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
   } catch (err) {
     console.warn('[PFG Stores] Customer lookup failed:', (err as Error).message?.slice(0, 120));
   }
+
+  // TRACS Direct logins return a placeholder customer — their real store list
+  // shows up on the order guides (product list headers) instead.
+  try {
+    const headerResult = await fetchProductListHeaders(accessToken, resolvedCustomerId);
+    for (const g of headerResult.guides || []) {
+      const num = g?.CustomerNumber || g?.DeliverToCustomerNumber;
+      const name = g?.CustomerName || g?.ProductListName || g?.Name || 'Unknown';
+      if (num && !PLACEHOLDER_NUMBERS.has(String(num)) && !customerAccounts.some((a) => a.number === String(num))) {
+        customerAccounts.push({ number: String(num), name: String(name).trim(), orderCount: 0 });
+      }
+    }
+  } catch (err) {
+    console.warn('[PFG Stores] Guide lookup failed:', (err as Error).message?.slice(0, 120));
+  }
+
 
   const orderData = await fetchOrderHistory(accessToken, resolvedCustomerId, 90);
   
