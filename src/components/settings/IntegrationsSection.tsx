@@ -607,6 +607,62 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   };
 
+  const callPfgAction = async (action: string, payload: Record<string, unknown>) => {
+    const { data: session } = await supabase.auth.getSession();
+    const resp = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=${action}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session?.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+    return await resp.json();
+  };
+
+  const fetchPfgStores = async () => {
+    if (!locationId) return;
+    setPfgIsFetchingStores(true);
+    try {
+      const result = await callPfgAction('list_delivery_locations', { locationId });
+      if (result?.success) {
+        setPfgDeliverLocations(result.deliveryLocations || []);
+        if (result.currentDeliverTo) setPfgDeliverTo(String(result.currentDeliverTo));
+        if (!result.deliveryLocations?.length) toast.info('No stores found on this PFG login yet');
+      } else {
+        toast.error(result?.error || 'Could not load PFG stores');
+      }
+    } catch (error) {
+      toast.error('Could not load PFG stores');
+    } finally {
+      setPfgIsFetchingStores(false);
+    }
+  };
+
+  const savePfgStore = async () => {
+    if (!locationId || !pfgDeliverTo) return;
+    setPfgIsSavingStore(true);
+    try {
+      const result = await callPfgAction('set_delivery_location', { locationId, deliverToCustomerNumber: pfgDeliverTo });
+      if (result?.success) {
+        toast.success('Store assigned to this location');
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
+      } else {
+        toast.error(result?.error || 'Could not save store');
+      }
+    } catch (error) {
+      toast.error('Could not save store');
+    } finally {
+      setPfgIsSavingStore(false);
+    }
+  };
+
+
+
   const triggerBackfill = async (integrationId: string) => {
     try {
       setIsSyncing(true); setSyncProgress(0); setSyncStatus("Starting sync...");
