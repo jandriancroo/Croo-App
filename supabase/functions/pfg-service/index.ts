@@ -3108,6 +3108,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 // DELIVERY LOCATION DISCOVERY & ASSIGNMENT
 // ============================================================================
 
+
 async function handleListDeliveryLocations(supabase: any, body: any): Promise<Response> {
   const locationId = body?.locationId;
   if (!locationId) {
@@ -3763,6 +3764,7 @@ serve(async (req) => {
       
       case 'list_delivery_locations':
         return await handleListDeliveryLocations(supabase, body);
+
       
       case 'set_delivery_location':
         return await handleSetDeliveryLocation(supabase, body);
