@@ -3187,22 +3187,31 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
   }
 
 
-  const orderData = await fetchOrderHistory(accessToken, resolvedCustomerId, 90);
-  
+  // Order history is only used to count/label stores. It can be huge, which
+  // blows the function's memory budget — keep the window small, skip it when we
+  // already discovered stores, and never fail the request over it.
+  let orderData: any = null;
+  if (customerAccounts.length === 0) {
+    try {
+      orderData = await fetchOrderHistory(accessToken, resolvedCustomerId, 30);
+    } catch (err) {
+      console.warn('[PFG Stores] Order history lookup failed:', (err as Error).message?.slice(0, 120));
+    }
+  }
 
-  
   let rawOrders: any[];
   const resultObj = orderData?.ResultObject;
   if (Array.isArray(resultObj)) {
-    rawOrders = resultObj;
+    rawOrders = resultObj.slice(0, 500);
   } else if (resultObj && typeof resultObj === 'object') {
-    rawOrders = resultObj.SubmittedOrderHeaders || resultObj.Orders || resultObj.Items || [];
+    rawOrders = (resultObj.SubmittedOrderHeaders || resultObj.Orders || resultObj.Items || []).slice(0, 500);
     if (rawOrders.length === 0 && (resultObj.OrderNumber || resultObj.DeliveryDate)) {
       rawOrders = [resultObj];
     }
   } else {
     rawOrders = [];
   }
+  orderData = null;
 
   // Extract unique delivery locations (handle both GetSubmittedOrderHeaders and GetDeliveries field names)
   const deliveryLocations = new Map<string, { number: string; name: string; orderCount: number }>();
