@@ -3164,6 +3164,10 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
 
   // Extract unique delivery locations (handle both GetSubmittedOrderHeaders and GetDeliveries field names)
   const deliveryLocations = new Map<string, { number: string; name: string; orderCount: number }>();
+  // Seed with the customer accounts this login can reach (works with zero order history)
+  for (const acct of customerAccounts) {
+    deliveryLocations.set(acct.number, { ...acct });
+  }
   for (const order of rawOrders) {
     const num = order.DeliverToCustomerNumber || order.CustomerNumber;
     const name = order.DeliverToCustomerName || order.CustomerName || 'Unknown';
@@ -3171,11 +3175,13 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
       const existing = deliveryLocations.get(String(num));
       if (existing) {
         existing.orderCount++;
+        if (existing.name === 'Unknown' && name) existing.name = String(name).trim();
       } else {
         deliveryLocations.set(String(num), { number: String(num), name: name.trim(), orderCount: 1 });
       }
     }
   }
+
 
   const currentDeliverTo = (credentials as any).deliver_to_customer_number || null;
 
