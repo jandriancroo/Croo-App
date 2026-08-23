@@ -60,7 +60,7 @@ interface LocationResult {
 async function syncOneLocation(
   supabase: any,
   loc: { id: string; name: string; credentials: any },
-
+  opts: { force?: boolean } = {},
 ): Promise<Omit<LocationResult, "location_id" | "location_name">> {
   const startedAt = Date.now();
   const productListHeaderId = loc.credentials?.product_list_header_id;
@@ -77,22 +77,24 @@ async function syncOneLocation(
   }
 
   // Idempotency guard — if any item at this location was updated inside the
-  // freshness window, don't hammer PFG again.
-  const freshCutoff = new Date(Date.now() - FRESHNESS_WINDOW_MS).toISOString();
-  const { data: freshRow } = await supabase
-    .from("inventory_items")
-    .select("id")
-    .eq("location_id", loc.id)
-    .gt("last_synced_at", freshCutoff)
-    .limit(1)
-    .maybeSingle();
-  if (freshRow) {
-    return {
-      status: "skipped_fresh",
-      attempts: 0,
-      items_updated: 0,
-      duration_ms: Date.now() - startedAt,
-    };
+  // freshness window, don't hammer PFG again. `force` bypasses it (manual runs).
+  if (!opts.force) {
+    const freshCutoff = new Date(Date.now() - FRESHNESS_WINDOW_MS).toISOString();
+    const { data: freshRow } = await supabase
+      .from("inventory_items")
+      .select("id")
+      .eq("location_id", loc.id)
+      .gt("last_synced_at", freshCutoff)
+      .limit(1)
+      .maybeSingle();
+    if (freshRow) {
+      return {
+        status: "skipped_fresh",
+        attempts: 0,
+        items_updated: 0,
+        duration_ms: Date.now() - startedAt,
+      };
+    }
   }
 
   // Per-location start jitter so all pool workers don't hit PFG simultaneously.
