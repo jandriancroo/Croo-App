@@ -612,21 +612,36 @@ async function fetchProductDetail(accessToken: string, productKey: string, custo
 async function fetchCustomerInfo(accessToken: string): Promise<any> {
   console.log('[PFG API] Fetching customer info');
   
+  // NOTE: the bulk list endpoints (GetCustomers / GetAllCustomers /
+  // GetCustomerList) can return tens of megabytes on broadline logins, which
+  // exceeds the function's memory limit before we can slim the rows. Store IDs
+  // are configured per location instead, so we only ask for this login's own
+  // customer record.
   const endpoints = [
     '/Customer/V1/GetCustomer',
-    '/Customer/V1/GetCustomers',
-    '/Customer/V1/GetCurrentCustomer',
-    '/Customer/V1/GetAllCustomers',
-    '/Customer/V1/GetCustomerList',
     '/Account/V1/GetCustomerInfo',
   ];
+
   
-  // Probe ALL endpoints and merge. The single-customer endpoint often answers
+  // Probe endpoints and merge. The single-customer endpoint often answers
   // first with a placeholder record (CustomerNumber "00000") on TRACS Direct
   // logins, while the *list* endpoints hold the real multi-store accounts.
+  // Records are slimmed immediately — the raw list endpoints can return tens of
+  // thousands of rows and blow the function's memory budget.
+  const MAX_CUSTOMERS = 300;
+  const slim = (c: any) => ({
+    CustomerId: c?.CustomerId ?? c?.Id ?? null,
+    CustomerNumber: c?.CustomerNumber ?? null,
+    DeliverToCustomerNumber: c?.DeliverToCustomerNumber ?? null,
+    CustomerName: c?.CustomerName ?? c?.Name ?? c?.DeliverToCustomerName ?? null,
+    OperationCompanyNumber: c?.OperationCompanyNumber ?? null,
+    BusinessUnitERPKey: c?.BusinessUnitERPKey ?? null,
+  });
+
   const merged: any[] = [];
   let firstSingle: any = null;
   for (const path of endpoints) {
+    if (merged.length >= MAX_CUSTOMERS) break;
     try {
       const data = await fetchPfgJson(path, {
         method: 'GET',
@@ -635,15 +650,18 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
           'Accept': 'application/json',
         },
       });
-      console.log('[PFG API] Customer response from', path, '→', JSON.stringify(data).slice(0, 1200));
       const result = data?.ResultObject ?? data;
-      if (Array.isArray(result)) {
-        console.log('[PFG API] Found', result.length, 'customers at', path);
-        for (const r of result) if (r) merged.push(r);
-      } else if (result && Array.isArray(result?.Customers)) {
-        for (const r of result.Customers) if (r) merged.push(r);
+      const list = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.Customers)
+          ? result.Customers
+          : null;
+      if (list) {
+        console.log('[PFG API] Found', list.length, 'customers at', path);
+        for (const r of list.slice(0, MAX_CUSTOMERS - merged.length)) if (r) merged.push(slim(r));
       } else if (result && !firstSingle) {
-        firstSingle = result;
+        firstSingle = slim(result);
+        console.log('[PFG API] Single customer at', path, '→', firstSingle.CustomerNumber, firstSingle.CustomerName);
       }
     } catch (err) {
       console.warn('[PFG API] Customer endpoint failed:', path, (err as Error).message?.slice(0, 100));
@@ -654,7 +672,7 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
     // Dedupe by customer number / id
     const seen = new Set<string>();
     const unique = merged.filter((c) => {
-      const key = String(c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.CustomerId || c?.Id || Math.random());
+      const key = String(c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.CustomerId || Math.random());
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -3187,22 +3205,31 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
   }
 
 
-  const orderData = await fetchOrderHistory(accessToken, resolvedCustomerId, 90);
-  
+  // Order history is only used to count/label stores. It can be huge, which
+  // blows the function's memory budget — keep the window small, skip it when we
+  // already discovered stores, and never fail the request over it.
+  let orderData: any = null;
+  if (customerAccounts.length === 0) {
+    try {
+      orderData = await fetchOrderHistory(accessToken, resolvedCustomerId, 30);
+    } catch (err) {
+      console.warn('[PFG Stores] Order history lookup failed:', (err as Error).message?.slice(0, 120));
+    }
+  }
 
-  
   let rawOrders: any[];
   const resultObj = orderData?.ResultObject;
   if (Array.isArray(resultObj)) {
-    rawOrders = resultObj;
+    rawOrders = resultObj.slice(0, 500);
   } else if (resultObj && typeof resultObj === 'object') {
-    rawOrders = resultObj.SubmittedOrderHeaders || resultObj.Orders || resultObj.Items || [];
+    rawOrders = (resultObj.SubmittedOrderHeaders || resultObj.Orders || resultObj.Items || []).slice(0, 500);
     if (rawOrders.length === 0 && (resultObj.OrderNumber || resultObj.DeliveryDate)) {
       rawOrders = [resultObj];
     }
   } else {
     rawOrders = [];
   }
+  orderData = null;
 
   // Extract unique delivery locations (handle both GetSubmittedOrderHeaders and GetDeliveries field names)
   const deliveryLocations = new Map<string, { number: string; name: string; orderCount: number }>();
