@@ -2425,7 +2425,9 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
         
         allProducts.push({
           id: product.ProductKey || product.Id,
-          itemNumber: product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
+          itemNumber: splitItemNumbers(product.DisplayProductNumber || product.ProductNumber || product.ProductKey)[0]
+            || product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
+          altItemNumbers: splitItemNumbers(product.DisplayProductNumber || product.ProductNumber || product.ProductKey),
           name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
           fullDescription: product.ProductDescription,
           brand: product.ProductBrand,
