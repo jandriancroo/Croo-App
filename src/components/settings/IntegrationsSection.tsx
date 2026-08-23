@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { supabase } from "@/integrations/supabase/client";
 import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { toast } from "sonner";
-import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, RefreshCw, Settings2, ChevronDown, AlertTriangle } from "lucide-react";
+import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, RefreshCw, Settings2, ChevronDown, AlertTriangle, Store } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -144,6 +145,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgDeliverySchedule, setPfgDeliverySchedule] = useState<DeliverySlot[]>([]);
   const [pfgAvailableGuides, setPfgAvailableGuides] = useState<{ id: string; name: string; type: string }[]>([]);
   const [pfgIsFetchingGuides, setPfgIsFetchingGuides] = useState(false);
+  const [pfgDeliverLocations, setPfgDeliverLocations] = useState<{ number: string; name: string; orderCount: number }[]>([]);
+  const [pfgIsFetchingStores, setPfgIsFetchingStores] = useState(false);
+  const [pfgDeliverTo, setPfgDeliverTo] = useState('');
+  const [pfgIsSavingStore, setPfgIsSavingStore] = useState(false);
   const [paDeliverySchedule, setPaDeliverySchedule] = useState<DeliverySlot[]>([]);
 
   // Fresh KDS state
@@ -305,6 +310,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setPfgLoginUsername(creds?.pfg_username || '');
       setPfgLoginPassword(creds?.pfg_password || '');
       setPfgDeliverySchedule(creds?.delivery_schedule || []);
+      setPfgDeliverTo(creds?.deliver_to_customer_number || '');
     }
   }, [pfgIntegration]);
 
@@ -601,6 +607,62 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setPfgIsFetchingGuides(false);
     }
   };
+
+  const callPfgAction = async (action: string, payload: Record<string, unknown>) => {
+    const { data: session } = await supabase.auth.getSession();
+    const resp = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=${action}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session?.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+    return await resp.json();
+  };
+
+  const fetchPfgStores = async () => {
+    if (!locationId) return;
+    setPfgIsFetchingStores(true);
+    try {
+      const result = await callPfgAction('list_delivery_locations', { locationId });
+      if (result?.success) {
+        setPfgDeliverLocations(result.deliveryLocations || []);
+        if (result.currentDeliverTo) setPfgDeliverTo(String(result.currentDeliverTo));
+        if (!result.deliveryLocations?.length) toast.info('No stores found on this PFG login yet');
+      } else {
+        toast.error(result?.error || 'Could not load PFG stores');
+      }
+    } catch (error) {
+      toast.error('Could not load PFG stores');
+    } finally {
+      setPfgIsFetchingStores(false);
+    }
+  };
+
+  const savePfgStore = async () => {
+    if (!locationId || !pfgDeliverTo) return;
+    setPfgIsSavingStore(true);
+    try {
+      const result = await callPfgAction('set_delivery_location', { locationId, deliverToCustomerNumber: pfgDeliverTo });
+      if (result?.success) {
+        toast.success('Store assigned to this location');
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
+      } else {
+        toast.error(result?.error || 'Could not save store');
+      }
+    } catch (error) {
+      toast.error('Could not save store');
+    } finally {
+      setPfgIsSavingStore(false);
+    }
+  };
+
+
 
   const triggerBackfill = async (integrationId: string) => {
     try {
@@ -1124,6 +1186,62 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </div>
               </Collapsible>
             )}
+
+            {/* Which PFG store is this location? */}
+            {pfgIntegration && (
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Store className="h-4 w-4 text-muted-foreground" />
+                    <span>PFG Store</span>
+                  </div>
+                  {pfgDeliverTo ? (
+                    <Badge variant="secondary" className="text-xs">
+                      <Check className="h-3 w-3 mr-1 text-green-600" />
+                      Store #{pfgDeliverTo}
+                      {pfgDeliverLocations.find((s) => s.number === pfgDeliverTo)?.name
+                        ? ` · ${pfgDeliverLocations.find((s) => s.number === pfgDeliverTo)!.name}`
+                        : ''}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/50">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      All stores (not filtered)
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  If this login can see more than one store, pick the one that belongs to this location so only its orders and invoices come in.
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={fetchPfgStores} disabled={pfgIsFetchingStores}>
+                    {pfgIsFetchingStores ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                    {pfgDeliverLocations.length > 0 ? 'Refresh Stores' : 'Load Stores'}
+                  </Button>
+                </div>
+                {pfgDeliverLocations.length > 0 && (
+                  <div className="flex gap-2">
+                    <Select value={pfgDeliverTo} onValueChange={setPfgDeliverTo}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Choose this location's store..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pfgDeliverLocations.map((s) => (
+                          <SelectItem key={s.number} value={s.number} className="text-xs">
+                            #{s.number} · {s.name} ({s.orderCount} orders)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" onClick={savePfgStore} disabled={pfgIsSavingStore || !pfgDeliverTo}>
+                      {pfgIsSavingStore ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                      Save
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Delivery Schedule */}
             {pfgHasToken && (
               <DeliveryScheduleEditor
