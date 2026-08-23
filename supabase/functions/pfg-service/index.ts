@@ -497,9 +497,13 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
       const price = uom.Price || uom.UnitPrice || uom.ListPrice || product.Price || null;
       const packSize = uom.PackSize || product.ProductPackSizes?.[0];
       
+      const rawItemNumber = product.DisplayProductNumber || product.ProductNumber || product.ProductKey;
+      const skuTokens = splitItemNumbers(rawItemNumber);
+
       return {
         id: product.ProductKey || product.Id,
-        itemNumber: product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
+        itemNumber: skuTokens[0] || rawItemNumber,
+        altItemNumbers: skuTokens,
         name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
         fullDescription: product.ProductDescription,
         brand: product.ProductBrand,
