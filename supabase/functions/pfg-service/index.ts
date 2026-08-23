@@ -393,6 +393,16 @@ const parsePackQuantity = (packSize: string | undefined): number | null => {
   return match ? parseInt(match[1], 10) : null;
 };
 
+// Some PFG divisions return BOTH a national and a division SKU in one field,
+// e.g. "104752, EL681". Split into individual codes so matching can try each.
+const splitItemNumbers = (raw: unknown): string[] => {
+  if (raw == null) return [];
+  return String(raw)
+    .split(/[,;/|]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
 // Parse the inner-pack quantity (sleeves / bundles / inner boxes) from a free-form
 // product description or name. PFG packSize gives us only outer/inner case structure
 // ("6 / 1 LB"), but the inner-pack tier (e.g. 50 cups per sleeve, 25 boxes per bundle)
