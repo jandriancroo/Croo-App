@@ -3828,8 +3828,12 @@ serve(async (req) => {
         return await handleBackfillItems(supabase, body);
 
       
+      case 'probe_customer_endpoints':
+        return await handleProbeCustomerEndpoints(supabase, body);
+
       case 'list_delivery_locations':
         return await handleListDeliveryLocations(supabase, body);
+
       
       case 'set_delivery_location':
         return await handleSetDeliveryLocation(supabase, body);
