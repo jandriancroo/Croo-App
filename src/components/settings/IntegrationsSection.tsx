@@ -144,6 +144,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgDeliverySchedule, setPfgDeliverySchedule] = useState<DeliverySlot[]>([]);
   const [pfgAvailableGuides, setPfgAvailableGuides] = useState<{ id: string; name: string; type: string }[]>([]);
   const [pfgIsFetchingGuides, setPfgIsFetchingGuides] = useState(false);
+  const [pfgDeliverLocations, setPfgDeliverLocations] = useState<{ number: string; name: string; orderCount: number }[]>([]);
+  const [pfgIsFetchingStores, setPfgIsFetchingStores] = useState(false);
+  const [pfgDeliverTo, setPfgDeliverTo] = useState('');
+  const [pfgIsSavingStore, setPfgIsSavingStore] = useState(false);
   const [paDeliverySchedule, setPaDeliverySchedule] = useState<DeliverySlot[]>([]);
 
   // Fresh KDS state
