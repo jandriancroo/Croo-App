@@ -60,7 +60,7 @@ interface LocationResult {
 async function syncOneLocation(
   supabase: any,
   loc: { id: string; name: string; credentials: any },
-
+  opts: { force?: boolean } = {},
 ): Promise<Omit<LocationResult, "location_id" | "location_name">> {
   const startedAt = Date.now();
   const productListHeaderId = loc.credentials?.product_list_header_id;
@@ -77,22 +77,24 @@ async function syncOneLocation(
   }
 
   // Idempotency guard — if any item at this location was updated inside the
-  // freshness window, don't hammer PFG again.
-  const freshCutoff = new Date(Date.now() - FRESHNESS_WINDOW_MS).toISOString();
-  const { data: freshRow } = await supabase
-    .from("inventory_items")
-    .select("id")
-    .eq("location_id", loc.id)
-    .gt("last_synced_at", freshCutoff)
-    .limit(1)
-    .maybeSingle();
-  if (freshRow) {
-    return {
-      status: "skipped_fresh",
-      attempts: 0,
-      items_updated: 0,
-      duration_ms: Date.now() - startedAt,
-    };
+  // freshness window, don't hammer PFG again. `force` bypasses it (manual runs).
+  if (!opts.force) {
+    const freshCutoff = new Date(Date.now() - FRESHNESS_WINDOW_MS).toISOString();
+    const { data: freshRow } = await supabase
+      .from("inventory_items")
+      .select("id")
+      .eq("location_id", loc.id)
+      .gt("last_synced_at", freshCutoff)
+      .limit(1)
+      .maybeSingle();
+    if (freshRow) {
+      return {
+        status: "skipped_fresh",
+        attempts: 0,
+        items_updated: 0,
+        duration_ms: Date.now() - startedAt,
+      };
+    }
   }
 
   // Per-location start jitter so all pool workers don't hit PFG simultaneously.
@@ -156,12 +158,26 @@ async function syncOneLocation(
 
       for (const cat of categories) {
         for (const product of cat.products || []) {
-          let existing = product.itemNumber
-            ? byItemNumber.get(product.itemNumber) || null
-            : null;
-          if (!existing && product.itemNumber) {
-            const tId = pfgSkuToTemplate.get(product.itemNumber);
-            if (tId) existing = byBrandItemId.get(tId) || null;
+          // A PFG division can return several codes for one product
+          // (e.g. "104752, EL681") — try each before giving up.
+          const codes: string[] = Array.isArray(product.altItemNumbers) && product.altItemNumbers.length
+            ? product.altItemNumbers.map((c: unknown) => String(c).trim()).filter(Boolean)
+            : product.itemNumber
+              ? [String(product.itemNumber).trim()]
+              : [];
+
+          let existing: any = null;
+          let matchedCode: string | null = null;
+          for (const code of codes) {
+            const hit = byItemNumber.get(code);
+            if (hit) { existing = hit; matchedCode = code; break; }
+          }
+          if (!existing) {
+            for (const code of codes) {
+              const tId = pfgSkuToTemplate.get(code);
+              const hit = tId ? byBrandItemId.get(tId) : null;
+              if (hit) { existing = hit; matchedCode = code; break; }
+            }
           }
           if (!existing) continue; // vendor gate — never create locally
 
@@ -174,7 +190,7 @@ async function syncOneLocation(
               cost_per_unit: price,
               pack_size: product.packSize || null,
               pack_quantity: packQuantity,
-              item_number: product.itemNumber || null,
+              item_number: matchedCode || existing.item_number,
               last_synced_at: now,
             })
             .eq("id", existing.id);
@@ -239,6 +255,17 @@ Deno.serve(async (req) => {
   const runStartedAt = new Date().toISOString();
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // Optional body: { force?: boolean, locationIds?: string[] } for manual runs.
+  let force = false;
+  let locationIds: string[] | null = null;
+  try {
+    const body = await req.json();
+    force = body?.force === true;
+    if (Array.isArray(body?.locationIds) && body.locationIds.length) {
+      locationIds = body.locationIds.map((s: unknown) => String(s));
+    }
+  } catch (_) { /* no body — scheduled run */ }
+
   try {
     const { data: integrations, error: intErr } = await supabase
       .from("location_integrations")
@@ -248,17 +275,19 @@ Deno.serve(async (req) => {
 
     if (intErr) throw intErr;
 
-    const targets = (integrations || []).map((r: any) => ({
-      id: r.location_id,
-      name: r.locations?.name || "Unknown",
-      credentials: r.credentials || {},
-    }));
+    const targets = (integrations || [])
+      .filter((r: any) => !locationIds || locationIds.includes(r.location_id))
+      .map((r: any) => ({
+        id: r.location_id,
+        name: r.locations?.name || "Unknown",
+        credentials: r.credentials || {},
+      }));
 
     const results: LocationResult[] = await runPool(
       targets,
       POOL_SIZE,
       async (loc) => {
-        const res = await syncOneLocation(supabase, loc);
+        const res = await syncOneLocation(supabase, loc, { force });
         const row: LocationResult = {
           location_id: loc.id,
           location_name: loc.name,

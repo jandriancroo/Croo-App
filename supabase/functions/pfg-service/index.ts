@@ -393,6 +393,16 @@ const parsePackQuantity = (packSize: string | undefined): number | null => {
   return match ? parseInt(match[1], 10) : null;
 };
 
+// Some PFG divisions return BOTH a national and a division SKU in one field,
+// e.g. "104752, EL681". Split into individual codes so matching can try each.
+const splitItemNumbers = (raw: unknown): string[] => {
+  if (raw == null) return [];
+  return String(raw)
+    .split(/[,;/|]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
 // Parse the inner-pack quantity (sleeves / bundles / inner boxes) from a free-form
 // product description or name. PFG packSize gives us only outer/inner case structure
 // ("6 / 1 LB"), but the inner-pack tier (e.g. 50 cups per sleeve, 25 boxes per bundle)
@@ -497,9 +507,13 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
       const price = uom.Price || uom.UnitPrice || uom.ListPrice || product.Price || null;
       const packSize = uom.PackSize || product.ProductPackSizes?.[0];
       
+      const rawItemNumber = product.DisplayProductNumber || product.ProductNumber || product.ProductKey;
+      const skuTokens = splitItemNumbers(rawItemNumber);
+
       return {
         id: product.ProductKey || product.Id,
-        itemNumber: product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
+        itemNumber: skuTokens[0] || rawItemNumber,
+        altItemNumbers: skuTokens,
         name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
         fullDescription: product.ProductDescription,
         brand: product.ProductBrand,
@@ -2411,7 +2425,9 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
         
         allProducts.push({
           id: product.ProductKey || product.Id,
-          itemNumber: product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
+          itemNumber: splitItemNumbers(product.DisplayProductNumber || product.ProductNumber || product.ProductKey)[0]
+            || product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
+          altItemNumbers: splitItemNumbers(product.DisplayProductNumber || product.ProductNumber || product.ProductKey),
           name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
           fullDescription: product.ProductDescription,
           brand: product.ProductBrand,
