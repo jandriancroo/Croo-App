@@ -3118,7 +3118,36 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
   }
 
   const { accessToken } = tokenResult;
-  const orderData = await fetchOrderHistory(accessToken, credentials.customer_id);
+
+  // Resolve the customer account for this login if we don't have it yet.
+  // A shared multi-store login returns a LIST of customer accounts here — those
+  // are the stores we want to offer, even before any orders exist.
+  let resolvedCustomerId = credentials.customer_id;
+  const customerAccounts: { number: string; name: string; orderCount: number }[] = [];
+  try {
+    const customerInfo = await fetchCustomerInfo(accessToken);
+    const list = Array.isArray(customerInfo) ? customerInfo : customerInfo ? [customerInfo] : [];
+    for (const c of list) {
+      const num = c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.Number;
+      const name = c?.CustomerName || c?.Name || c?.DeliverToCustomerName || 'Unknown';
+      if (num) customerAccounts.push({ number: String(num), name: String(name).trim(), orderCount: 0 });
+    }
+    if (!resolvedCustomerId && list.length > 0) {
+      resolvedCustomerId = list[0]?.CustomerId || list[0]?.Id;
+      if (resolvedCustomerId) {
+        await supabase
+          .from('location_integrations')
+          .update({ credentials: { ...credentials, customer_id: resolvedCustomerId } })
+          .eq('id', integration.id);
+      }
+    }
+  } catch (err) {
+    console.warn('[PFG Stores] Customer lookup failed:', (err as Error).message?.slice(0, 120));
+  }
+
+  const orderData = await fetchOrderHistory(accessToken, resolvedCustomerId, 90);
+  
+
   
   let rawOrders: any[];
   const resultObj = orderData?.ResultObject;
