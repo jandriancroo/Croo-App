@@ -612,14 +612,16 @@ async function fetchProductDetail(accessToken: string, productKey: string, custo
 async function fetchCustomerInfo(accessToken: string): Promise<any> {
   console.log('[PFG API] Fetching customer info');
   
+  // NOTE: the bulk list endpoints (GetCustomers / GetAllCustomers /
+  // GetCustomerList) can return tens of megabytes on broadline logins, which
+  // exceeds the function's memory limit before we can slim the rows. Store IDs
+  // are configured per location instead, so we only ask for this login's own
+  // customer record.
   const endpoints = [
     '/Customer/V1/GetCustomer',
-    '/Customer/V1/GetCustomers',
-    '/Customer/V1/GetCurrentCustomer',
-    '/Customer/V1/GetAllCustomers',
-    '/Customer/V1/GetCustomerList',
     '/Account/V1/GetCustomerInfo',
   ];
+
   
   // Probe endpoints and merge. The single-customer endpoint often answers
   // first with a placeholder record (CustomerNumber "00000") on TRACS Direct
