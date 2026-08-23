@@ -12,6 +12,7 @@ import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { toast } from "sonner";
 import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, RefreshCw, Settings2, ChevronDown, AlertTriangle, Store } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
