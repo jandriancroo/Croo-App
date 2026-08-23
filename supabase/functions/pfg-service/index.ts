@@ -621,6 +621,11 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
     '/Account/V1/GetCustomerInfo',
   ];
   
+  // Probe ALL endpoints and merge. The single-customer endpoint often answers
+  // first with a placeholder record (CustomerNumber "00000") on TRACS Direct
+  // logins, while the *list* endpoints hold the real multi-store accounts.
+  const merged: any[] = [];
+  let firstSingle: any = null;
   for (const path of endpoints) {
     try {
       const data = await fetchPfgJson(path, {
@@ -631,19 +636,35 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
         },
       });
       console.log('[PFG API] Customer response from', path, '→', JSON.stringify(data).slice(0, 1200));
-      const result = data?.ResultObject || data;
-      // If it's an array of customers, return the full list
+      const result = data?.ResultObject ?? data;
       if (Array.isArray(result)) {
-        console.log('[PFG API] Found', result.length, 'customers');
-        return result;
+        console.log('[PFG API] Found', result.length, 'customers at', path);
+        for (const r of result) if (r) merged.push(r);
+      } else if (result && Array.isArray(result?.Customers)) {
+        for (const r of result.Customers) if (r) merged.push(r);
+      } else if (result && !firstSingle) {
+        firstSingle = result;
       }
-      return result;
     } catch (err) {
       console.warn('[PFG API] Customer endpoint failed:', path, (err as Error).message?.slice(0, 100));
     }
   }
-  return null;
+
+  if (merged.length > 0) {
+    // Dedupe by customer number / id
+    const seen = new Set<string>();
+    const unique = merged.filter((c) => {
+      const key = String(c?.CustomerNumber || c?.DeliverToCustomerNumber || c?.CustomerId || c?.Id || Math.random());
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (firstSingle) unique.push(firstSingle);
+    return unique;
+  }
+  return firstSingle;
 }
+
 
 // Set selected customer context (needed for TRACS Direct accounts)
 async function setSelectedCustomer(accessToken: string, customerId: string): Promise<boolean> {
