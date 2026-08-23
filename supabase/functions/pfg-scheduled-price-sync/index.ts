@@ -255,6 +255,17 @@ Deno.serve(async (req) => {
   const runStartedAt = new Date().toISOString();
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // Optional body: { force?: boolean, locationIds?: string[] } for manual runs.
+  let force = false;
+  let locationIds: string[] | null = null;
+  try {
+    const body = await req.json();
+    force = body?.force === true;
+    if (Array.isArray(body?.locationIds) && body.locationIds.length) {
+      locationIds = body.locationIds.map((s: unknown) => String(s));
+    }
+  } catch (_) { /* no body — scheduled run */ }
+
   try {
     const { data: integrations, error: intErr } = await supabase
       .from("location_integrations")
@@ -264,17 +275,19 @@ Deno.serve(async (req) => {
 
     if (intErr) throw intErr;
 
-    const targets = (integrations || []).map((r: any) => ({
-      id: r.location_id,
-      name: r.locations?.name || "Unknown",
-      credentials: r.credentials || {},
-    }));
+    const targets = (integrations || [])
+      .filter((r: any) => !locationIds || locationIds.includes(r.location_id))
+      .map((r: any) => ({
+        id: r.location_id,
+        name: r.locations?.name || "Unknown",
+        credentials: r.credentials || {},
+      }));
 
     const results: LocationResult[] = await runPool(
       targets,
       POOL_SIZE,
       async (loc) => {
-        const res = await syncOneLocation(supabase, loc);
+        const res = await syncOneLocation(supabase, loc, { force });
         const row: LocationResult = {
           location_id: loc.id,
           location_name: loc.name,
