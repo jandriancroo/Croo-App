@@ -1185,6 +1185,62 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </div>
               </Collapsible>
             )}
+
+            {/* Which PFG store is this location? */}
+            {pfgIntegration && (
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Store className="h-4 w-4 text-muted-foreground" />
+                    <span>PFG Store</span>
+                  </div>
+                  {pfgDeliverTo ? (
+                    <Badge variant="secondary" className="text-xs">
+                      <Check className="h-3 w-3 mr-1 text-green-600" />
+                      Store #{pfgDeliverTo}
+                      {pfgDeliverLocations.find((s) => s.number === pfgDeliverTo)?.name
+                        ? ` · ${pfgDeliverLocations.find((s) => s.number === pfgDeliverTo)!.name}`
+                        : ''}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/50">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      All stores (not filtered)
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  If this login can see more than one store, pick the one that belongs to this location so only its orders and invoices come in.
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={fetchPfgStores} disabled={pfgIsFetchingStores}>
+                    {pfgIsFetchingStores ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                    {pfgDeliverLocations.length > 0 ? 'Refresh Stores' : 'Load Stores'}
+                  </Button>
+                </div>
+                {pfgDeliverLocations.length > 0 && (
+                  <div className="flex gap-2">
+                    <Select value={pfgDeliverTo} onValueChange={setPfgDeliverTo}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Choose this location's store..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pfgDeliverLocations.map((s) => (
+                          <SelectItem key={s.number} value={s.number} className="text-xs">
+                            #{s.number} · {s.name} ({s.orderCount} orders)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" onClick={savePfgStore} disabled={pfgIsSavingStore || !pfgDeliverTo}>
+                      {pfgIsSavingStore ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                      Save
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Delivery Schedule */}
             {pfgHasToken && (
               <DeliveryScheduleEditor
