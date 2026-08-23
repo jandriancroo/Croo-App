@@ -3254,6 +3254,17 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
 
   const currentDeliverTo = (credentials as any).deliver_to_customer_number || null;
 
+  // Always keep the store that's already saved on this location in the list, so
+  // the picker still works even when PFG's lookup endpoints are unhappy.
+  if (currentDeliverTo && !deliveryLocations.has(String(currentDeliverTo))) {
+    deliveryLocations.set(String(currentDeliverTo), {
+      number: String(currentDeliverTo),
+      name: (credentials as any).deliver_to_customer_name || 'Saved store',
+      orderCount: 0,
+    });
+  }
+
+
   return new Response(JSON.stringify({
     success: true,
     deliveryLocations: Array.from(deliveryLocations.values()),
