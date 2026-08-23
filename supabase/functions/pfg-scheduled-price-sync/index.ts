@@ -156,12 +156,26 @@ async function syncOneLocation(
 
       for (const cat of categories) {
         for (const product of cat.products || []) {
-          let existing = product.itemNumber
-            ? byItemNumber.get(product.itemNumber) || null
-            : null;
-          if (!existing && product.itemNumber) {
-            const tId = pfgSkuToTemplate.get(product.itemNumber);
-            if (tId) existing = byBrandItemId.get(tId) || null;
+          // A PFG division can return several codes for one product
+          // (e.g. "104752, EL681") — try each before giving up.
+          const codes: string[] = Array.isArray(product.altItemNumbers) && product.altItemNumbers.length
+            ? product.altItemNumbers.map((c: unknown) => String(c).trim()).filter(Boolean)
+            : product.itemNumber
+              ? [String(product.itemNumber).trim()]
+              : [];
+
+          let existing: any = null;
+          let matchedCode: string | null = null;
+          for (const code of codes) {
+            const hit = byItemNumber.get(code);
+            if (hit) { existing = hit; matchedCode = code; break; }
+          }
+          if (!existing) {
+            for (const code of codes) {
+              const tId = pfgSkuToTemplate.get(code);
+              const hit = tId ? byBrandItemId.get(tId) : null;
+              if (hit) { existing = hit; matchedCode = code; break; }
+            }
           }
           if (!existing) continue; // vendor gate — never create locally
 
@@ -174,7 +188,7 @@ async function syncOneLocation(
               cost_per_unit: price,
               pack_size: product.packSize || null,
               pack_quantity: packQuantity,
-              item_number: product.itemNumber || null,
+              item_number: matchedCode || existing.item_number,
               last_synced_at: now,
             })
             .eq("id", existing.id);
