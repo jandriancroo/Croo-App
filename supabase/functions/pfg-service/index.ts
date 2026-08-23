@@ -3105,8 +3105,75 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 }
 
 // ============================================================================
+// TEMP DIAGNOSTIC: probe candidate customer/store endpoints for a login
+// ============================================================================
+
+async function handleProbeCustomerEndpoints(supabase: any, body: any): Promise<Response> {
+  const locationId = body?.locationId;
+  const { data: integration } = await supabase
+    .from('location_integrations')
+    .select('id, credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true)
+    .single();
+  if (!integration) {
+    return new Response(JSON.stringify({ error: 'No active PFG integration' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const credentials = integration.credentials as unknown as PFGCredentials;
+  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, locationId, 'probe');
+  if (!tokenResult) {
+    return new Response(JSON.stringify({ error: 'Auth failed' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const { accessToken } = tokenResult;
+
+  const candidates = [
+    '/Customer/V1/GetCustomerSearch',
+    '/Customer/V1/SearchCustomers',
+    '/Customer/V1/GetUserCustomers',
+    '/Customer/V1/GetCustomerAccounts',
+    '/User/V1/GetCustomers',
+    '/User/V1/GetUserCustomers',
+    '/User/V1/GetUserInfo',
+    '/UserProfile/V1/GetUserProfile',
+    '/Account/V1/GetAccounts',
+    '/CustomerSelection/V1/GetCustomers',
+    '/ProductListHeader/V1/GetProductListHeaders',
+  ];
+
+  const results: any[] = [];
+  for (const path of candidates) {
+    for (const method of ['GET', 'POST'] as const) {
+      try {
+        const data = await fetchPfgJson(path, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json',
+            ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+          },
+          ...(method === 'POST' ? { body: JSON.stringify({}) } : {}),
+        });
+        results.push({ path, method, ok: true, body: JSON.stringify(data).slice(0, 900) });
+      } catch (err) {
+        results.push({ path, method, ok: false, error: (err as Error).message?.slice(0, 140) });
+      }
+    }
+  }
+
+  return new Response(JSON.stringify({ results }, null, 2), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// ============================================================================
 // DELIVERY LOCATION DISCOVERY & ASSIGNMENT
 // ============================================================================
+
 
 async function handleListDeliveryLocations(supabase: any, body: any): Promise<Response> {
   const locationId = body?.locationId;
