@@ -58,6 +58,8 @@ const DashboardPreview = lazyWithRetry(() => import("./pages/DashboardPreview"))
 const DashboardPreviewRestaurant = lazyWithRetry(() => import("./pages/DashboardPreviewRestaurant"));
 const TemperatureValidation = lazyWithRetry(() => import("./pages/TemperatureValidation"));
 const Index = lazyWithRetry(() => import("./pages/Index"));
+const ReviewLanding = lazyWithRetry(() => import("./pages/ReviewLanding"));
+
 const WelcomeProfile = lazyWithRetry(() => import("./pages/WelcomeProfile"));
 const InstallGuide = lazyWithRetry(() => import("./pages/InstallGuide"));
 const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
