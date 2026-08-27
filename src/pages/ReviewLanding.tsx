@@ -487,7 +487,7 @@ function CubeDemo({ active }: { active: boolean }) {
 /* THEO chat mock                                                       */
 /* ------------------------------------------------------------------ */
 
-type ChatEntry = { q: string; a: JSX.Element };
+type ChatEntry = { q: string; a: React.ReactNode };
 
 const CHAT_SCRIPT: ChatEntry[] = [
   {
