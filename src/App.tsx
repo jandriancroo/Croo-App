@@ -58,6 +58,8 @@ const DashboardPreview = lazyWithRetry(() => import("./pages/DashboardPreview"))
 const DashboardPreviewRestaurant = lazyWithRetry(() => import("./pages/DashboardPreviewRestaurant"));
 const TemperatureValidation = lazyWithRetry(() => import("./pages/TemperatureValidation"));
 const Index = lazyWithRetry(() => import("./pages/Index"));
+const ReviewLanding = lazyWithRetry(() => import("./pages/ReviewLanding"));
+
 const WelcomeProfile = lazyWithRetry(() => import("./pages/WelcomeProfile"));
 const InstallGuide = lazyWithRetry(() => import("./pages/InstallGuide"));
 const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
@@ -167,7 +169,10 @@ const AppContent = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/landing" element={<Index />} />
+        {/* Unlisted review page — noindex, not linked from anywhere, not in sitemap */}
+        <Route path="/r/satnight-8f3k" element={<ReviewLanding />} />
         <Route path="/demo" element={<DemoGate />} />
+
         
         <Route path="/install" element={<InstallGuide />} />
         <Route path="/apply/:orgSlug" element={<PublicApplication />} />
