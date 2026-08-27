@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 
@@ -487,7 +487,7 @@ function CubeDemo({ active }: { active: boolean }) {
 /* THEO chat mock                                                       */
 /* ------------------------------------------------------------------ */
 
-type ChatEntry = { q: string; a: React.ReactNode };
+type ChatEntry = { q: string; a: ReactNode };
 
 const CHAT_SCRIPT: ChatEntry[] = [
   {
