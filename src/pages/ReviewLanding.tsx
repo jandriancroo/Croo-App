@@ -1,6 +1,5 @@
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import logoAsset from "@/assets/croohq-logo.png.asset.json";
 
 /**
  * Unlisted review page for the CrooHQ landing concept.
@@ -127,7 +126,7 @@ export default function ReviewLanding() {
 
       <div className="wrap">
         <header>
-          <img src={logoAsset.url} alt="CrooHQ" className="logo" width={140} height={34} />
+          <img src="/croohq-logo.png" alt="CrooHQ" className="logo" width={140} height={34} />
           <nav>
             <a href="#how">How it works</a>
             <a href="#stack">Replace the stack</a>
