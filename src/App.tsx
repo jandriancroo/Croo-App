@@ -128,7 +128,9 @@ const ForceReloadHandler = () => {
 const AppWithSplash = () => {
   const { loading, user } = useAuth();
   const { currentLocation } = useAppLocation();
-  const [showSplash, setShowSplash] = useState(true);
+  // Public/unlisted pages must paint immediately — never gate them behind the splash.
+  const skipSplash = typeof window !== "undefined" && window.location.pathname.startsWith("/r/");
+  const [showSplash, setShowSplash] = useState(!skipSplash);
   const [splashComplete, setSplashComplete] = useState(false);
 
   // Prefetch dashboard data while splash is visible (runs in background)
