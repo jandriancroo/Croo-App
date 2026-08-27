@@ -167,7 +167,10 @@ const AppContent = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/landing" element={<Index />} />
+        {/* Unlisted review page — noindex, not linked from anywhere, not in sitemap */}
+        <Route path="/r/satnight-8f3k" element={<ReviewLanding />} />
         <Route path="/demo" element={<DemoGate />} />
+
         
         <Route path="/install" element={<InstallGuide />} />
         <Route path="/apply/:orgSlug" element={<PublicApplication />} />
