@@ -80,8 +80,9 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
         if (!(hasNoAudience || roleMatch || userMatch)) return false;
 
         if (checklist.template_type === 'dynamic') {
+          // Crew-facing visibility: archived items are gone immediately.
           const todayItems = checklist.checklist_items?.filter((item: any) =>
-            item.days_of_week && item.days_of_week.includes(currentDay)
+            isItemLive(item) && item.days_of_week && item.days_of_week.includes(currentDay)
           );
           return todayItems && todayItems.length > 0;
         }
