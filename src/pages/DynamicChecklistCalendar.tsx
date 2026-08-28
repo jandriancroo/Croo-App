@@ -743,9 +743,13 @@ export default function DynamicChecklistCalendar() {
                 {archiveResponses === null ? "checking..." : archiveResponses}
               </span>
             </p>
-            <p className="text-xs text-muted-foreground">
-              Nothing is erased — the history stays right where it is, and copies of this item are untouched.
-            </p>
+            <div className="rounded-md bg-muted/60 p-3 space-y-1.5 text-xs text-muted-foreground">
+              <p>The crew stops seeing it right away — nobody will do it again today.</p>
+              <p>This week's score still has the hole where it was, so the percentage won't jump.</p>
+              <p>Starting Monday it isn't expected at all.</p>
+              <p>No overdue reminder will go out for it.</p>
+              <p>Nothing is erased — past completions stay, and copies of this item are untouched.</p>
+            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setArchiveTarget(null)}>
