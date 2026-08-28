@@ -102,7 +102,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           template_type,
           frequency,
           visible_days_before_month_end,
-          checklist_items(id, days_of_week)
+          checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('is_active', true)
         .eq('location_id', currentLocation.id);
