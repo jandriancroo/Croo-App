@@ -80,6 +80,13 @@ const CSS = `
 .hme footer { border-top: 1px solid var(--line); padding: 30px 0 44px; font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .hme footer nav { gap: 20px; }
 
+.hme .jobs-band { background: var(--teal); color: #fff; }
+.hme .jobs-band .eyebrow { color: rgba(255,255,255,.88); }
+.hme .jobs-band h2 { color: #fff; }
+.hme .jobs-band .body-copy { color: rgba(255,252,247,.9); }
+.hme .jobs-band .btn-primary { background: #fff; color: var(--teal-d); }
+.hme .jobs-band .btn-primary:hover { background: var(--white); }
+
 @media (max-width: 900px) {
   .hme .hero-grid { grid-template-columns: 1fr; gap: 30px; }
   .hme .wrap { width: calc(100% - 32px); }
@@ -248,20 +255,31 @@ const Home = () => {
         </section>
       </div>
 
-      <div className="band">
+      <div className="jobs-band">
         <div className="wrap">
-          <section className="blk">
-            <h2>If you do not love it, you are not stuck.</h2>
+          <section className="blk" id="jobs">
+            <p className="eyebrow">Looking for a job?</p>
+            <h2>Restaurant roles are already posted.</h2>
             <p className="body-copy">
-              I am not looking to hold anyone hostage who does not love the CrooHQ experience. Hiring is already on
-              CrooHQ. The jobs board is live.
+              Open crew and manager roles in Southern California. Apply on the jobs board.
             </p>
             <div className="cta-row" style={{ marginTop: 26 }}>
-              <a className="btn btn-primary btn-lg" href={MAILTO}>Book a walkthrough</a>
-              <Link className="btn btn-ghost btn-lg" to="/jobs">See open jobs</Link>
+              <Link className="btn btn-primary btn-lg" to="/jobs">See open jobs</Link>
             </div>
           </section>
         </div>
+      </div>
+
+      <div className="wrap">
+        <section className="blk">
+          <h2>If you do not love it, you are not stuck.</h2>
+          <p className="body-copy">
+            I am not looking to hold anyone hostage who does not love the CrooHQ experience.
+          </p>
+          <div className="cta-row" style={{ marginTop: 26 }}>
+            <a className="btn btn-primary btn-lg" href={MAILTO}>Book a walkthrough</a>
+          </div>
+        </section>
       </div>
 
       <div className="wrap">
