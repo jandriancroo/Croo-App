@@ -320,7 +320,7 @@ const Home = () => {
 
       <div className="wrap">
         <footer>
-          <span>croohq.com · Built for operators, by operators.</span>
+          <span>croohq.com · Built for operators, by operators. · Proudly made in America.</span>
           <nav>
             <Link to="/jobs">Jobs</Link>
             <Link to="/privacy">Privacy</Link>
