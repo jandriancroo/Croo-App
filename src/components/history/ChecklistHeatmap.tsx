@@ -138,8 +138,23 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         const { start: dayStart, end: dayEnd } = getBusinessDayRangeInTimezone(dateStr);
         const currentDay = getDateDayOfWeekInTimezone(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0), timezone);
 
+        // Score view: an item archived after that period started is still expected
+        // for that period; archived before it, it was never expected.
+        const expectedItems = (cl: any) => {
+          const scoreStart = getScorePeriodStart({
+            templateType: cl.template_type,
+            frequency: cl.frequency,
+            businessDateStr: dateStr,
+            dayOfWeekMon0: currentDay,
+            timezone,
+            closeTime,
+          });
+          return (cl.checklist_items || []).filter((it: any) => isItemExpectedInPeriod(it, scoreStart));
+        };
+
         // Filter applicable checklists for this day
         const applicable = checklists.filter(cl => {
+          const items = expectedItems(cl);
           const isMonthly = cl.frequency === 'monthly';
           if (isMonthly) {
             if (cl.visible_days_before_month_end) {
@@ -147,13 +162,13 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
               const daysUntilEnd = lastDay.getDate() - day.getDate();
               if (daysUntilEnd >= cl.visible_days_before_month_end) return false;
             }
-            return (cl.checklist_items?.length || 0) > 0;
+            return items.length > 0;
           }
           if (cl.template_type === 'dynamic') {
-            const todayItems = cl.checklist_items?.filter((it: any) => it.days_of_week?.includes(currentDay));
-            return (todayItems?.length || 0) > 0;
+            const todayItems = items.filter((it: any) => it.days_of_week?.includes(currentDay));
+            return todayItems.length > 0;
           }
-          return (cl.checklist_items?.length || 0) > 0;
+          return items.length > 0;
         });
 
         if (applicable.length === 0) {
