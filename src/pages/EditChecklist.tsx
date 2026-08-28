@@ -373,7 +373,9 @@ export default function EditChecklist() {
         .from('checklist_items')
         .select('*')
         .eq('checklist_id', id)
+        .is('deleted_at', null)
         .order('order_index');
+
 
       if (itemsError) throw itemsError;
 
