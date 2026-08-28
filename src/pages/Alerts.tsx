@@ -171,7 +171,7 @@ export default function Alerts() {
             frequency,
             template_type,
             due_by_time,
-            checklist_items(id, days_of_week)
+            checklist_items(id, days_of_week, deleted_at)
           `)
           .eq('is_active', true)
           .neq('template_type', 'training')
@@ -256,11 +256,13 @@ export default function Alerts() {
             }
           }
 
-          let totalItems = checklist.checklist_items?.length || 0;
+          // Overdue pings never fire for an archived (pulled) task.
+          const liveItems = (checklist.checklist_items || []).filter((item: any) => !item.deleted_at);
+          let totalItems = liveItems.length;
           if (checklist.template_type === 'dynamic') {
-            totalItems = checklist.checklist_items?.filter((item: any) => 
+            totalItems = liveItems.filter((item: any) => 
               item.days_of_week && item.days_of_week.includes(dayOfWeek)
-            ).length || 0;
+            ).length;
           }
 
           if (totalItems === 0) continue;

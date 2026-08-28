@@ -39,7 +39,7 @@ export function ChecklistCompletionAlerts() {
           frequency,
           template_type,
           due_by_time,
-          checklist_items(id, days_of_week)
+          checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('is_active', true)
         .neq('template_type', 'training')
