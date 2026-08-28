@@ -1011,8 +1011,8 @@ function ItemSheet({
                 })}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Settings below apply to every day this item is tagged on. Use “Copy” on a day to make an independent
-                version.
+                Settings below apply to every day this item is tagged on.
+
               </p>
             </div>
 
