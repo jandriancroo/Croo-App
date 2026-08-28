@@ -127,7 +127,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           scheduled_date,
           visible_days_before_month_end,
           due_by_time,
-          checklist_items(id, days_of_week, item_type)
+          checklist_items(id, days_of_week, item_type, deleted_at)
         `)
         .eq('is_active', true)
         .neq('template_type', 'training')
