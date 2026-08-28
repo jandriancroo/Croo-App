@@ -145,8 +145,19 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
         // Exclude section_header rows from the expected count — they're
         // visual dividers, not answerable items. Counting them makes a fully
         // completed checklist show as e.g. "21/24" (3 headers unanswered).
+        // Archive rule: items archived AFTER this period started are still expected
+        // (score keeps the hole); items archived before it are not expected at all.
+        const scoreStart = getScorePeriodStart({
+          templateType: checklist.template_type,
+          frequency: checklist.frequency,
+          businessDateStr: historyDateStr,
+          dayOfWeekMon0: currentDay,
+          timezone,
+          closeTime,
+        });
         const answerableItems = (checklist.checklist_items || []).filter(
-          (item: any) => item.item_type !== 'section_header'
+          (item: any) =>
+            item.item_type !== 'section_header' && isItemExpectedInPeriod(item, scoreStart)
         );
         let itemCount = answerableItems.length;
         if (checklist.template_type === 'dynamic') {
