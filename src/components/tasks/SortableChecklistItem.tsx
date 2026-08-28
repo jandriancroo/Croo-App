@@ -1,9 +1,11 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays } from "lucide-react";
+import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays, CopyPlus, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { isPendingDraft, isSupersededVersion, formatActivation } from "@/utils/checklistVersions";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 interface SortableChecklistItemProps {
   checklist: any;
@@ -16,8 +18,11 @@ interface SortableChecklistItemProps {
   onDeactivate: (id: string) => void;
   onDelete: (id: string) => void;
   onCopyTo?: (id: string, title: string) => void;
+  onDuplicate?: (checklist: any) => void;
+  onDiscardDraft?: (id: string) => void;
   editMode?: boolean;
 }
+
 
 export function SortableChecklistItem({
   checklist,
