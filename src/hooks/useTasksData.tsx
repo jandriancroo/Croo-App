@@ -10,6 +10,11 @@ import {
   getDayOfWeekInTimezone,
   getDateDayOfWeekInTimezone,
 } from "@/utils/dateUtils";
+import {
+  getScorePeriodStart,
+  isItemExpectedInPeriod,
+  isItemLive,
+} from "@/utils/checklistArchivePeriod";
 
 interface UseTasksDataOptions {
   /** When true, the Edit tab is mounted and needs the full checklist edit payload. */
