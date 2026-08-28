@@ -23,7 +23,7 @@ export function useChecklistCompletion(
   checklists: Checklist[],
   locationId: string | undefined,
 ) {
-  const { timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, loading: timezoneLoading } = useLocationTimezone();
+  const { timezone, closeTime, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, loading: timezoneLoading } = useLocationTimezone();
 
   const { data: completionData = {} } = useQuery({
     queryKey: ['checklist-completion', locationId, checklists.map(c => c.id).join(',')],
