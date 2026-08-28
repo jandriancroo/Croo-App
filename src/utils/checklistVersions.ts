@@ -51,8 +51,32 @@ export const swapCadence = (c: VersionedChecklist): SwapCadence => {
   return 'daily';
 };
 
-/** Live-now override is allowed for daily lists only — weekly/monthly would split a period. */
-export const canGoLiveNow = (c: VersionedChecklist): boolean => swapCadence(c) === 'daily';
+/** Live-now override is available on every type (Jordan, Aug 28 2026). */
+export const canGoLiveNow = (_c: VersionedChecklist): boolean => true;
+
+/** Plain-language period wording for archive confirms, per checklist type. */
+export const archivePeriodCopy = (
+  c: Pick<VersionedChecklist, 'template_type' | 'frequency'>
+): { scoreLine: string; nextLine: string } => {
+  const cadence = swapCadence(c as VersionedChecklist);
+  if (cadence === 'monthly') {
+    return {
+      scoreLine: "This month's score still has the hole where it was, so the percentage won't jump.",
+      nextLine: 'Starting the 1st it isn\'t expected at all.',
+    };
+  }
+  if (cadence === 'weekly') {
+    return {
+      scoreLine: "This week's score still has the hole where it was, so the percentage won't jump.",
+      nextLine: "Starting Monday it isn't expected at all.",
+    };
+  }
+  return {
+    scoreLine: "Today's score still has the hole where it was, so the percentage won't jump.",
+    nextLine: "Starting tomorrow it isn't expected at all.",
+  };
+};
+
 
 /**
  * The next legal go-live moment, at that location's business open.

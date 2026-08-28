@@ -23,6 +23,7 @@ import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
 import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
+import { archivePeriodCopy } from '@/utils/checklistVersions';
 
 interface ChecklistItem {
   id?: string;
@@ -373,7 +374,9 @@ export default function EditChecklist() {
         .from('checklist_items')
         .select('*')
         .eq('checklist_id', id)
+        .is('deleted_at', null)
         .order('order_index');
+
 
       if (itemsError) throw itemsError;
 
@@ -556,12 +559,14 @@ export default function EditChecklist() {
 
       if (checklistError) throw checklistError;
 
-      // Delete removed items
+      // Archive removed items — never hard-delete. Crew stop seeing them right away,
+      // this period's score keeps the hole, next period they aren't expected.
       const currentIds = new Set(items.filter(i => i.id).map(i => i.id as string));
       const { data: dbItems, error: dbItemsError } = await supabase
         .from('checklist_items')
         .select('id')
-        .eq('checklist_id', id);
+        .eq('checklist_id', id)
+        .is('deleted_at', null);
 
       if (dbItemsError) throw dbItemsError;
 
@@ -570,12 +575,13 @@ export default function EditChecklist() {
         .filter((dbId) => !currentIds.has(dbId));
 
       if (removedIds.length > 0) {
-        const { error: deleteError } = await supabase
+        const { error: archiveError } = await supabase
           .from('checklist_items')
-          .delete()
+          .update({ deleted_at: new Date().toISOString() })
           .in('id', removedIds);
-        if (deleteError) throw deleteError;
+        if (archiveError) throw archiveError;
       }
+
 
       const validItems = items.filter(item => item.question.trim() !== '');
 
@@ -710,10 +716,14 @@ export default function EditChecklist() {
         if (userTagsError) throw userTagsError;
       }
 
+      const archiveCopy = archivePeriodCopy({ template_type: templateType, frequency });
       toast({
         title: 'Success',
-        description: 'Checklist updated successfully',
+        description: removedIds.length > 0
+          ? `Checklist updated. ${removedIds.length} task${removedIds.length === 1 ? '' : 's'} pulled off the floor — no overdue reminders for them. ${archiveCopy.scoreLine} ${archiveCopy.nextLine}`
+          : 'Checklist updated successfully',
       });
+
       navigate('/tasks');
     } catch (error: any) {
       console.error('Error updating checklist:', error);
