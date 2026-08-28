@@ -113,7 +113,19 @@ export function useChecklistCompletion(
       const dataMap: Record<string, CompletionEntry> = {};
 
       for (const checklist of checklists) {
-        const checklistItems = (itemsByChecklist.get(checklist.id) || []) as any[];
+        const allItems = (itemsByChecklist.get(checklist.id) || []) as any[];
+
+        // Archive rule: an item archived AFTER this period started still counts as
+        // expected (the hole is the GM's miss). Archived before → not expected.
+        const scoreStart = getScorePeriodStart({
+          templateType: checklist.template_type,
+          frequency: checklist.frequency,
+          businessDateStr,
+          dayOfWeekMon0: currentDay,
+          timezone,
+          closeTime,
+        });
+        const checklistItems = allItems.filter((it) => isItemExpectedInPeriod(it, scoreStart));
 
         // Compute per-item section anchor (max order_index of preceding section_header)
         const sortedItems = [...checklistItems].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
