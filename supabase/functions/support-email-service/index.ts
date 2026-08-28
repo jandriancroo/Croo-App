@@ -78,6 +78,19 @@ function expectedInPeriod(item: any, periodStart: Date): boolean {
   return new Date(item.deleted_at).getTime() >= periodStart.getTime();
 }
 
+/**
+ * Version filter: a closed period ignores is_active. A version swapped out after the
+ * period started still owns that period; a pending draft never counts.
+ */
+function wasLiveDuringPeriod(c: any, periodStart: Date): boolean {
+  const isPendingDraft = !c?.is_active && !c?.superseded_at && !!c?.replaces_checklist_id;
+  if (isPendingDraft) return false;
+  if (c?.superseded_at) return new Date(c.superseded_at).getTime() >= periodStart.getTime();
+  return !!c?.is_active;
+}
+
+
+
 function formatTimePST(isoString: string): string {
   try {
     return new Date(isoString).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Los_Angeles" });
