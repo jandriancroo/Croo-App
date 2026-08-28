@@ -19,8 +19,23 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
-  const denied = await requireAuthorizedCaller(req, corsHeaders, { minRole: 'admin' });
+  // Resolve the action first so read-only dashboard calls can use a lower role bar.
+  const preUrl = new URL(req.url)
+  let preAction = preUrl.searchParams.get('action') || ''
+  let cachedBody: any = null
+  if (!preAction && req.method === 'POST') {
+    try {
+      cachedBody = await req.clone().json()
+      if (cachedBody?.action) preAction = cachedBody.action
+    } catch {}
+  }
+
+  const READ_ONLY_ACTIONS = new Set(['fetch_reviews', 'fetch_scores', 'get_config'])
+  const minRole = READ_ONLY_ACTIONS.has(preAction) ? 'manager' : 'admin'
+
+  const denied = await requireAuthorizedCaller(req, corsHeaders, { minRole });
   if (denied) return denied;
+
 
   const url = new URL(req.url)
   let action = url.searchParams.get('action') || ''
