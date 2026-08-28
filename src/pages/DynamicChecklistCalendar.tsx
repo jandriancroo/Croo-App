@@ -323,6 +323,44 @@ export default function DynamicChecklistCalendar() {
 
   const unusedCount = items.filter((i) => i.days_of_week.length === 0).length;
 
+  const placedIdsForOpenDay = useMemo(
+    () => new Set((openDayPopover !== null ? byDay.get(openDayPopover) ?? [] : []).map((i) => i.id)),
+    [byDay, openDayPopover],
+  );
+
+  /* ---------------- title (immediate save) ---------------- */
+
+  const cancelTitle = () => {
+    setEditingTitle(false);
+    setTitleDraft(title);
+  };
+
+  const commitTitle = async () => {
+    const next = titleDraft.trim();
+    if (!next) {
+      toast.error("Give the template a name");
+      cancelTitle();
+      return;
+    }
+    setEditingTitle(false);
+    if (next === title) return;
+    const cid = await ensureChecklist();
+    if (!cid) {
+      cancelTitle();
+      return;
+    }
+    const { error } = await supabase.from("checklists").update({ title: next }).eq("id", cid);
+    if (error) {
+      console.error(error);
+      toast.error("Could not rename the template");
+      cancelTitle();
+      return;
+    }
+    setTitle(next);
+    toast.success("Name saved");
+  };
+
+
   /* ---------------- mutations ---------------- */
 
   const bumpRecent = (itemId: string) =>
