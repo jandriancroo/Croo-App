@@ -16,6 +16,9 @@ import { TrainingAssignmentSummary } from "./TrainingAssignmentSummary";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { UnderlineGroup } from "@/components/ui/folder-tabs";
+import { isPendingDraft } from "@/utils/checklistVersions";
+import { DuplicateChecklistDialog } from "./DuplicateChecklistDialog";
+
 
 interface EditTabContentProps {
   checklists: any[];
