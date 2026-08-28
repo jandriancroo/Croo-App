@@ -51,8 +51,11 @@ export function useChecklistCompletion(
       ] = await Promise.all([
         supabase
           .from('checklist_items')
-          .select('id, checklist_id, days_of_week, item_type, order_index')
-          .is('deleted_at', null)
+          // Archived items are NOT filtered out here — the score for the current
+          // period still expects an item the GM archived mid-period (see
+          // checklistArchivePeriod.ts). Items archived before the period started
+          // are dropped per-checklist below.
+          .select('id, checklist_id, days_of_week, item_type, order_index, deleted_at')
           .in('checklist_id', checklistIds),
         dailyChecklistIds.length > 0
           ? supabase
