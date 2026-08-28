@@ -117,7 +117,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
       const histDateLocal = new Date(yr, mo - 1, dy, 12, 0, 0); // noon to avoid DST edge
       const currentDay = getDateDayOfWeekInTimezone(histDateLocal, timezone);
 
-      const { data: checklistsData } = await supabase
+      const { data: allChecklistVersions } = await supabase
         .from('checklists')
         .select(`
           id,
@@ -127,14 +127,24 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           scheduled_date,
           visible_days_before_month_end,
           due_by_time,
+          is_active,
+          family_id,
+          replaces_checklist_id,
+          superseded_at,
           checklist_items(id, days_of_week, item_type, deleted_at)
         `)
-        .eq('is_active', true)
         .neq('template_type', 'training')
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
 
+      // A closed period ignores is_active: a version that was live during the period
+      // still counts after a swap turned it off. Pending drafts never count.
+      const checklistsData = (allChecklistVersions ?? []).filter((c: any) =>
+        wasLiveDuringPeriod(c, periodStartBusiness)
+      );
+
       if (!checklistsData || checklistsData.length === 0) return [];
+
 
       const checklistInfo = checklistsData.map(checklist => {
         // Single-day checklists only exist on their scheduled date
