@@ -299,14 +299,17 @@ export function usePersonalPayData(periodOffset: number = 0) {
             shiftBreakStarts.forEach(breakStart => {
               const breakStartTime = new Date(breakStart.punch_time).getTime();
               
-              // Find the clock_in that ends this break (return from break, not a new shift)
+              // Find the punch that ends this break — either an explicit break_end
+              // or a return-from-break clock_in (same logic as PayrollReview)
               const breakEndPunch = dayPunches.find(p => {
                 const pTime = new Date(p.punch_time).getTime();
-                if (p.punch_type !== 'clock_in') return false;
                 if (pTime <= breakStartTime || pTime >= clockOutTime) return false;
+                if (p.punch_type === 'break_end') return true;
+                if (p.punch_type !== 'clock_in') return false;
                 // Must NOT be a shift-starting clock_in
                 return !shiftStartClockIns.some(s => s.id === p.id);
               });
+
               
                if (breakEndPunch) {
                  breakMinutes += (new Date(breakEndPunch.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000;
