@@ -226,23 +226,44 @@ export default function EditTabContent({
                   <div className="space-y-2">
                     {standardChecklists.map((checklist: any) => {
                       const isDynamicChecklist = checklist.template_type === 'dynamic';
+                      const draft = draftsByParent.get(checklist.id);
                       return (
-                        <SortableChecklistItem
-                          key={checklist.id}
-                          checklist={checklist}
-                          isDynamic={isDynamicChecklist}
-                          isReordering={false}
-                          isAdmin={isAdmin}
-                          currentDay={currentDayIndex}
-                          dayNames={dayNames}
-                          onNavigate={navigate}
-                          onDeactivate={handleToggleActive}
-                          onDelete={handleDelete}
-                          onCopyTo={handleCopyTo}
-                          editMode={true}
-                        />
+                        <div key={checklist.id} className="space-y-1">
+                          <SortableChecklistItem
+                            checklist={draft ? { ...checklist, __draft: draft } : checklist}
+                            isDynamic={isDynamicChecklist}
+                            isReordering={false}
+                            isAdmin={isAdmin}
+                            currentDay={currentDayIndex}
+                            dayNames={dayNames}
+                            onNavigate={navigate}
+                            onDeactivate={handleToggleActive}
+                            onDelete={handleDelete}
+                            onCopyTo={handleCopyTo}
+                            onDuplicate={setDuplicateChecklist}
+                            editMode={true}
+                          />
+                          {draft && (
+                            <div className="pl-6 border-l-2 border-dashed border-border ml-3">
+                              <SortableChecklistItem
+                                checklist={draft}
+                                isDynamic={draft.template_type === 'dynamic'}
+                                isReordering={false}
+                                isAdmin={isAdmin}
+                                currentDay={currentDayIndex}
+                                dayNames={dayNames}
+                                onNavigate={navigate}
+                                onDeactivate={handleToggleActive}
+                                onDelete={handleDelete}
+                                onDiscardDraft={handleDiscardDraft}
+                                editMode={true}
+                              />
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
+
                   </div>
                 </SortableContext>
               </DndContext>
