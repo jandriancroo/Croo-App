@@ -106,11 +106,23 @@ export function SortableChecklistItem({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-medium text-sm truncate">{checklist.title}</p>
-                {!checklist.is_active && (
+                {isDraft && (
+                  <Badge className="text-[10px] px-1.5 gap-0.5">
+                    Draft
+                    {checklist.activation_at ? ` · goes live ${formatActivation(checklist.activation_at, timezone)}` : ' · not scheduled'}
+                  </Badge>
+                )}
+                {isOldVersion && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
+                    Last version
+                  </Badge>
+                )}
+                {!checklist.is_active && !isDraft && !isOldVersion && (
                   <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
                     Inactive
                   </Badge>
                 )}
+
                 {isDynamic && (
                   <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
                     <CalendarDays className="h-2.5 w-2.5" />
