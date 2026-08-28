@@ -255,6 +255,18 @@ const Home = () => {
         </section>
       </div>
 
+      <div className="wrap">
+        <section className="blk">
+          <h2>If you do not love it, you are not stuck.</h2>
+          <p className="body-copy">
+            I am not looking to hold anyone hostage who does not love the CrooHQ experience.
+          </p>
+          <div className="cta-row" style={{ marginTop: 26 }}>
+            <a className="btn btn-primary btn-lg" href={MAILTO}>Book a walkthrough</a>
+          </div>
+        </section>
+      </div>
+
       <div className="jobs-band">
         <div className="wrap">
           <section className="blk" id="jobs">
@@ -271,20 +283,8 @@ const Home = () => {
       </div>
 
       <div className="wrap">
-        <section className="blk">
-          <h2>If you do not love it, you are not stuck.</h2>
-          <p className="body-copy">
-            I am not looking to hold anyone hostage who does not love the CrooHQ experience.
-          </p>
-          <div className="cta-row" style={{ marginTop: 26 }}>
-            <a className="btn btn-primary btn-lg" href={MAILTO}>Book a walkthrough</a>
-          </div>
-        </section>
-      </div>
-
-      <div className="wrap">
         <footer>
-          <span>croohq.com · jordan@croohq.com · Built for operators, by operators.</span>
+          <span>croohq.com · Built for operators, by operators.</span>
           <nav>
             <Link to="/jobs">Jobs</Link>
             <Link to="/privacy">Privacy</Link>
