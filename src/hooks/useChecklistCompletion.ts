@@ -26,7 +26,7 @@ export function useChecklistCompletion(
   const { timezone, closeTime, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, loading: timezoneLoading } = useLocationTimezone();
 
   const { data: completionData = {} } = useQuery({
-    queryKey: ['checklist-completion', locationId, checklists.map(c => c.id).join(',')],
+    queryKey: ['checklist-completion', locationId, closeTime, checklists.map(c => c.id).join(',')],
     queryFn: async (): Promise<Record<string, CompletionEntry>> => {
       if (!checklists.length || !locationId) return {};
 
