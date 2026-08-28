@@ -530,40 +530,88 @@ export default function DynamicChecklistCalendar() {
     <Layout>
       <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4">
         {/* Header */}
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/tasks")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1 min-w-0">
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Template name (e.g. Weekly Cleaning)"
-              className="text-2xl sm:text-3xl font-bold h-auto border-0 border-b border-transparent hover:border-border focus-visible:border-primary focus-visible:ring-0 px-0 bg-transparent shadow-none"
-            />
-            <p className="text-muted-foreground text-sm mt-1">Tap a day to place items from your library</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Library sheet — mobile */}
-            <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="lg:hidden">
-                  <Library className="h-4 w-4 mr-1.5" />
-                  Library
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-                <SheetHeader className="mb-3">
-                  <SheetTitle>Library</SheetTitle>
-                </SheetHeader>
-                {libraryPanel}
-              </SheetContent>
-            </Sheet>
-            <Button onClick={handleSave} disabled={saving} size="sm">
-              <Save className="mr-2 h-4 w-4" />
-              {saving ? "Saving..." : "Save"}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/tasks")}>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
+
+            {editingTitle ? (
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <Input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitTitle();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelTitle();
+                    }
+                  }}
+                  onBlur={cancelTitle}
+                  placeholder="Template name (e.g. Weekly Cleaning)"
+                  className="text-xl sm:text-2xl font-bold h-auto py-1 px-2 min-w-0"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-10 w-10"
+                  aria-label="Save name"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={commitTitle}
+                >
+                  <Check className="h-5 w-5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold leading-tight break-words min-w-0">
+                  {title || "Untitled template"}
+                </h1>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-10 w-10"
+                  aria-label="Rename template"
+                  onClick={() => {
+                    setTitleDraft(title);
+                    setEditingTitle(true);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Library sheet — mobile */}
+              <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="lg:hidden">
+                    <Library className="h-4 w-4 mr-1.5" />
+                    Library
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+                  <SheetHeader className="mb-3">
+                    <SheetTitle>Library</SheetTitle>
+                  </SheetHeader>
+                  {libraryPanel}
+                </SheetContent>
+              </Sheet>
+              <Button onClick={handleSave} disabled={saving} size="sm">
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
           </div>
+
+          <p className="text-muted-foreground text-sm w-full">
+            Tap a day to place items from your library
+          </p>
         </div>
 
         <Card className="p-4">
@@ -580,7 +628,7 @@ export default function DynamicChecklistCalendar() {
 
         <div className="grid lg:grid-cols-4 gap-4">
           {/* Library — desktop column */}
-          <Card className="p-4 hidden lg:block lg:col-span-1 h-fit">
+          <Card className="p-4 hidden lg:block lg:col-span-1 h-fit min-w-0">
             <h2 className="font-semibold mb-3 flex items-center gap-2">
               <Library className="h-4 w-4" /> Library
             </h2>
@@ -588,48 +636,27 @@ export default function DynamicChecklistCalendar() {
           </Card>
 
           {/* Week */}
-          <div className="lg:col-span-3">
-            <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="lg:col-span-3 min-w-0">
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}
+            >
               {DAY_NAMES.map((dayName, dayIdx) => {
                 const dayItems = byDay.get(dayIdx) || [];
                 return (
-                  <Card key={dayIdx} className="p-3 min-h-[180px] flex flex-col">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-semibold text-sm">{dayName}</h3>
-                      <div className="flex items-center gap-1">
-                        {dayItems.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            title="Copy each item here to the next day as its own copy"
-                            onClick={() => {
-                              const next = (dayIdx + 1) % 7;
-                              dayItems.forEach((it) => forkToDay(it, next));
-                            }}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        <LibraryTapPopover
-                          open={openDayPopover === dayIdx}
-                          onOpenChange={(o) => setOpenDayPopover(o ? dayIdx : null)}
-                          items={items}
-                          recentIds={recentIds}
-                          onPlace={(it) => {
-                            setOpenDayPopover(null);
-                            placeOnDay(it, dayIdx);
-                          }}
-                          onNewItem={() => {
-                            setOpenDayPopover(null);
-                            setLibraryOpen(true);
-                          }}
-                        >
-                          <Button variant="ghost" size="icon" className="h-6 w-6" title="Add item to this day">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </LibraryTapPopover>
-                      </div>
+                  <Card key={dayIdx} className="p-3 min-h-[180px] min-w-0 flex flex-col">
+                    <div className="flex items-center justify-between mb-1 gap-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate min-w-0">{dayName}</h3>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 shrink-0"
+                        title="Add item to this day"
+                        aria-label={`Add item to ${dayName}`}
+                        onClick={() => setOpenDayPopover(dayIdx)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
 
                     {/* Thin count strip */}
@@ -637,47 +664,33 @@ export default function DynamicChecklistCalendar() {
                       {dayItems.length} {dayItems.length === 1 ? "item" : "items"}
                     </div>
 
-                    <div className="space-y-1.5 flex-1">
+                    <div className="space-y-1.5 flex-1 min-w-0">
                       {dayItems.map((it) => (
                         <button
                           key={`${dayIdx}-${it.id}`}
                           type="button"
                           onClick={() => setSheetItem(it)}
-                          className="w-full text-left px-2 py-1.5 rounded-md border bg-card hover:bg-accent/60 transition-colors"
+                          className="w-full min-w-0 text-left px-2 py-1.5 rounded-md border bg-card hover:bg-accent/60 transition-colors"
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-medium truncate flex-1">{it.question}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-xs font-medium truncate flex-1 min-w-0">{it.question}</span>
                             {it.manager_shift === "am" && <Sun className="h-3 w-3 text-amber-500 shrink-0" />}
                             {it.manager_shift === "pm" && <Moon className="h-3 w-3 text-indigo-500 shrink-0" />}
                           </div>
-                          <p className="text-[9.5px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                          <p className="text-[9.5px] uppercase tracking-wider text-muted-foreground mt-0.5 truncate">
                             {typeLabel(it.item_type)}
                             {it.forked_from_item_id ? " · copy" : ""}
                           </p>
                         </button>
                       ))}
                       {dayItems.length === 0 && (
-                        <LibraryTapPopover
-                          open={openDayPopover === dayIdx}
-                          onOpenChange={(o) => setOpenDayPopover(o ? dayIdx : null)}
-                          items={items}
-                          recentIds={recentIds}
-                          onPlace={(it) => {
-                            setOpenDayPopover(null);
-                            placeOnDay(it, dayIdx);
-                          }}
-                          onNewItem={() => {
-                            setOpenDayPopover(null);
-                            setLibraryOpen(true);
-                          }}
+                        <button
+                          type="button"
+                          onClick={() => setOpenDayPopover(dayIdx)}
+                          className="w-full h-16 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
                         >
-                          <button
-                            type="button"
-                            className="w-full h-16 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                          >
-                            Tap to add
-                          </button>
-                        </LibraryTapPopover>
+                          Tap to add
+                        </button>
                       )}
                     </div>
                   </Card>
@@ -686,7 +699,24 @@ export default function DynamicChecklistCalendar() {
             </div>
           </div>
         </div>
-      </div>
+
+        {/* Smart Tap — one centered dialog for every day / breakpoint */}
+        <LibraryTapDialog
+          open={openDayPopover !== null}
+          onOpenChange={(o) => !o && setOpenDayPopover(null)}
+          dayLabel={openDayPopover !== null ? DAY_NAMES[openDayPopover] : ""}
+          items={items}
+          recentIds={recentIds}
+          placedIds={placedIdsForOpenDay}
+          onPlace={(it) => {
+            if (openDayPopover !== null) placeOnDay(it, openDayPopover);
+          }}
+          onNewItem={() => {
+            setOpenDayPopover(null);
+            setLibraryOpen(true);
+          }}
+        />
+
 
       {/* Item sheet */}
       <ItemSheet
