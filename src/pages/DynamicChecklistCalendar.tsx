@@ -8,16 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Save, Plus, X, Trash2, Camera, Eye, Sun, Moon, Sparkles,
-  Copy, ListPlus, Library, Archive, Pencil,
+  ArrowLeft, Save, Plus, X, Trash2, Camera, Eye, Sun, Moon,
+  ListPlus, Library, Archive, Pencil, Check,
 } from "lucide-react";
+
 import { useLocation } from "@/hooks/useLocation";
 import { AssigneePicker } from "@/components/shared/AssigneePicker";
 
@@ -78,105 +79,86 @@ const getMinPhotos = (options: any): number => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Smart-Tap style library popover (mirrors SmartTapPopover layout)    */
+/* Smart Tap dialog — one component on every breakpoint                */
+/* Pattern: MobileAddScheduleSheet "SMART TAP DIALOG (centered, fixed)" */
 /* ------------------------------------------------------------------ */
 
-const MAX_PER_COLUMN = 5;
-
-function LibraryTapPopover({
+function LibraryTapDialog({
   open,
   onOpenChange,
+  dayLabel,
   items,
   recentIds,
+  placedIds,
   onPlace,
   onNewItem,
-  children,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  dayLabel: string;
   items: ChecklistItem[];
   recentIds: string[];
+  placedIds: Set<string>;
   onPlace: (item: ChecklistItem) => void;
   onNewItem: () => void;
-  children: React.ReactNode;
 }) {
-  const { recent, otherColumns } = useMemo(() => {
+  const ordered = useMemo(() => {
     const rec: ChecklistItem[] = [];
     for (const id of recentIds) {
       const it = items.find((i) => i.id === id);
       if (it) rec.push(it);
     }
-    const others = items.filter((i) => !recentIds.includes(i.id));
-    const columns: ChecklistItem[][] = [];
-    for (let i = 0; i < others.length; i += MAX_PER_COLUMN) {
-      columns.push(others.slice(i, i + MAX_PER_COLUMN));
-    }
-    return { recent: rec.slice(0, 3), otherColumns: columns };
+    const recIds = new Set(rec.map((i) => i.id));
+    return [...rec, ...items.filter((i) => !recIds.has(i.id))];
   }, [items, recentIds]);
 
-  const hasRecent = recent.length > 0;
+  const recentSet = useMemo(() => new Set(recentIds.slice(0, 3)), [recentIds]);
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        className="w-auto min-w-[220px] max-w-[min(520px,92vw)] p-2 z-[200]"
-        side="bottom"
-        align="center"
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="w-[min(340px,92vw)] max-w-[min(340px,92vw)] max-h-[70vh] overflow-y-auto p-2 gap-2 rounded-2xl pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="flex gap-2 overflow-x-auto">
-          <div className="min-w-[150px] flex-shrink-0">
-            <div className="px-1 pb-1">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">New</span>
-            </div>
-            <button
-              type="button"
-              onClick={onNewItem}
-              className="w-full h-[26px] flex items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
-              aria-label="Create new library item"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            {hasRecent && (
-              <>
-                <div className="flex items-center gap-1.5 px-1 pt-2 pb-1">
-                  <Sparkles className="h-3 w-3 text-amber-500" />
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Recent</span>
-                </div>
-                <div className="space-y-0.5">
-                  {recent.map((it) => (
-                    <LibraryOption key={it.id} item={it} onSelect={onPlace} highlighted />
-                  ))}
-                </div>
-              </>
+        <DialogHeader className="px-2 pt-1 pb-0">
+          <DialogTitle className="text-sm font-medium text-center">{dayLabel}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={onNewItem}
+            className="w-full min-h-[44px] flex items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
+            aria-label="Create new library item"
+          >
+            <Plus className="h-4 w-4" /> New item
+          </button>
+
+          <div className="space-y-0.5 pt-1">
+            {ordered.map((it) => (
+              <LibraryOption
+                key={it.id}
+                item={it}
+                onSelect={onPlace}
+                highlighted={recentSet.has(it.id)}
+                placed={placedIds.has(it.id)}
+              />
+            ))}
+            {ordered.length === 0 && (
+              <p className="px-2 py-3 text-xs text-muted-foreground text-center">
+                Your library is empty — add an item first.
+              </p>
             )}
           </div>
-
-          {otherColumns.map((column, colIdx) => (
-            <div key={colIdx} className="flex gap-2">
-              <div className="w-px bg-border flex-shrink-0" />
-              <div className="min-w-[150px] flex-shrink-0">
-                {colIdx === 0 ? (
-                  <div className="px-1 pb-1">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      All items
-                    </span>
-                  </div>
-                ) : (
-                  <div className="h-[18px]" />
-                )}
-                <div className="space-y-0.5">
-                  {column.map((it) => (
-                    <LibraryOption key={it.id} item={it} onSelect={onPlace} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
-      </PopoverContent>
-    </Popover>
+
+        <div className="pt-1">
+          <Button variant="outline" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -184,15 +166,17 @@ function LibraryOption({
   item,
   onSelect,
   highlighted = false,
+  placed = false,
 }: {
   item: ChecklistItem;
   onSelect: (i: ChecklistItem) => void;
   highlighted?: boolean;
+  placed?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors hover:bg-accent/70 ${
+      className={`w-full min-h-[44px] flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors hover:bg-accent/70 ${
         highlighted ? "bg-accent/30" : ""
       }`}
       onClick={() => onSelect(item)}
@@ -204,9 +188,11 @@ function LibraryOption({
           {item.days_of_week.length === 0 ? " · unused" : ` · ${item.days_of_week.length}d`}
         </p>
       </div>
+      {placed && <Check className="h-4 w-4 text-primary shrink-0" />}
     </button>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
@@ -229,6 +215,11 @@ export default function DynamicChecklistCalendar() {
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [openDayPopover, setOpenDayPopover] = useState<number | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
+
+  // Title: heading + pencil. Name commits immediately; everything else waits for Save.
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+
 
   // Item sheet
   const [sheetItem, setSheetItem] = useState<ChecklistItem | null>(null);
@@ -331,6 +322,44 @@ export default function DynamicChecklistCalendar() {
   }, [items]);
 
   const unusedCount = items.filter((i) => i.days_of_week.length === 0).length;
+
+  const placedIdsForOpenDay = useMemo(
+    () => new Set((openDayPopover !== null ? byDay.get(openDayPopover) ?? [] : []).map((i) => i.id)),
+    [byDay, openDayPopover],
+  );
+
+  /* ---------------- title (immediate save) ---------------- */
+
+  const cancelTitle = () => {
+    setEditingTitle(false);
+    setTitleDraft(title);
+  };
+
+  const commitTitle = async () => {
+    const next = titleDraft.trim();
+    if (!next) {
+      toast.error("Give the template a name");
+      cancelTitle();
+      return;
+    }
+    setEditingTitle(false);
+    if (next === title) return;
+    const cid = await ensureChecklist();
+    if (!cid) {
+      cancelTitle();
+      return;
+    }
+    const { error } = await supabase.from("checklists").update({ title: next }).eq("id", cid);
+    if (error) {
+      console.error(error);
+      toast.error("Could not rename the template");
+      cancelTitle();
+      return;
+    }
+    setTitle(next);
+    toast.success("Name saved");
+  };
+
 
   /* ---------------- mutations ---------------- */
 
@@ -545,40 +574,88 @@ export default function DynamicChecklistCalendar() {
     <Layout>
       <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4">
         {/* Header */}
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/tasks")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1 min-w-0">
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Template name (e.g. Weekly Cleaning)"
-              className="text-2xl sm:text-3xl font-bold h-auto border-0 border-b border-transparent hover:border-border focus-visible:border-primary focus-visible:ring-0 px-0 bg-transparent shadow-none"
-            />
-            <p className="text-muted-foreground text-sm mt-1">Tap a day to place items from your library</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Library sheet — mobile */}
-            <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="lg:hidden">
-                  <Library className="h-4 w-4 mr-1.5" />
-                  Library
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-                <SheetHeader className="mb-3">
-                  <SheetTitle>Library</SheetTitle>
-                </SheetHeader>
-                {libraryPanel}
-              </SheetContent>
-            </Sheet>
-            <Button onClick={handleSave} disabled={saving} size="sm">
-              <Save className="mr-2 h-4 w-4" />
-              {saving ? "Saving..." : "Save"}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/tasks")}>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
+
+            {editingTitle ? (
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <Input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitTitle();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelTitle();
+                    }
+                  }}
+                  onBlur={cancelTitle}
+                  placeholder="Template name (e.g. Weekly Cleaning)"
+                  className="text-xl sm:text-2xl font-bold h-auto py-1 px-2 min-w-0"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-10 w-10"
+                  aria-label="Save name"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={commitTitle}
+                >
+                  <Check className="h-5 w-5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold leading-tight break-words min-w-0">
+                  {title || "Untitled template"}
+                </h1>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-10 w-10"
+                  aria-label="Rename template"
+                  onClick={() => {
+                    setTitleDraft(title);
+                    setEditingTitle(true);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Library sheet — mobile */}
+              <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="lg:hidden">
+                    <Library className="h-4 w-4 mr-1.5" />
+                    Library
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+                  <SheetHeader className="mb-3">
+                    <SheetTitle>Library</SheetTitle>
+                  </SheetHeader>
+                  {libraryPanel}
+                </SheetContent>
+              </Sheet>
+              <Button onClick={handleSave} disabled={saving} size="sm">
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
           </div>
+
+          <p className="text-muted-foreground text-sm w-full">
+            Tap a day to place items from your library
+          </p>
         </div>
 
         <Card className="p-4">
@@ -595,7 +672,7 @@ export default function DynamicChecklistCalendar() {
 
         <div className="grid lg:grid-cols-4 gap-4">
           {/* Library — desktop column */}
-          <Card className="p-4 hidden lg:block lg:col-span-1 h-fit">
+          <Card className="p-4 hidden lg:block lg:col-span-1 h-fit min-w-0">
             <h2 className="font-semibold mb-3 flex items-center gap-2">
               <Library className="h-4 w-4" /> Library
             </h2>
@@ -603,48 +680,27 @@ export default function DynamicChecklistCalendar() {
           </Card>
 
           {/* Week */}
-          <div className="lg:col-span-3">
-            <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="lg:col-span-3 min-w-0">
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}
+            >
               {DAY_NAMES.map((dayName, dayIdx) => {
                 const dayItems = byDay.get(dayIdx) || [];
                 return (
-                  <Card key={dayIdx} className="p-3 min-h-[180px] flex flex-col">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-semibold text-sm">{dayName}</h3>
-                      <div className="flex items-center gap-1">
-                        {dayItems.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            title="Copy each item here to the next day as its own copy"
-                            onClick={() => {
-                              const next = (dayIdx + 1) % 7;
-                              dayItems.forEach((it) => forkToDay(it, next));
-                            }}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        <LibraryTapPopover
-                          open={openDayPopover === dayIdx}
-                          onOpenChange={(o) => setOpenDayPopover(o ? dayIdx : null)}
-                          items={items}
-                          recentIds={recentIds}
-                          onPlace={(it) => {
-                            setOpenDayPopover(null);
-                            placeOnDay(it, dayIdx);
-                          }}
-                          onNewItem={() => {
-                            setOpenDayPopover(null);
-                            setLibraryOpen(true);
-                          }}
-                        >
-                          <Button variant="ghost" size="icon" className="h-6 w-6" title="Add item to this day">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </LibraryTapPopover>
-                      </div>
+                  <Card key={dayIdx} className="p-3 min-h-[180px] min-w-0 flex flex-col">
+                    <div className="flex items-center justify-between mb-1 gap-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate min-w-0">{dayName}</h3>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 shrink-0"
+                        title="Add item to this day"
+                        aria-label={`Add item to ${dayName}`}
+                        onClick={() => setOpenDayPopover(dayIdx)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
 
                     {/* Thin count strip */}
@@ -652,47 +708,33 @@ export default function DynamicChecklistCalendar() {
                       {dayItems.length} {dayItems.length === 1 ? "item" : "items"}
                     </div>
 
-                    <div className="space-y-1.5 flex-1">
+                    <div className="space-y-1.5 flex-1 min-w-0">
                       {dayItems.map((it) => (
                         <button
                           key={`${dayIdx}-${it.id}`}
                           type="button"
                           onClick={() => setSheetItem(it)}
-                          className="w-full text-left px-2 py-1.5 rounded-md border bg-card hover:bg-accent/60 transition-colors"
+                          className="w-full min-w-0 text-left px-2 py-1.5 rounded-md border bg-card hover:bg-accent/60 transition-colors"
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-medium truncate flex-1">{it.question}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-xs font-medium truncate flex-1 min-w-0">{it.question}</span>
                             {it.manager_shift === "am" && <Sun className="h-3 w-3 text-amber-500 shrink-0" />}
                             {it.manager_shift === "pm" && <Moon className="h-3 w-3 text-indigo-500 shrink-0" />}
                           </div>
-                          <p className="text-[9.5px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                          <p className="text-[9.5px] uppercase tracking-wider text-muted-foreground mt-0.5 truncate">
                             {typeLabel(it.item_type)}
                             {it.forked_from_item_id ? " · copy" : ""}
                           </p>
                         </button>
                       ))}
                       {dayItems.length === 0 && (
-                        <LibraryTapPopover
-                          open={openDayPopover === dayIdx}
-                          onOpenChange={(o) => setOpenDayPopover(o ? dayIdx : null)}
-                          items={items}
-                          recentIds={recentIds}
-                          onPlace={(it) => {
-                            setOpenDayPopover(null);
-                            placeOnDay(it, dayIdx);
-                          }}
-                          onNewItem={() => {
-                            setOpenDayPopover(null);
-                            setLibraryOpen(true);
-                          }}
+                        <button
+                          type="button"
+                          onClick={() => setOpenDayPopover(dayIdx)}
+                          className="w-full h-16 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
                         >
-                          <button
-                            type="button"
-                            className="w-full h-16 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                          >
-                            Tap to add
-                          </button>
-                        </LibraryTapPopover>
+                          Tap to add
+                        </button>
                       )}
                     </div>
                   </Card>
@@ -701,7 +743,27 @@ export default function DynamicChecklistCalendar() {
             </div>
           </div>
         </div>
+
+        {/* Smart Tap — one centered dialog for every day / breakpoint */}
+        <LibraryTapDialog
+          open={openDayPopover !== null}
+          onOpenChange={(o) => !o && setOpenDayPopover(null)}
+          dayLabel={openDayPopover !== null ? DAY_NAMES[openDayPopover] : ""}
+          items={items}
+          recentIds={recentIds}
+          placedIds={placedIdsForOpenDay}
+          onPlace={(it) => {
+            if (openDayPopover !== null) placeOnDay(it, openDayPopover);
+          }}
+          onNewItem={() => {
+            setOpenDayPopover(null);
+            setLibraryOpen(true);
+          }}
+        />
       </div>
+
+
+
 
       {/* Item sheet */}
       <ItemSheet
@@ -949,8 +1011,8 @@ function ItemSheet({
                 })}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Settings below apply to every day this item is tagged on. Use “Copy” on a day to make an independent
-                version.
+                Settings below apply to every day this item is tagged on.
+
               </p>
             </div>
 
