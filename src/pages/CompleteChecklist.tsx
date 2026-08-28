@@ -524,7 +524,7 @@ export default function CompleteChecklist() {
       const {
         data: itemsData,
         error: itemsError
-      } = await supabase.from('checklist_items').select('*').eq('checklist_id', id).order('order_index');
+      } = await supabase.from('checklist_items').select('*').eq('checklist_id', id).is('deleted_at', null).order('order_index');
       if (itemsError) throw itemsError;
 
       // For dynamic checklists, filter items for the viewing day
