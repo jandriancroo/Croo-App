@@ -57,7 +57,7 @@ const FontPreviewPage = lazyWithRetry(() => import("./pages/FontPreviewPage"));
 const DashboardPreview = lazyWithRetry(() => import("./pages/DashboardPreview"));
 const DashboardPreviewRestaurant = lazyWithRetry(() => import("./pages/DashboardPreviewRestaurant"));
 const TemperatureValidation = lazyWithRetry(() => import("./pages/TemperatureValidation"));
-const Index = lazyWithRetry(() => import("./pages/Index"));
+const Home = lazyWithRetry(() => import("./pages/Home"));
 const ReviewLanding = lazyWithRetry(() => import("./pages/ReviewLanding"));
 
 const WelcomeProfile = lazyWithRetry(() => import("./pages/WelcomeProfile"));
