@@ -5,6 +5,79 @@ import { Resend } from "https://esm.sh/resend@2.0.0";
 import { requireCaller } from "../_shared/callerAuth.ts";
 
 // Format a UTC timestamp to America/Los_Angeles time string
+// ── Business-day window, location timezone + that location's business open ──
+// Mirrors src/utils/timezoneUtils.ts getBusinessDayRangeInTimezone: the day starts
+// at (close_time + 3h) when that lands in the early morning, otherwise midnight.
+// Never hardcode 08:00Z — locations are not all Pacific.
+const DEFAULT_CUTOFF_HOUR = 3;
+
+async function getLocationDayContext(supabase: any, locationId: string) {
+  const [{ data: settings }, { data: hours }] = await Promise.all([
+    supabase.from("location_settings").select("timezone").eq("location_id", locationId).maybeSingle(),
+    supabase.from("location_hours").select("day_of_week, close_time").eq("location_id", locationId),
+  ]);
+  const timezone = settings?.timezone || "America/Los_Angeles";
+  const closeByDow = new Map<number, string>();
+  for (const h of (hours || [])) {
+    if (h.close_time) closeByDow.set(h.day_of_week, h.close_time);
+  }
+  return { timezone, closeByDow };
+}
+
+function tzOffsetMinutes(timezone: string, at: Date): number {
+  // Offset (minutes) to add to a local wall-clock time to get UTC.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(at).reduce((acc: any, p) => { acc[p.type] = p.value; return acc; }, {});
+  const asUTC = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
+  return Math.round((at.getTime() - asUTC) / 60000);
+}
+
+/** UTC Date for a local wall-clock time in `timezone`. */
+function zonedTimeToUtc(dateStr: string, hour: number, timezone: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const naive = Date.UTC(y, m - 1, d, hour, 0, 0);
+  const guess = new Date(naive);
+  return new Date(naive + tzOffsetMinutes(timezone, guess) * 60000);
+}
+
+function mon0DayOfWeek(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return (new Date(y, m - 1, d, 12, 0, 0).getDay() + 6) % 7;
+}
+
+function addDaysStr(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const nd = new Date(y, m - 1, d + days, 12, 0, 0);
+  return `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, "0")}-${String(nd.getDate()).padStart(2, "0")}`;
+}
+
+/** Start/end (UTC) of the business day for `dateStr` at this location. */
+function businessDayRange(
+  dateStr: string,
+  ctx: { timezone: string; closeByDow: Map<number, string> }
+): { start: Date; end: Date } {
+  const close = ctx.closeByDow.get(mon0DayOfWeek(dateStr));
+  const closeHour = close ? Number(close.split(":")[0]) : -1;
+  const cutoff = closeHour >= 0 ? (closeHour + 3) % 24 : DEFAULT_CUTOFF_HOUR;
+  const startHour = cutoff > 0 && cutoff < 12 ? cutoff : 0;
+  return {
+    start: zonedTimeToUtc(dateStr, startHour, ctx.timezone),
+    end: zonedTimeToUtc(addDaysStr(dateStr, 1), startHour, ctx.timezone),
+  };
+}
+
+/**
+ * Score filter (Jordan + Ryan rule): an item archived AFTER the period started is
+ * still expected — the period keeps the hole. Archived before it, never expected.
+ */
+function expectedInPeriod(item: any, periodStart: Date): boolean {
+  if (!item?.deleted_at) return true;
+  return new Date(item.deleted_at).getTime() >= periodStart.getTime();
+}
+
 function formatTimePST(isoString: string): string {
   try {
     return new Date(isoString).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Los_Angeles" });
@@ -330,11 +403,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   lastYearDate.setDate(lastYearDate.getDate() + diff);
   const lyStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, "0")}-${String(lastYearDate.getDate()).padStart(2, "0")}`;
 
-  // Business day boundaries: midnight PST (08:00 UTC) to next midnight PST
-  // This matches how the app's Tasks>History page queries submissions
-  // PST = UTC-8, so midnight PST = 08:00 UTC
-  const businessDayStartUTC = `${entry_date}T08:00:00.000Z`;
-  const businessDayEndUTC = `${nextDateStr}T08:00:00.000Z`;
+  // Business day boundaries in the LOCATION's timezone + its business open.
+  const dayCtx = await getLocationDayContext(supabase, location_id);
+  const dayRange = businessDayRange(entry_date, dayCtx);
+  const businessDayStartUTC = dayRange.start.toISOString();
+  const businessDayEndUTC = dayRange.end.toISOString();
 
   // Parallel data fetches
   const [
@@ -356,7 +429,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
     // Use business day boundaries matching app's getBusinessDayRangeInTimezone
     supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", businessDayStartUTC).lt("submitted_at", businessDayEndUTC),
-    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id).eq("is_active", true),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
 
@@ -484,7 +557,8 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const activeItemIds = new Set<string>();
   const checklistTypeMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.template_type]));
   for (const c of (activeChecklists || [])) {
-    const items = c.checklist_items || [];
+    // Score view: keep items archived after this business day started (the hole stays).
+    const items = (c.checklist_items || []).filter((i: any) => expectedInPeriod(i, dayRange.start));
     const isDynamic = c.template_type === "dynamic";
     const todayItems = isDynamic
       ? items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek))
@@ -533,8 +607,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
         if (!sub) continue;
         const cid = sub.checklist_id;
 
-        // Count ALL responses (same as app), will cap at itemCount later
-        checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + 1;
+        // Numerator lives in the same universe as the denominator (expected items
+        // for this day), so archiving can never push the % past 100.
+        if (!r.item_id || activeItemIds.has(r.item_id)) {
+          checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + 1;
+        }
 
         const completerName = r.completed_by ? completerNameMap.get(r.completed_by) : null;
         if (completerName) {
@@ -978,7 +1055,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, projected_sales, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
     supabase.from("labor_cache").select("labor_date, labor_hours, labor_cost").eq("location_id", location_id).gte("labor_date", week_start).lte("labor_date", week_end),
     supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
-    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id).eq("is_active", true),
     supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
   ]);
 
@@ -1032,35 +1109,41 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
 
   // ---- Aggregate Checklists ----
   // Fetch all submissions for the week
+  const weekCtx = await getLocationDayContext(supabase, location_id);
+  const weekStartUTC = businessDayRange(week_start, weekCtx).start;
+  const weekEndUTC = businessDayRange(week_end, weekCtx).end;
+
   const { data: weekSubs } = await supabase
     .from("checklist_submissions")
     .select("id, checklist_id, submitted_at")
     .eq("location_id", location_id)
-    .gte("submitted_at", `${week_start}T08:00:00.000Z`)
-    .lt("submitted_at", `${new Date(eYr, eMo - 1, eDy + 1).getFullYear()}-${String(new Date(eYr, eMo - 1, eDy + 1).getMonth() + 1).padStart(2, "0")}-${String(new Date(eYr, eMo - 1, eDy + 1).getDate()).padStart(2, "0")}T08:00:00.000Z`);
+    .gte("submitted_at", weekStartUTC.toISOString())
+    .lt("submitted_at", weekEndUTC.toISOString());
 
-  const subIds = (weekSubs || []).map((s: any) => s.id);
-  let totalResponseCount = 0;
-  if (subIds.length > 0) {
-    const { data: responses } = await supabase.from("checklist_responses").select("id").in("submission_id", subIds);
-    totalResponseCount = responses?.length || 0;
-  }
-
-  // Calculate expected items across the week
+  // Calculate expected items across the week (archive-aware, per business day)
   const dailyAndDynamicChecklists = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
   let totalExpectedItems = 0;
+  const expectedItemIds = new Set<string>();
   for (const dateStr of weekDates) {
-    const date = new Date(dateStr + "T12:00:00");
-    const jsDow = date.getDay();
-    const monDow = (jsDow + 6) % 7;
+    const monDow = mon0DayOfWeek(dateStr);
+    const dayStart = businessDayRange(dateStr, weekCtx).start;
     for (const c of dailyAndDynamicChecklists) {
-      const items = c.checklist_items || [];
+      const items = (c.checklist_items || []).filter((i: any) => expectedInPeriod(i, dayStart));
       const isDynamic = c.template_type === "dynamic";
       const todayItems = isDynamic
         ? items.filter((i: any) => i.days_of_week && i.days_of_week.includes(monDow))
         : items;
       totalExpectedItems += todayItems.length;
+      for (const i of todayItems) expectedItemIds.add(i.id);
     }
+  }
+
+  // Numerator must live in the same universe as the denominator, or the % breaks 100.
+  const subIds = (weekSubs || []).map((s: any) => s.id);
+  let totalResponseCount = 0;
+  if (subIds.length > 0) {
+    const { data: responses } = await supabase.from("checklist_responses").select("id, item_id").in("submission_id", subIds);
+    totalResponseCount = (responses || []).filter((r: any) => r.item_id && expectedItemIds.has(r.item_id)).length;
   }
   const checklistPct = totalExpectedItems > 0 ? Math.round((Math.min(totalResponseCount, totalExpectedItems) / totalExpectedItems) * 100) : 0;
 
@@ -1251,19 +1334,18 @@ Write concise insights about sales trends, labor efficiency, cash handling, and 
     let activeDays = 0;
     let completedDays = 0;
     for (const dateStr of weekDates) {
-      const date = new Date(dateStr + "T12:00:00");
-      const jsDow = date.getDay();
-      const monDow = (jsDow + 6) % 7;
-      const items = c.checklist_items || [];
+      const monDow = mon0DayOfWeek(dateStr);
+      const { start: dayStart, end: dayEnd } = businessDayRange(dateStr, weekCtx);
+      // A day the GM emptied by archiving still counts as an active day this week
+      // (4/5, not 4/4) — items archived after that day started are still expected.
+      const items = (c.checklist_items || []).filter((i: any) => expectedInPeriod(i, dayStart));
       const isDynamic = c.template_type === "dynamic";
       const todayItems = isDynamic ? items.filter((i: any) => i.days_of_week && i.days_of_week.includes(monDow)) : items;
       if (todayItems.length > 0) {
         activeDays++;
-        // Check if any submission exists for this checklist on this date
-        const businessDayStart = `${dateStr}T08:00:00.000Z`;
-        const nextD = new Date(new Date(dateStr + "T12:00:00").getTime() + 86400000);
-        const businessDayEnd = `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,"0")}-${String(nextD.getDate()).padStart(2,"0")}T08:00:00.000Z`;
-        const hasSub = (weekSubs || []).some((s: any) => s.checklist_id === c.id && s.submitted_at >= businessDayStart && s.submitted_at < businessDayEnd);
+        const startIso = dayStart.toISOString();
+        const endIso = dayEnd.toISOString();
+        const hasSub = (weekSubs || []).some((s: any) => s.checklist_id === c.id && s.submitted_at >= startIso && s.submitted_at < endIso);
         if (hasSub) completedDays++;
       }
     }
