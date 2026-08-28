@@ -1055,16 +1055,22 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     { data: salesRows },
     { data: laborRows },
     { data: locationSettings },
-    { data: activeChecklists },
+    { data: allChecklistVersions },
     { data: logbookEntries },
   ] = await Promise.all([
     supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
     supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, projected_sales, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
     supabase.from("labor_cache").select("labor_date, labor_hours, labor_cost").eq("location_id", location_id).gte("labor_date", week_start).lte("labor_date", week_end),
     supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
-    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklists").select("id, title, frequency, template_type, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
     supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
   ]);
+
+  // Monday morning's prior-week summary must still see a version swapped out at open.
+  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
+    wasLiveDuringPeriod(c, new Date(`${week_start}T00:00:00Z`))
+  );
+
 
   if (!location) {
     return new Response(JSON.stringify({ error: "Location not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
