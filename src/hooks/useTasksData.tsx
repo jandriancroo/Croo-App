@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { wasLiveDuringPeriod } from "@/utils/checklistVersions";
+
 import {
   getDayOfWeekInTimezone,
   getDateDayOfWeekInTimezone,
