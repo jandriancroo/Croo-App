@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { requireAuthorizedCaller } from '../_shared/callerAuth.ts';
+import { authenticateCaller, requireAuthorizedCaller } from '../_shared/callerAuth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,8 +30,13 @@ serve(async (req) => {
     } catch {}
   }
 
-  const READ_ONLY_ACTIONS = new Set(['fetch_reviews', 'fetch_scores', 'get_config'])
-  const minRole = READ_ONLY_ACTIONS.has(preAction) ? 'manager' : 'admin'
+  const STAFF_READ_ACTIONS = new Set(['fetch_reviews'])
+  const MANAGER_READ_ACTIONS = new Set(['fetch_scores', 'get_config'])
+  const minRole = STAFF_READ_ACTIONS.has(preAction)
+    ? 'team_member'
+    : MANAGER_READ_ACTIONS.has(preAction)
+      ? 'manager'
+      : 'admin'
 
   const denied = await requireAuthorizedCaller(req, corsHeaders, { minRole });
   if (denied) return denied;
@@ -888,6 +893,22 @@ function extractOvationUserId(idToken: string): string | null {
 // ==================== FETCH REVIEWS ====================
 async function handleFetchReviews(req: Request, supabase: any) {
   const { locationId, brandId, days = 14, page = 1, pageSize = 20 } = await req.json()
+
+  // The reviews widget is visible to all signed-in staff, but browser callers
+  // may only request reviews for a location they are assigned to. Internal
+  // service callers retain access for scheduled/background work.
+  const caller = await authenticateCaller(req)
+  if (!caller) return jsonResponse({ error: 'Unauthorized' }, 401)
+  if (caller.kind === 'user') {
+    if (!locationId) return jsonResponse({ error: 'Location is required' }, 400)
+    const { data: hasAccess, error: accessError } = await supabase.rpc('has_location_access', {
+      _user_id: caller.userId,
+      _location_id: locationId,
+    })
+    if (accessError || hasAccess !== true) {
+      return jsonResponse({ error: 'Forbidden' }, 403)
+    }
+  }
 
   let authToken: string | null = null
   let companyId: string | null = null
