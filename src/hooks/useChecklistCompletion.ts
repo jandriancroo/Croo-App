@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { getScorePeriodStart, isItemExpectedInPeriod } from '@/utils/checklistArchivePeriod';
 
 interface Checklist {
   id: string;
