@@ -49,13 +49,17 @@ export function ChecklistCompletionAlerts() {
       if (!checklists || checklists.length === 0) return [];
 
       // Filter to only checklists relevant for today
+      // Overdue alerts ignore archived items entirely — no ping for a pulled task.
+      const liveItemsFor = (checklist: any) =>
+        (checklist.checklist_items || []).filter((item: any) => !item.deleted_at);
+
       const relevantChecklists = checklists.filter(checklist => {
         if (checklist.template_type === 'dynamic') {
           // Only include items explicitly assigned to today (null = unassigned, not shown)
-          const todayItems = checklist.checklist_items?.filter((item: any) => 
+          const todayItems = liveItemsFor(checklist).filter((item: any) => 
             item.days_of_week && item.days_of_week.includes(currentDay)
           );
-          return todayItems && todayItems.length > 0;
+          return todayItems.length > 0;
         }
         return checklist.frequency === 'daily';
       });
@@ -92,12 +96,12 @@ export function ChecklistCompletionAlerts() {
         
         const checklistSubmissions = submissions?.filter(s => s.checklist_id === checklist.id) || [];
         
-        let totalItems = checklist.checklist_items?.length || 0;
+        let totalItems = liveItemsFor(checklist).length;
         if (checklist.template_type === 'dynamic') {
           // Only count items explicitly assigned to today (null = unassigned)
-          totalItems = checklist.checklist_items?.filter((item: any) => 
+          totalItems = liveItemsFor(checklist).filter((item: any) => 
             item.days_of_week && item.days_of_week.includes(currentDay)
-          ).length || 0;
+          ).length;
         }
 
         // Count unique completed items (not total responses)
