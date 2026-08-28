@@ -13044,6 +13044,7 @@ export type Database = {
       }
       can_see_admin_locations: { Args: { _user_id: string }; Returns: boolean }
       check_alerts_sql: { Args: never; Returns: undefined }
+      check_weekly_checklist_alerts_sql: { Args: never; Returns: undefined }
       cleanup_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
       clear_all_pending_pin_plaintext: { Args: never; Returns: Json }
