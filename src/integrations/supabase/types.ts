@@ -1814,6 +1814,8 @@ export type Database = {
           checklist_id: string
           created_at: string | null
           days_of_week: number[] | null
+          deleted_at: string | null
+          forked_from_item_id: string | null
           id: string
           is_required: boolean | null
           item_type: string
@@ -1834,6 +1836,8 @@ export type Database = {
           checklist_id: string
           created_at?: string | null
           days_of_week?: number[] | null
+          deleted_at?: string | null
+          forked_from_item_id?: string | null
           id?: string
           is_required?: boolean | null
           item_type: string
@@ -1854,6 +1858,8 @@ export type Database = {
           checklist_id?: string
           created_at?: string | null
           days_of_week?: number[] | null
+          deleted_at?: string | null
+          forked_from_item_id?: string | null
           id?: string
           is_required?: boolean | null
           item_type?: string
@@ -1876,6 +1882,13 @@ export type Database = {
             columns: ["checklist_id"]
             isOneToOne: false
             referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_items_forked_from_item_id_fkey"
+            columns: ["forked_from_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
             referencedColumns: ["id"]
           },
         ]
