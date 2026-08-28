@@ -160,6 +160,21 @@ export function SortableChecklistItem({
                     <DropdownMenuSeparator />
                   </>
                 )}
+                {isDraft && onScheduleDraft && (
+                  <>
+                    <DropdownMenuItem onClick={() => onScheduleDraft(checklist)}>
+                      <CalendarDays className="h-4 w-4 mr-2" />
+                      Schedule
+                    </DropdownMenuItem>
+                    {onLiveNowDraft && (
+                      <DropdownMenuItem onClick={() => onLiveNowDraft(checklist)}>
+                        <Zap className="h-4 w-4 mr-2" />
+                        Live now
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 {onCopyTo && !isDraft && (
                   <>
                     <DropdownMenuItem onClick={() => onCopyTo(checklist.id, checklist.title)}>
