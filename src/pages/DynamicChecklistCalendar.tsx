@@ -15,9 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Save, Plus, X, Trash2, Camera, Eye, Sun, Moon, Sparkles,
-  Copy, ListPlus, Library, Archive, Pencil,
+  ArrowLeft, Save, Plus, X, Trash2, Camera, Eye, Sun, Moon,
+  ListPlus, Library, Archive, Pencil, Check,
 } from "lucide-react";
+
 import { useLocation } from "@/hooks/useLocation";
 import { AssigneePicker } from "@/components/shared/AssigneePicker";
 
