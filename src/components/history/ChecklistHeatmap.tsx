@@ -159,9 +159,12 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           return (cl.checklist_items || []).filter((it: any) => isItemExpectedInPeriod(it, scoreStart));
         };
 
+        // One version per family per day — a mid-week live-now swap must not
+        // double-count the list on the days it split.
+        const liveThatDay = versionsLiveOnDay(checklists as any[], dayStart);
+
         // Filter applicable checklists for this day
-        const applicable = checklists.filter(cl => {
-          if (!wasLiveDuringPeriod(cl as any, dayStart)) return false;
+        const applicable = liveThatDay.filter(cl => {
 
           const items = expectedItems(cl);
           const isMonthly = cl.frequency === 'monthly';
