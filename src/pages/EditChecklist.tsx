@@ -558,12 +558,14 @@ export default function EditChecklist() {
 
       if (checklistError) throw checklistError;
 
-      // Delete removed items
+      // Archive removed items — never hard-delete. Crew stop seeing them right away,
+      // this period's score keeps the hole, next period they aren't expected.
       const currentIds = new Set(items.filter(i => i.id).map(i => i.id as string));
       const { data: dbItems, error: dbItemsError } = await supabase
         .from('checklist_items')
         .select('id')
-        .eq('checklist_id', id);
+        .eq('checklist_id', id)
+        .is('deleted_at', null);
 
       if (dbItemsError) throw dbItemsError;
 
@@ -572,12 +574,13 @@ export default function EditChecklist() {
         .filter((dbId) => !currentIds.has(dbId));
 
       if (removedIds.length > 0) {
-        const { error: deleteError } = await supabase
+        const { error: archiveError } = await supabase
           .from('checklist_items')
-          .delete()
+          .update({ deleted_at: new Date().toISOString() })
           .in('id', removedIds);
-        if (deleteError) throw deleteError;
+        if (archiveError) throw archiveError;
       }
+
 
       const validItems = items.filter(item => item.question.trim() !== '');
 
