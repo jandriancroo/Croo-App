@@ -267,6 +267,8 @@ export default function EditTabContent({
                                 onNavigate={navigate}
                                 onDeactivate={handleToggleActive}
                                 onDelete={handleDelete}
+                                onScheduleDraft={setScheduleDraft}
+                                onLiveNowDraft={handleLiveNowDraft}
                                 onDiscardDraft={handleDiscardDraft}
                                 editMode={true}
                               />
