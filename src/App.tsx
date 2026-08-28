@@ -165,15 +165,22 @@ const AppWithSplash = () => {
   );
 };
 
+// Public marketing homepage for guests; signed-in users go straight to the dashboard.
+const HomeRoute = () => {
+  const { user, loading } = useAuth();
+  if (!loading && user) return <Navigate to="/dashboard" replace />;
+  return <Home />;
+};
+
 const AppContent = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/auth" replace />} />
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/landing" element={<Index />} />
+
         {/* Unlisted review page — noindex, not linked from anywhere, not in sitemap */}
         <Route path="/r/satnight-8f3k" element={<ReviewLanding />} />
         <Route path="/demo" element={<DemoGate />} />
