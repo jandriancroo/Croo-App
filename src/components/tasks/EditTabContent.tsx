@@ -362,6 +362,12 @@ export default function EditTabContent({
         onOpenChange={(o) => !o && setDuplicateChecklist(null)}
         checklist={duplicateChecklist}
       />
+      <DuplicateChecklistDialog
+        open={!!scheduleDraft}
+        onOpenChange={(o) => !o && setScheduleDraft(null)}
+        checklist={null}
+        draft={scheduleDraft}
+      />
 
     </div>
   );
