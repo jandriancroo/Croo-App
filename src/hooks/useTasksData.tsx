@@ -140,9 +140,12 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
         .order('display_order', { ascending: true });
 
       // A closed period ignores is_active: a version that was live during the period
-      // still counts after a swap turned it off. Pending drafts never count.
-      const checklistsData = (allChecklistVersions ?? []).filter((c: any) =>
-        wasLiveDuringPeriod(c, periodStartBusiness)
+      // still counts after a swap turned it off. Pending drafts never count, and a
+      // family only contributes the ONE version that was live on this day (live-now
+      // mid-period can split a list across two ids).
+      const checklistsData = versionsLiveOnDay(
+        (allChecklistVersions ?? []) as any[],
+        periodStartBusiness
       );
 
       if (!checklistsData || checklistsData.length === 0) return [];
