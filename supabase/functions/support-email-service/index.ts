@@ -89,6 +89,41 @@ function wasLiveDuringPeriod(c: any, periodStart: Date): boolean {
   return !!c?.is_active;
 }
 
+/**
+ * One version per family per period: live-now can split a week across two checklist
+ * ids, so the digest sums across the family and counts each list exactly once.
+ */
+function versionsLiveOnDay(checklists: any[], periodStart: Date): any[] {
+  const byFamily = new Map<string, any[]>();
+  for (const c of checklists || []) {
+    const isDraft = !c?.is_active && !c?.superseded_at && !!c?.replaces_checklist_id;
+    if (isDraft) continue;
+    const key = c?.family_id || c?.id;
+    const arr = byFamily.get(key);
+    if (arr) arr.push(c);
+    else byFamily.set(key, [c]);
+  }
+  const ms = periodStart.getTime();
+  const picked: any[] = [];
+  for (const versions of byFamily.values()) {
+    if (versions.length === 1) {
+      if (wasLiveDuringPeriod(versions[0], periodStart)) picked.push(versions[0]);
+      continue;
+    }
+    const sorted = [...versions].sort((a, b) => {
+      const av = a?.superseded_at ? new Date(a.superseded_at).getTime() : Infinity;
+      const bv = b?.superseded_at ? new Date(b.superseded_at).getTime() : Infinity;
+      return av - bv;
+    });
+    const hit = sorted.find((v) =>
+      v?.superseded_at ? new Date(v.superseded_at).getTime() > ms : !!v?.is_active
+    );
+    if (hit) picked.push(hit);
+  }
+  return picked;
+}
+
+
 
 
 function formatTimePST(isoString: string): string {
