@@ -609,8 +609,9 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 
         // Numerator lives in the same universe as the denominator (expected items
         // for this day), so archiving can never push the % past 100.
-        if (r.item_id && !activeItemIds.has(r.item_id)) continue;
-        checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + 1;
+        if (!r.item_id || activeItemIds.has(r.item_id)) {
+          checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + 1;
+        }
 
         const completerName = r.completed_by ? completerNameMap.get(r.completed_by) : null;
         if (completerName) {
