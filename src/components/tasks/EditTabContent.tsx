@@ -16,6 +16,9 @@ import { TrainingAssignmentSummary } from "./TrainingAssignmentSummary";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { UnderlineGroup } from "@/components/ui/folder-tabs";
+import { isPendingDraft } from "@/utils/checklistVersions";
+import { DuplicateChecklistDialog } from "./DuplicateChecklistDialog";
+
 
 interface EditTabContentProps {
   checklists: any[];
@@ -37,9 +40,28 @@ export default function EditTabContent({
   const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("quick-tasks");
   const [assignChecklist, setAssignChecklist] = useState<{ id: string; title: string } | null>(null);
+  const [duplicateChecklist, setDuplicateChecklist] = useState<any | null>(null);
 
-  const standardChecklists = checklists.filter((c: any) => c.template_type !== 'training');
-  const trainingChecklists = checklists.filter((c: any) => c.template_type === 'training');
+  // Pending drafts hang under their live parent instead of sitting in the main list.
+  const draftsByParent = new Map<string, any>();
+  checklists.forEach((c: any) => {
+    if (isPendingDraft(c) && c.replaces_checklist_id) draftsByParent.set(c.replaces_checklist_id, c);
+  });
+
+  const visibleChecklists = checklists.filter((c: any) => !isPendingDraft(c));
+  const standardChecklists = visibleChecklists.filter((c: any) => c.template_type !== 'training');
+  const trainingChecklists = visibleChecklists.filter((c: any) => c.template_type === 'training');
+
+  const handleDiscardDraft = async (draftId: string) => {
+    const { error } = await supabase.from('checklists').delete().eq('id', draftId);
+    if (error) {
+      toast.error("Couldn't discard the draft");
+      return;
+    }
+    toast.success("Draft discarded — nothing changed for your crew");
+    queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
+  };
+
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -204,23 +226,44 @@ export default function EditTabContent({
                   <div className="space-y-2">
                     {standardChecklists.map((checklist: any) => {
                       const isDynamicChecklist = checklist.template_type === 'dynamic';
+                      const draft = draftsByParent.get(checklist.id);
                       return (
-                        <SortableChecklistItem
-                          key={checklist.id}
-                          checklist={checklist}
-                          isDynamic={isDynamicChecklist}
-                          isReordering={false}
-                          isAdmin={isAdmin}
-                          currentDay={currentDayIndex}
-                          dayNames={dayNames}
-                          onNavigate={navigate}
-                          onDeactivate={handleToggleActive}
-                          onDelete={handleDelete}
-                          onCopyTo={handleCopyTo}
-                          editMode={true}
-                        />
+                        <div key={checklist.id} className="space-y-1">
+                          <SortableChecklistItem
+                            checklist={draft ? { ...checklist, __draft: draft } : checklist}
+                            isDynamic={isDynamicChecklist}
+                            isReordering={false}
+                            isAdmin={isAdmin}
+                            currentDay={currentDayIndex}
+                            dayNames={dayNames}
+                            onNavigate={navigate}
+                            onDeactivate={handleToggleActive}
+                            onDelete={handleDelete}
+                            onCopyTo={handleCopyTo}
+                            onDuplicate={setDuplicateChecklist}
+                            editMode={true}
+                          />
+                          {draft && (
+                            <div className="pl-6 border-l-2 border-dashed border-border ml-3">
+                              <SortableChecklistItem
+                                checklist={draft}
+                                isDynamic={draft.template_type === 'dynamic'}
+                                isReordering={false}
+                                isAdmin={isAdmin}
+                                currentDay={currentDayIndex}
+                                dayNames={dayNames}
+                                onNavigate={navigate}
+                                onDeactivate={handleToggleActive}
+                                onDelete={handleDelete}
+                                onDiscardDraft={handleDiscardDraft}
+                                editMode={true}
+                              />
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
+
                   </div>
                 </SortableContext>
               </DndContext>
@@ -299,6 +342,12 @@ export default function EditTabContent({
         checklistTitle={assignChecklist?.title}
         locationId={trainingChecklists.find((c: any) => c.id === assignChecklist?.id)?.location_id}
       />
+      <DuplicateChecklistDialog
+        open={!!duplicateChecklist}
+        onOpenChange={(o) => !o && setDuplicateChecklist(null)}
+        checklist={duplicateChecklist}
+      />
+
     </div>
   );
 }

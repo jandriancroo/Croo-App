@@ -2314,6 +2314,7 @@ export type Database = {
       }
       checklists: {
         Row: {
+          activation_at: string | null
           assigned_day_of_week: number | null
           created_at: string | null
           created_by: string | null
@@ -2321,20 +2322,24 @@ export type Database = {
           display_order: number | null
           due_by_time: string | null
           enable_am_pm_division: boolean | null
+          family_id: string | null
           frequency: string
           id: string
           is_active: boolean | null
           location_id: string | null
           lock_until_time: string | null
           position_filtering_enabled: boolean | null
+          replaces_checklist_id: string | null
           requires_manager_approval: boolean
           scheduled_date: string | null
+          superseded_at: string | null
           template_type: string | null
           title: string
           updated_at: string | null
           visible_days_before_month_end: number | null
         }
         Insert: {
+          activation_at?: string | null
           assigned_day_of_week?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -2342,20 +2347,24 @@ export type Database = {
           display_order?: number | null
           due_by_time?: string | null
           enable_am_pm_division?: boolean | null
+          family_id?: string | null
           frequency: string
           id?: string
           is_active?: boolean | null
           location_id?: string | null
           lock_until_time?: string | null
           position_filtering_enabled?: boolean | null
+          replaces_checklist_id?: string | null
           requires_manager_approval?: boolean
           scheduled_date?: string | null
+          superseded_at?: string | null
           template_type?: string | null
           title: string
           updated_at?: string | null
           visible_days_before_month_end?: number | null
         }
         Update: {
+          activation_at?: string | null
           assigned_day_of_week?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -2363,14 +2372,17 @@ export type Database = {
           display_order?: number | null
           due_by_time?: string | null
           enable_am_pm_division?: boolean | null
+          family_id?: string | null
           frequency?: string
           id?: string
           is_active?: boolean | null
           location_id?: string | null
           lock_until_time?: string | null
           position_filtering_enabled?: boolean | null
+          replaces_checklist_id?: string | null
           requires_manager_approval?: boolean
           scheduled_date?: string | null
+          superseded_at?: string | null
           template_type?: string | null
           title?: string
           updated_at?: string | null
@@ -2389,6 +2401,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklists_replaces_checklist_id_fkey"
+            columns: ["replaces_checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
             referencedColumns: ["id"]
           },
         ]
@@ -13071,6 +13090,10 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      duplicate_checklist_as_draft: {
+        Args: { _activation_at?: string; _source_id: string }
+        Returns: string
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       end_promo_tracker_by_title: { Args: { _title: string }; Returns: number }
       enqueue_email: {
@@ -13278,6 +13301,7 @@ export type Database = {
         Returns: number
       }
       oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
+      perform_checklist_swap: { Args: { _draft_id: string }; Returns: boolean }
       pfg_swap_credentials: {
         Args: {
           p_expected_old_refresh_token: string
@@ -13339,6 +13363,7 @@ export type Database = {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
       }
+      run_due_checklist_swaps: { Args: never; Returns: number }
       save_count_item_with_legs: {
         Args: {
           p_count_item_id: string

@@ -78,6 +78,19 @@ function expectedInPeriod(item: any, periodStart: Date): boolean {
   return new Date(item.deleted_at).getTime() >= periodStart.getTime();
 }
 
+/**
+ * Version filter: a closed period ignores is_active. A version swapped out after the
+ * period started still owns that period; a pending draft never counts.
+ */
+function wasLiveDuringPeriod(c: any, periodStart: Date): boolean {
+  const isPendingDraft = !c?.is_active && !c?.superseded_at && !!c?.replaces_checklist_id;
+  if (isPendingDraft) return false;
+  if (c?.superseded_at) return new Date(c.superseded_at).getTime() >= periodStart.getTime();
+  return !!c?.is_active;
+}
+
+
+
 function formatTimePST(isoString: string): string {
   try {
     return new Date(isoString).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Los_Angeles" });
@@ -418,7 +431,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     { data: locationSettings },
     { data: logbookEntries },
     { data: checklistSubs },
-    { data: activeChecklists },
+    { data: allChecklistVersions },
     { data: locationUsers },
   ] = await Promise.all([
     supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
@@ -429,9 +442,16 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
     // Use business day boundaries matching app's getBusinessDayRangeInTimezone
     supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", businessDayStartUTC).lt("submitted_at", businessDayEndUTC),
-    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklists").select("id, title, frequency, template_type, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
+
+  // Closed-period reporting ignores is_active: a version swapped out after this
+  // period started still owns it. Pending drafts never count.
+  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
+    wasLiveDuringPeriod(c, new Date(businessDayStartUTC))
+  );
+
 
   if (!location) {
     return new Response(JSON.stringify({ error: "Location not found", success: false }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1048,16 +1068,22 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     { data: salesRows },
     { data: laborRows },
     { data: locationSettings },
-    { data: activeChecklists },
+    { data: allChecklistVersions },
     { data: logbookEntries },
   ] = await Promise.all([
     supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
     supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, projected_sales, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
     supabase.from("labor_cache").select("labor_date, labor_hours, labor_cost").eq("location_id", location_id).gte("labor_date", week_start).lte("labor_date", week_end),
     supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
-    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklists").select("id, title, frequency, template_type, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
     supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
   ]);
+
+  // Monday morning's prior-week summary must still see a version swapped out at open.
+  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
+    wasLiveDuringPeriod(c, new Date(`${week_start}T00:00:00Z`))
+  );
+
 
   if (!location) {
     return new Response(JSON.stringify({ error: "Location not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });

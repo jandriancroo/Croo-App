@@ -1,9 +1,11 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays } from "lucide-react";
+import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays, CopyPlus, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { isPendingDraft, isSupersededVersion, formatActivation } from "@/utils/checklistVersions";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 interface SortableChecklistItemProps {
   checklist: any;
@@ -16,8 +18,11 @@ interface SortableChecklistItemProps {
   onDeactivate: (id: string) => void;
   onDelete: (id: string) => void;
   onCopyTo?: (id: string, title: string) => void;
+  onDuplicate?: (checklist: any) => void;
+  onDiscardDraft?: (id: string) => void;
   editMode?: boolean;
 }
+
 
 export function SortableChecklistItem({
   checklist,
@@ -30,9 +35,15 @@ export function SortableChecklistItem({
   onDeactivate,
   onDelete,
   onCopyTo,
+  onDuplicate,
+  onDiscardDraft,
   editMode = false,
 }: SortableChecklistItemProps) {
+  const { timezone } = useLocationTimezone();
+  const isDraft = isPendingDraft(checklist);
+  const isOldVersion = isSupersededVersion(checklist);
   const {
+
     attributes,
     listeners,
     setNodeRef,
@@ -95,11 +106,23 @@ export function SortableChecklistItem({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-medium text-sm truncate">{checklist.title}</p>
-                {!checklist.is_active && (
+                {isDraft && (
+                  <Badge className="text-[10px] px-1.5 gap-0.5">
+                    Draft
+                    {checklist.activation_at ? ` · goes live ${formatActivation(checklist.activation_at, timezone)}` : ' · not scheduled'}
+                  </Badge>
+                )}
+                {isOldVersion && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
+                    Last version
+                  </Badge>
+                )}
+                {!checklist.is_active && !isDraft && !isOldVersion && (
                   <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
                     Inactive
                   </Badge>
                 )}
+
                 {isDynamic && (
                   <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
                     <CalendarDays className="h-2.5 w-2.5" />
@@ -128,7 +151,16 @@ export function SortableChecklistItem({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                {onCopyTo && (
+                {onDuplicate && !isDraft && !isOldVersion && (
+                  <>
+                    <DropdownMenuItem onClick={() => onDuplicate(checklist)}>
+                      <CopyPlus className="h-4 w-4 mr-2" />
+                      Duplicate & Schedule
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {onCopyTo && !isDraft && (
                   <>
                     <DropdownMenuItem onClick={() => onCopyTo(checklist.id, checklist.title)}>
                       <Copy className="h-4 w-4 mr-2" />
@@ -137,18 +169,28 @@ export function SortableChecklistItem({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
-                  {checklist.is_active ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-                  {checklist.is_active ? 'Make Inactive' : 'Reactivate'}
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => onDelete(checklist.id)}
-                  className="text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
+                {!isDraft && !isOldVersion && (
+                  <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
+                    {checklist.is_active ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                    {checklist.is_active ? 'Make Inactive' : 'Reactivate'}
+                  </DropdownMenuItem>
+                )}
+                {isDraft && onDiscardDraft ? (
+                  <DropdownMenuItem onClick={() => onDiscardDraft(checklist.id)} className="text-destructive">
+                    <Archive className="h-4 w-4 mr-2" />
+                    Discard draft
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => onDelete(checklist.id)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
+
             </DropdownMenu>
           )}
         </div>

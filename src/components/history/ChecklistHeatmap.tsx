@@ -8,6 +8,8 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { getScorePeriodStart, isItemExpectedInPeriod } from '@/utils/checklistArchivePeriod';
+import { wasLiveDuringPeriod } from '@/utils/checklistVersions';
+
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, X } from 'lucide-react';
@@ -94,7 +96,8 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     queryFn: async (): Promise<Record<string, { completedChecklists: number; totalChecklists: number; pct: number | null }>> => {
       if (!currentLocation?.id) return {};
 
-      // Fetch all active checklists with items
+      // Every version of every list — a version swapped out mid-range still owns the
+      // days it was live for. Pending drafts are excluded per day below.
       const { data: checklists } = await supabase
         .from('checklists')
         .select(`
@@ -102,10 +105,14 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           template_type,
           frequency,
           visible_days_before_month_end,
+          is_active,
+          family_id,
+          replaces_checklist_id,
+          superseded_at,
           checklist_items(id, days_of_week, deleted_at)
         `)
-        .eq('is_active', true)
         .eq('location_id', currentLocation.id);
+
 
       if (!checklists || checklists.length === 0) return {};
 
@@ -154,6 +161,8 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
 
         // Filter applicable checklists for this day
         const applicable = checklists.filter(cl => {
+          if (!wasLiveDuringPeriod(cl as any, dayStart)) return false;
+
           const items = expectedItems(cl);
           const isMonthly = cl.frequency === 'monthly';
           if (isMonthly) {
