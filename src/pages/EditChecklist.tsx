@@ -715,10 +715,14 @@ export default function EditChecklist() {
         if (userTagsError) throw userTagsError;
       }
 
+      const archiveCopy = archivePeriodCopy({ template_type: templateType, frequency });
       toast({
         title: 'Success',
-        description: 'Checklist updated successfully',
+        description: removedIds.length > 0
+          ? `Checklist updated. ${removedIds.length} task${removedIds.length === 1 ? '' : 's'} pulled off the floor — no overdue reminders for them. ${archiveCopy.scoreLine} ${archiveCopy.nextLine}`
+          : 'Checklist updated successfully',
       });
+
       navigate('/tasks');
     } catch (error: any) {
       console.error('Error updating checklist:', error);
