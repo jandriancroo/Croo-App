@@ -78,105 +78,86 @@ const getMinPhotos = (options: any): number => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Smart-Tap style library popover (mirrors SmartTapPopover layout)    */
+/* Smart Tap dialog — one component on every breakpoint                */
+/* Pattern: MobileAddScheduleSheet "SMART TAP DIALOG (centered, fixed)" */
 /* ------------------------------------------------------------------ */
 
-const MAX_PER_COLUMN = 5;
-
-function LibraryTapPopover({
+function LibraryTapDialog({
   open,
   onOpenChange,
+  dayLabel,
   items,
   recentIds,
+  placedIds,
   onPlace,
   onNewItem,
-  children,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  dayLabel: string;
   items: ChecklistItem[];
   recentIds: string[];
+  placedIds: Set<string>;
   onPlace: (item: ChecklistItem) => void;
   onNewItem: () => void;
-  children: React.ReactNode;
 }) {
-  const { recent, otherColumns } = useMemo(() => {
+  const ordered = useMemo(() => {
     const rec: ChecklistItem[] = [];
     for (const id of recentIds) {
       const it = items.find((i) => i.id === id);
       if (it) rec.push(it);
     }
-    const others = items.filter((i) => !recentIds.includes(i.id));
-    const columns: ChecklistItem[][] = [];
-    for (let i = 0; i < others.length; i += MAX_PER_COLUMN) {
-      columns.push(others.slice(i, i + MAX_PER_COLUMN));
-    }
-    return { recent: rec.slice(0, 3), otherColumns: columns };
+    const recIds = new Set(rec.map((i) => i.id));
+    return [...rec, ...items.filter((i) => !recIds.has(i.id))];
   }, [items, recentIds]);
 
-  const hasRecent = recent.length > 0;
+  const recentSet = useMemo(() => new Set(recentIds.slice(0, 3)), [recentIds]);
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        className="w-auto min-w-[220px] max-w-[min(520px,92vw)] p-2 z-[200]"
-        side="bottom"
-        align="center"
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="w-[min(340px,92vw)] max-w-[min(340px,92vw)] max-h-[70vh] overflow-y-auto p-2 gap-2 rounded-2xl pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="flex gap-2 overflow-x-auto">
-          <div className="min-w-[150px] flex-shrink-0">
-            <div className="px-1 pb-1">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">New</span>
-            </div>
-            <button
-              type="button"
-              onClick={onNewItem}
-              className="w-full h-[26px] flex items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
-              aria-label="Create new library item"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            {hasRecent && (
-              <>
-                <div className="flex items-center gap-1.5 px-1 pt-2 pb-1">
-                  <Sparkles className="h-3 w-3 text-amber-500" />
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Recent</span>
-                </div>
-                <div className="space-y-0.5">
-                  {recent.map((it) => (
-                    <LibraryOption key={it.id} item={it} onSelect={onPlace} highlighted />
-                  ))}
-                </div>
-              </>
+        <DialogHeader className="px-2 pt-1 pb-0">
+          <DialogTitle className="text-sm font-medium text-center">{dayLabel}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={onNewItem}
+            className="w-full min-h-[44px] flex items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
+            aria-label="Create new library item"
+          >
+            <Plus className="h-4 w-4" /> New item
+          </button>
+
+          <div className="space-y-0.5 pt-1">
+            {ordered.map((it) => (
+              <LibraryOption
+                key={it.id}
+                item={it}
+                onSelect={onPlace}
+                highlighted={recentSet.has(it.id)}
+                placed={placedIds.has(it.id)}
+              />
+            ))}
+            {ordered.length === 0 && (
+              <p className="px-2 py-3 text-xs text-muted-foreground text-center">
+                Your library is empty — add an item first.
+              </p>
             )}
           </div>
-
-          {otherColumns.map((column, colIdx) => (
-            <div key={colIdx} className="flex gap-2">
-              <div className="w-px bg-border flex-shrink-0" />
-              <div className="min-w-[150px] flex-shrink-0">
-                {colIdx === 0 ? (
-                  <div className="px-1 pb-1">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      All items
-                    </span>
-                  </div>
-                ) : (
-                  <div className="h-[18px]" />
-                )}
-                <div className="space-y-0.5">
-                  {column.map((it) => (
-                    <LibraryOption key={it.id} item={it} onSelect={onPlace} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
-      </PopoverContent>
-    </Popover>
+
+        <div className="pt-1">
+          <Button variant="outline" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -184,15 +165,17 @@ function LibraryOption({
   item,
   onSelect,
   highlighted = false,
+  placed = false,
 }: {
   item: ChecklistItem;
   onSelect: (i: ChecklistItem) => void;
   highlighted?: boolean;
+  placed?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors hover:bg-accent/70 ${
+      className={`w-full min-h-[44px] flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors hover:bg-accent/70 ${
         highlighted ? "bg-accent/30" : ""
       }`}
       onClick={() => onSelect(item)}
@@ -204,9 +187,11 @@ function LibraryOption({
           {item.days_of_week.length === 0 ? " · unused" : ` · ${item.days_of_week.length}d`}
         </p>
       </div>
+      {placed && <Check className="h-4 w-4 text-primary shrink-0" />}
     </button>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
