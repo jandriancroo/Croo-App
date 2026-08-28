@@ -37,17 +37,8 @@ serve(async (req) => {
   if (denied) return denied;
 
 
-  const url = new URL(req.url)
-  let action = url.searchParams.get('action') || ''
+  const action = preAction
 
-  // Fallback: read action from body if not in query params (supabase.functions.invoke encodes ? in name)
-  if (!action && req.method === 'POST') {
-    try {
-      const cloned = req.clone()
-      const body = await cloned.json()
-      if (body?.action) action = body.action
-    } catch {}
-  }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
