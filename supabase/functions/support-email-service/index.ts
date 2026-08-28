@@ -89,6 +89,41 @@ function wasLiveDuringPeriod(c: any, periodStart: Date): boolean {
   return !!c?.is_active;
 }
 
+/**
+ * One version per family per period: live-now can split a week across two checklist
+ * ids, so the digest sums across the family and counts each list exactly once.
+ */
+function versionsLiveOnDay(checklists: any[], periodStart: Date): any[] {
+  const byFamily = new Map<string, any[]>();
+  for (const c of checklists || []) {
+    const isDraft = !c?.is_active && !c?.superseded_at && !!c?.replaces_checklist_id;
+    if (isDraft) continue;
+    const key = c?.family_id || c?.id;
+    const arr = byFamily.get(key);
+    if (arr) arr.push(c);
+    else byFamily.set(key, [c]);
+  }
+  const ms = periodStart.getTime();
+  const picked: any[] = [];
+  for (const versions of byFamily.values()) {
+    if (versions.length === 1) {
+      if (wasLiveDuringPeriod(versions[0], periodStart)) picked.push(versions[0]);
+      continue;
+    }
+    const sorted = [...versions].sort((a, b) => {
+      const av = a?.superseded_at ? new Date(a.superseded_at).getTime() : Infinity;
+      const bv = b?.superseded_at ? new Date(b.superseded_at).getTime() : Infinity;
+      return av - bv;
+    });
+    const hit = sorted.find((v) =>
+      v?.superseded_at ? new Date(v.superseded_at).getTime() > ms : !!v?.is_active
+    );
+    if (hit) picked.push(hit);
+  }
+  return picked;
+}
+
+
 
 
 function formatTimePST(isoString: string): string {
@@ -447,9 +482,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   ]);
 
   // Closed-period reporting ignores is_active: a version swapped out after this
-  // period started still owns it. Pending drafts never count.
-  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
-    wasLiveDuringPeriod(c, new Date(businessDayStartUTC))
+  // period started still owns it. Pending drafts never count, and each family
+  // contributes exactly one version for this period.
+  const activeChecklists = versionsLiveOnDay(
+    allChecklistVersions || [],
+    new Date(businessDayStartUTC)
   );
 
 
@@ -1079,9 +1116,11 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
   ]);
 
-  // Monday morning's prior-week summary must still see a version swapped out at open.
-  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
-    wasLiveDuringPeriod(c, new Date(`${week_start}T00:00:00Z`))
+  // Monday morning's prior-week summary must still see a version swapped out at open,
+  // and a mid-week live-now swap must count the family once, not twice.
+  const activeChecklists = versionsLiveOnDay(
+    allChecklistVersions || [],
+    new Date(`${week_start}T00:00:00Z`)
   );
 
 

@@ -43,6 +43,46 @@ export const wasLiveDuringPeriod = (
   return !!c.is_active;
 };
 
+/**
+ * Live-now can split a week/month across two checklist ids. Reporting must sum
+ * ACROSS the family per day and count each family exactly once, so pick the one
+ * version that was live at that day's business open.
+ */
+export const versionsLiveOnDay = <T extends VersionedChecklist>(
+  checklists: T[],
+  dayStart: Date
+): T[] => {
+  const byFamily = new Map<string, T[]>();
+  for (const c of checklists) {
+    if (isPendingDraft(c)) continue;
+    const key = c.family_id || c.id;
+    const arr = byFamily.get(key);
+    if (arr) arr.push(c);
+    else byFamily.set(key, [c]);
+  }
+
+  const dayMs = dayStart.getTime();
+  const picked: T[] = [];
+  for (const versions of byFamily.values()) {
+    if (versions.length === 1) {
+      if (wasLiveDuringPeriod(versions[0], dayStart)) picked.push(versions[0]);
+      continue;
+    }
+    // Oldest still-live version at that instant wins: superseded after the day
+    // started (or never superseded and still on).
+    const sorted = [...versions].sort((a, b) => {
+      const av = a.superseded_at ? new Date(a.superseded_at).getTime() : Infinity;
+      const bv = b.superseded_at ? new Date(b.superseded_at).getTime() : Infinity;
+      return av - bv;
+    });
+    const hit = sorted.find((v) =>
+      v.superseded_at ? new Date(v.superseded_at).getTime() > dayMs : !!v.is_active
+    );
+    if (hit) picked.push(hit);
+  }
+  return picked;
+};
+
 export type SwapCadence = 'weekly' | 'monthly' | 'daily';
 
 export const swapCadence = (c: VersionedChecklist): SwapCadence => {

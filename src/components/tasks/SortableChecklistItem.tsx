@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays, CopyPlus, Archive } from "lucide-react";
+import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays, CopyPlus, Archive, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { isPendingDraft, isSupersededVersion, formatActivation } from "@/utils/checklistVersions";
@@ -19,6 +19,8 @@ interface SortableChecklistItemProps {
   onDelete: (id: string) => void;
   onCopyTo?: (id: string, title: string) => void;
   onDuplicate?: (checklist: any) => void;
+  onScheduleDraft?: (draft: any) => void;
+  onLiveNowDraft?: (draft: any) => void;
   onDiscardDraft?: (id: string) => void;
   editMode?: boolean;
 }
@@ -36,6 +38,8 @@ export function SortableChecklistItem({
   onDelete,
   onCopyTo,
   onDuplicate,
+  onScheduleDraft,
+  onLiveNowDraft,
   onDiscardDraft,
   editMode = false,
 }: SortableChecklistItemProps) {
@@ -157,6 +161,21 @@ export function SortableChecklistItem({
                       <CopyPlus className="h-4 w-4 mr-2" />
                       Duplicate & Schedule
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {isDraft && onScheduleDraft && (
+                  <>
+                    <DropdownMenuItem onClick={() => onScheduleDraft(checklist)}>
+                      <CalendarDays className="h-4 w-4 mr-2" />
+                      Schedule
+                    </DropdownMenuItem>
+                    {onLiveNowDraft && (
+                      <DropdownMenuItem onClick={() => onLiveNowDraft(checklist)}>
+                        <Zap className="h-4 w-4 mr-2" />
+                        Live now
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                   </>
                 )}
