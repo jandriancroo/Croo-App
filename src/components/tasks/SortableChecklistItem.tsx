@@ -35,9 +35,15 @@ export function SortableChecklistItem({
   onDeactivate,
   onDelete,
   onCopyTo,
+  onDuplicate,
+  onDiscardDraft,
   editMode = false,
 }: SortableChecklistItemProps) {
+  const { timezone } = useLocationTimezone();
+  const isDraft = isPendingDraft(checklist);
+  const isOldVersion = isSupersededVersion(checklist);
   const {
+
     attributes,
     listeners,
     setNodeRef,
