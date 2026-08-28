@@ -151,7 +151,16 @@ export function SortableChecklistItem({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                {onCopyTo && (
+                {onDuplicate && !isDraft && !isOldVersion && (
+                  <>
+                    <DropdownMenuItem onClick={() => onDuplicate(checklist)}>
+                      <CopyPlus className="h-4 w-4 mr-2" />
+                      Duplicate & Schedule
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {onCopyTo && !isDraft && (
                   <>
                     <DropdownMenuItem onClick={() => onCopyTo(checklist.id, checklist.title)}>
                       <Copy className="h-4 w-4 mr-2" />
@@ -160,18 +169,28 @@ export function SortableChecklistItem({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
-                  {checklist.is_active ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-                  {checklist.is_active ? 'Make Inactive' : 'Reactivate'}
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => onDelete(checklist.id)}
-                  className="text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
+                {!isDraft && !isOldVersion && (
+                  <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
+                    {checklist.is_active ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                    {checklist.is_active ? 'Make Inactive' : 'Reactivate'}
+                  </DropdownMenuItem>
+                )}
+                {isDraft && onDiscardDraft ? (
+                  <DropdownMenuItem onClick={() => onDiscardDraft(checklist.id)} className="text-destructive">
+                    <Archive className="h-4 w-4 mr-2" />
+                    Discard draft
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => onDelete(checklist.id)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
+
             </DropdownMenu>
           )}
         </div>
