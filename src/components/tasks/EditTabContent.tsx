@@ -342,6 +342,12 @@ export default function EditTabContent({
         checklistTitle={assignChecklist?.title}
         locationId={trainingChecklists.find((c: any) => c.id === assignChecklist?.id)?.location_id}
       />
+      <DuplicateChecklistDialog
+        open={!!duplicateChecklist}
+        onOpenChange={(o) => !o && setDuplicateChecklist(null)}
+        checklist={duplicateChecklist}
+      />
+
     </div>
   );
 }
