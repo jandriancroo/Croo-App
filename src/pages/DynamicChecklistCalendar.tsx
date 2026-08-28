@@ -216,6 +216,11 @@ export default function DynamicChecklistCalendar() {
   const [openDayPopover, setOpenDayPopover] = useState<number | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
+  // Title: heading + pencil. Name commits immediately; everything else waits for Save.
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+
+
   // Item sheet
   const [sheetItem, setSheetItem] = useState<ChecklistItem | null>(null);
   // Archive confirm
