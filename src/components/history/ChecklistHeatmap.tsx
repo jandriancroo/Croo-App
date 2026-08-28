@@ -187,9 +187,10 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
             ? new Date(day.getFullYear(), day.getMonth() + 1, 0, 23, 59, 59).toISOString()
             : dayEnd.toISOString();
 
+          const clExpected = expectedItems(cl);
           const itemIds = cl.template_type === 'dynamic'
-            ? new Set(cl.checklist_items?.filter((it: any) => it.days_of_week?.includes(currentDay)).map((it: any) => it.id))
-            : new Set(cl.checklist_items?.map((it: any) => it.id));
+            ? new Set(clExpected.filter((it: any) => it.days_of_week?.includes(currentDay)).map((it: any) => it.id))
+            : new Set(clExpected.map((it: any) => it.id));
           const itemCount = itemIds.size;
           if (itemCount === 0) continue;
 
