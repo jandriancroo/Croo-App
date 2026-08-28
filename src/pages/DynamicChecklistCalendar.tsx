@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -6,873 +6,515 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Plus, X, ImagePlus, Trash2, Eye, Camera, CalendarDays, Sun, Moon } from "lucide-react";
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
-import { useDroppable } from "@dnd-kit/core";
-import { useDraggable } from "@dnd-kit/core";
-import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import {
+  ArrowLeft, Save, Plus, X, Trash2, Camera, Eye, Sun, Moon, Sparkles,
+  Copy, ListPlus, Library, Archive, Pencil,
+} from "lucide-react";
 import { useLocation } from "@/hooks/useLocation";
 import { AssigneePicker } from "@/components/shared/AssigneePicker";
 
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
+
+/** Only these lowercase types are ever written from this editor. */
+const EDITOR_TYPES = [
+  { value: "confirmation", label: "Check" },
+  { value: "image", label: "Photo" },
+  { value: "text", label: "Text" },
+  { value: "number", label: "Number" },
+  { value: "multiple_choice", label: "Multiple choice" },
+] as const;
+
+type EditorType = (typeof EDITOR_TYPES)[number]["value"];
+
+const typeLabel = (t: string) =>
+  EDITOR_TYPES.find((x) => x.value === t)?.label ?? t;
 
 interface ChecklistItem {
   id: string;
   question: string;
   item_type: string;
   order_index: number;
-  days_of_week: number[] | null;
-  requires_temperature_validation: boolean;
+  days_of_week: number[];
   reference_image_url: string | null;
   reference_notes: string | null;
-  manager_shift: 'am' | 'pm' | null;
+  manager_shift: "am" | "pm" | null;
+  options: any;
+  forked_from_item_id: string | null;
 }
 
-type DbChecklistItem = {
-  id: string;
-  question: string;
-  item_type: string;
-  order_index: number;
-  days_of_week: number[] | null;
-  requires_temperature_validation: boolean;
-  reference_image_url: string | null;
-  reference_notes: string | null;
-  manager_shift: string | null;
-};
-
-const normalizeItem = (row: DbChecklistItem): ChecklistItem => ({
+const normalizeItem = (row: any): ChecklistItem => ({
   id: row.id,
   question: row.question,
   item_type: row.item_type,
-  order_index: row.order_index,
-  days_of_week: row.days_of_week ?? null,
-  requires_temperature_validation: !!row.requires_temperature_validation,
+  order_index: row.order_index ?? 0,
+  days_of_week: Array.isArray(row.days_of_week) ? row.days_of_week : [],
   reference_image_url: row.reference_image_url ?? null,
   reference_notes: row.reference_notes ?? null,
-  manager_shift: row.manager_shift === 'am' || row.manager_shift === 'pm' ? row.manager_shift : null,
+  manager_shift: row.manager_shift === "am" || row.manager_shift === "pm" ? row.manager_shift : null,
+  options: row.options ?? null,
+  forked_from_item_id: row.forked_from_item_id ?? null,
 });
 
-interface Checklist {
-  id: string;
-  title: string;
-  description: string | null;
-}
+/** Mon=0 .. Sun=6 — matches getDateDayOfWeekInTimezone */
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-interface Holiday {
-  id: string;
-  holiday_name: string;
-  holiday_date: string;
-  holiday_type: string;
-}
+const getOptionsArray = (options: any): string[] =>
+  Array.isArray(options) ? options : Array.isArray(options?.choices) ? options.choices : [];
 
-function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes, onOpenAssign }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void; onUpdateRefNotes?: (id: string, notes: string | null) => void; onOpenAssign?: (task: ChecklistItem) => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: task.id,
-    data: { task },
-  });
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogNotes, setDialogNotes] = useState(task.reference_notes || '');
-  const [dialogImageUrl, setDialogImageUrl] = useState(task.reference_image_url || '');
-  const [uploading, setUploading] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+const getMinPhotos = (options: any): number => {
+  const n = options && !Array.isArray(options) ? Number(options.minPhotos) : 1;
+  return Number.isFinite(n) && n > 0 ? n : 1;
+};
 
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-        opacity: isDragging ? 0.5 : 1,
-      }
-    : undefined;
+/* ------------------------------------------------------------------ */
+/* Smart-Tap style library popover (mirrors SmartTapPopover layout)    */
+/* ------------------------------------------------------------------ */
 
-  const handleOpenDialog = () => {
-    setDialogNotes(task.reference_notes || '');
-    setDialogImageUrl(task.reference_image_url || '');
-    setDialogOpen(true);
-  };
+const MAX_PER_COLUMN = 5;
 
-  const handleDialogImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-
-    try {
-      const fileName = `checklist-refs/${task.id}-${Date.now()}.${file.name.split('.').pop()}`;
-      const { error: uploadError } = await supabase.storage
-        .from('checklist-images')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('checklist-images')
-        .getPublicUrl(fileName);
-
-      setDialogImageUrl(data.publicUrl);
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload photo');
+function LibraryTapPopover({
+  open,
+  onOpenChange,
+  items,
+  recentIds,
+  onPlace,
+  onNewItem,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  items: ChecklistItem[];
+  recentIds: string[];
+  onPlace: (item: ChecklistItem) => void;
+  onNewItem: () => void;
+  children: React.ReactNode;
+}) {
+  const { recent, otherColumns } = useMemo(() => {
+    const rec: ChecklistItem[] = [];
+    for (const id of recentIds) {
+      const it = items.find((i) => i.id === id);
+      if (it) rec.push(it);
     }
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleSaveReference = async () => {
-    try {
-      const updates: Record<string, any> = {
-        reference_image_url: dialogImageUrl || null,
-        reference_notes: dialogNotes.trim() || null,
-      };
-
-      await supabase
-        .from('checklist_items')
-        .update(updates)
-        .eq('id', task.id);
-
-      onUpdateRefImage?.(task.id, dialogImageUrl || null);
-      onUpdateRefNotes?.(task.id, dialogNotes.trim() || null);
-      setDialogOpen(false);
-      toast.success('Reference standard saved');
-    } catch (error) {
-      console.error('Save error:', error);
-      toast.error('Failed to save reference');
+    const others = items.filter((i) => !recentIds.includes(i.id));
+    const columns: ChecklistItem[][] = [];
+    for (let i = 0; i < others.length; i += MAX_PER_COLUMN) {
+      columns.push(others.slice(i, i + MAX_PER_COLUMN));
     }
-  };
+    return { recent: rec.slice(0, 3), otherColumns: columns };
+  }, [items, recentIds]);
 
-  const handleRemoveImage = async () => {
-    if (!onUpdateRefImage) return;
-    await supabase
-      .from('checklist_items')
-      .update({ reference_image_url: null, reference_notes: null })
-      .eq('id', task.id);
-    onUpdateRefImage(task.id, null);
-    onUpdateRefNotes?.(task.id, null);
-    toast.success('Reference removed');
-  };
-
-  const hasReference = !!task.reference_image_url || !!task.reference_notes;
+  const hasRecent = recent.length > 0;
 
   return (
-    <>
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="p-2 bg-card border rounded group"
-    >
-      <div className="flex items-center justify-between gap-1">
-        <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-sm truncate">{task.question}</p>
-            {task.manager_shift === 'am' && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700">
-                <Sun className="h-2.5 w-2.5" /> AM
-              </span>
-            )}
-            {task.manager_shift === 'pm' && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full border bg-indigo-900 text-indigo-100 border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                <Moon className="h-2.5 w-2.5" /> PM
-              </span>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent
+        className="w-auto min-w-[220px] max-w-[min(520px,92vw)] p-2 z-[200]"
+        side="bottom"
+        align="center"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <div className="flex gap-2 overflow-x-auto">
+          <div className="min-w-[150px] flex-shrink-0">
+            <div className="px-1 pb-1">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">New</span>
+            </div>
+            <button
+              type="button"
+              onClick={onNewItem}
+              className="w-full h-[26px] flex items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-accent/40 transition-colors"
+              aria-label="Create new library item"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            {hasRecent && (
+              <>
+                <div className="flex items-center gap-1.5 px-1 pt-2 pb-1">
+                  <Sparkles className="h-3 w-3 text-amber-500" />
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Recent</span>
+                </div>
+                <div className="space-y-0.5">
+                  {recent.map((it) => (
+                    <LibraryOption key={it.id} item={it} onSelect={onPlace} highlighted />
+                  ))}
+                </div>
+              </>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{task.item_type}</p>
-        </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          {onOpenAssign && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 opacity-70 hover:opacity-100"
-              onClick={() => onOpenAssign(task)}
-              title="Assign days & shift"
-            >
-              <CalendarDays className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {onUpdateRefImage && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-6 w-6 transition-opacity ${hasReference ? 'opacity-100 text-primary' : 'opacity-0 group-hover:opacity-100'}`}
-              onClick={handleOpenDialog}
-              title={hasReference ? "Edit reference standard" : "Add reference standard"}
-            >
-              <ImagePlus className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => onDelete(task.id)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-      {task.reference_image_url && (
-        <div className="mt-1.5 relative group/img">
-          <img 
-            src={task.reference_image_url} 
-            alt="Reference" 
-            className="rounded max-h-16 object-cover w-full cursor-pointer" 
-            onClick={() => setPreviewOpen(true)}
-          />
-          {task.reference_notes && (
-            <p className="text-[10px] text-muted-foreground italic mt-0.5 line-clamp-1">📋 {task.reference_notes}</p>
-          )}
-          {onUpdateRefImage && (
-            <Button
-              variant="destructive"
-              size="icon"
-              className="h-5 w-5 absolute top-1 right-1 opacity-0 group-hover/img:opacity-100 transition-opacity"
-              onClick={handleRemoveImage}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-      )}
-      {!task.reference_image_url && task.reference_notes && (
-        <p className="text-[10px] text-muted-foreground italic mt-1 line-clamp-1">📋 {task.reference_notes}</p>
-      )}
-    </div>
 
-    {/* Reference Standard Dialog */}
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogContent className="max-w-md max-w-[calc(100vw-2rem)]">
-        <DialogHeader>
-          <DialogTitle className="text-base">Reference Standard</DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            Set the quality standard for "{task.question}". This helps team members understand expectations.
-          </p>
-        </DialogHeader>
-        <div className="space-y-4">
-          {/* Photo section */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Reference Photo</Label>
-            {dialogImageUrl ? (
-              <div className="relative group/preview">
-                <img 
-                  src={dialogImageUrl} 
-                  alt="Reference" 
-                  className="rounded-lg w-full max-h-48 object-cover border"
-                />
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="h-7 w-7 bg-background/80 hover:bg-background shadow-sm"
-                    onClick={() => setPreviewOpen(true)}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="h-7 w-7 shadow-sm"
-                    onClick={() => setDialogImageUrl('')}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+          {otherColumns.map((column, colIdx) => (
+            <div key={colIdx} className="flex gap-2">
+              <div className="w-px bg-border flex-shrink-0" />
+              <div className="min-w-[150px] flex-shrink-0">
+                {colIdx === 0 ? (
+                  <div className="px-1 pb-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      All items
+                    </span>
+                  </div>
+                ) : (
+                  <div className="h-[18px]" />
+                )}
+                <div className="space-y-0.5">
+                  {column.map((it) => (
+                    <LibraryOption key={it.id} item={it} onSelect={onPlace} />
+                  ))}
                 </div>
               </div>
-            ) : (
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleDialogImageUpload}
-                />
-                <Button
-                  variant="outline"
-                  className="w-full h-24 border-dashed flex flex-col gap-1"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <span className="text-sm text-muted-foreground">Uploading...</span>
-                  ) : (
-                    <>
-                      <Camera className="h-6 w-6 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Tap to add photo</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Notes section */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Description</Label>
-            <Textarea
-              value={dialogNotes}
-              onChange={e => setDialogNotes(e.target.value)}
-              placeholder="Describe what a properly completed task looks like..."
-              className="min-h-[80px] text-sm resize-none"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Tip: Be specific — "All items aligned, labels facing forward" works better than "Clean shelf"
-            </p>
-          </div>
+            </div>
+          ))}
         </div>
-        <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveReference} disabled={!dialogImageUrl && !dialogNotes.trim()}>
-            Save Standard
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    {/* Image Preview Dialog */}
-    <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-      <DialogContent className="max-w-2xl">
-        <img src={dialogOpen ? dialogImageUrl : (task.reference_image_url || '')} alt="Reference preview" className="w-full max-h-[70vh] object-contain rounded" />
-      </DialogContent>
-    </Dialog>
-    </>
+      </PopoverContent>
+    </Popover>
   );
 }
 
-function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onUpdateRefNotes, onOpenAssign, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
-  unassignedItems: ChecklistItem[]; 
-  onDelete: (id: string) => void; 
-  onUpdateRefImage: (id: string, url: string | null) => void;
-  onUpdateRefNotes: (id: string, notes: string | null) => void;
-  onOpenAssign: (task: ChecklistItem) => void;
-  onQuickAdd: () => void;
-  newQuestion: string;
-  setNewQuestion: (value: string) => void;
-  newItemType: string;
-  setNewItemType: (value: string) => void;
-  requiresTempValidation: boolean;
-  setRequiresTempValidation: (value: boolean) => void;
+function LibraryOption({
+  item,
+  onSelect,
+  highlighted = false,
+}: {
+  item: ChecklistItem;
+  onSelect: (i: ChecklistItem) => void;
+  highlighted?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: 'unassigned',
-  });
-
   return (
-    <Card 
-      ref={setNodeRef} 
-      className={`p-4 lg:col-span-1 ${isOver ? "border-2 border-primary" : ""}`}
-    >
-      <h2 className="font-semibold mb-3">Unassigned Tasks</h2>
-      
-      {/* Quick Add Form */}
-      <div className="mb-4 space-y-2 pb-4 border-b">
-        <Input
-          placeholder="Task description..."
-          value={newQuestion}
-          onChange={(e) => setNewQuestion(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onQuickAdd()}
-        />
-        <Select value={newItemType} onValueChange={setNewItemType}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="TEXT">Text</SelectItem>
-            <SelectItem value="CHECKBOX">Checkbox</SelectItem>
-            <SelectItem value="NUMBER">Number</SelectItem>
-            <SelectItem value="PHOTO">Photo</SelectItem>
-          </SelectContent>
-        </Select>
-        {newItemType === 'PHOTO' && (
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="tempValidation"
-              checked={requiresTempValidation}
-              onCheckedChange={(checked) => setRequiresTempValidation(checked === true)}
-            />
-            <label htmlFor="tempValidation" className="text-sm text-muted-foreground">
-              Requires temperature validation
-            </label>
-          </div>
-        )}
-        <Button onClick={onQuickAdd} className="w-full" size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Task
-        </Button>
-      </div>
-
-      <p className="text-sm text-muted-foreground mb-4">
-        Drag tasks to days to assign them
-      </p>
-      <div className="space-y-2">
-        {unassignedItems.map((task) => (
-          <DraggableTask key={task.id} task={task} onDelete={onDelete} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} onOpenAssign={onOpenAssign} />
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage, onUpdateRefNotes, onOpenAssign }: { 
-  dayIndex: number; 
-  dayName: string; 
-  tasks: ChecklistItem[];
-  holidays: Holiday[];
-  blackoutDates: string[];
-  onUpdateRefImage: (id: string, url: string | null) => void;
-  onUpdateRefNotes: (id: string, notes: string | null) => void;
-  onOpenAssign: (task: ChecklistItem) => void;
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `day-${dayIndex}`,
-    data: { dayIndex },
-  });
-
-  // Calculate the date for this day of the week using the location timezone
-  const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
-  const todayStr = getBusinessDateInTimezone();
-  const [year, month, day] = todayStr.split('-').map(Number);
-  const baseDate = new Date(year, month - 1, day);
-
-  // Determine today's day-of-week (Mon=0..Sun=6) in the location timezone
-  const todayDowName = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(baseDate);
-  const todayDowMap: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
-  const todayDow = todayDowMap[todayDowName] ?? 0;
-
-  const offset = dayIndex - todayDow;
-  const targetDate = new Date(baseDate);
-  targetDate.setDate(baseDate.getDate() + offset);
-  const dateString = getDateInTimezone(targetDate);
-
-  const dayHolidays = holidays.filter(h => h.holiday_date === dateString);
-  const isBlackout = blackoutDates.includes(dateString);
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`p-4 border-2 rounded-lg min-h-[300px] ${
-        isOver ? "border-primary bg-accent" : "border-border"
+    <button
+      type="button"
+      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors hover:bg-accent/70 ${
+        highlighted ? "bg-accent/30" : ""
       }`}
+      onClick={() => onSelect(item)}
     >
-      <div className="mb-3">
-        <h3 className="font-semibold">{dayName}</h3>
-        <div className="text-xs text-muted-foreground">{targetDate.toLocaleDateString()}</div>
-        {dayHolidays.length > 0 && (
-          <div className="mt-1 space-y-0.5">
-            {dayHolidays.map(holiday => (
-              <div key={holiday.id} className="text-xs text-primary font-medium">
-                {holiday.holiday_name}
-              </div>
-            ))}
-          </div>
-        )}
-        {isBlackout && (
-          <div className="mt-1 text-xs text-destructive font-medium">
-            🚫 Blackout Date
-          </div>
-        )}
+      <div className="flex-1 min-w-0">
+        <p className="text-[12.5px] font-semibold leading-tight text-foreground truncate">{item.question}</p>
+        <p className="text-[9.5px] font-bold uppercase tracking-[0.09em] text-muted-foreground mt-0.5 leading-tight truncate">
+          {typeLabel(item.item_type)}
+          {item.days_of_week.length === 0 ? " · unused" : ` · ${item.days_of_week.length}d`}
+        </p>
       </div>
-      <div className="space-y-2">
-        {tasks.map((task) => (
-          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} onOpenAssign={onOpenAssign} />
-        ))}
-      </div>
-    </div>
+    </button>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 export default function DynamicChecklistCalendar() {
-  const { id } = useParams();
+  const { id: routeId } = useParams();
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const { currentLocation } = useLocation();
-  const [checklist, setChecklist] = useState<Checklist | null>(null);
+
+  const isNew = routeId === "new";
+  const [checklistId, setChecklistId] = useState<string | null>(isNew ? null : routeId ?? null);
+  const [title, setTitle] = useState(isNew ? "" : "");
   const [items, setItems] = useState<ChecklistItem[]>([]);
-  const [unassignedItems, setUnassignedItems] = useState<ChecklistItem[]>([]);
-  const [assignedByDay, setAssignedByDay] = useState<Map<number, ChecklistItem[]>>(new Map());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [activeTask, setActiveTask] = useState<ChecklistItem | null>(null);
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
-  const [assignDialogTask, setAssignDialogTask] = useState<ChecklistItem | null>(null);
-  const [assignDialogDays, setAssignDialogDays] = useState<number[]>([]);
-  const [assignDialogShift, setAssignDialogShift] = useState<'am' | 'pm' | null>(null);
-  const [assignSaving, setAssignSaving] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [openDayPopover, setOpenDayPopover] = useState<number | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
-  
-  // Quick add form state
-  const [newQuestion, setNewQuestion] = useState("");
-  const [newItemType, setNewItemType] = useState("TEXT");
-  const [requiresTempValidation, setRequiresTempValidation] = useState(false);
-
-  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 8,
-      },
-    })
-  );
+  // Item sheet
+  const [sheetItem, setSheetItem] = useState<ChecklistItem | null>(null);
+  // Archive confirm
+  const [archiveTarget, setArchiveTarget] = useState<ChecklistItem | null>(null);
+  const [archiveResponses, setArchiveResponses] = useState<number | null>(null);
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
-      navigate('/tasks');
-      toast.error('Access denied. Only admins can manage dynamic checklists.');
+      navigate("/tasks");
+      toast.error("Access denied. Only admins can manage dynamic checklists.");
     }
   }, [isAdmin, roleLoading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) {
-      if (id === 'new') {
-        createNewTemplate();
-      } else if (id) {
-        fetchChecklistData();
-      }
-      fetchHolidaysAndBlackouts();
-    }
-  }, [isAdmin, id]);
-
-  const fetchHolidaysAndBlackouts = async () => {
-    try {
-      // Fetch holidays for the current week using the location timezone
-      const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
-      const todayStr = getBusinessDateInTimezone();
-      const [year, month, day] = todayStr.split('-').map(Number);
-      const baseDate = new Date(year, month - 1, day);
-
-      const dayName = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(baseDate);
-      const todayDow = ({ Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 } as Record<string, number>)[dayName] ?? 0;
-
-      const startOfWeekDate = new Date(baseDate);
-      startOfWeekDate.setDate(baseDate.getDate() - todayDow);
-      const endOfWeekDate = new Date(startOfWeekDate);
-      endOfWeekDate.setDate(startOfWeekDate.getDate() + 6);
-
-      const { data: holidaysData, error: holidaysError } = await supabase
-        .from("holidays")
-        .select("*")
-        .gte("holiday_date", getDateInTimezone(startOfWeekDate))
-        .lte("holiday_date", getDateInTimezone(endOfWeekDate));
-
-      if (holidaysError) throw holidaysError;
-      setHolidays(holidaysData || []);
-
-      // Fetch location blackout dates
-      const { data: settingsData, error: settingsError } = await supabase
-        .from("location_settings")
-        .select("blackout_dates")
-        .single();
-
-      if (!settingsError && settingsData) {
-        setBlackoutDates(settingsData.blackout_dates || []);
-      }
-    } catch (error) {
-      console.error('Error fetching holidays/blackouts:', error);
-    }
-  };
-
-  const createNewTemplate = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      if (!currentLocation?.id) {
-        toast.error('Pick a location before creating a template');
-        navigate('/tasks');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('checklists')
-        .insert({
-          title: 'New Dynamic Template',
-          description: 'Weekly template - assign tasks to days',
-          template_type: 'dynamic',
-          frequency: 'weekly',
-          created_by: user.id,
-          location_id: currentLocation.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      navigate(`/dynamic-checklist/${data.id}`, { replace: true });
-      setChecklist(data);
+    if (!isAdmin) return;
+    if (isNew) {
       setLoading(false);
-    } catch (error) {
-      console.error('Error creating template:', error);
-      toast.error('Failed to create template');
-      navigate('/tasks');
+      return;
     }
-  };
+    if (checklistId) fetchData(checklistId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, checklistId, isNew]);
 
-  const fetchChecklistData = async () => {
+  const fetchData = async (cid: string) => {
     try {
       setLoading(true);
+      const [{ data: cl, error: clErr }, { data: rows, error: rowsErr }] = await Promise.all([
+        supabase.from("checklists").select("*").eq("id", cid).single(),
+        supabase
+          .from("checklist_items")
+          .select("*")
+          .eq("checklist_id", cid)
+          .is("deleted_at", null)
+          .order("order_index"),
+      ]);
+      if (clErr) throw clErr;
+      if (rowsErr) throw rowsErr;
+      setTitle(cl.title ?? "");
+      setItems((rows || []).map(normalizeItem));
 
-      const { data: checklistData, error: checklistError } = await supabase
-        .from('checklists')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (checklistError) throw checklistError;
-      setChecklist(checklistData);
-
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('checklist_items')
-        .select('*')
-        .eq('checklist_id', id)
-        .order('order_index');
-
-      if (itemsError) throw itemsError;
-      const normalized: ChecklistItem[] = (itemsData || []).map((r: any) => normalizeItem(r));
-      setItems(normalized);
-
-      // Organize items by day assignment
-      const unassigned: ChecklistItem[] = [];
-      const byDay = new Map<number, ChecklistItem[]>();
-
-      normalized.forEach((item) => {
-        if (!item.days_of_week || item.days_of_week.length === 0) {
-          unassigned.push(item);
-        } else {
-          item.days_of_week.forEach((day: number) => {
-            if (!byDay.has(day)) {
-              byDay.set(day, []);
-            }
-            byDay.get(day)!.push(item);
-          });
-        }
-      });
-
-      setUnassignedItems(unassigned);
-      setAssignedByDay(byDay);
-
-      // Load role + individual visibility tags
       const [{ data: roleTags }, { data: userTags }] = await Promise.all([
-        supabase.from('checklist_role_tags').select('role').eq('checklist_id', id),
-        supabase.from('checklist_user_tags').select('user_id').eq('checklist_id', id),
+        supabase.from("checklist_role_tags").select("role").eq("checklist_id", cid),
+        supabase.from("checklist_user_tags").select("user_id").eq("checklist_id", cid),
       ]);
       setSelectedRoles((roleTags ?? []).map((r: any) => r.role));
       setSelectedUserIds((userTags ?? []).map((u: any) => u.user_id));
-
-    } catch (error) {
-      console.error('Error fetching checklist:', error);
-      toast.error('Failed to load checklist');
-      navigate('/tasks');
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to load checklist");
+      navigate("/tasks");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickAdd = async () => {
-    if (!newQuestion.trim() || !id) return;
+  /** Creates the checklists row lazily — never on mount. */
+  const ensureChecklist = useCallback(async (): Promise<string | null> => {
+    if (checklistId) return checklistId;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("You need to be signed in");
+      return null;
+    }
+    if (!currentLocation?.id) {
+      toast.error("Pick a location before creating a template");
+      return null;
+    }
+    const { data, error } = await supabase
+      .from("checklists")
+      .insert({
+        title: title.trim() || "New Dynamic Template",
+        description: "Weekly template",
+        template_type: "dynamic",
+        frequency: "weekly",
+        created_by: user.id,
+        location_id: currentLocation.id,
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error(error);
+      toast.error("Failed to create template");
+      return null;
+    }
+    setChecklistId(data.id);
+    navigate(`/dynamic-checklist/${data.id}`, { replace: true });
+    return data.id;
+  }, [checklistId, currentLocation?.id, navigate, title]);
 
-    try {
-      const nextOrderIndex = items.length;
-      
-      const { data, error } = await supabase
-        .from('checklist_items')
-        .insert({
-          checklist_id: id,
-          question: newQuestion.trim(),
-          item_type: newItemType,
-          order_index: nextOrderIndex,
-          is_required: true,
-          requires_temperature_validation: newItemType === 'PHOTO' ? requiresTempValidation : false,
-        })
-        .select()
-        .single();
+  /* ---------------- derived ---------------- */
 
-      if (error) throw error;
+  const byDay = useMemo(() => {
+    const map = new Map<number, ChecklistItem[]>();
+    for (let d = 0; d < 7; d++) map.set(d, []);
+    for (const it of items) {
+      for (const d of it.days_of_week) map.get(d)?.push(it);
+    }
+    return map;
+  }, [items]);
 
-      const newItem: ChecklistItem = normalizeItem({ ...(data as any), days_of_week: null });
+  const unusedCount = items.filter((i) => i.days_of_week.length === 0).length;
 
-      setItems([...items, newItem]);
-      setUnassignedItems([...unassignedItems, newItem]);
-      setNewQuestion("");
-      setNewItemType("TEXT");
-      setRequiresTempValidation(false);
-      toast.success('Task added');
-    } catch (error) {
-      console.error('Error adding task:', error);
-      toast.error('Failed to add task');
+  /* ---------------- mutations ---------------- */
+
+  const bumpRecent = (itemId: string) =>
+    setRecentIds((prev) => [itemId, ...prev.filter((i) => i !== itemId)].slice(0, 3));
+
+  const createLibraryItem = async (question: string, itemType: EditorType) => {
+    const cid = await ensureChecklist();
+    if (!cid) return null;
+    const { data, error } = await supabase
+      .from("checklist_items")
+      .insert({
+        checklist_id: cid,
+        question: question.trim(),
+        item_type: itemType,
+        order_index: items.length,
+        is_required: true,
+        days_of_week: [],
+        options: itemType === "multiple_choice" ? ["Yes", "No"] : null,
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error(error);
+      toast.error("Could not add that item");
+      return null;
+    }
+    const item = normalizeItem(data);
+    setItems((prev) => [...prev, item]);
+    return item;
+  };
+
+  const persistDays = async (item: ChecklistItem, days: number[]) => {
+    const sorted = [...new Set(days)].sort((a, b) => a - b);
+    const { error } = await supabase
+      .from("checklist_items")
+      .update({ days_of_week: sorted })
+      .eq("id", item.id);
+    if (error) {
+      console.error(error);
+      toast.error("Could not update days");
+      return false;
+    }
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, days_of_week: sorted } : i)));
+    setSheetItem((s) => (s && s.id === item.id ? { ...s, days_of_week: sorted } : s));
+    return true;
+  };
+
+  const duplicateOnDay = (item: ChecklistItem, day: number) =>
+    items.find(
+      (i) =>
+        i.id !== item.id &&
+        i.question.trim().toLowerCase() === item.question.trim().toLowerCase() &&
+        i.days_of_week.includes(day),
+    );
+
+  const placeOnDay = async (item: ChecklistItem, day: number) => {
+    if (item.days_of_week.includes(day)) {
+      toast.info(`Already on ${DAY_NAMES[day]}`);
+      return;
+    }
+    const dupe = duplicateOnDay(item, day);
+    if (dupe && !window.confirm(`"${item.question}" is already on ${DAY_NAMES[day]} as another item. Add it anyway?`)) {
+      return;
+    }
+    const ok = await persistDays(item, [...item.days_of_week, day]);
+    if (ok) {
+      bumpRecent(item.id);
+      toast.success(`Added to ${DAY_NAMES[day]}`);
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    try {
-      const { error } = await supabase
-        .from('checklist_items')
-        .delete()
-        .eq('id', itemId);
-
-      if (error) throw error;
-
-      setItems(items.filter(item => item.id !== itemId));
-      setUnassignedItems(unassignedItems.filter(item => item.id !== itemId));
-      
-      // Remove from assigned days
-      const newAssignedByDay = new Map(assignedByDay);
-      newAssignedByDay.forEach((tasks, day) => {
-        newAssignedByDay.set(day, tasks.filter(t => t.id !== itemId));
+  const removeFromDay = async (item: ChecklistItem, day: number) => {
+    const next = item.days_of_week.filter((d) => d !== day);
+    const prevDays = item.days_of_week;
+    const ok = await persistDays(item, next);
+    if (!ok) return;
+    if (next.length === 0) {
+      toast("Moved to Unused", {
+        description: `"${item.question}" is still in your library.`,
+        action: { label: "Undo", onClick: () => persistDays(item, prevDays) },
       });
-      setAssignedByDay(newAssignedByDay);
-
-      toast.success('Task deleted');
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      toast.error('Failed to delete task');
     }
   };
 
-  const handleUpdateRefImage = (itemId: string, url: string | null) => {
-    const updateItem = (item: ChecklistItem) =>
-      item.id === itemId ? { ...item, reference_image_url: url } : item;
-    
-    setItems(prev => prev.map(updateItem));
-    setUnassignedItems(prev => prev.map(updateItem));
-    
-    const newAssignedByDay = new Map(assignedByDay);
-    newAssignedByDay.forEach((tasks, day) => {
-      newAssignedByDay.set(day, tasks.map(updateItem));
-    });
-    setAssignedByDay(newAssignedByDay);
-  };
-
-  const handleUpdateRefNotes = (itemId: string, notes: string | null) => {
-    const updateItem = (item: ChecklistItem) =>
-      item.id === itemId ? { ...item, reference_notes: notes } : item;
-    
-    setItems(prev => prev.map(updateItem));
-    setUnassignedItems(prev => prev.map(updateItem));
-    
-    const newAssignedByDay = new Map(assignedByDay);
-    newAssignedByDay.forEach((tasks, day) => {
-      newAssignedByDay.set(day, tasks.map(updateItem));
-    });
-    setAssignedByDay(newAssignedByDay);
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const task = event.active.data.current?.task;
-    setActiveTask(task || null);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
-
-    if (!over) return;
-
-    const task = active.data.current?.task as ChecklistItem;
-    const overId = over.id as string;
-
-    // Remove from current location first
-    const newUnassigned = unassignedItems.filter((item) => item.id !== task.id);
-    const newAssignedByDay = new Map(assignedByDay);
-
-    // Remove from all days
-    assignedByDay.forEach((tasks, day) => {
-      newAssignedByDay.set(
-        day,
-        tasks.filter((t) => t.id !== task.id)
-      );
-    });
-
-    if (overId === 'unassigned') {
-      // Move back to unassigned
-      newUnassigned.push(task);
-    } else if (overId.startsWith('day-')) {
-      // Move to a specific day
-      const dayIndex = parseInt(overId.replace('day-', ''));
-
-      if (!newAssignedByDay.has(dayIndex)) {
-        newAssignedByDay.set(dayIndex, []);
-      }
-      newAssignedByDay.get(dayIndex)!.push(task);
+  const forkToDay = async (item: ChecklistItem, day: number) => {
+    const cid = checklistId;
+    if (!cid) return;
+    const { data, error } = await supabase
+      .from("checklist_items")
+      .insert({
+        checklist_id: cid,
+        question: item.question,
+        item_type: item.item_type,
+        order_index: items.length,
+        is_required: true,
+        days_of_week: [day],
+        options: item.options,
+        manager_shift: item.manager_shift,
+        reference_image_url: item.reference_image_url,
+        reference_notes: item.reference_notes,
+        forked_from_item_id: item.id,
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error(error);
+      toast.error("Could not copy that item");
+      return;
     }
+    setItems((prev) => [...prev, normalizeItem(data)]);
+    toast.success(`${DAY_NAMES[day]} copy created`, {
+      description: `Edits here will not change ${item.days_of_week.length ? DAY_NAMES[item.days_of_week[0]] : "the original"}.`,
+    });
+  };
 
-    setUnassignedItems(newUnassigned);
-    setAssignedByDay(newAssignedByDay);
+  const openArchive = async (item: ChecklistItem) => {
+    setArchiveTarget(item);
+    setArchiveResponses(null);
+    const { count } = await supabase
+      .from("checklist_responses")
+      .select("id", { count: "exact", head: true })
+      .eq("item_id", item.id);
+    setArchiveResponses(count ?? 0);
+  };
+
+  const confirmArchive = async () => {
+    if (!archiveTarget) return;
+    const { error } = await supabase
+      .from("checklist_items")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", archiveTarget.id);
+    if (error) {
+      console.error(error);
+      toast.error("Could not archive that item");
+      return;
+    }
+    setItems((prev) => prev.filter((i) => i.id !== archiveTarget.id));
+    if (sheetItem?.id === archiveTarget.id) setSheetItem(null);
+    toast.success("Item archived", { description: "Past completions were kept." });
+    setArchiveTarget(null);
+  };
+
+  const patchItem = async (item: ChecklistItem, patch: Partial<ChecklistItem> & Record<string, any>) => {
+    const { error } = await supabase.from("checklist_items").update(patch).eq("id", item.id);
+    if (error) {
+      console.error(error);
+      toast.error("Could not save that change");
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, ...patch } as ChecklistItem : i)));
+    setSheetItem((s) => (s && s.id === item.id ? ({ ...s, ...patch } as ChecklistItem) : s));
   };
 
   const handleSave = async () => {
-    if (!checklist) return;
-
+    const trimmed = title.trim();
+    if (!trimmed) {
+      toast.error("Please give the template a name");
+      return;
+    }
+    setSaving(true);
     try {
-      setSaving(true);
+      const cid = await ensureChecklist();
+      if (!cid) return;
+      const { error } = await supabase.from("checklists").update({ title: trimmed }).eq("id", cid);
+      if (error) throw error;
 
-      const trimmedTitle = (checklist.title ?? '').trim();
-      if (!trimmedTitle) {
-        toast.error('Please give the template a name');
-        setSaving(false);
-        return;
-      }
-
-      // Persist the template name
-      const { error: titleError } = await supabase
-        .from('checklists')
-        .update({ title: trimmedTitle })
-        .eq('id', checklist.id);
-      if (titleError) throw titleError;
-
-      // Persist visibility (roles + specific people)
-      await supabase.from('checklist_role_tags').delete().eq('checklist_id', checklist.id);
-      await supabase.from('checklist_user_tags').delete().eq('checklist_id', checklist.id);
+      await supabase.from("checklist_role_tags").delete().eq("checklist_id", cid);
+      await supabase.from("checklist_user_tags").delete().eq("checklist_id", cid);
       if (selectedRoles.length > 0) {
-        const { error: roleErr } = await supabase.from('checklist_role_tags').insert(
-          selectedRoles.map((role) => ({ checklist_id: checklist.id, role: role as any }))
-        );
-        if (roleErr) throw roleErr;
+        await supabase
+          .from("checklist_role_tags")
+          .insert(selectedRoles.map((role) => ({ checklist_id: cid, role: role as any })));
       }
       if (selectedUserIds.length > 0) {
-        const { error: userErr } = await supabase.from('checklist_user_tags').insert(
-          selectedUserIds.map((user_id) => ({ checklist_id: checklist.id, user_id }))
-        );
-        if (userErr) throw userErr;
+        await supabase
+          .from("checklist_user_tags")
+          .insert(selectedUserIds.map((user_id) => ({ checklist_id: cid, user_id })));
       }
-
-
-
-      // Update all items with their day assignments
-      for (const item of items) {
-        const assignedDays: number[] = [];
-
-        assignedByDay.forEach((tasks, dayIndex) => {
-          if (tasks.some((t) => t.id === item.id)) {
-            assignedDays.push(dayIndex);
-          }
-        });
-
-        const { error } = await supabase
-          .from('checklist_items')
-          .update({ days_of_week: assignedDays.length > 0 ? assignedDays : null })
-          .eq('id', item.id);
-
-        if (error) throw error;
-      }
-
-      toast.success('Dynamic weekly template saved!');
-      navigate('/tasks');
-    } catch (error) {
-      console.error('Error saving:', error);
-      toast.error('Failed to save template');
+      toast.success("Weekly template saved");
+      navigate("/tasks");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to save template");
     } finally {
       setSaving(false);
     }
@@ -887,91 +529,56 @@ export default function DynamicChecklistCalendar() {
       </Layout>
     );
   }
-
   if (!isAdmin) return null;
 
-  const handleOpenAssign = (task: ChecklistItem) => {
-    setAssignDialogTask(task);
-    setAssignDialogDays(task.days_of_week ?? []);
-    setAssignDialogShift(task.manager_shift ?? null);
-  };
-
-  const toggleDay = (dayIdx: number) => {
-    setAssignDialogDays(prev =>
-      prev.includes(dayIdx) ? prev.filter(d => d !== dayIdx) : [...prev, dayIdx].sort()
-    );
-  };
-
-  const handleSaveAssign = async () => {
-    if (!assignDialogTask) return;
-    setAssignSaving(true);
-    try {
-      const days = assignDialogDays.length > 0 ? assignDialogDays : null;
-      const shift = assignDialogShift;
-      const { error } = await supabase
-        .from('checklist_items')
-        .update({ days_of_week: days, manager_shift: shift })
-        .eq('id', assignDialogTask.id);
-      if (error) throw error;
-
-      const updated: ChecklistItem = { ...assignDialogTask, days_of_week: days, manager_shift: shift };
-
-      // Update items
-      setItems(prev => prev.map(i => (i.id === updated.id ? updated : i)));
-
-      // Rebuild unassigned + assignedByDay from scratch for this item
-      setUnassignedItems(prev => {
-        const without = prev.filter(i => i.id !== updated.id);
-        return days === null ? [...without, updated] : without;
-      });
-
-      setAssignedByDay(prev => {
-        const next = new Map(prev);
-        // Remove from every day
-        next.forEach((tasks, d) => {
-          next.set(d, tasks.filter(t => t.id !== updated.id));
-        });
-        // Add to selected days
-        (days ?? []).forEach(d => {
-          const list = next.get(d) ?? [];
-          next.set(d, [...list, updated]);
-        });
-        return next;
-      });
-
-      toast.success('Task assigned');
-      setAssignDialogTask(null);
-    } catch (err) {
-      console.error('Assign error:', err);
-      toast.error('Failed to assign task');
-    } finally {
-      setAssignSaving(false);
-    }
-  };
-
+  const libraryPanel = (
+    <LibraryPanel
+      items={items}
+      unusedCount={unusedCount}
+      onCreate={createLibraryItem}
+      onEdit={(it) => setSheetItem(it)}
+      onArchive={openArchive}
+    />
+  );
 
   return (
     <Layout>
-      <div className="container mx-auto p-6 max-w-7xl space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1">
-              <Input
-                value={checklist?.title ?? ''}
-                onChange={(e) => setChecklist((c) => (c ? { ...c, title: e.target.value } : c))}
-                placeholder="Template name (e.g. Weekly Cleaning)"
-                className="text-3xl font-bold h-auto border-0 border-b border-transparent hover:border-border focus-visible:border-primary focus-visible:ring-0 px-0 bg-transparent shadow-none"
-              />
-              <p className="text-muted-foreground mt-1">Assign tasks to days of the week</p>
-            </div>
-          </div>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Template'}
+      <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/tasks")}>
+            <ArrowLeft className="h-5 w-5" />
           </Button>
+          <div className="flex-1 min-w-0">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Template name (e.g. Weekly Cleaning)"
+              className="text-2xl sm:text-3xl font-bold h-auto border-0 border-b border-transparent hover:border-border focus-visible:border-primary focus-visible:ring-0 px-0 bg-transparent shadow-none"
+            />
+            <p className="text-muted-foreground text-sm mt-1">Tap a day to place items from your library</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Library sheet — mobile */}
+            <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="lg:hidden">
+                  <Library className="h-4 w-4 mr-1.5" />
+                  Library
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+                <SheetHeader className="mb-3">
+                  <SheetTitle>Library</SheetTitle>
+                </SheetHeader>
+                {libraryPanel}
+              </SheetContent>
+            </Sheet>
+            <Button onClick={handleSave} disabled={saving} size="sm">
+              <Save className="mr-2 h-4 w-4" />
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
         </div>
 
         <Card className="p-4">
@@ -986,122 +593,550 @@ export default function DynamicChecklistCalendar() {
           />
         </Card>
 
+        <div className="grid lg:grid-cols-4 gap-4">
+          {/* Library — desktop column */}
+          <Card className="p-4 hidden lg:block lg:col-span-1 h-fit">
+            <h2 className="font-semibold mb-3 flex items-center gap-2">
+              <Library className="h-4 w-4" /> Library
+            </h2>
+            {libraryPanel}
+          </Card>
 
+          {/* Week */}
+          <div className="lg:col-span-3">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              {DAY_NAMES.map((dayName, dayIdx) => {
+                const dayItems = byDay.get(dayIdx) || [];
+                return (
+                  <Card key={dayIdx} className="p-3 min-h-[180px] flex flex-col">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-semibold text-sm">{dayName}</h3>
+                      <div className="flex items-center gap-1">
+                        {dayItems.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="Copy each item here to the next day as its own copy"
+                            onClick={() => {
+                              const next = (dayIdx + 1) % 7;
+                              dayItems.forEach((it) => forkToDay(it, next));
+                            }}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <LibraryTapPopover
+                          open={openDayPopover === dayIdx}
+                          onOpenChange={(o) => setOpenDayPopover(o ? dayIdx : null)}
+                          items={items}
+                          recentIds={recentIds}
+                          onPlace={(it) => {
+                            setOpenDayPopover(null);
+                            placeOnDay(it, dayIdx);
+                          }}
+                          onNewItem={() => {
+                            setOpenDayPopover(null);
+                            setLibraryOpen(true);
+                          }}
+                        >
+                          <Button variant="ghost" size="icon" className="h-6 w-6" title="Add item to this day">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </LibraryTapPopover>
+                      </div>
+                    </div>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="grid lg:grid-cols-4 gap-6">
-            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onUpdateRefImage={handleUpdateRefImage} onUpdateRefNotes={handleUpdateRefNotes} onOpenAssign={handleOpenAssign} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
+                    {/* Thin count strip */}
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1 mb-2">
+                      {dayItems.length} {dayItems.length === 1 ? "item" : "items"}
+                    </div>
 
-            <div className="lg:col-span-3">
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {dayNames.map((dayName, index) => (
-                  <DroppableDay
-                    key={index}
-                    dayIndex={index}
-                    dayName={dayName}
-                    tasks={assignedByDay.get(index) || []}
-                    holidays={holidays}
-                    blackoutDates={blackoutDates}
-                    onUpdateRefImage={handleUpdateRefImage}
-                    onUpdateRefNotes={handleUpdateRefNotes}
-                    onOpenAssign={handleOpenAssign}
-                  />
-                ))}
-              </div>
+                    <div className="space-y-1.5 flex-1">
+                      {dayItems.map((it) => (
+                        <button
+                          key={`${dayIdx}-${it.id}`}
+                          type="button"
+                          onClick={() => setSheetItem(it)}
+                          className="w-full text-left px-2 py-1.5 rounded-md border bg-card hover:bg-accent/60 transition-colors"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-medium truncate flex-1">{it.question}</span>
+                            {it.manager_shift === "am" && <Sun className="h-3 w-3 text-amber-500 shrink-0" />}
+                            {it.manager_shift === "pm" && <Moon className="h-3 w-3 text-indigo-500 shrink-0" />}
+                          </div>
+                          <p className="text-[9.5px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                            {typeLabel(it.item_type)}
+                            {it.forked_from_item_id ? " · copy" : ""}
+                          </p>
+                        </button>
+                      ))}
+                      {dayItems.length === 0 && (
+                        <LibraryTapPopover
+                          open={openDayPopover === dayIdx}
+                          onOpenChange={(o) => setOpenDayPopover(o ? dayIdx : null)}
+                          items={items}
+                          recentIds={recentIds}
+                          onPlace={(it) => {
+                            setOpenDayPopover(null);
+                            placeOnDay(it, dayIdx);
+                          }}
+                          onNewItem={() => {
+                            setOpenDayPopover(null);
+                            setLibraryOpen(true);
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="w-full h-16 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                          >
+                            Tap to add
+                          </button>
+                        </LibraryTapPopover>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           </div>
+        </div>
+      </div>
 
-          <DragOverlay>
-            {activeTask ? (
-              <div className="p-2 bg-card border rounded shadow-lg">
-                <p className="text-sm">{activeTask.question}</p>
-                <p className="text-xs text-muted-foreground">{activeTask.item_type}</p>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+      {/* Item sheet */}
+      <ItemSheet
+        item={sheetItem}
+        onClose={() => setSheetItem(null)}
+        onToggleDay={async (day) => {
+          if (!sheetItem) return;
+          if (sheetItem.days_of_week.includes(day)) {
+            await removeFromDay(sheetItem, day);
+          } else {
+            await placeOnDay(sheetItem, day);
+          }
+        }}
+        onPatch={(patch) => sheetItem && patchItem(sheetItem, patch)}
+        onArchive={() => sheetItem && openArchive(sheetItem)}
+      />
 
-        {/* Assign Days & Shift Dialog */}
-        <Dialog open={!!assignDialogTask} onOpenChange={(open) => !open && setAssignDialogTask(null)}>
-          <DialogContent className="max-w-md max-w-[calc(100vw-2rem)]">
-            <DialogHeader>
-              <DialogTitle className="text-base">Assign Task</DialogTitle>
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {assignDialogTask?.question}
+      {/* Archive confirm */}
+      <Dialog open={!!archiveTarget} onOpenChange={(o) => !o && setArchiveTarget(null)}>
+        <DialogContent className="max-w-md max-w-[calc(100vw-2rem)]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Archive this item?</DialogTitle>
+            <DialogDescription className="text-xs">
+              "{archiveTarget?.question}" will stop showing up for the crew.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              Tagged on:{" "}
+              <span className="text-foreground font-medium">
+                {archiveTarget && archiveTarget.days_of_week.length > 0
+                  ? archiveTarget.days_of_week.map((d) => DAY_SHORT[d]).join(", ")
+                  : "no days (unused)"}
+              </span>
+            </p>
+            <p className="text-muted-foreground">
+              Completions on record:{" "}
+              <span className="text-foreground font-medium">
+                {archiveResponses === null ? "checking..." : archiveResponses}
+              </span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Nothing is erased — the history stays right where it is, and copies of this item are untouched.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setArchiveTarget(null)}>
+              Keep it
+            </Button>
+            <Button onClick={confirmArchive}>
+              <Archive className="h-4 w-4 mr-2" /> Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Layout>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Library panel                                                       */
+/* ------------------------------------------------------------------ */
+
+function LibraryPanel({
+  items,
+  unusedCount,
+  onCreate,
+  onEdit,
+  onArchive,
+}: {
+  items: ChecklistItem[];
+  unusedCount: number;
+  onCreate: (q: string, t: EditorType) => Promise<ChecklistItem | null>;
+  onEdit: (i: ChecklistItem) => void;
+  onArchive: (i: ChecklistItem) => void;
+}) {
+  const [question, setQuestion] = useState("");
+  const [type, setType] = useState<EditorType>("confirmation");
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    if (!question.trim() || busy) return;
+    setBusy(true);
+    const created = await onCreate(question, type);
+    setBusy(false);
+    if (created) {
+      setQuestion("");
+      toast.success("Added to library");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2 pb-3 border-b">
+        <Input
+          placeholder="What needs doing?"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+        />
+        <Select value={type} onValueChange={(v) => setType(v as EditorType)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EDITOR_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={add} className="w-full" size="sm" disabled={busy || !question.trim()}>
+          <ListPlus className="h-4 w-4 mr-2" /> Add to library
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {items.length} {items.length === 1 ? "item" : "items"}
+        </span>
+        {unusedCount > 0 && <Badge variant="secondary">Unused ({unusedCount})</Badge>}
+      </div>
+
+      <div className="space-y-1.5">
+        {items.map((it) => (
+          <div key={it.id} className="group flex items-center gap-1 px-2 py-1.5 rounded-md border bg-card">
+            <button type="button" className="flex-1 min-w-0 text-left" onClick={() => onEdit(it)}>
+              <p className="text-sm truncate">{it.question}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {typeLabel(it.item_type)}
+                {it.days_of_week.length === 0
+                  ? " · unused"
+                  : ` · ${it.days_of_week.map((d) => DAY_SHORT[d]).join(" ")}`}
+                {it.forked_from_item_id ? " · copy" : ""}
               </p>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Days of the week</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {dayNames.map((name, idx) => {
-                    const active = assignDialogDays.includes(idx);
-                    return (
-                      <Button
-                        key={idx}
-                        type="button"
-                        variant={active ? 'default' : 'outline'}
-                        size="sm"
-                        className="justify-start"
-                        onClick={() => toggleDay(idx)}
-                      >
-                        {active && <span className="mr-1">✓</span>}
-                        {name}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Leave all unchecked to move back to Unassigned.
-                </p>
-              </div>
+            </button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => onEdit(it)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => onArchive(it)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <p className="text-xs text-muted-foreground">Nothing here yet. Add your first item above.</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Day part (optional)</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    type="button"
-                    variant={assignDialogShift === null ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setAssignDialogShift(null)}
-                  >
-                    Any
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={assignDialogShift === 'am' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setAssignDialogShift('am')}
-                    className={assignDialogShift === 'am' ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}
-                  >
-                    <Sun className="h-3.5 w-3.5 mr-1" /> AM
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={assignDialogShift === 'pm' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setAssignDialogShift('pm')}
-                    className={assignDialogShift === 'pm' ? 'bg-indigo-700 hover:bg-indigo-800 text-white' : ''}
-                  >
-                    <Moon className="h-3.5 w-3.5 mr-1" /> PM
-                  </Button>
-                </div>
+/* ------------------------------------------------------------------ */
+/* Item sheet                                                          */
+/* ------------------------------------------------------------------ */
+
+function ItemSheet({
+  item,
+  onClose,
+  onToggleDay,
+  onPatch,
+  onArchive,
+}: {
+  item: ChecklistItem | null;
+  onClose: () => void;
+  onToggleDay: (day: number) => void;
+  onPatch: (patch: Record<string, any>) => void;
+  onArchive: () => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [choicesText, setChoicesText] = useState("");
+
+  useEffect(() => {
+    if (!item) return;
+    setName(item.question);
+    setNotes(item.reference_notes ?? "");
+    setChoicesText(getOptionsArray(item.options).join("\n"));
+  }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!item) return null;
+
+  const dayCount = item.days_of_week.length;
+  const appliesLine =
+    dayCount === 0
+      ? "Not on any day yet — it stays in the library"
+      : dayCount === 1
+      ? `Applies to ${DAY_NAMES[item.days_of_week[0]]} only`
+      : `Applies to ${dayCount} days`;
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fileName = `checklist-refs/${item.id}-${Date.now()}.${file.name.split(".").pop()}`;
+      const { error } = await supabase.storage.from("checklist-images").upload(fileName, file);
+      if (error) throw error;
+      const { data } = supabase.storage.from("checklist-images").getPublicUrl(fileName);
+      onPatch({ reference_image_url: data.publicUrl });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload photo");
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  return (
+    <>
+      <Sheet open={!!item} onOpenChange={(o) => !o && onClose()}>
+        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          <SheetHeader className="mb-4 text-left">
+            <SheetTitle className="text-base pr-8 truncate">{item.question}</SheetTitle>
+            <p className="text-xs text-muted-foreground">{appliesLine}</p>
+          </SheetHeader>
+
+          <div className="space-y-5 pb-8">
+            {/* Days first */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Days</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {DAY_SHORT.map((d, idx) => {
+                  const active = item.days_of_week.includes(idx);
+                  return (
+                    <Button
+                      key={idx}
+                      type="button"
+                      size="sm"
+                      variant={active ? "default" : "outline"}
+                      className="rounded-full px-3"
+                      onClick={() => onToggleDay(idx)}
+                    >
+                      {d}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Settings below apply to every day this item is tagged on. Use “Copy” on a day to make an independent
+                version.
+              </p>
+            </div>
+
+            {/* Shift */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Shift</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={item.manager_shift === null ? "default" : "outline"}
+                  onClick={() => onPatch({ manager_shift: null })}
+                >
+                  Any
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={item.manager_shift === "am" ? "default" : "outline"}
+                  onClick={() => onPatch({ manager_shift: "am" })}
+                >
+                  <Sun className="h-3.5 w-3.5 mr-1" /> AM
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={item.manager_shift === "pm" ? "default" : "outline"}
+                  onClick={() => onPatch({ manager_shift: "pm" })}
+                >
+                  <Moon className="h-3.5 w-3.5 mr-1" /> PM
+                </Button>
               </div>
             </div>
-            <DialogFooter className="gap-2">
-              <Button variant="ghost" onClick={() => setAssignDialogTask(null)}>Cancel</Button>
-              <Button onClick={handleSaveAssign} disabled={assignSaving}>
-                {assignSaving ? 'Saving...' : 'Save'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </Layout>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Name</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => name.trim() && name !== item.question && onPatch({ question: name.trim() })}
+              />
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Type</Label>
+              <Select
+                value={item.item_type}
+                onValueChange={(v) =>
+                  onPatch({
+                    item_type: v,
+                    options:
+                      v === "multiple_choice"
+                        ? getOptionsArray(item.options).length
+                          ? getOptionsArray(item.options)
+                          : ["Yes", "No"]
+                        : v === "image"
+                        ? { minPhotos: getMinPhotos(item.options) }
+                        : null,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EDITOR_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {item.item_type === "image" && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Photos required</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={getMinPhotos(item.options)}
+                  onChange={(e) =>
+                    onPatch({ options: { minPhotos: Math.max(1, parseInt(e.target.value || "1", 10)) } })
+                  }
+                  className="w-24"
+                />
+              </div>
+            )}
+
+            {item.item_type === "multiple_choice" && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Choices (one per line)</Label>
+                <Textarea
+                  value={choicesText}
+                  onChange={(e) => setChoicesText(e.target.value)}
+                  onBlur={() =>
+                    onPatch({
+                      options: choicesText
+                        .split("\n")
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                  className="min-h-[90px] text-sm"
+                />
+              </div>
+            )}
+
+            {/* Reference standard */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Reference standard</Label>
+              {item.reference_image_url ? (
+                <div className="relative">
+                  <img
+                    src={item.reference_image_url}
+                    alt="Reference"
+                    className="rounded-lg w-full max-h-48 object-cover border"
+                  />
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-7 w-7 bg-background/80"
+                      onClick={() => setPreviewOpen(true)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => onPatch({ reference_image_url: null })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleUpload}
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full h-20 border-dashed flex flex-col gap-1"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <span className="text-sm text-muted-foreground">Uploading...</span>
+                    ) : (
+                      <>
+                        <Camera className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Tap to add photo</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => onPatch({ reference_notes: notes.trim() || null })}
+                placeholder="Describe what done looks like..."
+                className="min-h-[70px] text-sm"
+              />
+            </div>
+
+            <Button variant="outline" className="w-full text-destructive" onClick={onArchive}>
+              <Archive className="h-4 w-4 mr-2" /> Archive item
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl">
+          <img
+            src={item.reference_image_url || ""}
+            alt="Reference preview"
+            className="w-full max-h-[70vh] object-contain rounded"
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

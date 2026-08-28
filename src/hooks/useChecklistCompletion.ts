@@ -50,7 +50,8 @@ export function useChecklistCompletion(
       ] = await Promise.all([
         supabase
           .from('checklist_items')
-          .select('id, checklist_id, days_of_week, item_type')
+          .select('id, checklist_id, days_of_week, item_type, order_index')
+          .is('deleted_at', null)
           .in('checklist_id', checklistIds),
         dailyChecklistIds.length > 0
           ? supabase
