@@ -41,6 +41,18 @@ export default function EditTabContent({
   const [activeTab, setActiveTab] = useState("quick-tasks");
   const [assignChecklist, setAssignChecklist] = useState<{ id: string; title: string } | null>(null);
   const [duplicateChecklist, setDuplicateChecklist] = useState<any | null>(null);
+  const [scheduleDraft, setScheduleDraft] = useState<any | null>(null);
+
+  // Live now on a draft: the same one-transaction swap the cron runs.
+  const handleLiveNowDraft = async (draft: any) => {
+    const { error } = await supabase.rpc('perform_checklist_swap', { _draft_id: draft.id });
+    if (error) {
+      toast.error(error.message || "Couldn't switch this version on");
+      return;
+    }
+    toast.success('New version is live now');
+    queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
+  };
 
   // Pending drafts hang under their live parent instead of sitting in the main list.
   const draftsByParent = new Map<string, any>();
