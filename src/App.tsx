@@ -129,8 +129,11 @@ const AppWithSplash = () => {
   const { loading, user } = useAuth();
   const { currentLocation } = useAppLocation();
   // Public/unlisted pages must paint immediately — never gate them behind the splash.
-  const skipSplash = typeof window !== "undefined" && window.location.pathname.startsWith("/r/");
+  const skipSplash =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/r/") || window.location.pathname === "/");
   const [showSplash, setShowSplash] = useState(!skipSplash);
+
   const [splashComplete, setSplashComplete] = useState(false);
 
   // Prefetch dashboard data while splash is visible (runs in background)
