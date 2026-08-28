@@ -159,12 +159,15 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           (item: any) =>
             item.item_type !== 'section_header' && isItemExpectedInPeriod(item, scoreStart)
         );
-        let itemCount = answerableItems.length;
-        if (checklist.template_type === 'dynamic') {
-          itemCount = answerableItems.filter((item: any) =>
-            item.days_of_week && item.days_of_week.includes(currentDay)
-          ).length;
-        }
+        const expectedItems = checklist.template_type === 'dynamic'
+          ? answerableItems.filter((item: any) =>
+              item.days_of_week && item.days_of_week.includes(currentDay)
+            )
+          : answerableItems;
+        const itemCount = expectedItems.length;
+        // Numerator must use this same set, or a response to an item archived in an
+        // earlier period would count toward a denominator that excludes it.
+        const expectedItemIds = new Set<string>(expectedItems.map((item: any) => item.id));
 
         const isMonthly = checklist.frequency === 'monthly';
         
@@ -189,7 +192,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           periodEnd = periodEndBusiness;
         }
 
-        return { ...checklist, itemCount, periodStart, periodEnd };
+        return { ...checklist, itemCount, expectedItemIds, periodStart, periodEnd };
       }).filter((c): c is NonNullable<typeof c> => c !== null && c.itemCount > 0);
 
       if (checklistInfo.length === 0) return [];
@@ -271,12 +274,8 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
         const submissions = submissionsByChecklist[checklist.id] || [];
         const submissionIdsForChecklist = submissions.map(s => s.id);
 
-        // Build set of today's valid item IDs for dynamic checklists
-        const todayItemIds = checklist.template_type === 'dynamic'
-          ? new Set(checklist.checklist_items
-              ?.filter((item: any) => item.days_of_week && item.days_of_week.includes(currentDay))
-              .map((item: any) => item.id))
-          : null;
+        // Items this period actually expects (day-of-week + archive-aware).
+        const todayItemIds = checklist.expectedItemIds;
 
         const uniqueItemIds = new Set<string>();
         const contributorIds = new Set<string>();
@@ -286,7 +285,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           const responses = responsesBySubmission[subId] || [];
           responses.forEach((r: any) => {
             // For dynamic checklists, only count responses for today's items
-            if (r.item_id && (todayItemIds === null || todayItemIds.has(r.item_id))) {
+            if (r.item_id && todayItemIds.has(r.item_id)) {
               uniqueItemIds.add(r.item_id);
             }
             if (r.completed_by) contributorIds.add(r.completed_by);
