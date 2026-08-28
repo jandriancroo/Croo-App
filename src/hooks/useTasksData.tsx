@@ -55,7 +55,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           *,
           checklist_role_tags(role),
           checklist_user_tags(user_id),
-          checklist_items(id, days_of_week)
+          checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
