@@ -456,7 +456,7 @@ export default function Dashboard() {
       // today's list and pulls completion counts from useChecklistCompletion.
       const checklistsResult = await supabase.from('checklists').select(`
             *,
-            checklist_items(id, days_of_week)
+            checklist_items(id, days_of_week, deleted_at)
           `)
         .eq('is_active', true)
         .neq('template_type', 'training')
@@ -472,7 +472,7 @@ export default function Dashboard() {
       const filteredChecklists = checklistsData.filter(checklist => {
         if (checklist.template_type === 'dynamic') {
           const todayItems = checklist.checklist_items?.filter((item: any) => 
-            item.days_of_week && item.days_of_week.includes(currentDay)
+            !item.deleted_at && item.days_of_week && item.days_of_week.includes(currentDay)
           );
           return todayItems && todayItems.length > 0;
         }

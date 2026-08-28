@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
+import { getScorePeriodStart, isItemExpectedInPeriod } from '@/utils/checklistArchivePeriod';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, X } from 'lucide-react';
@@ -101,7 +102,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           template_type,
           frequency,
           visible_days_before_month_end,
-          checklist_items(id, days_of_week)
+          checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('is_active', true)
         .eq('location_id', currentLocation.id);
@@ -137,8 +138,23 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         const { start: dayStart, end: dayEnd } = getBusinessDayRangeInTimezone(dateStr);
         const currentDay = getDateDayOfWeekInTimezone(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0), timezone);
 
+        // Score view: an item archived after that period started is still expected
+        // for that period; archived before it, it was never expected.
+        const expectedItems = (cl: any) => {
+          const scoreStart = getScorePeriodStart({
+            templateType: cl.template_type,
+            frequency: cl.frequency,
+            businessDateStr: dateStr,
+            dayOfWeekMon0: currentDay,
+            timezone,
+            closeTime,
+          });
+          return (cl.checklist_items || []).filter((it: any) => isItemExpectedInPeriod(it, scoreStart));
+        };
+
         // Filter applicable checklists for this day
         const applicable = checklists.filter(cl => {
+          const items = expectedItems(cl);
           const isMonthly = cl.frequency === 'monthly';
           if (isMonthly) {
             if (cl.visible_days_before_month_end) {
@@ -146,13 +162,13 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
               const daysUntilEnd = lastDay.getDate() - day.getDate();
               if (daysUntilEnd >= cl.visible_days_before_month_end) return false;
             }
-            return (cl.checklist_items?.length || 0) > 0;
+            return items.length > 0;
           }
           if (cl.template_type === 'dynamic') {
-            const todayItems = cl.checklist_items?.filter((it: any) => it.days_of_week?.includes(currentDay));
-            return (todayItems?.length || 0) > 0;
+            const todayItems = items.filter((it: any) => it.days_of_week?.includes(currentDay));
+            return todayItems.length > 0;
           }
-          return (cl.checklist_items?.length || 0) > 0;
+          return items.length > 0;
         });
 
         if (applicable.length === 0) {
@@ -171,9 +187,10 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
             ? new Date(day.getFullYear(), day.getMonth() + 1, 0, 23, 59, 59).toISOString()
             : dayEnd.toISOString();
 
+          const clExpected = expectedItems(cl);
           const itemIds = cl.template_type === 'dynamic'
-            ? new Set(cl.checklist_items?.filter((it: any) => it.days_of_week?.includes(currentDay)).map((it: any) => it.id))
-            : new Set(cl.checklist_items?.map((it: any) => it.id));
+            ? new Set(clExpected.filter((it: any) => it.days_of_week?.includes(currentDay)).map((it: any) => it.id))
+            : new Set(clExpected.map((it: any) => it.id));
           const itemCount = itemIds.size;
           if (itemCount === 0) continue;
 

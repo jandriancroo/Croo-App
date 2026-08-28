@@ -42,7 +42,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
         const currentDay = getDayOfWeekInTimezone(timezone);
         const { data } = await supabase
           .from('checklists')
-          .select('*, checklist_items(id, days_of_week)')
+          .select('*, checklist_items(id, days_of_week, deleted_at)')
           .eq('is_active', true)
           .neq('template_type', 'training')
           .eq('location_id', locationId)
@@ -53,7 +53,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
         const filtered = (data || []).filter((checklist: any) => {
           if (checklist.template_type === 'dynamic') {
             const todayItems = checklist.checklist_items?.filter(
-              (item: any) => item.days_of_week && item.days_of_week.includes(currentDay)
+              (item: any) => !item.deleted_at && item.days_of_week && item.days_of_week.includes(currentDay)
             );
             return todayItems && todayItems.length > 0;
           }

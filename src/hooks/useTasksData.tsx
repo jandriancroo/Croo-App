@@ -10,6 +10,11 @@ import {
   getDayOfWeekInTimezone,
   getDateDayOfWeekInTimezone,
 } from "@/utils/dateUtils";
+import {
+  getScorePeriodStart,
+  isItemExpectedInPeriod,
+  isItemLive,
+} from "@/utils/checklistArchivePeriod";
 
 interface UseTasksDataOptions {
   /** When true, the Edit tab is mounted and needs the full checklist edit payload. */
@@ -50,7 +55,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           *,
           checklist_role_tags(role),
           checklist_user_tags(user_id),
-          checklist_items(id, days_of_week)
+          checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
@@ -75,8 +80,9 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
         if (!(hasNoAudience || roleMatch || userMatch)) return false;
 
         if (checklist.template_type === 'dynamic') {
+          // Crew-facing visibility: archived items are gone immediately.
           const todayItems = checklist.checklist_items?.filter((item: any) =>
-            item.days_of_week && item.days_of_week.includes(currentDay)
+            isItemLive(item) && item.days_of_week && item.days_of_week.includes(currentDay)
           );
           return todayItems && todayItems.length > 0;
         }
@@ -121,7 +127,7 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           scheduled_date,
           visible_days_before_month_end,
           due_by_time,
-          checklist_items(id, days_of_week, item_type)
+          checklist_items(id, days_of_week, item_type, deleted_at)
         `)
         .eq('is_active', true)
         .neq('template_type', 'training')
@@ -139,8 +145,19 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
         // Exclude section_header rows from the expected count — they're
         // visual dividers, not answerable items. Counting them makes a fully
         // completed checklist show as e.g. "21/24" (3 headers unanswered).
+        // Archive rule: items archived AFTER this period started are still expected
+        // (score keeps the hole); items archived before it are not expected at all.
+        const scoreStart = getScorePeriodStart({
+          templateType: checklist.template_type,
+          frequency: checklist.frequency,
+          businessDateStr: historyDateStr,
+          dayOfWeekMon0: currentDay,
+          timezone,
+          closeTime,
+        });
         const answerableItems = (checklist.checklist_items || []).filter(
-          (item: any) => item.item_type !== 'section_header'
+          (item: any) =>
+            item.item_type !== 'section_header' && isItemExpectedInPeriod(item, scoreStart)
         );
         let itemCount = answerableItems.length;
         if (checklist.template_type === 'dynamic') {
