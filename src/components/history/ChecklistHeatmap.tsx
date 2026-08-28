@@ -8,6 +8,8 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { getScorePeriodStart, isItemExpectedInPeriod } from '@/utils/checklistArchivePeriod';
+import { wasLiveDuringPeriod } from '@/utils/checklistVersions';
+
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, X } from 'lucide-react';
