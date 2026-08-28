@@ -255,20 +255,31 @@ const Home = () => {
         </section>
       </div>
 
-      <div className="band">
+      <div className="jobs-band">
         <div className="wrap">
-          <section className="blk">
-            <h2>If you do not love it, you are not stuck.</h2>
+          <section className="blk" id="jobs">
+            <p className="eyebrow">Looking for a job?</p>
+            <h2>Restaurant roles are already posted.</h2>
             <p className="body-copy">
-              I am not looking to hold anyone hostage who does not love the CrooHQ experience. Hiring is already on
-              CrooHQ. The jobs board is live.
+              Open crew and manager roles in Southern California. Apply on the jobs board.
             </p>
             <div className="cta-row" style={{ marginTop: 26 }}>
-              <a className="btn btn-primary btn-lg" href={MAILTO}>Book a walkthrough</a>
-              <Link className="btn btn-ghost btn-lg" to="/jobs">See open jobs</Link>
+              <Link className="btn btn-primary btn-lg" to="/jobs">See open jobs</Link>
             </div>
           </section>
         </div>
+      </div>
+
+      <div className="wrap">
+        <section className="blk">
+          <h2>If you do not love it, you are not stuck.</h2>
+          <p className="body-copy">
+            I am not looking to hold anyone hostage who does not love the CrooHQ experience.
+          </p>
+          <div className="cta-row" style={{ marginTop: 26 }}>
+            <a className="btn btn-primary btn-lg" href={MAILTO}>Book a walkthrough</a>
+          </div>
+        </section>
       </div>
 
       <div className="wrap">
