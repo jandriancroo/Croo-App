@@ -418,7 +418,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     { data: locationSettings },
     { data: logbookEntries },
     { data: checklistSubs },
-    { data: activeChecklists },
+    { data: allChecklistVersions },
     { data: locationUsers },
   ] = await Promise.all([
     supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
@@ -429,9 +429,16 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
     // Use business day boundaries matching app's getBusinessDayRangeInTimezone
     supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", businessDayStartUTC).lt("submitted_at", businessDayEndUTC),
-    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklists").select("id, title, frequency, template_type, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
+
+  // Closed-period reporting ignores is_active: a version swapped out after this
+  // period started still owns it. Pending drafts never count.
+  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
+    wasLiveDuringPeriod(c, new Date(businessDayStartUTC))
+  );
+
 
   if (!location) {
     return new Response(JSON.stringify({ error: "Location not found", success: false }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
