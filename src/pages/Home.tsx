@@ -164,7 +164,7 @@ const Home = () => {
 
       <div className="wrap">
         <header>
-          <img src="/croohq-logo.png" alt="CrooHQ" className="logo" width={140} height={34} />
+          <img src="/croohq-wordmark.png" alt="CrooHQ" className="logo" width={136} height={34} />
           <nav>
             <a href="#how">How it works</a>
             <a href="#stack">Replace the stack</a>
