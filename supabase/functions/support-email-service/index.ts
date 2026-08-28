@@ -1116,9 +1116,11 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
   ]);
 
-  // Monday morning's prior-week summary must still see a version swapped out at open.
-  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
-    wasLiveDuringPeriod(c, new Date(`${week_start}T00:00:00Z`))
+  // Monday morning's prior-week summary must still see a version swapped out at open,
+  // and a mid-week live-now swap must count the family once, not twice.
+  const activeChecklists = versionsLiveOnDay(
+    allChecklistVersions || [],
+    new Date(`${week_start}T00:00:00Z`)
   );
 
 
