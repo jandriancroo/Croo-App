@@ -244,10 +244,7 @@ const Home = () => {
         </section>
 
         <section className="blk" style={{ paddingTop: 0 }}>
-          <h2>Per location. Price on a walkthrough.</h2>
-          <p className="lead">
-            Sold by an operator, on a term, not a public grid. 14-day trial. No hostage contract.
-          </p>
+          <h2>Less than half your current stack. One bill, one system.</h2>
         </section>
       </div>
 
