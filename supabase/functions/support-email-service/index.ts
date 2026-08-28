@@ -482,9 +482,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   ]);
 
   // Closed-period reporting ignores is_active: a version swapped out after this
-  // period started still owns it. Pending drafts never count.
-  const activeChecklists = (allChecklistVersions || []).filter((c: any) =>
-    wasLiveDuringPeriod(c, new Date(businessDayStartUTC))
+  // period started still owns it. Pending drafts never count, and each family
+  // contributes exactly one version for this period.
+  const activeChecklists = versionsLiveOnDay(
+    allChecklistVersions || [],
+    new Date(businessDayStartUTC)
   );
 
 
