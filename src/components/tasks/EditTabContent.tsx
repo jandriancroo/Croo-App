@@ -299,6 +299,7 @@ export default function EditTabContent({
                           onDeactivate={handleToggleActive}
                           onDelete={handleDelete}
                           onCopyTo={handleCopyTo}
+                          onDuplicate={setDuplicateChecklist}
                           editMode={true}
                         />
                         <div className="px-3 pt-1">
