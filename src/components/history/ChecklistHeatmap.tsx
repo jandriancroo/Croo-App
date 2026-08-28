@@ -159,6 +159,8 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
 
         // Filter applicable checklists for this day
         const applicable = checklists.filter(cl => {
+          if (!wasLiveDuringPeriod(cl as any, dayStart)) return false;
+
           const items = expectedItems(cl);
           const isMonthly = cl.frequency === 'monthly';
           if (isMonthly) {
