@@ -57,7 +57,7 @@ const FontPreviewPage = lazyWithRetry(() => import("./pages/FontPreviewPage"));
 const DashboardPreview = lazyWithRetry(() => import("./pages/DashboardPreview"));
 const DashboardPreviewRestaurant = lazyWithRetry(() => import("./pages/DashboardPreviewRestaurant"));
 const TemperatureValidation = lazyWithRetry(() => import("./pages/TemperatureValidation"));
-const Index = lazyWithRetry(() => import("./pages/Index"));
+const Home = lazyWithRetry(() => import("./pages/Home"));
 const ReviewLanding = lazyWithRetry(() => import("./pages/ReviewLanding"));
 
 const WelcomeProfile = lazyWithRetry(() => import("./pages/WelcomeProfile"));
@@ -129,8 +129,11 @@ const AppWithSplash = () => {
   const { loading, user } = useAuth();
   const { currentLocation } = useAppLocation();
   // Public/unlisted pages must paint immediately — never gate them behind the splash.
-  const skipSplash = typeof window !== "undefined" && window.location.pathname.startsWith("/r/");
+  const skipSplash =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/r/") || window.location.pathname === "/");
   const [showSplash, setShowSplash] = useState(!skipSplash);
+
   const [splashComplete, setSplashComplete] = useState(false);
 
   // Prefetch dashboard data while splash is visible (runs in background)
@@ -162,15 +165,22 @@ const AppWithSplash = () => {
   );
 };
 
+// Public marketing homepage for guests; signed-in users go straight to the dashboard.
+const HomeRoute = () => {
+  const { user, loading } = useAuth();
+  if (!loading && user) return <Navigate to="/dashboard" replace />;
+  return <Home />;
+};
+
 const AppContent = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/auth" replace />} />
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/landing" element={<Index />} />
+
         {/* Unlisted review page — noindex, not linked from anywhere, not in sitemap */}
         <Route path="/r/satnight-8f3k" element={<ReviewLanding />} />
         <Route path="/demo" element={<DemoGate />} />
