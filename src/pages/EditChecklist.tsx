@@ -23,6 +23,7 @@ import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
 import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
+import { archivePeriodCopy } from '@/utils/checklistVersions';
 
 interface ChecklistItem {
   id?: string;
