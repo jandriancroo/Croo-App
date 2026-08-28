@@ -16,6 +16,8 @@ const CSS = `
   --teal-d: #2e6270;
   --white: #fffcf7;
   --line: rgba(26,26,26,.12);
+  --orange: #eb7d3c;
+  --orange-d: #d66b2c;
   background: var(--paper);
   color: var(--ink);
   min-height: 100vh;
@@ -37,6 +39,8 @@ const CSS = `
 .hme .btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 12px 20px; font-weight: 700; font-size: 14px; border: 1.5px solid transparent; cursor: pointer; }
 .hme .btn-primary { background: var(--teal); color: #fff; }
 .hme .btn-primary:hover { background: var(--teal-d); }
+.hme .btn-app { background: var(--orange); color: #fff; }
+.hme .btn-app:hover { background: var(--orange-d); }
 .hme .btn-ghost { background: transparent; border-color: var(--line); color: var(--ink); }
 .hme .btn-lg { padding: 16px 26px; font-size: 16px; }
 
@@ -86,6 +90,17 @@ const CSS = `
 .hme .jobs-band .body-copy { color: rgba(255,252,247,.9); }
 .hme .jobs-band .btn-primary { background: #fff; color: var(--teal-d); }
 .hme .jobs-band .btn-primary:hover { background: var(--white); }
+
+.hme .hero-visual { display: flex; flex-direction: column; gap: 14px; }
+.hme .jefe { display: block; background: var(--white); border: 1px solid rgba(65,127,142,.28); border-radius: 18px; padding: 20px; color: inherit; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.hme .jefe:hover { border-color: var(--teal); box-shadow: 0 8px 24px rgba(65,127,142,.16); transform: translateY(-1px); }
+.hme .jefe-quote { font-family: Fraunces, Georgia, serif; font-style: italic; font-weight: 500; font-size: 15px; line-height: 1.4; }
+.hme .jefe-byline { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.hme .jefe-photo { width: 40px; height: 40px; border-radius: 999px; object-fit: cover; flex-shrink: 0; }
+.hme .jefe-id { display: flex; flex-direction: column; gap: 1px; font-size: 11px; color: var(--muted); font-weight: 500; }
+.hme .jefe-id strong { font-size: 12px; font-weight: 700; color: var(--ink); }
+.hme .jefe-ask { margin-top: 2px; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--teal-d); flex-wrap: wrap; }
+.hme .jefe-stamp { height: 36px; width: auto; display: block; }
 
 @media (max-width: 900px) {
   .hme .hero-grid { grid-template-columns: 1fr; gap: 30px; }
@@ -156,7 +171,7 @@ const Home = () => {
             <Link to="/jobs">Jobs</Link>
           </nav>
           <div className="actions">
-            <Link className="btn btn-ghost" to="/auth">Log in</Link>
+            <Link className="btn btn-app" to="/auth">App Login</Link>
             <a className="btn btn-primary" href={MAILTO}>Book a walkthrough</a>
           </div>
         </header>
@@ -175,11 +190,32 @@ const Home = () => {
               </p>
               <div className="cta-row">
                 <a className="btn btn-primary btn-lg" href={MAILTO}>Book a 20-minute walkthrough</a>
-                <Link className="btn btn-ghost btn-lg" to="/auth">Log in</Link>
               </div>
               <p className="fine">14-day trial. No hostage contract. Sold per location.</p>
             </div>
-            <div>
+            <div className="hero-visual">
+              <a
+                className="jefe"
+                href="https://eljefe-enterprises.com"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <p className="jefe-quote">
+                  “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
+                </p>
+                <div className="jefe-byline">
+                  <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
+                  <div className="jefe-id">
+                    <strong>Johnny Tellez</strong>
+                    <span>20+ Year Restaurant Exec</span>
+                    <span>El Jefe Enterprises</span>
+                  </div>
+                </div>
+                <p className="jefe-ask">
+                  Ask me how I can help your business through
+                  <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
+                </p>
+              </a>
               <img
                 className="shot"
                 src="/croohq-ipad-punch.png"
