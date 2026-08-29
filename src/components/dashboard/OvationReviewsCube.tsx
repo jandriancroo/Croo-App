@@ -113,6 +113,10 @@ export function OvationReviewsCube() {
       );
 
       const data = await response.json();
+       if (!response.ok) {
+         console.warn('[Ovation] Edge function returned', response.status);
+         return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
+       }
       return data as OvationReviewsData;
     },
     enabled: !!currentLocation?.id,
@@ -141,7 +145,7 @@ export function OvationReviewsCube() {
   }, [reviewsWithFeedback.length]);
 
   // Don't render if no data or not configured
-  if (!reviewsData || (reviewsData.reviews.length === 0 && !reviewsData.error)) {
+  if (!reviewsData || (reviewsData.reviews?.length === 0 && !reviewsData.error)) {
     return null;
   }
 
