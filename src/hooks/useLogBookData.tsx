@@ -547,9 +547,21 @@ export function useLogBookData() {
       const currentCategory = categories.find((c: any) => c.id === selectedCategory);
       if (currentCategory?.push_notification_enabled && currentLocation) {
         try {
-          await supabase.functions.invoke('send-push-notification', {
-            body: { notification_type: 'logbook_entry', title: `New Log Entry - ${currentLocation.name}`, body: `${currentCategory.name} entry submitted`, location_id: currentLocation.id, roles: ['admin', 'manager', 'shift_manager', 'shift_manager_in_training'] }
-          });
+          // Per-role opt-in for this LogBook category (Settings → Role notifications)
+          const { data: settings } = await supabase
+            .from('role_notification_settings')
+            .select('role, enabled')
+            .eq('notification_type', logbookNotificationType(currentCategory.name));
+
+          const roles = (settings || [])
+            .filter((s: any) => s.enabled && (LOGBOOK_NOTIFICATION_ROLES as readonly string[]).includes(s.role))
+            .map((s: any) => s.role);
+
+          if (roles.length > 0) {
+            await supabase.functions.invoke('send-push-notification', {
+              body: { notification_type: 'logbook_entry', title: `New Log Entry - ${currentLocation.name}`, body: `${currentCategory.name} entry submitted`, location_id: currentLocation.id, roles }
+            });
+          }
         } catch (notifError) { console.error('Failed to send push notification:', notifError); }
       }
     },
