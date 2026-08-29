@@ -78,6 +78,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const touchStartXRef = useRef<number | null>(null);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
+  const yesterday = DateTime.now().setZone(TRACKER_TZ).minus({ days: 1 }).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
   const promoStart = tracker.trackerPromoStart || wtdStart;
   const promoEnd = tracker.trackerPromoEnd || today;
@@ -87,9 +88,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
   const range = period === 'day'
     ? { start: today, end: today }
-    : period === 'wtd'
-      ? { start: wtdStart, end: today }
-      : { start: promoStart, end: promoEnd };
+    : period === 'yday'
+      ? { start: yesterday, end: yesterday }
+      : period === 'wtd'
+        ? { start: wtdStart, end: today }
+        : { start: promoStart, end: promoEnd };
 
   // Higher-level scopes (brand/org) must always recompute the live pool — ignore any stale trackerLocationRefs snapshot
   const explicitRefs =
