@@ -29,7 +29,7 @@ interface TrackerWidgetProps {
   tracker: TrackerConfig;
 }
 
-type PeriodKey = 'day' | 'wtd' | 'promo';
+type PeriodKey = 'day' | 'yday' | 'wtd' | 'promo';
 type TrackerSortMetric = 'units' | 'sales' | 'pmix';
 
 interface StoreRankRow {
@@ -48,9 +48,10 @@ const DEFAULT_TRACKER_TZ = 'America/Los_Angeles';
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const number = (value: number) => Math.round(value).toLocaleString();
 const percent = (value: number) => `${value.toFixed(1)}%`;
-const PERIOD_MODES: PeriodKey[] = ['day', 'wtd', 'promo'];
+const PERIOD_MODES: PeriodKey[] = ['day', 'yday', 'wtd', 'promo'];
 const PERIOD_LABELS: Record<PeriodKey, string> = {
   day: 'Today',
+  yday: 'Yesterday',
   wtd: 'This Week',
   promo: 'Campaign',
 };
