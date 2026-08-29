@@ -130,6 +130,8 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
 
   const rolePermissions = permissions.filter((p) => p.role === selectedRole);
   const roleNotifications = notifications.filter((n) => n.role === selectedRole);
+  const logbookNotifications = roleNotifications.filter((n) => isLogbookNotificationType(n.notification_type));
+  const generalNotifications = roleNotifications.filter((n) => !isLogbookNotificationType(n.notification_type));
 
   if (loading) {
     return (
