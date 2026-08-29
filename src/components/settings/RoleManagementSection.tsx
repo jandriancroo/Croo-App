@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Shield, User, Bell } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { isLogbookNotificationType } from '@/lib/logbookNotificationTypes';
 
 type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
 type DbRole = AppRole | 'fbc' | 'general_manager';
