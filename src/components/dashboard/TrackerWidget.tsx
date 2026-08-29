@@ -299,7 +299,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                       <ChevronLeft className="h-3 w-3" />
                     </button>
                   )}
-                  <span className="max-w-[100px] truncate">{activeItemLabel}</span>
+                  <span className="max-w-[clamp(90px,28cqw,180px)] truncate">{activeItemLabel}</span>
                   {itemSwitchOptions.length > 1 && (
                     <button
                       type="button"
@@ -317,7 +317,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                   <div className="flex w-full items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
                       <Trophy className="h-2.5 w-2.5 shrink-0" />
-                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/80">Rank</span>
+                      <span className="shrink-0 font-bold uppercase tracking-wider text-white/80">Rank</span>
                       <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
                     </div>
                     {rankMetrics.includes('units') && (
