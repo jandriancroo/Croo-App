@@ -274,7 +274,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                   key={key}
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
-                  className={`px-2.5 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
+                  className={`px-2 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
                 >
                   {PERIOD_LABELS[key]}
                 </button>
