@@ -12,6 +12,7 @@ import { format, subDays } from "date-fns";
 import { compressImage } from "@/utils/imageCompression";
 import { parseSafeCountData, checkNeedsBankRun } from "@/components/logbook/SafeCountEntry";
 import type { SafeCountData } from "@/components/logbook/SafeCountForm";
+import { logbookNotificationType, LOGBOOK_NOTIFICATION_ROLES } from "@/lib/logbookNotificationTypes";
 
 // Cache time constants
 const LOGBOOK_STALE_TIME = 5 * 60 * 1000;
