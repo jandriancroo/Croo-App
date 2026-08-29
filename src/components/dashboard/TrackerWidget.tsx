@@ -29,7 +29,7 @@ interface TrackerWidgetProps {
   tracker: TrackerConfig;
 }
 
-type PeriodKey = 'day' | 'wtd' | 'promo';
+type PeriodKey = 'day' | 'yday' | 'wtd' | 'promo';
 type TrackerSortMetric = 'units' | 'sales' | 'pmix';
 
 interface StoreRankRow {
@@ -48,9 +48,10 @@ const DEFAULT_TRACKER_TZ = 'America/Los_Angeles';
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const number = (value: number) => Math.round(value).toLocaleString();
 const percent = (value: number) => `${value.toFixed(1)}%`;
-const PERIOD_MODES: PeriodKey[] = ['day', 'wtd', 'promo'];
+const PERIOD_MODES: PeriodKey[] = ['day', 'yday', 'wtd', 'promo'];
 const PERIOD_LABELS: Record<PeriodKey, string> = {
   day: 'Today',
+  yday: 'Yesterday',
   wtd: 'This Week',
   promo: 'Campaign',
 };
@@ -77,6 +78,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const touchStartXRef = useRef<number | null>(null);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
+  const yesterday = DateTime.now().setZone(TRACKER_TZ).minus({ days: 1 }).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
   const promoStart = tracker.trackerPromoStart || wtdStart;
   const promoEnd = tracker.trackerPromoEnd || today;
@@ -86,9 +88,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
   const range = period === 'day'
     ? { start: today, end: today }
-    : period === 'wtd'
-      ? { start: wtdStart, end: today }
-      : { start: promoStart, end: promoEnd };
+    : period === 'yday'
+      ? { start: yesterday, end: yesterday }
+      : period === 'wtd'
+        ? { start: wtdStart, end: today }
+        : { start: promoStart, end: promoEnd };
 
   // Higher-level scopes (brand/org) must always recompute the live pool — ignore any stale trackerLocationRefs snapshot
   const explicitRefs =
@@ -270,7 +274,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                   key={key}
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
-                  className={`px-2.5 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
+                  className={`px-2 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
                 >
                   {PERIOD_LABELS[key]}
                 </button>
