@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Shield, User, Bell } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { isLogbookNotificationType } from '@/lib/logbookNotificationTypes';
 
 type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
 type DbRole = AppRole | 'fbc' | 'general_manager';
@@ -130,6 +131,8 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
 
   const rolePermissions = permissions.filter((p) => p.role === selectedRole);
   const roleNotifications = notifications.filter((n) => n.role === selectedRole);
+  const logbookNotifications = roleNotifications.filter((n) => isLogbookNotificationType(n.notification_type));
+  const generalNotifications = roleNotifications.filter((n) => !isLogbookNotificationType(n.notification_type));
 
   if (loading) {
     return (
@@ -199,26 +202,56 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
             {roleNotifications.length === 0 ? (
               <p className="text-sm text-muted-foreground">No notification settings configured</p>
             ) : (
-              roleNotifications.map((notification) => (
-                <div key={notification.id} className="flex items-center gap-3">
-                  <Checkbox
-                    id={notification.id}
-                    checked={notification.enabled}
-                    disabled={savingId === notification.id}
-                    onCheckedChange={() =>
-                      handleNotificationToggle(notification.id, notification.enabled)
-                    }
-                  />
-                  <label
-                    htmlFor={notification.id}
-                    className={`text-sm cursor-pointer ${
-                      notification.enabled ? 'text-foreground' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {notification.notification_label}
-                  </label>
-                </div>
-              ))
+              <>
+                {generalNotifications.map((notification) => (
+                  <div key={notification.id} className="flex items-center gap-3">
+                    <Checkbox
+                      id={notification.id}
+                      checked={notification.enabled}
+                      disabled={savingId === notification.id}
+                      onCheckedChange={() =>
+                        handleNotificationToggle(notification.id, notification.enabled)
+                      }
+                    />
+                    <label
+                      htmlFor={notification.id}
+                      className={`text-sm cursor-pointer ${
+                        notification.enabled ? 'text-foreground' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {notification.notification_label}
+                    </label>
+                  </div>
+                ))}
+
+                {logbookNotifications.length > 0 && (
+                  <div className="pt-3 mt-1 border-t space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      LogBook entries
+                    </p>
+                    {logbookNotifications.map((notification) => (
+                      <div key={notification.id} className="flex items-center gap-3">
+                        <Checkbox
+                          id={notification.id}
+                          checked={notification.enabled}
+                          disabled={savingId === notification.id}
+                          onCheckedChange={() =>
+                            handleNotificationToggle(notification.id, notification.enabled)
+                          }
+                        />
+                        <label
+                          htmlFor={notification.id}
+                          className={`text-sm cursor-pointer ${
+                            notification.enabled ? 'text-foreground' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {notification.notification_label.replace(/^LogBook:\s*/, '')}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
