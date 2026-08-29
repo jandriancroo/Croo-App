@@ -239,7 +239,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-hidden rounded-[26px] border-transparent bg-transparent shadow-none">
       <CardContent className="p-0">
-        <div className="relative">
+        <div className="relative @container">
           <button
             type="button"
             onClick={() => canExpand && setExpanded(v => !v)}
@@ -260,7 +260,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             <div className="pointer-events-none absolute inset-0 rounded-[26px] border-[0.5px] border-white/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.25),0_4px_12px_rgba(0,0,0,0.2)]" />
 
 
-            <div className="absolute left-3 top-3 inline-flex h-6 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
+            <div className="absolute left-3 top-3 inline-flex h-[clamp(1.375rem,6cqw,2rem)] items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[clamp(9px,2.8cqw,13px)] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
@@ -268,13 +268,13 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               LIVE
             </div>
 
-            <div className="absolute right-3 top-3 inline-flex h-6 items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+            <div className="absolute right-3 top-3 inline-flex h-[clamp(1.375rem,6cqw,2rem)] items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[clamp(9px,2.8cqw,13px)] font-bold text-white shadow-lg backdrop-blur-sm">
               {PERIOD_MODES.map(key => (
                 <button
                   key={key}
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
-                  className={`px-2 py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
+                  className={`px-[clamp(0.4rem,1.8cqw,0.75rem)] py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
                 >
                   {PERIOD_LABELS[key]}
                 </button>
@@ -282,11 +282,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             </div>
 
             <div className="absolute left-3 top-[3.25rem] right-3">
-              <p className="truncate text-2xl font-black leading-none text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]">{tracker.title}</p>
+              <p className="truncate text-[clamp(1.375rem,7cqw,3rem)] font-black leading-none text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]">{tracker.title}</p>
             </div>
 
             <div className="absolute inset-x-0 bottom-0 p-3">
-              <div className="flex h-7 w-full items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[10px] font-bold shadow-lg backdrop-blur-sm">
+              <div className="flex h-[clamp(1.625rem,7.5cqw,2.5rem)] w-full items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[clamp(9px,2.8cqw,13px)] font-bold shadow-lg backdrop-blur-sm">
                 {/* Item selector as the white selected segment */}
                 <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-white px-1.5 py-1 text-black">
                   {itemSwitchOptions.length > 1 && (
@@ -299,7 +299,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                       <ChevronLeft className="h-3 w-3" />
                     </button>
                   )}
-                  <span className="max-w-[100px] truncate">{activeItemLabel}</span>
+                  <span className="max-w-[clamp(90px,28cqw,180px)] truncate">{activeItemLabel}</span>
                   {itemSwitchOptions.length > 1 && (
                     <button
                       type="button"
@@ -317,7 +317,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                   <div className="flex w-full items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
                       <Trophy className="h-2.5 w-2.5 shrink-0" />
-                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/80">Rank</span>
+                      <span className="shrink-0 font-bold uppercase tracking-wider text-white/80">Rank</span>
                       <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
                     </div>
                     {rankMetrics.includes('units') && (
