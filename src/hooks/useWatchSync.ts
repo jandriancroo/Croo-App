@@ -90,7 +90,7 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
     queryFn: async (): Promise<WatchShift[]> => {
       const { data, error } = await supabase
         .from('scheduled_shifts')
-        .select('id, user_id, start_time, end_time, is_time_off, schedule:schedules!inner(is_published, location_id), template:shift_templates(name)')
+        .select('id, user_id, start_time, end_time, is_time_off, schedule:schedules!inner(is_published, location_id), template:shift_templates(template_name)')
         .eq('shift_date', todayStr)
         .eq('schedule.location_id', currentLocation!.id)
         .eq('schedule.is_published', true);
@@ -123,7 +123,7 @@ export function useWatchSync(cubes: CubeLike[], salesData: SalesDataForWidgets |
           return {
             id: s.id,
             name: getDisplayName(profile?.full_name, profile?.nickname) || 'Open Shift',
-            role: s.template?.name || '',
+            role: s.template?.template_name || '',
             time: [fmt(start), fmt(end)].filter(Boolean).join(' – '),
             isMe: !!user?.id && s.user_id === user.id,
             _sort: start || '',

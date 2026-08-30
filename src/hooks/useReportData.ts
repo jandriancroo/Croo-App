@@ -236,9 +236,9 @@ async function fetchLocationData(
     if (brandIds.length) {
       const { data: convs } = await (supabase as any)
         .from('item_conversions')
-        .select('brand_item_id, outer_qty, canonical_qty_per_inner, canonical_unit')
-        .in('brand_item_id', brandIds as string[]);
-      for (const c of convs || []) conversionMap.set((c as any).brand_item_id, c);
+        .select('brand_template_id, outer_qty, canonical_qty_per_inner, canonical_unit')
+        .in('brand_template_id', brandIds as string[]);
+      for (const c of convs || []) conversionMap.set((c as any).brand_template_id, c);
     }
     const hasAnyRecipe = (items || []).some((i: any) => i?.is_recipe === true);
     const recipeCosts = (isInProgress && hasAnyRecipe) ? await fetchRecipeCosts(locationId) : null;
