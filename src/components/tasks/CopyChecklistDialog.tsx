@@ -110,13 +110,16 @@ export function CopyChecklistDialog({
       
       // Verify items were fetched
       for (const cl of sourceChecklists || []) {
+        // Never carry archived (soft-deleted) items into a copy.
+        cl.checklist_items = (cl.checklist_items || []).filter((it: any) => !it.deleted_at);
         console.log(`Checklist "${cl.title}" has ${cl.checklist_items?.length || 0} items`);
         if (!cl.checklist_items || cl.checklist_items.length === 0) {
           // Try fetching items separately if nested query failed
           const { data: items } = await supabase
             .from('checklist_items')
             .select('*')
-            .eq('checklist_id', cl.id);
+            .eq('checklist_id', cl.id)
+            .is('deleted_at', null);
           if (items && items.length > 0) {
             cl.checklist_items = items;
             console.log(`Fetched ${items.length} items separately for "${cl.title}"`);

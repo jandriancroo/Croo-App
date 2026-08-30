@@ -148,8 +148,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // produces "permission denied for table profiles/user_roles" everywhere.
         // Validate the token once and tear down a broken session instead.
         if (session?.user) {
-          const { error: userError } = await supabase.auth.getUser();
-          if (userError) {
+          // Fail OPEN: only a definitive "this token is not valid" answer tears the
+          // session down. A network blip, 5xx or slow auth endpoint must never sign a
+          // legitimate user out, and must never hang startup either.
+          let userError: any = null;
+          let validated = true;
+          try {
+            const res = await withTimeout(
+              supabase.auth.getUser(),
+              AUTH_TIMEOUT_MS,
+              'Session validation timed out'
+            );
+            userError = res.error;
+          } catch {
+            validated = false; // timed out — keep the stored session
+          }
+          const status = (userError as any)?.status;
+          const isDefinitivelyInvalid =
+            validated && !!userError && (status === 401 || status === 403 || status === 400);
+          if (isDefinitivelyInvalid) {
             console.warn('Stored session is invalid, signing out:', userError.message);
             await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
             setSession(null);
@@ -158,6 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
         }
+
 
         // Deactivated accounts must not keep a live session around.
         if (session?.user && !isDeviceSession(session)) {

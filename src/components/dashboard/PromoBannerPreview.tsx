@@ -1,8 +1,8 @@
 // Shared promo banner geometry + label chrome so the live widget, the crop tool,
 // and the dialog preview all render identically.
 
-export const PROMO_BANNER_ASPECT = 5 / 2;
-export const PROMO_BANNER_ASPECT_CLASS = 'aspect-[5/2]';
+export const PROMO_BANNER_ASPECT = 4 / 2.3;
+export const PROMO_BANNER_ASPECT_CLASS = 'aspect-[4/2.3]';
 
 interface PromoBadgeOverlayProps {
   label: string;

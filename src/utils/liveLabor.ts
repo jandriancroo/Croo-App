@@ -18,11 +18,12 @@ export const fetchLiveLaborForToday = async (
   let zone = timezone;
   if (!zone && locationId) {
     const { data } = await supabase
-      .from('locations')
+      .from('location_settings')
       .select('timezone')
-      .eq('id', locationId)
+      .eq('location_id', locationId)
       .maybeSingle();
     zone = (data as any)?.timezone || 'America/Los_Angeles';
+
   }
   zone = zone || 'America/Los_Angeles';
   const today = getDateInTimezone(new Date(), zone);
