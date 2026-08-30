@@ -569,7 +569,7 @@ export function ManagerDashboardOverlay({
           title, 
           frequency,
           template_type,
-          checklist_items(id, days_of_week)
+          checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('location_id', locationId)
         .eq('is_active', true);
@@ -582,7 +582,7 @@ export function ManagerDashboardOverlay({
         if (c.template_type === 'dynamic') {
           // Only include dynamic checklists if they have items for today
           const todayItems = c.checklist_items?.filter((item: any) => 
-            item.days_of_week && item.days_of_week.includes(todayDayOfWeek)
+            !item.deleted_at && item.days_of_week && item.days_of_week.includes(todayDayOfWeek)
           );
           return todayItems && todayItems.length > 0;
         }
@@ -609,7 +609,8 @@ export function ManagerDashboardOverlay({
       // Calculate actual completion status for each checklist
       return relevantChecklists.map(c => {
         // Get the active item IDs for today (accounting for dynamic day filtering)
-        let activeItems: any[] = c.checklist_items || [];
+        // Archived (soft-deleted) items are off the floor, so they never count here.
+        let activeItems: any[] = (c.checklist_items || []).filter((item: any) => !item.deleted_at);
         if (c.template_type === 'dynamic') {
           activeItems = activeItems.filter((item: any) => 
             item.days_of_week && item.days_of_week.includes(todayDayOfWeek)
