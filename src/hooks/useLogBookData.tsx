@@ -545,7 +545,15 @@ export function useLogBookData() {
       const { error: valuesError } = await supabase.from('logbook_entry_values').insert(values);
       if (valuesError) throw valuesError;
 
-      const currentCategory = categories.find((c: any) => c.id === selectedCategory);
+      // Read the category's push flag FRESH: a cached copy from before an admin
+      // turned notifications on would silently swallow the push.
+      const { data: freshCategory } = await supabase
+        .from('logbook_categories')
+        .select('id, name, push_notification_enabled')
+        .eq('id', selectedCategory)
+        .maybeSingle();
+      const currentCategory: any =
+        freshCategory || categories.find((c: any) => c.id === selectedCategory);
       if (currentCategory?.push_notification_enabled && currentLocation) {
         try {
           // Per-role opt-in for this LogBook category (Settings → Role notifications)
@@ -554,9 +562,17 @@ export function useLogBookData() {
             .select('role, enabled')
             .eq('notification_type', logbookNotificationType(currentCategory.name));
 
-          const roles = (settings || [])
-            .filter((s: any) => s.enabled && (LOGBOOK_NOTIFICATION_ROLES as readonly string[]).includes(s.role))
-            .map((s: any) => s.role);
+          const known = (settings || []).filter((s: any) =>
+            (LOGBOOK_NOTIFICATION_ROLES as readonly string[]).includes(s.role)
+          );
+
+          // No rows seeded yet for this category → fall back to manager and up
+          // instead of silently sending nothing.
+          const roles = known.length
+            ? known.filter((s: any) => s.enabled).map((s: any) => s.role)
+            : LOGBOOK_NOTIFICATION_ROLES.filter(
+                (r) => r !== 'shift_manager' && r !== 'shift_manager_in_training'
+              );
 
           if (roles.length > 0) {
             await supabase.functions.invoke('send-push-notification', {
