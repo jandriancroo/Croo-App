@@ -336,5 +336,7 @@ export async function redeemPairingCode(code: string): Promise<PunchDeviceCreden
     session: data.session,
   };
   setPairing(cred);
+  clearPairingBroken();
+  clearKioskExitActive();
   return cred;
 }
