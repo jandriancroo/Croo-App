@@ -232,6 +232,7 @@ async function enterKioskModeOnce(): Promise<boolean> {
       refresh_token: existingSession.refresh_token,
       expires_at: existingSession.expires_at,
     });
+    clearPairingBroken();
     return true;
   }
 
@@ -246,6 +247,9 @@ async function enterKioskModeOnce(): Promise<boolean> {
 
   if (error || !data.session) {
     console.error('[punchDevicePairing] Failed to restore device session:', error);
+    // Stored token is no longer usable. Stop auto-restore loops so a manager
+    // can reach the login screen and re-pair the tablet.
+    markPairingBroken();
     return false;
   }
 
@@ -255,7 +259,33 @@ async function enterKioskModeOnce(): Promise<boolean> {
     refresh_token: data.session.refresh_token,
     expires_at: data.session.expires_at,
   });
+  clearPairingBroken();
 
+  return true;
+}
+
+/**
+ * Keep the paired device session fresh. Called when the punch clock becomes
+ * visible again (tablet wake, PWA foreground). A stale/expired access token is
+ * the classic "scheduled staff can't punch in" failure: reads and writes start
+ * failing on RLS while the UI still looks paired. Refreshing on wake, and
+ * persisting the rotated refresh token, prevents that drift.
+ */
+export async function refreshDeviceSession(): Promise<boolean> {
+  if (!getPairing()) return false;
+  const { data, error } = await supabase.auth.refreshSession();
+  const session = data?.session;
+  if (error || !session) {
+    // Fall back to re-establishing from stored credentials.
+    return enterKioskMode();
+  }
+  if (!isPunchDeviceUser(session.user)) return false;
+  updateStoredSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: session.expires_at,
+  });
+  clearPairingBroken();
   return true;
 }
 
