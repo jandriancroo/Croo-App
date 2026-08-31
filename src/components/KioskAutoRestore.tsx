@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   isPaired,
   isKioskExitActive,
+  isPairingBroken,
   enterKioskMode,
   getPairing,
   updateStoredSession,
