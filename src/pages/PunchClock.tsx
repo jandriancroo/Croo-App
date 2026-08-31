@@ -23,7 +23,7 @@ import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
 import { ThemeToggleIcons } from '@/components/punchclock/ThemeToggleIcons';
 import { useSwipe } from '@/hooks/useSwipe';
-import { isPaired, exitKioskMode } from '@/lib/punchDevicePairing';
+import { isPaired, exitKioskMode, refreshDeviceSession } from '@/lib/punchDevicePairing';
 
 // Function to calculate average brightness of an image
 const getImageBrightness = (imageUrl: string): Promise<number> => {
