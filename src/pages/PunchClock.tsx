@@ -226,6 +226,29 @@ export default function PunchClock() {
   useSwipe(keypadSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
   useSwipe(shiftSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
 
+  // Keep the paired device session fresh. If the tablet sleeps or the PWA is
+  // backgrounded for hours, its access token can expire and every punch write
+  // starts failing while the screen still looks normal. Refresh on wake.
+  useEffect(() => {
+    if (!isPaired()) return;
+    let last = 0;
+    const maybeRefresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - last < 60 * 1000) return;
+      last = Date.now();
+      refreshDeviceSession().catch(() => {});
+    };
+    document.addEventListener('visibilitychange', maybeRefresh);
+    window.addEventListener('focus', maybeRefresh);
+    const id = window.setInterval(maybeRefresh, 15 * 60 * 1000);
+    maybeRefresh();
+    return () => {
+      document.removeEventListener('visibilitychange', maybeRefresh);
+      window.removeEventListener('focus', maybeRefresh);
+      window.clearInterval(id);
+    };
+  }, []);
+
   // Listen for localStorage changes from ManagerDashboardOverlay
   useEffect(() => {
     const handleStorage = () => {
