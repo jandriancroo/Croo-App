@@ -147,15 +147,52 @@ export function isPunchDeviceUser(user: { user_metadata?: Record<string, unknown
 
 // ---------------------------------------------------------------- exit flag
 
+// The exit flag now survives a tablet restart / PWA relaunch for a limited
+// window (30 minutes). Android kills sessionStorage when the PWA is swiped
+// away, which used to make the tablet auto-restore kiosk mode and sign a
+// manager out mid-login. localStorage + timestamp fixes that, and the TTL
+// guarantees the tablet still returns to the punch clock on its own.
+const EXIT_UNTIL_KEY = 'croohq_kiosk_exit_until_v1';
+const EXIT_TTL_MS = 30 * 60 * 1000;
+
 export function isKioskExitActive(): boolean {
-  try { return sessionStorage.getItem(EXIT_FLAG) === '1'; } catch { return false; }
+  try {
+    if (sessionStorage.getItem(EXIT_FLAG) === '1') return true;
+  } catch {}
+  try {
+    const until = Number(localStorage.getItem(EXIT_UNTIL_KEY) || 0);
+    if (until && Date.now() < until) return true;
+    if (until) localStorage.removeItem(EXIT_UNTIL_KEY);
+  } catch {}
+  return false;
 }
 export function setKioskExitActive() {
   try { sessionStorage.setItem(EXIT_FLAG, '1'); } catch {}
+  try { localStorage.setItem(EXIT_UNTIL_KEY, String(Date.now() + EXIT_TTL_MS)); } catch {}
 }
 export function clearKioskExitActive() {
   try { sessionStorage.removeItem(EXIT_FLAG); } catch {}
+  try { localStorage.removeItem(EXIT_UNTIL_KEY); } catch {}
 }
+
+// ------------------------------------------------------- broken pairing flag
+
+// Set when a stored device session can no longer be restored (refresh token
+// rotated away / revoked). While set, auto-restore stops trying so a manager
+// can actually reach the login screen, and the pairing screen tells them the
+// tablet needs a fresh pairing code.
+const PAIRING_BROKEN_KEY = 'croohq_punch_device_broken_v1';
+
+export function isPairingBroken(): boolean {
+  try { return localStorage.getItem(PAIRING_BROKEN_KEY) === '1'; } catch { return false; }
+}
+export function markPairingBroken() {
+  try { localStorage.setItem(PAIRING_BROKEN_KEY, '1'); } catch {}
+}
+export function clearPairingBroken() {
+  try { localStorage.removeItem(PAIRING_BROKEN_KEY); } catch {}
+}
+
 
 // ---------------------------------------------------------------- flow
 
