@@ -147,15 +147,52 @@ export function isPunchDeviceUser(user: { user_metadata?: Record<string, unknown
 
 // ---------------------------------------------------------------- exit flag
 
+// The exit flag now survives a tablet restart / PWA relaunch for a limited
+// window (30 minutes). Android kills sessionStorage when the PWA is swiped
+// away, which used to make the tablet auto-restore kiosk mode and sign a
+// manager out mid-login. localStorage + timestamp fixes that, and the TTL
+// guarantees the tablet still returns to the punch clock on its own.
+const EXIT_UNTIL_KEY = 'croohq_kiosk_exit_until_v1';
+const EXIT_TTL_MS = 30 * 60 * 1000;
+
 export function isKioskExitActive(): boolean {
-  try { return sessionStorage.getItem(EXIT_FLAG) === '1'; } catch { return false; }
+  try {
+    if (sessionStorage.getItem(EXIT_FLAG) === '1') return true;
+  } catch {}
+  try {
+    const until = Number(localStorage.getItem(EXIT_UNTIL_KEY) || 0);
+    if (until && Date.now() < until) return true;
+    if (until) localStorage.removeItem(EXIT_UNTIL_KEY);
+  } catch {}
+  return false;
 }
 export function setKioskExitActive() {
   try { sessionStorage.setItem(EXIT_FLAG, '1'); } catch {}
+  try { localStorage.setItem(EXIT_UNTIL_KEY, String(Date.now() + EXIT_TTL_MS)); } catch {}
 }
 export function clearKioskExitActive() {
   try { sessionStorage.removeItem(EXIT_FLAG); } catch {}
+  try { localStorage.removeItem(EXIT_UNTIL_KEY); } catch {}
 }
+
+// ------------------------------------------------------- broken pairing flag
+
+// Set when a stored device session can no longer be restored (refresh token
+// rotated away / revoked). While set, auto-restore stops trying so a manager
+// can actually reach the login screen, and the pairing screen tells them the
+// tablet needs a fresh pairing code.
+const PAIRING_BROKEN_KEY = 'croohq_punch_device_broken_v1';
+
+export function isPairingBroken(): boolean {
+  try { return localStorage.getItem(PAIRING_BROKEN_KEY) === '1'; } catch { return false; }
+}
+export function markPairingBroken() {
+  try { localStorage.setItem(PAIRING_BROKEN_KEY, '1'); } catch {}
+}
+export function clearPairingBroken() {
+  try { localStorage.removeItem(PAIRING_BROKEN_KEY); } catch {}
+}
+
 
 // ---------------------------------------------------------------- flow
 
@@ -195,6 +232,7 @@ async function enterKioskModeOnce(): Promise<boolean> {
       refresh_token: existingSession.refresh_token,
       expires_at: existingSession.expires_at,
     });
+    clearPairingBroken();
     return true;
   }
 
@@ -209,6 +247,9 @@ async function enterKioskModeOnce(): Promise<boolean> {
 
   if (error || !data.session) {
     console.error('[punchDevicePairing] Failed to restore device session:', error);
+    // Stored token is no longer usable. Stop auto-restore loops so a manager
+    // can reach the login screen and re-pair the tablet.
+    markPairingBroken();
     return false;
   }
 
@@ -218,7 +259,33 @@ async function enterKioskModeOnce(): Promise<boolean> {
     refresh_token: data.session.refresh_token,
     expires_at: data.session.expires_at,
   });
+  clearPairingBroken();
 
+  return true;
+}
+
+/**
+ * Keep the paired device session fresh. Called when the punch clock becomes
+ * visible again (tablet wake, PWA foreground). A stale/expired access token is
+ * the classic "scheduled staff can't punch in" failure: reads and writes start
+ * failing on RLS while the UI still looks paired. Refreshing on wake, and
+ * persisting the rotated refresh token, prevents that drift.
+ */
+export async function refreshDeviceSession(): Promise<boolean> {
+  if (!getPairing()) return false;
+  const { data, error } = await supabase.auth.refreshSession();
+  const session = data?.session;
+  if (error || !session) {
+    // Fall back to re-establishing from stored credentials.
+    return enterKioskMode();
+  }
+  if (!isPunchDeviceUser(session.user)) return false;
+  updateStoredSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: session.expires_at,
+  });
+  clearPairingBroken();
   return true;
 }
 
@@ -269,5 +336,7 @@ export async function redeemPairingCode(code: string): Promise<PunchDeviceCreden
     session: data.session,
   };
   setPairing(cred);
+  clearPairingBroken();
+  clearKioskExitActive();
   return cred;
 }

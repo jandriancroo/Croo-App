@@ -17,6 +17,7 @@ import {
   isPaired,
   redeemPairingCode,
   enterKioskMode,
+  isPairingBroken,
 } from '@/lib/punchDevicePairing';
 
 export const PunchDeviceEntry = () => {
@@ -38,7 +39,7 @@ export const PunchDeviceEntry = () => {
   };
 
   const handleLinkClick = () => {
-    if (isPaired()) {
+    if (isPaired() && !isPairingBroken()) {
       goToKiosk();
     } else {
       setDialogOpen(true);
@@ -72,7 +73,11 @@ export const PunchDeviceEntry = () => {
         className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
       >
         <MonitorSmartphone className="h-3 w-3" />
-        {isPaired() ? 'Open Punch Clock (Paired Device)' : 'Setting Up a Punch Clock — Click Here'}
+        {isPaired() && !isPairingBroken()
+          ? 'Open Punch Clock (Paired Device)'
+          : isPairingBroken()
+            ? 'Punch Clock Needs Re-Pairing — Click Here'
+            : 'Setting Up a Punch Clock — Click Here'}
       </button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -23,7 +23,7 @@ import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
 import { ThemeToggleIcons } from '@/components/punchclock/ThemeToggleIcons';
 import { useSwipe } from '@/hooks/useSwipe';
-import { isPaired, exitKioskMode } from '@/lib/punchDevicePairing';
+import { isPaired, exitKioskMode, refreshDeviceSession } from '@/lib/punchDevicePairing';
 
 // Function to calculate average brightness of an image
 const getImageBrightness = (imageUrl: string): Promise<number> => {
@@ -225,6 +225,29 @@ export default function PunchClock() {
   const shiftSwipeRef = useRef<HTMLDivElement>(null);
   useSwipe(keypadSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
   useSwipe(shiftSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
+
+  // Keep the paired device session fresh. If the tablet sleeps or the PWA is
+  // backgrounded for hours, its access token can expire and every punch write
+  // starts failing while the screen still looks normal. Refresh on wake.
+  useEffect(() => {
+    if (!isPaired()) return;
+    let last = 0;
+    const maybeRefresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - last < 60 * 1000) return;
+      last = Date.now();
+      refreshDeviceSession().catch(() => {});
+    };
+    document.addEventListener('visibilitychange', maybeRefresh);
+    window.addEventListener('focus', maybeRefresh);
+    const id = window.setInterval(maybeRefresh, 15 * 60 * 1000);
+    maybeRefresh();
+    return () => {
+      document.removeEventListener('visibilitychange', maybeRefresh);
+      window.removeEventListener('focus', maybeRefresh);
+      window.clearInterval(id);
+    };
+  }, []);
 
   // Listen for localStorage changes from ManagerDashboardOverlay
   useEffect(() => {

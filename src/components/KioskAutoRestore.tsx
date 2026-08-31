@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   isPaired,
   isKioskExitActive,
+  isPairingBroken,
   enterKioskMode,
   getPairing,
   updateStoredSession,
@@ -33,6 +34,9 @@ export const KioskAutoRestore = () => {
     if (loading) return;
     if (inFlightRef.current) return;
     if (!isPaired()) return;
+    // Stored device token is dead — stop retrying so managers can log in and
+    // re-pair instead of being bounced back to a broken kiosk restore.
+    if (isPairingBroken()) return;
 
     const path = location.pathname;
     const isDeviceSession = isPunchDeviceUser(user);
@@ -43,12 +47,15 @@ export const KioskAutoRestore = () => {
     // request to re-enter kiosk mode.
     const explicitPunchClock = path === '/punch-clock' && !isDeviceSession;
 
-    // Case B: cold launch (no explicit exit flag) and not already in kiosk →
-    // auto-restore so force-quit + reopen always returns to kiosk.
-    const coldRestore = !isKioskExitActive() && !isDeviceSession && path !== '/punch-clock';
+    // Case B: cold launch with NO signed-in human and no exit flag → restore
+    // kiosk so force-quit + reopen always returns to the punch clock. Never
+    // yank a manager who is signed in or actively on the login screen.
+    const coldRestore =
+      !isKioskExitActive() && !isDeviceSession && !user && path !== '/punch-clock';
 
     if (!explicitPunchClock && !coldRestore) return;
     if (!getPairing()) return;
+
 
     inFlightRef.current = true;
     (async () => {
