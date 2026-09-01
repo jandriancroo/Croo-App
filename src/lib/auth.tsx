@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
-import { setDebugWatchUser, debugWatchLog } from '@/utils/debugWatch';
+import { setDebugWatchUser, debugWatchLog, debugWatchDeviceProfile } from '@/utils/debugWatch';
 
 
 interface AuthContextType {
@@ -198,6 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         setDebugWatchUser(session?.user?.id ?? null);
         debugWatchLog('app_boot', { hadStoredSession: !!session });
+        void debugWatchDeviceProfile();
 
 
         // Also check first login for existing sessions
