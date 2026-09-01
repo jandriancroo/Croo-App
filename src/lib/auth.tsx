@@ -196,6 +196,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         setSession(session);
         setUser(session?.user ?? null);
+        setDebugWatchUser(session?.user?.id ?? null);
+        debugWatchLog('app_boot', { hadStoredSession: !!session });
+
 
         // Also check first login for existing sessions
         if (session?.user && !isDeviceSession(session) && !checkedFirstLoginRef.current.has(session.user.id)) {
