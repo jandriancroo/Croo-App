@@ -281,6 +281,32 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
       break;
     }
     case "price_fill": {
+      // Freshness gate. The bid scrape returns before its last writes land, and a
+      // chase against a half-written master falsely tags hundreds of items as
+      // "needs price". Wait until this store's master is newer than tonight's run.
+      const { data: masterRun } = await supabase
+        .from("vendor_sync_runs")
+        .select("started_at")
+        .eq("run_date", runDate)
+        .eq("stage", "pfg_masters")
+        .eq("location_id", locationId)
+        .maybeSingle();
+      if (masterRun?.started_at) {
+        const { data: newest } = await supabase
+          .from("pfg_bid_items")
+          .select("last_seen_at")
+          .eq("location_id", locationId)
+          .order("last_seen_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const seenAt = newest?.last_seen_at ? new Date(newest.last_seen_at).getTime() : 0;
+        const quietFor = Date.now() - seenAt;
+        if (seenAt < new Date(masterRun.started_at).getTime() || quietFor < 120_000) {
+          throw new Error("stage price_fill waiting on predecessor (master still writing)");
+        }
+      }
+
+
       const { data: items } = await supabase
         .from("inventory_items")
         .select(CHASE_SELECT)
