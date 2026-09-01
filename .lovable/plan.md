@@ -56,9 +56,19 @@ Order guides never set price. Every scan always updates pricing — masters, ord
 Since an unpriced vendor item shouldn't exist, we treat unpriced as a fault to chase, not a state to accept:
 
 - **Unpriced tag with age** on the item — 7 / 14 / 30 days, escalating. At 30 days it reads clearly enough that someone deactivates it by hand. The system doesn't.
-- **Discontinued tag with a date** — set when an item disappears from the master list it used to be on. That's the honest reason it lost its price. Date is the last night we saw it on the master.
+- **Discontinued tag with a date** — set when an item disappears from the master list it used to be on *and* hasn't shipped in the 14-day order window. Date is the last night we saw it on the master. Never applied to off-bid ship-ins (below).
 - **Counter + Sync button at the top of the item list** — "12 unpriced." Tapping sync chases prices for *only those 12*: their approved numbers against every master list, then orders, then invoices. Fast, targeted, no full catalog walk.
 - Nightly report: unpriced count per store, new tonight, and anything newly marked discontinued.
+
+## Off-bid ship-ins (LTOs, forced shipments)
+
+The vendor pushes an item to a store without ever putting it on the bid. It can't be re-ordered and has no list price, but it *does* land in order history — and it's real product sitting on the shelf, so it must count.
+
+- **Not on a master ≠ gone.** An item is only ever tagged discontinued if it's missing from the master **and** absent from the last 14 days of orders/invoices. Anything shipping recently stays live, no tag.
+- **Order/invoice price is a valid price.** For these items the shipped price is the only price there is, so it's authoritative — not a fallback. We stamp it with its source ("from order 8/14") so nobody wonders why it's not a list price.
+- **Its own tag: "Ship-in only"** — priced off order history, not on the bid, can't be re-ordered. Makes the handful per quarter obvious instead of looking like a data problem.
+- Ship-in items never appear in the unpriced count once an order price is found, so the counter stays honest.
+- Same gaps + pack-config path as everything else: a brand-new LTO number off an order is unseen → gap → link → pack config if the pack shape is new.
 
 ## Gaps and pack configs
 
