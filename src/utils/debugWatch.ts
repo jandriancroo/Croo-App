@@ -26,8 +26,20 @@ export function isDebugWatched(): boolean {
   return WATCHED_USER_IDS.has(currentUserId);
 }
 
+function parseIOSVersion(ua: string): string | null {
+  const m = ua.match(/OS (\d+)[._](\d+)(?:[._](\d+))?/);
+  if (!m) return null;
+  return [m[1], m[2], m[3]].filter(Boolean).join('.');
+}
+
+function parseSafariVersion(ua: string): string | null {
+  const m = ua.match(/Version\/(\d+\.\d+(?:\.\d+)?)/);
+  return m ? m[1] : null;
+}
+
 function deviceSnapshot() {
   const nav: any = typeof navigator !== 'undefined' ? navigator : {};
+  const ua: string = nav.userAgent ?? '';
   return {
     cores: nav.hardwareConcurrency ?? null,
     deviceMemory: nav.deviceMemory ?? null,
@@ -38,11 +50,57 @@ function deviceSnapshot() {
         : null,
     online: nav.onLine ?? null,
     connection: nav.connection?.effectiveType ?? null,
+    downlink: nav.connection?.downlink ?? null,
+    rtt: nav.connection?.rtt ?? null,
+    saveData: nav.connection?.saveData ?? null,
     screen:
       typeof window !== 'undefined'
         ? `${window.screen?.width}x${window.screen?.height}@${window.devicePixelRatio}`
         : null,
+    iosVersion: parseIOSVersion(ua),
+    safariVersion: parseSafariVersion(ua),
+    platform: nav.platform ?? null,
+    maxTouchPoints: nav.maxTouchPoints ?? null,
+    lowPowerHint: nav.deviceMemory != null && nav.deviceMemory <= 4 ? true : null,
   };
+}
+
+/** Heavier one-time profile: full UA, storage quota, memory pressure, feature support. */
+export async function debugWatchDeviceProfile(extra: Record<string, any> = {}) {
+  if (!isDebugWatched()) return;
+  const nav: any = typeof navigator !== 'undefined' ? navigator : {};
+  let storage: Record<string, any> | null = null;
+  try {
+    if (nav.storage?.estimate) {
+      const est = await nav.storage.estimate();
+      storage = {
+        quotaMB: est.quota ? Math.round(est.quota / 1048576) : null,
+        usageMB: est.usage ? Math.round(est.usage / 1048576) : null,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  const perfMem = (performance as any)?.memory;
+  debugWatchLog('device_profile', {
+    userAgent: (nav.userAgent ?? '').slice(0, 400),
+    language: nav.language ?? null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    storage,
+    jsHeapLimitMB: perfMem?.jsHeapSizeLimit ? Math.round(perfMem.jsHeapSizeLimit / 1048576) : null,
+    jsHeapUsedMB: perfMem?.usedJSHeapSize ? Math.round(perfMem.usedJSHeapSize / 1048576) : null,
+    supports: {
+      serviceWorker: typeof navigator !== 'undefined' && 'serviceWorker' in navigator,
+      createImageBitmap: typeof createImageBitmap !== 'undefined',
+      offscreenCanvas: typeof OffscreenCanvas !== 'undefined',
+      webp:
+        typeof document !== 'undefined'
+          ? document.createElement('canvas').toDataURL('image/webp').startsWith('data:image/webp')
+          : null,
+      heicInput: nav.userAgent?.includes('iPhone') ?? false,
+    },
+    ...extra,
+  });
 }
 
 /** Fire-and-forget log, only for the watched users inside the window. */
