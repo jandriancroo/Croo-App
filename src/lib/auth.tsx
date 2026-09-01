@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
+import { setDebugWatchUser, debugWatchLog } from '@/utils/debugWatch';
+
 
 interface AuthContextType {
   user: User | null;
@@ -116,6 +118,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        setDebugWatchUser(session?.user?.id ?? null);
+        debugWatchLog('auth_event', { event });
+
 
         // Update last_login_at on sign in (not token refresh)
         if (session?.user && event === 'SIGNED_IN' && !isDeviceSession(session)) {
@@ -191,6 +196,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         setSession(session);
         setUser(session?.user ?? null);
+        setDebugWatchUser(session?.user?.id ?? null);
+        debugWatchLog('app_boot', { hadStoredSession: !!session });
+
 
         // Also check first login for existing sessions
         if (session?.user && !isDeviceSession(session) && !checkedFirstLoginRef.current.has(session.user.id)) {
