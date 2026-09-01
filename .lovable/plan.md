@@ -80,8 +80,9 @@ Since an unpriced vendor item shouldn't exist, we treat unpriced as a fault to c
 - Single-flight lease row per nightly run; stage gating via a `vendor_sync_runs` status row (run_date, vendor, stage, status). Paused-state guard at each entry point.
 - Master walk: PFG picks the bid list by name pattern, not a stored header ID; falls back to the widest list if no bid-named list exists, and logs every list name seen. PA uses catalog sync.
 - `pfg_bid_items` becomes the read source for pricing, not just a cache write target.
-- Price fill reads `pfg_orders` / `pfg_invoices` / `lite_vendor_invoice_items` in that order; writes `cost_per_unit` + `last_synced_at`, or sets a `needs_price_since` stamp on `inventory_items`.
-- Gap scan and pack-config seeder become stages, invoked with the item set from the run instead of re-scanning everything.
+- Price fill reads `pfg_orders` / `pfg_invoices` / `lite_vendor_invoice_items` in that order; writes `cost_per_unit` + `last_synced_at`. When still unpriced, stamps `unpriced_since` on `inventory_items`; when the item vanished from a master it was previously on, stamps `discontinued_at` too. Neither touches `is_active`.
+- Gap scan becomes a stage over the item set from the run. Pack-config seeder is invoked only with newly-linked / newly-seen numbers from that run's gaps — no full nightly re-scan.
+- Targeted resync: `vendor-price-chase` endpoint takes a list of item ids, resolves approved numbers off the brand ID, and runs the same 3-step chain. Powers the item-list sync button.
 - Keeps existing inventory gate — disabled stores skipped cleanly.
 
 ## Sequence
@@ -89,4 +90,4 @@ Since an unpriced vendor item shouldn't exist, we treat unpriced as a fault to c
 1. Build the orchestrator + stage queue, run it in dry-run alongside today's jobs for one night.
 2. Compare: prices filled, gaps raised, pack configs queued vs. current jobs.
 3. Cut over, delete the retired crons.
-4. Ship the "Needs price" view and the nightly report.
+4. Ship the unpriced/discontinued tags, the counter + targeted sync button, and the nightly report.
