@@ -1,79 +1,86 @@
-# Brand-scope the Integrations screen
+# Vendor Sync Cleanup — one nightly pipeline, master lists only
 
-One change, one screen: a location should only see the integrations that belong to its own brand.
+## Verdict on your plan
 
-## 1. What's actually happening today
+Your plan is right, and it's simpler than what we have. Master lists are the source of truth, order guides are a store-managed subset that can't contain anything the master doesn't have, and price should fall back order search → invoice search. Three things to add that you didn't say:
 
-Checked the live code and the live data.
+1. **Order guides still have one job:** telling us which items a store actually carries. So we keep reading them for on/off (deactivate items not on the store's guide) — we just stop trusting them for price.
+2. **We have duplicate/competing jobs today**, which is why things quietly fail. The 8-hour PFG scrape, plus two separate nightly gap scans (10:15 UTC and 12:00 UTC), plus a nightly per-store price walk pinned to the wrong list per store.
+3. **Unpriced items need to be visible**, not just fixed silently. A standing "needs price" list per store, so someone can act.
 
-- The integrations screen is one section on the Location profile page. It renders a fixed, hardcoded list of nine cards in a row: Inventory Access, QuBeyond, PFG, Produce Alliance, Fresh KDS, OvationUp, OPUS, Clover, Aloha (BWW GO).
-- Every card except two is rendered unconditionally. There is no brand check anywhere in that list. The only gates that exist are the global on/off switches for Fresh KDS and OPUS (both currently off for everyone), which are not brand-aware either.
-- OvationUp does look up the location's brand, but only to fetch the right saved credentials. It still shows the card to every location regardless of brand.
-- So the cause is simply: the card list is a static list, not a brand-filtered list. Blaze stores see the BWW Aloha card and the Playa Bowls Clover card, and the single BWW store sees PFG, Produce Alliance and QuBeyond, none of which apply to it.
+## What's running today (the mess)
 
-Data confirms the intent is clean and the fix is safe:
+| Job | Frequency | Problem |
+|---|---|---|
+| PFG bid scrape | Every 8 hours | Fills our bid cache 3x/day for data that changes weekly. Nothing reads it for pricing. |
+| PFG nightly price sync | Nightly | Walks one pinned list per store — 6 of 7 stores have no bid list configured, so they price off a store-managed guide. |
+| PFG orders + invoices | Nightly, 2 tasks per store | Fine, but runs interleaved with everything else, so a failure is hard to see. |
+| Produce Alliance invoice sync | Nightly | Separate schedule, no shared retry or reporting. |
+| Vendor gap scan | Twice nightly (two crons) | Duplicated work, doubled alerts. |
+| Pack config seeder | Nightly | Runs regardless of whether new pack sizes appeared. |
+| PFG keep-alive | Every 5 min | Keep. Token upkeep only. |
 
-- Brands in the system: Blaze Pizza (12 locations), Buffalo Wild Wings GO (1), Playa Bowls (1), Coop's Pizza (1), Primrose Schools (1).
-- Every real location already has a brand assigned. Only two throwaway rows have no brand: "Lite QA — Smoke Test" and a duplicate empty "Sandbox".
-- Actual saved integrations line up with brand exactly: Blaze stores have QuBeyond / PFG / Produce Alliance only. The BWW store has Aloha only. Playa Bowls has Clover only. So filtering by brand hides nothing anyone is currently using.
+## The new shape
 
-## 2. Proposed change (one change)
+One nightly vendor window, one vendor at a time, in fixed stages. Each stage finishes before the next starts.
 
-Add a brand-to-integrations map for this screen, and show a card only if the location's brand is in that integration's allowed list.
+```text
+Stage 1  PFG masters      → bid guide per store, every item + price
+Stage 2  PFG activity     → 14 days orders, then invoices from those orders
+Stage 3  PA masters       → catalog per store, every item + price
+Stage 4  PA activity      → 14 days invoices
+Stage 5  Price fill       → items still unpriced: order search → invoice search
+Stage 6  Gaps             → unknown item numbers → vendor gap alerts (once)
+Stage 7  Pack configs     → matched items with unknown pack size → pack config queue
+Stage 8  Report           → unpriced list + failures, per store
+```
 
-The map, based on what each brand actually runs today:
+Rules that make it not fail:
+- One vendor at a time, one store at a time inside a vendor. No parallel hammering of a vendor's site.
+- Each store/stage is its own queue task with retry — one store's failure never kills the run.
+- Stages are gated: price fill can't run before masters, gaps can't run before both vendors are in, pack configs can't run before gaps.
+- Idempotent — re-running the night is safe, finished work is skipped.
 
-| Integration | Blaze Pizza | BWW GO | Playa Bowls | Coop's | Primrose |
-|---|---|---|---|---|---|
-| QuBeyond POS | yes | – | – | – | – |
-| Clover POS | – | – | yes | – | – |
-| Aloha (BWW GO) | – | yes | – | – | – |
-| PFG | yes | – | – | – | – |
-| Produce Alliance | yes | – | – | – | – |
-| OvationUp | yes | yes | – | – | – |
-| Fresh KDS | yes | – | – | – | – |
-| OPUS LMS | yes | – | – | – | – |
+## Pricing chain (per item, per store)
 
-Notes on behaviour:
+1. Master list price (bid guide for PFG, catalog for PA) — matched on any approved number on the item's brand ID.
+2. Still no price → last 14 days of orders for that store.
+3. Still no price → last 14 days of invoices.
+4. Still no price → flag it as **needs price** and report it.
 
-- Fresh KDS and OPUS stay hidden for everyone because their global switches are off. Brand scoping just becomes the second condition, so if they ever get turned back on they only appear for Blaze.
-- A location with no brand assigned (the two QA/sandbox rows) sees no integration cards. That is the safe default and matches the current reality that those rows have no integrations saved.
-- The Inventory Access card stays visible for every location. That card is Brand Mode vs Lite Mode, which is a per-location setting and has nothing to do with which brand the location belongs to. It is intentionally left alone.
-- Nothing gets deleted, disabled or migrated. Any credentials already saved stay exactly where they are. This is purely which cards the screen offers.
+Order guides never set price. They only decide active/inactive for that store.
 
-## 3. What gets touched
+## Making unpriced items visible
 
-- `src/components/settings/IntegrationsSection.tsx` — the card list on this screen, plus a small brand lookup for the location (the same lookup the Ovation card already does: read the location's brand, fall back to its organization's brand).
-- Nothing else. The card list is the only place that decides what's offered.
+- A per-store "Needs price" view in inventory, sorted by how long it's been unpriced.
+- Nightly report line: how many items unpriced per store, and which are new tonight.
+- Items unpriced 3 nights running raise a vendor gap alert so it lands in the workflow you already use.
 
-Not touched, but worth naming since they sit on the same screen:
+## Guardrails to validate (your last point)
 
-- `InventoryAccessCard` — Brand Mode vs Lite Mode toggle, left as-is.
-- `AlohaIntegrationCard` and `DeliveryScheduleEditor` — the contents of dialogs, unchanged. They just won't be reachable from a brand that shouldn't see them.
+- Every item number seen on any vendor list, order, or invoice bounces off the brand ID. Unknown number → vendor gap alert. No exceptions, all four sources.
+- Once an item is matched — auto or through gaps — if its pack string doesn't resolve to a known pack shape, it goes to pack configs for approval. Nothing gets counted on a guessed pack.
+- Both of these get a nightly counter in the report so we can see the funnel: seen → unknown → linked → pack-config pending.
 
-## 4. What NOT to touch
+## What gets deleted
 
-- Punch clock and kiosk
-- Inventory pans, LEGS, valuation, pack configs
-- GAPS / vendor gap linking and the deploy wizard
-- Any pricing or cost logic
-- Any Hemet data or the Hemet shelf-source behaviour (that is a separate ticket; this change does not need it)
-- Everything in `LOCKED_FEATURES.md`: 3D data cubes, the inventory system, fluid dock and toast animations, the version update system, the support ticket system
-- No database changes, no migrations, no edge function changes
+- The 8-hour PFG price scrape. Masters move into the nightly window.
+- The duplicate vendor gap scan cron (keep one, inside the pipeline).
+- The per-store hardcoded "pinned list" pricing walk. Replaced by master + fallback chain.
 
-## 5. How to verify on iPad
+## Technical notes
 
-1. Open the app on the iPad, pick a Blaze store (Hemet or Palm Springs), go to that location's profile and scroll to Integrations. Expect to see: Inventory Access, QuBeyond, PFG, Produce Alliance, OvationUp. Expect NOT to see: Clover, Aloha.
-2. Switch to the BWW GO store (Virginia St), same screen. Expect: Inventory Access, Aloha, OvationUp. Expect NOT to see: QuBeyond, PFG, Produce Alliance, Clover.
-3. Switch to Playa Bowls (Georgetown). Expect: Inventory Access, Clover. Nothing else.
-4. Open one card that should still be there on a Blaze store (PFG) and confirm the saved credentials and delivery schedule are exactly as before — nothing lost.
-5. Lite vs Brand mode: check one Lite location and one Brand-mode location in the same brand and confirm they show the same integration cards. Mode should make no difference here, only brand should.
+- New orchestrator function `vendor-sync-nightly`, driven by `maintenance_queue` task types: `vendor_masters`, `vendor_activity`, `vendor_price_fill`, `vendor_gaps`, `vendor_pack_configs`, `vendor_report`, each stamped with vendor + location + stage.
+- Single-flight lease row per nightly run; stage gating via a `vendor_sync_runs` status row (run_date, vendor, stage, status). Paused-state guard at each entry point.
+- Master walk: PFG picks the bid list by name pattern, not a stored header ID; falls back to the widest list if no bid-named list exists, and logs every list name seen. PA uses catalog sync.
+- `pfg_bid_items` becomes the read source for pricing, not just a cache write target.
+- Price fill reads `pfg_orders` / `pfg_invoices` / `lite_vendor_invoice_items` in that order; writes `cost_per_unit` + `last_synced_at`, or sets a `needs_price_since` stamp on `inventory_items`.
+- Gap scan and pack-config seeder become stages, invoked with the item set from the run instead of re-scanning everything.
+- Keeps existing inventory gate — disabled stores skipped cleanly.
 
-## 6. Rollout risk
+## Sequence
 
-Low.
-
-- The only visible effect is fewer cards on one screen. No data is written, moved or removed.
-- Main risk is over-hiding: if a brand actually needs an integration I didn't map (for example if Coop's Pizza or Primrose is meant to get a POS soon), its card would disappear from that screen until the map is updated. Today none of those brands have any integration saved, so nothing breaks now — it's a one-line map update when it's needed.
-- Second small risk is a location with a missing brand assignment showing an empty list. Only the two QA/sandbox rows are in that state today.
-- Fully reversible: revert the one file and the old behaviour returns.
+1. Build the orchestrator + stage queue, run it in dry-run alongside today's jobs for one night.
+2. Compare: prices filled, gaps raised, pack configs queued vs. current jobs.
+3. Cut over, delete the retired crons.
+4. Ship the "Needs price" view and the nightly report.
