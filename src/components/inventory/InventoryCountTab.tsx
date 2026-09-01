@@ -79,7 +79,8 @@ export default function InventoryCountTab({
       out.push(mkUpcoming("weekly", weekEnd));
     }
 
-    // Nearest upcoming monthly: last day of current month if ≥ today, else next month's last day.
+    // Monthly: if last month was never counted, that's still the period that
+    // needs doing — surface it instead of jumping ahead to the current month.
     const [yStr, mStr] = todayStr.split("-");
     const y = parseInt(yStr, 10);
     const m = parseInt(mStr, 10); // 1-12
@@ -90,15 +91,26 @@ export default function InventoryCountTab({
       const dd = String(d.getDate()).padStart(2, "0");
       return `${yyyy}-${mmStr}-${dd}`;
     };
+    const hasMonthly = (end: string) =>
+      allCounts.some(c => c.period_type === "monthly" && c.period_end_date === end);
+
+    const prevY = m === 1 ? y - 1 : y;
+    const prevM = m === 1 ? 12 : m - 1;
+    const prevMonthEnd = lastOfMonth(prevY, prevM);
+
     let monthEnd = lastOfMonth(y, m);
     if (monthEnd < todayStr) {
       const ny = m === 12 ? y + 1 : y;
       const nm = m === 12 ? 1 : m + 1;
       monthEnd = lastOfMonth(ny, nm);
     }
-    if (!allCounts.some(c => c.period_type === "monthly" && c.period_end_date === monthEnd)) {
+    // Outstanding prior month wins the slot.
+    if (!hasMonthly(prevMonthEnd)) {
+      out.push(mkUpcoming("monthly", prevMonthEnd));
+    } else if (!hasMonthly(monthEnd)) {
       out.push(mkUpcoming("monthly", monthEnd));
     }
+
 
     return out;
   }, [recentCounts, getTodayInTimezone, periodConfig.periodEndDay]);
