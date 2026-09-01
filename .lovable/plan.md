@@ -4,9 +4,9 @@
 
 Your plan is right, and it's simpler than what we have. Master lists are the source of truth, order guides are a store-managed subset that can't contain anything the master doesn't have, and price should fall back order search → invoice search. Three things to add that you didn't say:
 
-1. **Order guides still have one job:** telling us which items a store actually carries. So we keep reading them for on/off (deactivate items not on the store's guide) — we just stop trusting them for price.
+1. **The system never deactivates an item.** Correct — you were right to push back. Value sits on shelves long after you can't order something. We only ever *tag*: unpriced with an age, and discontinued with a date. Deactivating stays a human decision.
 2. **We have duplicate/competing jobs today**, which is why things quietly fail. The 8-hour PFG scrape, plus two separate nightly gap scans (10:15 UTC and 12:00 UTC), plus a nightly per-store price walk pinned to the wrong list per store.
-3. **Unpriced items need to be visible**, not just fixed silently. A standing "needs price" list per store, so someone can act.
+3. **Unpriced should be near-zero, and it's a signal when it isn't.** You're right that vendors don't give things away — every live item on a vendor site is priced. So an unpriced item means one of three things: wrong item number (gaps problem), item is discontinued/pulled from the list, or our sync didn't reach it. All three are worth flagging, none are "no price exists."
 
 ## What's running today (the mess)
 
