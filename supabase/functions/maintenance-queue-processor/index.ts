@@ -90,7 +90,11 @@ async function drainQueue() {
         console.log(`[QUEUE] ✓ ${task.task_type} for location ${task.location_id}`);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        const newRetry = (task.retry_count || 0) + 1;
+        const waitingOnStage = errorMsg.includes("waiting on predecessor");
+        // A gated vendor stage isn't a failure — requeue it without burning a
+        // retry, and send it to the BACK of the line. Otherwise the oldest gated
+        // tasks win every FIFO batch and starve the stage they're waiting on.
+        const newRetry = waitingOnStage ? (task.retry_count || 0) : (task.retry_count || 0) + 1;
 
         await supabase
           .from("maintenance_queue")
@@ -99,8 +103,11 @@ async function drainQueue() {
             error_message: errorMsg,
             retry_count: newRetry,
             started_at: null,
+            ...(waitingOnStage ? { created_at: new Date().toISOString() } : {}),
           })
           .eq("id", task.id);
+
+
 
         results.push({ id: task.id, task_type: task.task_type, status: "error", error: errorMsg });
         console.error(`[QUEUE] ✗ ${task.task_type} for location ${task.location_id}: ${errorMsg}`);
@@ -151,9 +158,39 @@ async function processTask(
     case "opus_bulk_extract":
       return await processOpusBulkExtract(supabaseUrl, supabaseKey, task);
     default:
+      // Vendor sync pipeline — one task per stage per location.
+      if (task.task_type.startsWith("vendor_")) {
+        return await processVendorSyncStage(supabaseUrl, supabaseKey, task);
+      }
       throw new Error(`Unknown task type: ${task.task_type}`);
   }
 }
+
+// ============================================================================
+// VENDOR SYNC PIPELINE — vendor_<stage> → vendor-sync-nightly
+// A stage that is still waiting on its predecessor throws, so the queue's
+// normal retry is what enforces the ordering.
+// ============================================================================
+async function processVendorSyncStage(supabaseUrl: string, supabaseKey: string, task: any) {
+  const stage = task.task_type.replace(/^vendor_/, "");
+  const response = await fetch(`${supabaseUrl}/functions/v1/vendor-sync-nightly?action=stage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({
+      action: "stage",
+      stage,
+      locationId: task.location_id,
+      runDate: task.target_date,
+    }),
+  });
+
+  const text = await response.text();
+  if (!response.ok) throw new Error(`vendor_${stage} HTTP ${response.status}: ${text.slice(0, 300)}`);
+  const result = JSON.parse(text || "{}");
+  if (result.error) throw new Error(result.error);
+  return result;
+}
+
 
 
 // ============================================================================

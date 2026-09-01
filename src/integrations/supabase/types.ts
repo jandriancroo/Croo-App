@@ -4402,6 +4402,7 @@ export type Database = {
           days_not_seen: number
           deactivated_by: string | null
           deactivated_reason: string | null
+          discontinued_at: string | null
           display_order: number | null
           id: string
           image_url: string | null
@@ -4424,13 +4425,18 @@ export type Database = {
           pack_size: string | null
           pan_sizes: Json | null
           par_level: number | null
+          price_source: string | null
+          price_source_date: string | null
+          price_source_ref: string | null
           qubeyond_item_id: string | null
           recipe_yield_qty: number | null
           recipe_yield_unit: string | null
           remap_status: string | null
+          ship_in_only: boolean
           source: string | null
           storage_location_id: string | null
           unit: string
+          unpriced_since: string | null
           updated_at: string
           user_hidden: boolean
           vendor_source: string | null
@@ -4451,6 +4457,7 @@ export type Database = {
           days_not_seen?: number
           deactivated_by?: string | null
           deactivated_reason?: string | null
+          discontinued_at?: string | null
           display_order?: number | null
           id?: string
           image_url?: string | null
@@ -4473,13 +4480,18 @@ export type Database = {
           pack_size?: string | null
           pan_sizes?: Json | null
           par_level?: number | null
+          price_source?: string | null
+          price_source_date?: string | null
+          price_source_ref?: string | null
           qubeyond_item_id?: string | null
           recipe_yield_qty?: number | null
           recipe_yield_unit?: string | null
           remap_status?: string | null
+          ship_in_only?: boolean
           source?: string | null
           storage_location_id?: string | null
           unit?: string
+          unpriced_since?: string | null
           updated_at?: string
           user_hidden?: boolean
           vendor_source?: string | null
@@ -4500,6 +4512,7 @@ export type Database = {
           days_not_seen?: number
           deactivated_by?: string | null
           deactivated_reason?: string | null
+          discontinued_at?: string | null
           display_order?: number | null
           id?: string
           image_url?: string | null
@@ -4522,13 +4535,18 @@ export type Database = {
           pack_size?: string | null
           pan_sizes?: Json | null
           par_level?: number | null
+          price_source?: string | null
+          price_source_date?: string | null
+          price_source_ref?: string | null
           qubeyond_item_id?: string | null
           recipe_yield_qty?: number | null
           recipe_yield_unit?: string | null
           remap_status?: string | null
+          ship_in_only?: boolean
           source?: string | null
           storage_location_id?: string | null
           unit?: string
+          unpriced_since?: string | null
           updated_at?: string
           user_hidden?: boolean
           vendor_source?: string | null
@@ -7892,7 +7910,7 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
-          location_id: string
+          location_id: string | null
           retry_count: number
           started_at: string | null
           status: string
@@ -7904,7 +7922,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
-          location_id: string
+          location_id?: string | null
           retry_count?: number
           started_at?: string | null
           status?: string
@@ -7916,7 +7934,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
-          location_id?: string
+          location_id?: string | null
           retry_count?: number
           started_at?: string | null
           status?: string
@@ -12563,6 +12581,74 @@ export type Database = {
           {
             foreignKeyName: "vendor_sku_health_last_location_id_fkey"
             columns: ["last_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_sync_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          detail: Json
+          error: string | null
+          gaps_raised: number
+          id: string
+          items_priced: number
+          items_seen: number
+          items_unpriced: number
+          location_id: string | null
+          pack_configs_queued: number
+          run_date: string
+          stage: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          vendor: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          detail?: Json
+          error?: string | null
+          gaps_raised?: number
+          id?: string
+          items_priced?: number
+          items_seen?: number
+          items_unpriced?: number
+          location_id?: string | null
+          pack_configs_queued?: number
+          run_date: string
+          stage: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          vendor: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          detail?: Json
+          error?: string | null
+          gaps_raised?: number
+          id?: string
+          items_priced?: number
+          items_seen?: number
+          items_unpriced?: number
+          location_id?: string | null
+          pack_configs_queued?: number
+          run_date?: string
+          stage?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          vendor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_sync_runs_location_id_fkey"
+            columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
