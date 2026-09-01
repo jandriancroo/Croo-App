@@ -1,3 +1,5 @@
+import { debugWatchLog } from './debugWatch';
+
 /**
  * Detect if running on Android device
  */
@@ -87,6 +89,16 @@ export async function compressImage(
       if (settled) return;
       settled = true;
       if (reason) console.warn(`[imageCompression] falling back to original: ${reason}`);
+      debugWatchLog('compress_result', {
+        fileName: file.name,
+        fileType: file.type || null,
+        originalKB: Math.round(fileSize / 1024),
+        resultKB: Math.round(result.size / 1024),
+        fellBack: !!reason,
+        reason: reason ?? null,
+        targetMaxWidth,
+        targetQuality,
+      });
       resolve(result);
     };
 
@@ -217,6 +229,7 @@ export async function uploadWithRetry(
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       console.log(`Upload attempt ${attempt}/${attempts} for ${safeName}`);
+      debugWatchLog('upload_attempt', { bucket, fileName: safeName, attempt, sizeKB: Math.round(file.size / 1024), type });
 
       const uploadPromise = supabase.storage
         .from(bucket)
@@ -234,10 +247,12 @@ export async function uploadWithRetry(
 
       const { data } = supabase.storage.from(bucket).getPublicUrl(safeName);
       console.log(`Upload successful on attempt ${attempt}`);
+      debugWatchLog('upload_success', { bucket, fileName: safeName, attempt });
       return { publicUrl: data.publicUrl };
     } catch (error: any) {
       lastError = error;
       console.error(`Upload attempt ${attempt} failed:`, error.message || error);
+      debugWatchLog('upload_failed', { bucket, fileName: safeName, attempt, error: error?.message || String(error) });
 
       // Don't retry on certain errors
       if (error.message?.includes('duplicate') || error.message?.includes('already exists')) {
