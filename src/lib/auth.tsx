@@ -116,6 +116,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        setDebugWatchUser(session?.user?.id ?? null);
+        debugWatchLog('auth_event', { event });
+
 
         // Update last_login_at on sign in (not token refresh)
         if (session?.user && event === 'SIGNED_IN' && !isDeviceSession(session)) {
