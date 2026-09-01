@@ -221,6 +221,11 @@ export async function chasePrices(
   for (const item of items) {
     const { pfg, pa } = numbersFor(item);
 
+    // No vendor number anywhere (house-made prep, sub-recipes, internal items).
+    // Nothing to chase and nothing to tag — a vendor price was never expected.
+    if (pfg.size === 0 && pa.size === 0) continue;
+
+
     let hit: PriceHit | null = null;
     let onMaster = false;
 
