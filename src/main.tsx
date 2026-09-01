@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { syncChromeColor } from "./utils/syncChrome";
+import { debugWatchLog } from "./utils/debugWatch";
 
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
@@ -146,6 +147,18 @@ window.addEventListener('vite:preloadError', (event) => {
     sessionStorage.setItem(key, Date.now().toString());
     performDeferrableReload(() => window.location.reload());
   }
+});
+
+// 48-hour diagnostic window (no-op for everyone except the two watched users):
+// capture crashes / stalled loads that stop the app from opening.
+window.addEventListener('error', (e) => {
+  debugWatchLog('js_error', { message: (e as ErrorEvent).message, source: (e as ErrorEvent).filename });
+});
+window.addEventListener('unhandledrejection', (e) => {
+  debugWatchLog('promise_rejection', { reason: String((e as PromiseRejectionEvent).reason).slice(0, 300) });
+});
+document.addEventListener('visibilitychange', () => {
+  debugWatchLog('visibility', { state: document.visibilityState });
 });
 
 const rootElement = document.getElementById("root");
