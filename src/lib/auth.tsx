@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
+import { setDebugWatchUser, debugWatchLog } from '@/utils/debugWatch';
+
 
 interface AuthContextType {
   user: User | null;
