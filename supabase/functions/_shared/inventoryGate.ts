@@ -8,6 +8,20 @@
  * instead of hitting a 500 from the trigger.
  */
 
+/**
+ * Hard, named exclusions — never touched by vendor syncs / seeders regardless
+ * of the `inventory_enabled` flag. Sandbox store #7777 lives here because it
+ * is a test store whose flag is intentionally left on for UI work.
+ */
+export const EXCLUDED_LOCATION_IDS: string[] = [
+  "150cfede-666a-4b5f-ae01-5bfb7bb39635", // Sandbox #7777 (Beaumont) — test store
+  "40a872fb-57b2-409d-947d-70e48948297d", // Sandbox (inactive clone target)
+];
+
+export function isExcludedLocation(locationId: string | null | undefined): boolean {
+  return !!locationId && EXCLUDED_LOCATION_IDS.includes(locationId);
+}
+
 export interface InventoryGateResult {
   enabled: boolean;
   locationId: string;
