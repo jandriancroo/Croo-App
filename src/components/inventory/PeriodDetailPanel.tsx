@@ -144,30 +144,31 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     }
     
     let salesEndDate = effectivePeriodEndDate;
-    // Priority: manual override > flex auto-calc > period end date
+    // Priority: manual override > counted_at morning rule > period end date.
+    // Morning rule: a count taken before the store opens (before 10 AM local)
+    // reflects shelves as of END OF THE PRIOR DAY, so that day's sales are NOT
+    // part of this period. Late/flex counts may extend past period end; normal
+    // counts can only pull the window in, never push it out.
     if (count.sales_end_override) {
       salesEndDate = count.sales_end_override;
+    } else if (count.counted_at) {
+      const countedAtDate = new Date(count.counted_at);
+      const localDateStr = formatInTimeZone(countedAtDate, timezone, 'yyyy-MM-dd');
+      const localHour = parseInt(formatInTimeZone(countedAtDate, timezone, 'HH'), 10);
+      const boundary = localHour < 10
+        ? format(subDays(new Date(localDateStr + 'T12:00:00'), 1), 'yyyy-MM-dd')
+        : localDateStr;
+      salesEndDate = count.is_late_close
+        ? boundary
+        : (boundary < effectivePeriodEndDate ? boundary : effectivePeriodEndDate);
     } else if (count.is_late_close) {
-      if (count.counted_at) {
-        const countedAtDate = new Date(count.counted_at);
-        const localDateStr = formatInTimeZone(countedAtDate, timezone, 'yyyy-MM-dd');
-        const localHour = parseInt(formatInTimeZone(countedAtDate, timezone, 'HH'), 10);
-        
-        // If counted before 10 AM, store wasn't open yet — sales thru previous day
-        if (localHour < 10) {
-          const prevDay = subDays(new Date(localDateStr + 'T12:00:00'), 1);
-          salesEndDate = format(prevDay, 'yyyy-MM-dd');
-        } else {
-          salesEndDate = localDateStr;
-        }
-      } else {
-        const yesterday = subDays(new Date(), 1);
-        const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-        if (yesterdayStr > effectivePeriodEndDate) {
-          salesEndDate = yesterdayStr;
-        }
+      const yesterday = subDays(new Date(), 1);
+      const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+      if (yesterdayStr > effectivePeriodEndDate) {
+        salesEndDate = yesterdayStr;
       }
     }
+
 
     // Calculate standard start date
     let standardStart: string;
@@ -193,22 +194,28 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
     if (prevCountData) {
-      // Resolve prev's effective sales-end with the same priority used for the current
-      // count: sales_end_override > is_late_close+counted_at > period_end_date.
+      // Resolve prev's effective sales-end with the same priority used for the
+      // current count: sales_end_override > counted_at morning rule > period end.
       let prevEffectiveEnd: string | null = null;
       if (prevCountData.sales_end_override) {
         prevEffectiveEnd = prevCountData.sales_end_override;
-      } else if (prevCountData.is_late_close && prevCountData.counted_at) {
+      } else if (prevCountData.counted_at) {
         const prevCountedAt = new Date(prevCountData.counted_at);
         const prevLocalDateStr = formatInTimeZone(prevCountedAt, timezone, 'yyyy-MM-dd');
         const prevLocalHour = parseInt(formatInTimeZone(prevCountedAt, timezone, 'HH'), 10);
         // Counted before 10 AM → store wasn't open yet → sales thru previous day
-        prevEffectiveEnd = prevLocalHour < 10
+        const prevBoundary = prevLocalHour < 10
           ? format(subDays(new Date(prevLocalDateStr + 'T12:00:00'), 1), 'yyyy-MM-dd')
           : prevLocalDateStr;
+        prevEffectiveEnd = prevCountData.is_late_close
+          ? prevBoundary
+          : (prevCountData.period_end_date && prevBoundary > prevCountData.period_end_date
+              ? prevCountData.period_end_date
+              : prevBoundary);
       } else if (prevCountData.period_end_date) {
         prevEffectiveEnd = prevCountData.period_end_date;
       }
+
 
       if (prevEffectiveEnd) {
         const dayAfterPrev = format(
@@ -243,10 +250,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       isFlexAdjusted = adjustedStart !== standardStart;
     }
 
-    // Calculate active days — use salesEndDate for flex counts (extended window)
+    // Active days follow the actual sales window (may be shorter for a morning
+    // count, longer for a flex/late close).
     const startMs = new Date(adjustedStart + "T12:00:00").getTime();
-    const effectiveEnd = salesEndDate > effectivePeriodEndDate ? salesEndDate : effectivePeriodEndDate;
-    const endMs = new Date(effectiveEnd + "T12:00:00").getTime();
+    const endMs = new Date(salesEndDate + "T12:00:00").getTime();
+
     const activeDays = Math.round((endMs - startMs) / 86400000) + 1;
     const isNonStandard = activeDays !== 7 && count.period_type === "weekly";
 

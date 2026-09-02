@@ -3,6 +3,9 @@ import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
+import { format, subDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
+
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -354,6 +357,22 @@ const Inventory = () => {
           .filter(x => x.c.status === "completed")
           .sort((a, b) => (a.win.end > b.win.end ? 1 : -1));
 
+        // Morning-count rule: a count taken before the store opens (before 10 AM
+        // local) reflects the shelves at END OF THE PRIOR DAY — so that day's
+        // sales must NOT be in the denominator. Sales end = day before the count.
+        const salesEndFor = (c: any, win: { start: string; end: string }): string => {
+          if (c.sales_end_override) return c.sales_end_override;
+          if (!c.counted_at) return win.end;
+          const d = new Date(c.counted_at);
+          const localDate = formatInTimeZone(d, timezone, "yyyy-MM-dd");
+          const localHour = parseInt(formatInTimeZone(d, timezone, "HH"), 10);
+          const boundary = localHour < 10
+            ? format(subDays(new Date(localDate + "T12:00:00"), 1), "yyyy-MM-dd")
+            : localDate;
+          // Late/flex counts extend the window; normal counts can only pull it in.
+          return c.is_late_close ? boundary : (boundary < win.end ? boundary : win.end);
+        };
+
         for (const { c, win } of completedWithWindow) {
           const assigned = assignedByCount[c.id];
           const purchasesTotal = assigned && assigned.size > 0
@@ -364,11 +383,13 @@ const Inventory = () => {
                 return s + (Number(o.total_amount) || 0);
               }, 0);
 
+          const salesEnd = salesEndFor(c, win);
           const netSales = salesRows.reduce((s, r) => {
             if (!r.sale_date) return s;
-            if (r.sale_date < win.start || r.sale_date > win.end) return s;
+            if (r.sale_date < win.start || r.sale_date > salesEnd) return s;
             return s + (Number(r.net_sales) || 0);
           }, 0);
+
           let beginValue = prevEndingMap[c.id];
           if (beginValue === undefined) {
             // No same-type prior — find most recent completed of any type
