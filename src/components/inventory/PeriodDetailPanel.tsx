@@ -250,10 +250,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       isFlexAdjusted = adjustedStart !== standardStart;
     }
 
-    // Calculate active days — use salesEndDate for flex counts (extended window)
+    // Active days follow the actual sales window (may be shorter for a morning
+    // count, longer for a flex/late close).
     const startMs = new Date(adjustedStart + "T12:00:00").getTime();
-    const effectiveEnd = salesEndDate > effectivePeriodEndDate ? salesEndDate : effectivePeriodEndDate;
-    const endMs = new Date(effectiveEnd + "T12:00:00").getTime();
+    const endMs = new Date(salesEndDate + "T12:00:00").getTime();
+
     const activeDays = Math.round((endMs - startMs) / 86400000) + 1;
     const isNonStandard = activeDays !== 7 && count.period_type === "weekly";
 
