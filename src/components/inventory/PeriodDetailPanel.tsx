@@ -273,6 +273,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       if (!periodRange) return null;
       const effectiveCountId = realCountId || count.id;
 
+      // Flag manually-assigned deliveries that fall outside this period's
+      // calendar window. They still count toward COGS (the manager's checkbox
+      // is the source of truth) — the flag exists so a mis-check is visible.
+      const isOutsideWindow = (d: string | null | undefined) =>
+        !!d && (d < periodRange.startStr || d > periodRange.endStr);
+
       // Resolve assigned + inherited orders for THIS count via the new
       // inventory_order_assignments / inventory_order_exclusions tables. This is
       // the single source of truth — weekly and monthly assignments are decoupled
