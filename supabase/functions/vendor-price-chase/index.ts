@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chasePrices, CHASE_SELECT } from "../_shared/vendorPriceChase.ts";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { isExcludedLocation } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
