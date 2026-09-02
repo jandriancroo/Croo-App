@@ -203,12 +203,21 @@ async function loginToPA(page, { username, password }) {
   try {
     await page.fill('input[name="username"], #username', username);
     await page.fill('input[name="password"], #password', password);
+    // Submitting the form directly (instead of clicking the button) — the PA
+    // page tears itself down during the click, which makes Playwright's click
+    // handshake hang for the full timeout.
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null),
-      page.click('#login, input[name="login"], button[name="login"], button[type="submit"]'),
+      page.evaluate(() => {
+        const form = document.querySelector('#password, input[name="password"]')?.closest('form');
+        if (!form) throw new Error('login form vanished');
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      }),
     ]);
     // Give the post-login redirect / Angular handoff a moment to settle
     await page.waitForTimeout(2500);
+
   } catch (e) {
     console.log(`   ❌ Form login error: ${e.message}`);
     return false;
