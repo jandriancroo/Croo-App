@@ -34,6 +34,9 @@ export async function isInventoryEnabled(
   locationId: string | null | undefined,
 ): Promise<InventoryGateResult> {
   if (!locationId) return { enabled: false, locationId: "", name: null };
+  if (isExcludedLocation(locationId)) {
+    return { enabled: false, locationId, name: "excluded_location" };
+  }
   const { data, error } = await supabase
     .from("locations")
     .select("id, name, inventory_enabled")
