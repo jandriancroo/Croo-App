@@ -381,18 +381,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               const rawId = o.pfg_order_id || '';
               const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
               const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
             }),
             ...pa.map((o: any) => {
               const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
               const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
             }),
             ...vendorInv.map((o: any) => {
               const d = o.delivery_date || o.invoice_date;
               const cleanId = o.invoice_number || o.id.slice(0, 8);
               const deliveryDateLabel = d ? format(new Date(d + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel };
+              return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(d) };
             }),
           ],
         };
@@ -530,18 +530,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             const rawId = o.pfg_order_id || '';
             const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
             const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+            return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
           }),
           ...pa.map((o: any) => {
             const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
             const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
           }),
           ...vendorInv.map((o: any) => {
             const d = o.delivery_date || o.invoice_date;
             const cleanId = o.invoice_number || o.id.slice(0, 8);
             const deliveryDateLabel = d ? format(new Date(d + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel };
+            return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(d) };
           }),
         ],
       };
