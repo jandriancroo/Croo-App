@@ -144,30 +144,31 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     }
     
     let salesEndDate = effectivePeriodEndDate;
-    // Priority: manual override > flex auto-calc > period end date
+    // Priority: manual override > counted_at morning rule > period end date.
+    // Morning rule: a count taken before the store opens (before 10 AM local)
+    // reflects shelves as of END OF THE PRIOR DAY, so that day's sales are NOT
+    // part of this period. Late/flex counts may extend past period end; normal
+    // counts can only pull the window in, never push it out.
     if (count.sales_end_override) {
       salesEndDate = count.sales_end_override;
+    } else if (count.counted_at) {
+      const countedAtDate = new Date(count.counted_at);
+      const localDateStr = formatInTimeZone(countedAtDate, timezone, 'yyyy-MM-dd');
+      const localHour = parseInt(formatInTimeZone(countedAtDate, timezone, 'HH'), 10);
+      const boundary = localHour < 10
+        ? format(subDays(new Date(localDateStr + 'T12:00:00'), 1), 'yyyy-MM-dd')
+        : localDateStr;
+      salesEndDate = count.is_late_close
+        ? boundary
+        : (boundary < effectivePeriodEndDate ? boundary : effectivePeriodEndDate);
     } else if (count.is_late_close) {
-      if (count.counted_at) {
-        const countedAtDate = new Date(count.counted_at);
-        const localDateStr = formatInTimeZone(countedAtDate, timezone, 'yyyy-MM-dd');
-        const localHour = parseInt(formatInTimeZone(countedAtDate, timezone, 'HH'), 10);
-        
-        // If counted before 10 AM, store wasn't open yet — sales thru previous day
-        if (localHour < 10) {
-          const prevDay = subDays(new Date(localDateStr + 'T12:00:00'), 1);
-          salesEndDate = format(prevDay, 'yyyy-MM-dd');
-        } else {
-          salesEndDate = localDateStr;
-        }
-      } else {
-        const yesterday = subDays(new Date(), 1);
-        const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-        if (yesterdayStr > effectivePeriodEndDate) {
-          salesEndDate = yesterdayStr;
-        }
+      const yesterday = subDays(new Date(), 1);
+      const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+      if (yesterdayStr > effectivePeriodEndDate) {
+        salesEndDate = yesterdayStr;
       }
     }
+
 
     // Calculate standard start date
     let standardStart: string;
