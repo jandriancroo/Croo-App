@@ -55,12 +55,13 @@ export async function filterEnabledLocations(
   supabase: any,
   locationIds: string[],
 ): Promise<Set<string>> {
-  if (!locationIds || locationIds.length === 0) return new Set();
+  const candidates = (locationIds || []).filter((id) => !isExcludedLocation(id));
+  if (candidates.length === 0) return new Set();
   const { data } = await supabase
     .from("locations")
     .select("id")
     .eq("inventory_enabled", true)
-    .in("id", locationIds);
+    .in("id", candidates);
   return new Set((data || []).map((r: any) => r.id));
 }
 
