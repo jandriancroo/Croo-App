@@ -273,6 +273,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       if (!periodRange) return null;
       const effectiveCountId = realCountId || count.id;
 
+      // Flag manually-assigned deliveries that fall outside this period's
+      // calendar window. They still count toward COGS (the manager's checkbox
+      // is the source of truth) — the flag exists so a mis-check is visible.
+      const isOutsideWindow = (d: string | null | undefined) =>
+        !!d && (d < periodRange.startStr || d > periodRange.endStr);
+
       // Resolve assigned + inherited orders for THIS count via the new
       // inventory_order_assignments / inventory_order_exclusions tables. This is
       // the single source of truth — weekly and monthly assignments are decoupled
@@ -381,18 +387,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               const rawId = o.pfg_order_id || '';
               const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
               const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
             }),
             ...pa.map((o: any) => {
               const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
               const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
             }),
             ...vendorInv.map((o: any) => {
               const d = o.delivery_date || o.invoice_date;
               const cleanId = o.invoice_number || o.id.slice(0, 8);
               const deliveryDateLabel = d ? format(new Date(d + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel };
+              return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(d) };
             }),
           ],
         };
@@ -530,18 +536,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             const rawId = o.pfg_order_id || '';
             const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
             const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+            return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
           }),
           ...pa.map((o: any) => {
             const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
             const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(o.delivery_date) };
           }),
           ...vendorInv.map((o: any) => {
             const d = o.delivery_date || o.invoice_date;
             const cleanId = o.invoice_number || o.id.slice(0, 8);
             const deliveryDateLabel = d ? format(new Date(d + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel };
+            return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel, outsideWindow: isOutsideWindow(d) };
           }),
         ],
       };
@@ -715,7 +721,14 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                   {cogsData.purchases && cogsData.purchases.length > 0 ? (
                     <>
                       {cogsData.purchases.map((po: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between">
+                        <div
+                          key={i}
+                          className={`flex items-center justify-between ${
+                            po.outsideWindow
+                              ? "rounded-md bg-amber-500/10 ring-1 ring-amber-500/40 px-2 py-1 -mx-1"
+                              : ""
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
                             <div className={`w-6 h-6 rounded-md flex items-center justify-center ${
                               po.vendor === "PFG" ? "bg-red-500/15 text-red-600" : "bg-green-500/15 text-green-600"
@@ -724,12 +737,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                             </div>
                             <div>
                               <p className="text-xs font-medium font-mono">{po.vendor} #{po.id}</p>
-                              <p className="text-[10px] text-muted-foreground">Delivered {po.deliveryDate || po.date}</p>
+                              <p className={`text-[10px] ${po.outsideWindow ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                Delivered {po.deliveryDate || po.date}
+                                {po.outsideWindow ? " · outside this period" : ""}
+                              </p>
                             </div>
                           </div>
                           <p className="text-xs font-semibold">${po.amount.toLocaleString()}</p>
                         </div>
                       ))}
+
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground">No orders found</p>

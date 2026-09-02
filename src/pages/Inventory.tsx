@@ -287,6 +287,44 @@ const Inventory = () => {
         ];
         const salesRows = (salesRes.data as any[]) || [];
 
+        // ─── Manual assignments win over the date window ────────────────────
+        // Managers check which deliveries belong to a count (a Monday-morning
+        // PFG drop can legitimately belong to the prior month-end). The
+        // expanded panel / Report Builder read those checkboxes, so the list
+        // pill must too — otherwise the same period shows two numbers.
+        // Dedupe defensively: duplicate assignment rows exist in the wild.
+        const { data: assignRows } = await supabase
+          .from("inventory_order_assignments" as any)
+          .select("count_id, source_type, source_row_id")
+          .eq("location_id", locationId)
+          .in("count_id", completedWithWindow.map(x => x.c.id));
+
+        const assignedByCount: Record<string, Set<string>> = {};
+        const idsByType: Record<string, Set<string>> = { pfg: new Set(), pa: new Set(), invoice: new Set() };
+        for (const r of ((assignRows as any[]) || [])) {
+          const key = `${r.source_type}_${r.source_row_id}`;
+          (assignedByCount[r.count_id] ||= new Set()).add(key);
+          if (idsByType[r.source_type]) idsByType[r.source_type].add(r.source_row_id);
+        }
+
+        const amountByKey: Record<string, number> = {};
+        if (Object.values(idsByType).some(s => s.size > 0)) {
+          const byIds = async (table: string, type: string) => {
+            const ids = [...idsByType[type]];
+            if (ids.length === 0) return;
+            const { data } = await supabase.from(table as any).select("id,total_amount").in("id", ids);
+            for (const row of ((data as any[]) || [])) {
+              amountByKey[`${type}_${row.id}`] = Number(row.total_amount) || 0;
+            }
+          };
+          await Promise.all([
+            byIds("pfg_orders", "pfg"),
+            byIds("pa_orders", "pa"),
+            byIds("vendor_invoices", "invoice"),
+          ]);
+        }
+
+
         // Previous completed count's totalCost = this count's beginning.
         // Prefer same period_type chain (weekly→weekly, monthly→monthly), but
         // fall back to "most recent completed count of ANY type before this
@@ -317,11 +355,15 @@ const Inventory = () => {
           .sort((a, b) => (a.win.end > b.win.end ? 1 : -1));
 
         for (const { c, win } of completedWithWindow) {
-          const purchasesTotal = allOrders.reduce((s, o) => {
-            if (!o.delivery_date) return s;
-            if (o.delivery_date < win.start || o.delivery_date > win.end) return s;
-            return s + (Number(o.total_amount) || 0);
-          }, 0);
+          const assigned = assignedByCount[c.id];
+          const purchasesTotal = assigned && assigned.size > 0
+            ? [...assigned].reduce((s, k) => s + (amountByKey[k] || 0), 0)
+            : allOrders.reduce((s, o) => {
+                if (!o.delivery_date) return s;
+                if (o.delivery_date < win.start || o.delivery_date > win.end) return s;
+                return s + (Number(o.total_amount) || 0);
+              }, 0);
+
           const netSales = salesRows.reduce((s, r) => {
             if (!r.sale_date) return s;
             if (r.sale_date < win.start || r.sale_date > win.end) return s;
