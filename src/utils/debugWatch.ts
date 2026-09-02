@@ -7,7 +7,7 @@ import { serverDebugLog } from './serverDebugLog';
  * Everything here is a no-op once WATCH_UNTIL passes, and a no-op for every
  * other user. Safe to delete after the window closes.
  */
-const WATCH_UNTIL = Date.parse('2026-09-03T22:30:00Z'); // 48h from Sep 1 2026 3:30pm PT
+const WATCH_UNTIL = Date.parse('2026-09-05T07:00:00Z'); // extended through Friday PST
 
 const WATCHED_USER_IDS = new Set<string>([
   'e21aba60-2a4a-4cad-98cc-fe7476689f54', // Ashley Reese
