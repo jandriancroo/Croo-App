@@ -194,22 +194,28 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
     if (prevCountData) {
-      // Resolve prev's effective sales-end with the same priority used for the current
-      // count: sales_end_override > is_late_close+counted_at > period_end_date.
+      // Resolve prev's effective sales-end with the same priority used for the
+      // current count: sales_end_override > counted_at morning rule > period end.
       let prevEffectiveEnd: string | null = null;
       if (prevCountData.sales_end_override) {
         prevEffectiveEnd = prevCountData.sales_end_override;
-      } else if (prevCountData.is_late_close && prevCountData.counted_at) {
+      } else if (prevCountData.counted_at) {
         const prevCountedAt = new Date(prevCountData.counted_at);
         const prevLocalDateStr = formatInTimeZone(prevCountedAt, timezone, 'yyyy-MM-dd');
         const prevLocalHour = parseInt(formatInTimeZone(prevCountedAt, timezone, 'HH'), 10);
         // Counted before 10 AM → store wasn't open yet → sales thru previous day
-        prevEffectiveEnd = prevLocalHour < 10
+        const prevBoundary = prevLocalHour < 10
           ? format(subDays(new Date(prevLocalDateStr + 'T12:00:00'), 1), 'yyyy-MM-dd')
           : prevLocalDateStr;
+        prevEffectiveEnd = prevCountData.is_late_close
+          ? prevBoundary
+          : (prevCountData.period_end_date && prevBoundary > prevCountData.period_end_date
+              ? prevCountData.period_end_date
+              : prevBoundary);
       } else if (prevCountData.period_end_date) {
         prevEffectiveEnd = prevCountData.period_end_date;
       }
+
 
       if (prevEffectiveEnd) {
         const dayAfterPrev = format(
