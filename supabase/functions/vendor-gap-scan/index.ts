@@ -141,7 +141,9 @@ serve(async (req) => {
           .in("organization_id", orgIds);
 
         if (locs?.length) {
-          const locIds = locs.map(l => l.id);
+          // Hard, named exclusion (sandbox stores) — never scanned.
+          const locIds = locs.map(l => l.id).filter(id => !isExcludedLocation(id));
+          if (locIds.length === 0) continue;
           const locNameById = new Map((locs || []).map(l => [l.id, l.name]));
 
           // --- PFG Scan: loop EVERY active PFG integration for this brand ---
