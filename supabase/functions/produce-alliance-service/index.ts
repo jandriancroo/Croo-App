@@ -2507,19 +2507,24 @@ async function handleHeadlessLoginFailed(supabase: any, body: any): Promise<Resp
   const { locationId, error: errorMsg } = body;
   console.error('[PA Scraper] ❌ Headless login failed for location', locationId, ':', errorMsg);
 
-  // Create a support ticket for the failure
+  // Record the failure where the vendor sync history lives. (The old
+  // support_tickets insert could never work — that table requires a user_id
+  // and has no title/priority columns, so every failure was swallowed.)
   try {
-    await supabase.from('support_tickets').insert({
-      title: 'Produce Alliance headless login failed',
-      description: `Automated PA login failed for location ${locationId}: ${errorMsg}`,
-      status: 'open',
-      priority: 'high',
-      category: 'integration',
-      is_system: true,
+    await supabase.from('inventory_sync_logs').insert({
+      location_id: locationId,
+      sync_source: 'produce_alliance',
+      sync_type: 'headless_login',
+      status: 'failed',
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      errors: { message: String(errorMsg || 'login failed') },
+      triggered_by: 'pa-headless-scraper',
     });
   } catch (e) {
-    console.warn('[PA Scraper] Could not create support ticket:', e);
+    console.warn('[PA Scraper] Could not log login failure:', e);
   }
+
 
   return jsonResponse({ success: true, message: 'Failure logged' });
 }

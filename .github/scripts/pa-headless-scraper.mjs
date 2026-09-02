@@ -170,37 +170,59 @@ async function scrapeOrder(page, { webOrderId, restaurantId, startDate, endDate 
 async function loginToPA(page, { username, password }) {
   console.log(`   🔑 Logging in as ${username}...`);
 
-  // The PA portal uses a classic J2EE form login at POST /Login (capital L).
-  // The OAuth2 token endpoint only mints API tokens — it does NOT initialize
-  // the JSP session, so reports like restaurantWeeklyProducePricesReport.jsp
-  // return a 555-byte stub. The form login at /login.jsp → POST /Login is the
-  // only path that unlocks server-side JSP rendering.
-  await page.goto(`${PA_BASE_URL}/login.jsp`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  // The PA portal uses a classic J2EE form login (POST /Login). As of Sep 2026
+  // `/login.jsp` 302s to `/logout.jsp`, which only bounces the browser via
+  // localStorage — the real login form now lives on the site root (index.jsp).
+  // So: land on the root, make sure urlDesignation is PA, then submit the form.
+  // If the root ever stops carrying the form, fall back to the legacy path.
+  const openLoginForm = async () => {
+    for (const target of [`${PA_BASE_URL}/`, `${PA_BASE_URL}/index.jsp`, `${PA_BASE_URL}/login.jsp`]) {
+      try {
+        await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.evaluate(() => {
+          try {
+            localStorage.setItem('urlDesignation', 'PA');
+            localStorage.removeItem('lastRequestUrl');
+          } catch {}
+        });
+        await page.waitForSelector('input[name="username"], #username', { timeout: 8000 });
+        console.log(`   📝 Login form found at ${page.url()}`);
+        return true;
+      } catch {
+        console.log(`   ↪️ No login form at ${target}, trying next...`);
+      }
+    }
+    return false;
+  };
+
+  if (!(await openLoginForm())) {
+    console.log('   ❌ Could not find the PA login form on any known URL');
+    return false;
+  }
 
   try {
-    await page.fill('input[name="username"]', username);
-    await page.fill('input[name="password"]', password);
+    await page.fill('input[name="username"], #username', username);
+    await page.fill('input[name="password"], #password', password);
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null),
-      page.click('input[name="login"], button[name="login"], button[type="submit"]'),
+      page.click('#login, input[name="login"], button[name="login"], button[type="submit"]'),
     ]);
-    // Give the post-login redirect a moment to settle
-    await page.waitForTimeout(1500);
+    // Give the post-login redirect / Angular handoff a moment to settle
+    await page.waitForTimeout(2500);
   } catch (e) {
     console.log(`   ❌ Form login error: ${e.message}`);
     return false;
   }
 
-  // Verify login by checking the page is no longer the login form
-  const url = page.url();
-  const stillOnLogin = url.endsWith('/login.jsp') || url.includes('/login.jsp?');
-  if (stillOnLogin) {
-    const html = await page.content();
-    if (html.includes('name="username"') && html.includes('name="password"')) {
-      console.log(`   ❌ Login failed — still on login form at ${url}`);
-      return false;
-    }
+  // Verify login: the login form must be gone.
+  const stillHasForm = await page
+    .evaluate(() => !!document.querySelector('input[name="password"], #password'))
+    .catch(() => false);
+  if (stillHasForm) {
+    console.log(`   ❌ Login failed — still on the login form at ${page.url()}`);
+    return false;
   }
+
 
 
   // Also mint an OAuth token + store it in localStorage so any subsequent
