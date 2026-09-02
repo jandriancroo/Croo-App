@@ -355,11 +355,15 @@ const Inventory = () => {
           .sort((a, b) => (a.win.end > b.win.end ? 1 : -1));
 
         for (const { c, win } of completedWithWindow) {
-          const purchasesTotal = allOrders.reduce((s, o) => {
-            if (!o.delivery_date) return s;
-            if (o.delivery_date < win.start || o.delivery_date > win.end) return s;
-            return s + (Number(o.total_amount) || 0);
-          }, 0);
+          const assigned = assignedByCount[c.id];
+          const purchasesTotal = assigned && assigned.size > 0
+            ? [...assigned].reduce((s, k) => s + (amountByKey[k] || 0), 0)
+            : allOrders.reduce((s, o) => {
+                if (!o.delivery_date) return s;
+                if (o.delivery_date < win.start || o.delivery_date > win.end) return s;
+                return s + (Number(o.total_amount) || 0);
+              }, 0);
+
           const netSales = salesRows.reduce((s, r) => {
             if (!r.sale_date) return s;
             if (r.sale_date < win.start || r.sale_date > win.end) return s;
