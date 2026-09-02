@@ -721,7 +721,14 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                   {cogsData.purchases && cogsData.purchases.length > 0 ? (
                     <>
                       {cogsData.purchases.map((po: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between">
+                        <div
+                          key={i}
+                          className={`flex items-center justify-between ${
+                            po.outsideWindow
+                              ? "rounded-md bg-amber-500/10 ring-1 ring-amber-500/40 px-2 py-1 -mx-1"
+                              : ""
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
                             <div className={`w-6 h-6 rounded-md flex items-center justify-center ${
                               po.vendor === "PFG" ? "bg-red-500/15 text-red-600" : "bg-green-500/15 text-green-600"
@@ -730,12 +737,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                             </div>
                             <div>
                               <p className="text-xs font-medium font-mono">{po.vendor} #{po.id}</p>
-                              <p className="text-[10px] text-muted-foreground">Delivered {po.deliveryDate || po.date}</p>
+                              <p className={`text-[10px] ${po.outsideWindow ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                Delivered {po.deliveryDate || po.date}
+                                {po.outsideWindow ? " · outside this period" : ""}
+                              </p>
                             </div>
                           </div>
                           <p className="text-xs font-semibold">${po.amount.toLocaleString()}</p>
                         </div>
                       ))}
+
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground">No orders found</p>
