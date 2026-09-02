@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chasePrices, CHASE_SELECT } from "../_shared/vendorPriceChase.ts";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { isExcludedLocation } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,6 +39,14 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Hard, named exclusion (sandbox stores) — independent of inventory_enabled.
+    if (isExcludedLocation(locationId)) {
+      return new Response(
+        JSON.stringify({ skipped: "excluded_location", location_id: locationId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Optional: pull a fresh bid guide first so the chase sees today's prices.
