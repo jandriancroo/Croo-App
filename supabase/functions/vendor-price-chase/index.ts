@@ -40,6 +40,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Hard, named exclusion (sandbox stores) — independent of inventory_enabled.
+    if (isExcludedLocation(locationId)) {
+      return new Response(
+        JSON.stringify({ skipped: "excluded_location", location_id: locationId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Optional: pull a fresh bid guide first so the chase sees today's prices.
     if (refreshMasters) {
       try {
