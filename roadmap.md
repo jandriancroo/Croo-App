@@ -6,3 +6,7 @@
 - [x] Targeted resync endpoint (vendor-price-chase) for the "needs price" button
 - [ ] UI: "N needs price" counter + Sync button on the item list (next)
 - [ ] UI: show discontinued date + ship-in-only badge in item list
+
+## COGS parity (Sep 2)
+- [ ] Dash list pill honors manual order assignments (match Report Builder / panel)
+- [ ] Purchases expanded list highlights orders delivered outside the period window
