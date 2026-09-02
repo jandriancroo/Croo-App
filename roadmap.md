@@ -8,5 +8,5 @@
 - [ ] UI: show discontinued date + ship-in-only badge in item list
 
 ## COGS parity (Sep 2)
-- [ ] Dash list pill honors manual order assignments (match Report Builder / panel)
-- [ ] Purchases expanded list highlights orders delivered outside the period window
+- [x] Dash list pill honors manual order assignments (match Report Builder / panel)
+- [x] Purchases expanded list highlights orders delivered outside the period window
