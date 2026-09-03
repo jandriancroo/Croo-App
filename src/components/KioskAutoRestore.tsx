@@ -63,13 +63,17 @@ export const KioskAutoRestore = () => {
 
     inFlightRef.current = true;
     (async () => {
-      const ok = await enterKioskMode();
+      const ok = await enterKioskMode('boot-restore');
       if (ok) {
+        // Legacy tablet with a working session but no durable key → mint one
+        // quietly. This is the migration path: no new pairing code needed.
+        ensureDeviceSecret().catch(() => {});
         navigate('/punch-clock', { replace: true });
       }
       inFlightRef.current = false;
     })();
   }, [loading, user?.id, location.pathname, navigate]);
+
 
   // Mirror rotated refresh tokens back into our own storage so a subsequent
   // cold launch can always restore the device session. Supabase rotates the
@@ -117,6 +121,9 @@ export const KioskAutoRestore = () => {
       if (hour < 4 || hour >= 6) return;
       if (window.location.pathname !== '/punch-clock') return;
       if (Date.now() - lastInteraction < 3 * 60 * 1000) return;
+      // Never reload while a pairing repair is in flight (shared lock).
+      if (isPairingLockBusy()) return;
+
 
       const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
       let last: string | null = null;
