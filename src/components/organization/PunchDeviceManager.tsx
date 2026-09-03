@@ -238,6 +238,51 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
           )}
         </div>
       </CardContent>
+
+      {/* Duplicate device name — replace the old tablet, or add another one? */}
+      <Dialog open={!!dupPrompt} onOpenChange={(open) => !open && setDupPrompt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>“{dupPrompt?.deviceName}” is already paired here</DialogTitle>
+            <DialogDescription>
+              This location already has an active tablet with that name. Replacing unpairs the old
+              tablet right away — it will ask for a new code. Adding keeps both tablets running.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            {(dupPrompt?.existingDevices || []).map((d: any) => (
+              <div key={d.id} className="rounded-lg border border-border p-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{d.device_name}</span>
+                {' · paired '}
+                {formatDistanceToNow(new Date(d.paired_at), { addSuffix: true })}
+                {d.last_active_at ? ` · last seen ${formatDistanceToNow(new Date(d.last_active_at), { addSuffix: true })}` : ''}
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDupPrompt(null)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const target = dupPrompt?.existingDevices?.[0]?.id;
+                setDupPrompt(null);
+                runGenerate('replace', target);
+              }}
+            >
+              Replace it
+            </Button>
+            <Button
+              onClick={() => {
+                setDupPrompt(null);
+                runGenerate('add');
+              }}
+            >
+              Add a new device
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
+
   );
 };
