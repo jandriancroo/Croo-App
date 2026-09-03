@@ -458,8 +458,8 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       <Button 
         onClick={handleSubmit} 
         disabled={
-          isSaving || !selectedEmployee || !reason ||
-          (!recording && (!issueDescription.trim() || !nextSteps.trim()))
+          isSaving || !selectedEmployee || !reason || !nextSteps.trim() ||
+          (!(recording?.bullets?.length) && !issueDescription.trim())
         }
         className="w-full"
       >
