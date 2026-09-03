@@ -57,7 +57,7 @@ export function TemporaryTaskDetailsDialog({
       const { data, error } = await supabase
         .from('employee_writeups')
         .select(`
-          *,
+          id, reason, issue_description, next_steps, photo_url, created_at, signed_at, employee_id, location_id,
           created_by_profile:profiles!employee_writeups_created_by_fkey(full_name)
         `)
         .eq('id', task.write_up_id)
