@@ -236,28 +236,105 @@ export default function PunchClock() {
   useSwipe(keypadSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
   useSwipe(shiftSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
 
-  // Keep the paired device session fresh. If the tablet sleeps or the PWA is
-  // backgrounded for hours, its access token can expire and every punch write
-  // starts failing while the screen still looks normal. Refresh on wake.
+  // Track whether a human is mid-session (PIN entered) so nothing reloads or
+  // repairs underneath them.
+  const onPinScreenRef = useRef(true);
+  onPinScreenRef.current = !currentUser;
+
+  // Last touch/tap/keypress — used only to decide "this kiosk is idle".
+  const lastInteractionRef = useRef(Date.now());
   useEffect(() => {
-    if (!isPaired()) return;
+    const touch = () => { lastInteractionRef.current = Date.now(); };
+    const events: (keyof DocumentEventMap)[] = ['pointerdown', 'keydown', 'touchstart'];
+    events.forEach((e) => document.addEventListener(e, touch, { passive: true }));
+    return () => events.forEach((e) => document.removeEventListener(e, touch));
+  }, []);
+
+  // Wake/visibility trigger — ONE handler does all three kiosk chores:
+  //   1. Keep the paired device session fresh (stale token = frozen clock).
+  //   2. Heartbeat (telemetry only — never expires a device).
+  //   3. Ask the SERVER whether a newer build is published, and reload the
+  //      tablet only while it is idle on the PIN screen.
+  // Deliberately not a separate background timer: iOS suspends timers when the
+  // PWA is backgrounded, which is the same class of bug as the token freeze.
+  useEffect(() => {
     let last = 0;
-    const maybeRefresh = () => {
+
+    const maybeReloadForNewBuild = async () => {
+      if (!onPinScreenRef.current) return;                                  // never mid-punch
+      if (Date.now() - lastInteractionRef.current < 3 * 60 * 1000) return;  // never mid-PIN
+      if (isPairingLockBusy()) return;                                      // repair in flight
+      const serverVersion = await fetchServerVersion();
+      if (!serverVersion || serverVersion === LOADED_VERSION) return;
+      if (!onPinScreenRef.current || isPairingLockBusy()) return;           // re-check after await
+      console.log(`[PunchClock] New build ${serverVersion} published (running ${LOADED_VERSION}) — reloading idle kiosk.`);
+      reloadToVersion(serverVersion);
+    };
+
+    const onWake = () => {
       if (document.visibilityState !== 'visible') return;
       if (Date.now() - last < 60 * 1000) return;
       last = Date.now();
-      refreshDeviceSession().catch(() => {});
+      if (isPaired()) {
+        refreshDeviceSession().catch(() => {});
+        sendDeviceHeartbeat().catch(() => {});
+      }
+      maybeReloadForNewBuild().catch(() => {});
     };
-    document.addEventListener('visibilitychange', maybeRefresh);
-    window.addEventListener('focus', maybeRefresh);
-    const id = window.setInterval(maybeRefresh, 15 * 60 * 1000);
-    maybeRefresh();
+
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    const id = window.setInterval(onWake, 5 * 60 * 1000);
+    onWake();
     return () => {
-      document.removeEventListener('visibilitychange', maybeRefresh);
-      window.removeEventListener('focus', maybeRefresh);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
       window.clearInterval(id);
     };
   }, []);
+
+  /**
+   * Write a punch with a bounded wait and ONE automatic repair-and-retry.
+   * This is the freeze fix: a dead mid-shift session no longer spins forever —
+   * it renews itself and retries once, or returns a real error.
+   */
+  const insertPunch = useCallback(async (row: Record<string, any>): Promise<{ error: { message: string } | null }> => {
+    const attempt = () =>
+      withTimeout(
+        supabase.from('time_punches').insert(row) as unknown as Promise<any>,
+        12000,
+        'Punch timed out',
+      );
+
+    let needsRepair = false;
+    try {
+      const first: any = await attempt();
+      if (!first?.error) return { error: null };
+      const msg = String(first.error?.message || '');
+      needsRepair = /jwt|token|expired|unauthor|not authenticated|permission|row-level/i.test(msg);
+      if (!needsRepair) return { error: first.error };
+    } catch {
+      needsRepair = true; // hung request — treat as a dead session
+    }
+
+    if (!needsRepair || !isPaired()) {
+      return { error: { message: 'Could not reach the punch clock. Check the tablet’s internet and try again.' } };
+    }
+
+    const repaired = await repairDeviceSession();
+    if (!repaired) {
+      return { error: { message: 'This tablet lost its connection to CrooHQ. Tell a manager — your time will be added manually.' } };
+    }
+
+    try {
+      const second: any = await attempt();
+      if (second?.error) return { error: second.error };
+      return { error: null };
+    } catch {
+      return { error: { message: 'Punch timed out. Check the tablet’s internet and try again.' } };
+    }
+  }, []);
+
 
   // Listen for localStorage changes from ManagerDashboardOverlay
   useEffect(() => {
