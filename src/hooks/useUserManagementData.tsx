@@ -717,7 +717,7 @@ export const useUserManagementData = () => {
     isBulkDeactivateOpen, setIsBulkDeactivateOpen, handleBulkDeactivate,
     isBulkWageOpen, setIsBulkWageOpen, handleBulkWageUpdate,
     isBulkI9Open, setIsBulkI9Open,
-    handleBulkForceUpdate, handleUpdateAllOutdated, handleUpdateAllOutdatedGlobal,
+    handleBulkForceUpdate, handleUpdateAllOutdated, handleUpdateAllOutdatedGlobal, handleUniversalUpdate,
     // Test users
     creatingTestUser, handleCreateTestEmployee,
     // Other handlers
