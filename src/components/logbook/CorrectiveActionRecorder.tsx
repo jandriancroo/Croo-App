@@ -162,7 +162,7 @@ export function CorrectiveActionRecorder({
             </Badge>
             {rec.sttModel && (
               <Badge variant="outline" className="text-[10px]">
-                {rec.sttModel === "mini" ? "Standard transcription" : "High-accuracy transcription"}
+                {rec.sttModel === "mini" ? "Mini transcription" : "Standard transcription"}
               </Badge>
             )}
             {consentAt && <span>Employee told before recording</span>}
