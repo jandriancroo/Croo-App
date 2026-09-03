@@ -17,11 +17,13 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   isPaired,
   isKioskExitActive,
-  isPairingBroken,
+  isPairingDead,
   enterKioskMode,
   getPairing,
   updateStoredSession,
   isPunchDeviceUser,
+  ensureDeviceSecret,
+  isPairingLockBusy,
 } from '@/lib/punchDevicePairing';
 
 export const KioskAutoRestore = () => {
@@ -34,9 +36,11 @@ export const KioskAutoRestore = () => {
     if (loading) return;
     if (inFlightRef.current) return;
     if (!isPaired()) return;
-    // Stored device token is dead — stop retrying so managers can log in and
-    // re-pair instead of being bounced back to a broken kiosk restore.
-    if (isPairingBroken()) return;
+    // Pairing is only dead when the server said the device row is gone or
+    // revoked. A failed token restore is retryable (reissue handles it), so we
+    // no longer bail out on a one-off failure.
+    if (isPairingDead()) return;
+
 
     const path = location.pathname;
     const isDeviceSession = isPunchDeviceUser(user);
