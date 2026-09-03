@@ -63,7 +63,7 @@ export function WriteUpsSection({ userId }: WriteUpsSectionProps) {
       <div className="space-y-3 pt-4 border-t border-border">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-destructive" />
-          <span className="text-sm font-medium text-foreground">Write-Ups</span>
+          <span className="text-sm font-medium text-foreground">Corrective Actions</span>
           <Badge variant="destructive" className="text-xs">
             {writeUps.length}
           </Badge>
@@ -99,13 +99,13 @@ export function WriteUpsSection({ userId }: WriteUpsSectionProps) {
         </div>
       </div>
 
-      {/* Write-Up Detail Dialog */}
+      {/* Corrective Action Detail Dialog */}
       <Dialog open={!!selectedWriteUp} onOpenChange={(open) => !open && setSelectedWriteUp(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Write-Up Details
+              Corrective Action Details
             </DialogTitle>
           </DialogHeader>
 

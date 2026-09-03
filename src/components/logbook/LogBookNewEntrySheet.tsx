@@ -73,7 +73,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
   const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
   const isCashCountTool = selectedCategory === 'cash-count-tool';
   const isCateringOrder = selectedCategory === 'catering-order';
-  const isEmployeeWriteUp = ['employee write-up', 'employee writeup', 'employee write up', 'write-up', 'writeup', 'write up'].includes(currentCategoryName || '');
+  const isEmployeeWriteUp = ['corrective action', 'employee write-up', 'employee writeup', 'employee write up', 'write-up', 'writeup', 'write up'].includes(currentCategoryName || '');
   const isReadAndSign = ['read & sign', 'read and sign', 'read-and-sign'].includes(currentCategoryName || '');
   const isPerformanceReview = ['performance review', 'performance-review'].includes(currentCategoryName || '');
   const isWasteLog = ['waste log', 'waste', 'waste report'].includes(currentCategoryName || '');
@@ -332,7 +332,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
     if (isEmployeeWriteUp) {
       return (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Employee Write-Up</h2>
+          <h2 className="text-lg font-semibold">Corrective Action</h2>
           <EmployeeWriteUpForm
             onSave={async (writeUpData: WriteUpData) => {
               if (isSavingSpecialForm) return;
@@ -340,24 +340,41 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
               try {
                 const { data: writeUp, error: writeUpError } = await supabase
                   .from('employee_writeups')
-                  .insert({ location_id: currentLocation!.id, employee_id: writeUpData.employeeId, created_by: user!.id, reason: writeUpData.reason, issue_description: writeUpData.issueDescription, next_steps: writeUpData.nextSteps, photo_url: writeUpData.photoUrl || null, is_final_warning: writeUpData.isFinalWarning })
+                  .insert({
+                    location_id: currentLocation!.id,
+                    employee_id: writeUpData.employeeId,
+                    created_by: user!.id,
+                    reason: writeUpData.reason,
+                    issue_description: writeUpData.issueDescription || null,
+                    next_steps: writeUpData.nextSteps || null,
+                    photo_url: writeUpData.photoUrl || null,
+                    is_final_warning: writeUpData.isFinalWarning,
+                    transcript_text: writeUpData.transcriptText || null,
+                    notes_bullets: writeUpData.notesBullets ?? null,
+                    consent_confirmed_at: writeUpData.consentConfirmedAt || null,
+                    recording_duration_seconds: writeUpData.recordingDurationSeconds ?? null,
+                    stt_model_used: writeUpData.sttModelUsed || null,
+                  })
                   .select().single();
                 if (writeUpError) throw writeUpError;
+                // Trail id: attach to the picked trail, otherwise this row starts its own trail.
+                const resolvedFamilyId = writeUpData.familyId || writeUp.id;
+                await supabase.from('employee_writeups').update({ family_id: resolvedFamilyId }).eq('id', writeUp.id);
                 const { error: taskError } = await supabase
                   .from('temporary_tasks')
-                  .insert({ location_id: currentLocation!.id, title: `Sign Write-Up: ${writeUpData.reason}`, description: 'You have a write-up that requires your acknowledgment and signature.', created_by: user!.id, accent_color: '#ef4444', task_style: 'quick', is_active: true, write_up_id: writeUp.id, push_enabled: true });
+                  .insert({ location_id: currentLocation!.id, title: `Sign Corrective Action: ${writeUpData.reason}`, description: 'You have a corrective action that requires your acknowledgment and signature.', created_by: user!.id, accent_color: '#ef4444', task_style: 'quick', is_active: true, write_up_id: writeUp.id, push_enabled: true });
                 if (taskError) throw taskError;
                 const { data: taskData } = await supabase.from('temporary_tasks').select('id').eq('write_up_id', writeUp.id).single();
                 if (taskData) {
                   await supabase.from('temporary_task_assignments').insert({ task_id: taskData.id, user_id: writeUpData.employeeId });
                 }
-                toast({ title: "Write-up submitted", description: `${writeUpData.employeeName} will be notified to sign.` });
+                toast({ title: "Corrective action submitted", description: `${writeUpData.employeeName} will be notified to sign.` });
                 queryClient.invalidateQueries({ queryKey: ['employee-writeups'] });
                 queryClient.invalidateQueries({ queryKey: ['temporary-tasks'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
               } catch (error: any) {
-                toast({ title: "Error saving write-up", description: error.message, variant: "destructive" });
+                toast({ title: "Error saving corrective action", description: error.message, variant: "destructive" });
               } finally { setIsSavingSpecialForm(false); }
             }}
             isSaving={isSavingSpecialForm}

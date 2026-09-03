@@ -20,6 +20,8 @@ import { compressImage } from "@/utils/imageCompression";
 import { useIsIOS } from "@/hooks/useIsIOS";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { CorrectiveActionRecorder, type RecordingResult } from "@/components/logbook/CorrectiveActionRecorder";
+import { CorrectiveActionTrails } from "@/components/logbook/CorrectiveActionTrails";
 
 interface EmployeeWriteUpFormProps {
   onSave: (data: WriteUpData) => Promise<void>;
@@ -34,6 +36,12 @@ export interface WriteUpData {
   nextSteps: string;
   photoUrl?: string;
   isFinalWarning: boolean;
+  familyId?: string | null;
+  transcriptText?: string | null;
+  notesBullets?: { speaker: string; text: string }[] | null;
+  consentConfirmedAt?: string | null;
+  recordingDurationSeconds?: number | null;
+  sttModelUsed?: string | null;
 }
 
 const DEFAULT_REASONS = [
@@ -63,6 +71,8 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [newReasonName, setNewReasonName] = useState("");
   const [addingReason, setAddingReason] = useState(false);
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [recording, setRecording] = useState<RecordingResult | null>(null);
 
   interface EmployeeOption {
     id: string;
@@ -201,11 +211,12 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       toast.error("Please select a reason");
       return;
     }
-    if (!issueDescription.trim()) {
+    const hasRecordedNotes = !!recording && (recording.bullets.length > 0 || !!recording.transcript.trim());
+    if (!hasRecordedNotes && !issueDescription.trim()) {
       toast.error("Please describe the issue");
       return;
     }
-    if (!nextSteps.trim()) {
+    if (!hasRecordedNotes && !nextSteps.trim()) {
       toast.error("Please provide next steps");
       return;
     }
@@ -218,6 +229,12 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       nextSteps: nextSteps.trim(),
       photoUrl: photoUrl || undefined,
       isFinalWarning,
+      familyId,
+      transcriptText: recording?.transcript || null,
+      notesBullets: recording?.bullets?.length ? recording.bullets : null,
+      consentConfirmedAt: recording?.consentConfirmedAt || null,
+      recordingDurationSeconds: recording?.durationSeconds || null,
+      sttModelUsed: recording?.sttModel || null,
     });
 
     // Send email notification to the employee
@@ -236,7 +253,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
             to: employeeData.email,
             data: {
               reason,
-              issue_description: issueDescription.trim(),
+              issue_description: issueDescription.trim() || (recording?.bullets || []).map((b) => `${b.speaker}: ${b.text}`).join('\n'),
               next_steps: nextSteps.trim(),
               is_final_warning: isFinalWarning,
               manager_name: managerProfile?.full_name || 'Management',
@@ -245,10 +262,10 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
             },
           },
         });
-        console.log('Write-up email sent to employee');
+        console.log('Corrective action email sent to employee');
       }
     } catch (emailError) {
-      console.error('Failed to send write-up email:', emailError);
+      console.error('Failed to send corrective action email:', emailError);
       // Don't block the form submission if email fails
     }
   };
@@ -343,9 +360,26 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
         </Select>
       </div>
 
+      {/* Trails: attach to an existing issue or start a new one */}
+      <CorrectiveActionTrails
+        employeeId={selectedEmployee?.id ?? null}
+        selectedFamilyId={familyId}
+        onSelect={setFamilyId}
+        currentReason={reason}
+      />
+
+      {/* Conversation recording (optional) */}
+      <CorrectiveActionRecorder
+        employeeId={selectedEmployee?.id ?? null}
+        employeeName={selectedEmployee ? getDisplayName(selectedEmployee.full_name, selectedEmployee.nickname) : ""}
+        managerName={managerProfile?.full_name || "Manager"}
+        value={recording}
+        onChange={setRecording}
+      />
+
       {/* Issue Description */}
       <div className="space-y-2">
-        <Label>Issue Description *</Label>
+        <Label>Issue Description {recording ? "(optional — notes captured)" : "*"}</Label>
         <Textarea
           placeholder="Describe what happened..."
           value={issueDescription}
@@ -356,7 +390,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
 
       {/* Next Steps */}
       <div className="space-y-2">
-        <Label>Next Steps for Team Member *</Label>
+        <Label>Next Steps for Team Member {recording ? "(optional)" : "*"}</Label>
         <Textarea
           placeholder="What should the team member do to improve..."
           value={nextSteps}
@@ -423,7 +457,10 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       {/* Submit Button */}
       <Button 
         onClick={handleSubmit} 
-        disabled={isSaving || !selectedEmployee || !reason || !issueDescription.trim() || !nextSteps.trim()}
+        disabled={
+          isSaving || !selectedEmployee || !reason ||
+          (!recording && (!issueDescription.trim() || !nextSteps.trim()))
+        }
         className="w-full"
       >
         {isSaving ? (
@@ -432,7 +469,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
             Submitting...
           </>
         ) : (
-          "Submit Write-Up"
+          "Submit Corrective Action"
         )}
       </Button>
 

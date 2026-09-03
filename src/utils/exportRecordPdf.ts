@@ -176,11 +176,11 @@ function buildWriteUpHtml(data: WriteUpExport): string {
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
-<title>Write-Up – ${escapeHtml(data.employeeName)}</title>
+<title>Corrective Action – ${escapeHtml(data.employeeName)}</title>
 <style>${getBaseStyles()}</style>
 </head><body>
 <div class="header">
-  <h1>Employee Write-Up</h1>
+  <h1>Corrective Action</h1>
   <div class="header-meta">
     <span>Employee: <strong>${escapeHtml(data.employeeName)}</strong></span>
     <span>Date: ${dateStr}</span>

@@ -306,13 +306,13 @@ export function TemporaryTaskDetailsDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <div className="w-3 h-3 rounded-full bg-destructive" />
-              Write-Up Acknowledgment
+              Corrective Action Acknowledgment
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              You have a write-up that requires your acknowledgment. Please review and sign to complete this task.
+              You have a corrective action that requires your acknowledgment. Please review and sign to complete this task.
             </p>
             
             <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/30">
@@ -327,7 +327,7 @@ export function TemporaryTaskDetailsDialog({
             className="w-full"
             variant="destructive"
           >
-            Review & Sign Write-Up
+            Review & Sign Corrective Action
           </Button>
         </DialogContent>
       </Dialog>

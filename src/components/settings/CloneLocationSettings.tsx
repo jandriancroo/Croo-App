@@ -18,7 +18,7 @@ const CLONE_OPTIONS: { type: CloneType; label: string; description: string }[] =
   { type: 'shift_templates', label: 'Shift Templates', description: 'All shift templates with positions' },
   { type: 'checklists', label: 'Checklists', description: 'All active checklists with items & role tags' },
   { type: 'logbook_categories', label: 'Logbook Categories', description: 'Logbook category names and settings' },
-  { type: 'writeup_reasons', label: 'Writeup Reasons', description: 'Employee writeup reason templates' },
+  { type: 'writeup_reasons', label: 'Corrective Action Reasons', description: 'Corrective action reason templates' },
 ];
 
 export function CloneLocationSettings() {
