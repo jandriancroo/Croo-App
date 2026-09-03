@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
 
   const { data: allowed, error: roleErr } = await supabase.rpc('has_role_or_higher', {
     _user_id: userData.user.id,
-    _role: 'manager',
+    _minimum_role: 'manager',
   });
   if (roleErr) console.error('[corrective-action] role check error', roleErr);
   if (!allowed) return json({ error: 'Forbidden' }, 403);
