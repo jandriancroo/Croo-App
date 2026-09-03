@@ -390,7 +390,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
 
       {/* Next Steps */}
       <div className="space-y-2">
-        <Label>Next Steps for Team Member {recording ? "(optional)" : "*"}</Label>
+        <Label>Next Steps for Team Member *</Label>
         <Textarea
           placeholder="What should the team member do to improve..."
           value={nextSteps}
@@ -458,8 +458,8 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       <Button 
         onClick={handleSubmit} 
         disabled={
-          isSaving || !selectedEmployee || !reason ||
-          (!recording && (!issueDescription.trim() || !nextSteps.trim()))
+          isSaving || !selectedEmployee || !reason || !nextSteps.trim() ||
+          (!(recording?.bullets?.length) && !issueDescription.trim())
         }
         className="w-full"
       >
