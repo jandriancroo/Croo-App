@@ -83,3 +83,24 @@ Client (`useConversationRecorder`, iPad-first PWA):
   waived only when `notes_bullets` exist; `next_steps` required on every save;
   recorder model badge corrected (Mini = "Mini transcription",
   GPT-4o Transcribe fallback = "Standard transcription").
+- **2026-09-03 (floor bugfix lock)** — Sign + notes fixes:
+  - **Employee sign is ONE landscape surface.** Rotate-to-review shows on open (icon + one line),
+    not after a portrait scroll. `LandscapeSignatureOverlay` gained `details` + `rotateMessage`;
+    `WriteUpSignatureView` renders date, reason, issued-by, issue description, next steps, and photo
+    **above** the pad, then Confirm. The separate portrait review dialog + tap-hop is gone.
+  - **Sign-task close is idempotent.** `handleWriteUpComplete` reads the task first; an already
+    completed task closes as success. On an update error it checks `signed_at` — if signed, closing
+    is a no-op success. Never re-signs, never duplicates, never re-opens. Signature write is guarded
+    with `.is('signed_at', null)`.
+  - **RLS fix on `temporary_tasks` UPDATE.** The old policy had `ta.task_id = ta.id` (never matched),
+    so assignees could not close. Now: `ta.task_id = temporary_tasks.id`, plus identity access for the
+    employee named on the linked writeup (`employee_writeups.employee_id = auth.uid()`), plus
+    `has_role_or_higher(auth.uid(),'manager')` so super_admin/org_admin/brand_admin are included.
+    USING and WITH CHECK both present.
+  - **Employee-facing read is column-scoped.** The write-up fetch in `TemporaryTaskDetailsDialog`
+    no longer uses `select('*')` and never selects `transcript_text`.
+  - **`notes_bullets` prompt.** Hard floor "4 to 12 bullets" removed; count scales with the
+    transcript and a one-or-two-sentence sit-down yields ONE bullet. Speaker name/role must never be
+    restated inside bullet text; no filler openers. Max 12. Historical `notes_bullets` were not rewritten.
+  - Untouched: `send-notification-email`, table/column names, trails/`family_id`, consent, chunking,
+    hop-1 transcribe models, punch clock.
