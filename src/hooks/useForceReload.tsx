@@ -60,6 +60,15 @@ export function useForceReload() {
     }
   }, []);
 
+  // Universal update: one public channel every client listens on, signed in or
+  // not, so a single button can refresh the whole company.
+  useEffect(() => {
+    return subscribeUniversalUpdate(() => {
+      console.log('[ForceReload] Universal update received, reloading...');
+      window.location.reload();
+    });
+  }, []);
+
   useEffect(() => {
     if (!user) return;
 
