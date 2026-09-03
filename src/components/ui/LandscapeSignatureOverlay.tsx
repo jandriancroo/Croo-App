@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Check, RotateCcw, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,10 @@ interface LandscapeSignatureOverlayProps {
   onSave: (signatureDataUrl: string) => void;
   title?: string;
   disabled?: boolean;
+  /** Optional content rendered ABOVE the signature pad on the same landscape surface. */
+  details?: ReactNode;
+  /** One-line portrait prompt. */
+  rotateMessage?: string;
 }
 
 export function LandscapeSignatureOverlay({
@@ -17,7 +21,10 @@ export function LandscapeSignatureOverlay({
   onSave,
   title = "Sign Below",
   disabled = false,
+  details,
+  rotateMessage = "Rotate your device to landscape to continue.",
 }: LandscapeSignatureOverlayProps) {
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
