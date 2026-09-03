@@ -35,6 +35,7 @@ import {
   withTimeout,
 } from '@/lib/punchDevicePairing';
 import { LOADED_VERSION, fetchServerVersion, reloadToVersion } from '@/utils/buildVersion';
+import { subscribeUniversalUpdate } from '@/lib/universalUpdate';
 
 
 // Function to calculate average brightness of an image
@@ -305,7 +306,9 @@ export default function PunchClock() {
       if (Date.now() - lastInteractionRef.current < 20 * 1000) return false;
       if (isPairingLockBusy()) return false;
       console.log('[PunchClock] Universal update received — reloading idle kiosk.');
-      reloadToVersion(LOADED_VERSION);
+      fetchServerVersion()
+        .then((v) => reloadToVersion(v || String(Date.now())))
+        .catch(() => reloadToVersion(String(Date.now())));
       return true;
     };
 
