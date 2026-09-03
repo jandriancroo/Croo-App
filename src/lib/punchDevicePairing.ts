@@ -7,6 +7,16 @@
  * — that's what prevents force-quit from dropping staff into a manager's
  * account.
  *
+ * PAIRING MODEL (locked 2026-09-03 — "pairing until revoke"):
+ *   - The durable credential is the DEVICE SECRET, minted once at redeem and
+ *     stored hashed on the device row. It never rotates.
+ *   - Auth sessions are disposable. If a refresh token is stale, spent, or the
+ *     tablet was force-quit mid-rotation, we call `reissue` with the secret and
+ *     get a brand-new session for the SAME device row / SAME auth user.
+ *   - A tablet is only "dead" (needs a new pairing code) when the SERVER says
+ *     the device row is missing or revoked. Nothing else unpairs it. There is
+ *     no TTL on a live device, and `last_active_at` is telemetry only.
+ *
  * Storage strategy: localStorage + cookie backup (belt & suspenders).
  * iOS Safari can evict localStorage after ~7 days of no interaction; the
  * cookie is a 400-day-long fallback so a tablet that goes quiet over a
@@ -61,6 +71,8 @@ export interface PunchDeviceLocation {
 export interface PunchDeviceCredential {
   deviceId: string;
   deviceName: string;
+  /** Durable proof of possession. Does not rotate. */
+  deviceSecret?: string;
   location: PunchDeviceLocation;
   session: {
     access_token: string;
@@ -95,13 +107,19 @@ function deleteCookie(name: string) {
 
 // ---------------------------------------------------------------- storage
 
+// A stored pairing is valid if it can prove itself EITHER way: a durable
+// secret (preferred) or a refresh token (legacy tablets, pre-secret).
+function isUsablePairing(parsed: any): boolean {
+  return !!parsed?.deviceId && (!!parsed?.deviceSecret || !!parsed?.session?.refresh_token);
+}
+
 export function getPairing(): PunchDeviceCredential | null {
   // localStorage first (fast path)
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed?.deviceId && parsed?.session?.refresh_token) return parsed;
+      if (isUsablePairing(parsed)) return parsed;
     }
   } catch {}
   // Cookie fallback (iOS 7-day eviction survivor)
@@ -109,7 +127,7 @@ export function getPairing(): PunchDeviceCredential | null {
   if (cookie) {
     try {
       const parsed = JSON.parse(cookie);
-      if (parsed?.deviceId && parsed?.session?.refresh_token) {
+      if (isUsablePairing(parsed)) {
         // Rehydrate localStorage from cookie
         try { localStorage.setItem(STORAGE_KEY, cookie); } catch {}
         return parsed;
@@ -130,6 +148,17 @@ export function updateStoredSession(session: { access_token: string; refresh_tok
   if (!cred) return;
   cred.session = session;
   setPairing(cred);
+}
+
+export function storeDeviceSecret(deviceSecret: string) {
+  const cred = getPairing();
+  if (!cred || !deviceSecret) return;
+  cred.deviceSecret = deviceSecret;
+  setPairing(cred);
+}
+
+export function hasDeviceSecret(): boolean {
+  return !!getPairing()?.deviceSecret;
 }
 
 export function clearPairing() {
@@ -175,42 +204,168 @@ export function clearKioskExitActive() {
   try { localStorage.removeItem(EXIT_UNTIL_KEY); } catch {}
 }
 
-// ------------------------------------------------------- broken pairing flag
+// --------------------------------------------------------- dead pairing flag
 
-// Set when a stored device session can no longer be restored (refresh token
-// rotated away / revoked). While set, auto-restore stops trying so a manager
-// can actually reach the login screen, and the pairing screen tells them the
-// tablet needs a fresh pairing code.
-const PAIRING_BROKEN_KEY = 'croohq_punch_device_broken_v1';
+// Set ONLY when the server tells us the device row is gone or revoked. A failed
+// token restore is no longer terminal — reissue handles that. This flag exists
+// so a revoked tablet stops looping and a manager can sign in and re-pair.
+const PAIRING_DEAD_KEY = 'croohq_punch_device_broken_v1';
 
-export function isPairingBroken(): boolean {
-  try { return localStorage.getItem(PAIRING_BROKEN_KEY) === '1'; } catch { return false; }
+export function isPairingDead(): boolean {
+  try { return localStorage.getItem(PAIRING_DEAD_KEY) === '1'; } catch { return false; }
 }
-export function markPairingBroken() {
-  try { localStorage.setItem(PAIRING_BROKEN_KEY, '1'); } catch {}
+export function markPairingDead() {
+  try { localStorage.setItem(PAIRING_DEAD_KEY, '1'); } catch {}
 }
-export function clearPairingBroken() {
-  try { localStorage.removeItem(PAIRING_BROKEN_KEY); } catch {}
+export function clearPairingDead() {
+  try { localStorage.removeItem(PAIRING_DEAD_KEY); } catch {}
 }
 
+/** @deprecated name kept for existing call sites — same meaning as isPairingDead(). */
+export const isPairingBroken = isPairingDead;
+export const clearPairingBroken = clearPairingDead;
+
+// ------------------------------------------------------- ONE single-flight lock
+
+/**
+ * A single named lock shared by EVERY pairing-touching trigger:
+ * boot restore, wake repair, secret backfill and the idle build reload.
+ * If any one holds it, the others defer instead of racing for the same
+ * refresh token (which is single-use and was the original freeze).
+ */
+export type PairingTask = 'boot-restore' | 'wake-repair' | 'secret-backfill' | 'idle-reload' | 'punch-repair';
+
+export const PAIRING_DEFERRED = Symbol('pairing-deferred');
+
+let lockHolder: PairingTask | null = null;
+let lockPromise: Promise<any> | null = null;
+
+export function isPairingLockBusy(): boolean {
+  return lockHolder !== null;
+}
+export function pairingLockHolder(): PairingTask | null {
+  return lockHolder;
+}
+
+export async function withPairingLock<T>(
+  task: PairingTask,
+  fn: () => Promise<T>,
+): Promise<T | typeof PAIRING_DEFERRED> {
+  if (lockHolder) {
+    // Same concern already running → join it. Different concern → defer.
+    if (lockHolder === task && lockPromise) return lockPromise as Promise<T>;
+    return PAIRING_DEFERRED;
+  }
+  lockHolder = task;
+  lockPromise = (async () => fn())().finally(() => {
+    lockHolder = null;
+    lockPromise = null;
+  });
+  return lockPromise as Promise<T>;
+}
 
 // ---------------------------------------------------------------- flow
 
+function applySession(session: { access_token: string; refresh_token: string; expires_at?: number }) {
+  updateStoredSession(session);
+}
+
 /**
- * Enter kiosk mode: sign out any active human session, restore the device
- * session from stored credentials. Caller navigates to /punch-clock after.
- * Returns true on success, false if not paired or restore failed.
+ * Reissue: the PRIMARY restore path. Proves possession with deviceId + secret,
+ * gets a brand-new session for the same device row, and installs it.
+ * Returns true on success. Marks pairing dead only if the server says the
+ * device is missing or revoked.
  */
-let enterKioskModePromise: Promise<boolean> | null = null;
+async function reissueOnce(): Promise<boolean> {
+  const cred = getPairing();
+  if (!cred?.deviceSecret) return false;
 
-export async function enterKioskMode(): Promise<boolean> {
-  if (enterKioskModePromise) return enterKioskModePromise;
-
-  enterKioskModePromise = enterKioskModeOnce().finally(() => {
-    enterKioskModePromise = null;
+  const { data, error } = await supabase.functions.invoke('punch-device-service', {
+    body: { action: 'reissue', deviceId: cred.deviceId, deviceSecret: cred.deviceSecret },
   });
 
-  return enterKioskModePromise;
+  if (data?.dead === true) {
+    console.warn('[punchDevicePairing] device is revoked or missing — pairing is dead');
+    markPairingDead();
+    return false;
+  }
+  if (error || !data?.session?.refresh_token) {
+    console.warn('[punchDevicePairing] reissue failed (retryable):', error?.message || data?.error);
+    return false;
+  }
+
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  const { data: set, error: setErr } = await supabase.auth.setSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  });
+  if (setErr || !set.session) {
+    console.warn('[punchDevicePairing] reissued session could not be installed:', setErr?.message);
+    return false;
+  }
+
+  const next: PunchDeviceCredential = {
+    ...cred,
+    deviceName: data.deviceName || cred.deviceName,
+    location: data.location || cred.location,
+    session: {
+      access_token: set.session.access_token,
+      refresh_token: set.session.refresh_token,
+      expires_at: set.session.expires_at,
+    },
+  };
+  setPairing(next);
+  clearPairingDead();
+  return true;
+}
+
+/** Public reissue — always runs under the shared lock. */
+export async function reissueDeviceSession(task: PairingTask = 'wake-repair'): Promise<boolean> {
+  const result = await withPairingLock(task, reissueOnce);
+  return result === PAIRING_DEFERRED ? false : result;
+}
+
+/**
+ * Legacy tablets (paired before durable secrets) that still hold a working
+ * device session mint their secret in the background. No new pairing code.
+ */
+async function backfillSecretOnce(): Promise<boolean> {
+  const cred = getPairing();
+  if (!cred || cred.deviceSecret) return false;
+
+  const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+  if (!sess?.session || !isPunchDeviceUser(sess.session.user)) return false;
+
+  const { data, error } = await supabase.functions.invoke('punch-device-service', {
+    body: { action: 'backfill_secret' },
+  });
+  if (data?.dead === true) {
+    markPairingDead();
+    return false;
+  }
+  if (error || !data?.deviceSecret) return false;
+
+  storeDeviceSecret(data.deviceSecret);
+  console.log('[punchDevicePairing] device key stored — this tablet will self-recover from now on');
+  return true;
+}
+
+export async function ensureDeviceSecret(): Promise<boolean> {
+  const result = await withPairingLock('secret-backfill', backfillSecretOnce);
+  return result === PAIRING_DEFERRED ? false : result;
+}
+
+/**
+ * Enter kiosk mode: make sure the tablet is signed in as its paired device.
+ * Order of operations:
+ *   1. Already the device session → keep it (never re-consume a refresh token).
+ *   2. Reissue with the durable secret (primary).
+ *   3. Legacy fallback: restore the stored refresh token, then backfill a secret.
+ * Caller navigates to /punch-clock after. Returns true on success.
+ */
+export async function enterKioskMode(task: PairingTask = 'boot-restore'): Promise<boolean> {
+  const result = await withPairingLock(task, enterKioskModeOnce);
+  return result === PAIRING_DEFERRED ? false : result;
 }
 
 async function enterKioskModeOnce(): Promise<boolean> {
@@ -221,72 +376,51 @@ async function enterKioskModeOnce(): Promise<boolean> {
   clearKioskExitActive();
 
   // If the tablet is already signed in as the paired device, do not sign out
-  // and re-consume the same refresh token. This prevents double entry paths
-  // (login-screen click + auto-restore) from immediately killing the kiosk
-  // session and bouncing the tablet back to login.
+  // and re-consume the same refresh token.
   const existing = await supabase.auth.getSession().catch(() => null);
   const existingSession = existing?.data?.session;
   if (existingSession && isPunchDeviceUser(existingSession.user)) {
-    updateStoredSession({
+    applySession({
       access_token: existingSession.access_token,
       refresh_token: existingSession.refresh_token,
       expires_at: existingSession.expires_at,
     });
-    clearPairingBroken();
+    clearPairingDead();
+    if (!cred.deviceSecret) backfillSecretOnce().catch(() => {});
     return true;
   }
 
-  // Hard sign-out of whatever session is currently on the device.
-  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-
-  // Restore the device session.
-  const { data, error } = await supabase.auth.setSession({
-    access_token: cred.session.access_token,
-    refresh_token: cred.session.refresh_token,
-  });
-
-  if (error || !data.session) {
-    console.error('[punchDevicePairing] Failed to restore device session:', error);
-    // Stored token is no longer usable. Stop auto-restore loops so a manager
-    // can reach the login screen and re-pair the tablet.
-    markPairingBroken();
-    return false;
+  // PRIMARY: durable secret → brand-new session, same device.
+  if (cred.deviceSecret) {
+    const ok = await reissueOnce();
+    if (ok) return true;
+    if (isPairingDead()) return false;
+    // fall through to the stored token as a second chance
   }
 
-  // Persist any refreshed tokens back to our own storage.
-  updateStoredSession({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token,
-    expires_at: data.session.expires_at,
-  });
-  clearPairingBroken();
-
-  return true;
-}
-
-/**
- * Keep the paired device session fresh. Called when the punch clock becomes
- * visible again (tablet wake, PWA foreground). A stale/expired access token is
- * the classic "scheduled staff can't punch in" failure: reads and writes start
- * failing on RLS while the UI still looks paired. Refreshing on wake, and
- * persisting the rotated refresh token, prevents that drift.
- */
-export async function refreshDeviceSession(): Promise<boolean> {
-  if (!getPairing()) return false;
-  const { data, error } = await supabase.auth.refreshSession();
-  const session = data?.session;
-  if (error || !session) {
-    // Fall back to re-establishing from stored credentials.
-    return enterKioskMode();
+  // LEGACY / fallback: restore from the stored refresh token.
+  if (cred.session?.refresh_token) {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    const { data, error } = await supabase.auth.setSession({
+      access_token: cred.session.access_token,
+      refresh_token: cred.session.refresh_token,
+    });
+    if (!error && data.session) {
+      applySession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+      });
+      clearPairingDead();
+      if (!cred.deviceSecret) backfillSecretOnce().catch(() => {});
+      return true;
+    }
+    console.warn('[punchDevicePairing] stored token restore failed:', error?.message);
   }
-  if (!isPunchDeviceUser(session.user)) return false;
-  updateStoredSession({
-    access_token: session.access_token,
-    refresh_token: session.refresh_token,
-    expires_at: session.expires_at,
-  });
-  clearPairingBroken();
-  return true;
+
+  // Not dead — just unrecoverable right now (offline, transient 5xx). The next
+  // wake/visibility trigger tries again. Only the server can declare it dead.
+  return false;
 }
 
 /**
@@ -305,7 +439,7 @@ export async function exitKioskMode() {
   const existing = await supabase.auth.getSession().catch(() => null);
   const existingSession = existing?.data?.session;
   if (existingSession && isPunchDeviceUser(existingSession.user)) {
-    updateStoredSession({
+    applySession({
       access_token: existingSession.access_token,
       refresh_token: existingSession.refresh_token,
       expires_at: existingSession.expires_at,
@@ -317,9 +451,79 @@ export async function exitKioskMode() {
 }
 
 /**
+ * Keep the paired device session fresh. Called when the punch clock becomes
+ * visible again (tablet wake, PWA foreground). A stale/expired access token is
+ * the classic "scheduled staff can't punch in" failure. Bounded so a hung
+ * refresh can never leave the kiosk spinning forever.
+ */
+export async function refreshDeviceSession(): Promise<boolean> {
+  if (!getPairing()) return false;
+
+  const result = await withPairingLock('wake-repair', async () => {
+    const refreshed = await withTimeout(supabase.auth.refreshSession(), 8000).catch(() => null);
+    const session = refreshed?.data?.session;
+    if (session && isPunchDeviceUser(session.user)) {
+      applySession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at: session.expires_at,
+      });
+      clearPairingDead();
+      const cred = getPairing();
+      if (cred && !cred.deviceSecret) backfillSecretOnce().catch(() => {});
+      return true;
+    }
+    // Refresh hung or the token was already spent → reissue with the secret.
+    return enterKioskModeOnce();
+  });
+
+  return result === PAIRING_DEFERRED ? false : result;
+}
+
+/**
+ * In-session repair. Called when a punch write or heartbeat fails with an auth
+ * error mid-shift (the "clock froze" symptom). Renews the session so the caller
+ * can retry the action exactly once.
+ */
+export async function repairDeviceSession(): Promise<boolean> {
+  if (!getPairing()) return false;
+  const result = await withPairingLock('punch-repair', async () => {
+    const cred = getPairing();
+    if (cred?.deviceSecret) {
+      const ok = await reissueOnce();
+      if (ok) return true;
+      if (isPairingDead()) return false;
+    }
+    return enterKioskModeOnce();
+  });
+  return result === PAIRING_DEFERRED ? false : result;
+}
+
+/** Telemetry only. Never used to expire a device. */
+export async function sendDeviceHeartbeat(): Promise<void> {
+  if (!getPairing()) return;
+  try {
+    await supabase.functions.invoke('punch-device-service', { body: { action: 'heartbeat' } });
+  } catch {
+    // Heartbeat is best-effort; never surface to the floor.
+  }
+}
+
+/** Reject after `ms` so no kiosk action can hang forever. */
+export function withTimeout<T>(promise: Promise<T>, ms: number, label = 'timeout'): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error(label)), ms);
+    promise.then(
+      (v) => { window.clearTimeout(id); resolve(v); },
+      (e) => { window.clearTimeout(id); reject(e); },
+    );
+  });
+}
+
+/**
  * Redeem a pairing code with the backend and store the resulting device
- * credentials. Does NOT establish the session automatically — call
- * enterKioskMode() after this to actually sign in as the device.
+ * credentials (including the durable device secret). Does NOT establish the
+ * session automatically — call enterKioskMode() after this.
  */
 export async function redeemPairingCode(code: string): Promise<PunchDeviceCredential> {
   const { data, error } = await supabase.functions.invoke('punch-device-service', {
@@ -332,11 +536,12 @@ export async function redeemPairingCode(code: string): Promise<PunchDeviceCreden
   const cred: PunchDeviceCredential = {
     deviceId: data.deviceId,
     deviceName: data.deviceName,
+    deviceSecret: data.deviceSecret,
     location: data.location,
     session: data.session,
   };
   setPairing(cred);
-  clearPairingBroken();
+  clearPairingDead();
   clearKioskExitActive();
   return cred;
 }
