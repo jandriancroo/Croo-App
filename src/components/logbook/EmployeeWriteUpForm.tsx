@@ -211,12 +211,12 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       toast.error("Please select a reason");
       return;
     }
-    const hasRecordedNotes = !!recording && (recording.bullets.length > 0 || !!recording.transcript.trim());
+    const hasRecordedNotes = !!recording && recording.bullets.length > 0;
     if (!hasRecordedNotes && !issueDescription.trim()) {
       toast.error("Please describe the issue");
       return;
     }
-    if (!hasRecordedNotes && !nextSteps.trim()) {
+    if (!nextSteps.trim()) {
       toast.error("Please provide next steps");
       return;
     }
