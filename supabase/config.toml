@@ -132,3 +132,6 @@ verify_jwt = true
 
 [functions.watch-device-service]
 verify_jwt = false
+
+[functions.corrective-action-transcribe]
+verify_jwt = false
