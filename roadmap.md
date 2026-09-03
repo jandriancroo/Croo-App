@@ -21,3 +21,14 @@
 - [x] Replace-vs-add prompt on duplicate device name at code generation
 - [x] Locked docs: SHARED_WORKSPACE/punch_clock/pairing-until-revoke.md
 - [ ] Publish to croohq.com and verify on a real paired iPad
+
+## Corrective Action (Logs) — Sep 3
+- [x] Rename Employee Write-Up → Corrective Action (UI copy only, table untouched)
+- [x] Schema: family_id (backfilled), transcript_text, notes_bullets, consent_confirmed_at, recording_duration_seconds, stt_model_used
+- [x] Transcript read locked to manager tier via get_corrective_action_transcript RPC
+- [x] Recorder: 75s segments, 15 min cap, background auto-stop, audio discarded
+- [x] Mini Transcribe (fallback standard) → one Gemini 3.7 Flash bullet pass with names
+- [x] Trails: attach to existing issue or start new, reason mismatch flagged
+- [x] Bullets + transcript editable until signed_at
+- [x] Locked docs: SHARED_WORKSPACE/logs/corrective-action.md
+- [ ] Diff review, then publish to croohq.com
