@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { subscribeUniversalUpdate } from '@/lib/universalUpdate';
 
 declare const __APP_VERSION__: string;
 
