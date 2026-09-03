@@ -213,11 +213,15 @@ export function LandscapeSignatureOverlay({
           </div>
         </div>
 
-        {/* Canvas area */}
-        <div className="flex-1 p-4 min-h-0">
+        {/* Details (optional) + canvas on ONE surface */}
+        <div className={cn("flex-1 min-h-0", details ? "overflow-y-auto p-4 space-y-4" : "p-4")}>
+          {details}
           <div
             ref={containerRef}
-            className="w-full h-full border-2 border-dashed rounded-lg bg-white dark:bg-slate-900 overflow-hidden relative"
+            className={cn(
+              "w-full border-2 border-dashed rounded-lg bg-white dark:bg-slate-900 overflow-hidden relative",
+              details ? "h-[240px]" : "h-full",
+            )}
           >
             <canvas
               ref={canvasRef}
@@ -237,6 +241,7 @@ export function LandscapeSignatureOverlay({
             )}
           </div>
         </div>
+
       </div>
     </div>
   );
