@@ -253,7 +253,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
             to: employeeData.email,
             data: {
               reason,
-              issue_description: issueDescription.trim() || (recording?.bullets || []).map((b) => `${b.speaker}: ${b.text}`).join('\n'),
+              issue_description: issueDescription.trim(),
               next_steps: nextSteps.trim(),
               is_final_warning: isFinalWarning,
               manager_name: managerProfile?.full_name || 'Management',
