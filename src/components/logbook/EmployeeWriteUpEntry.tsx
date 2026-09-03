@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertTriangle, Check, Clock, Eye, User } from "lucide-react";
 import { format } from "date-fns";
+import { CorrectiveActionNotesPanel } from "@/components/logbook/CorrectiveActionNotesPanel";
 
 interface WriteUpData {
   id: string;
@@ -18,6 +19,9 @@ interface WriteUpData {
   viewed_at?: string;
   created_at: string;
   is_final_warning?: boolean;
+  notes_bullets?: { speaker: string; text: string }[] | null;
+  recording_duration_seconds?: number | null;
+  consent_confirmed_at?: string | null;
   employee?: { full_name: string; profile_photo_url?: string };
   created_by_profile?: { full_name: string };
 }
@@ -110,17 +114,29 @@ export function EmployeeWriteUpEntry({ writeUp }: EmployeeWriteUpEntryProps) {
               </Badge>
             </div>
 
+            {/* Recorded conversation notes (bullets first, transcript collapsed) */}
+            <CorrectiveActionNotesPanel
+              writeUpId={writeUp.id}
+              notesBullets={writeUp.notes_bullets || null}
+              signedAt={writeUp.signed_at}
+              recordingDurationSeconds={writeUp.recording_duration_seconds || null}
+            />
+
             {/* Issue Description */}
+            {writeUp.issue_description && (
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Issue Description</p>
               <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-lg">{writeUp.issue_description}</p>
             </div>
+            )}
 
             {/* Next Steps */}
+            {writeUp.next_steps && (
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Next Steps</p>
               <p className="text-sm whitespace-pre-wrap bg-primary/5 p-3 rounded-lg border border-primary/20">{writeUp.next_steps}</p>
             </div>
+            )}
 
             {/* Photo Evidence */}
             {writeUp.photo_url && (
