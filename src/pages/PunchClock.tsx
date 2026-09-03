@@ -34,7 +34,7 @@ import {
   isPairingLockBusy,
   withTimeout,
 } from '@/lib/punchDevicePairing';
-import { LOADED_VERSION, getBuildLoadedAt, fetchServerVersion, reloadToVersion } from '@/utils/buildVersion';
+import { LOADED_VERSION, fetchServerVersion, reloadToVersion } from '@/utils/buildVersion';
 
 
 // Function to calculate average brightness of an image

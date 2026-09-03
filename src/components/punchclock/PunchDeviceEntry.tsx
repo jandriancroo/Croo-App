@@ -17,7 +17,7 @@ import {
   isPaired,
   redeemPairingCode,
   enterKioskMode,
-  isPairingBroken,
+  isPairingDead,
 } from '@/lib/punchDevicePairing';
 
 export const PunchDeviceEntry = () => {
@@ -28,23 +28,30 @@ export const PunchDeviceEntry = () => {
 
   const goToKiosk = async () => {
     setBusy(true);
-    const ok = await enterKioskMode();
+    const ok = await enterKioskMode('boot-restore');
     if (ok) {
       navigate('/punch-clock', { replace: true });
-    } else {
-      toast.error('Could not restore paired session. Please re-pair the device.');
+    } else if (isPairingDead()) {
+      // Server says this device row is gone or was revoked — a new code is the
+      // only way back.
+      toast.error('This tablet was unpaired by a manager. Enter a new pairing code.');
       setDialogOpen(true);
+      setBusy(false);
+    } else {
+      // Retryable (offline / hiccup). Do NOT ask for a new code.
+      toast.error('Could not reach CrooHQ. Check the tablet’s internet and tap again.');
       setBusy(false);
     }
   };
 
   const handleLinkClick = () => {
-    if (isPaired() && !isPairingBroken()) {
+    if (isPaired() && !isPairingDead()) {
       goToKiosk();
     } else {
       setDialogOpen(true);
     }
   };
+
 
   const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
