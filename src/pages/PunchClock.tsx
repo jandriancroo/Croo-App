@@ -301,10 +301,11 @@ export default function PunchClock() {
   const insertPunch = useCallback(async (row: Record<string, any>): Promise<{ error: { message: string } | null }> => {
     const attempt = () =>
       withTimeout(
-        supabase.from('time_punches').insert(row) as unknown as Promise<any>,
+        (supabase.from('time_punches') as any).insert(row) as Promise<any>,
         12000,
         'Punch timed out',
       );
+
 
     let needsRepair = false;
     try {
