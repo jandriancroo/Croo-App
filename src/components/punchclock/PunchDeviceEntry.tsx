@@ -80,9 +80,9 @@ export const PunchDeviceEntry = () => {
         className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
       >
         <MonitorSmartphone className="h-3 w-3" />
-        {isPaired() && !isPairingBroken()
+        {isPaired() && !isPairingDead()
           ? 'Open Punch Clock (Paired Device)'
-          : isPairingBroken()
+          : isPairingDead()
             ? 'Punch Clock Needs Re-Pairing — Click Here'
             : 'Setting Up a Punch Clock — Click Here'}
       </button>
