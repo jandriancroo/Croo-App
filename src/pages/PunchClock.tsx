@@ -22,6 +22,8 @@ import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboar
 import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
 import { ThemeToggleIcons } from '@/components/punchclock/ThemeToggleIcons';
+import { BuildVersionStamp } from '@/components/punchclock/BuildVersionStamp';
+
 import { useSwipe } from '@/hooks/useSwipe';
 import {
   isPaired,
@@ -1281,7 +1283,7 @@ export default function PunchClock() {
 
 
     if (error) {
-      toast.error('Failed to record break');
+      toast.error(error.message || 'Failed to record break');
       return;
     }
 
@@ -1460,6 +1462,9 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
 
       {!currentUser ? (
         <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
+          {/* Build stamp — corner, inert, out of the thumb zone */}
+          <BuildVersionStamp isDayMode={isDayMode} />
+
 
           <div className="w-full max-w-5xl relative">
             {/* Location tab — visually merges with the page background and cuts into the card without a seam */}
