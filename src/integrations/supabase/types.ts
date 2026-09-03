@@ -3161,53 +3161,71 @@ export type Database = {
       }
       employee_writeups: {
         Row: {
+          consent_confirmed_at: string | null
           created_at: string
           created_by: string
           employee_id: string
+          family_id: string | null
           id: string
           is_final_warning: boolean
-          issue_description: string
+          issue_description: string | null
           location_id: string
-          next_steps: string
+          next_steps: string | null
+          notes_bullets: Json | null
           photo_url: string | null
           reason: string
+          recording_duration_seconds: number | null
           signature_url: string | null
           signed_at: string | null
+          stt_model_used: string | null
           task_id: string | null
+          transcript_text: string | null
           updated_at: string
           viewed_at: string | null
         }
         Insert: {
+          consent_confirmed_at?: string | null
           created_at?: string
           created_by: string
           employee_id: string
+          family_id?: string | null
           id?: string
           is_final_warning?: boolean
-          issue_description: string
+          issue_description?: string | null
           location_id: string
-          next_steps: string
+          next_steps?: string | null
+          notes_bullets?: Json | null
           photo_url?: string | null
           reason: string
+          recording_duration_seconds?: number | null
           signature_url?: string | null
           signed_at?: string | null
+          stt_model_used?: string | null
           task_id?: string | null
+          transcript_text?: string | null
           updated_at?: string
           viewed_at?: string | null
         }
         Update: {
+          consent_confirmed_at?: string | null
           created_at?: string
           created_by?: string
           employee_id?: string
+          family_id?: string | null
           id?: string
           is_final_warning?: boolean
-          issue_description?: string
+          issue_description?: string | null
           location_id?: string
-          next_steps?: string
+          next_steps?: string | null
+          notes_bullets?: Json | null
           photo_url?: string | null
           reason?: string
+          recording_duration_seconds?: number | null
           signature_url?: string | null
           signed_at?: string | null
+          stt_model_used?: string | null
           task_id?: string | null
+          transcript_text?: string | null
           updated_at?: string
           viewed_at?: string | null
         }
@@ -13254,6 +13272,10 @@ export type Database = {
       get_chat_unread_counts: {
         Args: { _location_id: string; _user_id: string }
         Returns: Json
+      }
+      get_corrective_action_transcript: {
+        Args: { _writeup_id: string }
+        Returns: string
       }
       get_current_wage: {
         Args: { p_date?: string; p_user_id: string }
