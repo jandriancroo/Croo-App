@@ -379,7 +379,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
 
       {/* Issue Description */}
       <div className="space-y-2">
-        <Label>Issue Description {recording ? "(optional — notes captured)" : "*"}</Label>
+        <Label>Issue Description {recording?.bullets?.length ? "(optional — notes captured)" : "*"}</Label>
         <Textarea
           placeholder="Describe what happened..."
           value={issueDescription}
