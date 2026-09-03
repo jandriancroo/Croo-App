@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { triggerForceReload, getCurrentAppVersion } from '@/hooks/useForceReload';
+import { broadcastUniversalUpdate } from '@/lib/universalUpdate';
 import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { checkPassword } from '@/utils/passwordPolicy';
 
@@ -536,6 +537,34 @@ export const useUserManagementData = () => {
     } catch (error: any) {
       console.error('Error updating outdated users:', error);
       toast({ title: 'Error', description: 'Failed to send update signals', variant: 'destructive' });
+    } finally {
+      setUpdatingOutdated(false);
+    }
+  };
+
+  // Universal update: one press refreshes every signed-in user, every
+  // punch-clock tablet, and (through their paired phones) watch devices.
+  const handleUniversalUpdate = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      setUpdatingOutdated(true);
+      await broadcastUniversalUpdate();
+
+      // Belt and braces: also ping each active user's personal channel so
+      // anyone who missed the broadcast still refreshes.
+      const { data: allProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('is_active', true);
+      await Promise.all((allProfiles || []).map(p => triggerForceReload(p.id).catch(() => {})));
+
+      toast({
+        title: 'Universal update sent',
+        description: 'Every user and punch-clock tablet will refresh to the newest build. Tablets wait until nobody is mid-punch.',
+      });
+    } catch (error: any) {
+      console.error('Error sending universal update:', error);
+      toast({ title: 'Error', description: 'Failed to send the universal update', variant: 'destructive' });
     } finally {
       setUpdatingOutdated(false);
     }
