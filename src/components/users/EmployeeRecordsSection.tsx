@@ -130,7 +130,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {/* Write-Ups */}
+          {/* Corrective Actions */}
           {writeUps.map((wu) => (
             <button
               key={`wu-${wu.id}`}
@@ -184,7 +184,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
         </div>
       </div>
 
-      {/* Write-Up Detail Dialog */}
+      {/* Corrective Action Detail Dialog */}
       <Dialog open={!!selectedWriteUp} onOpenChange={(open) => !open && setSelectedWriteUp(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           {selectedWriteUp && (
@@ -216,7 +216,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Write-Up Details
+              Corrective Action Details
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">

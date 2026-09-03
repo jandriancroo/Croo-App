@@ -237,7 +237,7 @@ export function useLogBookData() {
       if (!currentLocation) return [];
       const { data, error } = await supabase
         .from('employee_writeups')
-        .select(`*, employee:profiles!employee_writeups_employee_id_fkey(full_name, profile_photo_url), created_by_profile:profiles!employee_writeups_created_by_fkey(full_name, profile_photo_url)`)
+        .select(`id, location_id, employee_id, created_by, reason, issue_description, next_steps, photo_url, is_final_warning, signature_url, signed_at, viewed_at, task_id, created_at, updated_at, family_id, notes_bullets, consent_confirmed_at, recording_duration_seconds, stt_model_used, employee:profiles!employee_writeups_employee_id_fkey(full_name, profile_photo_url), created_by_profile:profiles!employee_writeups_created_by_fkey(full_name, profile_photo_url)`)
         .eq('location_id', currentLocation.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -348,7 +348,7 @@ export function useLogBookData() {
     return employeeWriteUps.filter((wu: any) => {
       const searchableText = [
         wu.employee?.full_name || '', wu.created_by_profile?.full_name || '',
-        wu.reason || '', wu.issue_description || '', 'write up', 'writeup', 'write-up'
+        wu.reason || '', wu.issue_description || '', 'corrective action', 'write up', 'writeup', 'write-up'
       ].join(' ').toLowerCase();
       return searchTerms.every(term => searchableText.includes(term));
     });
@@ -358,7 +358,7 @@ export function useLogBookData() {
 
   const writeUpEntries = useMemo(() => (searchTerms.length > 0 ? filteredWriteUps : employeeWriteUps).map((wu: any) => ({
     id: wu.id, entry_date: format(new Date(wu.created_at), 'yyyy-MM-dd'), created_at: wu.created_at,
-    created_by: wu.created_by, profiles: wu.created_by_profile, logbook_categories: { name: 'Employee Write-Up' },
+    created_by: wu.created_by, profiles: wu.created_by_profile, logbook_categories: { name: 'Corrective Action' },
     _isWriteUp: true, _writeUpData: wu, _virtualId: `writeup-${wu.id}`,
   })), [searchTerms, filteredWriteUps, employeeWriteUps]);
 

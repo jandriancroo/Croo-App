@@ -76,14 +76,14 @@ export function WriteUpSignatureView({ writeUp, onComplete }: WriteUpSignatureVi
               },
             },
           });
-          console.log('Signed write-up email sent to employee');
+          console.log('Signed corrective action email sent to employee');
         }
       } catch (emailError) {
-        console.error('Failed to send signed write-up email:', emailError);
+        console.error('Failed to send signed corrective action email:', emailError);
         // Don't block completion if email fails
       }
 
-      toast.success("Write-up acknowledged");
+      toast.success("Corrective action acknowledged");
       onComplete();
     } catch (error: any) {
       toast.error("Failed to save signature: " + error.message);
@@ -92,7 +92,7 @@ export function WriteUpSignatureView({ writeUp, onComplete }: WriteUpSignatureVi
     }
   };
 
-  const ACKNOWLEDGMENT_MESSAGE = "This write-up documents an area where we need improvement to meet team standards. Please read through it carefully, note the next steps, and sign below with your finger to show you understand and agree to work on this going forward.";
+  const ACKNOWLEDGMENT_MESSAGE = "This corrective action documents an area where we need improvement to meet team standards. Please read through it carefully, note the next steps, and sign below with your finger to show you understand and agree to work on this going forward.";
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -100,7 +100,7 @@ export function WriteUpSignatureView({ writeUp, onComplete }: WriteUpSignatureVi
       <div className="flex-shrink-0 flex items-center justify-between p-4 border-b bg-destructive/10">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-destructive" />
-          <h1 className="font-semibold text-lg">Employee Write-Up</h1>
+          <h1 className="font-semibold text-lg">Corrective Action</h1>
         </div>
         <Badge variant="outline" className="text-xs">
           {format(new Date(writeUp.created_at), 'MMM d, yyyy')}
@@ -190,7 +190,7 @@ export function WriteUpSignatureView({ writeUp, onComplete }: WriteUpSignatureVi
         open={showSignatureOverlay}
         onClose={() => setShowSignatureOverlay(false)}
         onSave={handleSignature}
-        title="Acknowledge Write-Up"
+        title="Acknowledge Corrective Action"
         disabled={isSigning}
       />
 

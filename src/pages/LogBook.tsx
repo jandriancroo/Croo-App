@@ -36,7 +36,7 @@ export default function LogBook() {
   const searchCategoryOptions: string[] = [
     ...((categories || []).map((c: any) => c.name).filter(Boolean)),
     'Catering Orders',
-    'Employee Write-Up',
+    'Corrective Action',
     'Read & Sign',
     ...((isAdmin || isManager) ? ['Performance Review'] : []),
   ];

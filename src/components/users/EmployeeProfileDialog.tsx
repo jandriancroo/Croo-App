@@ -811,7 +811,7 @@ export function EmployeeProfileDialog({
                 </div>
               </div>
 
-              {/* Employee Records (Write-Ups + Signed Documents) */}
+              {/* Employee Records (Corrective Actions + Signed Documents) */}
               {user && <EmployeeRecordsSection userId={user.id} employeeName={user.full_name || user.email} />}
 
               {/* Hiring Documents Section */}

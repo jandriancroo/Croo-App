@@ -135,10 +135,10 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                                     if (writeUp?.task_id) { await supabase.from('temporary_tasks').delete().eq('id', writeUp.task_id); }
                                     const { error } = await supabase.from('employee_writeups').delete().eq('id', entry._writeUpData.id);
                                     if (error) throw error;
-                                    toast({ title: "Write-up deleted" });
+                                    toast({ title: "Corrective action deleted" });
                                     queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
                                     queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
-                                  } catch (error: any) { toast({ title: "Error deleting write-up", description: error.message, variant: "destructive" }); }
+                                  } catch (error: any) { toast({ title: "Error deleting corrective action", description: error.message, variant: "destructive" }); }
                                 }} className="text-destructive focus:text-destructive">
                                   <Trash2 className="h-4 w-4 mr-2" />Delete
                                 </DropdownMenuItem>
