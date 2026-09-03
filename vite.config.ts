@@ -22,6 +22,26 @@ export default defineConfig(({ mode }) => {
     return `${year}.${month}.${day}.${time}`;
   })();
 
+  // Publishes the SAME build version at /version.json so a sitting kiosk can
+  // ask the server whether a newer build exists. Unauthenticated on purpose.
+  const versionEndpoint = {
+    name: 'croohq-version-endpoint',
+    configureServer(server: any) {
+      server.middlewares.use('/version.json', (_req: any, res: any) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.end(JSON.stringify({ version: buildVersion }));
+      });
+    },
+    generateBundle(this: any) {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ version: buildVersion, builtAt: new Date().toISOString() }),
+      });
+    },
+  };
+
   return {
     define: {
       // Auto version: YY.MM.DD.HHMM format in PST (e.g., "24.12.13.1530")
@@ -33,6 +53,7 @@ export default defineConfig(({ mode }) => {
   },
   plugins: [
     react(), 
+    versionEndpoint,
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {

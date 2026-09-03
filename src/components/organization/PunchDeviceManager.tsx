@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MonitorSmartphone, RefreshCw, Trash2, Copy, Plus } from 'lucide-react';
@@ -53,6 +55,8 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
   const [deviceNameDraft, setDeviceNameDraft] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [freshCode, setFreshCode] = useState<PairingCode | null>(null);
+  const [dupPrompt, setDupPrompt] = useState<{ deviceName: string; existingDevices: any[] } | null>(null);
+
 
   const loadDevices = async () => {
     setLoading(true);
@@ -71,31 +75,49 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
     if (organizationId) loadDevices();
   }, [organizationId]);
 
-  const generateCode = async () => {
+  const runGenerate = async (mode?: 'replace' | 'add', replaceDeviceId?: string) => {
     if (!selectedLocation) {
       toast.error('Select a location first');
       return;
     }
+    const name = deviceNameDraft.trim() || 'Kiosk';
     setGeneratingFor(selectedLocation);
     const { data, error } = await supabase.functions.invoke('punch-device-service', {
       body: {
         action: 'generate',
         locationId: selectedLocation,
-        deviceName: deviceNameDraft.trim() || 'Kiosk',
+        deviceName: name,
+        mode,
+        replaceDeviceId,
       },
     });
     setGeneratingFor('');
+
+    // A tablet with this exact name is already paired here. Never silently
+    // create "Front iPad 2" — ask the manager what they mean.
+    if (data?.duplicate) {
+      setDupPrompt({ deviceName: name, existingDevices: data.existingDevices || [] });
+      return;
+    }
     if (error || data?.error) {
       toast.error(data?.error || error?.message || 'Failed to generate code');
       return;
     }
+    setDupPrompt(null);
     setFreshCode({
       code: data.code,
       location_name: locations.find((l) => l.id === selectedLocation)?.name || '',
       expiresAt: data.expiresAt,
     });
+    if (data.replaced) {
+      toast.success(`Replaced "${name}" — the old tablet is unpaired.`);
+      loadDevices();
+    }
     setDeviceNameDraft('');
   };
+
+  const generateCode = () => runGenerate();
+
 
   const revokeDevice = async (device: Device) => {
     if (!confirm(`Revoke "${device.device_name}"? This tablet will drop back to the pairing screen.`)) return;
@@ -216,6 +238,51 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
           )}
         </div>
       </CardContent>
+
+      {/* Duplicate device name — replace the old tablet, or add another one? */}
+      <Dialog open={!!dupPrompt} onOpenChange={(open) => !open && setDupPrompt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>“{dupPrompt?.deviceName}” is already paired here</DialogTitle>
+            <DialogDescription>
+              This location already has an active tablet with that name. Replacing unpairs the old
+              tablet right away — it will ask for a new code. Adding keeps both tablets running.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            {(dupPrompt?.existingDevices || []).map((d: any) => (
+              <div key={d.id} className="rounded-lg border border-border p-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{d.device_name}</span>
+                {' · paired '}
+                {formatDistanceToNow(new Date(d.paired_at), { addSuffix: true })}
+                {d.last_active_at ? ` · last seen ${formatDistanceToNow(new Date(d.last_active_at), { addSuffix: true })}` : ''}
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDupPrompt(null)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const target = dupPrompt?.existingDevices?.[0]?.id;
+                setDupPrompt(null);
+                runGenerate('replace', target);
+              }}
+            >
+              Replace it
+            </Button>
+            <Button
+              onClick={() => {
+                setDupPrompt(null);
+                runGenerate('add');
+              }}
+            >
+              Add a new device
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
+
   );
 };

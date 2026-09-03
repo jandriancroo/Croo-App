@@ -17,11 +17,13 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   isPaired,
   isKioskExitActive,
-  isPairingBroken,
+  isPairingDead,
   enterKioskMode,
   getPairing,
   updateStoredSession,
   isPunchDeviceUser,
+  ensureDeviceSecret,
+  isPairingLockBusy,
 } from '@/lib/punchDevicePairing';
 
 export const KioskAutoRestore = () => {
@@ -34,9 +36,11 @@ export const KioskAutoRestore = () => {
     if (loading) return;
     if (inFlightRef.current) return;
     if (!isPaired()) return;
-    // Stored device token is dead — stop retrying so managers can log in and
-    // re-pair instead of being bounced back to a broken kiosk restore.
-    if (isPairingBroken()) return;
+    // Pairing is only dead when the server said the device row is gone or
+    // revoked. A failed token restore is retryable (reissue handles it), so we
+    // no longer bail out on a one-off failure.
+    if (isPairingDead()) return;
+
 
     const path = location.pathname;
     const isDeviceSession = isPunchDeviceUser(user);
@@ -59,13 +63,17 @@ export const KioskAutoRestore = () => {
 
     inFlightRef.current = true;
     (async () => {
-      const ok = await enterKioskMode();
+      const ok = await enterKioskMode('boot-restore');
       if (ok) {
+        // Legacy tablet with a working session but no durable key → mint one
+        // quietly. This is the migration path: no new pairing code needed.
+        ensureDeviceSecret().catch(() => {});
         navigate('/punch-clock', { replace: true });
       }
       inFlightRef.current = false;
     })();
   }, [loading, user?.id, location.pathname, navigate]);
+
 
   // Mirror rotated refresh tokens back into our own storage so a subsequent
   // cold launch can always restore the device session. Supabase rotates the
@@ -113,6 +121,9 @@ export const KioskAutoRestore = () => {
       if (hour < 4 || hour >= 6) return;
       if (window.location.pathname !== '/punch-clock') return;
       if (Date.now() - lastInteraction < 3 * 60 * 1000) return;
+      // Never reload while a pairing repair is in flight (shared lock).
+      if (isPairingLockBusy()) return;
+
 
       const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
       let last: string | null = null;
