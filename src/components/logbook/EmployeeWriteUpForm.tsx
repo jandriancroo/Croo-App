@@ -211,12 +211,12 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       toast.error("Please select a reason");
       return;
     }
-    const hasRecordedNotes = !!recording && (recording.bullets.length > 0 || !!recording.transcript.trim());
+    const hasRecordedNotes = !!recording && recording.bullets.length > 0;
     if (!hasRecordedNotes && !issueDescription.trim()) {
       toast.error("Please describe the issue");
       return;
     }
-    if (!hasRecordedNotes && !nextSteps.trim()) {
+    if (!nextSteps.trim()) {
       toast.error("Please provide next steps");
       return;
     }
@@ -253,7 +253,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
             to: employeeData.email,
             data: {
               reason,
-              issue_description: issueDescription.trim() || (recording?.bullets || []).map((b) => `${b.speaker}: ${b.text}`).join('\n'),
+              issue_description: issueDescription.trim(),
               next_steps: nextSteps.trim(),
               is_final_warning: isFinalWarning,
               manager_name: managerProfile?.full_name || 'Management',
@@ -379,7 +379,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
 
       {/* Issue Description */}
       <div className="space-y-2">
-        <Label>Issue Description {recording ? "(optional — notes captured)" : "*"}</Label>
+        <Label>Issue Description {recording?.bullets?.length ? "(optional — notes captured)" : "*"}</Label>
         <Textarea
           placeholder="Describe what happened..."
           value={issueDescription}
