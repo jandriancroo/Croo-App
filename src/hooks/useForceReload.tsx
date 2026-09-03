@@ -64,6 +64,9 @@ export function useForceReload() {
   // Universal update: one public channel every client listens on, signed in or
   // not, so a single button can refresh the whole company.
   useEffect(() => {
+    // Punch-clock tablets handle the same signal themselves so a reload can
+    // never land mid-punch.
+    if (window.location.pathname.startsWith('/punch-clock')) return;
     return subscribeUniversalUpdate(() => {
       console.log('[ForceReload] Universal update received, reloading...');
       window.location.reload();
