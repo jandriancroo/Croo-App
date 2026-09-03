@@ -1,49 +1,62 @@
-# Second opinion: punch-clock pairing that lasts until a manager revokes it
+# Corrective Action (rename) + in-dialog conversation recording
 
-Read: `src/lib/punchDevicePairing.ts`, `src/components/KioskAutoRestore.tsx`, `src/pages/PunchClock.tsx`, `supabase/functions/punch-device-service/index.ts`, plus the live `punch_clock_devices` columns.
+Two pieces: a user-facing rename of "Employee Write-Up" to "Corrective Action", and a record button inside the dialog that turns a manager/employee conversation into bullet notes (with a full transcript hidden behind a tap). Audio is never stored.
 
-## Verdict on the diagnosis
+## 1. Rename to Corrective Action
 
-Right root cause. The 60-minute code window is a decoy, and "keep it paired until a manager revokes" is a real, safe option — the database already works that way (`revoked_at` is the only kill switch; there is no TTL on a live device row).
+Copy-only. Same records, same table, same signatures, no data migration.
 
-The break is refresh-token handling on the tablet, and the code confirms three separate ways it can fail:
+Where the words change:
+- Logs page category label and entry list ("Employee Write-Up" -> "Corrective Action")
+- New-entry sheet option and the form heading/buttons
+- Employee-facing signature screen ("Employee Write-Up" -> "Corrective Action", acknowledgment wording softened to match the more positive framing)
+- Employee profile section currently titled "Write-Ups" -> "Corrective Actions"
+- Notification/email subject and body copy for issued and signed records
+- PDF export header
 
-1. **Single-use refresh token, two copies.** The tablet keeps its own copy of the refresh token in localStorage and a 400-day cookie. Supabase rotates the token on every refresh. If the rotated value isn't written back before iOS kills the tab, the stored copy is spent, `setSession` fails, `markPairingBroken()` latches, and the only path the UI offers is a new code.
-2. **Two restore paths race for the same token.** `enterKioskMode` is called both from auto-restore and from the login-screen button. There is a guard for "already the device session", but a cold launch where two callers arrive before a session exists can still burn one token and fail the other.
-3. **No server recovery.** Redeem creates a fresh GoTrue user *and* a fresh device row every time, and the device password is thrown away after minting the session. So once the tablet's token copy is stale there is literally nothing on the server to fall back to — hence "Front" then "Front iPad 2", and a growing pile of orphan device users.
+What does NOT change: the `employee_writeups` table, column names, log category keys stored in the database, notification type keys, RLS. Renaming stored keys would orphan existing records and saved notification preferences; the label is resolved in the UI instead.
 
-The heartbeat observation is also right: `last_active_at` equals `paired_at` on every row because nothing calls the `heartbeat` action except a single unrelated refresh call in `PunchClock.tsx`. That's missing telemetry, not the drop.
+One decision to confirm: "Final Warning" badge wording. Suggest keeping it, since it is a real HR escalation level, but it can become "Final Notice" if you want the softer tone all the way through.
 
-## On the proposed ship (Option 3)
+## 2. Recording inside the dialog
 
-Broadly correct. Reissue-by-device-secret is the right auth model — it's a proof-of-possession bearer credential that, unlike a refresh token, is **not single-use and not rotated**, which is exactly the property the current design lacks. Keep it.
+Flow:
+1. Mic icon at the top of the Corrective Action dialog. Tapping it shows a short on-record notice, then starts recording after the manager confirms.
+2. Recording UI: elapsed timer, live level bar, Pause, Stop. Screen-lock safe on iPad (keeps the audio context alive the way the inventory voice counter already does).
+3. On Stop: audio goes straight to an edge function, which returns a word-for-word transcript plus 4-8 bullet notes. Nothing is written to storage.
+4. Result view: bullets by default, with a "View full transcript" toggle that only appears after the record is saved. Bullets and transcript are editable text before save - the manager stays the author of record.
+5. Optional convenience: a "Use in Issue / Next Steps" button that drops the bullets into the existing fields, so the record still reads like a normal corrective action.
+6. If transcription fails, the manager keeps typing manually; the recording is simply lost (no retry queue, no stored audio).
 
-What I'd change before any ship:
+Storage: two new text columns on the existing table for the bullet summary and the verbatim transcript, plus a flag for "captured from a recorded conversation." No audio bucket, no audio path column.
 
-- **The device secret must be the durable credential, and the session becomes disposable.** Don't treat reissue as an edge-case fallback bolted onto the current flow. On any restore failure — and on any "session missing/expired" at launch — go straight to `reissue`. Store the secret in the same localStorage + cookie pair; it never rotates, so a stale copy is impossible.
-- **Delete `markPairingBroken` as a terminal state.** Today it latches forever on a single failure. It should only be set when the server explicitly says the device row is gone or revoked. Everything else is retryable.
-- **Server-side reissue mechanism:** the admin API can't "sign in as" a user, so reissue should rotate that device user's password to a new random value and immediately mint a session with it. Same `auth_user_id`, same device row, no second user. Worth confirming this before ship since it's the one implementation unknown.
-- **Rate-limit and log reissue.** It's a permanent credential; cap it (e.g. a handful per device per hour) and stamp `last_active_at` on every call, so reissue doubles as the heartbeat.
-- **Migration for existing tablets.** The six live devices have no secret. Add a one-time path: a tablet still holding a *working* session can call `reissue` authenticated by that session and receive a secret going forward. The ones already broken will need one final code — say so out loud rather than promising zero re-pairs.
-- **Fix the race, not just the recovery.** Serialize restore behind the existing single-flight promise across *both* entry points, and write the rotated token back synchronously before any navigation.
-- **Point 6 (revive on same location + name) — I'd narrow it.** Reviving by name is fuzzy and can hand a second physical tablet the first one's identity. Better: reissue makes new codes rare in the first place; when a code *is* redeemed at a location that already has an unrevoked device with that exact name, surface it to the manager ("replace Front, or add a new device?") rather than silently merging. Separately, add a cleanup pass that deletes orphaned GoTrue users for revoked rows.
+## 3. Model choice and cost (the direct answer)
 
-## What we explicitly should not do
+Pick: **`google/gemini-3.1-flash-lite`** through Lovable AI (already wired in this project for voice counting, no extra key, secrets stay server-side).
 
-- **No TTL on live devices.** Not 30 days, not 400. A tablet that sat quiet through a holiday closure must wake up paired. Theft is a revoke, not a timer.
-- **Don't touch the 60-minute unused-code window.** Neither shortening nor lengthening it changes the floor symptom.
-- **Don't fold in exit-kiosk (30-minute UI flag) or the 4–6am reload.** Different mechanisms, different purposes; leave both alone.
-- **Don't expire on stale `last_active_at`** even after the heartbeat starts reporting.
-- **No human passwords, no Relay credentials on the device.** Device-scoped secret only.
-- **Don't widen what the device session can read.** Reissue must return the same identity with the same access, nothing more.
+Why: it takes audio natively, so one call does transcription and bullets together - no separate speech-to-text vendor, no second round trip, no extra secret.
 
-## Files / edge actions in scope (high level)
+Estimated cost for a 15-minute recording: **well under one cent - roughly $0.005 to $0.01** (about 29k audio input tokens plus ~3k output tokens for transcript + bullets). Even at 200 recordings a month that is a couple of dollars.
 
-- `punch_clock_devices`: add a hashed device-secret column (migration).
-- `supabase/functions/punch-device-service`: new `reissue` action; `redeem` also mints and returns the secret; duplicate-name handling on redeem; orphan-user cleanup.
-- `src/lib/punchDevicePairing.ts`: store the secret, reissue-first recovery, retire the latching broken flag, tighten single-flight.
-- `src/components/KioskAutoRestore.tsx`: stop bailing on the broken flag; route failures into reissue.
-- `src/pages/PunchClock.tsx`: call heartbeat on visible/wake.
-- `src/components/punchclock/PunchDeviceEntry.tsx` and `src/components/organization/PunchDeviceManager.tsx`: only ask for a code when the device is genuinely gone or revoked; manager-facing duplicate-name prompt.
+- Cheaper: there is no meaningfully cheaper path. The only real lever is not transcribing verbatim (bullets only), which cuts output tokens by ~90% and lands near $0.003. Not recommended - you asked for word-for-word.
+- More accurate: `google/gemini-3.7-flash` for hard audio (noisy kitchen line, heavy accents, crosstalk). Roughly 5-10x the cost, so about **$0.05 to $0.10 per 15 minutes** - still trivial. Suggested approach: default to flash-lite, and add a quiet "Improve transcript" retry that reruns the same audio on 3.7-flash if the manager says the first pass looks wrong. That requires holding the audio in memory for the length of the dialog only, never on disk.
 
-No code written. Name the ship and I'll build it.
+Practical note: a 15-minute clip is too large for a single request body at this project's limits, so recording is captured in ~4-minute segments, each transcribed as it completes, then stitched in order. This also means the transcript is basically ready the moment Stop is pressed.
+
+## 4. Consent disclosure (flagged, not lectured)
+
+California is two-party consent, and several CrooHQ stores are in California. The UI needs an explicit on-record moment, not fine print:
+- Before recording starts, a short confirm step with a line the manager reads aloud: "I'm recording this conversation for notes. Are you okay with that?" plus a required checkbox "Employee was told and agreed."
+- Visible red recording indicator for the whole session.
+- The employee's agreement is stamped on the record (who confirmed, when).
+- Recording is optional in every case; the corrective action can always be typed.
+
+Worth deciding: whether recording should be off entirely for certain locations/states. Easy to add as a location setting later.
+
+## Technical notes
+
+- New edge function (e.g. `transcribe-conversation`) that accepts a base64 audio segment, calls Lovable AI with `google/gemini-3.1-flash-lite`, and returns `{ transcript, bullets[] }` via a tool-call schema. Verify JWT, confirm the caller is a manager or above at the location. No storage writes.
+- Client recorder modeled on `src/hooks/useAudioVoiceInput.tsx` (16 kHz mono opus, iOS-safe MediaRecorder handling), but segment-based rather than silence-triggered.
+- Files touched for the rename: `src/pages/LogBook.tsx`, `src/components/logbook/LogBookNewEntrySheet.tsx`, `LogBookEntryList.tsx`, `EmployeeWriteUpEntry.tsx`, `EmployeeWriteUpForm.tsx`, `WriteUpSignatureView.tsx`, `src/components/users/WriteUpsSection.tsx`, `EmployeeRecordsSection.tsx`, `src/utils/exportRecordPdf.ts`, `send-notification-email`, `src/pages/EmailPreview.tsx`.
+- Migration: additive only - `conversation_summary text`, `conversation_transcript text`, `recorded_consent_at timestamptz`, `recorded_consent_by uuid` on `employee_writeups`. Existing RLS covers them; no new grants needed since no new table.
+- Mobile/PWA: recording keeps the dialog mounted; guard against backgrounding losing the recorder, and cap a single session at 30 minutes.
