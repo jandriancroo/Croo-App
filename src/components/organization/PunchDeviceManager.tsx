@@ -71,31 +71,49 @@ export const PunchDeviceManager = ({ organizationId, locations }: Props) => {
     if (organizationId) loadDevices();
   }, [organizationId]);
 
-  const generateCode = async () => {
+  const runGenerate = async (mode?: 'replace' | 'add', replaceDeviceId?: string) => {
     if (!selectedLocation) {
       toast.error('Select a location first');
       return;
     }
+    const name = deviceNameDraft.trim() || 'Kiosk';
     setGeneratingFor(selectedLocation);
     const { data, error } = await supabase.functions.invoke('punch-device-service', {
       body: {
         action: 'generate',
         locationId: selectedLocation,
-        deviceName: deviceNameDraft.trim() || 'Kiosk',
+        deviceName: name,
+        mode,
+        replaceDeviceId,
       },
     });
     setGeneratingFor('');
+
+    // A tablet with this exact name is already paired here. Never silently
+    // create "Front iPad 2" — ask the manager what they mean.
+    if (data?.duplicate) {
+      setDupPrompt({ deviceName: name, existingDevices: data.existingDevices || [] });
+      return;
+    }
     if (error || data?.error) {
       toast.error(data?.error || error?.message || 'Failed to generate code');
       return;
     }
+    setDupPrompt(null);
     setFreshCode({
       code: data.code,
       location_name: locations.find((l) => l.id === selectedLocation)?.name || '',
       expiresAt: data.expiresAt,
     });
+    if (data.replaced) {
+      toast.success(`Replaced "${name}" — the old tablet is unpaired.`);
+      loadDevices();
+    }
     setDeviceNameDraft('');
   };
+
+  const generateCode = () => runGenerate();
+
 
   const revokeDevice = async (device: Device) => {
     if (!confirm(`Revoke "${device.device_name}"? This tablet will drop back to the pairing screen.`)) return;
