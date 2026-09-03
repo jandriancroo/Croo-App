@@ -295,6 +295,38 @@ export default function PunchClock() {
     };
   }, []);
 
+  // Universal update: a manager pressed "Universal Update". The tablet reloads
+  // as soon as it is idle on the PIN screen — never mid-punch.
+  useEffect(() => {
+    let poll: number | null = null;
+
+    const tryReload = () => {
+      if (!onPinScreenRef.current) return false;
+      if (Date.now() - lastInteractionRef.current < 20 * 1000) return false;
+      if (isPairingLockBusy()) return false;
+      console.log('[PunchClock] Universal update received — reloading idle kiosk.');
+      reloadToVersion(LOADED_VERSION);
+      return true;
+    };
+
+    const unsubscribe = subscribeUniversalUpdate(() => {
+      if (tryReload()) return;
+      if (poll !== null) return;
+      poll = window.setInterval(() => {
+        if (tryReload() && poll !== null) {
+          window.clearInterval(poll);
+          poll = null;
+        }
+      }, 15 * 1000);
+    });
+
+    return () => {
+      unsubscribe();
+      if (poll !== null) window.clearInterval(poll);
+    };
+  }, []);
+
+
   /**
    * Write a punch with a bounded wait and ONE automatic repair-and-retry.
    * This is the freeze fix: a dead mid-shift session no longer spins forever —
