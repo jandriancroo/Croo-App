@@ -1223,22 +1223,21 @@ export default function PunchClock() {
       ? `Meeting: ${activeMeetingEvent.event_name}` 
       : undefined;
     
-    const { error } = await supabase
-      .from('time_punches')
-      .insert({
-        user_id: currentUser.id,
-        shift_id: freshShift?.id || null,
-        punch_type: 'clock_in',
-        punch_time: getNowISOString(),
-        location_id: currentLocation?.id,
-        created_by: currentUser.id, // Self-punch
-        notes: punchNotes
-      });
+    const { error } = await insertPunch({
+      user_id: currentUser.id,
+      shift_id: freshShift?.id || null,
+      punch_type: 'clock_in',
+      punch_time: getNowISOString(),
+      location_id: currentLocation?.id,
+      created_by: currentUser.id, // Self-punch
+      notes: punchNotes
+    });
 
     if (error) {
-      toast.error('Failed to clock in');
+      toast.error(error.message || 'Failed to clock in');
       return;
     }
+
 
     toast.success('Clocked in successfully!');
     
@@ -1270,17 +1269,16 @@ export default function PunchClock() {
     // IMPORTANT: Use shift_id from last punch for shift continuity across midnight
     const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
     
-    const { error } = await supabase
-      .from('time_punches')
-      .insert({
-        user_id: currentUser.id,
-        shift_id: activeShiftId,
-        punch_type: type,
-        punch_time: getNowISOString(),
-        notes: `${duration} minute ${duration === 30 ? 'unpaid' : 'paid'} break`,
-        location_id: currentLocation?.id,
-        created_by: currentUser.id // Self-punch
-      });
+    const { error } = await insertPunch({
+      user_id: currentUser.id,
+      shift_id: activeShiftId,
+      punch_type: type,
+      punch_time: getNowISOString(),
+      notes: `${duration} minute ${duration === 30 ? 'unpaid' : 'paid'} break`,
+      location_id: currentLocation?.id,
+      created_by: currentUser.id // Self-punch
+    });
+
 
     if (error) {
       toast.error('Failed to record break');
@@ -1364,21 +1362,20 @@ export default function PunchClock() {
     // Use timezone-aware timestamp for punch recording
     const { getNowISOString } = await import('@/utils/timezoneUtils');
     
-    const { error } = await supabase
-      .from('time_punches')
-      .insert({
-        user_id: currentUser.id,
-        shift_id: activeShiftId,
-        punch_type: 'break_end',
-        punch_time: getNowISOString(),
-        location_id: currentLocation?.id,
-        created_by: currentUser.id // Self-punch
-      });
+    const { error } = await insertPunch({
+      user_id: currentUser.id,
+      shift_id: activeShiftId,
+      punch_type: 'break_end',
+      punch_time: getNowISOString(),
+      location_id: currentLocation?.id,
+      created_by: currentUser.id // Self-punch
+    });
 
     if (error) {
-      toast.error('Failed to end break');
+      toast.error(error.message || 'Failed to end break');
       return;
     }
+
 
     toast.success('Break ended!');
     
@@ -1407,21 +1404,20 @@ export default function PunchClock() {
     // Use timezone-aware timestamp for punch recording
     const { getNowISOString } = await import('@/utils/timezoneUtils');
     
-    const { error } = await supabase
-      .from('time_punches')
-      .insert({
-        user_id: currentUser.id,
-        shift_id: activeShiftId,
-        punch_type: 'clock_out',
-        punch_time: getNowISOString(),
-        location_id: currentLocation?.id,
-        created_by: currentUser.id // Self-punch
-      });
+    const { error } = await insertPunch({
+      user_id: currentUser.id,
+      shift_id: activeShiftId,
+      punch_type: 'clock_out',
+      punch_time: getNowISOString(),
+      location_id: currentLocation?.id,
+      created_by: currentUser.id // Self-punch
+    });
 
     if (error) {
-      toast.error('Failed to clock out');
+      toast.error(error.message || 'Failed to clock out');
       return;
     }
+
 
     toast.success('Clocked out successfully!');
     
