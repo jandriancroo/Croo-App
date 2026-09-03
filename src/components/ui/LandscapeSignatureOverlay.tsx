@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Check, RotateCcw, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,10 @@ interface LandscapeSignatureOverlayProps {
   onSave: (signatureDataUrl: string) => void;
   title?: string;
   disabled?: boolean;
+  /** Optional content rendered ABOVE the signature pad on the same landscape surface. */
+  details?: ReactNode;
+  /** One-line portrait prompt. */
+  rotateMessage?: string;
 }
 
 export function LandscapeSignatureOverlay({
@@ -17,7 +21,10 @@ export function LandscapeSignatureOverlay({
   onSave,
   title = "Sign Below",
   disabled = false,
+  details,
+  rotateMessage = "Rotate your device to landscape to continue.",
 }: LandscapeSignatureOverlayProps) {
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -164,17 +171,15 @@ export function LandscapeSignatureOverlay({
       {/* Rotate prompt for portrait mode */}
       {!isLandscape && (
         <div className="absolute inset-0 z-10 bg-background flex flex-col items-center justify-center p-6 text-center">
-          <Smartphone className="h-16 w-16 text-primary mb-4 animate-pulse" />
-          <h2 className="text-xl font-semibold mb-2">Rotate Your Phone</h2>
-          <p className="text-muted-foreground mb-6">
-            Please rotate your device to landscape mode for the best signing experience.
-          </p>
+          <Smartphone className="h-14 w-14 text-primary mb-4 animate-pulse" />
+          <p className="text-base font-medium mb-6">{rotateMessage}</p>
           <Button variant="outline" onClick={onClose}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
         </div>
       )}
+
 
       {/* Landscape signature UI */}
       <div className={cn("flex-1 flex flex-col", !isLandscape && "opacity-0 pointer-events-none")}>
@@ -208,11 +213,15 @@ export function LandscapeSignatureOverlay({
           </div>
         </div>
 
-        {/* Canvas area */}
-        <div className="flex-1 p-4 min-h-0">
+        {/* Details (optional) + canvas on ONE surface */}
+        <div className={cn("flex-1 min-h-0", details ? "overflow-y-auto p-4 space-y-4" : "p-4")}>
+          {details}
           <div
             ref={containerRef}
-            className="w-full h-full border-2 border-dashed rounded-lg bg-white dark:bg-slate-900 overflow-hidden relative"
+            className={cn(
+              "w-full border-2 border-dashed rounded-lg bg-white dark:bg-slate-900 overflow-hidden relative",
+              details ? "h-[240px]" : "h-full",
+            )}
           >
             <canvas
               ref={canvasRef}
@@ -232,6 +241,7 @@ export function LandscapeSignatureOverlay({
             )}
           </div>
         </div>
+
       </div>
     </div>
   );

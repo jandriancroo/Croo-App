@@ -117,9 +117,11 @@ There are two known people:
 
 Rules:
 - Attribute each bullet to a speaker: "Manager ${mgr}", "Employee ${emp}", or "Other" for any third voice you cannot confidently attribute to those two.
+- The speaker field already carries the name and role. NEVER repeat the speaker's name or role inside the bullet text.
+- No filler openers such as "stated that", "made a statement regarding", "mentioned", "discussed". Content only.
 - Bullets must be factual and drawn only from the transcript. Never invent details, dates, or commitments.
-- Keep each bullet to one short sentence. 4 to 12 bullets total.
-- Keep the chronological order of the conversation.
+- The number of bullets scales with the transcript. There is NO minimum. A very short conversation of one or two sentences must produce exactly ONE consolidated bullet. Never pad, never split one idea into multiple bullets, never restate the same point twice. Maximum 12 bullets.
+- Keep each bullet to one short sentence, in the order the conversation happened.
 - Neutral, professional tone. No advice, no verdicts, no HR opinions.`;
 
   const res = await fetch(`${GATEWAY}/chat/completions`, {

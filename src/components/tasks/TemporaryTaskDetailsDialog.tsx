@@ -57,7 +57,7 @@ export function TemporaryTaskDetailsDialog({
       const { data, error } = await supabase
         .from('employee_writeups')
         .select(`
-          *,
+          id, reason, issue_description, next_steps, photo_url, created_at, signed_at, employee_id, location_id,
           created_by_profile:profiles!employee_writeups_created_by_fkey(full_name)
         `)
         .eq('id', task.write_up_id)
@@ -264,75 +264,69 @@ export function TemporaryTaskDetailsDialog({
   const allSubtasksComplete = subtasks.length === 0 || subtasks.every((s: any) => s.completed_at);
   const completedCount = subtasks.filter((s: any) => s.completed_at).length;
 
-  // Handle write-up signature completion
+  // Handle write-up signature completion — idempotent close
   const handleWriteUpComplete = async () => {
-    // Mark the task as completed
+    const finish = () => {
+      queryClient.invalidateQueries({ queryKey: ['employee-writeups'] });
+      queryClient.invalidateQueries({ queryKey: ['temporary-tasks'] });
+      setShowWriteUpSignature(false);
+      onComplete();
+      onOpenChange(false);
+    };
+
+    // Never re-close an already closed task, never re-open one.
+    const { data: current } = await supabase
+      .from('temporary_tasks')
+      .select('id, completed_at, is_active')
+      .eq('id', task.id)
+      .maybeSingle();
+
+    if (current?.completed_at) {
+      finish();
+      return;
+    }
+
     const { error } = await supabase
       .from('temporary_tasks')
-      .update({ 
+      .update({
         completed_at: new Date().toISOString(),
         completed_by: user!.id,
         is_active: false
       })
-      .eq('id', task.id);
+      .eq('id', task.id)
+      .is('completed_at', null);
 
     if (error) {
+      // The signature is already saved; closing the task is a no-op success once signed.
+      const { data: signed } = await supabase
+        .from('employee_writeups')
+        .select('signed_at')
+        .eq('id', task.write_up_id)
+        .maybeSingle();
+
+      if (signed?.signed_at) {
+        finish();
+        return;
+      }
+
       toast.error("Failed to complete task");
       return;
     }
 
-    queryClient.invalidateQueries({ queryKey: ['employee-writeups'] });
-    queryClient.invalidateQueries({ queryKey: ['temporary-tasks'] });
-    setShowWriteUpSignature(false);
-    onComplete();
-    onOpenChange(false);
+    finish();
   };
 
-  // If this is a write-up task, show the signature view
+  // If this is a write-up task, go straight to the single read-and-sign surface.
   if (task?.write_up_id && writeUpData) {
-    if (showWriteUpSignature) {
-      return (
-        <WriteUpSignatureView
-          writeUp={writeUpData}
-          onComplete={handleWriteUpComplete}
-        />
-      );
-    }
-    
-    // Show a prompt to open the signature view
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <div className="w-3 h-3 rounded-full bg-destructive" />
-              Corrective Action Acknowledgment
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              You have a corrective action that requires your acknowledgment. Please review and sign to complete this task.
-            </p>
-            
-            <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/30">
-              <Badge variant="destructive" className="mb-2">{writeUpData.reason}</Badge>
-              <p className="text-sm font-medium">Issued by {writeUpData.created_by_profile?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{format(new Date(writeUpData.created_at), 'MMM d, yyyy h:mm a')}</p>
-            </div>
-          </div>
-          
-          <Button 
-            onClick={() => setShowWriteUpSignature(true)}
-            className="w-full"
-            variant="destructive"
-          >
-            Review & Sign Corrective Action
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <WriteUpSignatureView
+        writeUp={writeUpData}
+        onComplete={handleWriteUpComplete}
+        onCancel={() => onOpenChange(false)}
+      />
     );
   }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
