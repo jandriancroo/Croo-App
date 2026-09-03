@@ -171,17 +171,15 @@ export function LandscapeSignatureOverlay({
       {/* Rotate prompt for portrait mode */}
       {!isLandscape && (
         <div className="absolute inset-0 z-10 bg-background flex flex-col items-center justify-center p-6 text-center">
-          <Smartphone className="h-16 w-16 text-primary mb-4 animate-pulse" />
-          <h2 className="text-xl font-semibold mb-2">Rotate Your Phone</h2>
-          <p className="text-muted-foreground mb-6">
-            Please rotate your device to landscape mode for the best signing experience.
-          </p>
+          <Smartphone className="h-14 w-14 text-primary mb-4 animate-pulse" />
+          <p className="text-base font-medium mb-6">{rotateMessage}</p>
           <Button variant="outline" onClick={onClose}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
         </div>
       )}
+
 
       {/* Landscape signature UI */}
       <div className={cn("flex-1 flex flex-col", !isLandscape && "opacity-0 pointer-events-none")}>
