@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { subscribeUniversalUpdate } from '@/lib/universalUpdate';
 
 declare const __APP_VERSION__: string;
 
@@ -58,6 +59,18 @@ export function useForceReload() {
       console.log(`[ForceReload] Outdated version detected (${currentVersion} < ${latestVersion}), reloading...`);
       window.location.reload();
     }
+  }, []);
+
+  // Universal update: one public channel every client listens on, signed in or
+  // not, so a single button can refresh the whole company.
+  useEffect(() => {
+    // Punch-clock tablets handle the same signal themselves so a reload can
+    // never land mid-punch.
+    if (window.location.pathname.startsWith('/punch-clock')) return;
+    return subscribeUniversalUpdate(() => {
+      console.log('[ForceReload] Universal update received, reloading...');
+      window.location.reload();
+    });
   }, []);
 
   useEffect(() => {

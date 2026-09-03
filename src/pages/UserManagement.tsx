@@ -43,9 +43,10 @@ export default function UserManagement() {
                     </Button>
                   )}
                   {data.isSuperAdmin && (
-                    <Button variant="outline" className="gap-2" onClick={data.handleUpdateAllOutdatedGlobal} disabled={data.updatingOutdated}>
+                    <Button variant="outline" className="gap-2" onClick={data.handleUniversalUpdate} disabled={data.updatingOutdated}>
                       {data.updatingOutdated ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                      <span className="hidden sm:inline">Update All Users</span>
+                      <span className="hidden sm:inline">Universal Update</span>
+                      <span className="sm:hidden">Update</span>
                     </Button>
                   )}
                   {data.outdatedUsers.length > 0 && !data.isSuperAdmin && (
