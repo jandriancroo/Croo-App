@@ -9699,11 +9699,16 @@ export type Database = {
           auth_user_id: string
           created_by: string | null
           device_name: string
+          device_secret_hash: string | null
+          device_secret_issued_at: string | null
           id: string
           last_active_at: string
+          last_reissue_at: string | null
           location_id: string
           organization_id: string
           paired_at: string
+          reissue_count_in_window: number
+          reissue_window_start: string | null
           revoked_at: string | null
           revoked_by: string | null
         }
@@ -9711,11 +9716,16 @@ export type Database = {
           auth_user_id: string
           created_by?: string | null
           device_name: string
+          device_secret_hash?: string | null
+          device_secret_issued_at?: string | null
           id?: string
           last_active_at?: string
+          last_reissue_at?: string | null
           location_id: string
           organization_id: string
           paired_at?: string
+          reissue_count_in_window?: number
+          reissue_window_start?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
         }
@@ -9723,11 +9733,16 @@ export type Database = {
           auth_user_id?: string
           created_by?: string | null
           device_name?: string
+          device_secret_hash?: string | null
+          device_secret_issued_at?: string | null
           id?: string
           last_active_at?: string
+          last_reissue_at?: string | null
           location_id?: string
           organization_id?: string
           paired_at?: string
+          reissue_count_in_window?: number
+          reissue_window_start?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
         }
