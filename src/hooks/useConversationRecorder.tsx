@@ -281,6 +281,8 @@ export function useConversationRecorder({ managerName, employeeName, reasonOptio
     setBullets([]);
     setElapsed(0);
     setSttModel(null);
+    setSuggestedNextSteps(null);
+    setSuggestedReason(null);
     setAutoStopped(false);
     transcriptPartsRef.current = [];
     durationRef.current = 0;
@@ -295,6 +297,8 @@ export function useConversationRecorder({ managerName, employeeName, reasonOptio
     bullets,
     setBullets,
     sttModel,
+    suggestedNextSteps,
+    suggestedReason,
     pendingChunks,
     autoStopped,
     durationSeconds: durationRef.current,
