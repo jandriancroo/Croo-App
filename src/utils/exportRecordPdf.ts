@@ -202,7 +202,7 @@ function buildWriteUpHtml(data: WriteUpExport): string {
 
 <div class="section">
   <div class="section-label">Issue Description</div>
-  <div class="section-content">${escapeHtml(data.issueDescription)}</div>
+  <div class="section-content">${escapeHtml(data.issueDescription || "See conversation notes")}</div>
 </div>
 
 <div class="section">
