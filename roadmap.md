@@ -34,7 +34,8 @@
 - [ ] Diff review, then publish to croohq.com
 
 ## Corrective Action — Sep 4 (PDF + transcript view + notes autofill)
-- [ ] PDF export: Close/Done button, bullets as one flowing paragraph, overflow-wrap on sections
-- [ ] Expanded full-height transcript reading view (notes panel + recorder), gates respected
-- [ ] Autofill empty Reason + Next Steps from recording notes (nullable suggestions from Flash)
-- [ ] Changelog + publish to croohq.com
+- [x] PDF export: Close/Done button, bullets as one flowing paragraph, overflow-wrap on sections
+- [x] Expanded full-height transcript reading view (notes panel + recorder), gates respected
+- [x] Autofill empty Reason + Next Steps from recording notes (nullable suggestions from Flash)
+- [x] Changelog written
+- [ ] Publish to croohq.com and check on the floor iPad
