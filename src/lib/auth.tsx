@@ -3,7 +3,14 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
+import {
+  isPunchDeviceUser,
+  getPairing,
+  isPairingDead,
+  repairDeviceSession,
+  rebuildPairingFromDeviceSession,
+} from '@/lib/punchDevicePairing';
+
 import { setDebugWatchUser, debugWatchLog, debugWatchDeviceProfile } from '@/utils/debugWatch';
 
 
@@ -172,14 +179,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const isDefinitivelyInvalid =
             validated && !!userError && (status === 401 || status === 403 || status === 400);
           if (isDefinitivelyInvalid) {
+            // A PAIRED TABLET IS NEVER EJECTED TO THE LOGIN SCREEN.
+            // Its identity is the durable device secret, not this session, so
+            // repair first. Only a server "dead" verdict (row gone / revoked) or
+            // a genuinely unpaired browser may fall through to /auth.
+            const pairing = getPairing();
+            if (pairing) {
+              console.warn('Stored device session is invalid — repairing instead of signing out');
+              const repaired = await repairDeviceSession().catch(() => false);
+              if (repaired) {
+                const { data: fresh } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+                setSession(fresh?.session ?? null);
+                setUser(fresh?.session?.user ?? null);
+                setDebugWatchUser(fresh?.session?.user?.id ?? null);
+                return;
+              }
+              if (!isPairingDead()) {
+                // Retryable (offline / transient). Stay put — the wake trigger and
+                // KioskAutoRestore try again. Never dump the floor at /auth.
+                setSession(null);
+                setUser(null);
+                return;
+              }
+            }
             console.warn('Stored session is invalid, signing out:', userError.message);
+            // Local scope only: this clears the `sb-*-auth-token` entry and nothing
+            // else. Pairing keys (`croohq_punch_device_v1` + cookie) survive.
             await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
             setSession(null);
             setUser(null);
             navigate('/auth');
             return;
           }
+
+          // Signed in as the paired device but the local pairing blob is gone
+          // (silent localStorage failure / dropped cookie): rebuild it from the
+          // server so the tablet never asks for a new pairing code.
+          if (isPunchDeviceUser(session.user) && !getPairing()) {
+            await rebuildPairingFromDeviceSession().catch(() => false);
+          }
         }
+
 
 
         // Deactivated accounts must not keep a live session around.

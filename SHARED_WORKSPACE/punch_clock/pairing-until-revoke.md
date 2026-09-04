@@ -115,3 +115,25 @@ Tablets already sitting on "needs a new pairing code" need one last code.
 - `PunchDeviceEntry`: asks for a new code only when the server says revoked.
 - `PunchDeviceManager`: replace-vs-add prompt at code generation.
 - `vite.config.ts` / `index.html`: `/version.json` endpoint, no-store HTML.
+
+### 2026-09-04 — PIN → "Setting Up a Punch Clock" fix (shipped)
+Floor bug: fresh croohq.com PWA, paired inside the home-screen icon, stamp visible,
+Dave's PIN accepted (anon RPC), then the tablet landed on /auth offering
+"Setting Up a Punch Clock" while device row `1689ee2a` stayed healthy
+(secret present, `revoked_at` NULL). `clearPairing()` has zero callers, so the
+label could only mean `getPairing()` read null.
+
+- `src/lib/auth.tsx` boot validation: a definitively invalid stored session no
+  longer ejects a paired tablet. If a pairing blob exists it repairs first
+  (`repairDeviceSession`, under the one shared lock). Repair succeeds → stay on the
+  punch clock with the fresh session. Repair fails and the server has NOT said dead
+  → stay put and let the wake trigger retry. Only a dead pairing or no pairing at
+  all falls through to `navigate('/auth')`. Local sign-out still only clears
+  `sb-*-auth-token`; `croohq_punch_device_v1` and its cookie are never touched.
+- New: signed in as the paired device with no readable pairing blob → rebuild it
+  from the server (`rebuildPairingFromDeviceSession` → `backfill_secret`). Same
+  device row, same auth user, no new pairing code.
+- `reissueOnce` and the legacy branch of `enterKioskModeOnce` now install the new
+  session BEFORE dropping the old one — no window where auth is empty and a boot
+  race can decide the tablet is signed out.
+- Unchanged: pairing code TTL, Replace vs Add UX, device `1689ee2a` (not revoked).

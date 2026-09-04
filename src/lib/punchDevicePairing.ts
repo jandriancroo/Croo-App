@@ -294,7 +294,9 @@ async function reissueOnce(): Promise<boolean> {
     return false;
   }
 
-  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  // Install the NEW session FIRST. Never sign out before we have a working
+  // replacement — a gap with no auth is exactly what let a boot race decide the
+  // tablet was signed out and push it to /auth.
   const { data: set, error: setErr } = await supabase.auth.setSession({
     access_token: data.session.access_token,
     refresh_token: data.session.refresh_token,
@@ -303,6 +305,7 @@ async function reissueOnce(): Promise<boolean> {
     console.warn('[punchDevicePairing] reissued session could not be installed:', setErr?.message);
     return false;
   }
+
 
   const next: PunchDeviceCredential = {
     ...cred,
@@ -356,6 +359,56 @@ export async function ensureDeviceSecret(): Promise<boolean> {
 }
 
 /**
+ * Rebuild the pairing blob from the SERVER when the tablet is signed in as its
+ * paired device but the local blob is gone or unreadable (silently failed
+ * localStorage write, dropped cookie). Same device row, same auth user, no new
+ * pairing code — the login screen must never fall back to "Setting Up a Punch
+ * Clock" while a live device session is sitting right there.
+ */
+async function rebuildPairingOnce(): Promise<boolean> {
+  if (getPairing()) return true;
+
+  const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+  const session = sess?.session;
+  if (!session || !isPunchDeviceUser(session.user)) return false;
+
+  const { data, error } = await supabase.functions.invoke('punch-device-service', {
+    body: { action: 'backfill_secret' },
+  });
+  if (data?.dead === true) {
+    markPairingDead();
+    return false;
+  }
+  if (error || !data?.deviceId || !data?.deviceSecret) {
+    console.warn('[punchDevicePairing] pairing rebuild failed (retryable):', error?.message || data?.error);
+    return false;
+  }
+
+  setPairing({
+    deviceId: data.deviceId,
+    deviceName: data.deviceName,
+    deviceSecret: data.deviceSecret,
+    location: data.location,
+    session: {
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at,
+    },
+  });
+  clearPairingDead();
+  console.log('[punchDevicePairing] pairing rebuilt from the server — no new code needed');
+  return true;
+}
+
+/** Public rebuild — runs under the shared single-flight lock. */
+export async function rebuildPairingFromDeviceSession(): Promise<boolean> {
+  const result = await withPairingLock('secret-backfill', rebuildPairingOnce);
+  return result === PAIRING_DEFERRED ? false : result;
+}
+
+
+
+/**
  * Enter kiosk mode: make sure the tablet is signed in as its paired device.
  * Order of operations:
  *   1. Already the device session → keep it (never re-consume a refresh token).
@@ -398,13 +451,14 @@ async function enterKioskModeOnce(): Promise<boolean> {
     // fall through to the stored token as a second chance
   }
 
-  // LEGACY / fallback: restore from the stored refresh token.
+  // LEGACY / fallback: restore from the stored refresh token. setSession replaces
+  // whatever session is installed, so we never sign out first (no auth gap).
   if (cred.session?.refresh_token) {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
     const { data, error } = await supabase.auth.setSession({
       access_token: cred.session.access_token,
       refresh_token: cred.session.refresh_token,
     });
+
     if (!error && data.session) {
       applySession({
         access_token: data.session.access_token,
