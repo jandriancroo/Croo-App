@@ -109,6 +109,10 @@ async function handleSummarize(payload: any) {
   const mgr = (managerName || 'Manager').toString().slice(0, 120);
   const emp = (employeeName || 'Employee').toString().slice(0, 120);
 
+  const reasonOptions: string[] = Array.isArray(payload?.reasonOptions)
+    ? payload.reasonOptions.filter((r: unknown) => typeof r === 'string' && r.trim()).slice(0, 40)
+    : [];
+
   const systemPrompt = `You turn a recorded workplace coaching conversation into clean bullet notes for a restaurant Corrective Action record.
 
 There are two known people:
@@ -122,7 +126,12 @@ Rules:
 - Bullets must be factual and drawn only from the transcript. Never invent details, dates, or commitments.
 - The number of bullets scales with the transcript. There is NO minimum. A very short conversation of one or two sentences must produce exactly ONE consolidated bullet. Never pad, never split one idea into multiple bullets, never restate the same point twice. Maximum 12 bullets.
 - Keep each bullet to one short sentence, in the order the conversation happened.
-- Neutral, professional tone. No advice, no verdicts, no HR opinions.`;
+- Neutral, professional tone. No advice, no verdicts, no HR opinions.
+
+You also return two OPTIONAL suggestions the manager may accept or ignore:
+- suggested_next_steps: the go-forward expectation or commitment that was actually said in the conversation, written as one or two short plain sentences addressed to the employee. If the conversation contains no clear go-forward expectation, return null. Never invent a plan.
+- suggested_reason: the single best match from this exact list of allowed reasons${reasonOptions.length ? `: ${reasonOptions.join(' | ')}` : ' (no list was supplied, so return null)'}. Copy the option text verbatim. If the conversation does not clearly fit one option, return null. Never invent a new reason.`;
+
 
   const res = await fetch(`${GATEWAY}/chat/completions`, {
     method: 'POST',
