@@ -126,3 +126,17 @@ Client (`useConversationRecorder`, iPad-first PWA):
     by employee", headerTitle "Corrective Action", body "An employee has acknowledged and
     signed a Corrective Action." Type keys, payload keys, styling and layout unchanged.
   - Untouched: trails/`family_id`, recording pipeline, punch clock, sign UX, table name.
+- **2026-09-03 (night — verified task close)**
+  - `handleWriteUpComplete` in `TemporaryTaskDetailsDialog` no longer trusts `error == null`.
+    Postgres/RLS returns no error when 0 rows match, which let writeup `622c8849` sign while
+    task `1a130282` stayed `is_active` / `completed_at NULL` and the card stayed on the dashboard.
+  - New close path: pre-read → guarded `update ... .is('completed_at', null).select(...)` →
+    success ONLY when a row comes back with `completed_at` set. If 0 rows, re-read; if another
+    actor already closed it, treat as success. Otherwise one retry without the `.is()` filter,
+    then a final re-read.
+  - If it still cannot close and the writeup is signed, the toast says the signature saved but
+    the task could not close, and the dialog stays open. No silent `finish()`.
+  - RLS confirmed unchanged and not weakened: UPDATE policy on `temporary_tasks` keeps
+    `ta.task_id = temporary_tasks.id`, the `employee_writeups.employee_id = auth.uid()` branch,
+    and manager-tier access — with `WITH CHECK` identical to `USING`.
+  - Untouched: `send-notification-email`, recording pipeline, trails/`family_id`, sign UX layout.
