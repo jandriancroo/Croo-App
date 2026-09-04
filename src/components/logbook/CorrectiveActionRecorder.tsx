@@ -8,7 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mic, Square, Loader2, ChevronDown, Trash2, AlertTriangle } from "lucide-react";
+import { Mic, Square, Loader2, ChevronDown, Trash2, AlertTriangle, Maximize2 } from "lucide-react";
 import { useConversationRecorder, MAX_RECORDING_SECONDS, type NoteBullet } from "@/hooks/useConversationRecorder";
 import { toast } from "sonner";
 
@@ -18,6 +18,9 @@ export interface RecordingResult {
   consentConfirmedAt: string | null;
   durationSeconds: number;
   sttModel: "mini" | "standard" | null;
+  /** Advisory suggestions from the notes pass — null when the notes don't support them. */
+  suggestedNextSteps?: string | null;
+  suggestedReason?: string | null;
 }
 
 interface Props {
@@ -27,19 +30,26 @@ interface Props {
   value: RecordingResult | null;
   onChange: (value: RecordingResult | null) => void;
   locked?: boolean;
+  /** Reason dropdown options, passed to the notes pass for a verbatim suggestion. */
+  reasonOptions?: string[];
 }
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 export function CorrectiveActionRecorder({
-  employeeId, employeeName, managerName, value, onChange, locked,
+  employeeId, employeeName, managerName, value, onChange, locked, reasonOptions,
 }: Props) {
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [transcriptFull, setTranscriptFull] = useState(false);
   const [consentAt, setConsentAt] = useState<string | null>(null);
 
-  const rec = useConversationRecorder({ managerName, employeeName: employeeName || "Employee" });
+  const rec = useConversationRecorder({
+    managerName,
+    employeeName: employeeName || "Employee",
+    reasonOptions,
+  });
 
   // Push results up as soon as the pipeline finishes, and on every edit.
   useEffect(() => {
@@ -50,10 +60,12 @@ export function CorrectiveActionRecorder({
         consentConfirmedAt: consentAt,
         durationSeconds: rec.durationSeconds,
         sttModel: rec.sttModel,
+        suggestedNextSteps: rec.suggestedNextSteps,
+        suggestedReason: rec.suggestedReason,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rec.status, rec.transcript, rec.bullets, rec.sttModel, consentAt]);
+  }, [rec.status, rec.transcript, rec.bullets, rec.sttModel, rec.suggestedNextSteps, rec.suggestedReason, consentAt]);
 
   useEffect(() => {
     if (rec.autoStopped && rec.status === "processing") {
@@ -204,6 +216,15 @@ export function CorrectiveActionRecorder({
                 rows={8}
                 className="text-xs font-mono"
               />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs mt-1"
+                onClick={() => setTranscriptFull(true)}
+              >
+                <Maximize2 className="h-3.5 w-3.5 mr-1" />
+                Open full view
+              </Button>
               <p className="text-[10px] text-muted-foreground mt-1">
                 Word-for-word transcript. Managers only — the employee's copy shows the notes.
               </p>
@@ -211,6 +232,27 @@ export function CorrectiveActionRecorder({
           </Collapsible>
         </div>
       )}
+
+      {/* Full-height transcript reading view */}
+      <Dialog open={transcriptFull} onOpenChange={setTranscriptFull}>
+        <DialogContent className="max-w-3xl h-[90vh] flex flex-col gap-3">
+          <DialogHeader>
+            <DialogTitle>Full transcript</DialogTitle>
+            <DialogDescription>
+              Word-for-word. Managers only — the employee's copy shows the notes.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={rec.transcript}
+            onChange={(e) => rec.setTranscript(e.target.value)}
+            disabled={locked}
+            className="flex-1 min-h-0 resize-none text-sm font-mono leading-relaxed"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTranscriptFull(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Per-recording consent gate */}
       <Dialog open={consentOpen} onOpenChange={setConsentOpen}>
