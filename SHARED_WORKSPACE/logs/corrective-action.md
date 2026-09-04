@@ -104,3 +104,25 @@ Client (`useConversationRecorder`, iPad-first PWA):
     restated inside bullet text; no filler openers. Max 12. Historical `notes_bullets` were not rewritten.
   - Untouched: `send-notification-email`, table/column names, trails/`family_id`, consent, chunking,
     hop-1 transcribe models, punch clock.
+- **2026-09-03 (evening — employee file visibility + email verbiage)**
+  - **Employee file CA dialog** (`EmployeeRecordsSection.tsx`) now loads `notes_bullets` +
+    `recording_duration_seconds` and mounts `CorrectiveActionNotesPanel` (read-only), so
+    conversation notes read the same as Logbook.
+  - **Two-tier transcript gate.** Logbook stays manager-tier via
+    `get_corrective_action_transcript` (unchanged). The employee file uses the new
+    `get_corrective_action_transcript_admin(_writeup_id)`: `has_role_or_higher(admin)`
+    **and** `employee_id <> auth.uid()` **and** a `user_locations` row for that location
+    (or `org_admin`+). Self-view never shows the transcript, even for an admin+.
+    Panel prop `transcriptAccess: "manager" | "admin" | "none"` selects the gate; `"none"`
+    hides the transcript control entirely.
+  - **PDF export scoped at generation time.** Bullets are included when the viewer sees
+    bullets; the transcript is included only when that same viewer is admin+ and not self
+    (transcript text comes from the admin RPC fetch, never from a broad select).
+  - **Email words only (layout locked).** `send-notification-email` + `EmailPreview` mirror:
+    `employee_writeup` → subject "You've received a Corrective Action from management",
+    headerTitle "Corrective Action", body "You have received a Corrective Action from
+    management.", footer "Open the Croo app to review the full details and acknowledge this
+    Corrective Action." `employee_writeup_signed` → subject "Corrective Action acknowledged
+    by employee", headerTitle "Corrective Action", body "An employee has acknowledged and
+    signed a Corrective Action." Type keys, payload keys, styling and layout unchanged.
+  - Untouched: trails/`family_id`, recording pipeline, punch clock, sign UX, table name.
