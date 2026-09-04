@@ -294,7 +294,9 @@ async function reissueOnce(): Promise<boolean> {
     return false;
   }
 
-  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  // Install the NEW session FIRST. Never sign out before we have a working
+  // replacement — a gap with no auth is exactly what let a boot race decide the
+  // tablet was signed out and push it to /auth.
   const { data: set, error: setErr } = await supabase.auth.setSession({
     access_token: data.session.access_token,
     refresh_token: data.session.refresh_token,
@@ -303,6 +305,7 @@ async function reissueOnce(): Promise<boolean> {
     console.warn('[punchDevicePairing] reissued session could not be installed:', setErr?.message);
     return false;
   }
+
 
   const next: PunchDeviceCredential = {
     ...cred,
