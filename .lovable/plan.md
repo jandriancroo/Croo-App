@@ -1,120 +1,54 @@
-# Palm Springs punch clock — why the "house key" is missing (diagnosis, plan only)
+# Palm Springs: healthy on the server, "unpaired" on the tablet
 
-Short version: the Palm Springs tablet was paired about 90 minutes BEFORE the
-pairing-until-revoke ship went live, and it has never reloaded since. So it is
-still running the old app code and never got a house key. Nothing on it can
-self-heal until somebody reloads that one tablet.
+Plan only. Nothing written to app code.
 
-## 1. Where the house key is supposed to be minted
+## What the trace actually shows
 
-Two places only:
+The PIN itself is innocent. `verifyPin` in `src/pages/PunchClock.tsx` (~line 895–960) does exactly three things: an RPC `punch_clock_lookup_pin`, an RPC `punch_clock_get_role`, and `setCurrentUser`. There is no `signInWithPassword`, no `setSession`, no `signOut` anywhere on that path. A successful PIN cannot log the device out.
 
-- `supabase/functions/punch-device-service/index.ts` → `redeem`
-  (lines ~252–266): mints `deviceSecret`, stores `device_secret_hash` +
-  `device_secret_issued_at` on the new `punch_clock_devices` row, returns the
-  raw secret to the tablet.
-- Same file → `backfill_secret` (lines ~363–387): for a tablet that already
-  has a working device session but no key. Called from
-  `src/lib/punchDevicePairing.ts` → `backfillSecretOnce()` (~line 334) /
-  `ensureDeviceSecret()` (~line 353), which fire from:
-  - `src/components/KioskAutoRestore.tsx` line 70 (boot restore),
-  - `refreshDeviceSession()` in `punchDevicePairing.ts` (wake / visibility),
-  - the legacy stored-token restore branch (~line 389).
+`clearPairing()` exists at `src/lib/punchDevicePairing.ts:164` and has **zero call sites** in the repo. No code path un-pairs a tablet. `markPairingDead()` is only set when the server answers `dead: true` (`punchDevicePairing.ts:277`, `348`).
 
-Why a Sep 3 morning pair still has NULL:
+That last point is the tell. `src/components/punchclock/PunchDeviceEntry.tsx:83–87` picks its label in this order:
 
-- Device `ed449595` paired 2026-09-03 09:13 PT. The ship's build stamp is
-  `26.09.03.1041` — i.e. published 10:41 PT, ~88 minutes AFTER that pairing.
-  The `redeem` that created this row ran on the pre-ship edge function, which
-  did not mint a key.
-- `last_active_at` equals `paired_at`, and heartbeat lives in the NEW bundle
-  (`src/pages/PunchClock.tsx` line 283, `sendDeviceHeartbeat`). No heartbeat
-  ever = that tablet has never loaded the new bundle, so no boot/wake backfill
-  has ever had a chance to run either. Both facts point at the same thing: old
-  code, old row, no key.
-- Georgetown (2) and one Hemet tablet are the same shape. Palm Desert has a key
-  because it reloaded and backfilled.
+- paired and not dead -> "Open Punch Clock (Paired Device)"
+- dead -> "Punch Clock Needs Re-Pairing"
+- otherwise -> "Setting Up a Punch Clock"
 
-## 2. If iOS drops the session overnight and there is no key
+Dave saw the third one. So the client did not decide the pairing was broken. `getPairing()` returned **null** — meaning both the localStorage key `croohq_punch_device_v1` **and** the 400-day cookie fallback were unreadable from whatever container that screen was running in (`punchDevicePairing.ts:112–135`).
 
-Yes — that is the old failure, not a new one.
+## Sequence that produces the exact symptom
 
-- `reissueOnce()` (`punchDevicePairing.ts` ~line 279) bails immediately when
-  `deviceSecret` is missing, so the primary recovery path is unavailable.
-- Recovery then falls back to the stored refresh token. Supabase rotates that
-  token on every refresh and a rotated token is single-use, so if iOS killed
-  the tab mid-rotation the stored copy is already spent and `setSession` fails.
-- On the OLD bundle that latched the "needs a new pairing code" screen. That is
-  exactly what Dave is looking at. (On the new bundle it would not latch, but it
-  still could not recover without a key.)
-- Consistent with zero `punch_clock_attempts` after 2026-09-03 18:00 PT: the
-  clock never came back after the evening, so nobody could punch overnight or
-  this morning.
+1. Code redeemed, device row healthy, secret minted, session installed via `reissue` (~2s after redeem — matches `last_reissue_at`).
+2. PIN works. Still no auth change.
+3. Something reloads the page — the kiosk reloads itself on wake/new build (`PunchClock.tsx:263–298`) and on Universal Update (`PunchClock.tsx:301–330`).
+4. On that fresh boot, `AuthProvider` (`src/lib/auth.tsx:150–180`) validates the stored session. A definitive 401/403 triggers a local sign-out and `navigate('/auth')`.
+5. `/punch-clock` is not a protected route, so nothing else ejects — but `KioskAutoRestore` (`src/components/KioskAutoRestore.tsx:38`) bails immediately because `isPaired()` is false, so nothing restores the device.
+6. Login screen, pairing storage empty -> "Setting Up a Punch Clock".
 
-## 3. What Dave should do right now (no "Punch Clock PS 2")
+## Leading hypothesis (needs one confirmation on the tablet)
 
-In order, stop at the first one that works:
+The pairing blob is in a **different storage container than the screen Dave ended up on**. Two variants, both consistent with the DB:
 
-1. On the tablet, force the app to fetch fresh code: swipe the CrooHQ PWA fully
-   closed, then reopen it (if it opens to a browser tab instead, pull down to
-   refresh). This loads build `26.09.03.1041` or newer.
-2. If the punch screen comes up, he is done — `KioskAutoRestore` will mint the
-   house key in the background within seconds, and the version stamp in the
-   bottom-left corner of the PIN screen should read the new build.
-3. If it still lands on the "pair a punch clock" screen after the reload, the
-   session really is gone and there is no key to recover with. Then one final
-   pairing code is unavoidable — and he must generate it with the SAME device
-   name "Punch Clock PS" and choose **Replace**, not Add
-   (`PunchDeviceManager` duplicate-name prompt), so the dead row is revoked and
-   the list does not grow.
+- **A. Container / origin split.** The pairing was redeemed in Safari (or on `croohq.com`) and the home-screen PWA is a separate WebKit data store — and `kiosk.croohq.com` is a genuinely separate origin (documented in the kiosk-subdomain memory). Storage does not cross either boundary, so the PWA is legitimately blank.
+- **B. Blob written but rejected on read.** `isUsablePairing` (`punchDevicePairing.ts:107`) requires `deviceId` plus either `deviceSecret` or `session.refresh_token`. A partial write would read back as "not paired" rather than "dead".
 
-Do not revoke anything before step 1; revoking makes the server declare the
-pairing dead and guarantees a new code is needed.
+Confirmation before any code: on the tablet, in the *same* context Dave uses, check whether `croohq_punch_device_v1` exists in localStorage and in cookies, and note the exact host shown in the address bar / which icon was tapped. That single check separates A from B.
 
-## 4. Is idle-reload / the version stamp enough?
+## The one fix I would make
 
-No — chicken and egg. The idle version poll (`PunchClock.tsx` ~lines 247–283),
-the Universal Update listener (~line 308) and the 4–6 AM reload
-(`KioskAutoRestore.tsx` ~line 109) all live INSIDE the new bundle. A tablet
-still running the old bundle listens to none of them, so it will never pull
-itself forward. Every live device without a key needs one manual reload:
-Palm Springs (1), Georgetown (2), Hemet (1 of 2).
+Stop treating client storage as the only proof of pairing. Today a tablet that still holds a valid **device auth session** but has an empty pairing blob looks completely unpaired, and every self-heal path (`enterKioskMode`, `refreshDeviceSession`, `KioskAutoRestore`) is gated behind `isPaired()` — so it can never recover itself.
 
-## Candidate follow-up ship (not doing now, needs Jordan to name it)
+Fix: add a server-backed rebuild. On boot, if the live auth user has `user_metadata.is_punch_device === true` but `getPairing()` is null, ask `punch-device-service` who this device is, write the pairing record back (including a freshly issued secret via the existing `backfill_secret`/`reissue` actions), and continue into kiosk mode instead of falling through to the login screen. Same device row, same auth user, no new pairing code, no duplicate "Punch Clock PS 2".
 
-- Show a "no house key / last seen" health column in the device manager so a
-  pre-ship tablet is visible before it fails overnight, instead of us finding it
-  by SQL after the floor goes down.
-- Consider a service-worker-level version check so a stale shell can update
-  itself without depending on new-bundle JS.
+Secondary guard in the same change: while a device session is expected, the boot invalid-session branch in `auth.tsx` should attempt device reissue before it navigates to `/auth`.
 
----
+Neither of those helps variant A (separate origin = separate everything). If the check shows A, the fix is operational instead: pair inside the exact icon/host the floor uses, and we standardise on one kiosk entry point.
 
-# Universal Update — what actually exists (traced 2026-09-04)
+## What Dave should do right now
 
-- **Where the button is:** Users screen only — `src/pages/UserManagement.tsx`
-  line 46, gated behind `data.isSuperAdmin`, globe icon, label "Universal
-  Update" (mobile: "Update"). Nothing on the punch clock or in Settings.
-- **What it does on click:** `handleUniversalUpdate` in
-  `src/hooks/useUserManagementData.tsx` (~line 547) calls
-  `broadcastUniversalUpdate()` in `src/lib/universalUpdate.ts` (line 17) — a
-  Supabase Realtime broadcast, event `reload`, on the single public channel
-  `croohq-universal-update`. No localStorage flag, no service worker, no push.
-- **Who listens:** `subscribeUniversalUpdate` (universalUpdate.ts line 38) from
-  `src/hooks/useForceReload.tsx` line 70 (normal clients — reload immediately)
-  and `src/pages/PunchClock.tsx` line 315 (kiosks — reload only when idle on the
-  PIN screen, 20s since last touch, pairing lock free).
-- **Nightly twin:** `supabase/functions/universal-update-broadcast/index.ts`
-  sends the identical broadcast on the `nightly-universal-update` cron.
-- **Can it reach a PRE-ship tablet?** No. The listener code ships *inside* build
-  `26.09.03.1041`. A tablet still running the pre-ship bundle never subscribed to
-  `croohq-universal-update`, so the broadcast lands nowhere. Same reason the
-  idle version poll and the 4–6 AM reload can't reach it.
-- **Dave's PS iPad specifically:** pressing Universal Update on Jordan's phone
-  does nothing for that iPad. Realtime broadcast is fire-and-forget with no
-  queue — a client that isn't connected at send time never gets it, and even
-  reconnecting later replays nothing.
-- **Consequence:** Universal Update is a *post-ship* fleet tool. The very first
-  hop onto a new bundle still has to come from the tablet itself — one manual
-  close-and-reopen per device (Palm Springs 1, Georgetown 2, Hemet 1). After
-  that hop, Universal Update and the nightly cron cover them forever.
+1. Force-quit and reopen the punch clock icon once. If the screen says "Open Punch Clock (Paired Device)", tap it — no code needed.
+2. If it still says "Setting Up a Punch Clock", note the host in the address bar first (that is the evidence), then use one final pairing code and choose **Replace it**, never "Add a new device", so we do not grow the device list.
+
+## Not doing
+
+No code, no migration, no publish. No revoking the live Palm Springs device — the server row is healthy and reusable.
