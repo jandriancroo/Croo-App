@@ -13277,6 +13277,10 @@ export type Database = {
         Args: { _writeup_id: string }
         Returns: string
       }
+      get_corrective_action_transcript_admin: {
+        Args: { _writeup_id: string }
+        Returns: string
+      }
       get_current_wage: {
         Args: { p_date?: string; p_user_id: string }
         Returns: number

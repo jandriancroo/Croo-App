@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertTriangle, CheckCircle2, Clock, Download, FileText, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
 import { exportRecordToPdf } from "@/utils/exportRecordPdf";
+import { CorrectiveActionNotesPanel } from "@/components/logbook/CorrectiveActionNotesPanel";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/lib/auth";
+import type { NoteBullet } from "@/hooks/useConversationRecorder";
 
 interface EmployeeRecordsSectionProps {
   userId: string;
@@ -25,6 +29,8 @@ interface WriteUp {
   signature_url: string | null;
   signed_at: string | null;
   created_at: string;
+  notes_bullets: NoteBullet[] | null;
+  recording_duration_seconds: number | null;
   created_by_profile?: { full_name: string } | null;
   location?: { name: string } | null;
 }
@@ -46,6 +52,12 @@ interface SignedDocument {
 export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: EmployeeRecordsSectionProps) {
   const [selectedWriteUp, setSelectedWriteUp] = useState<WriteUp | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<SignedDocument | null>(null);
+  const [transcriptText, setTranscriptText] = useState<string | null>(null);
+  const { isAdmin } = useUserRole();
+  const { user } = useAuth();
+  const isSelfView = user?.id === userId;
+  // Employee file transcript is admin+ only, and never on your own record.
+  const canViewTranscript = isAdmin && !isSelfView;
 
   const { data: writeUps = [] } = useQuery({
     queryKey: ["employee-writeups", userId],
@@ -55,6 +67,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
         .select(`
           id, reason, issue_description, next_steps, photo_url,
           is_final_warning, signature_url, signed_at, created_at,
+          notes_bullets, recording_duration_seconds,
           created_by_profile:profiles!employee_writeups_created_by_fkey(full_name),
           location:locations!employee_writeups_location_id_fkey(name)
         `)
@@ -185,7 +198,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
       </div>
 
       {/* Corrective Action Detail Dialog */}
-      <Dialog open={!!selectedWriteUp} onOpenChange={(open) => !open && setSelectedWriteUp(null)}>
+      <Dialog open={!!selectedWriteUp} onOpenChange={(open) => { if (!open) { setSelectedWriteUp(null); setTranscriptText(null); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           {selectedWriteUp && (
             <Button
@@ -206,6 +219,8 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
                   createdAt: selectedWriteUp.created_at,
                   createdByName: selectedWriteUp.created_by_profile?.full_name,
                   locationName: selectedWriteUp.location?.name,
+                  notesBullets: selectedWriteUp.notes_bullets,
+                  transcriptText: canViewTranscript ? transcriptText : null,
                 })
               }
             >
@@ -247,6 +262,15 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
                     {selectedWriteUp.next_steps}
                   </p>
                 </div>
+                <CorrectiveActionNotesPanel
+                  writeUpId={selectedWriteUp.id}
+                  notesBullets={selectedWriteUp.notes_bullets}
+                  signedAt={selectedWriteUp.signed_at}
+                  recordingDurationSeconds={selectedWriteUp.recording_duration_seconds}
+                  transcriptAccess={canViewTranscript ? "admin" : "none"}
+                  readOnly
+                  onTranscriptLoaded={setTranscriptText}
+                />
                 {selectedWriteUp.photo_url && (
                   <div className="space-y-1">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Photo</span>

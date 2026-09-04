@@ -214,9 +214,9 @@ function supportTicket(): string {
 
 function writeupNotification(): string {
   return wrapEmail(`
-    ${getUnifiedHeader("Write-up Notification")}
+    ${getUnifiedHeader("Corrective Action")}
     <tr><td style="padding:30px 40px;">
-      <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received an employee write-up from management.</p>
+      <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received a Corrective Action from management.</p>
       <div style="background:#f5f4f1;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <table style="width:100%;">
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Reason</span><br/><strong style="color:#ef4444;font-size:15px;">Tardiness</strong></td></tr>
@@ -233,7 +233,7 @@ function writeupNotification(): string {
         <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Next Steps</p>
         <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">Please set an alarm and arrive on time for all future shifts.</p>
       </div>
-      <p style="color:#666;font-size:13px;margin:0 0 20px;">Open the Croo app to review the full details and acknowledge this write-up.</p>
+      <p style="color:#666;font-size:13px;margin:0 0 20px;">Open the Croo app to review the full details and acknowledge this Corrective Action.</p>
       <div style="margin-top:24px;">${getCTAButton("#", "Open Croo")}</div>
     </td></tr>
     ${getEmailFooter()}`);
@@ -495,7 +495,7 @@ const ALL_TEMPLATES: EmailTemplate[] = [
   { id: "ops-support", name: "Support Ticket", category: "operations", source: "support-email-service → Resend", html: supportTicket() },
 
   // Notification emails (via Resend)
-  { id: "notif-writeup", name: "Write-up Notification", category: "notifications", source: "send-notification-email → Resend", html: writeupNotification() },
+  { id: "notif-writeup", name: "Corrective Action Notification", category: "notifications", source: "send-notification-email → Resend", html: writeupNotification() },
   { id: "notif-review", name: "Performance Review Signed", category: "notifications", source: "send-notification-email → Resend", html: performanceReviewSigned() },
 ];
 

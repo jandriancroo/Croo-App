@@ -115,11 +115,11 @@ serve(async (req) => {
     // ========== EMPLOYEE WRITE-UP ISSUANCE ==========
     if (type === "employee_writeup") {
       const { reason, issue_description, next_steps, is_final_warning, manager_name, location_name, date } = data;
-      subject = `You've received a write-up from management`;
-      headerTitle = "Write-up Notification";
+      subject = `You've received a Corrective Action from management`;
+      headerTitle = "Corrective Action";
       source = "writeup_issued";
       content = `
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received an employee write-up from management.</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received a Corrective Action from management.</p>
         <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #ef4444;">
           <table style="width:100%;">
             <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Reason</span><br/><strong style="color:#ef4444;font-size:15px;">${reason}</strong></td></tr>
@@ -137,17 +137,17 @@ serve(async (req) => {
           <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${next_steps}</p>
         </div>
         ${is_final_warning ? `<div style="background:#fef2f2;border-radius:10px;padding:16px;margin-bottom:20px;border-left:4px solid #ef4444;"><p style="color:#991b1b;font-size:13px;font-weight:600;margin:0;">⚠️ This is a final warning.</p></div>` : ''}
-        <p style="color:#666;font-size:13px;margin:0 0 20px;">Open the Croo app to review the full details and acknowledge this write-up.</p>
+        <p style="color:#666;font-size:13px;margin:0 0 20px;">Open the Croo app to review the full details and acknowledge this Corrective Action.</p>
       `;
     }
     // ========== WRITE-UP SIGNED/ACKNOWLEDGED ==========
     else if (type === "employee_writeup_signed") {
       const { reason, issue_description, next_steps, manager_name, location_name, signed_date } = data;
-      subject = `Write-up acknowledged by employee`;
-      headerTitle = "Write-up Notification";
+      subject = `Corrective Action acknowledged by employee`;
+      headerTitle = "Corrective Action";
       source = "writeup_signed";
       content = `
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">An employee has acknowledged and signed a write-up.</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">An employee has acknowledged and signed a Corrective Action.</p>
         <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
           <table style="width:100%;">
             <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Reason</span><br/><strong style="color:${primaryColor};font-size:15px;">${reason}</strong></td></tr>

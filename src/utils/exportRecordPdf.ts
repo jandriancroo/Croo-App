@@ -13,6 +13,10 @@ interface WriteUpExport {
   createdAt: string;
   createdByName?: string;
   locationName?: string;
+  /** Conversation notes — only pass when the requesting viewer may see bullets. */
+  notesBullets?: { speaker: string; text: string }[] | null;
+  /** Verbatim transcript — only pass when the viewer is admin+ and not the employee. */
+  transcriptText?: string | null;
 }
 
 interface DocumentExport {
@@ -198,13 +202,29 @@ function buildWriteUpHtml(data: WriteUpExport): string {
 
 <div class="section">
   <div class="section-label">Issue Description</div>
-  <div class="section-content">${escapeHtml(data.issueDescription)}</div>
+  <div class="section-content">${escapeHtml(data.issueDescription || "See conversation notes")}</div>
 </div>
 
 <div class="section">
   <div class="section-label">Next Steps / Corrective Action</div>
   <div class="section-content highlight">${escapeHtml(data.nextSteps)}</div>
 </div>
+
+${data.notesBullets?.length ? `
+<div class="section">
+  <div class="section-label">Conversation Notes</div>
+  <div class="section-content">
+    ${data.notesBullets.map((b) => `<div style="margin-bottom:6px;"><strong>${escapeHtml(b.speaker)}:</strong> ${escapeHtml(b.text)}</div>`).join("")}
+  </div>
+</div>
+` : ""}
+
+${data.transcriptText ? `
+<div class="section">
+  <div class="section-label">Full Transcript</div>
+  <div class="section-content" style="white-space:pre-wrap;font-size:11px;">${escapeHtml(data.transcriptText)}</div>
+</div>
+` : ""}
 
 ${data.photoUrl ? `
 <div class="section">
