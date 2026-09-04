@@ -1,62 +1,89 @@
-# Corrective Action (rename) + in-dialog conversation recording
+# Palm Springs punch clock — why the "house key" is missing (diagnosis, plan only)
 
-Two pieces: a user-facing rename of "Employee Write-Up" to "Corrective Action", and a record button inside the dialog that turns a manager/employee conversation into bullet notes (with a full transcript hidden behind a tap). Audio is never stored.
+Short version: the Palm Springs tablet was paired about 90 minutes BEFORE the
+pairing-until-revoke ship went live, and it has never reloaded since. So it is
+still running the old app code and never got a house key. Nothing on it can
+self-heal until somebody reloads that one tablet.
 
-## 1. Rename to Corrective Action
+## 1. Where the house key is supposed to be minted
 
-Copy-only. Same records, same table, same signatures, no data migration.
+Two places only:
 
-Where the words change:
-- Logs page category label and entry list ("Employee Write-Up" -> "Corrective Action")
-- New-entry sheet option and the form heading/buttons
-- Employee-facing signature screen ("Employee Write-Up" -> "Corrective Action", acknowledgment wording softened to match the more positive framing)
-- Employee profile section currently titled "Write-Ups" -> "Corrective Actions"
-- Notification/email subject and body copy for issued and signed records
-- PDF export header
+- `supabase/functions/punch-device-service/index.ts` → `redeem`
+  (lines ~252–266): mints `deviceSecret`, stores `device_secret_hash` +
+  `device_secret_issued_at` on the new `punch_clock_devices` row, returns the
+  raw secret to the tablet.
+- Same file → `backfill_secret` (lines ~363–387): for a tablet that already
+  has a working device session but no key. Called from
+  `src/lib/punchDevicePairing.ts` → `backfillSecretOnce()` (~line 334) /
+  `ensureDeviceSecret()` (~line 353), which fire from:
+  - `src/components/KioskAutoRestore.tsx` line 70 (boot restore),
+  - `refreshDeviceSession()` in `punchDevicePairing.ts` (wake / visibility),
+  - the legacy stored-token restore branch (~line 389).
 
-What does NOT change: the `employee_writeups` table, column names, log category keys stored in the database, notification type keys, RLS. Renaming stored keys would orphan existing records and saved notification preferences; the label is resolved in the UI instead.
+Why a Sep 3 morning pair still has NULL:
 
-One decision to confirm: "Final Warning" badge wording. Suggest keeping it, since it is a real HR escalation level, but it can become "Final Notice" if you want the softer tone all the way through.
+- Device `ed449595` paired 2026-09-03 09:13 PT. The ship's build stamp is
+  `26.09.03.1041` — i.e. published 10:41 PT, ~88 minutes AFTER that pairing.
+  The `redeem` that created this row ran on the pre-ship edge function, which
+  did not mint a key.
+- `last_active_at` equals `paired_at`, and heartbeat lives in the NEW bundle
+  (`src/pages/PunchClock.tsx` line 283, `sendDeviceHeartbeat`). No heartbeat
+  ever = that tablet has never loaded the new bundle, so no boot/wake backfill
+  has ever had a chance to run either. Both facts point at the same thing: old
+  code, old row, no key.
+- Georgetown (2) and one Hemet tablet are the same shape. Palm Desert has a key
+  because it reloaded and backfilled.
 
-## 2. Recording inside the dialog
+## 2. If iOS drops the session overnight and there is no key
 
-Flow:
-1. Mic icon at the top of the Corrective Action dialog. Tapping it shows a short on-record notice, then starts recording after the manager confirms.
-2. Recording UI: elapsed timer, live level bar, Pause, Stop. Screen-lock safe on iPad (keeps the audio context alive the way the inventory voice counter already does).
-3. On Stop: audio goes straight to an edge function, which returns a word-for-word transcript plus 4-8 bullet notes. Nothing is written to storage.
-4. Result view: bullets by default, with a "View full transcript" toggle that only appears after the record is saved. Bullets and transcript are editable text before save - the manager stays the author of record.
-5. Optional convenience: a "Use in Issue / Next Steps" button that drops the bullets into the existing fields, so the record still reads like a normal corrective action.
-6. If transcription fails, the manager keeps typing manually; the recording is simply lost (no retry queue, no stored audio).
+Yes — that is the old failure, not a new one.
 
-Storage: two new text columns on the existing table for the bullet summary and the verbatim transcript, plus a flag for "captured from a recorded conversation." No audio bucket, no audio path column.
+- `reissueOnce()` (`punchDevicePairing.ts` ~line 279) bails immediately when
+  `deviceSecret` is missing, so the primary recovery path is unavailable.
+- Recovery then falls back to the stored refresh token. Supabase rotates that
+  token on every refresh and a rotated token is single-use, so if iOS killed
+  the tab mid-rotation the stored copy is already spent and `setSession` fails.
+- On the OLD bundle that latched the "needs a new pairing code" screen. That is
+  exactly what Dave is looking at. (On the new bundle it would not latch, but it
+  still could not recover without a key.)
+- Consistent with zero `punch_clock_attempts` after 2026-09-03 18:00 PT: the
+  clock never came back after the evening, so nobody could punch overnight or
+  this morning.
 
-## 3. Model choice and cost (the direct answer)
+## 3. What Dave should do right now (no "Punch Clock PS 2")
 
-Pick: **`google/gemini-3.1-flash-lite`** through Lovable AI (already wired in this project for voice counting, no extra key, secrets stay server-side).
+In order, stop at the first one that works:
 
-Why: it takes audio natively, so one call does transcription and bullets together - no separate speech-to-text vendor, no second round trip, no extra secret.
+1. On the tablet, force the app to fetch fresh code: swipe the CrooHQ PWA fully
+   closed, then reopen it (if it opens to a browser tab instead, pull down to
+   refresh). This loads build `26.09.03.1041` or newer.
+2. If the punch screen comes up, he is done — `KioskAutoRestore` will mint the
+   house key in the background within seconds, and the version stamp in the
+   bottom-left corner of the PIN screen should read the new build.
+3. If it still lands on the "pair a punch clock" screen after the reload, the
+   session really is gone and there is no key to recover with. Then one final
+   pairing code is unavoidable — and he must generate it with the SAME device
+   name "Punch Clock PS" and choose **Replace**, not Add
+   (`PunchDeviceManager` duplicate-name prompt), so the dead row is revoked and
+   the list does not grow.
 
-Estimated cost for a 15-minute recording: **well under one cent - roughly $0.005 to $0.01** (about 29k audio input tokens plus ~3k output tokens for transcript + bullets). Even at 200 recordings a month that is a couple of dollars.
+Do not revoke anything before step 1; revoking makes the server declare the
+pairing dead and guarantees a new code is needed.
 
-- Cheaper: there is no meaningfully cheaper path. The only real lever is not transcribing verbatim (bullets only), which cuts output tokens by ~90% and lands near $0.003. Not recommended - you asked for word-for-word.
-- More accurate: `google/gemini-3.7-flash` for hard audio (noisy kitchen line, heavy accents, crosstalk). Roughly 5-10x the cost, so about **$0.05 to $0.10 per 15 minutes** - still trivial. Suggested approach: default to flash-lite, and add a quiet "Improve transcript" retry that reruns the same audio on 3.7-flash if the manager says the first pass looks wrong. That requires holding the audio in memory for the length of the dialog only, never on disk.
+## 4. Is idle-reload / the version stamp enough?
 
-Practical note: a 15-minute clip is too large for a single request body at this project's limits, so recording is captured in ~4-minute segments, each transcribed as it completes, then stitched in order. This also means the transcript is basically ready the moment Stop is pressed.
+No — chicken and egg. The idle version poll (`PunchClock.tsx` ~lines 247–283),
+the Universal Update listener (~line 308) and the 4–6 AM reload
+(`KioskAutoRestore.tsx` ~line 109) all live INSIDE the new bundle. A tablet
+still running the old bundle listens to none of them, so it will never pull
+itself forward. Every live device without a key needs one manual reload:
+Palm Springs (1), Georgetown (2), Hemet (1 of 2).
 
-## 4. Consent disclosure (flagged, not lectured)
+## Candidate follow-up ship (not doing now, needs Jordan to name it)
 
-California is two-party consent, and several CrooHQ stores are in California. The UI needs an explicit on-record moment, not fine print:
-- Before recording starts, a short confirm step with a line the manager reads aloud: "I'm recording this conversation for notes. Are you okay with that?" plus a required checkbox "Employee was told and agreed."
-- Visible red recording indicator for the whole session.
-- The employee's agreement is stamped on the record (who confirmed, when).
-- Recording is optional in every case; the corrective action can always be typed.
-
-Worth deciding: whether recording should be off entirely for certain locations/states. Easy to add as a location setting later.
-
-## Technical notes
-
-- New edge function (e.g. `transcribe-conversation`) that accepts a base64 audio segment, calls Lovable AI with `google/gemini-3.1-flash-lite`, and returns `{ transcript, bullets[] }` via a tool-call schema. Verify JWT, confirm the caller is a manager or above at the location. No storage writes.
-- Client recorder modeled on `src/hooks/useAudioVoiceInput.tsx` (16 kHz mono opus, iOS-safe MediaRecorder handling), but segment-based rather than silence-triggered.
-- Files touched for the rename: `src/pages/LogBook.tsx`, `src/components/logbook/LogBookNewEntrySheet.tsx`, `LogBookEntryList.tsx`, `EmployeeWriteUpEntry.tsx`, `EmployeeWriteUpForm.tsx`, `WriteUpSignatureView.tsx`, `src/components/users/WriteUpsSection.tsx`, `EmployeeRecordsSection.tsx`, `src/utils/exportRecordPdf.ts`, `send-notification-email`, `src/pages/EmailPreview.tsx`.
-- Migration: additive only - `conversation_summary text`, `conversation_transcript text`, `recorded_consent_at timestamptz`, `recorded_consent_by uuid` on `employee_writeups`. Existing RLS covers them; no new grants needed since no new table.
-- Mobile/PWA: recording keeps the dialog mounted; guard against backgrounding losing the recorder, and cap a single session at 30 minutes.
+- Show a "no house key / last seen" health column in the device manager so a
+  pre-ship tablet is visible before it fails overnight, instead of us finding it
+  by SQL after the floor goes down.
+- Consider a service-worker-level version check so a stale shell can update
+  itself without depending on new-bundle JS.
