@@ -32,3 +32,9 @@
 - [x] Bullets + transcript editable until signed_at
 - [x] Locked docs: SHARED_WORKSPACE/logs/corrective-action.md
 - [ ] Diff review, then publish to croohq.com
+
+## Corrective Action — Sep 4 (PDF + transcript view + notes autofill)
+- [ ] PDF export: Close/Done button, bullets as one flowing paragraph, overflow-wrap on sections
+- [ ] Expanded full-height transcript reading view (notes panel + recorder), gates respected
+- [ ] Autofill empty Reason + Next Steps from recording notes (nullable suggestions from Flash)
+- [ ] Changelog + publish to croohq.com
