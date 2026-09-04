@@ -99,6 +99,9 @@ function getBaseStyles(): string {
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      hyphens: auto;
       font-size: 13px;
       line-height: 1.6;
     }
@@ -214,7 +217,9 @@ ${data.notesBullets?.length ? `
 <div class="section">
   <div class="section-label">Conversation Notes</div>
   <div class="section-content">
-    ${data.notesBullets.map((b) => `<div style="margin-bottom:6px;"><strong>${escapeHtml(b.speaker)}:</strong> ${escapeHtml(b.text)}</div>`).join("")}
+    ${data.notesBullets
+      .map((b) => `<strong>${escapeHtml(b.speaker)}:</strong> ${escapeHtml(b.text.replace(/\s*$/, "").replace(/\.$/, ""))}.`)
+      .join(' <span style="color:#9ca3af;">&bull;</span> ')}
   </div>
 </div>
 ` : ""}
@@ -312,10 +317,16 @@ export function exportRecordToPdf(data: RecordExport) {
       font-size: 14px;
     ">
       <span>To save as PDF: use <strong>Share → Save as PDF</strong> (iOS) or <strong>⌘P → Save as PDF</strong> (Desktop)</span>
-      <button onclick="document.getElementById('pdf-toolbar').style.display='none'; window.print();" style="
-        background: #dc2626; color: white; border: none; padding: 8px 20px;
-        border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;
-      ">Print / Save PDF</button>
+      <span style="display:flex; align-items:center; gap:8px;">
+        <button onclick="document.getElementById('pdf-toolbar').style.display='none'; window.print();" style="
+          background: #dc2626; color: white; border: none; padding: 8px 20px;
+          border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;
+        ">Print / Save PDF</button>
+        <button onclick="(function(){ try { window.close(); } catch (e) {} setTimeout(function(){ if (!window.closed) { if (window.history.length > 1) { window.history.back(); } else { document.body.innerHTML = '<div style=&quot;font-family:-apple-system,sans-serif;padding:40px;text-align:center;color:#444;&quot;>You can close this tab now.</div>'; } } }, 150); })();" style="
+          background: transparent; color: white; border: 1px solid rgba(255,255,255,0.45);
+          padding: 8px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;
+        ">Done / Close</button>
+      </span>
     </div>
     <style>
       @media print { #pdf-toolbar { display: none !important; } }
