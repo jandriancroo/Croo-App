@@ -165,8 +165,16 @@ You also return two OPTIONAL suggestions the manager may accept or ignore:
                   additionalProperties: false,
                 },
               },
+              suggested_next_steps: {
+                type: ['string', 'null'],
+                description: 'Go-forward expectation actually stated in the conversation, or null.',
+              },
+              suggested_reason: {
+                type: ['string', 'null'],
+                description: 'Verbatim match from the allowed reason list, or null.',
+              },
             },
-            required: ['notes_bullets'],
+            required: ['notes_bullets', 'suggested_next_steps', 'suggested_reason'],
             additionalProperties: false,
           },
         },
@@ -187,9 +195,11 @@ You also return two OPTIONAL suggestions the manager may accept or ignore:
     return json({ error: 'Notes generation returned no result' }, 502);
   }
 
+  let parsed: any = {};
   let bullets: any[] = [];
   try {
-    bullets = JSON.parse(call.function.arguments)?.notes_bullets ?? [];
+    parsed = JSON.parse(call.function.arguments) ?? {};
+    bullets = parsed?.notes_bullets ?? [];
   } catch (e) {
     console.error('[corrective-action] bullet parse error', e);
     return json({ error: 'Notes generation returned malformed result' }, 502);
@@ -200,8 +210,23 @@ You also return two OPTIONAL suggestions the manager may accept or ignore:
     .map((b) => ({ speaker: String(b.speaker || 'Other').slice(0, 160), text: String(b.text).trim().slice(0, 600) }))
     .slice(0, 20);
 
-  return json({ notes_bullets: cleaned });
+  // Suggestions are advisory only. Blank/unsupported → null, never invented.
+  const rawSteps = typeof parsed?.suggested_next_steps === 'string' ? parsed.suggested_next_steps.trim() : '';
+  const suggestedNextSteps = rawSteps && rawSteps.toLowerCase() !== 'null' ? rawSteps.slice(0, 1000) : null;
+
+  const rawReason = typeof parsed?.suggested_reason === 'string' ? parsed.suggested_reason.trim() : '';
+  const matchedReason =
+    rawReason && reasonOptions.length
+      ? reasonOptions.find((r) => r.toLowerCase() === rawReason.toLowerCase()) ?? null
+      : null;
+
+  return json({
+    notes_bullets: cleaned,
+    suggested_next_steps: suggestedNextSteps,
+    suggested_reason: matchedReason,
+  });
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
