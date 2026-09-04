@@ -25,9 +25,11 @@ type RecorderStatus = "idle" | "recording" | "processing" | "done" | "error";
 interface Options {
   managerName: string;
   employeeName: string;
+  /** Allowed reason dropdown options — the notes pass may suggest one of these verbatim. */
+  reasonOptions?: string[];
 }
 
-export function useConversationRecorder({ managerName, employeeName }: Options) {
+export function useConversationRecorder({ managerName, employeeName, reasonOptions }: Options) {
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,8 @@ export function useConversationRecorder({ managerName, employeeName }: Options) 
   const [sttModel, setSttModel] = useState<"mini" | "standard" | null>(null);
   const [pendingChunks, setPendingChunks] = useState(0);
   const [autoStopped, setAutoStopped] = useState(false);
+  const [suggestedNextSteps, setSuggestedNextSteps] = useState<string | null>(null);
+  const [suggestedReason, setSuggestedReason] = useState<string | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -47,10 +51,15 @@ export function useConversationRecorder({ managerName, employeeName }: Options) 
   const chunkQueueRef = useRef<Promise<void>>(Promise.resolve());
   const durationRef = useRef(0);
   const namesRef = useRef({ managerName, employeeName });
+  const reasonOptionsRef = useRef<string[]>(reasonOptions ?? []);
 
   useEffect(() => {
     namesRef.current = { managerName, employeeName };
   }, [managerName, employeeName]);
+
+  useEffect(() => {
+    reasonOptionsRef.current = reasonOptions ?? [];
+  }, [reasonOptions]);
 
   const pickMime = () => {
     const candidates = [
@@ -167,11 +176,16 @@ export function useConversationRecorder({ managerName, employeeName }: Options) 
           transcript: full,
           managerName: namesRef.current.managerName,
           employeeName: namesRef.current.employeeName,
+          reasonOptions: reasonOptionsRef.current,
         },
       });
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
       setBullets(Array.isArray(data?.notes_bullets) ? data.notes_bullets : []);
+      setSuggestedNextSteps(typeof data?.suggested_next_steps === "string" && data.suggested_next_steps.trim()
+        ? data.suggested_next_steps.trim() : null);
+      setSuggestedReason(typeof data?.suggested_reason === "string" && data.suggested_reason.trim()
+        ? data.suggested_reason.trim() : null);
       setStatus("done");
     } catch (e: any) {
       console.error("[recorder] summarize failed", e);
@@ -202,6 +216,8 @@ export function useConversationRecorder({ managerName, employeeName }: Options) 
     setAutoStopped(false);
     setTranscript("");
     setBullets([]);
+    setSuggestedNextSteps(null);
+    setSuggestedReason(null);
     setSttModel(null);
     transcriptPartsRef.current = [];
     chunkQueueRef.current = Promise.resolve();
