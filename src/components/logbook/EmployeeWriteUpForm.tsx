@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +73,8 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
   const [addingReason, setAddingReason] = useState(false);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [recording, setRecording] = useState<RecordingResult | null>(null);
+  const [autofilled, setAutofilled] = useState<{ reason: boolean; nextSteps: boolean }>({ reason: false, nextSteps: false });
+  const autofillDoneRef = useRef<string | null>(null);
 
   interface EmployeeOption {
     id: string;
@@ -161,6 +163,32 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       toast.error("Failed to add reason: " + error.message);
     },
   });
+
+  // Autofill Reason / Next Steps from the recorded notes — ONLY into empty fields,
+  // once per recording result, never overwriting what the manager typed, and never
+  // inventing a value the notes don't support. notes_bullets stay out of issue_description.
+  useEffect(() => {
+    if (!recording || !recording.bullets?.length) return;
+    const key = `${recording.consentConfirmedAt ?? "no-consent"}|${recording.durationSeconds}|${recording.bullets.length}`;
+    if (autofillDoneRef.current === key) return;
+    autofillDoneRef.current = key;
+
+    const suggestedReason = (recording.suggestedReason || "").trim();
+    if (!reason.trim() && suggestedReason) {
+      const match = allReasons.find((r) => r.toLowerCase() === suggestedReason.toLowerCase());
+      if (match) {
+        setReason(match);
+        setAutofilled((a) => ({ ...a, reason: true }));
+      }
+    }
+
+    const suggestedSteps = (recording.suggestedNextSteps || "").trim();
+    if (!nextSteps.trim() && suggestedSteps) {
+      setNextSteps(suggestedSteps);
+      setAutofilled((a) => ({ ...a, nextSteps: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording, allReasons]);
 
   const handlePhotoUpload = async (file: File) => {
     setUploading(true);
@@ -337,7 +365,12 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       {/* Reason Selector */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Reason *</Label>
+          <Label className="flex items-center gap-2">
+            Reason *
+            {autofilled.reason && (
+              <span className="text-[10px] font-normal text-muted-foreground">suggested from the recording</span>
+            )}
+          </Label>
           <Button
             variant="ghost"
             size="sm"
@@ -348,7 +381,10 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
             Add Reason
           </Button>
         </div>
-        <Select value={reason} onValueChange={setReason}>
+        <Select
+          value={reason}
+          onValueChange={(v) => { setReason(v); setAutofilled((a) => ({ ...a, reason: false })); }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select reason..." />
           </SelectTrigger>
@@ -370,6 +406,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
 
       {/* Conversation recording (optional) */}
       <CorrectiveActionRecorder
+        reasonOptions={allReasons}
         employeeId={selectedEmployee?.id ?? null}
         employeeName={selectedEmployee ? getDisplayName(selectedEmployee.full_name, selectedEmployee.nickname) : ""}
         managerName={managerProfile?.full_name || "Manager"}
@@ -390,11 +427,16 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
 
       {/* Next Steps */}
       <div className="space-y-2">
-        <Label>Next Steps for Team Member *</Label>
+        <Label className="flex items-center gap-2">
+          Next Steps for Team Member *
+          {autofilled.nextSteps && (
+            <span className="text-[10px] font-normal text-muted-foreground">suggested from the recording — edit as needed</span>
+          )}
+        </Label>
         <Textarea
           placeholder="What should the team member do to improve..."
           value={nextSteps}
-          onChange={(e) => setNextSteps(e.target.value)}
+          onChange={(e) => { setNextSteps(e.target.value); setAutofilled((a) => ({ ...a, nextSteps: false })); }}
         rows={3}
         />
       </div>

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Loader2, Save, Lock } from "lucide-react";
+import { ChevronDown, Loader2, Save, Lock, Maximize2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { NoteBullet } from "@/hooks/useConversationRecorder";
 
@@ -43,6 +44,7 @@ export function CorrectiveActionNotesPanel({
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
+  const [transcriptFull, setTranscriptFull] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -140,19 +142,58 @@ export function CorrectiveActionNotesPanel({
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading transcript…
             </p>
           ) : (
-            <Textarea
-              value={transcript ?? ""}
-              rows={8}
-              disabled={locked}
-              className="text-xs font-mono"
-              onChange={(e) => { setTranscript(e.target.value); setDirty(true); }}
-            />
+            <>
+              <Textarea
+                value={transcript ?? ""}
+                rows={8}
+                disabled={locked}
+                className="text-xs font-mono"
+                onChange={(e) => { setTranscript(e.target.value); setDirty(true); }}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs mt-1"
+                onClick={() => setTranscriptFull(true)}
+              >
+                <Maximize2 className="h-3.5 w-3.5 mr-1" />
+                Open full view
+              </Button>
+            </>
           )}
           <p className="text-[10px] text-muted-foreground mt-1">
             Word-for-word transcript. {transcriptAccess === "admin" ? "Admins only." : "Managers only."} Audio was never saved.
           </p>
         </CollapsibleContent>
       </Collapsible>
+      )}
+
+      {transcriptAccess !== "none" && (
+        <Dialog open={transcriptFull} onOpenChange={setTranscriptFull}>
+          <DialogContent className="max-w-3xl h-[90vh] flex flex-col gap-3">
+            <DialogHeader>
+              <DialogTitle>Full transcript</DialogTitle>
+              <DialogDescription>
+                Word-for-word. {transcriptAccess === "admin" ? "Admins only." : "Managers only."} Audio was never saved.
+              </DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={transcript ?? ""}
+              disabled={locked}
+              className="flex-1 min-h-0 resize-none text-sm font-mono leading-relaxed"
+              onChange={(e) => { setTranscript(e.target.value); setDirty(true); }}
+            />
+            <DialogFooter className="gap-2">
+              {!locked && dirty && (
+                <Button variant="secondary" onClick={save} disabled={saving}>
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  Save
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setTranscriptFull(false)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -109,6 +109,10 @@ async function handleSummarize(payload: any) {
   const mgr = (managerName || 'Manager').toString().slice(0, 120);
   const emp = (employeeName || 'Employee').toString().slice(0, 120);
 
+  const reasonOptions: string[] = Array.isArray(payload?.reasonOptions)
+    ? payload.reasonOptions.filter((r: unknown) => typeof r === 'string' && r.trim()).slice(0, 40)
+    : [];
+
   const systemPrompt = `You turn a recorded workplace coaching conversation into clean bullet notes for a restaurant Corrective Action record.
 
 There are two known people:
@@ -122,7 +126,12 @@ Rules:
 - Bullets must be factual and drawn only from the transcript. Never invent details, dates, or commitments.
 - The number of bullets scales with the transcript. There is NO minimum. A very short conversation of one or two sentences must produce exactly ONE consolidated bullet. Never pad, never split one idea into multiple bullets, never restate the same point twice. Maximum 12 bullets.
 - Keep each bullet to one short sentence, in the order the conversation happened.
-- Neutral, professional tone. No advice, no verdicts, no HR opinions.`;
+- Neutral, professional tone. No advice, no verdicts, no HR opinions.
+
+You also return two OPTIONAL suggestions the manager may accept or ignore:
+- suggested_next_steps: the go-forward expectation or commitment that was actually said in the conversation, written as one or two short plain sentences addressed to the employee. If the conversation contains no clear go-forward expectation, return null. Never invent a plan.
+- suggested_reason: the single best match from this exact list of allowed reasons${reasonOptions.length ? `: ${reasonOptions.join(' | ')}` : ' (no list was supplied, so return null)'}. Copy the option text verbatim. If the conversation does not clearly fit one option, return null. Never invent a new reason.`;
+
 
   const res = await fetch(`${GATEWAY}/chat/completions`, {
     method: 'POST',
@@ -156,8 +165,16 @@ Rules:
                   additionalProperties: false,
                 },
               },
+              suggested_next_steps: {
+                type: ['string', 'null'],
+                description: 'Go-forward expectation actually stated in the conversation, or null.',
+              },
+              suggested_reason: {
+                type: ['string', 'null'],
+                description: 'Verbatim match from the allowed reason list, or null.',
+              },
             },
-            required: ['notes_bullets'],
+            required: ['notes_bullets', 'suggested_next_steps', 'suggested_reason'],
             additionalProperties: false,
           },
         },
@@ -178,9 +195,11 @@ Rules:
     return json({ error: 'Notes generation returned no result' }, 502);
   }
 
+  let parsed: any = {};
   let bullets: any[] = [];
   try {
-    bullets = JSON.parse(call.function.arguments)?.notes_bullets ?? [];
+    parsed = JSON.parse(call.function.arguments) ?? {};
+    bullets = parsed?.notes_bullets ?? [];
   } catch (e) {
     console.error('[corrective-action] bullet parse error', e);
     return json({ error: 'Notes generation returned malformed result' }, 502);
@@ -191,8 +210,23 @@ Rules:
     .map((b) => ({ speaker: String(b.speaker || 'Other').slice(0, 160), text: String(b.text).trim().slice(0, 600) }))
     .slice(0, 20);
 
-  return json({ notes_bullets: cleaned });
+  // Suggestions are advisory only. Blank/unsupported → null, never invented.
+  const rawSteps = typeof parsed?.suggested_next_steps === 'string' ? parsed.suggested_next_steps.trim() : '';
+  const suggestedNextSteps = rawSteps && rawSteps.toLowerCase() !== 'null' ? rawSteps.slice(0, 1000) : null;
+
+  const rawReason = typeof parsed?.suggested_reason === 'string' ? parsed.suggested_reason.trim() : '';
+  const matchedReason =
+    rawReason && reasonOptions.length
+      ? reasonOptions.find((r) => r.toLowerCase() === rawReason.toLowerCase()) ?? null
+      : null;
+
+  return json({
+    notes_bullets: cleaned,
+    suggested_next_steps: suggestedNextSteps,
+    suggested_reason: matchedReason,
+  });
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });

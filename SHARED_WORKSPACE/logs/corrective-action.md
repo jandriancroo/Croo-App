@@ -140,3 +140,23 @@ Client (`useConversationRecorder`, iPad-first PWA):
     `ta.task_id = temporary_tasks.id`, the `employee_writeups.employee_id = auth.uid()` branch,
     and manager-tier access — with `WITH CHECK` identical to `USING`.
   - Untouched: `send-notification-email`, recording pipeline, trails/`family_id`, sign UX layout.
+- **2026-09-04 (afternoon — PDF export, transcript view, notes autofill)**
+  - `src/utils/exportRecordPdf.ts`: export toolbar now has **Done / Close** next to Print
+    (`window.close()`, falls back to `history.back()`, then an inline "you can close this tab"
+    message) — iPad had no back entry after `window.open("", "_blank")`.
+  - Conversation Notes in the PDF render as ONE flowing paragraph, speaker in bold with
+    " • " separators between bullets, instead of one `<div>` block per bullet.
+  - `.section-content` (Issue Description, Next Steps, Notes, Transcript) gained
+    `overflow-wrap: anywhere` + `hyphens: auto`, so long words no longer clip at the box edge.
+  - `CorrectiveActionNotesPanel.tsx` and `CorrectiveActionRecorder.tsx`: collapse stays, plus an
+    "Open full view" control that opens a 90vh dialog with a full-height transcript textarea.
+    Read-only when signed/locked; the notes panel dialog respects the same
+    `transcriptAccess` gate (manager / admin / none) and can Save from inside.
+  - Autofill (Jordan lock): `corrective-action-transcribe` `summarize` now returns nullable
+    `suggested_next_steps` + `suggested_reason` in the SAME Flash call (no extra request).
+    `suggested_reason` must match a supplied reason option verbatim, otherwise null.
+  - `EmployeeWriteUpForm.tsx` applies suggestions ONLY into empty Reason / Next Steps, once per
+    recording result (ref-keyed), case-insensitive match against `allReasons`, never creating a
+    new reason. Both fields stay fully editable and the "suggested from the recording" hint
+    clears on the first manual edit. `notes_bullets` still never touch `issue_description`.
+  - Untouched: admin employee-picker product, table name, trails/`family_id`, sign UX, RLS.
