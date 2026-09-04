@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +73,8 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
   const [addingReason, setAddingReason] = useState(false);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [recording, setRecording] = useState<RecordingResult | null>(null);
+  const [autofilled, setAutofilled] = useState<{ reason: boolean; nextSteps: boolean }>({ reason: false, nextSteps: false });
+  const autofillDoneRef = useRef<string | null>(null);
 
   interface EmployeeOption {
     id: string;
@@ -370,6 +372,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
 
       {/* Conversation recording (optional) */}
       <CorrectiveActionRecorder
+        reasonOptions={allReasons}
         employeeId={selectedEmployee?.id ?? null}
         employeeName={selectedEmployee ? getDisplayName(selectedEmployee.full_name, selectedEmployee.nickname) : ""}
         managerName={managerProfile?.full_name || "Manager"}
