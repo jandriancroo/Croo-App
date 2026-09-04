@@ -3,7 +3,14 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { isPunchDeviceUser } from '@/lib/punchDevicePairing';
+import {
+  isPunchDeviceUser,
+  getPairing,
+  isPairingDead,
+  repairDeviceSession,
+  rebuildPairingFromDeviceSession,
+} from '@/lib/punchDevicePairing';
+
 import { setDebugWatchUser, debugWatchLog, debugWatchDeviceProfile } from '@/utils/debugWatch';
 
 
