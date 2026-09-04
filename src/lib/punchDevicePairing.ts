@@ -359,6 +359,56 @@ export async function ensureDeviceSecret(): Promise<boolean> {
 }
 
 /**
+ * Rebuild the pairing blob from the SERVER when the tablet is signed in as its
+ * paired device but the local blob is gone or unreadable (silently failed
+ * localStorage write, dropped cookie). Same device row, same auth user, no new
+ * pairing code — the login screen must never fall back to "Setting Up a Punch
+ * Clock" while a live device session is sitting right there.
+ */
+async function rebuildPairingOnce(): Promise<boolean> {
+  if (getPairing()) return true;
+
+  const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+  const session = sess?.session;
+  if (!session || !isPunchDeviceUser(session.user)) return false;
+
+  const { data, error } = await supabase.functions.invoke('punch-device-service', {
+    body: { action: 'backfill_secret' },
+  });
+  if (data?.dead === true) {
+    markPairingDead();
+    return false;
+  }
+  if (error || !data?.deviceId || !data?.deviceSecret) {
+    console.warn('[punchDevicePairing] pairing rebuild failed (retryable):', error?.message || data?.error);
+    return false;
+  }
+
+  setPairing({
+    deviceId: data.deviceId,
+    deviceName: data.deviceName,
+    deviceSecret: data.deviceSecret,
+    location: data.location,
+    session: {
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at,
+    },
+  });
+  clearPairingDead();
+  console.log('[punchDevicePairing] pairing rebuilt from the server — no new code needed');
+  return true;
+}
+
+/** Public rebuild — runs under the shared single-flight lock. */
+export async function rebuildPairingFromDeviceSession(): Promise<boolean> {
+  const result = await withPairingLock('secret-backfill', rebuildPairingOnce);
+  return result === PAIRING_DEFERRED ? false : result;
+}
+
+
+
+/**
  * Enter kiosk mode: make sure the tablet is signed in as its paired device.
  * Order of operations:
  *   1. Already the device session → keep it (never re-consume a refresh token).
