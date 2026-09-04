@@ -13414,6 +13414,14 @@ export type Database = {
       }
       is_punch_device: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_task_assignee: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_task_writeup_employee: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
         Args: { p_location_id: string; p_message_id: string }
