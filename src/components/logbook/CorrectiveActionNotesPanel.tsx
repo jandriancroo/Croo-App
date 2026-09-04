@@ -14,6 +14,17 @@ interface Props {
   notesBullets?: NoteBullet[] | null;
   signedAt?: string | null;
   recordingDurationSeconds?: number | null;
+  /**
+   * Which transcript gate to use.
+   * "manager" (default, Logbook) → get_corrective_action_transcript (manager-tier).
+   * "admin" (employee file) → get_corrective_action_transcript_admin (admin+ and never self).
+   * "none" → transcript is not offered at all on this surface.
+   */
+  transcriptAccess?: "manager" | "admin" | "none";
+  /** Bullets/transcript are read-only on this surface (employee file). */
+  readOnly?: boolean;
+  /** Called when the transcript is successfully fetched (for PDF scoping). */
+  onTranscriptLoaded?: (text: string) => void;
 }
 
 /**
@@ -24,9 +35,10 @@ interface Props {
  */
 export function CorrectiveActionNotesPanel({
   writeUpId, notesBullets, signedAt, recordingDurationSeconds,
+  transcriptAccess = "manager", readOnly = false, onTranscriptLoaded,
 }: Props) {
   const queryClient = useQueryClient();
-  const locked = !!signedAt;
+  const locked = !!signedAt || readOnly;
   const [bullets, setBullets] = useState<NoteBullet[]>(notesBullets || []);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
@@ -39,7 +51,11 @@ export function CorrectiveActionNotesPanel({
   const loadTranscript = async () => {
     if (transcript !== null || loadingTranscript) return;
     setLoadingTranscript(true);
-    const { data, error } = await supabase.rpc("get_corrective_action_transcript", {
+    const rpcName =
+      transcriptAccess === "admin"
+        ? "get_corrective_action_transcript_admin"
+        : "get_corrective_action_transcript";
+    const { data, error } = await supabase.rpc(rpcName as any, {
       _writeup_id: writeUpId,
     });
     setLoadingTranscript(false);
@@ -47,7 +63,9 @@ export function CorrectiveActionNotesPanel({
       toast.error("You don't have access to the transcript.");
       return;
     }
-    setTranscript((data as string) || "");
+    const text = (data as string) || "";
+    setTranscript(text);
+    onTranscriptLoaded?.(text);
   };
 
   const save = async () => {
@@ -105,6 +123,7 @@ export function CorrectiveActionNotesPanel({
         ))}
       </div>
 
+      {transcriptAccess !== "none" && (
       <Collapsible
         open={transcriptOpen}
         onOpenChange={(open) => { setTranscriptOpen(open); if (open) void loadTranscript(); }}
@@ -130,10 +149,11 @@ export function CorrectiveActionNotesPanel({
             />
           )}
           <p className="text-[10px] text-muted-foreground mt-1">
-            Word-for-word transcript. Managers only. Audio was never saved.
+            Word-for-word transcript. {transcriptAccess === "admin" ? "Admins only." : "Managers only."} Audio was never saved.
           </p>
         </CollapsibleContent>
       </Collapsible>
+      )}
     </div>
   );
 }
