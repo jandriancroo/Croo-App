@@ -87,3 +87,34 @@ Palm Springs (1), Georgetown (2), Hemet (1 of 2).
   by SQL after the floor goes down.
 - Consider a service-worker-level version check so a stale shell can update
   itself without depending on new-bundle JS.
+
+---
+
+# Universal Update — what actually exists (traced 2026-09-04)
+
+- **Where the button is:** Users screen only — `src/pages/UserManagement.tsx`
+  line 46, gated behind `data.isSuperAdmin`, globe icon, label "Universal
+  Update" (mobile: "Update"). Nothing on the punch clock or in Settings.
+- **What it does on click:** `handleUniversalUpdate` in
+  `src/hooks/useUserManagementData.tsx` (~line 547) calls
+  `broadcastUniversalUpdate()` in `src/lib/universalUpdate.ts` (line 17) — a
+  Supabase Realtime broadcast, event `reload`, on the single public channel
+  `croohq-universal-update`. No localStorage flag, no service worker, no push.
+- **Who listens:** `subscribeUniversalUpdate` (universalUpdate.ts line 38) from
+  `src/hooks/useForceReload.tsx` line 70 (normal clients — reload immediately)
+  and `src/pages/PunchClock.tsx` line 315 (kiosks — reload only when idle on the
+  PIN screen, 20s since last touch, pairing lock free).
+- **Nightly twin:** `supabase/functions/universal-update-broadcast/index.ts`
+  sends the identical broadcast on the `nightly-universal-update` cron.
+- **Can it reach a PRE-ship tablet?** No. The listener code ships *inside* build
+  `26.09.03.1041`. A tablet still running the pre-ship bundle never subscribed to
+  `croohq-universal-update`, so the broadcast lands nowhere. Same reason the
+  idle version poll and the 4–6 AM reload can't reach it.
+- **Dave's PS iPad specifically:** pressing Universal Update on Jordan's phone
+  does nothing for that iPad. Realtime broadcast is fire-and-forget with no
+  queue — a client that isn't connected at send time never gets it, and even
+  reconnecting later replays nothing.
+- **Consequence:** Universal Update is a *post-ship* fleet tool. The very first
+  hop onto a new bundle still has to come from the tablet itself — one manual
+  close-and-reopen per device (Palm Springs 1, Georgetown 2, Hemet 1). After
+  that hop, Universal Update and the nightly cron cover them forever.
