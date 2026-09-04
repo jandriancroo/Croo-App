@@ -1,75 +1,71 @@
-# Palm Springs PIN kick — revised diagnosis (same host, new build)
+# Palm Springs PIN kick — third diagnosis (all inside one fresh PWA)
 
-Plan only. No code written.
+Plan only. No code written. Storage-split hypothesis dropped as instructed.
 
-## Role question first: no, org_admin takes no special path
+## Timeline from the database (not inference)
 
-There is no role branch on the PIN path. `verifyPin` (`src/pages/PunchClock.tsx` ~895–960) calls `punch_clock_lookup_pin`, then `punch_clock_get_role` purely to set `currentUserRole` state for event filtering — the value is only consumed as a prop for shift/event lists (`PunchClock.tsx:1838`, `1869`) and never branches to navigation, sign-out or kiosk exit. The only role check anywhere in the flow is *after a clock-out* (`PunchClock.tsx:1461–1476`), where a non-admin returns to the PIN screen after 2s and an admin simply stays — and that path did not run, since there is no `time_punches` row. `ManagerDashboardOverlay` has no navigate/sign-out at all, and it only opens on a deliberate left-swipe (`PunchClock.tsx:239–240`). So Dave being org_admin is a coincidence, not the cause.
+`punch_clock_devices` row `1689ee2a` (Punch Clock PS, Palm Springs):
+- `paired_at` 14:44:59Z — code redeemed
+- `last_reissue_at` 14:45:01Z, `reissue_count_in_window` 1 — `enterKioskMode` right after redeem
+- `last_active_at` 14:47:41Z — last authenticated device call (heartbeat)
+- `revoked_at` NULL, `device_secret_hash` present
 
-## The constraint changes one thing, not everything
+`punch_clock_attempts`: 14:48:18Z wrong PIN (3688, no match), 14:48:28.838Z Dave `e856079b` success.
 
-Jordan's sequence rules out the *subdomain* split (`kiosk.croohq.com` vs `croohq.com`). It does **not** rule out a storage-container split, because on iOS an "Add to Home Screen" web app gets its own website data store, separate from the Safari tab it was created from. Same host, different jar.
+**The device session goes silent at 14:47:41 and never speaks again** — no heartbeat, no reissue after the PIN. The PIN itself proves nothing: `punch_clock_lookup_pin`, `punch_clock_get_role` and the `punch_clock_attempts` insert are all granted to `anon` (`supabase/migrations/20260730054636_*.sql:20–21`, `20260731035231_*.sql:155–156`, `20260517011643_*.sql:1–7`).
 
-## 1. What runs after `verifyPin` sets the user
+## 1. Is there an org_admin / manager PIN path? No.
 
-`verifyPin` is auth-inert: two RPCs, `setCurrentUser`, `setCurrentUserRole`. No sign-in, no `setSession`, no `signOut`. Then, in order:
-- `logPunchAttempt` inserts into `punch_clock_attempts` (`PunchClock.tsx` ~845–890).
-- Data effect at `PunchClock.tsx:699–708`: today's shift, last punch, certifications, meeting event.
-- Location self-heal at `PunchClock.tsx:712–719`.
-- `onPinScreenRef.current` flips to false (`PunchClock.tsx:243–245`), which *disables* the idle and Universal-Update reload paths.
+`verifyPin` (`src/pages/PunchClock.tsx` ~895–960) reads the role only into `currentUserRole` state, consumed as a prop for shift/event lists (`PunchClock.tsx:1838`, `1869`). The single role branch in the whole flow is post-clock-out (`PunchClock.tsx:1461–1476`) — non-admin returns to the PIN screen, admin stays — and it did not run (no `time_punches` row). `ManagerDashboardOverlay` has no navigate/sign-out and only opens on a deliberate left swipe (`PunchClock.tsx:239–240`). Dave being org_admin is coincidence.
 
-No navigation, no `exitKioskMode`, no repair call. Nothing in `src/components/punchclock/*` navigates except `PunchDeviceEntry.tsx:33,66`, which only goes **to** `/punch-clock`.
+## 2. What can eject /punch-clock → /auth without tapping Exit
 
-**Important discovery:** both PIN RPCs are granted to `anon` (`supabase/migrations/20260730054636_...sql:20–21`, `20260731035231_...sql:155–156`) and `punch_clock_attempts` INSERT is `TO public WITH CHECK (true)` (`20260517011643_...sql:1–7`). A successful PIN and a logged attempt therefore prove **nothing** about the device session being alive. That is why the DB looks healthy.
+Exactly two call sites exist in the entire app:
+- `src/pages/PunchClock.tsx:429–430` — `handleMasterExit`, needs the manager gesture. Not this.
+- `src/lib/auth.tsx:174–181` — boot session validation: `getUser()` returns a definitive 401/403/400 → `signOut({ scope: 'local' })` + `navigate('/auth')`.
 
-## 2. Why zero `time_punches`
+`AuthProvider` mounts once, so **auth.tsx:179 can only fire on a page load**. So a load happened at ~14:48:29. Candidates, in order:
+- The build-check reload on the PIN screen (`PunchClock.tsx:266–282`) — guarded by `onPinScreenRef` and a 3-minute interaction window, so a reload fired *while he was tapping* is unlikely but the guard only reads `lastInteractionRef` at trigger time.
+- `useForceReload` (`src/hooks/useForceReload.tsx:60`, `:84`) — the version check and the personal `force-reload` broadcast both call `window.location.reload()` with **no punch-clock guard**; only the universal-update channel is guarded (`useForceReload.tsx:69`). Whether it runs on `/punch-clock` depends on where the hook is mounted — worth confirming, because it is the one unguarded reload in the codebase.
+- iOS itself reloading a freshly installed home-screen app on first foreground.
 
-Nothing auto-punches. A punch only happens on an explicit tap through `insertPunch` (`PunchClock.tsx:334–390`), which would have toasted a real error on failure. No row and no reported error means he never got to tap — the screen changed under him first.
+Then on that load: `getSession()` returns the device session, `getUser()` gets a definitive rejection, local sign-out, `/auth`. That is the eject.
 
-## 3. What can navigate to `/auth` with the punch clock open
+## 3. Why would `getPairing()` be null in the same container?
 
-Only two things, without a manual tap:
-- `src/lib/auth.tsx:174–181` — boot session validation. A definitive 401/403/400 from `getUser()` triggers `signOut({ scope: 'local' })` + `navigate('/auth')`. It is wrapped in a 15s timeout (`auth.tsx:162–166`), so it can resolve **seconds after** the PIN screen already painted. Exact match for "stamp visible, typed PIN, immediately at login".
-- `src/components/ProtectedRoute.tsx:11` — irrelevant, `/punch-clock` is unprotected (`src/App.tsx:218`).
+`clearPairing()` (`src/lib/punchDevicePairing.ts:164`) has **zero callers**, and the server never said dead — `reissue` returns `dead` only for a missing row or `revoked_at` (`supabase/functions/punch-device-service/index.ts:313–314`), and the row is neither. `isPairingDead()` would render "Needs Re-Pairing", not "Setting Up". So "Setting Up" strictly requires `getPairing()` (`punchDevicePairing.ts:114–135`) to fail both reads:
 
-`handleMasterExit` (`PunchClock.tsx:415–437`) also lands on `/auth` but needs the manager gesture.
+- **localStorage write never landed.** Every `setItem` in that file is inside `try {} catch {}` (`punchDevicePairing.ts:139–141`). A quota/partition failure at `redeemPairingCode` (`:536`) is invisible to us and to the floor.
+- **Cookie fallback too large.** `setCookie` (`punchDevicePairing.ts:85–90`) `encodeURIComponent`s the *whole* credential — access JWT + refresh token + location + names. Percent-encoding triples every `{ } " : ,`. Past the ~4KB per-cookie limit the browser silently drops or truncates it and `JSON.parse` throws. `updateStoredSession` rewrites that oversized cookie on **every** token event (`:141–147`, `269–271`, `KioskAutoRestore.tsx:90`). If localStorage was already failing, the cookie is the only copy and it is the fragile one.
+- **`isUsablePairing` false** (`:107`) — needs `deviceSecret` *or* `session.refresh_token`; a partial write reads as "never paired", i.e. "Setting Up".
 
-## 4. Every way `getPairing()` becomes null
+Not `auth.tsx` side effects: local `signOut` only removes `sb-*-auth-token`, and `clearActiveAuthSessionLocalOnly` (`punchDevicePairing.ts:59–63`) touches only those keys. `Layout.tsx:726` wipes storage but behind a `window.confirm`.
 
-`clearPairing()` (`src/lib/punchDevicePairing.ts:164`) has **zero callers**. `getPairing()` returns null only when the read fails (`punchDevicePairing.ts:112–135`):
+**Honest limit:** with `clearPairing` uncalled, silent-write-failure is inference, not proof. There is no client telemetry for it, which is itself the bug to fix.
 
-1. **Different storage container** — redeem in the Safari tab, login screen in the home-screen app (own data store, `start_url: "/"` per `public/manifest.webmanifest`).
-2. **`isUsablePairing` false** (`punchDevicePairing.ts:107`) — `deviceId` present but no `deviceSecret` and no `refresh_token`. Reads as "never paired", not "dead".
-3. **Cookie fallback truncated** — `setCookie` (`punchDevicePairing.ts:85–90`) writes the whole credential (access JWT + refresh token + location) as one cookie; past ~4KB browsers drop or truncate it and `JSON.parse` fails silently. Every `updateStoredSession` rewrite (`punchDevicePairing.ts:141–147`, `269–271`) re-writes that oversized cookie.
-4. **localStorage write silently swallowed** — every `setItem` there is in `try {} catch {}`.
-5. **Deleting the old home-screen app** clears that app's store; the new install starts empty.
+## 4. Does `reissueOnce`'s signOut-before-setSession explain "Setting Up" vs "Open Punch Clock"?
 
-## 5. Can `repairDeviceSession` / `reissueOnce` strand it at `/auth`?
-
-Mechanically yes: `reissueOnce` (`punchDevicePairing.ts:265–290`) calls `signOut({ scope: 'local' })` **before** `setSession`; a failed install leaves no session while the blob survives. But in that state `PunchDeviceEntry.tsx:83–87` would say **"Open Punch Clock (Paired Device)"**. Dave saw the third branch, so the blob itself was unreadable where that screen rendered.
+It explains the **signed-out** half, not the label. `reissueOnce` (`punchDevicePairing.ts:288–305`) and the legacy branch of `enterKioskModeOnce` (`:404–415`) both `signOut({ scope: 'local' })` **before** `setSession`; a failed install leaves no session while the blob survives. In that state `PunchDeviceEntry.tsx:83–87` still reads **"Open Punch Clock (Paired Device)"**. So the teardown is real and worth fixing, but the observed label still points at a lost/unreadable blob.
 
 ## Leading hypothesis
 
-Two things, and only together do they give these symptoms:
-1. The pairing blob and the login screen were in **different iOS storage containers** — pairing/PIN in one, the "Setting Up a Punch Clock" screen in the other. That is the only explanation for the third label with `clearPairing` uncalled and `dead` unset.
-2. The eject to `/auth` is the async boot validation in `auth.tsx:174–181` — no reload needed, DB stays healthy.
+A page load at ~14:48:29 (unguarded reload or iOS first-foreground) hit `auth.tsx:174–181`, which signed the device out locally and pushed `/auth`. In that same session the pairing blob was never durably readable — localStorage write silently failed and/or the oversized combined cookie was dropped — so `/auth` computed `isPaired() === false` and offered "Setting Up a Punch Clock". Both halves are the same root cause: **the tablet's identity is only as durable as one silently-failing browser write, and nothing can rebuild it from the server.**
 
-Underneath both: a tablet's paired identity lives **only** in browser storage, and every recovery path (`enterKioskMode`, `refreshDeviceSession`, `KioskAutoRestore.tsx:38`) is gated on `isPaired()`. The moment the blob is unreadable the tablet cannot self-heal even though the server row, secret and auth user are fine.
+## Smallest ship that stops this on a fresh PWA (when Jordan names it)
 
-## Floor next step (does not mint "Punch Clock PS 2")
+1. **Tiny durable key, separate from the session.** Write `{ deviceId, deviceSecret }` to its own localStorage key **and** its own cookie (a few hundred bytes, no JWTs). Keep the disposable session blob in localStorage only, out of the cookie. Kills the truncation class entirely.
+2. **Verify the write and fail loudly.** After `redeemPairingCode`, read back the pairing; if it is not readable, show the manager an error instead of a green "Paired as …" toast.
+3. **Server-backed rebuild instead of "Setting Up".** On boot, if the live auth user has `is_punch_device` but `getPairing()` is null, ask `punch-device-service` who this device is and rewrite the blob (new `whoami`, or reuse `backfill_secret`'s device lookup). Same row, same user, no new code.
+4. **Don't eject a tablet.** In `auth.tsx:174–181`, when the stored session is a punch-device session, attempt `reissue`/rebuild before `navigate('/auth')`.
+5. **Install the new session before dropping the old one** in `reissueOnce` / `enterKioskModeOnce`, so a mid-failure never lands signed out.
+6. **One line of telemetry** at redeem / read-back / eject via `src/utils/serverDebugLog.ts`, so the next incident is answered by data instead of inference.
 
-From the **home-screen icon only**, never a Safari tab:
-1. Open the icon and read the button on the login screen: "Open Punch Clock (Paired Device)", "Needs Re-Pairing", or "Setting Up a Punch Clock". That word is the whole diagnosis.
-2. "Open Punch Clock" → tap it, done, no code.
-3. "Setting Up a Punch Clock" → pair once from inside the icon app and choose **Replace it** in the duplicate-name dialog (`src/components/organization/PunchDeviceManager.tsx`), never "Add a new device". Then force-quit and reopen to confirm it returns straight to the punch clock.
+Also worth confirming in that ship: whether `useForceReload` is mounted anywhere reachable from `/punch-clock` — its two `window.location.reload()` calls (`useForceReload.tsx:60`, `:84`) are the only reloads without a punch-clock guard.
 
-## Fix I would propose (only when Jordan names a ship)
+## Floor next step now
 
-- Server-backed pairing rebuild: on boot, if the live auth user is a punch device but `getPairing()` is null, ask `punch-device-service` who this device is and rewrite the blob (reusing `reissue` / `backfill_secret`). Same row, same user, no new code.
-- Before `auth.tsx` navigates to `/auth`, attempt a device reissue when the tablet has any device marker.
-- Put only `deviceId` + `deviceSecret` in the cookie; keep the disposable session in localStorage.
-- `reissueOnce` should install the new session **before** dropping the old one.
+Have Dave open the home-screen icon and pair once more with the same name, choosing **Replace it** (`src/components/organization/PunchDeviceManager.tsx`) — that reuses row `1689ee2a` and mints a fresh secret. If it kicks him again immediately, that is confirmation of the write-failure branch rather than a stale-session branch.
 
 ## Not doing
 
-No code, no migration, no publish, no revoke of device `1689ee2a` — that row is healthy and reusable.
+No code, no migration, no publish, no revoke of `1689ee2a` — the row is healthy and reusable.
