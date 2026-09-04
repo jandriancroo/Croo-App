@@ -401,13 +401,14 @@ async function enterKioskModeOnce(): Promise<boolean> {
     // fall through to the stored token as a second chance
   }
 
-  // LEGACY / fallback: restore from the stored refresh token.
+  // LEGACY / fallback: restore from the stored refresh token. setSession replaces
+  // whatever session is installed, so we never sign out first (no auth gap).
   if (cred.session?.refresh_token) {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
     const { data, error } = await supabase.auth.setSession({
       access_token: cred.session.access_token,
       refresh_token: cred.session.refresh_token,
     });
+
     if (!error && data.session) {
       applySession({
         access_token: data.session.access_token,
