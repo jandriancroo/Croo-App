@@ -264,7 +264,7 @@ export function TemporaryTaskDetailsDialog({
   const allSubtasksComplete = subtasks.length === 0 || subtasks.every((s: any) => s.completed_at);
   const completedCount = subtasks.filter((s: any) => s.completed_at).length;
 
-  // Handle write-up signature completion — idempotent close
+  // Handle write-up signature completion — idempotent close, verified by re-select
   const handleWriteUpComplete = async () => {
     const finish = () => {
       queryClient.invalidateQueries({ queryKey: ['employee-writeups'] });
@@ -274,47 +274,83 @@ export function TemporaryTaskDetailsDialog({
       onOpenChange(false);
     };
 
-    // Never re-close an already closed task, never re-open one.
-    const { data: current } = await supabase
-      .from('temporary_tasks')
-      .select('id, completed_at, is_active')
-      .eq('id', task.id)
-      .maybeSingle();
+    const readTask = async () => {
+      const { data } = await supabase
+        .from('temporary_tasks')
+        .select('id, completed_at, is_active')
+        .eq('id', task.id)
+        .maybeSingle();
+      return data;
+    };
 
+    // Never re-close an already closed task, never re-open one.
+    const current = await readTask();
     if (current?.completed_at) {
       finish();
       return;
     }
 
-    const { error } = await supabase
+    const closePayload = {
+      completed_at: new Date().toISOString(),
+      completed_by: user!.id,
+      is_active: false,
+    };
+
+    // Attempt 1 — guarded update. RLS filtering returns no error and 0 rows,
+    // so success is only proven by the returned row.
+    const { data: firstRows, error: firstError } = await supabase
       .from('temporary_tasks')
-      .update({
-        completed_at: new Date().toISOString(),
-        completed_by: user!.id,
-        is_active: false
-      })
+      .update(closePayload)
       .eq('id', task.id)
-      .is('completed_at', null);
+      .is('completed_at', null)
+      .select('id, completed_at, is_active');
 
-    if (error) {
-      // The signature is already saved; closing the task is a no-op success once signed.
-      const { data: signed } = await supabase
-        .from('employee_writeups')
-        .select('signed_at')
-        .eq('id', task.write_up_id)
-        .maybeSingle();
-
-      if (signed?.signed_at) {
-        finish();
-        return;
-      }
-
-      toast.error("Failed to complete task");
+    if (!firstError && firstRows && firstRows.length > 0 && firstRows[0].completed_at) {
+      finish();
       return;
     }
 
-    finish();
+    // Attempt 2 — only if the row is genuinely still open (someone else may have closed it).
+    const afterFirst = await readTask();
+    if (afterFirst?.completed_at) {
+      finish();
+      return;
+    }
+
+    const { data: secondRows } = await supabase
+      .from('temporary_tasks')
+      .update(closePayload)
+      .eq('id', task.id)
+      .select('id, completed_at, is_active');
+
+    if (secondRows && secondRows.length > 0 && secondRows[0].completed_at) {
+      finish();
+      return;
+    }
+
+    // Still not closed. Verify once more, then tell the truth.
+    const finalState = await readTask();
+    if (finalState?.completed_at) {
+      finish();
+      return;
+    }
+
+    const { data: signed } = await supabase
+      .from('employee_writeups')
+      .select('signed_at')
+      .eq('id', task.write_up_id)
+      .maybeSingle();
+
+    if (signed?.signed_at) {
+      toast.error(
+        "Your signature was saved, but this task could not be closed. Please tell a manager — it may still show on the dashboard."
+      );
+    } else {
+      toast.error("Failed to complete task");
+    }
+    // Leave the dialog open so it is clear the task did not close.
   };
+
 
   // If this is a write-up task, go straight to the single read-and-sign surface.
   if (task?.write_up_id && writeUpData) {
