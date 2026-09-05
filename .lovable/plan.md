@@ -1,60 +1,43 @@
-# Punch Clock: retire the signed-in human entry
+# Punch Clock: stop signed-in human entry, badge the pairing CTA
 
-## 1. Every UI entry that sends a signed-in human to `/punch-clock`
+## Goal
 
-Full grep of `src`. There are exactly **two** human-facing entries, both in the same nav data, both gated on `canViewTimecards` (manager and above):
+1. Stop old-school humans from wandering into the punch clock after App Login (where they can overwrite a paired tablet's device session).
+2. Make the paired-device path on the login screen more obvious.
 
-| Where | File:line | Label | Who sees it |
-|---|---|---|---|
-| Desktop header "Time" dropdown | `src/components/Layout.tsx:806-809` (`timeDropdownItems`) | "Punch Clock" | `canViewTimecards` |
-| Mobile menu sheet → Time section | `src/components/Layout.tsx:865-868` (`mobileTimeItems`) | "Punch Clock" | `canViewTimecards` |
+## Why not hard-delete the route?
 
-Not an entry, but related:
-- `src/components/Layout.tsx:962` — `/punch-clock` in the Time-dropdown active-highlight list. Cosmetic.
-- `src/App.tsx:218` — `/punch-clock` is an **unprotected** route (no `ProtectedRoute`), so a **bookmark or typed URL** works for anyone, signed in or out. This is the entry no menu change can close.
-- `src/pages/Auth.tsx:133,163,174` — redirect after sign-in, but only when the session **is** the paired device user (`isPunchDeviceUser`). Not a human path.
-- `src/components/KioskAutoRestore.tsx:52,58,71` — paired-tablet cold-launch restore.
-- `src/components/punchclock/PunchDeviceEntry.tsx:35,66` — the login-screen pairing link (see below).
+`/punch-clock` is load-bearing for:
+- paired tablets restoring via `KioskAutoRestore.tsx`
+- `PunchDeviceEntry.tsx` after a pairing code is redeemed
+- `Auth.tsx` redirects when the signed-in session **is** the device user
 
-**No dashboard tile, widget, quick action, Settings link, or Alerts link navigates to `/punch-clock`.** The only Settings reference is the separate customization page `/location/:locationId/punch-clock` (`src/pages/Settings.tsx:521`), which is a design screen, not the clock.
+So the route stays. Only the signed-in human-facing links are removed.
 
-### PunchDeviceEntry CTA text on the login screen
-`src/components/punchclock/PunchDeviceEntry.tsx:83-87` — one button, three states:
-- Paired and healthy: **"Open Punch Clock (Paired Device)"**
-- Server says revoked: **"Punch Clock Needs Re-Pairing — Click Here"**
-- Never paired: **"Setting Up a Punch Clock — Click Here"**
+## Smallest safe ship
 
-Dialog title **"Pair This Device"**, body: "Ask an org admin to generate a pairing code from Organization Settings → Punch Clock Devices. Codes are single-use and expire after 1 hour."
+### 1. Strip the signed-in UI link
+File: `src/components/Layout.tsx`
+- Remove the `{ path: '/punch-clock', label: 'Punch Clock', icon: Clock }` entry from the desktop "Time" dropdown (`timeDropdownItems`, around line 802).
+- Remove the same entry from the mobile Time sheet (`mobileTimeItems`, around line 861).
+- Remove `/punch-clock` from the Time-dropdown active-path highlight list (around line 962).
 
+This removes the path for any manager/org admin who has signed in via App Login, while leaving the route itself intact for paired devices.
 
-## 2. What happens when a human opens it on a paired tablet
+### 2. Badge/enlarge the login-screen pairing CTA
+File: `src/components/punchclock/PunchDeviceEntry.tsx`
+- The button under the login form currently has three label states:
+  - `"Open Punch Clock (Paired Device)"`
+  - `"Punch Clock Needs Re-Pairing — Click Here"`
+  - `"Setting Up a Punch Clock — Click Here"`
+- Keep all three labels and the existing pairing logic.
+- Change the button styling from the small muted link to a larger, pill/badge-style button with stronger contrast, larger icon, and clear tap target.
 
-`KioskAutoRestore.tsx:50` treats "path is `/punch-clock` and the current session is not the device" as an explicit request to re-enter kiosk mode: it runs `enterKioskMode('boot-restore')`, which **signs the human out and installs the device session** in the same browser profile. The reverse also happens — a human signing in on a paired tablet replaces the live device session, and pairing then has to reissue.
+### 3. Changelog
+Append one line to `SHARED_WORKSPACE/punch_clock/pairing-until-revoke.md`.
 
-So on one profile there is exactly one Supabase session and the two models fight over it. Every hand-off burns a reissue, and every failed reissue is the "went down" symptom on the floor. On a manager's own phone/desktop the same tap silently signs *them* out.
+## What is intentionally NOT touched
 
-## 3. Kill options, safest first
-
-| Option | Effect | Risk |
-|---|---|---|
-| Remove the nav item only | Stops the accidental floor path; URL/bookmark still works | Lowest. Bookmarks survive |
-| Nav removal + redirect unpaired visitors away from `/punch-clock` | Route only serves paired devices; humans land on Time Tracking | Low, and closes bookmarks |
-| 404 the route | Breaks paired tablets and `Auth.tsx` redirects | Do not do |
-| Gate behind `ProtectedRoute` | Wrong direction — the device session *is* a user; would not stop humans | No benefit |
-
-## 4. Legitimate remaining uses
-
-- Paired-tablet kiosk (device session) — must keep.
-- `KioskAutoRestore` cold launch and `Auth.tsx` device redirect — must keep.
-- Manager "let me look at the clock screen" — not real: the manager view is reached by swipe **inside** kiosk mode, and the PIN pad is useless without a device session and location.
-- Universal Update / idle reload listen from inside `PunchClock.tsx`; unaffected.
-- Desktop demo — nothing depends on it.
-
-## 5. Recommendation
-
-Yes — the human-signed-in punch clock should die, but by **hiding and redirecting, not deleting**. The route itself is load-bearing for paired tablets. Smallest ship: drop the Punch Clock entry from both nav lists in `Layout.tsx`, and add one guard at the top of `PunchClock.tsx` — if the device is not paired and the current session is a normal human, replace-navigate to `/time-tracking` with a short toast ("Punch Clock runs on a paired tablet"). Paired devices and the pairing link on the login screen behave exactly as today. No changes to pairing, reissue, secrets, TTL, Replace-vs-Add, or Universal Update.
-
-### Files a ship would touch
-- `src/components/Layout.tsx` — remove the two `/punch-clock` nav entries (and the path from the active list at line 962).
-- `src/pages/PunchClock.tsx` — one early redirect guard for unpaired human sessions.
-- `SHARED_WORKSPACE/punch_clock/pairing-until-revoke.md` — changelog line.
+- `/punch-clock` route in `src/App.tsx` stays.
+- Punch Clock Devices manager (`/location/:id/punch-clock`) stays.
+- Pairing/reissue/secret logic, TTL, Replace-vs-Add, device `1689ee2a`, Corrective Action, email, Universal Update — all untouched.
