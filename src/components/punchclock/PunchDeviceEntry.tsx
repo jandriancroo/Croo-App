@@ -77,9 +77,9 @@ export const PunchDeviceEntry = () => {
         type="button"
         onClick={handleLinkClick}
         disabled={busy}
-        className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-primary/15 hover:border-primary/50 transition-all disabled:opacity-60"
       >
-        <MonitorSmartphone className="h-3 w-3" />
+        <MonitorSmartphone className="h-4 w-4" />
         {isPaired() && !isPairingDead()
           ? 'Open Punch Clock (Paired Device)'
           : isPairingDead()

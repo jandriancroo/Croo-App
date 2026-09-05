@@ -116,6 +116,19 @@ Tablets already sitting on "needs a new pairing code" need one last code.
 - `PunchDeviceManager`: replace-vs-add prompt at code generation.
 - `vite.config.ts` / `index.html`: `/version.json` endpoint, no-store HTML.
 
+### 2026-09-05 — remove signed-in human punch-clock path + badge pairing CTA
+- `src/components/Layout.tsx`: removed "Punch Clock" from the signed-in Time
+  dropdown and mobile Time menu. The route `/punch-clock` still exists for
+  paired devices and the login-screen pairing flow; only the old App Login →
+  Time → Punch Clock path is gone, so a human manager can no longer overwrite
+  a paired tablet's session by accident.
+- `src/components/punchclock/PunchDeviceEntry.tsx`: enlarged and badgified the
+  login-screen pairing CTA with a rounded pill, stronger contrast, and larger
+  icon/text. The three label states (paired / needs re-pair / setup) are
+  unchanged; pairing logic is unchanged.
+- No changes to pairing code TTL, Replace-vs-Add UX, device `1689ee2a` (still
+  not revoked), Corrective Action, email, or Universal Update.
+
 ### 2026-09-04 — PIN → "Setting Up a Punch Clock" fix (shipped)
 Floor bug: fresh croohq.com PWA, paired inside the home-screen icon, stamp visible,
 Dave's PIN accepted (anon RPC), then the tablet landed on /auth offering

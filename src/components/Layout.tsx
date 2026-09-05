@@ -803,10 +803,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       path: '/time-tracking',
       label: 'Time Tracking',
       icon: DollarSign
-    }, {
-      path: '/punch-clock',
-      label: 'Punch Clock',
-      icon: Clock
     }] : [])
   ];
   // Mobile bottom nav: Dash, Chat, Tasks, Logs, Schedule (no More button - it's in header)
@@ -862,10 +858,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       path: '/time-tracking',
       label: 'Time Tracking',
       icon: DollarSign
-    }, {
-      path: '/punch-clock',
-      label: 'Punch Clock',
-      icon: Clock
     }] : [])
   ];
 
@@ -959,7 +951,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <DropdownMenuTrigger asChild>
                     <button 
                       className={`flex items-center gap-2 px-2 lg:px-3 py-1.5 rounded-lg transition-all ${
-                        ['/my-timecard', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
+                        ['/my-timecard', '/availability', '/payroll-review'].includes(location.pathname)
                           ? 'bg-white/25 text-primary-foreground font-medium' 
                           : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
                       }`}
