@@ -1,13 +1,31 @@
 # Punch Clock: retire the signed-in human entry
 
-## 1. How a signed-in human can open the punch clock today
+## 1. Every UI entry that sends a signed-in human to `/punch-clock`
 
-- `src/App.tsx:218` — `/punch-clock` is an **unprotected** route (no `ProtectedRoute`). Anyone, signed in or not, can reach it by URL or bookmark.
-- `src/components/Layout.tsx:802-810` (desktop "Time" dropdown) and `:861-869` (mobile) show a **Punch Clock** menu item to anyone with `canViewTimecards` (managers and above). This is the "old-school" path Jordan saw.
-- `src/components/Layout.tsx:962` includes `/punch-clock` in the Time-dropdown active-path list — cosmetic only.
-- `src/components/punchclock/PunchDeviceEntry.tsx:35,66` — the login-screen pairing link, the intended tablet path. Keep.
-- `src/pages/Auth.tsx:133,164,174` — redirects to `/punch-clock` only when the signed-in user **is** the paired device user (`isPunchDeviceUser`). Fine.
-- `src/components/KioskAutoRestore.tsx:50-56` — cold-launch restore for a paired tablet.
+Full grep of `src`. There are exactly **two** human-facing entries, both in the same nav data, both gated on `canViewTimecards` (manager and above):
+
+| Where | File:line | Label | Who sees it |
+|---|---|---|---|
+| Desktop header "Time" dropdown | `src/components/Layout.tsx:806-809` (`timeDropdownItems`) | "Punch Clock" | `canViewTimecards` |
+| Mobile menu sheet → Time section | `src/components/Layout.tsx:865-868` (`mobileTimeItems`) | "Punch Clock" | `canViewTimecards` |
+
+Not an entry, but related:
+- `src/components/Layout.tsx:962` — `/punch-clock` in the Time-dropdown active-highlight list. Cosmetic.
+- `src/App.tsx:218` — `/punch-clock` is an **unprotected** route (no `ProtectedRoute`), so a **bookmark or typed URL** works for anyone, signed in or out. This is the entry no menu change can close.
+- `src/pages/Auth.tsx:133,163,174` — redirect after sign-in, but only when the session **is** the paired device user (`isPunchDeviceUser`). Not a human path.
+- `src/components/KioskAutoRestore.tsx:52,58,71` — paired-tablet cold-launch restore.
+- `src/components/punchclock/PunchDeviceEntry.tsx:35,66` — the login-screen pairing link (see below).
+
+**No dashboard tile, widget, quick action, Settings link, or Alerts link navigates to `/punch-clock`.** The only Settings reference is the separate customization page `/location/:locationId/punch-clock` (`src/pages/Settings.tsx:521`), which is a design screen, not the clock.
+
+### PunchDeviceEntry CTA text on the login screen
+`src/components/punchclock/PunchDeviceEntry.tsx:83-87` — one button, three states:
+- Paired and healthy: **"Open Punch Clock (Paired Device)"**
+- Server says revoked: **"Punch Clock Needs Re-Pairing — Click Here"**
+- Never paired: **"Setting Up a Punch Clock — Click Here"**
+
+Dialog title **"Pair This Device"**, body: "Ask an org admin to generate a pairing code from Organization Settings → Punch Clock Devices. Codes are single-use and expire after 1 hour."
+
 
 ## 2. What happens when a human opens it on a paired tablet
 
