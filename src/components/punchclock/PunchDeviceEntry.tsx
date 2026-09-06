@@ -77,15 +77,16 @@ export const PunchDeviceEntry = () => {
         type="button"
         onClick={handleLinkClick}
         disabled={busy}
-        className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-primary/15 hover:border-primary/50 transition-all disabled:opacity-60"
+        className="mt-6 w-full inline-flex items-center justify-center gap-3 rounded-full border-2 border-primary bg-primary px-6 py-4 text-base sm:text-lg font-bold text-primary-foreground shadow-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60"
       >
-        <MonitorSmartphone className="h-4 w-4" />
+        <MonitorSmartphone className="h-5 w-5 sm:h-6 sm:w-6" />
         {isPaired() && !isPairingDead()
           ? 'Open Punch Clock (Paired Device)'
           : isPairingDead()
             ? 'Punch Clock Needs Re-Pairing — Click Here'
             : 'Setting Up a Punch Clock — Click Here'}
       </button>
+
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
