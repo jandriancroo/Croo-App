@@ -158,3 +158,10 @@ label could only mean `getPairing()` read null.
 - `/punch-clock` route kept in App.tsx (paired devices + PunchDeviceEntry still navigate there).
 - Login pairing CTA enlarged into a full-width high-contrast badge pill; all three labels kept (Setting Up / Open Paired / Needs Re-Pairing). No pairing logic touched.
 - Untouched: Punch Clock Devices manager, /location/:id/punch-clock customization, Universal Update, Time Tracking / payroll.
+
+## 2026-09-06 — Labor recalculation after punch edits (already live, now committed)
+
+- When a manager edits, adds or deletes a punch for a past day, that store/day's labor is marked stale and rebuilt within seconds — the rebuild request is signed with the rotating internal key (the old fixed key had been retired, which is why manual hour entry after the 9/5 tablet outage didn't refresh Palm Springs' labor % right away).
+- If an edit moves a punch across business days, BOTH days are refreshed.
+- Nightly 4:01 AM PT refresh of stale days remains the safety net.
+- No table, UI, or calculation changes. Migration committed: `mark_labor_cache_stale_and_backfill` now uses `public.cron_edge_headers()`.

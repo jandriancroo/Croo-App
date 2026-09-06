@@ -39,3 +39,5 @@
 - [x] Autofill empty Reason + Next Steps from recording notes (nullable suggestions from Flash)
 - [x] Changelog written
 - [ ] Publish to croohq.com and check on the floor iPad
+
+- [x] Commit live `mark_labor_cache_stale_and_backfill` migration + changelog note (2026-09-06)
