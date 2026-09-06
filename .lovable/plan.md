@@ -1,28 +1,33 @@
-# Performance review submit fails for everyone (not just Joey)
+# Punch clock failure logging (Palm Springs "can't clock in")
 
-## What's happening
+Goal: when a tablet refuses a punch, we should be able to look up exactly what failed, on which tablet, at which store, and when — without waiting for someone to describe it on the phone.
 
-Joey Tapia is Admin at Palm Springs and passes every access rule for performance reviews. The failure is not permissions.
+## 1. What gets recorded today
 
-The real cause: every time a performance review is saved, an automatic history/audit record is supposed to be written. That history step asks the review for an "overall rating" value — but performance reviews no longer store an overall rating. Postgres rejects the whole save, so the review never gets created and the screen shows "Error saving review".
+- **PIN entry:** every attempt (good or bad) is written to `punch_clock_attempts` — PIN typed, success flag, matched employee, guessed scheduled employees. `src/pages/PunchClock.tsx:875` (`logPunchAttempt`), called from `verifyPin` at `:889`. Rows are pruned after 7 days (`supabase/functions/maintenance-service/index.ts:334`). Insert is open to any visitor, so a dead session still records the attempt. This is why we can see "successful PINs through 19:36 PT" but nothing about the failure after.
+- **Punch write:** nothing is recorded. `insertPunch` (`src/pages/PunchClock.tsx:338`) retries once after a session repair and then returns a friendly sentence to the screen. Timeouts, permission errors and network failures all vanish into the tablet's own console.
+- **Session repair:** nothing is recorded. `repairDeviceSession` (`src/lib/punchDevicePairing.ts:542`) returns only true/false; `sendDeviceHeartbeat` (`:556`) swallows every error on purpose.
+- **General debug table:** `client_debug_logs` exists with a helper (`src/utils/serverDebugLog.ts`) but nothing punch-related writes to it, and its insert rule requires a signed-in session — exactly what is missing during the failures we want to catch. So it is not usable as-is for this.
 
-Evidence: `performance_reviews` has **zero rows ever saved**, and both insert/delete audit triggers point at the same history routine that reads `overall_rating`, a column that does not exist on that table. So this is a fleet-wide breakage, not a Joey/Palm Springs issue.
+Net: the only punch-clock evidence we have today is PIN attempts. The failure Jordan is chasing produces zero records.
 
-## Findings (technical)
+## 2. Proposed smallest durable ship
 
-- Submit handler: `src/components/logbook/LogBookNewEntrySheet.tsx:119-150` — inserts `performance_reviews`, then `performance_review_ratings`, then a "Sign Performance Review" `temporary_tasks` row + assignment.
-- Client toast on failure: `toast({ title: "Error saving review", description: error.message, variant: "destructive" })` at `LogBookNewEntrySheet.tsx:148`. Expected message: `record "new" has no field "overall_rating"`.
-- Form required fields: `src/components/logbook/PerformanceReviewForm.tsx:207-234` — Employee (`employee_id`) and at least one star rating. Palm Springs has 7 active review items, so the form itself is fine.
-- Trigger: `audit_perf_review_insert` / `audit_perf_review_delete` on `performance_reviews`, both call `public.log_logbook_audit('performance_review')`.
-- `log_logbook_audit` `performance_review` branch builds metadata from `v_record.overall_rating`; `performance_reviews` has no such column (confirmed via information_schema).
-- Access rules are fine: `performance_reviews`, `performance_review_ratings`, `performance_review_items` all require location membership + manager-or-higher; `has_role(joey,'manager')` returns true and he is mapped to Palm Springs. `temporary_tasks` / `temporary_task_assignments` insert rules also pass for admin. `logbook_audit` insert works because the trigger function is SECURITY DEFINER.
+**One new table, `punch_clock_failures`**, written from the tablet on every failed punch path.
 
-## Proposed fix (needs a named ship)
+Captured per row: store, device id, device name, employee id, punch type (in / out / break), stage (`insert`, `repair`, `retry`, `pin_lookup`), reason bucket (`timeout`, `auth`, `permission`, `network`, `unknown`), the raw error text, whether a repair was attempted and whether it worked, plus timestamp and a short app-version / user-agent stamp. No wages, no names, no PINs — just the employee id when we have one.
 
-1. Database migration: update `public.log_logbook_audit` so the `performance_review` branch stops reading `overall_rating`. Replace that metadata with something that exists on the row (e.g. `follow_up_notes` presence, or an empty metadata object). No other branch changes.
-2. Re-test one Palm Springs review submit end-to-end: review row created, ratings rows created, "Sign Performance Review" task assigned to the employee.
-3. No client code change expected. If the toast still fires after the migration, capture the new message before touching `LogBookNewEntrySheet.tsx`.
+Access: writes allowed without a session (same open-insert shape `punch_clock_attempts` already uses, so a broken session can still report itself); reads limited to manager-and-above. Pruned after 30 days alongside the existing nightly cleanup.
 
-## Not touching
+Where the writes go in:
+- `src/pages/PunchClock.tsx` — inside `insertPunch`, one record on first-attempt failure, on repair failure, and on retry failure.
+- `src/pages/PunchClock.tsx` — one record when the PIN lookup errors out (today it only logs a failed *match*, not a failed *query*).
+- `src/lib/punchDevicePairing.ts` — one record when `repairDeviceSession` gives up, and one when a heartbeat fails repeatedly.
 
-Corrective Action / write-up audit branch, punch clock, logbook categories, review items, or the signature flow.
+Then a plain read-only list under Punch Clock Devices (or a query we run for Jordan) showing the last failures per store, so the next Palm Springs call is answered in one look instead of a night of guessing.
+
+## Notes
+
+- Nothing in the pairing, PIN or punch logic changes behavior — these are additive records only.
+- Existing `punch_clock_attempts` stays exactly as it is.
+- If the failure turns out to be network/Wi-Fi at the store, these records will show it as `timeout`/`network` with healthy device rows — which is itself the answer.
