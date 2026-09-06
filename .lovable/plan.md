@@ -1,35 +1,43 @@
-# Labor % after manual hour entry (Palm Springs 2026-09-05)
+# Performance review submit — diagnosis (plan only)
 
-## Short answer
+## Bottom line
+Nothing in the current code or database should still block Joey. The trigger bug that broke every review insert ever (`42703` in `log_logbook_audit`) was fixed live on 2026-09-05, and the fix is confirmed deployed. The "0 rows globally" is historical damage — every insert since launch failed — not evidence of a remaining blocker. Next step is a retry by Joey, not new code.
 
-Palm Springs 9/5 now reads **$1,093.78 labor on $5,478.20 sales = 20%**, and the labor row was refreshed today at 09:22 PT. The 11% Jordan saw was a labor number computed *before* the manually entered hours finished landing — the figure has since corrected itself. Labor % is not a stored number; it is labor dollars divided by that day's sales, recomputed from punches.
+## Exact submit sequence
+File: `src/components/logbook/LogBookNewEntrySheet.tsx:119-149` (form: `PerformanceReviewForm.tsx:207-234`)
 
-## How it works today
+1. `performance_reviews` insert — `{location_id, employee_id, created_by, follow_up_notes|null}` (`.select().single()`)
+2. `performance_review_ratings` insert — one row per rating with `{review_id, item_id, rating, notes|null}`
+3. `temporary_tasks` insert — "Sign Performance Review" quick task, `push_enabled: true`
+4. `temporary_task_assignments` insert — assigns task to the reviewed employee
+5. `performance_reviews` update — sets `task_id` to the new task
 
-1. **Where the number comes from.** Labor dollars/hours per store per day live in `labor_cache` (one row per store + date + source, `punch_clock` or `qubeyond`). Sales come from `sales_cache`. Every screen divides one by the other:
-   - Dashboard: `src/components/dashboard/SalesSummary.tsx:188-297`
-   - Multi-store dashboard: `src/hooks/useOrgDashboardData.ts:204-396`
-   - Payroll periods: `src/hooks/usePayrollData.tsx:226-363`
-   - Watch tiles: `src/utils/watchMetrics.ts:89-117`
-   - Today only (never cached): `src/utils/liveLabor.ts` computes today's hours straight from punches.
-2. **Who fills `labor_cache`.** The `labor-service` function walks punches, applies overtime and unpaid-break rules, and upserts the day (`supabase/functions/labor-service/index.ts:399-528`), with a `refresh-stale` action at `:564-606`.
-3. **Nightly recalculation.** Two scheduled jobs: `queue-nightly-maintenance` at 4:00 AM PT and `nightly-labor-maintenance` at 4:01 AM PT, which calls `labor-service?action=refresh-stale` and rebuilds every day flagged stale. A queue processor runs each minute.
-4. **Prior-day punch edits.** Editing, adding or deleting a punch fires two database triggers on `time_punches`: one flags that store/day stale, the other immediately posts a rebuild request for exactly that store and date. So a manual entry should refresh within seconds — with the nightly sweep as the safety net. Note the punch date is resolved using the store's own timezone, so a late-night punch buckets to the right business day.
-5. **Manager-entered vs tablet punches.** The recompute path does not care who created the punch — same triggers, same math. The real gaps are:
-   - **Timing:** if a manager enters hours one punch at a time, each save triggers a rebuild, and the dashboard keeps showing whatever was last written until the rebuild lands and the screen is refetched. Mid-entry a day can legitimately read 11%.
-   - **Incomplete pairs:** a clock-in typed without a matching clock-out contributes little or nothing until the pair exists.
-   - **Screen caching:** the browser holds the earlier value until the query refetches, so labor can look wrong after it is already fixed in the backend.
-   - Today's date is never read from cache, so this only affects past days.
+Note: rating photos upload earlier to the `logbook-uploads` storage bucket (`PerformanceReviewForm.tsx:153-186`); those URLs are collected but **not saved** to the ratings rows (insert at line 129 has no image column). This silently drops photos — a data gap, not a submit blocker.
 
-## Smallest fix worth shipping (if he wants one)
+## Required fields (form-side)
+- Employee selected — else toast "Please select an employee"
+- At least one rating > 0 — else toast "Please provide at least one rating"
+- Follow-up notes optional
 
-Nothing is broken in the recompute chain, so the useful change is about *seeing* the corrected number, not producing it:
+## Failure toast
+Any server error in steps 1–5 → red toast: **"Error saving review"** with the database error message as the description (`LogBookNewEntrySheet.tsx:147-149`).
 
-- After a manager saves punch edits, refetch the labor and sales queries for that store/day so the labor pill updates on the spot rather than at the next page load.
-- Show a small "recalculating" state on the labor pill while a day is flagged stale, so a mid-entry number is never mistaken for the final one.
-- Optional backstop: a light hourly sweep of stale days, so a rebuild request that fails to reach the service corrects within the hour instead of waiting for 4 AM.
+## Verification done today
+- Fix confirmed live: `log_logbook_audit` no longer references `overall_rating` (uses `has_follow_up_notes`).
+- `performance_reviews` columns: only `location_id`, `employee_id`, `created_by` are NOT NULL without defaults — all supplied by the form. No hidden constraint.
+- RLS: manager policies exist and pass for INSERT on all five touched tables (`performance_reviews`, `performance_review_ratings`, `performance_review_items`, `temporary_tasks`, `temporary_task_assignments`).
+- Joey confirmed: `has_role manager = true`, on Palm Springs `user_locations`; Palm Springs has 7 review items.
 
-## Notes
+## Remaining risks (small)
+- Steps 1–5 are not a transaction: if step 3 or 4 fails, an orphan review row is left. Would show as a partial success anomaly, not a failure.
+- If Joey's app session predates the fix (stale tab), the error string in the toast description would name the real cause — ask him to screenshot the toast description text if it recurs.
 
-- No change to `labor_cache` structure, the `source` column, or the sales/labor separation rules.
-- No change to how hours or overtime are computed.
+## Recommended next step (no code)
+Joey retries the submit once. If it succeeds, the zero-row history is explained and closed. If it fails, capture the exact toast description text — that string names the failing step precisely, and only then is a follow-up fix warranted.
+
+## Technical details
+- Submit handler: `src/components/logbook/LogBookNewEntrySheet.tsx:119-149`
+- Form validation: `src/components/logbook/PerformanceReviewForm.tsx:207-234`
+- Photo upload (unsaved): `src/components/logbook/PerformanceReviewForm.tsx:153-186`
+- Fixed trigger: `public.log_logbook_audit()` (live DB, verified `has_follow_up_notes` present)
+- Palm Springs location id: `d667741f-6d4c-433e-bb22-307e817ea7f1`; Joey: `b11846ef-880f-491a-85c9-2677ecc53d5f`
