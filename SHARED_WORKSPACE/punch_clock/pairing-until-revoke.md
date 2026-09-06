@@ -150,3 +150,11 @@ label could only mean `getPairing()` read null.
   session BEFORE dropping the old one — no window where auth is empty and a boot
   race can decide the tablet is signed out.
 - Unchanged: pairing code TTL, Replace vs Add UX, device `1689ee2a` (not revoked).
+
+## 2026-09-05 — One living room: board up the human back door
+
+- Front door = paired device secret (PunchDeviceEntry on the login screen → /punch-clock).
+- Back door = signed-in human Time nav → Punch Clock. Removed from Layout desktop Time menu and mobile Time sheet so humans cannot stomp a paired tablet session after App Login.
+- `/punch-clock` route kept in App.tsx (paired devices + PunchDeviceEntry still navigate there).
+- Login pairing CTA enlarged into a full-width high-contrast badge pill; all three labels kept (Setting Up / Open Paired / Needs Re-Pairing). No pairing logic touched.
+- Untouched: Punch Clock Devices manager, /location/:id/punch-clock customization, Universal Update, Time Tracking / payroll.
