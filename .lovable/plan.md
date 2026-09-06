@@ -1,43 +1,28 @@
-# Punch Clock: stop signed-in human entry, badge the pairing CTA
+# Performance review submit fails for everyone (not just Joey)
 
-## Goal
+## What's happening
 
-1. Stop old-school humans from wandering into the punch clock after App Login (where they can overwrite a paired tablet's device session).
-2. Make the paired-device path on the login screen more obvious.
+Joey Tapia is Admin at Palm Springs and passes every access rule for performance reviews. The failure is not permissions.
 
-## Why not hard-delete the route?
+The real cause: every time a performance review is saved, an automatic history/audit record is supposed to be written. That history step asks the review for an "overall rating" value — but performance reviews no longer store an overall rating. Postgres rejects the whole save, so the review never gets created and the screen shows "Error saving review".
 
-`/punch-clock` is load-bearing for:
-- paired tablets restoring via `KioskAutoRestore.tsx`
-- `PunchDeviceEntry.tsx` after a pairing code is redeemed
-- `Auth.tsx` redirects when the signed-in session **is** the device user
+Evidence: `performance_reviews` has **zero rows ever saved**, and both insert/delete audit triggers point at the same history routine that reads `overall_rating`, a column that does not exist on that table. So this is a fleet-wide breakage, not a Joey/Palm Springs issue.
 
-So the route stays. Only the signed-in human-facing links are removed.
+## Findings (technical)
 
-## Smallest safe ship
+- Submit handler: `src/components/logbook/LogBookNewEntrySheet.tsx:119-150` — inserts `performance_reviews`, then `performance_review_ratings`, then a "Sign Performance Review" `temporary_tasks` row + assignment.
+- Client toast on failure: `toast({ title: "Error saving review", description: error.message, variant: "destructive" })` at `LogBookNewEntrySheet.tsx:148`. Expected message: `record "new" has no field "overall_rating"`.
+- Form required fields: `src/components/logbook/PerformanceReviewForm.tsx:207-234` — Employee (`employee_id`) and at least one star rating. Palm Springs has 7 active review items, so the form itself is fine.
+- Trigger: `audit_perf_review_insert` / `audit_perf_review_delete` on `performance_reviews`, both call `public.log_logbook_audit('performance_review')`.
+- `log_logbook_audit` `performance_review` branch builds metadata from `v_record.overall_rating`; `performance_reviews` has no such column (confirmed via information_schema).
+- Access rules are fine: `performance_reviews`, `performance_review_ratings`, `performance_review_items` all require location membership + manager-or-higher; `has_role(joey,'manager')` returns true and he is mapped to Palm Springs. `temporary_tasks` / `temporary_task_assignments` insert rules also pass for admin. `logbook_audit` insert works because the trigger function is SECURITY DEFINER.
 
-### 1. Strip the signed-in UI link
-File: `src/components/Layout.tsx`
-- Remove the `{ path: '/punch-clock', label: 'Punch Clock', icon: Clock }` entry from the desktop "Time" dropdown (`timeDropdownItems`, around line 802).
-- Remove the same entry from the mobile Time sheet (`mobileTimeItems`, around line 861).
-- Remove `/punch-clock` from the Time-dropdown active-path highlight list (around line 962).
+## Proposed fix (needs a named ship)
 
-This removes the path for any manager/org admin who has signed in via App Login, while leaving the route itself intact for paired devices.
+1. Database migration: update `public.log_logbook_audit` so the `performance_review` branch stops reading `overall_rating`. Replace that metadata with something that exists on the row (e.g. `follow_up_notes` presence, or an empty metadata object). No other branch changes.
+2. Re-test one Palm Springs review submit end-to-end: review row created, ratings rows created, "Sign Performance Review" task assigned to the employee.
+3. No client code change expected. If the toast still fires after the migration, capture the new message before touching `LogBookNewEntrySheet.tsx`.
 
-### 2. Badge/enlarge the login-screen pairing CTA
-File: `src/components/punchclock/PunchDeviceEntry.tsx`
-- The button under the login form currently has three label states:
-  - `"Open Punch Clock (Paired Device)"`
-  - `"Punch Clock Needs Re-Pairing — Click Here"`
-  - `"Setting Up a Punch Clock — Click Here"`
-- Keep all three labels and the existing pairing logic.
-- Change the button styling from the small muted link to a larger, pill/badge-style button with stronger contrast, larger icon, and clear tap target.
+## Not touching
 
-### 3. Changelog
-Append one line to `SHARED_WORKSPACE/punch_clock/pairing-until-revoke.md`.
-
-## What is intentionally NOT touched
-
-- `/punch-clock` route in `src/App.tsx` stays.
-- Punch Clock Devices manager (`/location/:id/punch-clock`) stays.
-- Pairing/reissue/secret logic, TTL, Replace-vs-Add, device `1689ee2a`, Corrective Action, email, Universal Update — all untouched.
+Corrective Action / write-up audit branch, punch clock, logbook categories, review items, or the signature flow.
