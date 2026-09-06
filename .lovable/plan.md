@@ -1,33 +1,35 @@
-# Punch clock failure logging (Palm Springs "can't clock in")
+# Labor % after manual hour entry (Palm Springs 2026-09-05)
 
-Goal: when a tablet refuses a punch, we should be able to look up exactly what failed, on which tablet, at which store, and when — without waiting for someone to describe it on the phone.
+## Short answer
 
-## 1. What gets recorded today
+Palm Springs 9/5 now reads **$1,093.78 labor on $5,478.20 sales = 20%**, and the labor row was refreshed today at 09:22 PT. The 11% Jordan saw was a labor number computed *before* the manually entered hours finished landing — the figure has since corrected itself. Labor % is not a stored number; it is labor dollars divided by that day's sales, recomputed from punches.
 
-- **PIN entry:** every attempt (good or bad) is written to `punch_clock_attempts` — PIN typed, success flag, matched employee, guessed scheduled employees. `src/pages/PunchClock.tsx:875` (`logPunchAttempt`), called from `verifyPin` at `:889`. Rows are pruned after 7 days (`supabase/functions/maintenance-service/index.ts:334`). Insert is open to any visitor, so a dead session still records the attempt. This is why we can see "successful PINs through 19:36 PT" but nothing about the failure after.
-- **Punch write:** nothing is recorded. `insertPunch` (`src/pages/PunchClock.tsx:338`) retries once after a session repair and then returns a friendly sentence to the screen. Timeouts, permission errors and network failures all vanish into the tablet's own console.
-- **Session repair:** nothing is recorded. `repairDeviceSession` (`src/lib/punchDevicePairing.ts:542`) returns only true/false; `sendDeviceHeartbeat` (`:556`) swallows every error on purpose.
-- **General debug table:** `client_debug_logs` exists with a helper (`src/utils/serverDebugLog.ts`) but nothing punch-related writes to it, and its insert rule requires a signed-in session — exactly what is missing during the failures we want to catch. So it is not usable as-is for this.
+## How it works today
 
-Net: the only punch-clock evidence we have today is PIN attempts. The failure Jordan is chasing produces zero records.
+1. **Where the number comes from.** Labor dollars/hours per store per day live in `labor_cache` (one row per store + date + source, `punch_clock` or `qubeyond`). Sales come from `sales_cache`. Every screen divides one by the other:
+   - Dashboard: `src/components/dashboard/SalesSummary.tsx:188-297`
+   - Multi-store dashboard: `src/hooks/useOrgDashboardData.ts:204-396`
+   - Payroll periods: `src/hooks/usePayrollData.tsx:226-363`
+   - Watch tiles: `src/utils/watchMetrics.ts:89-117`
+   - Today only (never cached): `src/utils/liveLabor.ts` computes today's hours straight from punches.
+2. **Who fills `labor_cache`.** The `labor-service` function walks punches, applies overtime and unpaid-break rules, and upserts the day (`supabase/functions/labor-service/index.ts:399-528`), with a `refresh-stale` action at `:564-606`.
+3. **Nightly recalculation.** Two scheduled jobs: `queue-nightly-maintenance` at 4:00 AM PT and `nightly-labor-maintenance` at 4:01 AM PT, which calls `labor-service?action=refresh-stale` and rebuilds every day flagged stale. A queue processor runs each minute.
+4. **Prior-day punch edits.** Editing, adding or deleting a punch fires two database triggers on `time_punches`: one flags that store/day stale, the other immediately posts a rebuild request for exactly that store and date. So a manual entry should refresh within seconds — with the nightly sweep as the safety net. Note the punch date is resolved using the store's own timezone, so a late-night punch buckets to the right business day.
+5. **Manager-entered vs tablet punches.** The recompute path does not care who created the punch — same triggers, same math. The real gaps are:
+   - **Timing:** if a manager enters hours one punch at a time, each save triggers a rebuild, and the dashboard keeps showing whatever was last written until the rebuild lands and the screen is refetched. Mid-entry a day can legitimately read 11%.
+   - **Incomplete pairs:** a clock-in typed without a matching clock-out contributes little or nothing until the pair exists.
+   - **Screen caching:** the browser holds the earlier value until the query refetches, so labor can look wrong after it is already fixed in the backend.
+   - Today's date is never read from cache, so this only affects past days.
 
-## 2. Proposed smallest durable ship
+## Smallest fix worth shipping (if he wants one)
 
-**One new table, `punch_clock_failures`**, written from the tablet on every failed punch path.
+Nothing is broken in the recompute chain, so the useful change is about *seeing* the corrected number, not producing it:
 
-Captured per row: store, device id, device name, employee id, punch type (in / out / break), stage (`insert`, `repair`, `retry`, `pin_lookup`), reason bucket (`timeout`, `auth`, `permission`, `network`, `unknown`), the raw error text, whether a repair was attempted and whether it worked, plus timestamp and a short app-version / user-agent stamp. No wages, no names, no PINs — just the employee id when we have one.
-
-Access: writes allowed without a session (same open-insert shape `punch_clock_attempts` already uses, so a broken session can still report itself); reads limited to manager-and-above. Pruned after 30 days alongside the existing nightly cleanup.
-
-Where the writes go in:
-- `src/pages/PunchClock.tsx` — inside `insertPunch`, one record on first-attempt failure, on repair failure, and on retry failure.
-- `src/pages/PunchClock.tsx` — one record when the PIN lookup errors out (today it only logs a failed *match*, not a failed *query*).
-- `src/lib/punchDevicePairing.ts` — one record when `repairDeviceSession` gives up, and one when a heartbeat fails repeatedly.
-
-Then a plain read-only list under Punch Clock Devices (or a query we run for Jordan) showing the last failures per store, so the next Palm Springs call is answered in one look instead of a night of guessing.
+- After a manager saves punch edits, refetch the labor and sales queries for that store/day so the labor pill updates on the spot rather than at the next page load.
+- Show a small "recalculating" state on the labor pill while a day is flagged stale, so a mid-entry number is never mistaken for the final one.
+- Optional backstop: a light hourly sweep of stale days, so a rebuild request that fails to reach the service corrects within the hour instead of waiting for 4 AM.
 
 ## Notes
 
-- Nothing in the pairing, PIN or punch logic changes behavior — these are additive records only.
-- Existing `punch_clock_attempts` stays exactly as it is.
-- If the failure turns out to be network/Wi-Fi at the store, these records will show it as `timeout`/`network` with healthy device rows — which is itself the answer.
+- No change to `labor_cache` structure, the `source` column, or the sales/labor separation rules.
+- No change to how hours or overtime are computed.
