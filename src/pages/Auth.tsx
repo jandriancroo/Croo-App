@@ -257,10 +257,26 @@ export default function Auth() {
               </div>
             </form>
 
-            <div className="pt-4 space-y-3 border-t border-border/40">
-              <PunchDeviceEntry />
-              <PWAInstallTutorial />
-            </div>
+            <Collapsible open={pillsOpen} onOpenChange={setPillsOpen} className="pt-4 border-t border-border/40">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between gap-2 text-left group"
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Monitor className="hidden sm:block lg:hidden h-4 w-4" />
+                    <Smartphone className="sm:hidden lg:inline h-4 w-4" />
+                    <span className="hidden sm:block lg:hidden">Punch clock &amp; install</span>
+                    <span className="sm:hidden lg:inline">Setup options</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${pillsOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3 data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                <PunchDeviceEntry />
+                <PWAInstallTutorial />
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
 
