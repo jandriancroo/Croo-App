@@ -46,7 +46,7 @@ export function PWAInstallTutorial() {
   if (hidden) return null;
 
   return (
-    <div className="w-full max-w-md mt-4">
+    <div className="w-full">
       <div className="rounded-2xl border-2 border-primary/30 bg-primary/10 backdrop-blur-xl shadow-xl overflow-hidden ring-1 ring-primary/20">
         <button
           onClick={() => setExpanded((v) => !v)}
