@@ -252,6 +252,10 @@ export default function Auth() {
           </CardContent>
         </Card>
 
+        <div className="w-full max-w-md mt-4">
+          <PunchDeviceEntry />
+        </div>
+
         <PWAInstallTutorial />
 
         {/* Background image switcher */}
