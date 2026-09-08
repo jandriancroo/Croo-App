@@ -246,14 +246,13 @@ export default function Auth() {
                 </button>
               </div>
             </form>
+
+            <div className="pt-4 space-y-3 border-t border-border/40">
+              <PunchDeviceEntry />
+              <PWAInstallTutorial />
+            </div>
           </CardContent>
         </Card>
-
-        <div className="w-full max-w-md mt-4">
-          <PunchDeviceEntry />
-        </div>
-
-        <PWAInstallTutorial />
 
         {/* Background image switcher */}
         <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1.25rem)] left-0 right-0 flex items-center justify-center gap-2 z-30">
