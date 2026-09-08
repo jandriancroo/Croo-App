@@ -83,10 +83,10 @@ export const PunchDeviceEntry = () => {
         type="button"
         onClick={handleLinkClick}
         disabled={busy}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left rounded-2xl border-2 border-primary/30 bg-primary/10 backdrop-blur-xl shadow-xl ring-1 ring-primary/20 hover:bg-primary/15 active:scale-[0.98] transition-all disabled:opacity-60"
+        className="w-full flex items-center gap-3 px-4 py-2 text-left rounded-2xl border-2 border-primary/30 bg-primary/10 backdrop-blur-xl shadow-xl ring-1 ring-primary/20 hover:bg-primary/15 active:scale-[0.98] transition-all disabled:opacity-60"
       >
-        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-          <MonitorSmartphone className="h-5 w-5 text-primary-foreground" />
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
+          <MonitorSmartphone className="h-4 w-4 text-primary-foreground" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold leading-tight text-foreground">{label[0]}</p>
