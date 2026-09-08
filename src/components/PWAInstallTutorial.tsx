@@ -56,7 +56,7 @@ export function PWAInstallTutorial() {
             <Share className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold leading-tight text-foreground">Install CrooHQ</p>
+            <p className="text-sm font-bold leading-tight text-foreground">More Options</p>
             <p className="text-[11px] text-muted-foreground leading-tight">
               Add to home screen for the full app experience
             </p>
