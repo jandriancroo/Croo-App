@@ -75,7 +75,7 @@ export const PunchDeviceEntry = () => {
     ? ['Open Punch Clock', '(Paired Device)']
     : isPairingDead()
       ? ['Punch Clock Needs Re-Pairing', 'Click Here']
-      : ['Setting Up a Punch Clock', 'Open Punch Clock'];
+      : ['Open Punch Clock', ''];
 
   return (
     <>
@@ -90,7 +90,7 @@ export const PunchDeviceEntry = () => {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold leading-tight text-foreground">{label[0]}</p>
-          <p className="text-xs font-semibold text-foreground leading-tight">{label[1]}</p>
+          {label[1] && <p className="text-xs font-semibold text-foreground leading-tight">{label[1]}</p>}
         </div>
       </button>
 
