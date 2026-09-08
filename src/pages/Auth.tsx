@@ -263,7 +263,7 @@ export default function Auth() {
                   type="button"
                   className="w-full flex items-center justify-between gap-2 text-left group"
                 >
-                  <span className="text-sm font-medium text-foreground">Punch clock &amp; install</span>
+                  <span className="text-sm font-medium text-foreground">More options</span>
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${pillsOpen ? 'rotate-180' : ''}`} />
                 </button>
               </CollapsibleTrigger>
