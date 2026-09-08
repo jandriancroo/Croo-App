@@ -75,7 +75,7 @@ export const PunchDeviceEntry = () => {
     ? ['Open Punch Clock', '(Paired Device)']
     : isPairingDead()
       ? ['Punch Clock Needs Re-Pairing', 'Click Here']
-      : ['Setting Up a Punch Clock', 'Click Here'];
+      : ['Setting Up a Punch Clock', 'Open Punch Clock'];
 
   return (
     <>
