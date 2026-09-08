@@ -90,7 +90,7 @@ export const PunchDeviceEntry = () => {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold leading-tight text-foreground">{label[0]}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">{label[1]}</p>
+          <p className="text-xs font-semibold text-foreground leading-tight">{label[1]}</p>
         </div>
       </button>
 
