@@ -50,10 +50,10 @@ export function PWAInstallTutorial() {
       <div className="rounded-2xl border-2 border-primary/30 bg-primary/10 backdrop-blur-xl shadow-xl overflow-hidden ring-1 ring-primary/20">
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-primary/10 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-primary/10 transition-colors"
         >
-          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-            <Share className="h-5 w-5 text-primary-foreground" />
+          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
+            <Share className="h-4 w-4 text-primary-foreground" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold leading-tight text-foreground">Install the CrooHQ app on your Phone</p>
@@ -68,7 +68,7 @@ export function PWAInstallTutorial() {
                 e.stopPropagation();
                 handleInstall();
               }}
-              className="h-8 text-xs gap-1 mr-1"
+              className="h-7 text-xs gap-1 mr-1"
             >
               <Download className="h-3.5 w-3.5" />
               Install
