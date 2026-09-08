@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.webp';
 import { PunchDeviceEntry } from '@/components/punchclock/PunchDeviceEntry';
@@ -12,6 +13,7 @@ import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
 import { PWAInstallTutorial } from '@/components/PWAInstallTutorial';
 import { isKioskExitActive, isPunchDeviceUser } from '@/lib/punchDevicePairing';
+import { ChevronDown } from 'lucide-react';
 import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
 import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
 import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
@@ -72,6 +74,14 @@ export default function Auth() {
   const activeIndex = images.length ? index % images.length : 0;
   const touchStartX = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Collapse the punch-clock / install pills by default on phone (<640px)
+  // and desktop (>=1024px), expand only in the tablet band (640-1023px).
+  const [pillsOpen, setPillsOpen] = useState(false);
+  useEffect(() => {
+    const w = window.innerWidth;
+    setPillsOpen(w >= 640 && w < 1024);
+  }, []);
 
   useEffect(() => {
     if (new URLSearchParams(location.search).get('deactivated') === '1') {
@@ -247,10 +257,21 @@ export default function Auth() {
               </div>
             </form>
 
-            <div className="pt-4 space-y-3 border-t border-border/40">
-              <PunchDeviceEntry />
-              <PWAInstallTutorial />
-            </div>
+            <Collapsible open={pillsOpen} onOpenChange={setPillsOpen} className="pt-4 border-t border-border/40">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between gap-2 text-left group"
+                >
+                  <span className="text-sm font-medium text-foreground">Punch clock &amp; install</span>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${pillsOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3">
+                <PunchDeviceEntry />
+                <PWAInstallTutorial />
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
 
