@@ -20,3 +20,10 @@ rows back to 0.
 
 **Access rules confirmed fine:** reviews / ratings / items all require location membership +
 manager-or-higher; Joey passes `has_role(...,'manager')` and is mapped to Palm Springs.
+
+## 2026-09-07 — repo/live reconciled
+
+The `log_logbook_audit()` fix (performance_review branch builds
+`jsonb_build_object('has_follow_up_notes', ...)`, no `overall_rating`) was applied
+live on 2026-09-05. A migration now commits the exact live `pg_get_functiondef`
+body, so repo SQL matches production. No behavior change — closed.
