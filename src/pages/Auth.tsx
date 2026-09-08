@@ -75,6 +75,14 @@ export default function Auth() {
   const touchStartX = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Collapse the punch-clock / install pills by default on phone (<640px)
+  // and desktop (>=1024px), expand only in the tablet band (640-1023px).
+  const [pillsOpen, setPillsOpen] = useState(false);
+  useEffect(() => {
+    const w = window.innerWidth;
+    setPillsOpen(w >= 640 && w < 1024);
+  }, []);
+
   useEffect(() => {
     if (new URLSearchParams(location.search).get('deactivated') === '1') {
       toast.error(DEACTIVATED_MESSAGE);
