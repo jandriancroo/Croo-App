@@ -13,7 +13,7 @@ import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import RotatingAuthBackground from '@/components/auth/RotatingAuthBackground';
 import { PWAInstallTutorial } from '@/components/PWAInstallTutorial';
 import { isKioskExitActive, isPunchDeviceUser } from '@/lib/punchDevicePairing';
-import { ChevronDown, Monitor, Smartphone } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import beachDay from '@/assets/auth-bg/beach-day.jpg.asset.json';
 import cityDay from '@/assets/auth-bg/city-day.jpg.asset.json';
 import desDay from '@/assets/auth-bg/des-day.jpg.asset.json';
