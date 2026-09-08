@@ -268,8 +268,8 @@ export default function Auth() {
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-3 pt-3">
-                <PunchDeviceEntry />
                 <PWAInstallTutorial />
+                <PunchDeviceEntry />
               </CollapsibleContent>
             </Collapsible>
           </CardContent>
