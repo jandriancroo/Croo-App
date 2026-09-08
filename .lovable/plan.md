@@ -1,52 +1,86 @@
-# Why labor-service excludes today (and is forceRefresh-with-today safe?)
+# Labor: live open-shift hours + instant refresh at 50–300 stores
 
-## The answer: B + C together
+## Q&A first: why today was excluded
 
-The exclusion at `supabase/functions/labor-service/index.ts:392`
-(`getDateRange(...).filter(d => d !== todayStr)`) is by design, for two linked reasons:
+`supabase/functions/labor-service/index.ts:392` —
+`getDateRange(...).filter(d => d !== todayStr)`
 
-**B) Today is computed live elsewhere — labor_cache is for closed days only.**
-- `src/utils/liveLabor.ts` header states it outright: "labor_cache only holds CLOSED
-  days (written by the nightly labor service), so anything that needs today's
-  hours/cost ... has to compute it from time_punches."
-- Every surface that shows today (Dashboard `SalesSummary.tsx`,
-  `useOrgDashboardData.ts`, pay-period cards) already merges
-  `fetchLiveLaborForToday()` over the cache. If the cache also wrote today, you'd
-  get two sources of truth for the same day and they would disagree mid-shift.
+Reasons B **and** C, confirmed in code:
+- **B)** `src/utils/liveLabor.ts:8-12` states the contract: "labor_cache only holds
+  CLOSED days ... anything that needs today's hours/cost has to compute it from
+  time_punches." Dashboard/pay-period surfaces already merge live today over cache.
+- **C)** Open shifts make a cached today premature — and worse, the current math
+  understates them (see finding below). Auto-punch-out only closes forgotten shifts
+  at 3 AM (`PUNCH_CLOCK_SYSTEM.md`), so a day isn't final until after that.
 
-**C) Open shifts make a cached "today" premature.**
-- During the day, many employees are clocked in with no clock_out yet. The
-  bucketing math (`payrollDayBucketing.ts` / `payrollCalculations.ts`) can only
-  count completed pairs, so a cache row written at 2pm freezes a partial,
-  wrong-looking number that downstream readers treat as authoritative.
-- Related: the auto-punch-out system (PUNCH_CLOCK_SYSTEM.md) deliberately closes
-  forgotten shifts at 3 AM PST via nightly maintenance — so "yesterday" isn't even
-  final until after that run. Today is excluded; the day becomes eligible the
-  moment it flips to yesterday.
+Not (A): the trigger path is per-date and cheap; load was not the reason.
 
-It is NOT primarily about load (A) — the trigger-based backfill is per-date and
-cheap. The exclusion is a correctness boundary: cache = closed days, live = today.
+## Confirmed accuracy bug (both client and edge)
 
-## Is it safe to include today when forceRefresh=true from the punch trigger?
+Open shift (clock_in, no clock_out) is ended at the **last punch in the window**, not now:
+- edge `labor-service/index.ts:134-148` — `endTime = clockOut ?? lastPunchInWindow`
+- client `src/utils/payrollCalculations.ts:129-144` — identical logic
+- `calculateDayHours(dayPunches, showLive = true)` at `payrollCalculations.ts:62`:
+  `showLive` is **declared and never used** in the body (grep: only the signature).
+  So "live" hours have never been live — someone clocked in at 4pm with no other
+  punches contributes 0, and someone who took a break at 6pm freezes at 6pm.
 
-**No — not recommended, and not needed.**
-- The punch trigger (`mark_labor_cache_stale_and_backfill`) fires on edits to
-  *prior-day* punches (manager fixes like Dave's). Those dates are never today in
-  practice, so the filter costs nothing for the actual use case.
-- If a punch IS edited for today, the live surfaces already recompute from
-  `time_punches` in real time (`liveLabor.ts`), so nothing is stale on screen.
-- Writing today into labor_cache would create a frozen partial-day row that
-  readers treat as final, and it would fight the live calculation — the exact
-  split the architecture was built to avoid.
+That is exactly the under-reporting behind low labor % during an active shift.
 
-The 4 AM refresh-stale fallback stays exactly as-is and is unaffected.
+## Smallest ship (3 parts, then nightly unchanged)
 
-## Sources
-- `supabase/functions/labor-service/index.ts:332-405` (exclusion + backfill flow)
-- `src/utils/liveLabor.ts:1-13` (closed-days-only contract)
-- `PUNCH_CLOCK_SYSTEM.md` auto punch-out (3 AM close of open shifts)
-- Memory: Labor Calculation Strategy — "Dual calc for actual vs scheduled ... historical cache rules"
-- `SHARED_WORKSPACE/dashboard/README.md` 2026-09-07 entry: "labor-service still excludes today from backfill by design — unchanged."
+### 1. Open-shift hours = now − clock_in − unpaid breaks
+Make `showLive` real, one change mirrored in two files.
 
-## Action
-None. Plan-only question — no code change proposed or recommended.
+`src/utils/payrollCalculations.ts:141-144`:
+```
+const endTime = clockOut
+  ? new Date(clockOut.punch_time)
+  : (showLive && isOpenShift ? new Date() : (lastPunchInWindow ? new Date(lastPunchInWindow.punch_time) : null));
+```
+where `isOpenShift` = no clockOut for this window AND this is the last shift window.
+Guard: cap the elapsed value (skip/clamp if > 16h) to match the auto-punch sanity
+rule so a forgotten punch cannot balloon a day.
+
+Unpaid-break subtraction already runs against `clockOutTime` (`:150-156`); with
+`endTime = now` an in-progress 30-min break gets counted as unpaid up to now,
+which is what operators expect.
+
+Edge mirror: `supabase/functions/labor-service/index.ts:134-148`, same shape,
+enabled only when the date being computed is today in the location timezone.
+
+### 2. Include today on the punch-triggered path only
+In `handleBackfill`, replace the blanket filter at `:392` with:
+```
+const includeToday = forceRefresh === true;
+const allDates = getDateRange(startDateStr, endDateStr)
+  .filter(d => includeToday || d !== todayStr);
+```
+Rationale: the 90-day catch-up and nightly runs keep excluding today (no change in
+behavior or cost); only the trigger's `forceRefresh` write refreshes today. Today's
+row is written with `is_stale = true` so nightly still finalizes it after auto-punch-out.
+
+### 3. Debounce / coalesce so 300 stores don't stampede
+Keep the DB write synchronous, make the HTTP call debounced. In
+`mark_labor_cache_stale_and_backfill()`:
+- Always mark `labor_cache` stale for the affected dates (cheap, in-transaction) —
+  unchanged.
+- Replace the immediate unconditional `pg_net` post with **single-flight per
+  location+date**: only post if no post has been made for that key in the last
+  20 seconds (small `labor_backfill_debounce` table keyed
+  `(location_id, labor_date)` with `last_posted_at`, upsert + condition). A
+  clock-in burst at open collapses into one call per store per 20s.
+- Worst case at 300 stores: 3 calls/min/store ceiling instead of one per punch.
+
+Alternative if you'd rather add no table: rely on stale-marking only and have a
+1-minute cron sweep `labor_cache where is_stale` — cheaper still, but up to 60s
+behind. The 20s debounce is the closer fit to "freshest numbers."
+
+### 4. Nightly fallback: unchanged
+The 4 AM refresh-stale run and the 3 AM auto-punch-out stay exactly as-is; today's
+row remains stale until that run finalizes it.
+
+## Not in this ship
+No UI changes, no edge redeploys beyond `labor-service`, no change to
+`liveLabor.ts`'s role (it keeps serving today on the dashboard and will now agree
+with the cache because both use the same end-time rule).
