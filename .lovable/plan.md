@@ -1,51 +1,74 @@
-# Status: two-layer schedule approval (manager drafts → admin approves)
+# Dave Patrick — chat push not arriving after PWA reinstall
 
-## Verdict: NOT BUILT — idea-only
+## Short answer for Jordan
+It is **not** a multiple-subscription problem, and nothing in his settings is off.
+His new install registered fine and every gate is open. The most likely reason he
+saw nothing is the **3-minute-per-chat push throttle**: only the first message in a
+chat every 3 minutes pushes at all, to anyone. Test messages sent back-to-back in a
+chat someone else already pushed into are silently dropped.
 
-Searched `src`, `SHARED_WORKSPACE`, `.lovable`, `docs` for schedule approval,
-pending approval, submit-for-approval, and approval columns on schedules. There is
-**no schedule approval gate anywhere** — no code, no doc, no plan file. The only
-"manager approval" in the repo is the training-checklist feature
-(`src/components/tasks/ManagerApprovalItem.tsx`,
-`.lovable/plan/training-checklists-manager-approval-2026-08-06.md`), which is a
-different system (checklist_assignments, not schedules).
+## What I verified live (Dave, e856079b…)
+- `push_notification_tokens`: 5 web rows, all Apple endpoints. Two are brand new —
+  created 01:01:16 and 01:05:41 UTC today, i.e. the reinstall did register. Three
+  older ones (Jul 19, Sep 4, Sep 6) are stale leftovers.
+- `notification_preferences.chat_messages` = true (updated 01:05 today).
+- `user_notification_settings` chat_messages, Palm Springs — `push_enabled` true.
+- `user_roles` = org_admin; `role_notification_settings` chat_messages enabled for
+  org_admin (and every other role).
 
-## What exists today: a one-layer publish snapshot
+So: role gate pass, per-location gate pass, legacy pref gate pass, tokens present.
 
-`src/hooks/useScheduleData.tsx` + `src/lib/scheduleDiff.ts`, table `schedules`:
+## The path, with the blockers at each step
+`src/hooks/useChatActions.tsx:37-66` — on send, fetches `chat_members` except the
+sender, then invokes `send-push-notification` with
+`notification_type: 'chat_messages'`, `data.chat_id`, `sender_id`. **No
+`location_id` is passed**, so the per-location settings branch is skipped and only
+the legacy `notification_preferences` gate applies
+(`send-push-notification/index.ts:595-616`).
 
-- `is_published` (boolean), `published_shifts_snapshot` (JSON copy of the shifts at
-  publish time), `last_status_changed_at` / `_by` / `last_status_action`.
-- Draft weeks are hidden from staff: shifts return `[]` when
-  `!is_published && !canSeeDrafts` (`useScheduleData.tsx:321-322`, `:465`).
-- Publish sets `is_published = true`, snapshots current shifts, notifies staff
-  (`:741-748`). Unpublish clears both (`:603`, `:808`).
-- Post-publish edits are surfaced as "pending changes" by diffing live shifts
-  against the snapshot (`:671-682`, `scheduleDiff.ts`) — that's a *change-tracking*
-  pending state, **not** an approval pending state.
-- Permission is a single tier: `isAdmin || isManager` (`useScheduleData.tsx:103`,
-  `useUserRole.tsx:79` `canManageSchedule`). A manager can publish straight to staff
-  with no second signature.
+Then, in `supabase/functions/send-push-notification/index.ts`:
+1. **Chat throttle — `:394-414`, `:432-441`.** `isChatThrottled(chat_id)` allows one
+   push **per chat, globally, per 3 minutes** — it is keyed only by `chat_id`, not by
+   recipient. Any member's message in the last 3 minutes suppresses the push for
+   everyone else. This is the leading suspect for "Dave gets nothing" during testing.
+   It is also in-memory per edge instance, so behavior looks random across cold starts.
+2. Sender filter `:449`, `:619-626` — fine unless Dave was the sender on the test.
+3. Role gate `:514-551` — pass.
+4. Preference gates `:563-616` — pass.
+5. Tokens `:688-692` — reads **all** rows for the user and sends to each, so multiple
+   subscriptions do not block anything; extra rows just cause extra sends, and dead
+   ones are auto-pruned on 410/404 or VAPID mismatch (`:770-782`).
+6. Delivery — needs the subscription's VAPID key to match the server's. Client
+   handles this: `src/utils/pushVapid.ts:56-89` (`ensureSubscriptionForKey`)
+   resubscribes when the key differs, and `usePushNotifications.tsx:110-126` deletes
+   the replaced/duplicate endpoint rows.
 
-## What's missing for an admin approval gate
+## What a reinstall can still break (ranked)
+1. **Throttle collision** (above) — most likely; not reinstall-specific but explains
+   a silent test.
+2. **Stale Apple endpoints** from before the reinstall (his 3 old rows). They don't
+   block the new ones; they just return 410 and get pruned on the next send. Harmless
+   noise, worth confirming in the function logs.
+3. **iOS permission state**: on iOS, a reinstalled home-screen app starts fresh; if
+   the prompt was ever dismissed/denied, `Notification.permission === 'denied'` and
+   the hook bails without subscribing (`usePushNotifications.tsx:65-78`). His new
+   token rows say this did not happen, so rule it out for now.
+4. **Service worker**: pushes are handled by `public/sw-push.js`. If the reinstall
+   left no active SW registration when a push arrives, iOS drops it. `navigator
+   .serviceWorker.ready` gated the subscribe, so the SW was live at 01:05.
+5. **Sender-was-Dave** on the test message — trivially explains zero pushes.
 
-1. **State**: `schedules` has no approval status. Needs something like
-   `approval_status` ('draft' | 'submitted' | 'approved' | 'changes_requested'),
-   `submitted_at/by`, `approved_at/by`, `approver_note`.
-2. **Split permissions**: today one flag (`canManageSchedule`) covers both build and
-   publish. Needs `canSubmitSchedule` (manager+) vs `canApproveSchedule`
-   (org_admin/admin+) — `useUserRole.tsx` currently collapses admin into manager
-   checks (`isManager = role === 'manager' || isAdmin`).
-3. **Server enforcement**: publishing is a plain client `update` on `schedules`
-   (`:744`). Nothing stops a manager writing `is_published = true` directly, so the
-   gate must live in RLS or a `SECURITY DEFINER` publish RPC, not just in the UI.
-4. **UI**: Submit-for-Approval button for managers, an approval queue/badge for
-   admins, Approve/Request-Changes with a note, and status shown on the week header.
-5. **Notification**: push to approvers on submit, back to the manager on
-   approve/changes — an analogue of the existing `notify-training-approval` function.
-6. **Interaction with pending-changes diff**: decide whether post-publish edits to a
-   live week also require re-approval, or publish immediately as today.
+## Cheapest way to confirm (no code)
+- Have someone message Dave in a chat that has had **no** messages for 4+ minutes,
+  with Dave not the sender, app fully backgrounded.
+- Read `send-push-notification` edge logs for that moment: look for
+  `[chat-throttle] Skipping push`, `Filtering out user`, and the per-token HTTP
+  status lines. That single log line separates throttle from delivery.
+
+## If Jordan names a ship, the smallest fix
+Make the throttle per-recipient instead of per-chat (key `chat_id + user_id`) and
+move it out of edge memory into a small table so it survives cold starts — plus a
+one-time prune of Dave's three pre-reinstall Apple endpoints.
 
 ## Action
-None — status report only. No code written. Say the word if Jordan wants a build
-plan for the gate.
+Diagnosis only. No code written.
