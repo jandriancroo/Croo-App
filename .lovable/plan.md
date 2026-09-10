@@ -1,5 +1,52 @@
 # Dave Patrick — chat push not arriving after PWA reinstall
 
+## Full inventory: everything that touches chat push / push tokens
+
+**Callers of `send-push-notification` (client):**
+- `src/hooks/useChatActions.tsx:37-66` — the DM/chat path; sends `user_ids` from
+  `chat_members` minus sender, `notification_type: 'chat_messages'`, no location_id.
+- `src/hooks/useAnnouncementFeed.tsx` — announcement posts push to channel audience.
+- `src/components/messages/AnnouncementDialog.tsx`, `AnnouncementStats.tsx`,
+  `ShiftOfferMessage.tsx`, `feed/SeenByDialog.tsx` — feed/announcement and
+  shift-offer pushes.
+- `src/components/logbook/LogBookNewEntrySheet.tsx`, `useLogBookData.tsx`,
+  `CateringOrderUploadInline.tsx`, `CateringOrdersSection.tsx` — logbook/catering
+  notification types.
+- `src/components/tasks/CreateTemporaryTaskDialog.tsx`,
+  `dashboard/ShareTaskDialog.tsx` — quick-task / shared-task pushes.
+- `src/components/schedule/MobileShiftDialog.tsx`, `useScheduleData.tsx` — shift
+  request / schedule update pushes.
+- `src/components/support/SupportChatPanel.tsx`, `hiring/HiringChatPanel.tsx`,
+  `pages/HiringChat.tsx` — support and applicant chat pushes (not
+  `chat_messages` type).
+- `src/components/DiagnosticMode.tsx` — admin test-push tool.
+
+**Server-side invocations:**
+- `supabase/functions/alert-push-sender/index.ts` — alert-engine pushes.
+- `supabase/functions/notify-training-approval/index.ts` — training approval push.
+- `supabase/functions/shift-reminder-dispatch/index.ts` — scheduled shift reminders.
+- `supabase/functions/support-email-service/index.ts`,
+  `utility-service/index.ts` — support/utility pushes.
+
+**The function itself:** `supabase/functions/send-push-notification/index.ts` —
+the only place `chat_messages` is throttled: in-memory `Map` keyed by `chat_id`
+only, one push per chat per 3 minutes globally (`:394-414`, gate at `:432-441`).
+No per-recipient throttling exists for DMs.
+
+**Token subscribe/insert logic:**
+- `src/hooks/usePushNotifications.tsx:90-170` — permission → `sw-push.js`
+  ready → `ensureSubscriptionForKey` → delete stale/same-endpoint rows → cap at 10
+  per user → upsert `onConflict: 'user_id,token'` (fallback insert).
+- `src/utils/pushVapid.ts:56-89` (`ensureSubscriptionForKey`) — resubscribes when
+  the browser subscription's VAPID key doesn't match the server's.
+- `src/components/settings/UnifiedNotificationSettings.tsx` — per-location
+  `user_notification_settings` toggles + token cleanup references.
+- Server prune: `send-push-notification/index.ts:770-782` deletes a token row on
+  HTTP 410/404 or VAPID mismatch.
+
+**Service worker:** `public/sw-push.js` — receives the push event, shows the
+notification, deep-links on click.
+
 ## Short answer for Jordan
 It is **not** a multiple-subscription problem, and nothing in his settings is off.
 His new install registered fine and every gate is open. The most likely reason he
