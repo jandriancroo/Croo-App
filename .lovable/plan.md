@@ -19,12 +19,40 @@ chat someone else already pushed into are silently dropped.
 So: role gate pass, per-location gate pass, legacy pref gate pass, tokens present.
 
 ## The path, with the blockers at each step
-`src/hooks/useChatActions.tsx:37-66` — on send, fetches `chat_members` except the
-sender, then invokes `send-push-notification` with
-`notification_type: 'chat_messages'`, `data.chat_id`, `sender_id`. **No
-`location_id` is passed**, so the per-location settings branch is skipped and only
-the legacy `notification_preferences` gate applies
-(`send-push-notification/index.ts:595-616`).
+
+### Exact client call path (who calls, and with what)
+- Text: `src/hooks/useChatActions.tsx:37-66` (`sendPushNotification`) called from
+  `handleSend` at `:138`; GIF at `:193`; file/image at `:272`.
+- It selects `chat_members.user_id where chat_id = <id> and user_id != sender`,
+  then `supabase.functions.invoke('send-push-notification', { user_ids: […members],
+  sender_id, title: sender display name, body: first 100 chars,
+  notification_type: 'chat_messages', data: { chat_id, type } })`.
+
+So yes — it **passes explicit `user_ids` built from chat_members** at
+`useChatActions.tsx:39-44, 52-61`. There is **no roles param and no location_id** on
+this path, so the role lookup branch (`send-push-notification/index.ts:457-495`) and
+the per-location settings gate (`:569-594`) are skipped; the only gates are the
+chat throttle, the sender filter, the role_notification_settings check (still runs
+for explicit user_ids, `:514-551`), and legacy `notification_preferences` (`:595-616`).
+
+Announcements/feed posts do not use this hook; they go through the feed components
+(not part of this trace).
+
+### Token upsert: dedupe, not duplicates
+`src/hooks/usePushNotifications.tsx:104-170`:
+1. `ensureSubscriptionForKey` (`src/utils/pushVapid.ts:56-89`) — if the browser's
+   existing subscription was made with a different VAPID key, unsubscribe it and
+   resubscribe.
+2. Delete rows matching the replaced endpoint (`staleEndpoint`, `:111-118`).
+3. Delete any row for this user whose token contains the same endpoint prefix
+   (`:121-126`) — kills same-browser duplicates.
+4. Cap at 10 tokens per user, deleting oldest (`:131-147`).
+5. `upsert` on `onConflict: 'user_id,token'` (`:149-157`); fallback plain insert.
+
+Net: same endpoint never duplicates; **different devices/browsers accumulate** (up
+to 10), and a fresh PWA install gets a brand-new Apple endpoint that is a new row.
+Old endpoints are only removed lazily — by the server auto-pruning on 410/404
+(`send-push-notification/index.ts:770-782`) or the 10-token cap.
 
 Then, in `supabase/functions/send-push-notification/index.ts`:
 1. **Chat throttle — `:394-414`, `:432-441`.** `isChatThrottled(chat_id)` allows one
