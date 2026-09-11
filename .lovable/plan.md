@@ -1,149 +1,67 @@
-# Dave Patrick — chat push not arriving after PWA reinstall
+# Reporting hourly sales + schedule preview / Clover trace
 
-## Full inventory: everything that touches chat push / push tokens
+## Answer
 
-**Callers of `send-push-notification` (client):**
-- `src/hooks/useChatActions.tsx:37-66` — the DM/chat path; sends `user_ids` from
-  `chat_members` minus sender, `notification_type: 'chat_messages'`, no location_id.
-- `src/hooks/useAnnouncementFeed.tsx` — announcement posts push to channel audience.
-- `src/components/messages/AnnouncementDialog.tsx`, `AnnouncementStats.tsx`,
-  `ShiftOfferMessage.tsx`, `feed/SeenByDialog.tsx` — feed/announcement and
-  shift-offer pushes.
-- `src/components/logbook/LogBookNewEntrySheet.tsx`, `useLogBookData.tsx`,
-  `CateringOrderUploadInline.tsx`, `CateringOrdersSection.tsx` — logbook/catering
-  notification types.
-- `src/components/tasks/CreateTemporaryTaskDialog.tsx`,
-  `dashboard/ShareTaskDialog.tsx` — quick-task / shared-task pushes.
-- `src/components/schedule/MobileShiftDialog.tsx`, `useScheduleData.tsx` — shift
-  request / schedule update pushes.
-- `src/components/support/SupportChatPanel.tsx`, `hiring/HiringChatPanel.tsx`,
-  `pages/HiringChat.tsx` — support and applicant chat pushes (not
-  `chat_messages` type).
-- `src/components/DiagnosticMode.tsx` — admin test-push tool.
+### 1. Can Reporting show hourly sales?
+**Yes — both day-by-day and combined for the selected period are feasible from data already stored.**
 
-**Server-side invocations:**
-- `supabase/functions/alert-push-sender/index.ts` — alert-engine pushes.
-- `supabase/functions/notify-training-approval/index.ts` — training approval push.
-- `supabase/functions/shift-reminder-dispatch/index.ts` — scheduled shift reminders.
-- `supabase/functions/support-email-service/index.ts`,
-  `utility-service/index.ts` — support/utility pushes.
+- Route: `src/App.tsx:88,222` loads `src/pages/Reporting.tsx` at `/reporting`.
+- Reporting currently offers only a **Sales Total** block (`src/pages/Reporting.tsx:48,70-78,552-576`).
+- Its data hook, `src/hooks/useReportData.ts:60-67`, reads only
+  `sales_cache.net_sales` and `guest_count`; `LocationReportData.sales` only carries
+  `{ net, guests }` (`:45,52`). It does **not** request `sale_date` or `hourly_data`.
+- The selected period and selected locations already flow into
+  `useMultiLocationReportData` (`src/pages/Reporting.tsx:681`).
 
-**The function itself:** `supabase/functions/send-push-notification/index.ts` —
-the only place `chat_messages` is throttled: in-memory `Map` keyed by `chat_id`
-only, one push per chat per 3 minutes globally (`:394-414`, gate at `:432-441`).
-No per-recipient throttling exists for DMs.
+Smallest future shape:
+- Add `sale_date, hourly_data` to the existing `sales_cache` read.
+- **Day-by-day:** one row/series per date, with its 24 hourly buckets.
+- **Combined period:** sum matching hour buckets across all selected dates; when
+  multiple locations are selected, either sum locations or retain the existing
+  separate-location behavior based on `combineLocations`.
+- This needs no new Clover sync or table. A new report block and export formatting
+  would be the visible work.
 
-**Token subscribe/insert logic:**
-- `src/hooks/usePushNotifications.tsx:90-170` — permission → `sw-push.js`
-  ready → `ensureSubscriptionForKey` → delete stale/same-endpoint rows → cap at 10
-  per user → upsert `onConflict: 'user_id,token'` (fallback insert).
-- `src/utils/pushVapid.ts:56-89` (`ensureSubscriptionForKey`) — resubscribes when
-  the browser subscription's VAPID key doesn't match the server's.
-- `src/components/settings/UnifiedNotificationSettings.tsx` — per-location
-  `user_notification_settings` toggles + token cleanup references.
-- Server prune: `send-push-notification/index.ts:770-782` deletes a token row on
-  HTTP 410/404 or VAPID mismatch.
+### 2. Why schedule day preview hourly sales can be empty for Clover
+**Leading diagnosis: the preview is calling the QU-only function instead of reading the shared sales cache. Clover sync itself is populating hourly data.**
 
-**Service worker:** `public/sw-push.js` — receives the push event, shows the
-notification, deep-links on click.
+There are two schedule day-preview surfaces with the same assumption:
+- `src/components/schedule/DayBreakdownDialog.tsx:60-118`
+- `src/components/schedule/MobileDayPreviewSheet.tsx:60-120`
 
-## Short answer for Jordan
-It is **not** a multiple-subscription problem, and nothing in his settings is off.
-His new install registered fine and every gate is open. The most likely reason he
-saw nothing is the **3-minute-per-chat push throttle**: only the first message in a
-chat every 3 minutes pushes at all, to anyone. Test messages sent back-to-back in a
-chat someone else already pushed into are silently dropped.
+For a past date they first try the browser's QU sales cache. On a miss, both call:
 
-## What I verified live (Dave, e856079b…)
-- `push_notification_tokens`: 5 web rows, all Apple endpoints. Two are brand new —
-  created 01:01:16 and 01:05:41 UTC today, i.e. the reinstall did register. Three
-  older ones (Jul 19, Sep 4, Sep 6) are stale leftovers.
-- `notification_preferences.chat_messages` = true (updated 01:05 today).
-- `user_notification_settings` chat_messages, Palm Springs — `push_enabled` true.
-- `user_roles` = org_admin; `role_notification_settings` chat_messages enabled for
-  org_admin (and every other role).
+```text
+fetch-qubeyond-sales({ locationId, targetDate })
+```
 
-So: role gate pass, per-location gate pass, legacy pref gate pass, tokens present.
+They then expect `data.hourly[]`. That bypasses the POS-neutral `sales_cache` row.
+For a Clover location, an empty/error QU response therefore leaves the preview
+empty even though Clover hourly sales exist in the database.
 
-## The path, with the blockers at each step
+Future-date projections in `DayBreakdownDialog.tsx:140-188` already query
+`sales_cache.hourly_data`, so the component is internally split between a
+POS-specific actual-sales path and a POS-neutral historical projection path.
 
-### Exact client call path (who calls, and with what)
-- Text: `src/hooks/useChatActions.tsx:37-66` (`sendPushNotification`) called from
-  `handleSend` at `:138`; GIF at `:193`; file/image at `:272`.
-- It selects `chat_members.user_id where chat_id = <id> and user_id != sender`,
-  then `supabase.functions.invoke('send-push-notification', { user_ids: […members],
-  sender_id, title: sender display name, body: first 100 chars,
-  notification_type: 'chat_messages', data: { chat_id, type } })`.
+### Clover hourly sync is healthy
+- `supabase/functions/clover-sync/index.ts:86-95` builds the store-local business-day window.
+- `:166-185` fetches orders in that window.
+- `:335-393` buckets every eligible order into 24 local hourly buckets and produces
+  `{ hour, sales, checksCount }`.
+- `:498-531` writes that array to `clover_sales_cache.hourly_data`.
+- `:534-562` dual-writes the same array to the shared
+  `sales_cache.hourly_data` with `pos_source = 'clover'`.
+- The live database confirms Georgetown's recent Clover rows contain 24 hourly
+  buckets; Sep 10 has 11 non-zero hours and $1,104.30 net sales. This rules out a
+  general Clover hourly-ingestion failure.
 
-So yes — it **passes explicit `user_ids` built from chat_members** at
-`useChatActions.tsx:39-44, 52-61`. There is **no roles param and no location_id** on
-this path, so the role lookup branch (`send-push-notification/index.ts:457-495`) and
-the per-location settings gate (`:569-594`) are skipped; the only gates are the
-chat throttle, the sender filter, the role_notification_settings check (still runs
-for explicit user_ids, `:514-551`), and legacy `notification_preferences` (`:595-616`).
+## Smallest recommended ship, if Jordan names it
+1. Change both desktop and mobile schedule day previews to read actual past/today
+   sales from `sales_cache` first, regardless of POS; retain the existing future-date
+   projection logic.
+2. Add an Hourly Sales report block backed by the same `sales_cache.hourly_data`,
+   with a `Day by day / Combined` display option.
+3. Keep all date keys as `yyyy-MM-dd` in the location's timezone and normalize the
+   existing `{ hour, sales, checksCount }` shape before rendering.
 
-Announcements/feed posts do not use this hook; they go through the feed components
-(not part of this trace).
-
-### Token upsert: dedupe, not duplicates
-`src/hooks/usePushNotifications.tsx:104-170`:
-1. `ensureSubscriptionForKey` (`src/utils/pushVapid.ts:56-89`) — if the browser's
-   existing subscription was made with a different VAPID key, unsubscribe it and
-   resubscribe.
-2. Delete rows matching the replaced endpoint (`staleEndpoint`, `:111-118`).
-3. Delete any row for this user whose token contains the same endpoint prefix
-   (`:121-126`) — kills same-browser duplicates.
-4. Cap at 10 tokens per user, deleting oldest (`:131-147`).
-5. `upsert` on `onConflict: 'user_id,token'` (`:149-157`); fallback plain insert.
-
-Net: same endpoint never duplicates; **different devices/browsers accumulate** (up
-to 10), and a fresh PWA install gets a brand-new Apple endpoint that is a new row.
-Old endpoints are only removed lazily — by the server auto-pruning on 410/404
-(`send-push-notification/index.ts:770-782`) or the 10-token cap.
-
-Then, in `supabase/functions/send-push-notification/index.ts`:
-1. **Chat throttle — `:394-414`, `:432-441`.** `isChatThrottled(chat_id)` allows one
-   push **per chat, globally, per 3 minutes** — it is keyed only by `chat_id`, not by
-   recipient. Any member's message in the last 3 minutes suppresses the push for
-   everyone else. This is the leading suspect for "Dave gets nothing" during testing.
-   It is also in-memory per edge instance, so behavior looks random across cold starts.
-2. Sender filter `:449`, `:619-626` — fine unless Dave was the sender on the test.
-3. Role gate `:514-551` — pass.
-4. Preference gates `:563-616` — pass.
-5. Tokens `:688-692` — reads **all** rows for the user and sends to each, so multiple
-   subscriptions do not block anything; extra rows just cause extra sends, and dead
-   ones are auto-pruned on 410/404 or VAPID mismatch (`:770-782`).
-6. Delivery — needs the subscription's VAPID key to match the server's. Client
-   handles this: `src/utils/pushVapid.ts:56-89` (`ensureSubscriptionForKey`)
-   resubscribes when the key differs, and `usePushNotifications.tsx:110-126` deletes
-   the replaced/duplicate endpoint rows.
-
-## What a reinstall can still break (ranked)
-1. **Throttle collision** (above) — most likely; not reinstall-specific but explains
-   a silent test.
-2. **Stale Apple endpoints** from before the reinstall (his 3 old rows). They don't
-   block the new ones; they just return 410 and get pruned on the next send. Harmless
-   noise, worth confirming in the function logs.
-3. **iOS permission state**: on iOS, a reinstalled home-screen app starts fresh; if
-   the prompt was ever dismissed/denied, `Notification.permission === 'denied'` and
-   the hook bails without subscribing (`usePushNotifications.tsx:65-78`). His new
-   token rows say this did not happen, so rule it out for now.
-4. **Service worker**: pushes are handled by `public/sw-push.js`. If the reinstall
-   left no active SW registration when a push arrives, iOS drops it. `navigator
-   .serviceWorker.ready` gated the subscribe, so the SW was live at 01:05.
-5. **Sender-was-Dave** on the test message — trivially explains zero pushes.
-
-## Cheapest way to confirm (no code)
-- Have someone message Dave in a chat that has had **no** messages for 4+ minutes,
-  with Dave not the sender, app fully backgrounded.
-- Read `send-push-notification` edge logs for that moment: look for
-  `[chat-throttle] Skipping push`, `Filtering out user`, and the per-token HTTP
-  status lines. That single log line separates throttle from delivery.
-
-## If Jordan names a ship, the smallest fix
-Make the throttle per-recipient instead of per-chat (key `chat_id + user_id`) and
-move it out of edge memory into a small table so it survives cold starts — plus a
-one-time prune of Dave's three pre-reinstall Apple endpoints.
-
-## Action
-Diagnosis only. No code written.
+No code or database changes were made.
