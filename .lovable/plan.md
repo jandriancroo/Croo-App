@@ -1,67 +1,24 @@
-# Reporting hourly sales + schedule preview / Clover trace
+# Dashboard-created Stripe subscription → Active Ludicrous in Croo-App?
 
-## Answer
+## Short answer
+Yes — with conditions. A subscription created directly in the Stripe Dashboard is recognized, because the app never stores subscriptions locally; it reads Stripe live on every check.
 
-### 1. Can Reporting show hourly sales?
-**Yes — both day-by-day and combined for the selected period are feasible from data already stored.**
+## The live path
+- `supabase/functions/check-subscription/index.ts` is the only source of truth. It lists/searches Stripe subscriptions, then builds `location_subscriptions` keyed by `sub.metadata.location_id` (`:206-226`), with `product_id` taken from `sub.items.data[0].price.product`.
+- `src/hooks/useSubscription.ts:49-83` calls it on login, on auth change, and every 60 seconds, then `getLocationTier` (`:150-154`) maps `product_id` through `PRODUCT_TO_TIER`.
+- `src/config/subscriptionTiers.ts:32-36` already contains `prod_U49J9N7epjx3ZR` → `ludicrous`, and `price_1T610wCmnsCrRQe0TcPDTjJy` matches that product.
+- `src/pages/Billing.tsx:173-202` renders the location as subscribed and shows the tier name, falling back to the word "Active" only if the product is unmapped.
 
-- Route: `src/App.tsx:88,222` loads `src/pages/Reporting.tsx` at `/reporting`.
-- Reporting currently offers only a **Sales Total** block (`src/pages/Reporting.tsx:48,70-78,552-576`).
-- Its data hook, `src/hooks/useReportData.ts:60-67`, reads only
-  `sales_cache.net_sales` and `guest_count`; `LocationReportData.sales` only carries
-  `{ net, guests }` (`:45,52`). It does **not** request `sale_date` or `hourly_data`.
-- The selected period and selected locations already flow into
-  `useMultiLocationReportData` (`src/pages/Reporting.tsx:681`).
+## Gotchas that will silently break it
+1. **Status must be `active` or `trialing`.** Both queries only pull those two (`:139-146`, `:92-93`). `incomplete`, `past_due`, `unpaid`, or `paused` produces nothing — so an unpaid first invoice on a dashboard-created subscription shows the location as not subscribed until the invoice is paid.
+2. **`metadata.location_id` is mandatory.** Without it the subscription counts toward the org total but the location never appears in `location_subscriptions`, so the location row stays unsubscribed.
+3. **`metadata.organization_id` must equal the org the user is viewing.** For non-super-admins, subscriptions are filtered by exactly that (`:148-151`). A mismatch hides it.
+4. **Customer email must match an org member's profile email** for non-super-admins (`:126-140`); customers are looked up by email only. Super admins bypass this by searching Stripe metadata directly (`:92-113`).
+5. **Metadata must be on the Subscription, not the Customer or the Invoice.** Only `sub.metadata` is read.
+6. **UUIDs must be exact, unquoted strings** — Stripe search is an exact match on `metadata['location_id']`.
+7. Super admin metadata search can lag briefly (Stripe search index), while the non-super-admin `subscriptions.list` path is immediate. A page refresh or the 60-second poll resolves it.
 
-Smallest future shape:
-- Add `sale_date, hourly_data` to the existing `sales_cache` read.
-- **Day-by-day:** one row/series per date, with its 24 hourly buckets.
-- **Combined period:** sum matching hour buckets across all selected dates; when
-  multiple locations are selected, either sum locations or retain the existing
-  separate-location behavior based on `combineLocations`.
-- This needs no new Clover sync or table. A new report block and export formatting
-  would be the visible work.
+## Verification once created
+Sign in as an org admin for that org, open Billing, and confirm the location shows the Ludicrous badge. If it shows "Active" with no plan name, the product ID does not match the catalog map. If it shows nothing, check status and the two metadata keys in that order.
 
-### 2. Why schedule day preview hourly sales can be empty for Clover
-**Leading diagnosis: the preview is calling the QU-only function instead of reading the shared sales cache. Clover sync itself is populating hourly data.**
-
-There are two schedule day-preview surfaces with the same assumption:
-- `src/components/schedule/DayBreakdownDialog.tsx:60-118`
-- `src/components/schedule/MobileDayPreviewSheet.tsx:60-120`
-
-For a past date they first try the browser's QU sales cache. On a miss, both call:
-
-```text
-fetch-qubeyond-sales({ locationId, targetDate })
-```
-
-They then expect `data.hourly[]`. That bypasses the POS-neutral `sales_cache` row.
-For a Clover location, an empty/error QU response therefore leaves the preview
-empty even though Clover hourly sales exist in the database.
-
-Future-date projections in `DayBreakdownDialog.tsx:140-188` already query
-`sales_cache.hourly_data`, so the component is internally split between a
-POS-specific actual-sales path and a POS-neutral historical projection path.
-
-### Clover hourly sync is healthy
-- `supabase/functions/clover-sync/index.ts:86-95` builds the store-local business-day window.
-- `:166-185` fetches orders in that window.
-- `:335-393` buckets every eligible order into 24 local hourly buckets and produces
-  `{ hour, sales, checksCount }`.
-- `:498-531` writes that array to `clover_sales_cache.hourly_data`.
-- `:534-562` dual-writes the same array to the shared
-  `sales_cache.hourly_data` with `pos_source = 'clover'`.
-- The live database confirms Georgetown's recent Clover rows contain 24 hourly
-  buckets; Sep 10 has 11 non-zero hours and $1,104.30 net sales. This rules out a
-  general Clover hourly-ingestion failure.
-
-## Smallest recommended ship, if Jordan names it
-1. Change both desktop and mobile schedule day previews to read actual past/today
-   sales from `sales_cache` first, regardless of POS; retain the existing future-date
-   projection logic.
-2. Add an Hourly Sales report block backed by the same `sales_cache.hourly_data`,
-   with a `Day by day / Combined` display option.
-3. Keep all date keys as `yyyy-MM-dd` in the location's timezone and normalize the
-   existing `{ hour, sales, checksCount }` shape before rendering.
-
-No code or database changes were made.
+No code change is needed for this to work.
