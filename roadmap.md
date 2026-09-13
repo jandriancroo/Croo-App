@@ -53,3 +53,7 @@
 - Wiped SM inventory_items (6), brand deployments (6), duplicate shelves (18). SM enabled, catalog empty, ready for fresh resync.
 - Pending: fresh brand deploy + vendor sync for South Meadows (Jordan to trigger).
 - Sparks still inventory_enabled = false; not touched.
+
+## Sparks inventory wipe — Sep 13 2026
+- Wiped all 37 leftover Sparks shelves; items/deploys/packs/counts already 0. Inventory stays disabled.
+- Pending: enable inventory + integrations, then deploy + sync for Sparks (Jordan to trigger).
