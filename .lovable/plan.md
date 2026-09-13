@@ -1,24 +1,36 @@
-# Dashboard-created Stripe subscription → Active Ludicrous in Croo-App?
+# Punch clock artwork keeps showing "Italian Escape"
 
-## Short answer
-Yes — with conditions. A subscription created directly in the Stripe Dashboard is recognized, because the app never stores subscriptions locally; it reads Stripe live on every check.
+## Root cause — confirmed
 
-## The live path
-- `supabase/functions/check-subscription/index.ts` is the only source of truth. It lists/searches Stripe subscriptions, then builds `location_subscriptions` keyed by `sub.metadata.location_id` (`:206-226`), with `product_id` taken from `sub.items.data[0].price.product`.
-- `src/hooks/useSubscription.ts:49-83` calls it on login, on auth change, and every 60 seconds, then `getLocationTier` (`:150-154`) maps `product_id` through `PRODUCT_TO_TIER`.
-- `src/config/subscriptionTiers.ts:32-36` already contains `prod_U49J9N7epjx3ZR` → `ludicrous`, and `price_1T610wCmnsCrRQe0TcPDTjJy` matches that product.
-- `src/pages/Billing.tsx:173-202` renders the location as subscribed and shows the tier name, falling back to the word "Active" only if the product is unmapped.
+"Italian Escape" is not hardcoded anywhere. It is a saved artwork set for **Hemet** in `punch_clock_templates`, and the tablet picks it by accident.
 
-## Gotchas that will silently break it
-1. **Status must be `active` or `trialing`.** Both queries only pull those two (`:139-146`, `:92-93`). `incomplete`, `past_due`, `unpaid`, or `paused` produces nothing — so an unpaid first invoice on a dashboard-created subscription shows the location as not subscribed until the invoice is paid.
-2. **`metadata.location_id` is mandatory.** Without it the subscription counts toward the org total but the location never appears in `location_subscriptions`, so the location row stays unsubscribed.
-3. **`metadata.organization_id` must equal the org the user is viewing.** For non-super-admins, subscriptions are filtered by exactly that (`:148-151`). A mismatch hides it.
-4. **Customer email must match an org member's profile email** for non-super-admins (`:126-140`); customers are looked up by email only. Super admins bypass this by searching Stripe metadata directly (`:92-113`).
-5. **Metadata must be on the Subscription, not the Customer or the Invoice.** Only `sub.metadata` is read.
-6. **UUIDs must be exact, unquoted strings** — Stripe search is an exact match on `metadata['location_id']`.
-7. Super admin metadata search can lag briefly (Stripe search index), while the non-super-admin `subscriptions.list` path is immediate. A page refresh or the 60-second poll resolves it.
+The tablet's artwork lookup runs in two steps (`src/pages/PunchClock.tsx:531-611`):
 
-## Verification once created
-Sign in as an org admin for that org, open Billing, and confirm the location shows the Ludicrous badge. If it shows "Active" with no plan name, the product ID does not match the catalog map. If it shows nothing, check status and the two metadata keys in that order.
+1. First it looks for an artwork set that is "scheduled for right now" — `start_at <= now <= end_at`.
+2. Only if it finds none does it read the artwork actually chosen and saved in Settings (`location_settings.punch_clock_background_url`).
 
-No code change is needed for this to work.
+The problem is step 1 never comes up empty. When someone picks "Always show" in the customization screen, the save writes an eternal window of the year 2000 through 2099 (`src/pages/PunchClockCustomization.tsx:326-343`), and the same eternal window is stamped onto every auto-seeded built-in set (`:190-191`, `:502-503`).
+
+Live data confirms it for Hemet: all five sets — Nature, Historical, Italian Escape, March, Merry Christmas — carry the identical window `2000-01-01 → 2100-01-01` and all are active. The lookup then sorts by `start_at` descending and takes one row, but every row's `start_at` is identical, so the winner is effectively arbitrary and can stay pinned to Italian Escape no matter what Settings says. The chosen-artwork branch is skipped entirely.
+
+So the save is working — it writes the choice correctly — but the tablet never reads it.
+
+This also explains the "rerouting from an older fix" hunch: the always-on window was introduced so "Always show" would behave like a schedule, and that turned the scheduled-artwork branch into a permanent override.
+
+## Floor workaround right now (no code)
+
+For Hemet, give the wanted artwork a real, current date window in the customization screen (for example today through a year out) and set every other set — including Italian Escape — to a window that has already ended. The one with the latest start date wins, so the wanted artwork will stick immediately after the tablet reloads.
+
+## Optimize vs named ship
+
+This is a **named ship**, not an Optimize pass. It changes which artwork the tablet chooses, so Jordan should name it before anything is written.
+
+Proposed fix, smallest version:
+1. Stop treating "Always show" as a schedule. Save it with no window at all instead of the year-2000-to-2099 window, so the scheduled branch only matches genuinely date-limited artwork.
+2. Make the tablet prefer the artwork saved in Settings, and only let a scheduled set override it when that set has a real, deliberately limited window.
+3. Break ties by most recently updated instead of by start date, so identical windows can never pick a random winner.
+4. Clean up the existing eternal windows on already-saved sets so the fix takes effect without every store re-saving.
+
+Caching, the service worker, and the version stamp are not involved — the artwork is fetched fresh from the database on each punch clock load, not bundled or cached.
+
+No code or data was changed.
