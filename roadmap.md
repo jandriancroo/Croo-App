@@ -41,3 +41,10 @@
 - [ ] Publish to croohq.com and check on the floor iPad
 
 - [x] Commit live `mark_labor_cache_stale_and_backfill` migration + changelog note (2026-09-06)
+
+## Google for Jobs SSR — Sep 13
+- [x] New `jobs-index` edge function: crawler-ready /jobs HTML + ItemList JSON-LD
+- [x] `job-detail` + `jobs-index` write served rows to job_syndication_logs (google_jobs_ssr)
+- [x] Cloudflare Worker source `workers/jobs-ssr-router.js` (croohq.com/jobs, /jobs/*)
+- [ ] Bind Worker route in Cloudflare dashboard, then Googlebot curl verify
+- [ ] Publish to croohq.com (Jordan)
