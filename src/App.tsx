@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { isPunchDeviceUser } from "@/lib/punchDevicePairing";
 import { LocationProvider, useLocation as useAppLocation } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { FEATURE_FLAGS } from "@/config/featureFlags";
@@ -166,9 +167,13 @@ const AppWithSplash = () => {
 };
 
 // Public marketing homepage for guests; signed-in users go straight to the dashboard.
+// Paired punch-clock tablets must land on the PIN screen, never the manager dashboard.
 const HomeRoute = () => {
   const { user, loading } = useAuth();
-  if (!loading && user) return <Navigate to="/dashboard" replace />;
+  if (!loading && user) {
+    if (isPunchDeviceUser(user)) return <Navigate to="/punch-clock" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return <Home />;
 };
 

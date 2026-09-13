@@ -57,3 +57,8 @@
 ## Sparks inventory wipe — Sep 13 2026
 - Wiped all 37 leftover Sparks shelves; items/deploys/packs/counts already 0. Inventory stays disabled.
 - Pending: enable inventory + integrations, then deploy + sync for Sparks (Jordan to trigger).
+
+## Punch clock cold-boot routing fix — Sep 13 2026
+- [x] `src/App.tsx` HomeRoute redirects punch-device sessions to `/punch-clock` instead of `/dashboard`.
+- [x] `src/components/KioskAutoRestore.tsx` now routes an active device session back to `/punch-clock` when it lands elsewhere, and replaces a lingering human session on a paired tablet.
+- [ ] Verify on a real paired iPad: power-cycle / force-quit PWA should open PIN screen, not "User" dashboard.
