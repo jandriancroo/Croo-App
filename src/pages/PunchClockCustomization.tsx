@@ -322,14 +322,14 @@ export default function PunchClockCustomization() {
     
     setLoading(true);
     try {
-      // Update timing on the theme itself
-      let startAt: string;
-      let endAt: string;
+      // Update timing on the theme itself.
+      // "Always" stores NO window (null/null) — the tablet then uses this theme
+      // as the location default. A real window only ever means a limited-time
+      // takeover.
+      let startAt: string | null = null;
+      let endAt: string | null = null;
       
-      if (timingMode === "always") {
-        startAt = new Date('2000-01-01T00:00:00').toISOString();
-        endAt = new Date('2099-12-31T23:59:59').toISOString();
-      } else {
+      if (timingMode !== "always") {
         if (!timingStartDate || !timingEndDate) {
           toast({ title: "Please set start and end dates", variant: "destructive" });
           setLoading(false);
@@ -337,6 +337,35 @@ export default function PunchClockCustomization() {
         }
         startAt = new Date(`${timingStartDate}T${timingStartTime}`).toISOString();
         endAt = new Date(`${timingEndDate}T${timingEndTime}`).toISOString();
+
+        if (new Date(endAt) <= new Date(startAt)) {
+          toast({ title: "End date must be after the start date", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+
+        // Block a scheduled window that collides with another scheduled theme
+        // at this location — overlapping takeovers are ambiguous on the floor.
+        const { data: clashes } = await supabase
+          .from("punch_clock_templates")
+          .select("name, start_at, end_at")
+          .eq("location_id", locationId)
+          .eq("is_active", true)
+          .neq("id", selectedThemeId)
+          .not("start_at", "is", null)
+          .not("end_at", "is", null)
+          .lt("start_at", endAt)
+          .gt("end_at", startAt);
+
+        if (clashes && clashes.length > 0) {
+          toast({
+            title: `Those dates overlap "${clashes[0].name}"`,
+            description: "Pick dates that don't clash, or set the other theme to Always.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
       }
       
       // Update theme timing

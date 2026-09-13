@@ -528,7 +528,10 @@ export default function PunchClock() {
     if (!currentLocation?.id) return;
 
     try {
-      // First check for any active scheduled template
+      // First check for a genuinely scheduled template: BOTH ends of the window
+      // must be set, and now must fall inside it. Themes saved as "Always" carry
+      // no window and must NOT win here — otherwise they'd permanently override
+      // whatever the manager picked in Settings.
       const now = new Date().toISOString();
       const { data: activeTemplate, error: templateError } = await supabase
         .from("punch_clock_templates")
@@ -536,9 +539,11 @@ export default function PunchClock() {
         .eq("location_id", currentLocation.id)
         .eq("is_active", true)
         .not("start_at", "is", null)
+        .not("end_at", "is", null)
         .lte("start_at", now)
         .gte("end_at", now)
         .order("start_at", { ascending: false })
+        .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
