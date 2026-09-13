@@ -48,3 +48,8 @@
 - [x] Cloudflare Worker source `workers/jobs-ssr-router.js` (croohq.com/jobs, /jobs/*)
 - [ ] Bind Worker route in Cloudflare dashboard, then Googlebot curl verify
 - [ ] Publish to croohq.com (Jordan)
+
+## South Meadows inventory wipe — Sep 13 2026
+- Wiped SM inventory_items (6), brand deployments (6), duplicate shelves (18). SM enabled, catalog empty, ready for fresh resync.
+- Pending: fresh brand deploy + vendor sync for South Meadows (Jordan to trigger).
+- Sparks still inventory_enabled = false; not touched.
