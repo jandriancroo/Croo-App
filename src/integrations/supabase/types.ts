@@ -9841,7 +9841,7 @@ export type Database = {
           background_urls: Json | null
           created_at: string
           created_by: string | null
-          end_at: string
+          end_at: string | null
           id: string
           is_active: boolean | null
           location_id: string
@@ -9849,7 +9849,7 @@ export type Database = {
           overlay_text: string | null
           overlay_texts: Json | null
           slide_duration: number | null
-          start_at: string
+          start_at: string | null
           text_color: string | null
           text_position: string | null
           text_shadow: boolean | null
@@ -9860,7 +9860,7 @@ export type Database = {
           background_urls?: Json | null
           created_at?: string
           created_by?: string | null
-          end_at: string
+          end_at?: string | null
           id?: string
           is_active?: boolean | null
           location_id: string
@@ -9868,7 +9868,7 @@ export type Database = {
           overlay_text?: string | null
           overlay_texts?: Json | null
           slide_duration?: number | null
-          start_at: string
+          start_at?: string | null
           text_color?: string | null
           text_position?: string | null
           text_shadow?: boolean | null
@@ -9879,7 +9879,7 @@ export type Database = {
           background_urls?: Json | null
           created_at?: string
           created_by?: string | null
-          end_at?: string
+          end_at?: string | null
           id?: string
           is_active?: boolean | null
           location_id?: string
@@ -9887,7 +9887,7 @@ export type Database = {
           overlay_text?: string | null
           overlay_texts?: Json | null
           slide_duration?: number | null
-          start_at?: string
+          start_at?: string | null
           text_color?: string | null
           text_position?: string | null
           text_shadow?: boolean | null
