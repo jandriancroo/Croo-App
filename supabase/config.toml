@@ -94,6 +94,18 @@ verify_jwt = false
 [functions.jobs-seo]
 verify_jwt = false
 
+[functions.jobs-index]
+verify_jwt = false
+
+[functions.job-detail]
+verify_jwt = false
+
+[functions.jobs-sitemap]
+verify_jwt = false
+
+[functions.sitemap]
+verify_jwt = false
+
 [functions.opus-service]
 verify_jwt = false
 
