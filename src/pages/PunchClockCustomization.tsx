@@ -187,8 +187,10 @@ export default function PunchClockCustomization() {
             overlay_texts: theme.overlay_texts,
             text_color: theme.text_color,
             text_shadow: theme.text_shadow,
-            start_at: new Date('2000-01-01T00:00:00').toISOString(),
-            end_at: new Date('2099-12-31T23:59:59').toISOString(),
+            // "Always available" = no window at all. A non-null window means a
+            // real, deliberately limited schedule that overrides the default.
+            start_at: null,
+            end_at: null,
             created_by: user?.id,
           }).select().single()
         );
@@ -233,12 +235,13 @@ export default function PunchClockCustomization() {
   const loadTimingFromTheme = (theme: PunchClockTheme | undefined) => {
     if (!theme) return;
     
-    // Check if it's an "always" theme (dates span 2000-2099)
     const start = theme.start_at ? new Date(theme.start_at) : null;
     const end = theme.end_at ? new Date(theme.end_at) : null;
     
-    const isAlways = start && end && 
-      start.getFullYear() <= 2001 && end.getFullYear() >= 2098;
+    // "Always" = no window. Legacy rows may still carry the old 2000-2099
+    // sentinel window, so keep reading those as "always" too.
+    const isAlways = (!start || !end) ||
+      (start.getFullYear() <= 2001 && end.getFullYear() >= 2098);
     
     if (isAlways) {
       setTimingMode("always");
@@ -499,8 +502,8 @@ export default function PunchClockCustomization() {
             text_shadow: formTextShadow,
             text_position: formTextPosition,
             slide_duration: formSlideDuration,
-            start_at: new Date('2000-01-01T00:00:00').toISOString(),
-            end_at: new Date('2099-12-31T23:59:59').toISOString(),
+            start_at: null,
+            end_at: null,
             created_by: user?.id,
           });
 
