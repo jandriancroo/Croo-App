@@ -261,6 +261,11 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
+    // Record that crawler-ready HTML was served for this listing.
+    await logSyndicationServed(supabase, [
+      { jobListingId: listing.id, feedUrl: canonical },
+    ]);
+
     return new Response(html, {
       status: 200,
       headers: {
