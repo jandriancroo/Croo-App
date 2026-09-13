@@ -166,9 +166,13 @@ const AppWithSplash = () => {
 };
 
 // Public marketing homepage for guests; signed-in users go straight to the dashboard.
+// Paired punch-clock tablets must land on the PIN screen, never the manager dashboard.
 const HomeRoute = () => {
   const { user, loading } = useAuth();
-  if (!loading && user) return <Navigate to="/dashboard" replace />;
+  if (!loading && user) {
+    if (isPunchDeviceUser(user)) return <Navigate to="/punch-clock" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return <Home />;
 };
 

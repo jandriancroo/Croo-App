@@ -51,18 +51,35 @@ export const KioskAutoRestore = () => {
     // request to re-enter kiosk mode.
     const explicitPunchClock = path === '/punch-clock' && !isDeviceSession;
 
-    // Case B: cold launch with NO signed-in human and no exit flag → restore
-    // kiosk so force-quit + reopen always returns to the punch clock. Never
-    // yank a manager who is signed in or actively on the login screen.
+    // Case B: cold launch with NO signed-in user and no exit flag → restore
+    // kiosk so force-quit + reopen always returns to the punch clock.
     const coldRestore =
       !isKioskExitActive() && !isDeviceSession && !user && path !== '/punch-clock';
 
-    if (!explicitPunchClock && !coldRestore) return;
+    // Case C: device session is alive but the tablet opened on some other
+    // route (e.g. HomeRoute redirected to /dashboard after power loss).
+    // Just route to the PIN screen; the session is already correct.
+    const deviceSessionElsewhere =
+      !isKioskExitActive() && isDeviceSession && path !== '/punch-clock';
+
+    // Case D: a lingering human session on a paired tablet should be
+    // replaced by the device session anywhere outside the exit-kiosk flag.
+    const humanSessionOnPairedTablet =
+      !isKioskExitActive() && !!user && !isDeviceSession && path !== '/punch-clock';
+
+    if (!explicitPunchClock && !coldRestore && !deviceSessionElsewhere && !humanSessionOnPairedTablet) return;
     if (!getPairing()) return;
 
 
     inFlightRef.current = true;
     (async () => {
+      // Case C already has the right session; just navigate.
+      if (deviceSessionElsewhere) {
+        navigate('/punch-clock', { replace: true });
+        inFlightRef.current = false;
+        return;
+      }
+
       const ok = await enterKioskMode('boot-restore');
       if (ok) {
         // Legacy tablet with a working session but no durable key → mint one
