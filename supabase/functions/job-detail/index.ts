@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logSyndicationServed } from "../_shared/jobSyndicationLog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -259,6 +260,11 @@ Deno.serve(async (req) => {
   </main>
 </body>
 </html>`;
+
+    // Record that crawler-ready HTML was served for this listing.
+    await logSyndicationServed(supabase, [
+      { jobListingId: listing.id, feedUrl: canonical },
+    ]);
 
     return new Response(html, {
       status: 200,
