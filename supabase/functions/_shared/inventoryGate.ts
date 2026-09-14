@@ -32,7 +32,10 @@ export interface InventoryGateResult {
   name: string | null;
 }
 
-/** Returns true when the location's inventory_enabled is explicitly true. */
+/**
+ * Returns true when the location's inventory_enabled is explicitly true AND
+ * the location is not flagged as a test/QA store.
+ */
 export async function isInventoryEnabled(
   supabase: any,
   locationId: string | null | undefined,
@@ -43,10 +46,13 @@ export async function isInventoryEnabled(
   }
   const { data, error } = await supabase
     .from("locations")
-    .select("id, name, inventory_enabled")
+    .select("id, name, inventory_enabled, is_test_location")
     .eq("id", locationId)
     .maybeSingle();
   if (error || !data) return { enabled: false, locationId, name: null };
+  if (data.is_test_location === true) {
+    return { enabled: false, locationId, name: data.name ?? "test_location" };
+  }
   return {
     enabled: data.inventory_enabled === true,
     locationId,
@@ -54,7 +60,10 @@ export async function isInventoryEnabled(
   };
 }
 
-/** Returns the subset of locationIds whose inventory_enabled is true. */
+/**
+ * Returns the subset of locationIds whose inventory_enabled is true and which
+ * are not test/QA stores.
+ */
 export async function filterEnabledLocations(
   supabase: any,
   locationIds: string[],
@@ -65,6 +74,7 @@ export async function filterEnabledLocations(
     .from("locations")
     .select("id")
     .eq("inventory_enabled", true)
+    .eq("is_test_location", false)
     .in("id", candidates);
   return new Set((data || []).map((r: any) => r.id));
 }
