@@ -9,13 +9,17 @@
  */
 
 /**
- * Hard, named exclusions — never touched by vendor syncs / seeders regardless
- * of the `inventory_enabled` flag. Sandbox store #7777 lives here because it
- * is a test store whose flag is intentionally left on for UI work.
+ * Fallback belt for the `locations.is_test_location` flag.
+ *
+ * The flag is the source of truth — mark a fake/QA store with
+ * `is_test_location = true` and every gate below skips it. This id list stays
+ * as a transition safety net so no store loses protection if the flag is ever
+ * cleared by accident. Do NOT add new test stores here; set the flag instead.
  */
 export const EXCLUDED_LOCATION_IDS: string[] = [
   "150cfede-666a-4b5f-ae01-5bfb7bb39635", // Sandbox #7777 (Beaumont) — test store
   "40a872fb-57b2-409d-947d-70e48948297d", // Sandbox (inactive clone target)
+  "9a5c1e00-0000-4000-8000-000000000002", // Lite QA — Smoke Test (QA-LITE-01)
 ];
 
 export function isExcludedLocation(locationId: string | null | undefined): boolean {
@@ -28,7 +32,10 @@ export interface InventoryGateResult {
   name: string | null;
 }
 
-/** Returns true when the location's inventory_enabled is explicitly true. */
+/**
+ * Returns true when the location's inventory_enabled is explicitly true AND
+ * the location is not flagged as a test/QA store.
+ */
 export async function isInventoryEnabled(
   supabase: any,
   locationId: string | null | undefined,
@@ -39,10 +46,13 @@ export async function isInventoryEnabled(
   }
   const { data, error } = await supabase
     .from("locations")
-    .select("id, name, inventory_enabled")
+    .select("id, name, inventory_enabled, is_test_location")
     .eq("id", locationId)
     .maybeSingle();
   if (error || !data) return { enabled: false, locationId, name: null };
+  if (data.is_test_location === true) {
+    return { enabled: false, locationId, name: data.name ?? "test_location" };
+  }
   return {
     enabled: data.inventory_enabled === true,
     locationId,
@@ -50,7 +60,10 @@ export async function isInventoryEnabled(
   };
 }
 
-/** Returns the subset of locationIds whose inventory_enabled is true. */
+/**
+ * Returns the subset of locationIds whose inventory_enabled is true and which
+ * are not test/QA stores.
+ */
 export async function filterEnabledLocations(
   supabase: any,
   locationIds: string[],
@@ -61,6 +74,7 @@ export async function filterEnabledLocations(
     .from("locations")
     .select("id")
     .eq("inventory_enabled", true)
+    .eq("is_test_location", false)
     .in("id", candidates);
   return new Set((data || []).map((r: any) => r.id));
 }

@@ -1,0 +1,1 @@
+ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS is_test_location boolean NOT NULL DEFAULT false;

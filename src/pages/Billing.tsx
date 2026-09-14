@@ -50,8 +50,9 @@ export default function Billing() {
   const [skipTrial, setSkipTrial] = useState(false);
   const [savingSkipTrial, setSavingSkipTrial] = useState(false);
 
-  // Filter to current org's locations, exclude sandbox
+  // Filter to current org's locations, exclude test/QA stores
   const billableLocations = locations.filter(l => 
+    l.is_test_location !== true &&
     l.store_number !== '7777' && 
     (!currentOrgId || l.organization_id === currentOrgId)
   );

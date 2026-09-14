@@ -236,7 +236,7 @@ serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .eq("organization_id", organizationId)
         .eq("is_active", true)
-        .neq("store_number", "7777");
+        .eq("is_test_location", false);
 
       locationCount = count ?? 0;
     }

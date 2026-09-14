@@ -7594,6 +7594,7 @@ export type Database = {
           inventory_enabled: boolean
           inventory_mode: string
           is_active: boolean
+          is_test_location: boolean
           last_deployed_at: string | null
           latitude: number | null
           legs_enabled: boolean | null
@@ -7622,6 +7623,7 @@ export type Database = {
           inventory_enabled?: boolean
           inventory_mode?: string
           is_active?: boolean
+          is_test_location?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
           legs_enabled?: boolean | null
@@ -7650,6 +7652,7 @@ export type Database = {
           inventory_enabled?: boolean
           inventory_mode?: string
           is_active?: boolean
+          is_test_location?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
           legs_enabled?: boolean | null
