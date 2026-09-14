@@ -1,44 +1,51 @@
-# Cold-boot "logged in as USER" theory — verdict: CONFIRMED
+# Vendor sync cleanup — Stage 1
 
-Every step of the theory matches the live code. A device session alone fully explains it; no human login is needed.
+## Part 1: the four old jobs are already gone
 
-## Evidence
+I checked the live schedule before planning anything. Those four jobs are **not running** — they were already retired on Sep 2 by a guarded cleanup migration (`20260902045350_...sql`, which unschedules exactly those four names and is safe to re-run).
 
-**1) Home route sends any signed-in session to the dashboard — CONFIRMED**
-`src/App.tsx:169-173`
-```
-const HomeRoute = () => {
-  const { user, loading } = useAuth();
-  if (!loading && user) return <Navigate to="/dashboard" replace />;
-```
-No check for a punch device. The PWA start URL is `/`, so a restored device session lands on `/dashboard`.
+The only vendor-related jobs on the schedule today:
 
-**2) The "User" label is the no-profile fallback — CONFIRMED**
-`src/components/Layout.tsx:565` selects `full_name, profile_photo_url, nickname` from `profiles`; line 698 `... || 'User'` and line 1189 `{displayFullName || 'User'}`. No name, no photo, no role → literally "User".
+| Job | Schedule | Keep? |
+|---|---|---|
+| `vendor-sync-nightly` | 10:20 UTC daily | Yes — the new pipeline |
+| `pfg-keep-alive-every-5m` | every 5 min | Yes — token upkeep only |
 
-**3) Kiosk restore is skipped when a session exists — CONFIRMED**
-`src/components/KioskAutoRestore.tsx:57-60`
-```
-const coldRestore =
-  !isKioskExitActive() && !isDeviceSession && !user && path !== '/punch-clock';
-if (!explicitPunchClock && !coldRestore) return;
-```
-`coldRestore` requires `!user` **and** `!isDeviceSession`. A healthy device session satisfies neither, so nothing pulls the tablet back to `/punch-clock`. The only other path (`explicitPunchClock`) needs the URL to already be `/punch-clock`.
+Nothing named `nightly-vendor-gap-scan`, `vendor-gap-scan-nightly`, `pfg-scheduled-price-sync-every-8h`, or `nightly-pack-config-seeder` exists in the schedule.
 
-**4) Paired tablets are real auth users with no profile — CONFIRMED**
-`supabase/functions/punch-device-service/index.ts:235-240` creates the user with `user_metadata: { is_punch_device: true }`; `isPunchDeviceUser` (`src/lib/punchDevicePairing.ts:173`) reads that flag. Live check of all 6 unrevoked devices: every one has `is_punch_device = true`, **zero** have a `profiles` row, all `full_name` null, none revoked. Palm Springs device `1689ee2a` was active minutes ago.
+So there is **no migration to write for Part 1**. If prices are still moving in a way that looks like the old 8-hour job, the cause is elsewhere and we should trace it separately rather than unschedule something that isn't there.
 
-**5) Device session alone explains the label — CONFIRMED**
-The label depends only on a missing profile row, and device users never have one. No human sign-in required. Pairing is healthy (secret present, `revoked_at` null), so nothing in the pairing layer trips.
+### Where those underlying functions stand
 
-## Net effect
+- `vendor-gap-scan` — still needed. The nightly pipeline calls it as its gap stage.
+- `pack-config-seeder` — still needed. The nightly pipeline calls it as its pack-config stage.
+- `pfg-scheduled-price-sync` — no caller anywhere: no schedule entry, no other function, no app code. It is dead code and the one real candidate for removal in a later stage. Not touching it now.
 
-Power loss → tablet relaunches at `/` → device session restores → dashboard as "User", with no punch clock and no PIN pad. Staff see a logged-in app instead of the clock.
+## Part 2: the second fake store
 
-## Fix shape (not written — awaiting "ship")
+Confirmed today:
 
-1. In `HomeRoute`, when the session is a punch device, redirect to `/punch-clock` instead of `/dashboard`.
-2. In `KioskAutoRestore`, add a third case: paired device + device session + not on `/punch-clock` + no exit flag → navigate to `/punch-clock`. Catches any other entry URL.
-3. Optional belt-and-braces: `ProtectedRoute` bounces device sessions off non-punch-clock routes.
+- Sandbox #7777 — excluded from billing (`Billing.tsx`, `check-subscription`) and from vendor syncs (a hardcoded id list in the shared inventory gate, which also lists a second inactive Sandbox clone).
+- Lite QA — Smoke Test (`QA-LITE-01`) — **active**, no exclusion anywhere. Only "safe" because inventory happens to be switched off.
 
-Locked-feature note: this touches punch-clock pairing/restore, which is under the Pairing Until Revoke lock. The proposed change is routing only — no pairing, secret, reissue, or punch-write logic — but it needs Jordan's explicit go-ahead.
+The `locations` table has no test/QA marker column today, so a shared pattern means adding one. That is small and it is the right call — recommended:
+
+1. Add a `is_test_location` true/false column to locations, default false.
+2. Mark the three known fakes: Sandbox #7777, the inactive Sandbox clone, and Lite QA — Smoke Test.
+3. Switch the billing page and the subscription check from "store number is not 7777" to "not a test location".
+4. Switch the vendor-sync gate from its hardcoded id list to the same flag, keeping the id list as a fallback so nothing loses protection during the swap.
+
+Result: one place to mark a future test store, and it is immediately invisible to billing, subscriptions, and every vendor sync — with no store-number string matching anywhere.
+
+## Technical notes
+
+- Migration: `ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS is_test_location boolean NOT NULL DEFAULT false;` then `UPDATE` the three ids above. No grant/RLS change needed (existing locations policies cover it).
+- `src/pages/Billing.tsx` — `billableLocations` filter becomes `!l.is_test_location`; add `is_test_location` to the location selects in `src/hooks/useLocation.tsx` (three queries) and to the `Location` interface.
+- `supabase/functions/check-subscription/index.ts:239` — replace `.neq("store_number", "7777")` with `.eq("is_test_location", false)`.
+- `supabase/functions/_shared/inventoryGate.ts` — keep `EXCLUDED_LOCATION_IDS` as a belt, and make `isInventoryEnabled` require `is_test_location = false`; `filterEnabledLocations` adds `.eq("is_test_location", false)`. That covers all eight callers of the gate (vendor-sync-nightly, vendor-gap-scan, vendor-price-chase, deploy-location-inventory, produce-alliance-service, pack-selection-backfill, pfg-service, pack-config-seeder) in one edit.
+- Types regenerate after the migration, so the client edits land after it.
+- No cron changes, no function deletions, nothing published.
+
+## What I need from you
+
+Confirm you want the shared `is_test_location` flag (my recommendation) rather than a second hardcoded `QA-LITE-01` check, and whether the inactive Sandbox clone should be flagged too (I assume yes).
