@@ -12,6 +12,8 @@ interface Location {
   store_number?: string | null;
   organization_id?: string;
   brand_name?: string | null;
+  /** Fake/QA store — excluded from billing, subscriptions and vendor syncs. */
+  is_test_location?: boolean | null;
 }
 
 interface LocationContextType {
@@ -100,7 +102,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           .single(),
         supabase
           .from('user_locations')
-          .select('user_id, location_id, locations(id, name, location_type, store_number, organization_id, organizations(brand_name, brands(name)))')
+          .select('user_id, location_id, locations(id, name, location_type, store_number, is_test_location, organization_id, organizations(brand_name, brands(name)))')
           .eq('user_id', user.id),
       ]);
 
@@ -118,7 +120,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           setOrganizationId(orgId);
           const { data: orgLocations, error: orgError } = await supabase
             .from('locations')
-            .select('id, name, location_type, store_number, organization_id, organizations(brand_name, brands(name))')
+            .select('id, name, location_type, store_number, is_test_location, organization_id, organizations(brand_name, brands(name))')
             .eq('organization_id', orgId);
 
           if (orgError) throw orgError;
@@ -129,7 +131,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         } else {
           const { data: allLocs, error: allError } = await supabase
             .from('locations')
-            .select('id, name, location_type, store_number');
+            .select('id, name, location_type, store_number, is_test_location');
           
           if (allError) throw allError;
           locs = (allLocs || []) as Location[];
