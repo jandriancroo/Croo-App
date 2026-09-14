@@ -62,3 +62,10 @@
 - [x] `src/App.tsx` HomeRoute redirects punch-device sessions to `/punch-clock` instead of `/dashboard`.
 - [x] `src/components/KioskAutoRestore.tsx` now routes an active device session back to `/punch-clock` when it lands elsewhere, and replaces a lingering human session on a paired tablet.
 - [ ] Verify on a real paired iPad: power-cycle / force-quit PWA should open PIN screen, not "User" dashboard.
+
+## Test-location exclusions — Sep 14 2026 (vendor cleanup Stage 1, Part 2)
+- Part 1 (retire 4 legacy crons) = no-op: already unscheduled by the Sep 2 migration; verified live.
+- [x] `locations.is_test_location` boolean (default false); flagged Sandbox #7777, inactive Sandbox clone, Lite QA — Smoke Test
+- [x] Billing.tsx + check-subscription exclude by flag; `useLocation` selects the column
+- [x] `inventoryGate.ts` — `isInventoryEnabled` + `filterEnabledLocations` skip test stores; EXCLUDED_LOCATION_IDS kept as fallback (QA-LITE-01 added)
+- [ ] Later stage: `pfg-scheduled-price-sync` has no remaining caller — candidate for deletion
