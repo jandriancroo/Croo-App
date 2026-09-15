@@ -132,7 +132,9 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const [syncResult, setSyncResult] = useState<SyncResult>({
     pfg: { status: 'pending' },
     pa: { status: 'pending' },
+    activation: { status: 'pending' },
   });
+
   const [syncing, setSyncing] = useState(false);
 
   // Fetch organizations
