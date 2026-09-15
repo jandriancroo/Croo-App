@@ -316,7 +316,12 @@ serve(async (req) => {
 
     const insertItems: any[] = [];
     const newGapAlerts: any[] = [];
-    const priceUpdates: { id: string; cost: number; pack_size?: string | null }[] = [];
+    // Matched items are NOT priced here. Pricing goes through the one shared
+    // chain (vendor-price-chase → chasePrices) so an invoice match behaves
+    // exactly like a PFG/PA sync match. We only collect which items matched,
+    // plus invoice-observed pack metadata (not a price).
+    const matchedItemIds = new Set<string>();
+    const packUpdates: { id: string; pack_size: string }[] = [];
 
     for (const li of parsed.line_items || []) {
       const vendorItemNumber = firstNonEmpty(li.item_number, (li as any).dist_item_number, (li as any).distributor_item_number, (li as any).item_code);
@@ -376,11 +381,9 @@ serve(async (req) => {
       };
 
       if (match && li.unit_price && li.unit_price > 0) {
-        priceUpdates.push({
-          id: match.id,
-          cost: li.unit_price,
-          pack_size: (li as any).pack_size || li.unit || null,
-        });
+        matchedItemIds.add(match.id);
+        const packSize = (li as any).pack_size || li.unit || null;
+        if (packSize) packUpdates.push({ id: match.id, pack_size: String(packSize) });
       }
 
       if (!match && !matchedTemplateId && brandId && li.product_name) {
@@ -410,14 +413,39 @@ serve(async (req) => {
       if (itemsErr) console.error("Error inserting invoice items:", itemsErr);
     }
 
-    // Update matched item costs and pack metadata
-    for (const update of priceUpdates) {
-      const updateData: Record<string, any> = { cost_per_unit: update.cost };
-      if (update.pack_size) updateData.pack_size = update.pack_size;
+    // Pack metadata only — invoice-observed shape, never a price.
+    for (const update of packUpdates) {
       await admin
         .from("inventory_items")
-        .update(updateData)
+        .update({ pack_size: update.pack_size })
         .eq("id", update.id);
+    }
+
+    // Pricing + activation for matched items goes through the shared chain.
+    // A confirmed invoice match now prices and switches an item on the same way
+    // a PFG/PA sync match does (same window rules, same unpriced_since /
+    // last_ordered_at stamping, same activation rule).
+    let priceSweep: any = null;
+    if (matchedItemIds.size > 0) {
+      try {
+        const sweepResp = await fetch(`${supabaseUrl}/functions/v1/vendor-price-chase`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            locationId: invoice.location_id,
+            itemIds: [...matchedItemIds],
+            activate: true,
+            includeInactive: true,
+          }),
+        });
+        priceSweep = await sweepResp.json().catch(() => null);
+        if (!sweepResp.ok) console.error("price chase failed:", sweepResp.status, priceSweep);
+      } catch (e) {
+        console.error("price chase invoke failed:", e instanceof Error ? e.message : String(e));
+      }
     }
 
     // Write unmatched items to vendor_gap_alerts for unified brand review
@@ -443,7 +471,13 @@ serve(async (req) => {
       matched: matchedCount,
       unmatched: unmatchedCount,
       new_gap_alerts: newGapAlerts.length,
-      price_updates: priceUpdates.length,
+      matched_items_sent_to_pricing: matchedItemIds.size,
+      priced: priceSweep?.priced ?? 0,
+      still_unpriced: priceSweep?.still_unpriced ?? 0,
+      vendor_registry_id: vendorRegistryId,
+      vendor_needs_confirmation: !!vendorCandidateId,
+      vendor_candidate_id: vendorCandidateId,
+      vendor_suggestion: vendorSuggestion,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
