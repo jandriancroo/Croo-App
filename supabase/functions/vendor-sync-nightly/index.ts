@@ -203,7 +203,7 @@ async function handleStart(supabase: any, body: any) {
   for (const s of STAGES) {
     const locs = !s.perLocation
       ? [null]
-      : s.stage === "catalog_parity"
+      : s.stage === "catalog_parity" || s.stage === "recipe_integrity"
         ? parityLocs
         : s.stage.startsWith("pfg_")
           ? pfgLocs
@@ -476,6 +476,22 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         activated: priced,
         missing_names: missing.slice(0, 40).map((t) => t.product_name ?? t.id),
         failures,
+      };
+      break;
+    }
+    case "recipe_integrity": {
+      // FLAG ONLY — never disables a recipe. In-process so a store's result is
+      // recorded on its own run row.
+      const res = await scanLocation(supabase, locationId!);
+      counters.items_seen = res.recipes_scanned;
+      detail = {
+        recipes_scanned: res.recipes_scanned,
+        broken_recipes: res.broken_recipes,
+        missing_ingredients: res.missing_ingredients,
+        opened: res.opened,
+        resolved: res.resolved,
+        by_ingredient: res.by_ingredient.slice(0, 20),
+        ...(res.error ? { error: res.error } : {}),
       };
       break;
     }
