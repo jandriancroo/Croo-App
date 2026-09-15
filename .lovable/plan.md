@@ -1,69 +1,41 @@
-# Sandbox stores: verification report (no changes made)
+# Stage 2 — Produce price fallback + deploy price window
 
-## Short answer
+## Both problems are real. Confirmed in the code and the data.
 
-The code comments are wrong, both of them. The **retired clone** (`40a872fb`) is the one that is actually live sandbox infrastructure, and the one called "Sandbox #7777 / brand" (`150cfede`) is the older store with all the day-to-day history on it. **Neither is safe to delete right now.**
+### 1. Produce items can never hit the order/invoice fallback
 
-There is also a real bug created by last week's rename — see "Rename broke the sandbox clone" below.
+`_shared/vendorPriceChase.ts` builds its recent-activity lookups from **only two tables**: `pfg_orders` and `pfg_invoices` (lines 169-182). The matching loop then looks up produce numbers in those same PFG-only maps (lines 256-266). So for a produce item the chain is effectively "catalog or nothing" — the orders and invoices tiers run but can never match.
 
-## 1. The two stores today
+Knock-on effect, worse than just a missing price: `hadActivity` (line 269) is also computed from those PFG-only maps, so a produce item that has been ordered every week still counts as "no activity" and can get tagged discontinued.
 
-| | 150cfede… | 40a872fb… |
-|---|---|---|
-| Name | [TEST] Sandbox | [TEST] Sandbox (Retired Clone) |
-| Store number | T-0001 | T-0002 |
-| Active | yes | no |
-| Created | Feb 6 2026 | Jun 3 2026 |
-| Marked as test store | yes | yes |
-| Super-admin-only | no | **yes** |
-| Inventory on | yes | yes |
+The produce order data does exist and is usable: `pa_orders` has 253 rows, with `items` JSON lines carrying `item_code`, `master_product_code`, `pa_product_id`, and `price`, plus `order_date` / `delivery_date`.
 
-## 2. Data attached to each (rows found; only non-zero shown)
+Produce **invoices** are the one gap: there is no `pa_invoices` table. Produce invoices only arrive through the manual upload path (`vendor_invoices` + `vendor_invoice_items`, vendor "Worldwide Produce"), which today holds a single invoice across the whole system.
 
-| Table | 150cfede | 40a872fb |
-|---|---|---|
-| alert_queue | 1453 | 0 |
-| checklist_notification_logs | 1453 | 0 |
-| maintenance_queue | 376 | 28 |
-| croo_ai_briefings | 172 | 14 |
-| labor_cache | 202 | 14 |
-| inventory_items | 37 | **219** |
-| inventory_locations (shelves) | 20 | 19 |
-| location_pack_selections | 0 | **161** |
-| inventory_counts | 0 | **1 (177 counted lines)** |
-| brand_inventory_deployments | 34 | 0 |
-| logbook_entries / logbook_categories / logbook_audit | 35 / 7 / 5 | 0 / 1 / 0 |
-| schedules / shift_templates / week_templates | 11 / 10 / 1 | 0 / 0 / 1 |
-| checklists / submissions | 3 / 3 | 0 / 0 |
-| sales_cache | 15 | 0 |
-| user_locations (people with access) | 25 | 1 |
-| dashboard_widgets, location_settings, labor_rules, recipe_blueprints, theo_chat_messages, daily_summary_logs | 5, 1, 1, 4, 4, 3 | 0 each |
-| announcement_channels, performance_review_items, holidays | 2, 10, 2 | 2, 10, 1 |
+### 2. Deploy's fallback really is 50 orders with no date limit
 
-Every table in the database that points at a store was checked (114 columns across 110 tables), not just the ones listed in the request. No rows for either store in location_integrations, location_hours, time_punches, punch clock tables, job listings, sales/labor caches beyond the above, transfers, or the vendor tables.
+`deploy-location-inventory/index.ts` lines 479-485: `pfg_orders`, newest first, `.limit(50)`, no date filter. Confirmed. It is also PFG-only, same blind spot as above.
 
-## 3. Which one does the sandbox clone write into?
+## Plan
 
-`clone_count_to_sandbox` does **not** use a hardcoded id. It looks up the store by `requires_super_admin = true` **and** `name = 'Sandbox'`, wipes that store's items/shelves/pack selections, and copies the source store's count into it.
+**A. Add produce orders as a real tier in the nightly chain**
+- Query `pa_orders` alongside the two PFG tables, same location filter, same `order_date >= today - ACTIVITY_WINDOW_DAYS` (14 days), newest first.
+- Fold its lines into the same `orderByNumber` map, keyed on `item_code`, `master_product_code` and `pa_product_id` (all normalised the same way as today) so any of the three identifiers on an item can match. Price from `price`, ref from `order_number`, date from `order_date` falling back to `delivery_date`.
+- PFG lines are read first so an item carrying both identifiers still prefers its PFG order — tier order stays master list → orders → invoices → unpriced.
+- Because the produce lines now land in the shared map, `hadActivity`, `ship_in_only` and the discontinued guard start behaving correctly for produce with no extra changes.
 
-Only `40a872fb` has `requires_super_admin = true`. So the clone target is **40a872fb** — the "Retired Clone". Its contents confirm it: 219 items, 161 pack selections, and one in-progress sandbox count (177 lines) cloned from a real store on Jul 1. It is the live testing bench, not a retired leftover. `inventoryGate.ts` is right about which store is the clone target; the *name* we gave it in the rename is misleading.
+**B. Produce invoices**
+- Add manually-uploaded produce invoices to the invoice tier: `vendor_invoice_items` joined to `vendor_invoices` for the location, within the same 14-day window, matched on `item_number`.
+- This is thin by nature (1 invoice exists today) — it is a completeness belt so the tier isn't structurally dead, not a source we should lean on. If you'd rather not add a join for one row, I'll skip B and do A only; say which.
 
-## 4. Rename broke the sandbox clone
+**C. Deploy window: 30 days by date, not 50 rows**
+- Replace `.limit(50)` with `.gte("order_date", <today − 30 days>)`, keeping the newest-first ordering and first-hit-wins behaviour. The date filter is the limit — no row cap, so a busy store gets its full 30 days and a quiet store doesn't reach back six months.
+- Same 30-day window applied to a new `pa_orders` read in deploy, so a new produce-carrying store gets a starting price picture too.
 
-The lookup requires the name to be exactly `Sandbox`. Both are now `[TEST] Sandbox…`, so the clone button will fail with "No Sandbox location found." The `[TEST] Lite QA` store is unaffected. This needs fixing before anyone uses Clone-to-Sandbox again — either match on the test flag + super-admin instead of the name, or match names starting with `Sandbox`/`[TEST] Sandbox`.
+## Technical notes
+- `ACTIVITY_WINDOW_DAYS` (14) stays the nightly constant; deploy gets its own local 30-day constant with a comment explaining why it is wider (one-time initial sweep vs nightly refresh).
+- Produce identifiers are numeric in the JSON (`pa_product_id: 10320`); they'll be string-normalised through the existing `norm()` before being used as map keys.
+- No schema change, no migration. Two files: `_shared/vendorPriceChase.ts` and `deploy-location-inventory/index.ts`. Both edge functions redeploy; nothing else imports the changed code paths.
 
-## 5. Everywhere else these ids appear
-
-- `supabase/functions/_shared/inventoryGate.ts` — both ids in the fallback exclusion list (comments now inaccurate).
-- `supabase/migrations/20260612234902…sql` — one-off inventory enable, both ids, comments swapped/vague.
-- `supabase/migrations/20260716185715…sql` — one-off clearing billing fields on `150cfede`.
-- No other code, function, view, or trigger hardcodes either id. Everything else finds them by flag or by name.
-
-## Recommendation (nothing done yet)
-
-1. Do not delete either store. `40a872fb` is the working sandbox; `150cfede` carries thousands of history rows and 25 people's access, and deleting it would cascade across ~20 tables.
-2. Fix the clone lookup so the rename doesn't break it, and swap the two names so the working bench isn't labelled "Retired Clone".
-3. Correct the stale comments in `inventoryGate.ts`.
-4. If you want cleanup instead of deletion: `150cfede`'s 1453 alert rows and 1453 notification logs are pure noise and can be pruned safely.
-
-Say the word on which of these you want and I'll plan the change.
+## Open question
+Include part B (produce invoices via the manual-upload tables), or ship A + C only?
