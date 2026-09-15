@@ -12548,6 +12548,36 @@ export type Database = {
           },
         ]
       }
+      vendor_registry: {
+        Row: {
+          category: string | null
+          created_at: string
+          display_name: string
+          id: string
+          is_integrated: boolean
+          key: string
+          sync_methods: Json
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          is_integrated?: boolean
+          key: string
+          sync_methods?: Json
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_integrated?: boolean
+          key?: string
+          sync_methods?: Json
+        }
+        Relationships: []
+      }
       vendor_sku_health: {
         Row: {
           available_since: string | null
