@@ -60,6 +60,7 @@ export type SkipReason =
   | "no_brand_link"
   | "template_not_live"
   | "write_rejected"
+  | "cost_intentionally_zero"
   | "error";
 
 export interface ChaseSkip {
