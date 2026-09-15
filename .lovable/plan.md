@@ -1,70 +1,45 @@
-# Stage 3 — Split deploy into structure, then activation
+# Stage 3.5 — Invoice pricing through the shared chain, active-flag fix, vendor confirmation
 
-## Agreement on the reasoning
+## What I found first (evidence)
 
-Confirmed against the current code, and I agree with all of it:
+**The `status = active` filter is a real, silent bug.** The items table has no `status` column at all — it has a true/false `is_active` flag (confirmed against the live schema). So the lookup of "what does this store already carry?" returns nothing, and every invoice line falls through to "unknown item."
 
-- Line 363: new items are inserted with `is_active: true` unconditionally.
-- Line 292: the existing-item branch force-sets `is_active: true` on every re-deploy, so a genuinely dead item gets resurrected by any manual "Sync".
-- The "5c. Backfill PFG cost_per_unit" block (lines 399–530) makes a live PFG bid-guide call and re-implements a two-tier price search that the shared price chain now does better (and, since Stage 2, does for produce too). It is also PFG-only, so produce items were never priced by deploy at all.
-- The bottom "Auto-trigger vendor syncs" block (lines ~698–740) races three invokes against a 2-second timer. It cannot report success, cannot be waited on, and there is no step afterwards to use its results — exactly the fire-and-forget being replaced.
+Live numbers back that up:
+- 89 invoice lines parsed in total: **1** ever matched a store item, and that one is from July 2. Everything since matches nothing local.
+- 66 lines sit as "unmatched", 22 matched only a brand catalog entry.
+- 13 gap alerts were created with source "invoice" — items flagged as unknown that the store may well already carry.
 
-One correction to the brief, from the code: the second deploy pass in `LocationActivationList.tsx` is **not** needed for SKU stamping (you're right — SKUs are stamped at insert, lines ~350–360). But it does do one real thing: recipe ingredient linking (section 6) matches ingredients on `item_number` / `pa_item_id`, and that runs *before* the vendor syncs on the first pass. On a brand-new store the first pass links fine anyway, because the SKUs come from `brand_vendor_mappings` at insert, not from the syncs. The syncs only add prices. So the second pass is genuinely redundant and gets removed — with one caveat noted under Risks.
+So yes: matched-invoice pricing has been quietly dead. Nothing was crashing, it just silently found zero items.
 
-## Phase 1 — structural deploy
+**Vendor names are free text and already drifting.** Existing invoices show `Heimark Distributing, LLC` (9), `HEIMARK DISTRIBUTING, LLC` (1), `Worldwide Produce` (1), `Unknown` (2) — the same vendor stored two ways, none of them connected to the vendor registry (which today holds only PFG and Produce Alliance). `pg_trgm` is already installed, no new dependency needed.
 
-In `deploy-location-inventory/index.ts`:
+Note: this touches the invoice side of the inventory system, which is on the locked list. The changes below are confined to invoice parsing, plus one new table and one new review card — no changes to counting, weighing, matching screens, or period logic.
 
-- New items insert with `is_active: false`.
-- Existing-item branch: drop `is_active: true` from the update. Keep name/category/pack/shelf/SKU refresh — that's identity, not activation.
-- Delete the whole 5c PFG cost-backfill block, including the `pfg-service` invoke and the 30-day order window added in Stage 2 (that logic now lives only in the shared chain).
-- Delete the "Auto-trigger vendor syncs" block at the bottom.
-- Keep untouched: template fetch, shelf/storage mirroring, product groups, SKU stamping from `brand_vendor_mappings`, recipe ingredient linking, the multi-shelf shortcut restore, the pre-flight warnings, `last_deployed_at`.
-- Response gains `deployedItemIds` (the values of `templateToItemId`) so callers can hand Phase 2 an exact set, and the warnings text stops promising "syncs will run automatically" — it now says items are inactive until the activation sweep prices them.
+## 1. Fix the active-item lookup
 
-Result: deploy becomes a pure internal copy — no outbound vendor traffic, fast, fully idempotent, and it can never activate anything.
+Change the invoice parser's item lookup from the non-existent `status` field to `is_active = true`, matching the Lite parser and the rest of the app. This alone restores matching, price capture, and stops false "new item" gap alerts.
 
-## Phase 2 — activation sweep
+## 2. Route matched-item pricing through the one shared pricing path
 
-`_shared/vendorPriceChase.ts` gets one additive option:
+Remove the direct cost write. Instead, after invoice lines are saved, the parser hands the matched item IDs to the shared pricing routine (`vendor-price-chase` with `activate: true`, which runs `chasePrices()` with `activateOnHit`). A confirmed invoice match then prices and switches on an item exactly the way a PFG or Produce Alliance sync match does — same window rules, same `unpriced_since` / `last_ordered_at` stamping, same activation rule.
 
-- `opts.activateOnHit?: boolean` (default `false`). When true and `hit !== null`, the patch also sets `is_active: true`. Nothing else changes — no hit still means `unpriced_since` stamped and the item left inactive.
-- Nightly `price_fill` and the existing unpriced-counter button pass nothing, so their behaviour is byte-identical.
+Pack size stays on the invoice line record (it's invoice-observed detail, not a price), so no pricing information is written outside the shared chain.
 
-The sweep itself runs through the existing `vendor-price-chase` function rather than a new one, with two new body flags:
+The response gains `priced` / `activated` counts from the sweep instead of a local `price_updates` tally.
 
-- `activate: true` → passes `activateOnHit: true` and `windowDays: 30`.
-- `includeInactive: true` → drops the `.eq("is_active", true)` filter and the unpriced-only `.or(...)`, so freshly deployed inactive items are actually selected. Also raises the item cap for this mode (a full brand catalog is well over the current 300) and pages the select.
+## 3. Vendor confirmation instead of free text
 
-Deploy does not call this itself. Each entry point calls it explicitly, which is what makes the two phases decoupled and independently retryable.
+- Normalize the extracted vendor name: lowercase, strip punctuation and legal suffixes (LLC, Inc, Corp, Co, Ltd).
+- Compare that against registry keys, display names, and confirmed aliases using `similarity()` (pg_trgm). Exact normalized hit → link silently.
+- Anything else — including a 0.9 near-match — creates a **pending vendor** row. Nothing is auto-created and nothing is auto-linked.
+- A new "Vendors to confirm" card appears in the Brand Inventory vendor review area: shows the name as printed on the invoice, the closest registry suggestion with its confidence, and two choices — link to the suggested vendor, or create a new registry entry. Confirming records the alias so the same spelling never asks again (which immediately collapses the two Heimark spellings into one).
+- The invoice keeps showing the name as printed while confirmation is pending; it is simply not linked yet.
 
-## Entry points
+## Technical notes
 
-**1. `LocationActivationList.tsx` (manual re-deploy)** — four steps become three, second deploy pass removed:
-
-1. `deploy-location-inventory` — "Copying inventory structure…"
-2. `pfg-service` sync + `produce-alliance-service` sync_items + orders, in parallel, awaited — "Refreshing vendor lists and orders…"
-3. `vendor-price-chase` with `{ locationId, activate: true, includeInactive: true }` — "Pricing and activating items…"
-
-Toast reports `priced` / `still_unpriced` from the sweep, so the number that matters (how many items are live) is visible immediately instead of inferred.
-
-**2. `DeployLocationWizard.tsx` (new location)** — step 6 stays as the Phase 1 call, `runInitialSync` (step 8) stays as the vendor sync, and a new step 9 runs the activation sweep after it, surfacing "X items live, Y waiting on a vendor price" in the existing result panel. Lite mode skips both 8 and 9 as it already does.
-
-**3. `auto_deploy_brand_template` trigger** — per-location loop keeps its single `net.http_post` to `deploy-location-inventory`, then adds a second `net.http_post` to `vendor-price-chase` with `{ locationId, activate: true, includeInactive: true }`. Both are still fire-and-forget with no ordering guarantee across separate HTTP calls; that's acceptable here because the sweep is idempotent and the nightly run is the backstop. Per your instruction, retry and error visibility for this trigger stay out of scope.
-
-## Risks and how they're handled
-
-- **Vendor lists empty at sweep time.** If PFG/PA syncs haven't populated `pfg_bid_items` / `pa_catalog_items` yet, the sweep finds nothing and everything stays inactive. Mitigated in the two UI flows by awaiting the syncs first; in the trigger path the nightly `price_fill` picks it up. The shared chain's existing "never guess when we couldn't read a master" guard already prevents wrongly stamping `discontinued_at` in that case.
-- **House-made prep and sub-recipes have no vendor number.** The chain skips them entirely (`pfg.size === 0 && pa.size === 0` → `continue`), so they'd deploy inactive and never activate. Fix: in the sweep mode only, items with no vendor identifier and `is_recipe = true` are activated directly, since no vendor price was ever expected for them. I'll confirm the exact set (recipes plus any item with no vendor SKU and no `vendor_source`) before writing it.
-- **Existing live stores.** Nothing runs against them until someone presses Sync or the nightly job runs, and the nightly job doesn't activate. The only behaviour change for an existing store is that re-deploy stops silently resurrecting dead items — which is the intended fix.
-
-## Files touched
-
-- `supabase/functions/deploy-location-inventory/index.ts` (remove 5c + auto-sync, inactive inserts, return item ids)
-- `supabase/functions/_shared/vendorPriceChase.ts` (`activateOnHit` option)
-- `supabase/functions/vendor-price-chase/index.ts` (`activate` + `includeInactive` modes, paging)
-- `src/components/brand/LocationActivationList.tsx`
-- `src/components/settings/DeployLocationWizard.tsx`
-- one migration: `CREATE OR REPLACE FUNCTION public.auto_deploy_brand_template()` with the added sweep post
-
-No schema change. Three edge functions redeploy. No publish.
+- New table `vendor_name_candidates`: raw_name, normalized_name, suggested_vendor_id, similarity_score, status (pending/approved/rejected), invoice_id, location_id, brand_id, resolved_vendor_id, resolved_by, timestamps. GRANTs to authenticated + service_role, RLS on: admins/managers read and resolve, backend writes.
+- New table `vendor_registry_aliases`: vendor_id → normalized alias (unique), created_by. Exact-alias hits bypass the fuzzy step entirely.
+- New function `public.match_vendor_name(_name text)` — SECURITY DEFINER, `search_path = public` — returns best registry/alias candidate plus score, with a trigram index on the normalized columns.
+- Parser changes are confined to `supabase/functions/parse-vendor-invoice/index.ts`; pricing logic in `_shared/vendorPriceChase.ts` is unchanged.
+- UI: new `PendingVendorsCard` rendered inside `src/components/brand/VendorGapFinder.tsx`.
+- Existing invoice records are left as-is; the parser is not re-run retroactively. If you want, I can re-parse or re-match the 66 stranded lines afterwards as a separate pass.
