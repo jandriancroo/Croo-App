@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.reconcile_brand_deploy_log() FROM authenticated;
