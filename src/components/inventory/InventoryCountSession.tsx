@@ -2661,6 +2661,52 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     };
   }, [isMobile, isViewOnly, totalCost, countedItems, totalItems, isSaving, isListening, isSupported, isEditing, elapsedSeconds, lastSavedAt, setDockContent]);
 
+  // ─── Stage D: one-tap "mark inactive" from the discontinued note ───
+  // Flag-only elsewhere; this only ever runs on an explicit tap. The item stays
+  // in THIS session (the loader re-adds any item already in the count), so the
+  // row keeps counting and the total stays correct — it just won't appear next
+  // time. Undo restores the previous values.
+  const [markedInactiveIds, setMarkedInactiveIds] = useState<Set<string>>(new Set());
+  const [markingInactiveId, setMarkingInactiveId] = useState<string | null>(null);
+
+  const restoreItemActive = useCallback(async (itemId: string) => {
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ is_active: true, deactivated_by: null, deactivated_reason: null } as any)
+      .eq("id", itemId);
+    if (error) {
+      toast.error("Couldn't undo — try again");
+      return;
+    }
+    setMarkedInactiveIds((prev) => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+  }, []);
+
+  const handleMarkInactive = useCallback(async (itemId: string, itemName: string) => {
+    setMarkingInactiveId(itemId);
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({
+        is_active: false,
+        deactivated_by: "manager",
+        deactivated_reason: "discontinued",
+      } as any)
+      .eq("id", itemId);
+    setMarkingInactiveId(null);
+    if (error) {
+      toast.error("Couldn't mark inactive — try again");
+      return;
+    }
+    setMarkedInactiveIds((prev) => new Set(prev).add(itemId));
+    toast.success(`${itemName} — marked inactive.`, {
+      description: "It'll stay in this count and drop off after you close.",
+      action: { label: "Undo", onClick: () => { void restoreItemActive(itemId); } },
+    });
+  }, [restoreItemActive]);
+
   // Format currency
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
