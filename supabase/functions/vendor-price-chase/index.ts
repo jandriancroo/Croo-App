@@ -104,13 +104,27 @@ Deno.serve(async (req) => {
       return q;
     };
 
+    // FAIL-SOFT paging: a failed page is logged and we chase what we already
+    // have, instead of throwing away the pages that loaded fine.
     const items: any[] = [];
+    const pageErrors: string[] = [];
     for (let from = 0; from < cap; from += PAGE_SIZE) {
       const to = Math.min(from + PAGE_SIZE, cap) - 1;
-      const { data, error } = await buildQuery(from, to);
-      if (error) throw error;
-      items.push(...(data || []));
-      if (!data || data.length < to - from + 1) break;
+      try {
+        const { data, error } = await buildQuery(from, to);
+        if (error) {
+          pageErrors.push(`rows ${from}-${to}: ${error.message}`);
+          break;
+        }
+        items.push(...(data || []));
+        if (!data || data.length < to - from + 1) break;
+      } catch (e) {
+        pageErrors.push(`rows ${from}-${to}: ${e instanceof Error ? e.message : String(e)}`);
+        break;
+      }
+    }
+    if (pageErrors.length > 0) {
+      console.warn("[vendor-price-chase] partial item load:", pageErrors.join(" | "));
     }
 
     const summary = await chasePrices(supabase, locationId, items as any[], {
