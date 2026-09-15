@@ -265,10 +265,12 @@ Deno.serve(async (req) => {
     for (const tmpl of [...nonRecipeTemplates, ...recipeTemplates]) {
       // Check for existing item linked to this template
       if (existingByBrandItemId.has(tmpl.id)) {
-        // Already deployed — find existing item id and re-activate if needed
-        // GHOST FILTER: Prefer active items over inactive ghosts
+        // Already deployed — refresh identity only. Activation is the sweep's job.
+        // Prefer an active row when several exist, but fall back to an inactive one so
+        // Phase 1 never duplicates an item it deployed inactive on an earlier run.
         const candidates = (existingItems || []).filter((i: any) => i.brand_item_id === tmpl.id);
-        const existing = candidates.find((i: any) => i.is_active) || null;
+        const existing = candidates.find((i: any) => i.is_active) || candidates[0] || null;
+
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
           // Re-activate and sync name/category/pack to brand standard.
