@@ -42,6 +42,7 @@ import {
 } from "@/utils/inventoryCountCache";
 import { InventorySyncPill } from "@/components/inventory/InventorySyncPill";
 import { SandboxFlagButton } from "@/components/inventory/SandboxFlagButton";
+import { CountItemNotes } from "@/components/inventory/CountItemNotes";
 
 interface InventoryCountSessionProps {
   countId: string;
