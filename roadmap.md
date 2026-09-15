@@ -69,3 +69,10 @@
 - [x] Billing.tsx + check-subscription exclude by flag; `useLocation` selects the column
 - [x] `inventoryGate.ts` — `isInventoryEnabled` + `filterEnabledLocations` skip test stores; EXCLUDED_LOCATION_IDS kept as fallback (QA-LITE-01 added)
 - [ ] Later stage: `pfg-scheduled-price-sync` has no remaining caller — candidate for deletion
+
+## Sandbox clone + vendor price fallback — Sep 15 2026 (Stage 2)
+- [x] `clone_count_to_sandbox` matches the sandbox on `requires_super_admin = true` only (exact-name match broke after the `[TEST]` rename). Resolves to `40a872fb…` — the only row with the flag.
+- [x] Same name-free lookup in `CloneToSandboxButton.tsx` and `SandboxBanner.tsx`.
+- [x] `_shared/vendorPriceChase.ts` — `pa_orders` folded into `orderByNumber` (14-day window, item_code / master_product_code / pa_product_id / pa_item_id keys), so produce gets the orders tier plus correct hadActivity / ship_in_only / discontinued behaviour.
+- [x] `deploy-location-inventory` Tier 2 — `DEPLOY_PRICE_WINDOW_DAYS = 30`, date-bound, `.limit(50)` removed.
+- Part B (produce invoices via manual `vendor_invoices` upload) intentionally skipped.
