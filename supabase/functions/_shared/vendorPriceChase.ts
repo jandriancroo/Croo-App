@@ -7,7 +7,7 @@
 // Chain, per item, per location:
 //   1. Master list  — pfg_bid_items (PFG bid guide) / pa_catalog_items (PA catalog),
 //                     matched on ANY approved vendor number on the item's brand ID.
-//   2. Orders       — last N days of pfg_orders line items.
+//   2. Orders       — last N days of pfg_orders + pa_orders line items.
 //   3. Invoices     — last N days of pfg_invoices line items.
 //   4. Nothing      — stamp unpriced_since, and discontinued_at if it fell off a
 //                     master it used to be on AND had no recent activity.
@@ -166,9 +166,15 @@ export async function chasePrices(
   // ---- Stage B/C: recent order + invoice line items ------------------------
   const sinceIso = new Date(Date.now() - windowDays * 86_400_000).toISOString().slice(0, 10);
 
-  const [ordersRes, invoicesRes] = await Promise.all([
+  const [ordersRes, paOrdersRes, invoicesRes] = await Promise.all([
     supabase
       .from("pfg_orders")
+      .select("order_number, order_date, delivery_date, items")
+      .eq("location_id", locationId)
+      .gte("order_date", sinceIso)
+      .order("order_date", { ascending: false }),
+    supabase
+      .from("pa_orders")
       .select("order_number, order_date, delivery_date, items")
       .eq("location_id", locationId)
       .gte("order_date", sinceIso)
@@ -189,6 +195,26 @@ export async function chasePrices(
       const price = Number(li.price ?? li.netPrice);
       if (!n || !Number.isFinite(price) || price <= 0) continue;
       if (!orderByNumber.has(n)) {
+        orderByNumber.set(n, {
+          price,
+          source: "order",
+          ref: norm(o.order_number) || null,
+          date: (o.order_date ?? o.delivery_date) || null,
+        });
+      }
+    }
+  }
+  // Produce Alliance orders feed the SAME map, so hadActivity / ship_in_only /
+  // the discontinued guard treat produce exactly like PFG. PA line items carry
+  // several identifiers (item_code, master_product_code, pa_product_id) and any
+  // of them can be the number stored on the item — index all three.
+  for (const o of (paOrdersRes.data || []) as any[]) {
+    for (const li of Array.isArray(o.items) ? o.items : []) {
+      const price = Number(li.price ?? li.unit_price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      for (const key of [li.item_code, li.master_product_code, li.pa_product_id, li.pa_item_id]) {
+        const n = norm(key);
+        if (!n || orderByNumber.has(n)) continue;
         orderByNumber.set(n, {
           price,
           source: "order",

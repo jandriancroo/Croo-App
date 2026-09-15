@@ -181,7 +181,6 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
       const { data: sandbox } = await supabase
         .from("locations")
         .select("id")
-        .eq("name", "Sandbox")
         .eq("requires_super_admin", true)
         .maybeSingle();
       if (sandbox?.id) {
