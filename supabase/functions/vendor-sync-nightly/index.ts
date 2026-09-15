@@ -61,6 +61,9 @@ const STAGES = [
   //   catalog_parity  — a store missing a live brand template gets it deployed.
   { stage: "reactivation", vendor: "all", perLocation: true },
   { stage: "catalog_parity", vendor: "all", perLocation: true },
+  // Stage 7.5 (Sep 15 2026): FLAG-ONLY check that every active dish still has all
+  // of its ingredients switched on. Runs after parity so it sees what parity did.
+  { stage: "recipe_integrity", vendor: "all", perLocation: true },
   { stage: "gaps", vendor: "all", perLocation: false },
   { stage: "pack_configs", vendor: "all", perLocation: false },
   { stage: "report", vendor: "all", perLocation: false },
