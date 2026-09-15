@@ -32,6 +32,11 @@ export interface ChaseItem {
   unpriced_since: string | null;
   discontinued_at: string | null;
   ship_in_only: boolean | null;
+  /**
+   * Set when a person deliberately priced this item at zero. While set, the
+   * sync must NOT overwrite cost_per_unit — everything else still updates.
+   */
+  cost_zeroed_at?: string | null;
   last_seen_on_bid_list?: string | null;
   // Needed only by sweep mode (activateOnHit) to identify house-made items.
   vendor_source?: string | null;
@@ -55,6 +60,7 @@ export type SkipReason =
   | "no_brand_link"
   | "template_not_live"
   | "write_rejected"
+  | "cost_intentionally_zero"
   | "error";
 
 export interface ChaseSkip {
@@ -442,7 +448,14 @@ export async function chasePrices(
     }
 
     if (hit) {
-      patch.cost_per_unit = hit.price;
+      // Deliberate zero is a human decision — never silently overwrite it.
+      // Everything else about the item (order dates, discontinued, activation)
+      // still updates exactly as before.
+      if (item.cost_zeroed_at) {
+        skip(item, "cost_intentionally_zero");
+      } else {
+        patch.cost_per_unit = hit.price;
+      }
       patch.last_synced_at = nowIso;
       patch.unpriced_since = null;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : null;
@@ -497,5 +510,5 @@ export async function chasePrices(
 }
 
 export const CHASE_SELECT =
-  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list, vendor_source";
+  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, cost_zeroed_at, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list, vendor_source";
 

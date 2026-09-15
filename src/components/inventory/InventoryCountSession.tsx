@@ -42,6 +42,7 @@ import {
 } from "@/utils/inventoryCountCache";
 import { InventorySyncPill } from "@/components/inventory/InventorySyncPill";
 import { SandboxFlagButton } from "@/components/inventory/SandboxFlagButton";
+import { CountItemNotes } from "@/components/inventory/CountItemNotes";
 
 interface InventoryCountSessionProps {
   countId: string;
@@ -76,6 +77,12 @@ interface CountItem {
   recipe_yield_unit?: string | null;
   /** Per-shortcut counting mode: inherit uses global settings */
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
+  /** Stage D notes row inputs — read-only passthrough from inventory_items. */
+  discontinued_at?: string | null;
+  unpriced_since?: string | null;
+  last_ordered_at?: string | null;
+  cost_zeroed_at?: string | null;
+  is_active?: boolean | null;
 }
 
 // Count state: cases + pack tier + individual units (supports decimals for partial cases)
@@ -211,6 +218,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           countable,
           recipe_yield_unit,
           recipe_yield_qty,
+          is_active,
+          discontinued_at,
+          unpriced_since,
+          last_ordered_at,
+          cost_zeroed_at,
           storage_location:inventory_locations(name)
       `;
       
@@ -391,6 +403,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             recipe_yield_qty: (item as any).recipe_yield_qty ?? null,
             recipe_yield_unit: (item as any).recipe_yield_unit ?? null,
             count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
+            // Stage D: notes-row inputs (flag-only; never affect valuation).
+            is_active: (item as any).is_active ?? true,
+            discontinued_at: (item as any).discontinued_at ?? null,
+            unpriced_since: (item as any).unpriced_since ?? null,
+            last_ordered_at: (item as any).last_ordered_at ?? null,
+            cost_zeroed_at: (item as any).cost_zeroed_at ?? null,
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
             _existingUnits: countData?.entered_units ?? null,
@@ -2643,6 +2661,52 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     };
   }, [isMobile, isViewOnly, totalCost, countedItems, totalItems, isSaving, isListening, isSupported, isEditing, elapsedSeconds, lastSavedAt, setDockContent]);
 
+  // ─── Stage D: one-tap "mark inactive" from the discontinued note ───
+  // Flag-only elsewhere; this only ever runs on an explicit tap. The item stays
+  // in THIS session (the loader re-adds any item already in the count), so the
+  // row keeps counting and the total stays correct — it just won't appear next
+  // time. Undo restores the previous values.
+  const [markedInactiveIds, setMarkedInactiveIds] = useState<Set<string>>(new Set());
+  const [markingInactiveId, setMarkingInactiveId] = useState<string | null>(null);
+
+  const restoreItemActive = useCallback(async (itemId: string) => {
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ is_active: true, deactivated_by: null, deactivated_reason: null } as any)
+      .eq("id", itemId);
+    if (error) {
+      toast.error("Couldn't undo — try again");
+      return;
+    }
+    setMarkedInactiveIds((prev) => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+  }, []);
+
+  const handleMarkInactive = useCallback(async (itemId: string, itemName: string) => {
+    setMarkingInactiveId(itemId);
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({
+        is_active: false,
+        deactivated_by: "manager",
+        deactivated_reason: "discontinued",
+      } as any)
+      .eq("id", itemId);
+    setMarkingInactiveId(null);
+    if (error) {
+      toast.error("Couldn't mark inactive — try again");
+      return;
+    }
+    setMarkedInactiveIds((prev) => new Set(prev).add(itemId));
+    toast.success(`${itemName} — marked inactive.`, {
+      description: "It'll stay in this count and drop off after you close.",
+      action: { label: "Undo", onClick: () => { void restoreItemActive(itemId); } },
+    });
+  }, [restoreItemActive]);
+
   // Format currency
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -3028,14 +3092,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const hasPan = !!(item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length);
           const panKeys = item.pan_sizes?.enabled_keys ?? [];
 
+          // Stage D: does this item have a usable price of its own? Recipes are
+          // priced by their live batch cost, everything else by cost_per_unit.
+          // Both "never priced" (null) and "deliberately zero" (0) read as
+          // NO COST to the person counting; the difference only matters to the
+          // nightly price sync (cost_zeroed_at).
+          const ownUnitCost = item.is_recipe
+            ? Number(recipeCosts?.get(item.item_id) ?? item.cost_per_unit ?? 0)
+            : Number(item.cost_per_unit ?? 0);
+          const hasNoCost = !(ownUnitCost > 0);
+
           // Build item header subtitle text (plain string, comma-separated)
           const headerBits: string[] = [];
           if (item.pack_size) headerBits.push(item.pack_size);
           if (item.item_number) headerBits.push(`#${item.item_number}`);
-          if (item.is_recipe) {
-            const rc = recipeCosts?.get(item.item_id) || item.cost_per_unit || 0;
-            if (rc) headerBits.push(`${formatCurrency(rc)}/ea`);
-          } else if (item.cost_per_unit) {
+          if (hasNoCost) {
+            // Say it plainly instead of silently omitting the price bits.
+            headerBits.push('no price');
+          } else if (item.is_recipe) {
+            headerBits.push(`${formatCurrency(ownUnitCost)}/ea`);
+          } else {
             // Header subtitle pulls pack structure + unit from the unified
             // shape resolver (snapshot > lens > local) so it agrees with the
             // lane labels, valuation math, and save snapshot. Previously this
@@ -3043,7 +3119,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             // which is why approved-lens items rendered "/u" instead of the
             // lens common_unit (e.g. "/lb").
             const shape = getShape(item);
-            const caseCost = Number(item.cost_per_unit) || 0;
+            const caseCost = ownUnitCost;
             const packsPerCase = Number(shape.packQty) || 1;
             const unitsPerPack = Number(shape.innerPackQty ?? 0) || 0;
             const hasInner = unitsPerPack > 0;
@@ -3103,7 +3179,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   className="absolute top-0 right-0 text-white text-center leading-tight"
                   style={{ backgroundColor: '#e85d04', padding: '6px 11px', borderTopRightRadius: 'calc(0.5rem - 1px)', borderBottomLeftRadius: '0.5rem' }}
                 >
-                  <p className="text-[15px] sm:text-base font-semibold tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                  {/* Stage D: NO COST replaces the money figure whenever the
+                      item itself has no usable price (null or zero). Driven by
+                      the item's own cost only — nothing else gates it. */}
+                  {hasNoCost ? (
+                    <p className="text-[11px] sm:text-xs font-bold tracking-wide">NO COST</p>
+                  ) : (
+                    <p className="text-[15px] sm:text-base font-semibold tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                  )}
                   <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
                     {headerUnits} {headerUnitLabel}
                   </p>
@@ -3126,6 +3209,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   )}
                 </div>
               </div>
+
+              {/* Stage D: notes row — renders only when the item actually has a
+                  note. Discontinued first (with one-tap mark inactive), then
+                  unpriced, then last-ordered. */}
+              <CountItemNotes
+                discontinuedAt={item.discontinued_at ?? null}
+                unpricedSince={item.unpriced_since ?? null}
+                lastOrderedAt={item.last_ordered_at ?? null}
+                hasNoCost={hasNoCost}
+                canMarkInactive={!isViewOnly}
+                isInactive={markedInactiveIds.has(item.item_id) || item.is_active === false}
+                markingInactive={markingInactiveId === item.item_id}
+                onMarkInactive={() => { void handleMarkInactive(item.item_id, item.item_name); }}
+              />
+
+
 
 
 
