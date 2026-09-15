@@ -131,9 +131,11 @@ export async function chasePrices(
   const activateOnHit = opts.activateOnHit === true;
 
   const results: ChaseResult[] = [];
+  let activatedHouseMade = 0;
   if (items.length === 0) {
-    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, results };
+    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, activatedHouseMade: 0, results };
   }
+
 
   const approved = await loadApprovedNumbers(
     supabase,
