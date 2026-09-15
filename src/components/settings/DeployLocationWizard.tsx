@@ -191,7 +191,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setSkipVendorSetup(false);
       setDeployedLocationId(null);
       setDeployResult(null);
-      setSyncResult({ pfg: { status: 'pending' }, pa: { status: 'pending' } });
+      setSyncResult({ pfg: { status: 'pending' }, pa: { status: 'pending' }, activation: { status: 'pending' } });
       setSyncing(false);
     }
   }, [open]);
