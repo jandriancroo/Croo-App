@@ -367,8 +367,9 @@ export async function chasePrices(
       price_source_ref: hit ? hit.ref : null,
       price_source_date: hit ? hit.date : null,
     };
-    // Stamp the last time this item actually showed up on an order. Only ever
-    // moves forward — a shorter-window run must not erase a newer date.
+    // Stamp the last time this item actually showed up on an order. The hits
+    // map is newest-first, so this is always the latest order in the window;
+    // runs that find no order leave the existing value untouched.
     if (lastOrderDate) {
       patch.last_ordered_at = lastOrderDate;
     }
