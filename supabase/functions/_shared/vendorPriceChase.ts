@@ -363,9 +363,11 @@ export async function chasePrices(
     unpriced: results.filter((r) => r.unpriced).length,
     shipIns: results.filter((r) => r.shipInOnly).length,
     discontinued: results.filter((r) => r.discontinued).length,
+    activatedHouseMade,
     results,
   };
 }
 
 export const CHASE_SELECT =
-  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list";
+  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list, vendor_source";
+
