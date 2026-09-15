@@ -76,9 +76,13 @@ Deno.serve(async (req) => {
       .select("id, name, item_number, pa_item_id, brand_item_id, is_active, storage_location_id")
       .eq("location_id", locationId);
 
+    // Phase 1 deploys items INACTIVE (the activation sweep flips them on once a real
+    // price is found), so "already deployed" must NOT be gated on is_active — otherwise
+    // every re-deploy would create a duplicate row for every inactive item.
     const existingByBrandItemId = new Set(
-      (existingItems || []).filter((i: any) => i.brand_item_id && i.is_active).map((i: any) => i.brand_item_id)
+      (existingItems || []).filter((i: any) => i.brand_item_id).map((i: any) => i.brand_item_id)
     );
+
 
     // 3. Mirror storage locations from source location (default: Hemet)
     // Fetch source location's shelf layout
