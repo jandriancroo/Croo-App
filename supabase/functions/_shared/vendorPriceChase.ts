@@ -114,69 +114,35 @@ interface PriceHit {
   date: string | null;
 }
 
+/** Every vendor number that may legitimately price one item. */
+export function numbersForItem(
+  item: ChaseItem,
+  approved: Map<string, { pfg: Set<string>; pa: Set<string> }>,
+): { pfg: Set<string>; pa: Set<string> } {
+  const entry = item.brand_item_id ? approved.get(item.brand_item_id) : undefined;
+  const pfg = new Set<string>(entry?.pfg ?? []);
+  const pa = new Set<string>(entry?.pa ?? []);
+  if (norm(item.item_number)) pfg.add(norm(item.item_number));
+  if (norm(item.pa_item_id)) pa.add(norm(item.pa_item_id));
+  return { pfg, pa };
+}
+
+export interface ActivityHits {
+  orderByNumber: Map<string, PriceHit>;
+  invoiceByNumber: Map<string, PriceHit>;
+}
+
 /**
- * Chases prices for the given items at one location and writes the outcome back
- * to inventory_items. Returns a per-item summary for reporting.
+ * Recent order + invoice line items for one location, indexed by vendor number.
+ * Extracted so callers can ask "did this item actually get ordered lately?"
+ * WITHOUT running the whole master-list price chase (the nightly reactivation
+ * check needs exactly that question answered).
  */
-export async function chasePrices(
+export async function loadActivityHits(
   supabase: any,
   locationId: string,
-  items: ChaseItem[],
-  opts: { windowDays?: number; activateOnHit?: boolean } = {},
-): Promise<ChaseSummary> {
-  const windowDays = opts.windowDays ?? ACTIVITY_WINDOW_DAYS;
-  // OPT-IN ONLY (default false): the deploy activation sweep passes true so a real
-  // price hit also flips is_active on. Nightly maintenance never passes it, so the
-  // locked "never touches is_active" rule still holds for every existing caller.
-  const activateOnHit = opts.activateOnHit === true;
-
-  const results: ChaseResult[] = [];
-  let activatedHouseMade = 0;
-  if (items.length === 0) {
-    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, activatedHouseMade: 0, results };
-  }
-
-
-  const approved = await loadApprovedNumbers(
-    supabase,
-    items.map((i) => i.brand_item_id).filter(Boolean) as string[],
-  );
-
-  const numbersFor = (item: ChaseItem) => {
-    const entry = item.brand_item_id ? approved.get(item.brand_item_id) : undefined;
-    const pfg = new Set<string>(entry?.pfg ?? []);
-    const pa = new Set<string>(entry?.pa ?? []);
-    if (norm(item.item_number)) pfg.add(norm(item.item_number));
-    if (norm(item.pa_item_id)) pa.add(norm(item.pa_item_id));
-    return { pfg, pa };
-  };
-
-  // ---- Stage A: master lists for THIS location -----------------------------
-  const [bidRes, paRes] = await Promise.all([
-    supabase
-      .from("pfg_bid_items")
-      .select("item_number, unit_price, last_seen_at")
-      .eq("location_id", locationId),
-    supabase
-      .from("pa_catalog_items")
-      .select("pa_item_id, master_product_code, unit_price, last_seen_at")
-      .eq("location_id", locationId),
-  ]);
-
-  const bidByNumber = new Map<string, { price: number | null; seen: string | null }>();
-  for (const r of (bidRes.data || []) as any[]) {
-    const n = norm(r.item_number);
-    if (n) bidByNumber.set(n, { price: r.unit_price == null ? null : Number(r.unit_price), seen: r.last_seen_at });
-  }
-  const paByNumber = new Map<string, { price: number | null; seen: string | null }>();
-  for (const r of (paRes.data || []) as any[]) {
-    for (const key of [r.pa_item_id, r.master_product_code]) {
-      const n = norm(key);
-      if (n) paByNumber.set(n, { price: r.unit_price == null ? null : Number(r.unit_price), seen: r.last_seen_at });
-    }
-  }
-
-  // ---- Stage B/C: recent order + invoice line items ------------------------
+  windowDays: number = ACTIVITY_WINDOW_DAYS,
+): Promise<ActivityHits> {
   const sinceIso = new Date(Date.now() - windowDays * 86_400_000).toISOString().slice(0, 10);
 
   const [ordersRes, paOrdersRes, invoicesRes] = await Promise.all([
@@ -253,6 +219,72 @@ export async function chasePrices(
       }
     }
   }
+
+  return { orderByNumber, invoiceByNumber };
+}
+
+/**
+ * Chases prices for the given items at one location and writes the outcome back
+ * to inventory_items. Returns a per-item summary for reporting.
+ */
+export async function chasePrices(
+  supabase: any,
+  locationId: string,
+  items: ChaseItem[],
+  opts: { windowDays?: number; activateOnHit?: boolean } = {},
+): Promise<ChaseSummary> {
+  const windowDays = opts.windowDays ?? ACTIVITY_WINDOW_DAYS;
+  // OPT-IN ONLY (default false): the deploy activation sweep passes true so a real
+  // price hit also flips is_active on. Nightly maintenance never passes it, so the
+  // locked "never touches is_active" rule still holds for every existing caller.
+  const activateOnHit = opts.activateOnHit === true;
+
+  const results: ChaseResult[] = [];
+  let activatedHouseMade = 0;
+  if (items.length === 0) {
+    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, activatedHouseMade: 0, results };
+  }
+
+
+  const approved = await loadApprovedNumbers(
+    supabase,
+    items.map((i) => i.brand_item_id).filter(Boolean) as string[],
+  );
+
+  const numbersFor = (item: ChaseItem) => numbersForItem(item, approved);
+
+  // ---- Stage A: master lists for THIS location -----------------------------
+  const [bidRes, paRes] = await Promise.all([
+    supabase
+      .from("pfg_bid_items")
+      .select("item_number, unit_price, last_seen_at")
+      .eq("location_id", locationId),
+    supabase
+      .from("pa_catalog_items")
+      .select("pa_item_id, master_product_code, unit_price, last_seen_at")
+      .eq("location_id", locationId),
+  ]);
+
+  const bidByNumber = new Map<string, { price: number | null; seen: string | null }>();
+  for (const r of (bidRes.data || []) as any[]) {
+    const n = norm(r.item_number);
+    if (n) bidByNumber.set(n, { price: r.unit_price == null ? null : Number(r.unit_price), seen: r.last_seen_at });
+  }
+  const paByNumber = new Map<string, { price: number | null; seen: string | null }>();
+  for (const r of (paRes.data || []) as any[]) {
+    for (const key of [r.pa_item_id, r.master_product_code]) {
+      const n = norm(key);
+      if (n) paByNumber.set(n, { price: r.unit_price == null ? null : Number(r.unit_price), seen: r.last_seen_at });
+    }
+  }
+
+  // ---- Stage B/C: recent order + invoice line items ------------------------
+  const { orderByNumber, invoiceByNumber } = await loadActivityHits(
+    supabase,
+    locationId,
+    windowDays,
+  );
+
 
   const nowIso = new Date().toISOString();
   const masterEmpty = bidByNumber.size === 0 && paByNumber.size === 0;

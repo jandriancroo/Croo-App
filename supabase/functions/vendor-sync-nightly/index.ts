@@ -24,7 +24,14 @@
 //     for that vendor is done.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chasePrices, CHASE_SELECT, ACTIVITY_WINDOW_DAYS } from "../_shared/vendorPriceChase.ts";
+import {
+  chasePrices,
+  CHASE_SELECT,
+  ACTIVITY_WINDOW_DAYS,
+  loadApprovedNumbers,
+  loadActivityHits,
+  numbersForItem,
+} from "../_shared/vendorPriceChase.ts";
 import { filterEnabledLocations } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
@@ -36,6 +43,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+/** Safety valve: a single night never auto-deploys more than this per store. */
+const MAX_PARITY_DEPLOYS = 50;
+
 /** Ordered stages. Task type = `vendor_${stage}`. */
 const STAGES = [
   { stage: "pfg_masters", vendor: "pfg", perLocation: true },
@@ -43,6 +53,11 @@ const STAGES = [
   { stage: "pa_masters", vendor: "pa", perLocation: false },
   { stage: "pa_activity", vendor: "pa", perLocation: false },
   { stage: "price_fill", vendor: "all", perLocation: true },
+  // Stage 5 additions (Sep 15 2026):
+  //   reactivation    — an OFF item that just got ordered again comes back on.
+  //   catalog_parity  — a store missing a live brand template gets it deployed.
+  { stage: "reactivation", vendor: "all", perLocation: true },
+  { stage: "catalog_parity", vendor: "all", perLocation: true },
   { stage: "gaps", vendor: "all", perLocation: false },
   { stage: "pack_configs", vendor: "all", perLocation: false },
   { stage: "report", vendor: "all", perLocation: false },
@@ -167,14 +182,26 @@ async function handleStart(supabase: any, body: any) {
       .map((r: any) => r.location_id),
   )];
 
+  // Catalog parity is not a vendor question — every inventory-enabled store with a
+  // brand belongs in it, integration or not.
+  const { data: parityRows } = await supabase
+    .from("locations")
+    .select("id")
+    .eq("inventory_enabled", true)
+    .eq("is_test_location", false)
+    .not("brand_id", "is", null);
+  const parityLocs = [...new Set((parityRows || []).map((r: any) => r.id))];
+
   const tasks: { task_type: string; location_id: string | null; target_date: string }[] = [];
 
   for (const s of STAGES) {
     const locs = !s.perLocation
       ? [null]
-      : s.stage.startsWith("pfg_")
-        ? pfgLocs
-        : priceLocs;
+      : s.stage === "catalog_parity"
+        ? parityLocs
+        : s.stage.startsWith("pfg_")
+          ? pfgLocs
+          : priceLocs;
     for (const loc of locs) {
       await upsertRun(supabase, {
         run_date: runDate,
@@ -206,6 +233,7 @@ async function handleStart(supabase: any, body: any) {
     run_date: runDate,
     pfg_locations: pfgLocs.length,
     price_locations: priceLocs.length,
+    parity_locations: parityLocs.length,
     tasks_queued: tasks.length,
   });
 }
@@ -320,6 +348,128 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         shipIns: summary.shipIns,
         discontinued: summary.discontinued,
         unpricedNames: summary.results.filter((r) => r.unpriced).slice(0, 40).map((r) => r.name),
+      };
+      break;
+    }
+    case "reactivation": {
+      // "Did this OFF item just get ordered again?" — NOT a bid-guide sweep.
+      // Only items with a real order/invoice line in the last ACTIVITY_WINDOW_DAYS
+      // are handed to the chase, so a product merely sitting on the bid guide
+      // never resurrects itself.
+      const { data: offItems } = await supabase
+        .from("inventory_items")
+        .select(CHASE_SELECT)
+        .eq("location_id", locationId)
+        .eq("is_active", false);
+
+      const inactive = (offItems || []) as any[];
+      counters.items_seen = inactive.length;
+
+      if (inactive.length === 0) {
+        detail = { candidates: 0, reactivated: 0 };
+        break;
+      }
+
+      const [approved, activity] = await Promise.all([
+        loadApprovedNumbers(
+          supabase,
+          inactive.map((i) => i.brand_item_id).filter(Boolean) as string[],
+        ),
+        loadActivityHits(supabase, locationId!, ACTIVITY_WINDOW_DAYS),
+      ]);
+
+      const candidates = inactive.filter((item) => {
+        const { pfg, pa } = numbersForItem(item, approved);
+        return [...pfg, ...pa].some(
+          (n) => activity.orderByNumber.has(n) || activity.invoiceByNumber.has(n),
+        );
+      });
+
+      const summary = await chasePrices(supabase, locationId!, candidates as any[], {
+        activateOnHit: true,
+      });
+      counters.items_priced = summary.priced;
+      counters.items_unpriced = summary.unpriced;
+      detail = {
+        candidates: candidates.length,
+        reactivated: summary.priced,
+        names: summary.results.filter((r) => !r.unpriced).slice(0, 40).map((r) => r.name),
+      };
+      break;
+    }
+    case "catalog_parity": {
+      // ONE mechanism covers two failure modes — a broken brand auto-push trigger
+      // and a store that simply never got deployed against a newer template. Both
+      // look identical (store is missing a live brand template) and the fix is the
+      // same: deploy what's missing, then run the Phase 2 activation sweep on it.
+      const { data: loc } = await supabase
+        .from("locations")
+        .select("brand_id")
+        .eq("id", locationId)
+        .maybeSingle();
+      if (!loc?.brand_id) {
+        detail = { skipped: "no_brand" };
+        break;
+      }
+
+      const [tmplRes, itemRes] = await Promise.all([
+        supabase
+          .from("brand_inventory_templates")
+          .select("id, product_name")
+          .eq("brand_id", loc.brand_id)
+          .eq("status", "live"),
+        // Active AND inactive — an inactive row is deployed, just not priced yet.
+        supabase
+          .from("inventory_items")
+          .select("brand_item_id")
+          .eq("location_id", locationId)
+          .not("brand_item_id", "is", null),
+      ]);
+
+      const templates = (tmplRes.data || []) as any[];
+      const have = new Set((itemRes.data || []).map((r: any) => r.brand_item_id));
+      const missing = templates.filter((t) => !have.has(t.id));
+
+      counters.items_seen = templates.length;
+
+      const toDeploy = missing.slice(0, MAX_PARITY_DEPLOYS);
+      const deployedItemIds: string[] = [];
+      const failures: { template: string; error: string }[] = [];
+
+      for (const t of toDeploy) {
+        try {
+          const res = await callFn("deploy-location-inventory", {
+            locationId,
+            brandId: loc.brand_id,
+            templateId: t.id,
+          });
+          for (const id of res?.deployedItemIds || []) deployedItemIds.push(id);
+        } catch (e) {
+          failures.push({ template: t.product_name ?? t.id, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+
+      // Phase 2 on exactly what we just created — nothing else.
+      let priced = 0;
+      if (deployedItemIds.length > 0) {
+        const sweep = await callFn("vendor-price-chase", {
+          locationId,
+          itemIds: deployedItemIds,
+          activate: true,
+          includeInactive: true,
+        });
+        priced = sweep?.priced ?? 0;
+      }
+      counters.items_priced = priced;
+
+      detail = {
+        seen: templates.length,
+        missing: missing.length,
+        auto_deployed: deployedItemIds.length,
+        capped: missing.length > MAX_PARITY_DEPLOYS,
+        activated: priced,
+        missing_names: missing.slice(0, 40).map((t) => t.product_name ?? t.id),
+        failures,
       };
       break;
     }
