@@ -901,6 +901,48 @@ export type Database = {
           },
         ]
       }
+      brand_deploy_trigger_log: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          id: string
+          location_id: string | null
+          phase: string
+          request_id: number | null
+          resolved_at: string | null
+          response_body: string | null
+          status_code: number | null
+          template_id: string | null
+          url: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          phase: string
+          request_id?: number | null
+          resolved_at?: string | null
+          response_body?: string | null
+          status_code?: number | null
+          template_id?: string | null
+          url: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          phase?: string
+          request_id?: number | null
+          resolved_at?: string | null
+          response_body?: string | null
+          status_code?: number | null
+          template_id?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
       brand_event_categories: {
         Row: {
           brand_id: string
@@ -13530,6 +13572,7 @@ export type Database = {
           read_ct: number
         }[]
       }
+      reconcile_brand_deploy_log: { Args: never; Returns: number }
       refresh_all_pfg_tokens: { Args: never; Returns: undefined }
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
