@@ -113,8 +113,8 @@
 - [x] Stage 5 part 2: archive cascade consolidated — trg_cascade_archive_brand_template + trg_deactivate_items_on_template_archive already dropped; orphaned functions removed; canonical trigger stamps deactivated_by/reason
 
 ## Stage B — fail-soft sweep + broken-recipe scan (Sep 15)
-- [ ] Per-item guards in chasePrices (no_brand_link / template_not_live / write_rejected / error) + skips reported
-- [ ] Tolerant paging in vendor-price-chase
-- [ ] recipe_integrity_alerts table + recipe-integrity-scan function
-- [ ] Nightly stage recipe_integrity + call after deploy activation sweep
-- [ ] Health tab card: recipes missing ingredients (grouped by missing product)
+- [x] Per-item guards in chasePrices (no_brand_link / template_not_live / write_rejected / error) + skips reported
+- [x] Tolerant paging in vendor-price-chase
+- [x] recipe_integrity_alerts table + recipe-integrity-scan function (logic in _shared/recipeIntegrity.ts)
+- [x] Nightly stage recipe_integrity (per-location, after catalog_parity) + call after deploy activation sweep
+- [x] Health tab card: recipes missing ingredients (grouped by missing product, flag-only)
