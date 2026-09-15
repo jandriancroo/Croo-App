@@ -116,9 +116,14 @@ export async function chasePrices(
   supabase: any,
   locationId: string,
   items: ChaseItem[],
-  opts: { windowDays?: number } = {},
+  opts: { windowDays?: number; activateOnHit?: boolean } = {},
 ): Promise<ChaseSummary> {
   const windowDays = opts.windowDays ?? ACTIVITY_WINDOW_DAYS;
+  // OPT-IN ONLY (default false): the deploy activation sweep passes true so a real
+  // price hit also flips is_active on. Nightly maintenance never passes it, so the
+  // locked "never touches is_active" rule still holds for every existing caller.
+  const activateOnHit = opts.activateOnHit === true;
+
   const results: ChaseResult[] = [];
   if (items.length === 0) {
     return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, results };
