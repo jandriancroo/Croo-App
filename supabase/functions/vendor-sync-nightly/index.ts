@@ -16,6 +16,7 @@
 //   Stage 6  reactivation     off item ordered again in 14 days → reactivate + price
 //   Stage 7  catalog_parity   store missing a live brand template → deploy it,
 //                             then Phase-2 activation sweep on what it created
+//   Stage 7.5 recipe_integrity  active dish with a switched-off ingredient → flag
 //   Stage 8  gaps             unseen vendor numbers → vendor_gap_alerts (ONCE)
 //   Stage 9  pack_configs     only when this run produced NEW gaps
 //   Stage 10 report           unpriced / discontinued / ship-in counts
@@ -36,6 +37,7 @@ import {
   numbersForItem,
 } from "../_shared/vendorPriceChase.ts";
 import { filterEnabledLocations } from "../_shared/inventoryGate.ts";
+import { scanLocation } from "../_shared/recipeIntegrity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -354,6 +356,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         shipIns: summary.shipIns,
         discontinued: summary.discontinued,
         unpricedNames: summary.results.filter((r) => r.unpriced).slice(0, 40).map((r) => r.name),
+        skipped: summary.skipped,
+        skips: summary.skips.slice(0, 40),
       };
       break;
     }
@@ -400,6 +404,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         candidates: candidates.length,
         reactivated: summary.priced,
         names: summary.results.filter((r) => !r.unpriced).slice(0, 40).map((r) => r.name),
+        skipped: summary.skipped,
+        skips: summary.skips.slice(0, 40),
       };
       break;
     }
@@ -465,6 +471,7 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
           includeInactive: true,
         });
         priced = sweep?.priced ?? 0;
+        if (sweep?.skipped) detail = { ...detail, sweep_skipped: sweep.skipped, sweep_skips: (sweep.skips || []).slice(0, 40) };
       }
       counters.items_priced = priced;
 
