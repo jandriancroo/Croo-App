@@ -510,5 +510,5 @@ export async function chasePrices(
 }
 
 export const CHASE_SELECT =
-  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list, vendor_source";
+  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, cost_zeroed_at, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list, vendor_source";
 
