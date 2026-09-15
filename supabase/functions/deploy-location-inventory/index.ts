@@ -413,10 +413,9 @@ Deno.serve(async (req) => {
     // invoked as the Phase 2 activation sweep after this function returns.
 
     // 6. Deploy recipe ingredients
-    // IDEMPOTENT: We delete existing ingredients first so this step can safely re-run
-    // after vendor syncs populate item_number / pa_item_id (the second-pass deploy that
-    // the LocationActivationList orchestrates). Without this, repeated deploys would
-    // multiply ingredient rows.
+    // IDEMPOTENT: existing ingredients are deleted first, so this step is safe to re-run.
+    // Matching uses item_number / pa_item_id, which are stamped at INSERT from
+    // brand_vendor_mappings — no vendor call is needed for this to resolve.
     for (const tmpl of recipeTemplates) {
       const recipeItemId = templateToItemId.get(tmpl.id);
       if (!recipeItemId) continue;
@@ -424,12 +423,14 @@ Deno.serve(async (req) => {
       const ingredients = (tmpl.recipe_ingredients as any[]) || [];
       if (ingredients.length === 0) continue;
 
-      // Fetch all items at location for ingredient matching
+      // Fetch all items at location for ingredient matching.
+      // NOT filtered on is_active: Phase 1 deploys items inactive, so an active-only
+      // filter here would fail to resolve every ingredient on a fresh deploy.
       const { data: allItems } = await supabase
         .from("inventory_items")
         .select("id, name, item_number, pa_item_id")
-        .eq("location_id", locationId)
-        .eq("is_active", true);
+        .eq("location_id", locationId);
+
 
       const ingredientInserts: any[] = [];
       for (const ing of ingredients) {
