@@ -457,7 +457,6 @@ export async function chasePrices(
         patch.cost_per_unit = hit.price;
       }
       patch.last_synced_at = nowIso;
-      patch.unpriced_since = null;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : null;
       // Sweep mode only: a real price is proof the item is carried → turn it on.
       // Sweep mode only: switch on ONLY when this item is allowed to be. A
@@ -468,11 +467,22 @@ export async function chasePrices(
         else patch.is_active = true;
       }
     } else {
-      // Keep the first night we noticed, so the age tag is honest.
-
-      patch.unpriced_since = item.unpriced_since ?? nowIso;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : item.discontinued_at ?? null;
     }
+
+    // TAGGING (no price writes): "unpriced" must describe the item's actual
+    // cost, not whether THIS run found a fresh source. An item that already
+    // carries a real cost is priced — clear the tag. An item with no cost, or
+    // zero, is unpriced — tag it, keeping the first date we noticed so the age
+    // stays honest.
+    const effectiveCost =
+      patch.cost_per_unit !== undefined
+        ? (patch.cost_per_unit as number | null)
+        : item.cost_per_unit;
+    patch.unpriced_since =
+      effectiveCost != null && Number(effectiveCost) > 0
+        ? null
+        : (item.unpriced_since ?? nowIso);
 
     const { error: writeErr } = await supabase
       .from("inventory_items")
