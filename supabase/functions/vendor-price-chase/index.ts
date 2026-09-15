@@ -41,6 +41,11 @@ Deno.serve(async (req) => {
     const locationId: string | null = body?.locationId ?? null;
     const itemIds: string[] = Array.isArray(body?.itemIds) ? body.itemIds.map(String) : [];
     const refreshMasters: boolean = body?.refreshMasters === true;
+    // PHASE 2 ACTIVATION SWEEP (deploy only): price every deployed item, active or not,
+    // and switch on the ones that came back with a real price.
+    const activate: boolean = body?.activate === true;
+    const includeInactive: boolean = body?.includeInactive === true || activate;
+
 
     if (!locationId) {
       return new Response(JSON.stringify({ error: "locationId is required" }), {
