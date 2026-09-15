@@ -346,7 +346,11 @@ export async function chasePrices(
   const nowIso = new Date().toISOString();
   const masterEmpty = bidByNumber.size === 0 && paByNumber.size === 0;
 
+  // FAIL-SOFT: every item is processed inside its own guard. Whatever one item
+  // throws — a rejected write, a network blip, bad data — is recorded as a skip
+  // and the rest of the batch keeps going. One item can never abort a sweep.
   for (const item of items) {
+   try {
     const { pfg, pa } = numbersFor(item);
 
     // No vendor number anywhere (house-made prep, sub-recipes, internal items).
@@ -355,7 +359,13 @@ export async function chasePrices(
       // Sweep mode: a house-made item (no vendor number AND no vendor source) will
       // never get a price hit, so leaving it inactive would hide it forever. Turn it on.
       if (activateOnHit && !item.vendor_source) {
-        await supabase.from("inventory_items").update({ is_active: true }).eq("id", item.id);
+        const block = activationBlock(item);
+        if (block) { skip(item, block); continue; }
+        const { error } = await supabase
+          .from("inventory_items")
+          .update({ is_active: true })
+          .eq("id", item.id);
+        if (error) { skip(item, "write_rejected", error.message); continue; }
         activatedHouseMade++;
       }
       continue;
