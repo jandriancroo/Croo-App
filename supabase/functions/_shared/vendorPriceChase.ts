@@ -262,7 +262,16 @@ export async function chasePrices(
 
     // No vendor number anywhere (house-made prep, sub-recipes, internal items).
     // Nothing to chase and nothing to tag — a vendor price was never expected.
-    if (pfg.size === 0 && pa.size === 0) continue;
+    if (pfg.size === 0 && pa.size === 0) {
+      // Sweep mode: a house-made item (no vendor number AND no vendor source) will
+      // never get a price hit, so leaving it inactive would hide it forever. Turn it on.
+      if (activateOnHit && !item.vendor_source) {
+        await supabase.from("inventory_items").update({ is_active: true }).eq("id", item.id);
+        activatedHouseMade++;
+      }
+      continue;
+    }
+
 
 
     let hit: PriceHit | null = null;
