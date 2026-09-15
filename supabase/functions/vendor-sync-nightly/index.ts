@@ -463,6 +463,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
 
       // Phase 2 on exactly what we just created — nothing else.
       let priced = 0;
+      let sweepSkipped = 0;
+      let sweepSkips: unknown[] = [];
       if (deployedItemIds.length > 0) {
         const sweep = await callFn("vendor-price-chase", {
           locationId,
@@ -471,7 +473,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
           includeInactive: true,
         });
         priced = sweep?.priced ?? 0;
-        if (sweep?.skipped) detail = { ...detail, sweep_skipped: sweep.skipped, sweep_skips: (sweep.skips || []).slice(0, 40) };
+        sweepSkipped = sweep?.skipped ?? 0;
+        sweepSkips = (sweep?.skips || []).slice(0, 40);
       }
       counters.items_priced = priced;
 
@@ -483,6 +486,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         activated: priced,
         missing_names: missing.slice(0, 40).map((t) => t.product_name ?? t.id),
         failures,
+        sweep_skipped: sweepSkipped,
+        sweep_skips: sweepSkips,
       };
       break;
     }
