@@ -189,13 +189,83 @@ serve(async (req) => {
       status: "parsed",
     }).eq("id", invoiceId);
 
+    // ── Vendor registry link ────────────────────────────────────────────────
+    // The AI-read vendor name is free text. Normalize it and compare against
+    // vendor_registry (keys, display names, confirmed aliases) with pg_trgm.
+    // An exact normalized/alias hit links silently; ANYTHING else — including a
+    // 0.95 near-match — is queued for a human tap. Never auto-create, never
+    // auto-link on similarity alone.
+    let vendorRegistryId: string | null = null;
+    let vendorCandidateId: string | null = null;
+    let vendorSuggestion: { key: string; display_name: string; score: number } | null = null;
+    const rawVendorName = String(parsed.vendor_name || invoice.vendor_name || "").trim();
 
-    // Fetch location items
-    const { data: locationItems } = await admin
+    if (rawVendorName && rawVendorName.toLowerCase() !== "unknown") {
+      try {
+        const { data: matchData } = await admin.rpc("match_vendor_name", { _name: rawVendorName });
+        const best: any = Array.isArray(matchData) ? matchData[0] ?? null : matchData ?? null;
+
+        if (best?.exact === true) {
+          vendorRegistryId = best.vendor_id;
+        } else {
+          if (best) {
+            vendorSuggestion = {
+              key: best.vendor_key,
+              display_name: best.display_name,
+              score: Number(best.score ?? 0),
+            };
+          }
+          const { data: normData } = await admin.rpc("normalize_vendor_name", { _name: rawVendorName });
+          const normalized = String(normData ?? "").trim();
+
+          if (normalized) {
+            const { data: existingCand } = await admin
+              .from("vendor_name_candidates")
+              .select("id")
+              .eq("normalized_name", normalized)
+              .eq("status", "pending")
+              .maybeSingle();
+
+            if (existingCand?.id) {
+              vendorCandidateId = existingCand.id;
+            } else {
+              const { data: cand, error: candErr } = await admin
+                .from("vendor_name_candidates")
+                .insert({
+                  raw_name: rawVendorName,
+                  normalized_name: normalized,
+                  suggested_vendor_id: best?.vendor_id ?? null,
+                  similarity_score: best?.score ?? null,
+                  invoice_id: invoiceId,
+                  location_id: invoice.location_id,
+                  brand_id: brandId,
+                  status: "pending",
+                })
+                .select("id")
+                .single();
+              if (candErr) console.warn("vendor candidate insert skipped:", candErr.message);
+              else vendorCandidateId = cand?.id ?? null;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("vendor name matching skipped:", e instanceof Error ? e.message : String(e));
+      }
+    }
+
+
+
+
+    // Fetch location items.
+    // NOTE: inventory_items has NO `status` column — it uses the boolean
+    // `is_active`, like the rest of the app. The old `.eq("status","active")`
+    // filter made this select fail, so no invoice line ever matched a local item.
+    const { data: locationItems, error: locItemsErr } = await admin
       .from("inventory_items")
-      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit")
+      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit, is_active")
       .eq("location_id", invoice.location_id)
-      .eq("status", "active");
+      .eq("is_active", true);
+    if (locItemsErr) console.error("Error loading location items:", locItemsErr);
 
     // Get existing brand templates AND vendor mappings for dedup
     let existingTemplates: any[] = [];
@@ -246,7 +316,12 @@ serve(async (req) => {
 
     const insertItems: any[] = [];
     const newGapAlerts: any[] = [];
-    const priceUpdates: { id: string; cost: number; pack_size?: string | null }[] = [];
+    // Matched items are NOT priced here. Pricing goes through the one shared
+    // chain (vendor-price-chase → chasePrices) so an invoice match behaves
+    // exactly like a PFG/PA sync match. We only collect which items matched,
+    // plus invoice-observed pack metadata (not a price).
+    const matchedItemIds = new Set<string>();
+    const packUpdates: { id: string; pack_size: string }[] = [];
 
     for (const li of parsed.line_items || []) {
       const vendorItemNumber = firstNonEmpty(li.item_number, (li as any).dist_item_number, (li as any).distributor_item_number, (li as any).item_code);
@@ -306,11 +381,9 @@ serve(async (req) => {
       };
 
       if (match && li.unit_price && li.unit_price > 0) {
-        priceUpdates.push({
-          id: match.id,
-          cost: li.unit_price,
-          pack_size: (li as any).pack_size || li.unit || null,
-        });
+        matchedItemIds.add(match.id);
+        const packSize = (li as any).pack_size || li.unit || null;
+        if (packSize) packUpdates.push({ id: match.id, pack_size: String(packSize) });
       }
 
       if (!match && !matchedTemplateId && brandId && li.product_name) {
@@ -340,14 +413,39 @@ serve(async (req) => {
       if (itemsErr) console.error("Error inserting invoice items:", itemsErr);
     }
 
-    // Update matched item costs and pack metadata
-    for (const update of priceUpdates) {
-      const updateData: Record<string, any> = { cost_per_unit: update.cost };
-      if (update.pack_size) updateData.pack_size = update.pack_size;
+    // Pack metadata only — invoice-observed shape, never a price.
+    for (const update of packUpdates) {
       await admin
         .from("inventory_items")
-        .update(updateData)
+        .update({ pack_size: update.pack_size })
         .eq("id", update.id);
+    }
+
+    // Pricing + activation for matched items goes through the shared chain.
+    // A confirmed invoice match now prices and switches an item on the same way
+    // a PFG/PA sync match does (same window rules, same unpriced_since /
+    // last_ordered_at stamping, same activation rule).
+    let priceSweep: any = null;
+    if (matchedItemIds.size > 0) {
+      try {
+        const sweepResp = await fetch(`${supabaseUrl}/functions/v1/vendor-price-chase`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            locationId: invoice.location_id,
+            itemIds: [...matchedItemIds],
+            activate: true,
+            includeInactive: true,
+          }),
+        });
+        priceSweep = await sweepResp.json().catch(() => null);
+        if (!sweepResp.ok) console.error("price chase failed:", sweepResp.status, priceSweep);
+      } catch (e) {
+        console.error("price chase invoke failed:", e instanceof Error ? e.message : String(e));
+      }
     }
 
     // Write unmatched items to vendor_gap_alerts for unified brand review
@@ -373,7 +471,13 @@ serve(async (req) => {
       matched: matchedCount,
       unmatched: unmatchedCount,
       new_gap_alerts: newGapAlerts.length,
-      price_updates: priceUpdates.length,
+      matched_items_sent_to_pricing: matchedItemIds.size,
+      priced: priceSweep?.priced ?? 0,
+      still_unpriced: priceSweep?.still_unpriced ?? 0,
+      vendor_registry_id: vendorRegistryId,
+      vendor_needs_confirmation: !!vendorCandidateId,
+      vendor_candidate_id: vendorCandidateId,
+      vendor_suggestion: vendorSuggestion,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

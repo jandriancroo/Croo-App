@@ -33,7 +33,11 @@ interface ParseResult {
   matched: number;
   unmatched: number;
   new_gap_alerts: number;
-  price_updates: number;
+  matched_items_sent_to_pricing?: number;
+  priced?: number;
+  still_unpriced?: number;
+  vendor_needs_confirmation?: boolean;
+  vendor_suggestion?: { key: string; display_name: string; score: number } | null;
 }
 
 interface PreviewLine {
@@ -334,6 +338,26 @@ export default function InvoiceUploadDialog({
                 </span>
               </div>
             )}
+
+            {result.vendor_needs_confirmation && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-sky-500/10 text-xs">
+                <Package className="h-4 w-4 text-sky-600 shrink-0" />
+                <span className="text-sky-700 dark:text-sky-400">
+                  Vendor "{result.vendor_name}" needs confirming in Vendors to confirm
+                  {result.vendor_suggestion ? ` — closest match: ${result.vendor_suggestion.display_name}` : ''}
+                </span>
+              </div>
+            )}
+
+            {(result.priced ?? 0) > 0 && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 text-xs">
+                <Package className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span className="text-emerald-700 dark:text-emerald-400">
+                  {result.priced} item{(result.priced ?? 0) > 1 ? "s" : ""} priced and switched on
+                </span>
+              </div>
+            )}
+
 
             <div className="flex gap-2">
               <Button
