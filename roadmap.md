@@ -86,3 +86,12 @@
 - [x] LocationActivationList: deploy → vendor syncs → activation sweep (second deploy pass removed).
 - [x] DeployLocationWizard: new "Pricing & activation" step after runInitialSync; Lite skips it.
 - [x] auto_deploy_brand_template: adds a second net.http_post to vendor-price-chase per location.
+
+## Stage 3 — Deploy split into Phase 1 (structure) + Phase 2 (activation sweep)
+- [x] Deploy creates items inactive; never reactivates existing items
+- [x] Removed deploy's direct PFG pricing block and fire-and-forget sync trigger
+- [x] chasePrices() gained activateOnHit option (default off — nightly unaffected)
+- [x] House-made rule: no vendor identifier AND no vendor_source → activate in sweep mode
+- [x] vendor-price-chase gained activate/includeInactive sweep mode (30-day window)
+- [x] All three entry points updated: wizard, activation list (2nd deploy pass removed), DB trigger
+- [x] Typecheck passed; deploy-location-inventory, vendor-price-chase, vendor-sync-nightly redeployed
