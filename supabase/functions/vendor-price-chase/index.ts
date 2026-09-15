@@ -81,35 +81,55 @@ Deno.serve(async (req) => {
       }
     }
 
-    let query = supabase
-      .from("inventory_items")
-      .select(CHASE_SELECT)
-      .eq("location_id", locationId)
-      .eq("is_active", true)
-      .limit(MAX_ITEMS);
+    const cap = activate || includeInactive ? MAX_ITEMS_SWEEP : MAX_ITEMS;
 
-    if (itemIds.length > 0) {
-      query = query.in("id", itemIds.slice(0, MAX_ITEMS));
-    } else {
-      // Default: only the unpriced ones — that's the whole point of the button.
-      query = query.or("unpriced_since.not.is.null,cost_per_unit.is.null");
+    const buildQuery = (from: number, to: number) => {
+      let q = supabase
+        .from("inventory_items")
+        .select(CHASE_SELECT)
+        .eq("location_id", locationId)
+        .order("id", { ascending: true })
+        .range(from, to);
+
+      // Sweep mode must see the inactive items Phase 1 just deployed.
+      if (!includeInactive) q = q.eq("is_active", true);
+
+      if (itemIds.length > 0) {
+        q = q.in("id", itemIds.slice(0, cap));
+      } else if (!activate) {
+        // Default: only the unpriced ones — that's the whole point of the button.
+        // Sweep mode intentionally skips this filter: it prices the whole deploy.
+        q = q.or("unpriced_since.not.is.null,cost_per_unit.is.null");
+      }
+      return q;
+    };
+
+    const items: any[] = [];
+    for (let from = 0; from < cap; from += PAGE_SIZE) {
+      const to = Math.min(from + PAGE_SIZE, cap) - 1;
+      const { data, error } = await buildQuery(from, to);
+      if (error) throw error;
+      items.push(...(data || []));
+      if (!data || data.length < to - from + 1) break;
     }
 
-    const { data: items, error } = await query;
-    if (error) throw error;
-
-    const summary = await chasePrices(supabase, locationId, (items || []) as any[]);
+    const summary = await chasePrices(supabase, locationId, items as any[], {
+      ...(activate ? { activateOnHit: true, windowDays: SWEEP_WINDOW_DAYS } : {}),
+    });
 
     return new Response(
       JSON.stringify({
         location_id: locationId,
-        chased: (items || []).length,
+        mode: activate ? "activation_sweep" : "targeted_chase",
+        chased: items.length,
         priced: summary.priced,
         still_unpriced: summary.unpriced,
         ship_ins: summary.shipIns,
         discontinued: summary.discontinued,
+        activated_house_made: summary.activatedHouseMade,
         results: summary.results,
       }),
+
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
