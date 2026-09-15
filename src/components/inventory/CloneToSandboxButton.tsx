@@ -34,11 +34,11 @@ export function CloneToSandboxButton({
     onMutate: () => setLoading(true),
     onSettled: () => setLoading(false),
     onSuccess: async (newCountId) => {
-      // Look up sandbox location id so we can navigate
+      // Look up sandbox location id so we can navigate. Matched on the
+      // super-admin flag only — the store name is not a stable key.
       const { data: sandbox } = await supabase
         .from("locations")
         .select("id")
-        .eq("name", "Sandbox")
         .eq("requires_super_admin", true)
         .maybeSingle();
       if (!sandbox) {

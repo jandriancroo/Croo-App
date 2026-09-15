@@ -474,15 +474,24 @@ Deno.serve(async (req) => {
           }
 
           // ─── Tier 2: Local PFG order history (fallback for off-bid SKUs) ──────
+          // Date-bound, not row-capped: a busy store gets its whole window, a
+          // quiet store never reaches back months. Wider than the nightly chain's
+          // ACTIVITY_WINDOW_DAYS (14) because this is a one-time initial sweep —
+          // a brand-new store needs a complete starting picture, not a refresh.
+          const DEPLOY_PRICE_WINDOW_DAYS = 30;
           const stillNeed = needPrice.filter((i: any) => !priceBySku.has(i.item_number));
           if (stillNeed.length > 0) {
+            const sinceIso = new Date(Date.now() - DEPLOY_PRICE_WINDOW_DAYS * 86_400_000)
+              .toISOString()
+              .slice(0, 10);
             const { data: orders, error: ordErr } = await supabase
               .from("pfg_orders")
               .select("items, order_date")
               .eq("location_id", locationId)
               .not("items", "is", null)
-              .order("order_date", { ascending: false })
-              .limit(50);
+              .gte("order_date", sinceIso)
+              .order("order_date", { ascending: false });
+
 
             if (ordErr) {
               console.warn("[Deploy] PFG orders fetch failed:", ordErr);
