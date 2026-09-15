@@ -79,10 +79,15 @@ interface DeployLocationWizardProps {
   onSuccess: () => void;
 }
 
+type SyncStepStatus = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
+
 interface SyncResult {
-  pfg: { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
-  pa: { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
+  pfg: SyncStepStatus;
+  pa: SyncStepStatus;
+  /** Phase 2: prices deployed items and switches on the ones with a real price. */
+  activation: SyncStepStatus;
 }
+
 
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: MapPin },
