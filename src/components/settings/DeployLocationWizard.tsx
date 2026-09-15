@@ -277,8 +277,33 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setSyncResult(prev => ({ ...prev, pa: { status: 'skipped', message: 'Not configured' } }));
     }
 
+    // PHASE 2: activation sweep. Runs AFTER the vendor lists are refreshed, so the
+    // shared price chain has today's data to read. Items with a real price go live;
+    // house-made items (no vendor number, no vendor source) go live too; the rest
+    // stay off until the nightly run finds a price.
+    setSyncResult(prev => ({ ...prev, activation: { status: 'running' } }));
+    try {
+      const { data, error } = await supabase.functions.invoke('vendor-price-chase', {
+        body: { locationId, activate: true, includeInactive: true },
+      });
+      if (error) throw error;
+      setSyncResult(prev => ({
+        ...prev,
+        activation: {
+          status: 'done',
+          message: `${data?.priced || 0} items live, ${data?.still_unpriced || 0} waiting on a vendor price`,
+        },
+      }));
+    } catch (err: any) {
+      setSyncResult(prev => ({
+        ...prev,
+        activation: { status: 'error', message: err.message || 'Activation sweep failed' },
+      }));
+    }
+
     setSyncing(false);
   }, []);
+
 
   const handleDeploy = async () => {
     setDeploying(true);
