@@ -257,16 +257,56 @@ export async function chasePrices(
   const activateOnHit = opts.activateOnHit === true;
 
   const results: ChaseResult[] = [];
+  const skips: ChaseSkip[] = [];
   let activatedHouseMade = 0;
+  const skip = (item: ChaseItem, reason: SkipReason, detail?: unknown) => {
+    const msg = detail == null
+      ? null
+      : detail instanceof Error ? detail.message : String(detail);
+    console.warn(`[chasePrices] skipped ${item.id} (${item.name}) — ${reason}${msg ? `: ${msg}` : ""}`);
+    skips.push({ itemId: item.id, name: item.name, reason, detail: msg });
+  };
+
   if (items.length === 0) {
-    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, activatedHouseMade: 0, results };
+    return {
+      priced: 0, unpriced: 0, shipIns: 0, discontinued: 0,
+      activatedHouseMade: 0, skipped: 0, skips, results,
+    };
   }
 
 
-  const approved = await loadApprovedNumbers(
-    supabase,
-    items.map((i) => i.brand_item_id).filter(Boolean) as string[],
-  );
+  const brandIds = items.map((i) => i.brand_item_id).filter(Boolean) as string[];
+  const approved = await loadApprovedNumbers(supabase, brandIds);
+
+  // Sweep mode only: an item may not be switched back on against a template that
+  // is no longer live. One batched lookup, then a per-item check.
+  const liveTemplates = new Set<string>();
+  if (activateOnHit && brandIds.length > 0) {
+    const unique = [...new Set(brandIds)];
+    const CHUNK = 200;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const { data, error } = await supabase
+        .from("brand_inventory_templates")
+        .select("id, status")
+        .in("id", unique.slice(i, i + CHUNK))
+        .eq("status", "live");
+      if (error) {
+        // Can't read status → don't guess. Treat this chunk as unknown; the
+        // per-item guard below will pass those items over with a reason.
+        console.warn("[chasePrices] template status lookup failed:", error.message);
+        continue;
+      }
+      for (const r of (data || []) as any[]) liveTemplates.add(r.id);
+    }
+  }
+
+  /** True when this item may be switched on. Returns a reason when it may not. */
+  const activationBlock = (item: ChaseItem): SkipReason | null => {
+    if (!activateOnHit) return null;
+    if (!item.brand_item_id) return "no_brand_link";
+    if (!liveTemplates.has(item.brand_item_id)) return "template_not_live";
+    return null;
+  };
 
   const numbersFor = (item: ChaseItem) => numbersForItem(item, approved);
 
