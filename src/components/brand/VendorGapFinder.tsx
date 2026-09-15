@@ -24,6 +24,7 @@ import {
   Loader2, Filter, EyeOff, RotateCcw, Link2, ChevronDown, MapPin, X, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PendingVendorsCard from '@/components/brand/PendingVendorsCard';
 
 interface VendorGapFinderProps {
   brandId: string;
@@ -652,6 +653,9 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
   return (
     <div className="space-y-4">
+      {/* Invoice vendor names awaiting a human tap */}
+      <PendingVendorsCard />
+
       {/* Scan Control */}
       <Card>
         <CardContent className="p-4">

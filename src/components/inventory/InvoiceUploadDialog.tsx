@@ -33,7 +33,11 @@ interface ParseResult {
   matched: number;
   unmatched: number;
   new_gap_alerts: number;
-  price_updates: number;
+  matched_items_sent_to_pricing?: number;
+  priced?: number;
+  still_unpriced?: number;
+  vendor_needs_confirmation?: boolean;
+  vendor_suggestion?: { key: string; display_name: string; score: number } | null;
 }
 
 interface PreviewLine {
