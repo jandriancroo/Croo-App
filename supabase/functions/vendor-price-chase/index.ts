@@ -16,6 +16,14 @@ const corsHeaders = {
 };
 
 const MAX_ITEMS = 300;
+// Sweep mode covers a whole freshly-deployed catalog, which is far bigger than the
+// handful the "N unpriced" button ever touches.
+const MAX_ITEMS_SWEEP = 5000;
+const PAGE_SIZE = 1000;
+// Deploy-time window, wider than the nightly 14 days: a brand-new store needs a
+// complete starting picture, not an incremental refresh.
+const SWEEP_WINDOW_DAYS = 30;
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
