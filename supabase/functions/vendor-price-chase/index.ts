@@ -104,18 +104,54 @@ Deno.serve(async (req) => {
       return q;
     };
 
+    // FAIL-SOFT paging: a failed page is logged and we chase what we already
+    // have, instead of throwing away the pages that loaded fine.
     const items: any[] = [];
+    const pageErrors: string[] = [];
     for (let from = 0; from < cap; from += PAGE_SIZE) {
       const to = Math.min(from + PAGE_SIZE, cap) - 1;
-      const { data, error } = await buildQuery(from, to);
-      if (error) throw error;
-      items.push(...(data || []));
-      if (!data || data.length < to - from + 1) break;
+      try {
+        const { data, error } = await buildQuery(from, to);
+        if (error) {
+          pageErrors.push(`rows ${from}-${to}: ${error.message}`);
+          break;
+        }
+        items.push(...(data || []));
+        if (!data || data.length < to - from + 1) break;
+      } catch (e) {
+        pageErrors.push(`rows ${from}-${to}: ${e instanceof Error ? e.message : String(e)}`);
+        break;
+      }
+    }
+    if (pageErrors.length > 0) {
+      console.warn("[vendor-price-chase] partial item load:", pageErrors.join(" | "));
     }
 
     const summary = await chasePrices(supabase, locationId, items as any[], {
       ...(activate ? { activateOnHit: true, windowDays: SWEEP_WINDOW_DAYS } : {}),
     });
+
+    // After an activation sweep, re-check every recipe at this store: a dish that
+    // just came on with an ingredient still off needs flagging (flag only).
+    let recipeIntegrity: unknown = null;
+    if (activate) {
+      try {
+        const res = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/recipe-integrity-scan`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({ locationId }),
+          },
+        );
+        recipeIntegrity = await res.json().catch(() => null);
+      } catch (e) {
+        console.warn("[vendor-price-chase] recipe integrity scan failed:", e);
+      }
+    }
 
     return new Response(
       JSON.stringify({
@@ -127,8 +163,13 @@ Deno.serve(async (req) => {
         ship_ins: summary.shipIns,
         discontinued: summary.discontinued,
         activated_house_made: summary.activatedHouseMade,
+        skipped: summary.skipped,
+        skips: summary.skips,
+        page_errors: pageErrors,
+        recipe_integrity: recipeIntegrity,
         results: summary.results,
       }),
+
 
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

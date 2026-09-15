@@ -50,6 +50,20 @@ export interface ChaseResult {
   discontinued: boolean;
 }
 
+/** Why one item was passed over instead of taking the whole batch down with it. */
+export type SkipReason =
+  | "no_brand_link"
+  | "template_not_live"
+  | "write_rejected"
+  | "error";
+
+export interface ChaseSkip {
+  itemId: string;
+  name: string;
+  reason: SkipReason;
+  detail: string | null;
+}
+
 export interface ChaseSummary {
   priced: number;
   unpriced: number;
@@ -57,6 +71,9 @@ export interface ChaseSummary {
   discontinued: number;
   /** Sweep mode only: house-made items activated without a vendor price. */
   activatedHouseMade: number;
+  /** FAIL-SOFT: items passed over with a reason. Never aborts the batch. */
+  skipped: number;
+  skips: ChaseSkip[];
   results: ChaseResult[];
 }
 
@@ -240,16 +257,56 @@ export async function chasePrices(
   const activateOnHit = opts.activateOnHit === true;
 
   const results: ChaseResult[] = [];
+  const skips: ChaseSkip[] = [];
   let activatedHouseMade = 0;
+  const skip = (item: ChaseItem, reason: SkipReason, detail?: unknown) => {
+    const msg = detail == null
+      ? null
+      : detail instanceof Error ? detail.message : String(detail);
+    console.warn(`[chasePrices] skipped ${item.id} (${item.name}) — ${reason}${msg ? `: ${msg}` : ""}`);
+    skips.push({ itemId: item.id, name: item.name, reason, detail: msg });
+  };
+
   if (items.length === 0) {
-    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, activatedHouseMade: 0, results };
+    return {
+      priced: 0, unpriced: 0, shipIns: 0, discontinued: 0,
+      activatedHouseMade: 0, skipped: 0, skips, results,
+    };
   }
 
 
-  const approved = await loadApprovedNumbers(
-    supabase,
-    items.map((i) => i.brand_item_id).filter(Boolean) as string[],
-  );
+  const brandIds = items.map((i) => i.brand_item_id).filter(Boolean) as string[];
+  const approved = await loadApprovedNumbers(supabase, brandIds);
+
+  // Sweep mode only: an item may not be switched back on against a template that
+  // is no longer live. One batched lookup, then a per-item check.
+  const liveTemplates = new Set<string>();
+  if (activateOnHit && brandIds.length > 0) {
+    const unique = [...new Set(brandIds)];
+    const CHUNK = 200;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const { data, error } = await supabase
+        .from("brand_inventory_templates")
+        .select("id, status")
+        .in("id", unique.slice(i, i + CHUNK))
+        .eq("status", "live");
+      if (error) {
+        // Can't read status → don't guess. Treat this chunk as unknown; the
+        // per-item guard below will pass those items over with a reason.
+        console.warn("[chasePrices] template status lookup failed:", error.message);
+        continue;
+      }
+      for (const r of (data || []) as any[]) liveTemplates.add(r.id);
+    }
+  }
+
+  /** True when this item may be switched on. Returns a reason when it may not. */
+  const activationBlock = (item: ChaseItem): SkipReason | null => {
+    if (!activateOnHit) return null;
+    if (!item.brand_item_id) return "no_brand_link";
+    if (!liveTemplates.has(item.brand_item_id)) return "template_not_live";
+    return null;
+  };
 
   const numbersFor = (item: ChaseItem) => numbersForItem(item, approved);
 
@@ -289,7 +346,11 @@ export async function chasePrices(
   const nowIso = new Date().toISOString();
   const masterEmpty = bidByNumber.size === 0 && paByNumber.size === 0;
 
+  // FAIL-SOFT: every item is processed inside its own guard. Whatever one item
+  // throws — a rejected write, a network blip, bad data — is recorded as a skip
+  // and the rest of the batch keeps going. One item can never abort a sweep.
   for (const item of items) {
+   try {
     const { pfg, pa } = numbersFor(item);
 
     // No vendor number anywhere (house-made prep, sub-recipes, internal items).
@@ -298,7 +359,13 @@ export async function chasePrices(
       // Sweep mode: a house-made item (no vendor number AND no vendor source) will
       // never get a price hit, so leaving it inactive would hide it forever. Turn it on.
       if (activateOnHit && !item.vendor_source) {
-        await supabase.from("inventory_items").update({ is_active: true }).eq("id", item.id);
+        const block = activationBlock(item);
+        if (block) { skip(item, block); continue; }
+        const { error } = await supabase
+          .from("inventory_items")
+          .update({ is_active: true })
+          .eq("id", item.id);
+        if (error) { skip(item, "write_rejected", error.message); continue; }
         activatedHouseMade++;
       }
       continue;
@@ -380,7 +447,13 @@ export async function chasePrices(
       patch.unpriced_since = null;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : null;
       // Sweep mode only: a real price is proof the item is carried → turn it on.
-      if (activateOnHit) patch.is_active = true;
+      // Sweep mode only: switch on ONLY when this item is allowed to be. A
+      // blocked item still keeps its price — it just stays off, with a reason.
+      if (activateOnHit) {
+        const block = activationBlock(item);
+        if (block) skip(item, block);
+        else patch.is_active = true;
+      }
     } else {
       // Keep the first night we noticed, so the age tag is honest.
 
@@ -388,7 +461,11 @@ export async function chasePrices(
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : item.discontinued_at ?? null;
     }
 
-    await supabase.from("inventory_items").update(patch).eq("id", item.id);
+    const { error: writeErr } = await supabase
+      .from("inventory_items")
+      .update(patch)
+      .eq("id", item.id);
+    if (writeErr) { skip(item, "write_rejected", writeErr.message); continue; }
 
     results.push({
       itemId: item.id,
@@ -401,6 +478,10 @@ export async function chasePrices(
       unpriced: !hit,
       discontinued,
     });
+   } catch (e) {
+     // Anything unexpected from this one item — never the batch.
+     skip(item, "error", e);
+   }
   }
 
   return {
@@ -409,6 +490,8 @@ export async function chasePrices(
     shipIns: results.filter((r) => r.shipInOnly).length,
     discontinued: results.filter((r) => r.discontinued).length,
     activatedHouseMade,
+    skipped: skips.length,
+    skips,
     results,
   };
 }

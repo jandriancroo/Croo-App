@@ -35,6 +35,7 @@ import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 import LocationActivationList from '@/components/brand/LocationActivationList';
 import { VendorInvoiceNameHint } from '@/components/inventory/VendorInvoiceNameHint';
 import VendorHealthDashboard from '@/components/brand/VendorHealthDashboard';
+import RecipeIntegrityCard, { useRecipeIntegrityCount } from '@/components/inventory/RecipeIntegrityCard';
 import BrandPackConfigApprovals from '@/pages/BrandPackConfigApprovals';
 import BrandUnpricedIngredients from '@/pages/BrandUnpricedIngredients';
 import ConversionSlideOver from '@/components/brand/ConversionSlideOver';
@@ -140,6 +141,9 @@ export default function BrandInventory() {
     },
     enabled: !!brandId,
   });
+
+  // Recipes missing ingredients (flag-only report)
+  const { data: recipeIntegrityCount = 0 } = useRecipeIntegrityCount(brandId ?? undefined);
 
   // Proposed pack config count
   const { data: proposalCount = 0 } = useQuery({
@@ -489,6 +493,11 @@ export default function BrandInventory() {
                 <TabsTrigger value="health" className="gap-1.5">
                   <Activity className="h-3.5 w-3.5" />
                   <span>Health</span>
+                  {(recipeIntegrityCount ?? 0) > 0 && (
+                    <Badge variant="destructive" className="h-4 px-1 text-[10px]">
+                      {recipeIntegrityCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               </>
             )}
@@ -753,6 +762,7 @@ export default function BrandInventory() {
 
           {/* ===== HEALTH TAB ===== */}
           <TabsContent value="health" className="space-y-4">
+            {brandId && <RecipeIntegrityCard brandId={brandId} />}
             {brandId && <VendorHealthDashboard brandId={brandId} />}
           </TabsContent>
 

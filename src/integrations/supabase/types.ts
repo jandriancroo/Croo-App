@@ -10494,6 +10494,83 @@ export type Database = {
           },
         ]
       }
+      recipe_integrity_alerts: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          first_seen_at: string
+          id: string
+          ingredient_item_id: string
+          ingredient_name: string
+          last_seen_at: string
+          location_id: string
+          recipe_item_id: string
+          recipe_name: string
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          ingredient_item_id: string
+          ingredient_name: string
+          last_seen_at?: string
+          location_id: string
+          recipe_item_id: string
+          recipe_name: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          ingredient_item_id?: string
+          ingredient_name?: string
+          last_seen_at?: string
+          location_id?: string
+          recipe_item_id?: string
+          recipe_name?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_integrity_alerts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_integrity_alerts_ingredient_item_id_fkey"
+            columns: ["ingredient_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_integrity_alerts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_integrity_alerts_recipe_item_id_fkey"
+            columns: ["recipe_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rejection_email_templates: {
         Row: {
           body: string

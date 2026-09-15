@@ -16,6 +16,7 @@
 //   Stage 6  reactivation     off item ordered again in 14 days → reactivate + price
 //   Stage 7  catalog_parity   store missing a live brand template → deploy it,
 //                             then Phase-2 activation sweep on what it created
+//   Stage 7.5 recipe_integrity  active dish with a switched-off ingredient → flag
 //   Stage 8  gaps             unseen vendor numbers → vendor_gap_alerts (ONCE)
 //   Stage 9  pack_configs     only when this run produced NEW gaps
 //   Stage 10 report           unpriced / discontinued / ship-in counts
@@ -36,6 +37,7 @@ import {
   numbersForItem,
 } from "../_shared/vendorPriceChase.ts";
 import { filterEnabledLocations } from "../_shared/inventoryGate.ts";
+import { scanLocation } from "../_shared/recipeIntegrity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +63,9 @@ const STAGES = [
   //   catalog_parity  — a store missing a live brand template gets it deployed.
   { stage: "reactivation", vendor: "all", perLocation: true },
   { stage: "catalog_parity", vendor: "all", perLocation: true },
+  // Stage 7.5 (Sep 15 2026): FLAG-ONLY check that every active dish still has all
+  // of its ingredients switched on. Runs after parity so it sees what parity did.
+  { stage: "recipe_integrity", vendor: "all", perLocation: true },
   { stage: "gaps", vendor: "all", perLocation: false },
   { stage: "pack_configs", vendor: "all", perLocation: false },
   { stage: "report", vendor: "all", perLocation: false },
@@ -200,7 +205,7 @@ async function handleStart(supabase: any, body: any) {
   for (const s of STAGES) {
     const locs = !s.perLocation
       ? [null]
-      : s.stage === "catalog_parity"
+      : s.stage === "catalog_parity" || s.stage === "recipe_integrity"
         ? parityLocs
         : s.stage.startsWith("pfg_")
           ? pfgLocs
@@ -351,6 +356,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         shipIns: summary.shipIns,
         discontinued: summary.discontinued,
         unpricedNames: summary.results.filter((r) => r.unpriced).slice(0, 40).map((r) => r.name),
+        skipped: summary.skipped,
+        skips: summary.skips.slice(0, 40),
       };
       break;
     }
@@ -397,6 +404,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         candidates: candidates.length,
         reactivated: summary.priced,
         names: summary.results.filter((r) => !r.unpriced).slice(0, 40).map((r) => r.name),
+        skipped: summary.skipped,
+        skips: summary.skips.slice(0, 40),
       };
       break;
     }
@@ -454,6 +463,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
 
       // Phase 2 on exactly what we just created — nothing else.
       let priced = 0;
+      let sweepSkipped = 0;
+      let sweepSkips: unknown[] = [];
       if (deployedItemIds.length > 0) {
         const sweep = await callFn("vendor-price-chase", {
           locationId,
@@ -462,6 +473,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
           includeInactive: true,
         });
         priced = sweep?.priced ?? 0;
+        sweepSkipped = sweep?.skipped ?? 0;
+        sweepSkips = (sweep?.skips || []).slice(0, 40);
       }
       counters.items_priced = priced;
 
@@ -473,6 +486,24 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
         activated: priced,
         missing_names: missing.slice(0, 40).map((t) => t.product_name ?? t.id),
         failures,
+        sweep_skipped: sweepSkipped,
+        sweep_skips: sweepSkips,
+      };
+      break;
+    }
+    case "recipe_integrity": {
+      // FLAG ONLY — never disables a recipe. In-process so a store's result is
+      // recorded on its own run row.
+      const res = await scanLocation(supabase, locationId!);
+      counters.items_seen = res.recipes_scanned;
+      detail = {
+        recipes_scanned: res.recipes_scanned,
+        broken_recipes: res.broken_recipes,
+        missing_ingredients: res.missing_ingredients,
+        opened: res.opened,
+        resolved: res.resolved,
+        by_ingredient: res.by_ingredient.slice(0, 20),
+        ...(res.error ? { error: res.error } : {}),
       };
       break;
     }
