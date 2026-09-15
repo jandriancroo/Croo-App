@@ -563,14 +563,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Tell the user the syncs are about to fire — gives context for the
-    // "PFG SKU is empty right now, that's expected" state immediately after deploy.
+    // Items land inactive by design — say so, so an empty-looking count screen
+    // straight after deploy reads as expected rather than as a failure.
     const itemsNeedingSync = templates.filter((t: any) =>
       t.vendor_source && templateToItemId.has(t.id)
     ).length;
     if (itemsNeedingSync > 0) {
       warnings.push(
-        `${itemsNeedingSync} items need vendor sync for costs — syncs will run automatically`
+        `${itemsNeedingSync} items deployed INACTIVE — they turn on when the activation sweep finds a vendor price`
       );
     }
 
@@ -580,65 +580,31 @@ Deno.serve(async (req) => {
       .update({ last_deployed_at: new Date().toISOString() })
       .eq("id", locationId);
 
-    // ── Auto-trigger vendor syncs (do not pure fire-and-forget) ──
-    // Edge runtime may terminate this function before invoke()'s HTTP request leaves
-    // the environment. Promise.race with a 2s timeout guarantees the request is sent
-    // without forcing the deploy response to wait for the (potentially long) sync.
-    const triggerSyncs: Promise<unknown>[] = [];
-
-    if (pfgInt) {
-      triggerSyncs.push(
-        Promise.race([
-          supabase.functions.invoke("pfg-service", {
-            body: { locationId, action: "sync_orders" },
-          }).then(() => console.log(`[deploy] PFG sync_orders triggered for ${locationId}`))
-            .catch((e) => console.warn(`[deploy] PFG sync invoke error:`, e?.message || e)),
-          new Promise((r) => setTimeout(r, 2000)),
-        ])
-      );
-    }
-
-    if (paInt) {
-      triggerSyncs.push(
-        Promise.race([
-          supabase.functions.invoke("produce-alliance-service", {
-            body: { action: "sync_items", locationId, triggeredBy: "deploy" },
-          }).then(() => console.log(`[deploy] PA sync_items triggered for ${locationId}`))
-            .catch((e) => console.warn(`[deploy] PA sync_items invoke error:`, e?.message || e)),
-          new Promise((r) => setTimeout(r, 2000)),
-        ])
-      );
-      // Also pull recent order history so cost reconciliation has data to work with
-      triggerSyncs.push(
-        Promise.race([
-          supabase.functions.invoke("produce-alliance-service", {
-            body: { action: "orders", locationId, triggeredBy: "deploy" },
-          }).then(() => console.log(`[deploy] PA orders triggered for ${locationId}`))
-            .catch((e) => console.warn(`[deploy] PA orders invoke error:`, e?.message || e)),
-          new Promise((r) => setTimeout(r, 2000)),
-        ])
-      );
-    }
-
-    // Wait up to ~2s total for both invokes to leave; do not block on full sync run.
-    if (triggerSyncs.length > 0) {
-      await Promise.allSettled(triggerSyncs);
-    }
+    // ── Phase 1 ends here ──
+    // No vendor API calls, no price stamping, no activation. The caller is responsible
+    // for running the Phase 2 activation sweep (vendor-price-chase with activate:true)
+    // after refreshing vendor lists. Deliberately NOT fired from here: a fire-and-forget
+    // invoke can't be waited on or reported, which is what Stage 3 removes.
+    const deployedItemIds = Array.from(templateToItemId.values());
 
     return new Response(
       JSON.stringify({
         deployed,
         skipped,
         total: templates.length,
-        message: `Deployed ${deployed} items, skipped ${skipped} existing`,
+        deployedItemIds,
+        message: `Deployed ${deployed} items (inactive), skipped ${skipped} existing`,
         warnings,
-        syncsTriggered: {
+        phase: "structure_only",
+        nextStep: "vendor-price-chase { activate: true, includeInactive: true }",
+        integrations: {
           pfg: !!pfgInt,
           produce_alliance: !!paInt,
         },
       }),
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
     );
+
   } catch (err: any) {
     console.error("deploy-location-inventory error:", err);
     return new Response(
