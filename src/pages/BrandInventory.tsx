@@ -142,6 +142,9 @@ export default function BrandInventory() {
     enabled: !!brandId,
   });
 
+  // Recipes missing ingredients (flag-only report)
+  const { data: recipeIntegrityCount = 0 } = useRecipeIntegrityCount(brandId ?? undefined);
+
   // Proposed pack config count
   const { data: proposalCount = 0 } = useQuery({
     queryKey: ['pack-config-proposal-count', brandId],
