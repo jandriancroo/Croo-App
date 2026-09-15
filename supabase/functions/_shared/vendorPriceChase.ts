@@ -347,6 +347,13 @@ export async function chasePrices(
     }
 
     const hadActivity = [...pfg, ...pa].some((n) => orderByNumber.has(n) || invoiceByNumber.has(n));
+    // Most recent real order line for this item's numbers, if any (the map is
+    // built newest-first, so the first match is the latest order in the window).
+    let lastOrderDate: string | null = null;
+    for (const n of [...pfg, ...pa]) {
+      const o = orderByNumber.get(n);
+      if (o?.date) { lastOrderDate = o.date; break; }
+    }
     // Off-bid ship-in: real product, priced only by what actually shipped.
     const shipInOnly = !onMaster && hadActivity && !!hit && hit.source !== "master";
     // Discontinued: fell off a master it used to be on AND nothing shipped lately.
