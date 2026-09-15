@@ -1,45 +1,55 @@
-# Stage 3.5 — Invoice pricing through the shared chain, active-flag fix, vendor confirmation
+# Stage B — Fail-soft activation sweep + broken-recipe scan
 
-## What I found first (evidence)
+## 1. Fail-soft activation sweep
 
-**The `status = active` filter is a real, silent bug.** The items table has no `status` column at all — it has a true/false `is_active` flag (confirmed against the live schema). So the lookup of "what does this store already carry?" returns nothing, and every invoice line falls through to "unknown item."
+### What I found (verified, not assumed)
 
-Live numbers back that up:
-- 89 invoice lines parsed in total: **1** ever matched a store item, and that one is from July 2. Everything since matches nothing local.
-- 66 lines sit as "unmatched", 22 matched only a brand catalog entry.
-- 13 gap alerts were created with source "invoice" — items flagged as unknown that the store may well already carry.
+The sweep loop in `_shared/vendorPriceChase.ts` has **no per-item guard at all**. One item is enough to end a location's sweep, and one class of failure is already happening silently:
 
-So yes: matched-invoice pricing has been quietly dead. Nothing was crashing, it just silently found zero items.
+- **Silent write failures.** Every write in the loop (`update(patch)`, and the house-made `is_active: true` write) discards its result. Errors are neither logged nor counted.
+- **A real database rule rejects activation.** `trg_inventory_items_enforce_brand_link` raises an exception whenever an item is switched on while it has no brand catalog link. Live count today: **491 off items have no brand link**, so every one of them would be rejected mid-sweep — and because the error is discarded, the sweep reports success and nobody knows.
+- **A thrown error aborts the batch.** Any network-level failure inside the loop (these throw rather than returning an error) escapes the loop, escapes `chasePrices`, and the endpoint returns a 500 with **zero** partial results — the items already processed aren't reported.
+- **Paging is all-or-nothing.** `vendor-price-chase` line 111 does `if (error) throw error` while paging items, so a hiccup on page 3 discards pages 1 and 2.
+- **No live-template check exists.** Nothing in the sweep asks whether an item's brand template is still live, so an archived template's item can be switched back on.
 
-**Vendor names are free text and already drifting.** Existing invoices show `Heimark Distributing, LLC` (9), `HEIMARK DISTRIBUTING, LLC` (1), `Worldwide Produce` (1), `Unknown` (2) — the same vendor stored two ways, none of them connected to the vendor registry (which today holds only PFG and Produce Alliance). `pg_trgm` is already installed, no new dependency needed.
+### The change
 
-Note: this touches the invoice side of the inventory system, which is on the locked list. The changes below are confined to invoice parsing, plus one new table and one new review card — no changes to counting, weighing, matching screens, or period logic.
+- Wrap each item's work in the sweep loop in its own guard. A failure records a skip with a reason and the loop continues. Nothing thrown by one item can end the batch.
+- Check every write's result. A rejected write becomes a logged, counted skip with the database's own message.
+- Before switching an item on: skip (with reason) when the item has no brand catalog link, and skip when its brand template is not live. Reasons: `no_brand_link`, `template_not_live`, `write_rejected`, `error`.
+- Make paging tolerant: a failed page is logged and the sweep runs on the items already collected instead of aborting.
+- Return the skips: `skipped` count plus a `skips` list (item, reason) in the summary and in the endpoint response, and into the nightly run detail so a night's skips are queryable afterwards.
 
-## 1. Fix the active-item lookup
+## 2. Broken-recipe scan
 
-Change the invoice parser's item lookup from the non-existent `status` field to `is_active = true`, matching the Lite parser and the rest of the app. This alone restores matching, price capture, and stops false "new item" gap alerts.
+### What I found
 
-## 2. Route matched-item pricing through the one shared pricing path
+Recipes and their ingredients live in `inventory_recipe_ingredients` (recipe item → ingredient item, per location). Current live state:
 
-Remove the direct cost write. Instead, after invoice lines are saved, the parser hands the matched item IDs to the shared pricing routine (`vendor-price-chase` with `activate: true`, which runs `chasePrices()` with `activateOnHit`). A confirmed invoice match then prices and switches on an item exactly the way a PFG or Produce Alliance sync match does — same window rules, same `unpriced_since` / `last_ordered_at` stamping, same activation rule.
+```text
+ingredient links pointing at a switched-off product ......... 979
+recipes touched by those ................................... 223
+distinct switched-off products involved .................... 216
+of those recipes, how many are themselves switched ON ......   0
+active recipes that have ingredients at all ................   3
+```
 
-Pack size stays on the invoice line record (it's invoice-observed detail, not a price), so no pricing information is written outside the shared chain.
+So today the scan reports nothing — all 979 broken links belong to recipes that are themselves off (the freshly deployed, not-yet-activated catalogs). That is exactly why this check is worth having now: as stores activate their catalogs, a dish switching on while one of its ingredients stays off is the failure mode, and nothing currently notices.
 
-The response gains `priced` / `activated` counts from the sweep instead of a local `price_updates` tally.
+### Where it should live — my recommendation
 
-## 3. Vendor confirmation instead of free text
+- **Logic:** one new function, `recipe-integrity-scan`, taking an optional location. Called at the end of deploy's activation sweep for that store, and added to the nightly pipeline as a per-store stage after `catalog_parity` (so it sees whatever parity just deployed and activated).
+- **Storage:** a small table, `recipe_integrity_alerts` — one row per (location, recipe, missing ingredient), with the names snapshotted so the report reads correctly even if something is renamed later, plus first-seen / last-seen and a resolved stamp. The scan re-stamps existing rows and closes ones that healed, so the list never double-reports.
+- **Surfacing:** a "Recipes missing ingredients" card in the existing **Health** tab of Brand Inventory (next to Vendor Health), grouped **by missing product** — product name, how many dishes it affects, and the full list of dish names, since one missing item commonly hits several dishes. A count badge on the Health tab so it's visible without opening it. Read-only: no disable button, no auto-disable, matching tonight's flag-only rule.
 
-- Normalize the extracted vendor name: lowercase, strip punctuation and legal suffixes (LLC, Inc, Corp, Co, Ltd).
-- Compare that against registry keys, display names, and confirmed aliases using `similarity()` (pg_trgm). Exact normalized hit → link silently.
-- Anything else — including a 0.9 near-match — creates a **pending vendor** row. Nothing is auto-created and nothing is auto-linked.
-- A new "Vendors to confirm" card appears in the Brand Inventory vendor review area: shows the name as printed on the invoice, the closest registry suggestion with its confidence, and two choices — link to the suggested vendor, or create a new registry entry. Confirming records the alias so the same spelling never asks again (which immediately collapses the two Heimark spellings into one).
-- The invoice keeps showing the name as printed while confirmation is pending; it is simply not linked yet.
+Alternative considered and rejected: folding this into `vendor_gap_alerts`. That table is shaped around vendor SKUs and brand-level review; recipe breakage is per-store and per-dish and would distort the gap list.
 
 ## Technical notes
 
-- New table `vendor_name_candidates`: raw_name, normalized_name, suggested_vendor_id, similarity_score, status (pending/approved/rejected), invoice_id, location_id, brand_id, resolved_vendor_id, resolved_by, timestamps. GRANTs to authenticated + service_role, RLS on: admins/managers read and resolve, backend writes.
-- New table `vendor_registry_aliases`: vendor_id → normalized alias (unique), created_by. Exact-alias hits bypass the fuzzy step entirely.
-- New function `public.match_vendor_name(_name text)` — SECURITY DEFINER, `search_path = public` — returns best registry/alias candidate plus score, with a trigram index on the normalized columns.
-- Parser changes are confined to `supabase/functions/parse-vendor-invoice/index.ts`; pricing logic in `_shared/vendorPriceChase.ts` is unchanged.
-- UI: new `PendingVendorsCard` rendered inside `src/components/brand/VendorGapFinder.tsx`.
-- Existing invoice records are left as-is; the parser is not re-run retroactively. If you want, I can re-parse or re-match the 66 stranded lines afterwards as a separate pass.
+- `supabase/functions/_shared/vendorPriceChase.ts` — per-item `try/catch` inside the `for (const item of items)` loop; capture `{ error }` on both `inventory_items` updates; pre-activation guards (`brand_item_id` present, brand template `status = 'live'` via one batched template-status lookup reusing the ids already loaded for `loadApprovedNumbers`); extend `ChaseSummary` with `skipped` + `skips: { itemId, name, reason, detail }[]`.
+- `supabase/functions/vendor-price-chase/index.ts` — tolerant paging; pass through `skipped` / `skips`.
+- `supabase/functions/vendor-sync-nightly/index.ts` — surface `skipped` in `price_fill` / `reactivation` / `catalog_parity` detail; add stage `recipe_integrity` (per location) to `STAGES` after `catalog_parity`, with its runner calling the new function.
+- New: `supabase/functions/recipe-integrity-scan/index.ts` (service/manager caller guard, same pattern as `vendor-price-chase`); called from `deploy-location-inventory`'s Phase 2 completion path and from the nightly stage.
+- Migration: `recipe_integrity_alerts` (location_id, brand_id, recipe_item_id, recipe_name, ingredient_item_id, ingredient_name, status, first_seen_at, last_seen_at, resolved_at) with grants, RLS (managers read, backend writes), and a unique key on (location_id, recipe_item_id, ingredient_item_id).
+- UI: new `src/components/inventory/RecipeIntegrityCard.tsx` rendered in the Health tab of `src/pages/BrandInventory.tsx`; badge count on the Health tab trigger.
+- No retroactive action on the 979 existing links beyond reporting them once their recipe is active — nothing is auto-disabled.
