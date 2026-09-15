@@ -79,10 +79,15 @@ interface DeployLocationWizardProps {
   onSuccess: () => void;
 }
 
+type SyncStepStatus = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
+
 interface SyncResult {
-  pfg: { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
-  pa: { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
+  pfg: SyncStepStatus;
+  pa: SyncStepStatus;
+  /** Phase 2: prices deployed items and switches on the ones with a real price. */
+  activation: SyncStepStatus;
 }
+
 
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: MapPin },
@@ -127,7 +132,9 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const [syncResult, setSyncResult] = useState<SyncResult>({
     pfg: { status: 'pending' },
     pa: { status: 'pending' },
+    activation: { status: 'pending' },
   });
+
   const [syncing, setSyncing] = useState(false);
 
   // Fetch organizations
@@ -184,7 +191,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setSkipVendorSetup(false);
       setDeployedLocationId(null);
       setDeployResult(null);
-      setSyncResult({ pfg: { status: 'pending' }, pa: { status: 'pending' } });
+      setSyncResult({ pfg: { status: 'pending' }, pa: { status: 'pending' }, activation: { status: 'pending' } });
       setSyncing(false);
     }
   }, [open]);
@@ -270,8 +277,33 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setSyncResult(prev => ({ ...prev, pa: { status: 'skipped', message: 'Not configured' } }));
     }
 
+    // PHASE 2: activation sweep. Runs AFTER the vendor lists are refreshed, so the
+    // shared price chain has today's data to read. Items with a real price go live;
+    // house-made items (no vendor number, no vendor source) go live too; the rest
+    // stay off until the nightly run finds a price.
+    setSyncResult(prev => ({ ...prev, activation: { status: 'running' } }));
+    try {
+      const { data, error } = await supabase.functions.invoke('vendor-price-chase', {
+        body: { locationId, activate: true, includeInactive: true },
+      });
+      if (error) throw error;
+      setSyncResult(prev => ({
+        ...prev,
+        activation: {
+          status: 'done',
+          message: `${data?.priced || 0} items live, ${data?.still_unpriced || 0} waiting on a vendor price`,
+        },
+      }));
+    } catch (err: any) {
+      setSyncResult(prev => ({
+        ...prev,
+        activation: { status: 'error', message: err.message || 'Activation sweep failed' },
+      }));
+    }
+
     setSyncing(false);
   }, []);
+
 
   const handleDeploy = async () => {
     setDeploying(true);
@@ -457,16 +489,18 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       refetchLocations();
       setDeployComplete(true);
 
-      // 8. Auto-trigger initial vendor syncs — Brand mode only.
-      // Lite tenants have no PFG/PA integration; mark both as skipped.
+      // 8 + 9. Vendor list refresh, then the Phase 2 activation sweep — Brand mode only.
+      // Lite tenants have no PFG/PA integration and no vendor pricing to chase.
       if (inventoryMode === 'lite') {
         setSyncResult({
           pfg: { status: 'skipped', message: 'Not used in Lite mode' },
           pa: { status: 'skipped', message: 'Not used in Lite mode' },
+          activation: { status: 'skipped', message: 'Not used in Lite mode' },
         });
       } else {
         runInitialSync(locationId);
       }
+
 
       toast.success(`${name} deployed successfully!`);
     } catch (error: any) {
@@ -586,6 +620,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                 </div>
                 {renderSyncStatus('PFG (Foodservice)', syncResult.pfg)}
                 {renderSyncStatus('Produce Alliance', syncResult.pa)}
+                {renderSyncStatus('Pricing & activation', syncResult.activation)}
                 {(syncResult.pfg.status === 'skipped' || syncResult.pa.status === 'skipped') && (
                   <p className="text-xs text-amber-600 mt-2 pt-2 border-t">
                     ⚠️ Skipped vendors need credentials configured in Settings → Integrations before costs and pack data will populate.

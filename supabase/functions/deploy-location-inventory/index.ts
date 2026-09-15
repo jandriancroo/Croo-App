@@ -76,9 +76,13 @@ Deno.serve(async (req) => {
       .select("id, name, item_number, pa_item_id, brand_item_id, is_active, storage_location_id")
       .eq("location_id", locationId);
 
+    // Phase 1 deploys items INACTIVE (the activation sweep flips them on once a real
+    // price is found), so "already deployed" must NOT be gated on is_active — otherwise
+    // every re-deploy would create a duplicate row for every inactive item.
     const existingByBrandItemId = new Set(
-      (existingItems || []).filter((i: any) => i.brand_item_id && i.is_active).map((i: any) => i.brand_item_id)
+      (existingItems || []).filter((i: any) => i.brand_item_id).map((i: any) => i.brand_item_id)
     );
+
 
     // 3. Mirror storage locations from source location (default: Hemet)
     // Fetch source location's shelf layout
@@ -261,13 +265,17 @@ Deno.serve(async (req) => {
     for (const tmpl of [...nonRecipeTemplates, ...recipeTemplates]) {
       // Check for existing item linked to this template
       if (existingByBrandItemId.has(tmpl.id)) {
-        // Already deployed — find existing item id and re-activate if needed
-        // GHOST FILTER: Prefer active items over inactive ghosts
+        // Already deployed — refresh identity only. Activation is the sweep's job.
+        // Prefer an active row when several exist, but fall back to an inactive one so
+        // Phase 1 never duplicates an item it deployed inactive on an earlier run.
         const candidates = (existingItems || []).filter((i: any) => i.brand_item_id === tmpl.id);
-        const existing = candidates.find((i: any) => i.is_active) || null;
+        const existing = candidates.find((i: any) => i.is_active) || candidates[0] || null;
+
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
-          // Re-activate and sync name/category/pack to brand standard.
+          // Sync name/category/pack to brand standard. NOTE: is_active is deliberately
+          // NOT touched here — a re-deploy must never resurrect a dead item. The
+          // activation sweep (Phase 2) is the only thing that turns items on.
           // SKU INHERITANCE: only fill NULLs from the brand vendor mapping —
           // never overwrite a non-null local SKU. This closes the leak where a
           // location row had item_number/pa_item_id NULL and got skipped by syncs.
@@ -289,9 +297,9 @@ Deno.serve(async (req) => {
           await supabase
             .from("inventory_items")
             .update({
-              is_active: true,
               name: tmpl.product_name,
               category: tmpl.category,
+
               ...shelfRestore,
               ...skuFill,
               ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
@@ -349,8 +357,8 @@ Deno.serve(async (req) => {
       const paSku = paByTemplate.get(tmpl.id);
       // Derive vendor_source from mappings if template's is blank.
       // Many older brand templates have NULL vendor_source even though they have
-      // a PFG/PA mapping — without this, the cost-backfill loop below skips them
-      // (it filters on vendor_source = 'pfg') and items deploy with $0 cost.
+      // a PFG/PA mapping — without this the activation sweep would treat them as
+      // house-made ("no vendor price ever expected") and activate them unpriced.
       const resolvedVendorSource = tmpl.vendor_source
         || (pfgSku ? "pfg" : (paSku ? "produce_alliance" : null));
       const { data: newItem, error: createErr } = await supabase
@@ -360,7 +368,10 @@ Deno.serve(async (req) => {
           name: tmpl.product_name,
           category: tmpl.category,
           storage_location_id: storageLocId,
-          is_active: true,
+          // PHASE 1 = STRUCTURE ONLY. Items land inactive; the Phase 2 activation
+          // sweep turns on the ones it can actually price.
+          is_active: false,
+
           is_recipe: tmpl.is_recipe || false,
           recipe_yield_qty: tmpl.recipe_yield_qty,
           recipe_yield_unit: tmpl.recipe_yield_unit,
@@ -396,143 +407,15 @@ Deno.serve(async (req) => {
 
     // 5b. (Removed) Separate PFG stamping pass — vendor IDs are now stamped at INSERT time above.
 
-    // 5c. Backfill PFG cost_per_unit. Two-tier strategy:
-    //   Tier 1 — PFG Bid Guide (preferred): contract pricing for every SKU on the
-    //     location's bid, regardless of whether it's been ordered. Pulled live via
-    //     pfg-service `categories` action against the stored product_list_header_id.
-    //   Tier 2 — Local PFG order history: fallback for SKUs not on the bid guide
-    //     (off-bid items still ordered ad-hoc). Reads pfg_orders.items JSON.
-    // PFG pricing is contract-specific per customer/location, so we never copy
-    // from sibling locations. Subsequent order/invoice cycles refresh prices.
-    try {
-      const itemIds = Array.from(templateToItemId.values());
-      if (itemIds.length > 0) {
-        const { data: stampedItems } = await supabase
-          .from("inventory_items")
-          .select("id, item_number, cost_per_unit")
-          .in("id", itemIds)
-          .eq("vendor_source", "pfg")
-          .not("item_number", "is", null);
-
-        const needPrice = (stampedItems || []).filter(
-          (i: any) => !i.cost_per_unit || i.cost_per_unit <= 0,
-        );
-
-        if (needPrice.length > 0) {
-          const priceBySku = new Map<string, number>();
-
-          // ─── Tier 1: PFG Bid Guide ────────────────────────────────────────────
-          // Look up the location's stored bid guide ID + customer ID, then call
-          // pfg-service to fetch every SKU on the bid with contract pricing.
-          try {
-            const { data: pfgIntegration } = await supabase
-              .from("location_integrations")
-              .select("credentials")
-              .eq("location_id", locationId)
-              .eq("integration_type", "pfg")
-              .eq("is_active", true)
-              .maybeSingle();
-
-            const creds: any = pfgIntegration?.credentials || {};
-            const bidGuideId = creds.product_list_header_id;
-            const customerId = creds.customer_id;
-
-            if (bidGuideId && customerId) {
-              const { data: catData, error: catErr } = await supabase.functions.invoke(
-                "pfg-service",
-                {
-                  body: {
-                    action: "categories",
-                    locationId,
-                    productListHeaderId: bidGuideId,
-                    customerId,
-                  },
-                },
-              );
-              if (catErr) {
-                console.warn("[Deploy] PFG bid guide fetch failed:", catErr.message);
-              } else {
-                const categories = catData?.data?.categories || [];
-                let bidProducts = 0;
-                for (const cat of categories) {
-                  for (const p of cat.products || []) {
-                    const sku = p?.itemNumber ? String(p.itemNumber) : null;
-                    const price = Number(p?.price) || 0;
-                    if (sku && price > 0 && !priceBySku.has(sku)) {
-                      priceBySku.set(sku, price);
-                      bidProducts++;
-                    }
-                  }
-                }
-                console.log(`[Deploy] PFG Bid Guide loaded: ${bidProducts} SKUs with prices.`);
-              }
-            } else {
-              console.log("[Deploy] No PFG bid guide configured for this location — skipping Tier 1.");
-            }
-          } catch (bidErr) {
-            console.warn("[Deploy] PFG bid guide pass threw:", bidErr);
-          }
-
-          // ─── Tier 2: Local PFG order history (fallback for off-bid SKUs) ──────
-          // Date-bound, not row-capped: a busy store gets its whole window, a
-          // quiet store never reaches back months. Wider than the nightly chain's
-          // ACTIVITY_WINDOW_DAYS (14) because this is a one-time initial sweep —
-          // a brand-new store needs a complete starting picture, not a refresh.
-          const DEPLOY_PRICE_WINDOW_DAYS = 30;
-          const stillNeed = needPrice.filter((i: any) => !priceBySku.has(i.item_number));
-          if (stillNeed.length > 0) {
-            const sinceIso = new Date(Date.now() - DEPLOY_PRICE_WINDOW_DAYS * 86_400_000)
-              .toISOString()
-              .slice(0, 10);
-            const { data: orders, error: ordErr } = await supabase
-              .from("pfg_orders")
-              .select("items, order_date")
-              .eq("location_id", locationId)
-              .not("items", "is", null)
-              .gte("order_date", sinceIso)
-              .order("order_date", { ascending: false });
-
-
-            if (ordErr) {
-              console.warn("[Deploy] PFG orders fetch failed:", ordErr);
-            } else {
-              for (const ord of orders || []) {
-                const lines = Array.isArray(ord.items) ? ord.items : [];
-                for (const line of lines) {
-                  const sku = line?.itemNumber ? String(line.itemNumber) : null;
-                  const price = Number(line?.price) || 0;
-                  if (sku && price > 0 && !priceBySku.has(sku)) {
-                    priceBySku.set(sku, price);
-                  }
-                }
-              }
-            }
-          }
-
-          // ─── Apply prices ─────────────────────────────────────────────────────
-          let priced = 0;
-          for (const item of needPrice) {
-            const price = priceBySku.get(item.item_number);
-            if (price == null) continue;
-            const { error: priceErr } = await supabase
-              .from("inventory_items")
-              .update({ cost_per_unit: price })
-              .eq("id", item.id);
-            if (!priceErr) priced++;
-          }
-          console.log(`[Deploy] Backfilled PFG cost on ${priced}/${needPrice.length} items (bid guide + order history).`);
-        }
-      }
-    } catch (e) {
-      console.warn("[Deploy] PFG price backfill pass threw:", e);
-    }
-
+    // 5c. (Removed, Stage 3) PFG cost_per_unit backfill. Deploy no longer talks to any
+    // vendor API and no longer stamps prices. Pricing lives in exactly one place now:
+    // _shared/vendorPriceChase.ts (master list → orders → invoices, PFG *and* PA),
+    // invoked as the Phase 2 activation sweep after this function returns.
 
     // 6. Deploy recipe ingredients
-    // IDEMPOTENT: We delete existing ingredients first so this step can safely re-run
-    // after vendor syncs populate item_number / pa_item_id (the second-pass deploy that
-    // the LocationActivationList orchestrates). Without this, repeated deploys would
-    // multiply ingredient rows.
+    // IDEMPOTENT: existing ingredients are deleted first, so this step is safe to re-run.
+    // Matching uses item_number / pa_item_id, which are stamped at INSERT from
+    // brand_vendor_mappings — no vendor call is needed for this to resolve.
     for (const tmpl of recipeTemplates) {
       const recipeItemId = templateToItemId.get(tmpl.id);
       if (!recipeItemId) continue;
@@ -540,12 +423,14 @@ Deno.serve(async (req) => {
       const ingredients = (tmpl.recipe_ingredients as any[]) || [];
       if (ingredients.length === 0) continue;
 
-      // Fetch all items at location for ingredient matching
+      // Fetch all items at location for ingredient matching.
+      // NOT filtered on is_active: Phase 1 deploys items inactive, so an active-only
+      // filter here would fail to resolve every ingredient on a fresh deploy.
       const { data: allItems } = await supabase
         .from("inventory_items")
         .select("id, name, item_number, pa_item_id")
-        .eq("location_id", locationId)
-        .eq("is_active", true);
+        .eq("location_id", locationId);
+
 
       const ingredientInserts: any[] = [];
       for (const ing of ingredients) {
@@ -678,14 +563,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Tell the user the syncs are about to fire — gives context for the
-    // "PFG SKU is empty right now, that's expected" state immediately after deploy.
+    // Items land inactive by design — say so, so an empty-looking count screen
+    // straight after deploy reads as expected rather than as a failure.
     const itemsNeedingSync = templates.filter((t: any) =>
       t.vendor_source && templateToItemId.has(t.id)
     ).length;
     if (itemsNeedingSync > 0) {
       warnings.push(
-        `${itemsNeedingSync} items need vendor sync for costs — syncs will run automatically`
+        `${itemsNeedingSync} items deployed INACTIVE — they turn on when the activation sweep finds a vendor price`
       );
     }
 
@@ -695,65 +580,31 @@ Deno.serve(async (req) => {
       .update({ last_deployed_at: new Date().toISOString() })
       .eq("id", locationId);
 
-    // ── Auto-trigger vendor syncs (do not pure fire-and-forget) ──
-    // Edge runtime may terminate this function before invoke()'s HTTP request leaves
-    // the environment. Promise.race with a 2s timeout guarantees the request is sent
-    // without forcing the deploy response to wait for the (potentially long) sync.
-    const triggerSyncs: Promise<unknown>[] = [];
-
-    if (pfgInt) {
-      triggerSyncs.push(
-        Promise.race([
-          supabase.functions.invoke("pfg-service", {
-            body: { locationId, action: "sync_orders" },
-          }).then(() => console.log(`[deploy] PFG sync_orders triggered for ${locationId}`))
-            .catch((e) => console.warn(`[deploy] PFG sync invoke error:`, e?.message || e)),
-          new Promise((r) => setTimeout(r, 2000)),
-        ])
-      );
-    }
-
-    if (paInt) {
-      triggerSyncs.push(
-        Promise.race([
-          supabase.functions.invoke("produce-alliance-service", {
-            body: { action: "sync_items", locationId, triggeredBy: "deploy" },
-          }).then(() => console.log(`[deploy] PA sync_items triggered for ${locationId}`))
-            .catch((e) => console.warn(`[deploy] PA sync_items invoke error:`, e?.message || e)),
-          new Promise((r) => setTimeout(r, 2000)),
-        ])
-      );
-      // Also pull recent order history so cost reconciliation has data to work with
-      triggerSyncs.push(
-        Promise.race([
-          supabase.functions.invoke("produce-alliance-service", {
-            body: { action: "orders", locationId, triggeredBy: "deploy" },
-          }).then(() => console.log(`[deploy] PA orders triggered for ${locationId}`))
-            .catch((e) => console.warn(`[deploy] PA orders invoke error:`, e?.message || e)),
-          new Promise((r) => setTimeout(r, 2000)),
-        ])
-      );
-    }
-
-    // Wait up to ~2s total for both invokes to leave; do not block on full sync run.
-    if (triggerSyncs.length > 0) {
-      await Promise.allSettled(triggerSyncs);
-    }
+    // ── Phase 1 ends here ──
+    // No vendor API calls, no price stamping, no activation. The caller is responsible
+    // for running the Phase 2 activation sweep (vendor-price-chase with activate:true)
+    // after refreshing vendor lists. Deliberately NOT fired from here: a fire-and-forget
+    // invoke can't be waited on or reported, which is what Stage 3 removes.
+    const deployedItemIds = Array.from(templateToItemId.values());
 
     return new Response(
       JSON.stringify({
         deployed,
         skipped,
         total: templates.length,
-        message: `Deployed ${deployed} items, skipped ${skipped} existing`,
+        deployedItemIds,
+        message: `Deployed ${deployed} items (inactive), skipped ${skipped} existing`,
         warnings,
-        syncsTriggered: {
+        phase: "structure_only",
+        nextStep: "vendor-price-chase { activate: true, includeInactive: true }",
+        integrations: {
           pfg: !!pfgInt,
           produce_alliance: !!paInt,
         },
       }),
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
     );
+
   } catch (err: any) {
     console.error("deploy-location-inventory error:", err);
     return new Response(

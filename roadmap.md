@@ -76,3 +76,13 @@
 - [x] `_shared/vendorPriceChase.ts` — `pa_orders` folded into `orderByNumber` (14-day window, item_code / master_product_code / pa_product_id / pa_item_id keys), so produce gets the orders tier plus correct hadActivity / ship_in_only / discontinued behaviour.
 - [x] `deploy-location-inventory` Tier 2 — `DEPLOY_PRICE_WINDOW_DAYS = 30`, date-bound, `.limit(50)` removed.
 - Part B (produce invoices via manual `vendor_invoices` upload) intentionally skipped.
+
+## Stage 3 — two-phase deploy (done)
+- [x] Phase 1: deploy-location-inventory is structure-only — items insert `is_active: false`, re-deploy no longer force-reactivates, 5c PFG cost backfill deleted, fire-and-forget vendor syncs deleted, response returns `deployedItemIds`.
+- [x] Section 6 recipe ingredient matching no longer filters on `is_active` (inactive deploys must still resolve).
+- [x] chasePrices(): additive `activateOnHit` option (default false) — nightly price_fill unchanged.
+- [x] House-made rule: no vendor identifier AND no vendor_source → activated directly in sweep mode.
+- [x] vendor-price-chase: `activate` / `includeInactive` sweep mode, 30-day window, paged select up to 5000 items.
+- [x] LocationActivationList: deploy → vendor syncs → activation sweep (second deploy pass removed).
+- [x] DeployLocationWizard: new "Pricing & activation" step after runInitialSync; Lite skips it.
+- [x] auto_deploy_brand_template: adds a second net.http_post to vendor-price-chase per location.

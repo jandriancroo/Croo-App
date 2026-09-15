@@ -33,7 +33,10 @@ export interface ChaseItem {
   discontinued_at: string | null;
   ship_in_only: boolean | null;
   last_seen_on_bid_list?: string | null;
+  // Needed only by sweep mode (activateOnHit) to identify house-made items.
+  vendor_source?: string | null;
 }
+
 
 export interface ChaseResult {
   itemId: string;
@@ -52,8 +55,11 @@ export interface ChaseSummary {
   unpriced: number;
   shipIns: number;
   discontinued: number;
+  /** Sweep mode only: house-made items activated without a vendor price. */
+  activatedHouseMade: number;
   results: ChaseResult[];
 }
+
 
 const norm = (v: unknown) => String(v ?? "").trim();
 
@@ -116,13 +122,20 @@ export async function chasePrices(
   supabase: any,
   locationId: string,
   items: ChaseItem[],
-  opts: { windowDays?: number } = {},
+  opts: { windowDays?: number; activateOnHit?: boolean } = {},
 ): Promise<ChaseSummary> {
   const windowDays = opts.windowDays ?? ACTIVITY_WINDOW_DAYS;
+  // OPT-IN ONLY (default false): the deploy activation sweep passes true so a real
+  // price hit also flips is_active on. Nightly maintenance never passes it, so the
+  // locked "never touches is_active" rule still holds for every existing caller.
+  const activateOnHit = opts.activateOnHit === true;
+
   const results: ChaseResult[] = [];
+  let activatedHouseMade = 0;
   if (items.length === 0) {
-    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, results };
+    return { priced: 0, unpriced: 0, shipIns: 0, discontinued: 0, activatedHouseMade: 0, results };
   }
+
 
   const approved = await loadApprovedNumbers(
     supabase,
@@ -249,7 +262,16 @@ export async function chasePrices(
 
     // No vendor number anywhere (house-made prep, sub-recipes, internal items).
     // Nothing to chase and nothing to tag — a vendor price was never expected.
-    if (pfg.size === 0 && pa.size === 0) continue;
+    if (pfg.size === 0 && pa.size === 0) {
+      // Sweep mode: a house-made item (no vendor number AND no vendor source) will
+      // never get a price hit, so leaving it inactive would hide it forever. Turn it on.
+      if (activateOnHit && !item.vendor_source) {
+        await supabase.from("inventory_items").update({ is_active: true }).eq("id", item.id);
+        activatedHouseMade++;
+      }
+      continue;
+    }
+
 
 
     let hit: PriceHit | null = null;
@@ -312,8 +334,11 @@ export async function chasePrices(
       patch.last_synced_at = nowIso;
       patch.unpriced_since = null;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : null;
+      // Sweep mode only: a real price is proof the item is carried → turn it on.
+      if (activateOnHit) patch.is_active = true;
     } else {
       // Keep the first night we noticed, so the age tag is honest.
+
       patch.unpriced_since = item.unpriced_since ?? nowIso;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : item.discontinued_at ?? null;
     }
@@ -338,9 +363,11 @@ export async function chasePrices(
     unpriced: results.filter((r) => r.unpriced).length,
     shipIns: results.filter((r) => r.shipInOnly).length,
     discontinued: results.filter((r) => r.discontinued).length,
+    activatedHouseMade,
     results,
   };
 }
 
 export const CHASE_SELECT =
-  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list";
+  "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list, vendor_source";
+
