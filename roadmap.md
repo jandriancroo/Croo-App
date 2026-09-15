@@ -104,3 +104,10 @@
 - [x] New nightly stage `catalog_parity` (per inventory-enabled location with a brand): diff local `brand_item_id`s vs live brand templates → per-template deploy of what's missing → Phase 2 sweep on just those items. Capped at 50/store/night. Logs seen / missing / auto_deployed.
 - [x] `_shared/vendorPriceChase.ts`: extracted `loadActivityHits()` + `numbersForItem()` (exported) so activity can be checked without a full chase.
 - [x] Archive cascade consolidated: dropped `trg_cascade_archive_brand_template` and `trg_deactivate_items_on_template_archive`; `trg_brand_template_status_cascade` is canonical and now stamps `deactivated_by = 'brand_admin'` + `deactivated_reason`.
+
+## Stage 5 part 1 — nightly reactivation + catalog parity (Sep 15 2026)
+- [x] reactivation stage: inactive items with a real order/invoice hit in 14d → chasePrices(activateOnHit:true)
+- [x] catalog_parity stage: live brand templates vs store brand_item_ids → deploy missing (cap 50) → activation sweep on created items
+- [x] vendor-price-chase accepts itemIds for targeted sweep
+- [x] typecheck clean; vendor-sync-nightly + vendor-price-chase redeployed
+- [ ] Stage 5 part 2: consolidate archive-cascade triggers (drop 2, stamp deactivated_by/reason)
