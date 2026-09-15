@@ -32,6 +32,11 @@ export interface ChaseItem {
   unpriced_since: string | null;
   discontinued_at: string | null;
   ship_in_only: boolean | null;
+  /**
+   * Set when a person deliberately priced this item at zero. While set, the
+   * sync must NOT overwrite cost_per_unit — everything else still updates.
+   */
+  cost_zeroed_at?: string | null;
   last_seen_on_bid_list?: string | null;
   // Needed only by sweep mode (activateOnHit) to identify house-made items.
   vendor_source?: string | null;
