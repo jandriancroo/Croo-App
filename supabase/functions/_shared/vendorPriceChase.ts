@@ -447,7 +447,13 @@ export async function chasePrices(
       patch.unpriced_since = null;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : null;
       // Sweep mode only: a real price is proof the item is carried → turn it on.
-      if (activateOnHit) patch.is_active = true;
+      // Sweep mode only: switch on ONLY when this item is allowed to be. A
+      // blocked item still keeps its price — it just stays off, with a reason.
+      if (activateOnHit) {
+        const block = activationBlock(item);
+        if (block) skip(item, block);
+        else patch.is_active = true;
+      }
     } else {
       // Keep the first night we noticed, so the age tag is honest.
 
@@ -455,7 +461,11 @@ export async function chasePrices(
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : item.discontinued_at ?? null;
     }
 
-    await supabase.from("inventory_items").update(patch).eq("id", item.id);
+    const { error: writeErr } = await supabase
+      .from("inventory_items")
+      .update(patch)
+      .eq("id", item.id);
+    if (writeErr) { skip(item, "write_rejected", writeErr.message); continue; }
 
     results.push({
       itemId: item.id,
@@ -468,6 +478,10 @@ export async function chasePrices(
       unpriced: !hit,
       discontinued,
     });
+   } catch (e) {
+     // Anything unexpected from this one item — never the batch.
+     skip(item, "error", e);
+   }
   }
 
   return {
@@ -476,6 +490,8 @@ export async function chasePrices(
     shipIns: results.filter((r) => r.shipInOnly).length,
     discontinued: results.filter((r) => r.discontinued).length,
     activatedHouseMade,
+    skipped: skips.length,
+    skips,
     results,
   };
 }
