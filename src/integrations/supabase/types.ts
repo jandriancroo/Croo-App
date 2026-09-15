@@ -4455,6 +4455,8 @@ export type Database = {
           brand_item_id: string | null
           category: string | null
           cost_per_unit: number | null
+          cost_zeroed_at: string | null
+          cost_zeroed_by: string | null
           count_unit: string | null
           count_units_per_case: number | null
           countable: boolean
@@ -4511,6 +4513,8 @@ export type Database = {
           brand_item_id?: string | null
           category?: string | null
           cost_per_unit?: number | null
+          cost_zeroed_at?: string | null
+          cost_zeroed_by?: string | null
           count_unit?: string | null
           count_units_per_case?: number | null
           countable?: boolean
@@ -4567,6 +4571,8 @@ export type Database = {
           brand_item_id?: string | null
           category?: string | null
           cost_per_unit?: number | null
+          cost_zeroed_at?: string | null
+          cost_zeroed_by?: string | null
           count_unit?: string | null
           count_units_per_case?: number | null
           countable?: boolean
