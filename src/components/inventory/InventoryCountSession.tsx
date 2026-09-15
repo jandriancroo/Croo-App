@@ -3092,14 +3092,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const hasPan = !!(item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length);
           const panKeys = item.pan_sizes?.enabled_keys ?? [];
 
+          // Stage D: does this item have a usable price of its own? Recipes are
+          // priced by their live batch cost, everything else by cost_per_unit.
+          // Both "never priced" (null) and "deliberately zero" (0) read as
+          // NO COST to the person counting; the difference only matters to the
+          // nightly price sync (cost_zeroed_at).
+          const ownUnitCost = item.is_recipe
+            ? Number(recipeCosts?.get(item.item_id) ?? item.cost_per_unit ?? 0)
+            : Number(item.cost_per_unit ?? 0);
+          const hasNoCost = !(ownUnitCost > 0);
+
           // Build item header subtitle text (plain string, comma-separated)
           const headerBits: string[] = [];
           if (item.pack_size) headerBits.push(item.pack_size);
           if (item.item_number) headerBits.push(`#${item.item_number}`);
-          if (item.is_recipe) {
-            const rc = recipeCosts?.get(item.item_id) || item.cost_per_unit || 0;
-            if (rc) headerBits.push(`${formatCurrency(rc)}/ea`);
-          } else if (item.cost_per_unit) {
+          if (hasNoCost) {
+            // Say it plainly instead of silently omitting the price bits.
+            headerBits.push('no price');
+          } else if (item.is_recipe) {
+            headerBits.push(`${formatCurrency(ownUnitCost)}/ea`);
+          } else {
             // Header subtitle pulls pack structure + unit from the unified
             // shape resolver (snapshot > lens > local) so it agrees with the
             // lane labels, valuation math, and save snapshot. Previously this
@@ -3107,7 +3119,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             // which is why approved-lens items rendered "/u" instead of the
             // lens common_unit (e.g. "/lb").
             const shape = getShape(item);
-            const caseCost = Number(item.cost_per_unit) || 0;
+            const caseCost = ownUnitCost;
             const packsPerCase = Number(shape.packQty) || 1;
             const unitsPerPack = Number(shape.innerPackQty ?? 0) || 0;
             const hasInner = unitsPerPack > 0;
