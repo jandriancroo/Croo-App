@@ -464,16 +464,18 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       refetchLocations();
       setDeployComplete(true);
 
-      // 8. Auto-trigger initial vendor syncs — Brand mode only.
-      // Lite tenants have no PFG/PA integration; mark both as skipped.
+      // 8 + 9. Vendor list refresh, then the Phase 2 activation sweep — Brand mode only.
+      // Lite tenants have no PFG/PA integration and no vendor pricing to chase.
       if (inventoryMode === 'lite') {
         setSyncResult({
           pfg: { status: 'skipped', message: 'Not used in Lite mode' },
           pa: { status: 'skipped', message: 'Not used in Lite mode' },
+          activation: { status: 'skipped', message: 'Not used in Lite mode' },
         });
       } else {
         runInitialSync(locationId);
       }
+
 
       toast.success(`${name} deployed successfully!`);
     } catch (error: any) {
