@@ -110,4 +110,4 @@
 - [x] catalog_parity stage: live brand templates vs store brand_item_ids → deploy missing (cap 50) → activation sweep on created items
 - [x] vendor-price-chase accepts itemIds for targeted sweep
 - [x] typecheck clean; vendor-sync-nightly + vendor-price-chase redeployed
-- [ ] Stage 5 part 2: consolidate archive-cascade triggers (drop 2, stamp deactivated_by/reason)
+- [x] Stage 5 part 2: archive cascade consolidated — trg_cascade_archive_brand_template + trg_deactivate_items_on_template_archive already dropped; orphaned functions removed; canonical trigger stamps deactivated_by/reason
