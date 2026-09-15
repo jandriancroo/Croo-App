@@ -273,7 +273,9 @@ Deno.serve(async (req) => {
 
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
-          // Re-activate and sync name/category/pack to brand standard.
+          // Sync name/category/pack to brand standard. NOTE: is_active is deliberately
+          // NOT touched here — a re-deploy must never resurrect a dead item. The
+          // activation sweep (Phase 2) is the only thing that turns items on.
           // SKU INHERITANCE: only fill NULLs from the brand vendor mapping —
           // never overwrite a non-null local SKU. This closes the leak where a
           // location row had item_number/pa_item_id NULL and got skipped by syncs.
@@ -295,9 +297,9 @@ Deno.serve(async (req) => {
           await supabase
             .from("inventory_items")
             .update({
-              is_active: true,
               name: tmpl.product_name,
               category: tmpl.category,
+
               ...shelfRestore,
               ...skuFill,
               ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
