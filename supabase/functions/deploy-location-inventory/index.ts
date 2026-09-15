@@ -357,8 +357,8 @@ Deno.serve(async (req) => {
       const paSku = paByTemplate.get(tmpl.id);
       // Derive vendor_source from mappings if template's is blank.
       // Many older brand templates have NULL vendor_source even though they have
-      // a PFG/PA mapping — without this, the cost-backfill loop below skips them
-      // (it filters on vendor_source = 'pfg') and items deploy with $0 cost.
+      // a PFG/PA mapping — without this the activation sweep would treat them as
+      // house-made ("no vendor price ever expected") and activate them unpriced.
       const resolvedVendorSource = tmpl.vendor_source
         || (pfgSku ? "pfg" : (paSku ? "produce_alliance" : null));
       const { data: newItem, error: createErr } = await supabase
@@ -368,7 +368,10 @@ Deno.serve(async (req) => {
           name: tmpl.product_name,
           category: tmpl.category,
           storage_location_id: storageLocId,
-          is_active: true,
+          // PHASE 1 = STRUCTURE ONLY. Items land inactive; the Phase 2 activation
+          // sweep turns on the ones it can actually price.
+          is_active: false,
+
           is_recipe: tmpl.is_recipe || false,
           recipe_yield_qty: tmpl.recipe_yield_qty,
           recipe_yield_unit: tmpl.recipe_yield_unit,
