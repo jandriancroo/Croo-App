@@ -50,6 +50,20 @@ export interface ChaseResult {
   discontinued: boolean;
 }
 
+/** Why one item was passed over instead of taking the whole batch down with it. */
+export type SkipReason =
+  | "no_brand_link"
+  | "template_not_live"
+  | "write_rejected"
+  | "error";
+
+export interface ChaseSkip {
+  itemId: string;
+  name: string;
+  reason: SkipReason;
+  detail: string | null;
+}
+
 export interface ChaseSummary {
   priced: number;
   unpriced: number;
@@ -57,6 +71,9 @@ export interface ChaseSummary {
   discontinued: number;
   /** Sweep mode only: house-made items activated without a vendor price. */
   activatedHouseMade: number;
+  /** FAIL-SOFT: items passed over with a reason. Never aborts the batch. */
+  skipped: number;
+  skips: ChaseSkip[];
   results: ChaseResult[];
 }
 
