@@ -12593,6 +12593,79 @@ export type Database = {
           },
         ]
       }
+      vendor_name_candidates: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          id: string
+          invoice_id: string | null
+          location_id: string | null
+          normalized_name: string
+          raw_name: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_vendor_id: string | null
+          similarity_score: number | null
+          status: string
+          suggested_vendor_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          location_id?: string | null
+          normalized_name: string
+          raw_name: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_vendor_id?: string | null
+          similarity_score?: number | null
+          status?: string
+          suggested_vendor_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          location_id?: string | null
+          normalized_name?: string
+          raw_name?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_vendor_id?: string | null
+          similarity_score?: number | null
+          status?: string
+          suggested_vendor_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_name_candidates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_name_candidates_resolved_vendor_id_fkey"
+            columns: ["resolved_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_name_candidates_suggested_vendor_id_fkey"
+            columns: ["suggested_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_registry: {
         Row: {
           category: string | null
@@ -12622,6 +12695,41 @@ export type Database = {
           sync_methods?: Json
         }
         Relationships: []
+      }
+      vendor_registry_aliases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          normalized_alias: string
+          raw_alias: string | null
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          normalized_alias: string
+          raw_alias?: string | null
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          normalized_alias?: string
+          raw_alias?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_registry_aliases_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_registry"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_sku_health: {
         Row: {
@@ -13505,6 +13613,16 @@ export type Database = {
         Args: { p_location_id: string; p_message_id: string }
         Returns: undefined
       }
+      match_vendor_name: {
+        Args: { _name: string }
+        Returns: {
+          display_name: string
+          exact: boolean
+          score: number
+          vendor_id: string
+          vendor_key: string
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -13514,6 +13632,7 @@ export type Database = {
         }
         Returns: number
       }
+      normalize_vendor_name: { Args: { _name: string }; Returns: string }
       oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
       perform_checklist_swap: { Args: { _draft_id: string }; Returns: boolean }
       pfg_swap_credentials: {
