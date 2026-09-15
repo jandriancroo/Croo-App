@@ -3179,7 +3179,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   className="absolute top-0 right-0 text-white text-center leading-tight"
                   style={{ backgroundColor: '#e85d04', padding: '6px 11px', borderTopRightRadius: 'calc(0.5rem - 1px)', borderBottomLeftRadius: '0.5rem' }}
                 >
-                  <p className="text-[15px] sm:text-base font-semibold tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                  {/* Stage D: NO COST replaces the money figure whenever the
+                      item itself has no usable price (null or zero). Driven by
+                      the item's own cost only — nothing else gates it. */}
+                  {hasNoCost ? (
+                    <p className="text-[11px] sm:text-xs font-bold tracking-wide">NO COST</p>
+                  ) : (
+                    <p className="text-[15px] sm:text-base font-semibold tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                  )}
                   <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
                     {headerUnits} {headerUnitLabel}
                   </p>
