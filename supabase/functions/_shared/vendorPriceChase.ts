@@ -55,8 +55,11 @@ export interface ChaseSummary {
   unpriced: number;
   shipIns: number;
   discontinued: number;
+  /** Sweep mode only: house-made items activated without a vendor price. */
+  activatedHouseMade: number;
   results: ChaseResult[];
 }
+
 
 const norm = (v: unknown) => String(v ?? "").trim();
 
