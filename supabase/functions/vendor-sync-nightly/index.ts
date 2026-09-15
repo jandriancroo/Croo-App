@@ -13,9 +13,12 @@
 //                             by the headless GitHub Action → save_catalog)
 //   Stage 4  pa_activity      recent PA invoices
 //   Stage 5  price_fill       master → order → invoice chain, per item
-//   Stage 6  gaps             unseen vendor numbers → vendor_gap_alerts (ONCE)
-//   Stage 7  pack_configs     only when this run produced NEW gaps
-//   Stage 8  report           unpriced / discontinued / ship-in counts
+//   Stage 6  reactivation     off item ordered again in 14 days → reactivate + price
+//   Stage 7  catalog_parity   store missing a live brand template → deploy it,
+//                             then Phase-2 activation sweep on what it created
+//   Stage 8  gaps             unseen vendor numbers → vendor_gap_alerts (ONCE)
+//   Stage 9  pack_configs     only when this run produced NEW gaps
+//   Stage 10 report           unpriced / discontinued / ship-in counts
 //
 // Locked rules:
 //   - Never deactivates an item. Tags only.
