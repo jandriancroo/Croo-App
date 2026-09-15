@@ -131,6 +131,28 @@ Deno.serve(async (req) => {
       ...(activate ? { activateOnHit: true, windowDays: SWEEP_WINDOW_DAYS } : {}),
     });
 
+    // After an activation sweep, re-check every recipe at this store: a dish that
+    // just came on with an ingredient still off needs flagging (flag only).
+    let recipeIntegrity: unknown = null;
+    if (activate) {
+      try {
+        const res = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/recipe-integrity-scan`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({ locationId }),
+          },
+        );
+        recipeIntegrity = await res.json().catch(() => null);
+      } catch (e) {
+        console.warn("[vendor-price-chase] recipe integrity scan failed:", e);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         location_id: locationId,
@@ -141,8 +163,13 @@ Deno.serve(async (req) => {
         ship_ins: summary.shipIns,
         discontinued: summary.discontinued,
         activated_house_made: summary.activatedHouseMade,
+        skipped: summary.skipped,
+        skips: summary.skips,
+        page_errors: pageErrors,
+        recipe_integrity: recipeIntegrity,
         results: summary.results,
       }),
+
 
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
