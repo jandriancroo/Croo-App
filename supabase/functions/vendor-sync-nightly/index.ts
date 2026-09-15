@@ -24,7 +24,14 @@
 //     for that vendor is done.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chasePrices, CHASE_SELECT, ACTIVITY_WINDOW_DAYS } from "../_shared/vendorPriceChase.ts";
+import {
+  chasePrices,
+  CHASE_SELECT,
+  ACTIVITY_WINDOW_DAYS,
+  loadApprovedNumbers,
+  loadActivityHits,
+  numbersForItem,
+} from "../_shared/vendorPriceChase.ts";
 import { filterEnabledLocations } from "../_shared/inventoryGate.ts";
 
 const corsHeaders = {
@@ -36,6 +43,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+/** Safety valve: a single night never auto-deploys more than this per store. */
+const MAX_PARITY_DEPLOYS = 50;
+
 /** Ordered stages. Task type = `vendor_${stage}`. */
 const STAGES = [
   { stage: "pfg_masters", vendor: "pfg", perLocation: true },
@@ -43,6 +53,11 @@ const STAGES = [
   { stage: "pa_masters", vendor: "pa", perLocation: false },
   { stage: "pa_activity", vendor: "pa", perLocation: false },
   { stage: "price_fill", vendor: "all", perLocation: true },
+  // Stage 5 additions (Sep 15 2026):
+  //   reactivation    — an OFF item that just got ordered again comes back on.
+  //   catalog_parity  — a store missing a live brand template gets it deployed.
+  { stage: "reactivation", vendor: "all", perLocation: true },
+  { stage: "catalog_parity", vendor: "all", perLocation: true },
   { stage: "gaps", vendor: "all", perLocation: false },
   { stage: "pack_configs", vendor: "all", perLocation: false },
   { stage: "report", vendor: "all", perLocation: false },
