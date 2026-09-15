@@ -620,6 +620,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                 </div>
                 {renderSyncStatus('PFG (Foodservice)', syncResult.pfg)}
                 {renderSyncStatus('Produce Alliance', syncResult.pa)}
+                {renderSyncStatus('Pricing & activation', syncResult.activation)}
                 {(syncResult.pfg.status === 'skipped' || syncResult.pa.status === 'skipped') && (
                   <p className="text-xs text-amber-600 mt-2 pt-2 border-t">
                     ⚠️ Skipped vendors need credentials configured in Settings → Integrations before costs and pack data will populate.
