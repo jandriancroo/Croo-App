@@ -76,6 +76,12 @@ interface CountItem {
   recipe_yield_unit?: string | null;
   /** Per-shortcut counting mode: inherit uses global settings */
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
+  /** Stage D notes row inputs — read-only passthrough from inventory_items. */
+  discontinued_at?: string | null;
+  unpriced_since?: string | null;
+  last_ordered_at?: string | null;
+  cost_zeroed_at?: string | null;
+  is_active?: boolean | null;
 }
 
 // Count state: cases + pack tier + individual units (supports decimals for partial cases)
@@ -211,6 +217,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           countable,
           recipe_yield_unit,
           recipe_yield_qty,
+          is_active,
+          discontinued_at,
+          unpriced_since,
+          last_ordered_at,
+          cost_zeroed_at,
           storage_location:inventory_locations(name)
       `;
       
