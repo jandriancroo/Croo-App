@@ -447,7 +447,14 @@ export async function chasePrices(
     }
 
     if (hit) {
-      patch.cost_per_unit = hit.price;
+      // Deliberate zero is a human decision — never silently overwrite it.
+      // Everything else about the item (order dates, discontinued, activation)
+      // still updates exactly as before.
+      if (item.cost_zeroed_at) {
+        skip(item, "cost_intentionally_zero");
+      } else {
+        patch.cost_per_unit = hit.price;
+      }
       patch.last_synced_at = nowIso;
       patch.unpriced_since = null;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : null;
