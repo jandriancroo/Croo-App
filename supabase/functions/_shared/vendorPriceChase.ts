@@ -33,7 +33,10 @@ export interface ChaseItem {
   discontinued_at: string | null;
   ship_in_only: boolean | null;
   last_seen_on_bid_list?: string | null;
+  // Needed only by sweep mode (activateOnHit) to identify house-made items.
+  vendor_source?: string | null;
 }
+
 
 export interface ChaseResult {
   itemId: string;
