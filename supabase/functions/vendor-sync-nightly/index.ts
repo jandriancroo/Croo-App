@@ -182,14 +182,26 @@ async function handleStart(supabase: any, body: any) {
       .map((r: any) => r.location_id),
   )];
 
+  // Catalog parity is not a vendor question — every inventory-enabled store with a
+  // brand belongs in it, integration or not.
+  const { data: parityRows } = await supabase
+    .from("locations")
+    .select("id")
+    .eq("inventory_enabled", true)
+    .eq("is_test_location", false)
+    .not("brand_id", "is", null);
+  const parityLocs = [...new Set((parityRows || []).map((r: any) => r.id))];
+
   const tasks: { task_type: string; location_id: string | null; target_date: string }[] = [];
 
   for (const s of STAGES) {
     const locs = !s.perLocation
       ? [null]
-      : s.stage.startsWith("pfg_")
-        ? pfgLocs
-        : priceLocs;
+      : s.stage === "catalog_parity"
+        ? parityLocs
+        : s.stage.startsWith("pfg_")
+          ? pfgLocs
+          : priceLocs;
     for (const loc of locs) {
       await upsertRun(supabase, {
         run_date: runDate,
