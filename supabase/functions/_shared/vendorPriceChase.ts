@@ -317,7 +317,10 @@ export async function chasePrices(
       patch.last_synced_at = nowIso;
       patch.unpriced_since = null;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : null;
+      // Sweep mode only: a real price is proof the item is carried → turn it on.
+      if (activateOnHit) patch.is_active = true;
     } else {
+
       // Keep the first night we noticed, so the age tag is honest.
       patch.unpriced_since = item.unpriced_since ?? nowIso;
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : item.discontinued_at ?? null;
