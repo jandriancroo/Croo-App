@@ -402,6 +402,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             recipe_yield_qty: (item as any).recipe_yield_qty ?? null,
             recipe_yield_unit: (item as any).recipe_yield_unit ?? null,
             count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
+            // Stage D: notes-row inputs (flag-only; never affect valuation).
+            is_active: (item as any).is_active ?? true,
+            discontinued_at: (item as any).discontinued_at ?? null,
+            unpriced_since: (item as any).unpriced_since ?? null,
+            last_ordered_at: (item as any).last_ordered_at ?? null,
+            cost_zeroed_at: (item as any).cost_zeroed_at ?? null,
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
             _existingUnits: countData?.entered_units ?? null,
