@@ -4430,6 +4430,7 @@ export type Database = {
           is_daily_tracked: boolean
           is_recipe: boolean
           item_number: string | null
+          last_ordered_at: string | null
           last_seen_on_bid_list: string | null
           last_seen_on_bid_list_vendor: string | null
           last_synced_at: string | null
@@ -4485,6 +4486,7 @@ export type Database = {
           is_daily_tracked?: boolean
           is_recipe?: boolean
           item_number?: string | null
+          last_ordered_at?: string | null
           last_seen_on_bid_list?: string | null
           last_seen_on_bid_list_vendor?: string | null
           last_synced_at?: string | null
@@ -4540,6 +4542,7 @@ export type Database = {
           is_daily_tracked?: boolean
           is_recipe?: boolean
           item_number?: string | null
+          last_ordered_at?: string | null
           last_seen_on_bid_list?: string | null
           last_seen_on_bid_list_vendor?: string | null
           last_synced_at?: string | null
