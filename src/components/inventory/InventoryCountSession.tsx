@@ -3210,6 +3210,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 </div>
               </div>
 
+              {/* Stage D: notes row — renders only when the item actually has a
+                  note. Discontinued first (with one-tap mark inactive), then
+                  unpriced, then last-ordered. */}
+              <CountItemNotes
+                discontinuedAt={item.discontinued_at ?? null}
+                unpricedSince={item.unpriced_since ?? null}
+                lastOrderedAt={item.last_ordered_at ?? null}
+                hasNoCost={hasNoCost}
+                canMarkInactive={!isViewOnly}
+                isInactive={markedInactiveIds.has(item.item_id) || item.is_active === false}
+                markingInactive={markingInactiveId === item.item_id}
+                onMarkInactive={() => { void handleMarkInactive(item.item_id, item.item_name); }}
+              />
+
+
+
 
 
               {/* ============ MOBILE LAYOUT (< 640px) ============ */}
