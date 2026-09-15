@@ -189,13 +189,83 @@ serve(async (req) => {
       status: "parsed",
     }).eq("id", invoiceId);
 
+    // ── Vendor registry link ────────────────────────────────────────────────
+    // The AI-read vendor name is free text. Normalize it and compare against
+    // vendor_registry (keys, display names, confirmed aliases) with pg_trgm.
+    // An exact normalized/alias hit links silently; ANYTHING else — including a
+    // 0.95 near-match — is queued for a human tap. Never auto-create, never
+    // auto-link on similarity alone.
+    let vendorRegistryId: string | null = null;
+    let vendorCandidateId: string | null = null;
+    let vendorSuggestion: { key: string; display_name: string; score: number } | null = null;
+    const rawVendorName = String(parsed.vendor_name || invoice.vendor_name || "").trim();
 
-    // Fetch location items
-    const { data: locationItems } = await admin
+    if (rawVendorName && rawVendorName.toLowerCase() !== "unknown") {
+      try {
+        const { data: matchData } = await admin.rpc("match_vendor_name", { _name: rawVendorName });
+        const best: any = Array.isArray(matchData) ? matchData[0] ?? null : matchData ?? null;
+
+        if (best?.exact === true) {
+          vendorRegistryId = best.vendor_id;
+        } else {
+          if (best) {
+            vendorSuggestion = {
+              key: best.vendor_key,
+              display_name: best.display_name,
+              score: Number(best.score ?? 0),
+            };
+          }
+          const { data: normData } = await admin.rpc("normalize_vendor_name", { _name: rawVendorName });
+          const normalized = String(normData ?? "").trim();
+
+          if (normalized) {
+            const { data: existingCand } = await admin
+              .from("vendor_name_candidates")
+              .select("id")
+              .eq("normalized_name", normalized)
+              .eq("status", "pending")
+              .maybeSingle();
+
+            if (existingCand?.id) {
+              vendorCandidateId = existingCand.id;
+            } else {
+              const { data: cand, error: candErr } = await admin
+                .from("vendor_name_candidates")
+                .insert({
+                  raw_name: rawVendorName,
+                  normalized_name: normalized,
+                  suggested_vendor_id: best?.vendor_id ?? null,
+                  similarity_score: best?.score ?? null,
+                  invoice_id: invoiceId,
+                  location_id: invoice.location_id,
+                  brand_id: brandId,
+                  status: "pending",
+                })
+                .select("id")
+                .single();
+              if (candErr) console.warn("vendor candidate insert skipped:", candErr.message);
+              else vendorCandidateId = cand?.id ?? null;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("vendor name matching skipped:", e instanceof Error ? e.message : String(e));
+      }
+    }
+
+
+
+
+    // Fetch location items.
+    // NOTE: inventory_items has NO `status` column — it uses the boolean
+    // `is_active`, like the rest of the app. The old `.eq("status","active")`
+    // filter made this select fail, so no invoice line ever matched a local item.
+    const { data: locationItems, error: locItemsErr } = await admin
       .from("inventory_items")
-      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit")
+      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit, is_active")
       .eq("location_id", invoice.location_id)
-      .eq("status", "active");
+      .eq("is_active", true);
+    if (locItemsErr) console.error("Error loading location items:", locItemsErr);
 
     // Get existing brand templates AND vendor mappings for dedup
     let existingTemplates: any[] = [];
