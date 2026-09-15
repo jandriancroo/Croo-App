@@ -1,41 +1,70 @@
-# Stage 2 — Produce price fallback + deploy price window
+# Stage 3 — Split deploy into structure, then activation
 
-## Both problems are real. Confirmed in the code and the data.
+## Agreement on the reasoning
 
-### 1. Produce items can never hit the order/invoice fallback
+Confirmed against the current code, and I agree with all of it:
 
-`_shared/vendorPriceChase.ts` builds its recent-activity lookups from **only two tables**: `pfg_orders` and `pfg_invoices` (lines 169-182). The matching loop then looks up produce numbers in those same PFG-only maps (lines 256-266). So for a produce item the chain is effectively "catalog or nothing" — the orders and invoices tiers run but can never match.
+- Line 363: new items are inserted with `is_active: true` unconditionally.
+- Line 292: the existing-item branch force-sets `is_active: true` on every re-deploy, so a genuinely dead item gets resurrected by any manual "Sync".
+- The "5c. Backfill PFG cost_per_unit" block (lines 399–530) makes a live PFG bid-guide call and re-implements a two-tier price search that the shared price chain now does better (and, since Stage 2, does for produce too). It is also PFG-only, so produce items were never priced by deploy at all.
+- The bottom "Auto-trigger vendor syncs" block (lines ~698–740) races three invokes against a 2-second timer. It cannot report success, cannot be waited on, and there is no step afterwards to use its results — exactly the fire-and-forget being replaced.
 
-Knock-on effect, worse than just a missing price: `hadActivity` (line 269) is also computed from those PFG-only maps, so a produce item that has been ordered every week still counts as "no activity" and can get tagged discontinued.
+One correction to the brief, from the code: the second deploy pass in `LocationActivationList.tsx` is **not** needed for SKU stamping (you're right — SKUs are stamped at insert, lines ~350–360). But it does do one real thing: recipe ingredient linking (section 6) matches ingredients on `item_number` / `pa_item_id`, and that runs *before* the vendor syncs on the first pass. On a brand-new store the first pass links fine anyway, because the SKUs come from `brand_vendor_mappings` at insert, not from the syncs. The syncs only add prices. So the second pass is genuinely redundant and gets removed — with one caveat noted under Risks.
 
-The produce order data does exist and is usable: `pa_orders` has 253 rows, with `items` JSON lines carrying `item_code`, `master_product_code`, `pa_product_id`, and `price`, plus `order_date` / `delivery_date`.
+## Phase 1 — structural deploy
 
-Produce **invoices** are the one gap: there is no `pa_invoices` table. Produce invoices only arrive through the manual upload path (`vendor_invoices` + `vendor_invoice_items`, vendor "Worldwide Produce"), which today holds a single invoice across the whole system.
+In `deploy-location-inventory/index.ts`:
 
-### 2. Deploy's fallback really is 50 orders with no date limit
+- New items insert with `is_active: false`.
+- Existing-item branch: drop `is_active: true` from the update. Keep name/category/pack/shelf/SKU refresh — that's identity, not activation.
+- Delete the whole 5c PFG cost-backfill block, including the `pfg-service` invoke and the 30-day order window added in Stage 2 (that logic now lives only in the shared chain).
+- Delete the "Auto-trigger vendor syncs" block at the bottom.
+- Keep untouched: template fetch, shelf/storage mirroring, product groups, SKU stamping from `brand_vendor_mappings`, recipe ingredient linking, the multi-shelf shortcut restore, the pre-flight warnings, `last_deployed_at`.
+- Response gains `deployedItemIds` (the values of `templateToItemId`) so callers can hand Phase 2 an exact set, and the warnings text stops promising "syncs will run automatically" — it now says items are inactive until the activation sweep prices them.
 
-`deploy-location-inventory/index.ts` lines 479-485: `pfg_orders`, newest first, `.limit(50)`, no date filter. Confirmed. It is also PFG-only, same blind spot as above.
+Result: deploy becomes a pure internal copy — no outbound vendor traffic, fast, fully idempotent, and it can never activate anything.
 
-## Plan
+## Phase 2 — activation sweep
 
-**A. Add produce orders as a real tier in the nightly chain**
-- Query `pa_orders` alongside the two PFG tables, same location filter, same `order_date >= today - ACTIVITY_WINDOW_DAYS` (14 days), newest first.
-- Fold its lines into the same `orderByNumber` map, keyed on `item_code`, `master_product_code` and `pa_product_id` (all normalised the same way as today) so any of the three identifiers on an item can match. Price from `price`, ref from `order_number`, date from `order_date` falling back to `delivery_date`.
-- PFG lines are read first so an item carrying both identifiers still prefers its PFG order — tier order stays master list → orders → invoices → unpriced.
-- Because the produce lines now land in the shared map, `hadActivity`, `ship_in_only` and the discontinued guard start behaving correctly for produce with no extra changes.
+`_shared/vendorPriceChase.ts` gets one additive option:
 
-**B. Produce invoices**
-- Add manually-uploaded produce invoices to the invoice tier: `vendor_invoice_items` joined to `vendor_invoices` for the location, within the same 14-day window, matched on `item_number`.
-- This is thin by nature (1 invoice exists today) — it is a completeness belt so the tier isn't structurally dead, not a source we should lean on. If you'd rather not add a join for one row, I'll skip B and do A only; say which.
+- `opts.activateOnHit?: boolean` (default `false`). When true and `hit !== null`, the patch also sets `is_active: true`. Nothing else changes — no hit still means `unpriced_since` stamped and the item left inactive.
+- Nightly `price_fill` and the existing unpriced-counter button pass nothing, so their behaviour is byte-identical.
 
-**C. Deploy window: 30 days by date, not 50 rows**
-- Replace `.limit(50)` with `.gte("order_date", <today − 30 days>)`, keeping the newest-first ordering and first-hit-wins behaviour. The date filter is the limit — no row cap, so a busy store gets its full 30 days and a quiet store doesn't reach back six months.
-- Same 30-day window applied to a new `pa_orders` read in deploy, so a new produce-carrying store gets a starting price picture too.
+The sweep itself runs through the existing `vendor-price-chase` function rather than a new one, with two new body flags:
 
-## Technical notes
-- `ACTIVITY_WINDOW_DAYS` (14) stays the nightly constant; deploy gets its own local 30-day constant with a comment explaining why it is wider (one-time initial sweep vs nightly refresh).
-- Produce identifiers are numeric in the JSON (`pa_product_id: 10320`); they'll be string-normalised through the existing `norm()` before being used as map keys.
-- No schema change, no migration. Two files: `_shared/vendorPriceChase.ts` and `deploy-location-inventory/index.ts`. Both edge functions redeploy; nothing else imports the changed code paths.
+- `activate: true` → passes `activateOnHit: true` and `windowDays: 30`.
+- `includeInactive: true` → drops the `.eq("is_active", true)` filter and the unpriced-only `.or(...)`, so freshly deployed inactive items are actually selected. Also raises the item cap for this mode (a full brand catalog is well over the current 300) and pages the select.
 
-## Open question
-Include part B (produce invoices via the manual-upload tables), or ship A + C only?
+Deploy does not call this itself. Each entry point calls it explicitly, which is what makes the two phases decoupled and independently retryable.
+
+## Entry points
+
+**1. `LocationActivationList.tsx` (manual re-deploy)** — four steps become three, second deploy pass removed:
+
+1. `deploy-location-inventory` — "Copying inventory structure…"
+2. `pfg-service` sync + `produce-alliance-service` sync_items + orders, in parallel, awaited — "Refreshing vendor lists and orders…"
+3. `vendor-price-chase` with `{ locationId, activate: true, includeInactive: true }` — "Pricing and activating items…"
+
+Toast reports `priced` / `still_unpriced` from the sweep, so the number that matters (how many items are live) is visible immediately instead of inferred.
+
+**2. `DeployLocationWizard.tsx` (new location)** — step 6 stays as the Phase 1 call, `runInitialSync` (step 8) stays as the vendor sync, and a new step 9 runs the activation sweep after it, surfacing "X items live, Y waiting on a vendor price" in the existing result panel. Lite mode skips both 8 and 9 as it already does.
+
+**3. `auto_deploy_brand_template` trigger** — per-location loop keeps its single `net.http_post` to `deploy-location-inventory`, then adds a second `net.http_post` to `vendor-price-chase` with `{ locationId, activate: true, includeInactive: true }`. Both are still fire-and-forget with no ordering guarantee across separate HTTP calls; that's acceptable here because the sweep is idempotent and the nightly run is the backstop. Per your instruction, retry and error visibility for this trigger stay out of scope.
+
+## Risks and how they're handled
+
+- **Vendor lists empty at sweep time.** If PFG/PA syncs haven't populated `pfg_bid_items` / `pa_catalog_items` yet, the sweep finds nothing and everything stays inactive. Mitigated in the two UI flows by awaiting the syncs first; in the trigger path the nightly `price_fill` picks it up. The shared chain's existing "never guess when we couldn't read a master" guard already prevents wrongly stamping `discontinued_at` in that case.
+- **House-made prep and sub-recipes have no vendor number.** The chain skips them entirely (`pfg.size === 0 && pa.size === 0` → `continue`), so they'd deploy inactive and never activate. Fix: in the sweep mode only, items with no vendor identifier and `is_recipe = true` are activated directly, since no vendor price was ever expected for them. I'll confirm the exact set (recipes plus any item with no vendor SKU and no `vendor_source`) before writing it.
+- **Existing live stores.** Nothing runs against them until someone presses Sync or the nightly job runs, and the nightly job doesn't activate. The only behaviour change for an existing store is that re-deploy stops silently resurrecting dead items — which is the intended fix.
+
+## Files touched
+
+- `supabase/functions/deploy-location-inventory/index.ts` (remove 5c + auto-sync, inactive inserts, return item ids)
+- `supabase/functions/_shared/vendorPriceChase.ts` (`activateOnHit` option)
+- `supabase/functions/vendor-price-chase/index.ts` (`activate` + `includeInactive` modes, paging)
+- `src/components/brand/LocationActivationList.tsx`
+- `src/components/settings/DeployLocationWizard.tsx`
+- one migration: `CREATE OR REPLACE FUNCTION public.auto_deploy_brand_template()` with the added sweep post
+
+No schema change. Three edge functions redeploy. No publish.
