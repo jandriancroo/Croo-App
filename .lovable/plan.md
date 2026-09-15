@@ -1,55 +1,64 @@
-# Stage B — Fail-soft activation sweep + broken-recipe scan
+# Stage D — Count sheet UI
 
-## 1. Fail-soft activation sweep
+## First: the review / close-out verification you asked for
 
-### What I found (verified, not assumed)
+**Good news — no bug. Review and every closing total already include items that went inactive mid-count.**
 
-The sweep loop in `_shared/vendorPriceChase.ts` has **no per-item guard at all**. One item is enough to end a location's sweep, and one class of failure is already happening silently:
+What I checked, and what each one does:
 
-- **Silent write failures.** Every write in the loop (`update(patch)`, and the house-made `is_active: true` write) discards its result. Errors are neither logged nor counted.
-- **A real database rule rejects activation.** `trg_inventory_items_enforce_brand_link` raises an exception whenever an item is switched on while it has no brand catalog link. Live count today: **491 off items have no brand link**, so every one of them would be rejected mid-sweep — and because the error is discarded, the sweep reports success and nobody knows.
-- **A thrown error aborts the batch.** Any network-level failure inside the loop (these throw rather than returning an error) escapes the loop, escapes `chasePrices`, and the endpoint returns a 500 with **zero** partial results — the items already processed aren't reported.
-- **Paging is all-or-nothing.** `vendor-price-chase` line 111 does `if (error) throw error` while paging items, so a hiccup on page 3 discards pages 1 and 2.
-- **No live-template check exists.** Nothing in the sweep asks whether an item's brand template is still live, so an archived template's item can be switched back on.
+- **Review screen** — reads the saved count lines first, then pulls each item's details by ID. There is no "only active items" filter anywhere in it, so a line stays visible and stays in the Total Value figure even after the item is switched off.
+- **Closing the count** — the "submit count" action only flips the count's status and timestamps. It does not recalculate or freeze a total, so there is nothing there that could drop a line.
+- **Period panel / COGS totals** — deliberately collects every item ID referenced by the beginning and ending counts and looks those up by ID, with an existing comment saying this exists precisely so deactivating an item after counting doesn't drop its value.
+- **Reports data and the variance report** — same shape: count lines first, item lookup by ID, no active-only filter.
+- **Count session** — as previously confirmed, it loads active items plus any item already present in this count even if now inactive.
 
-### The change
+So the behaviour Stage D depends on is real and already covered. Nothing to fix first.
 
-- Wrap each item's work in the sweep loop in its own guard. A failure records a skip with a reason and the loop continues. Nothing thrown by one item can end the batch.
-- Check every write's result. A rejected write becomes a logged, counted skip with the database's own message.
-- Before switching an item on: skip (with reason) when the item has no brand catalog link, and skip when its brand template is not live. Reasons: `no_brand_link`, `template_not_live`, `write_rejected`, `error`.
-- Make paging tolerant: a failed page is logged and the sweep runs on the items already collected instead of aborting.
-- Return the skips: `skipped` count plus a `skips` list (item, reason) in the summary and in the endpoint response, and into the nightly run detail so a night's skips are queryable afterwards.
+## What gets built
 
-## 2. Broken-recipe scan
+### 1. NO COST in the price badge
 
-### What I found
+The orange corner badge on each count card is the price display. Today, when an item has no price, the price line simply renders as a currency figure with nothing to explain it, and the cost detail line under the item name disappears entirely.
 
-Recipes and their ingredients live in `inventory_recipe_ingredients` (recipe item → ingredient item, per location). Current live state:
+Change: when the item's cost is missing or zero, the badge shows **NO COST** in place of the money figure (units line unchanged), and the item's detail line says the price is missing rather than silently omitting it. This is driven purely by the item's own cost — independent of notes, discontinued state, or anything else.
 
-```text
-ingredient links pointing at a switched-off product ......... 979
-recipes touched by those ................................... 223
-distinct switched-off products involved .................... 216
-of those recipes, how many are themselves switched ON ......   0
-active recipes that have ingredients at all ................   3
-```
+### 2. Two distinct "no cost" states underneath
 
-So today the scan reports nothing — all 979 broken links belong to recipes that are themselves off (the freshly deployed, not-yet-activated catalogs). That is exactly why this check is worth having now: as stores activate their catalogs, a dish switching on while one of its ingredients stays off is the failure mode, and nothing currently notices.
+Both display as NO COST, but the system treats them differently:
 
-### Where it should live — my recommendation
+- **Never priced** (no value at all) — the nightly price sync keeps chasing it. This already works today.
+- **Deliberately set to zero** — someone chose zero on purpose. The sync must not quietly overwrite it.
 
-- **Logic:** one new function, `recipe-integrity-scan`, taking an optional location. Called at the end of deploy's activation sweep for that store, and added to the nightly pipeline as a per-store stage after `catalog_parity` (so it sees whatever parity just deployed and activated).
-- **Storage:** a small table, `recipe_integrity_alerts` — one row per (location, recipe, missing ingredient), with the names snapshotted so the report reads correctly even if something is renamed later, plus first-seen / last-seen and a resolved stamp. The scan re-stamps existing rows and closes ones that healed, so the list never double-reports.
-- **Surfacing:** a "Recipes missing ingredients" card in the existing **Health** tab of Brand Inventory (next to Vendor Health), grouped **by missing product** — product name, how many dishes it affects, and the full list of dish names, since one missing item commonly hits several dishes. A count badge on the Health tab so it's visible without opening it. Read-only: no disable button, no auto-disable, matching tonight's flag-only rule.
+Today an item deliberately zeroed can still be overwritten by the sync. Fix: record when a zero was set on purpose (who and when), and have the price sync leave the price alone on those items while still updating everything else about them (order dates, discontinued flags, availability). Setting a price above zero clears the deliberate-zero marker.
 
-Alternative considered and rejected: folding this into `vendor_gap_alerts`. That table is shaped around vendor SKUs and brand-level review; recipe breakage is per-store and per-dish and would distort the gap list.
+### 3. Notes row on the count card
+
+A new compact row under the item header, rendered **only** when the item has at least one note. No note, no row.
+
+Note types, in this fixed order:
+1. **Discontinued** — item has a discontinued date.
+2. **Unpriced** — cost missing or zero (with how long it's been that way, when known).
+3. **Last ordered** — the date it last appeared on an order.
+
+The first note shows inline with no tap. Any others collapse behind a down arrow labelled with a live count ("2 more"), expanding in place.
+
+### 4. One-tap "mark inactive" on the discontinued note
+
+The discontinued note carries a small action. Tapping it:
+- switches the item off, recorded as a manager action (same pattern as the archive-cascade work earlier tonight),
+- shows an undo toast that puts it straight back if tapped,
+- leaves the item fully countable for the rest of this session — quantities already entered stay, and the total stays correct (verified above).
+
+Confirmation wording, exactly: **"Marked inactive. It'll stay in this count and drop off after you close."** No warnings about lost value.
+
+Nothing is ever auto-deactivated; this only happens when someone taps it.
 
 ## Technical notes
 
-- `supabase/functions/_shared/vendorPriceChase.ts` — per-item `try/catch` inside the `for (const item of items)` loop; capture `{ error }` on both `inventory_items` updates; pre-activation guards (`brand_item_id` present, brand template `status = 'live'` via one batched template-status lookup reusing the ids already loaded for `loadApprovedNumbers`); extend `ChaseSummary` with `skipped` + `skips: { itemId, name, reason, detail }[]`.
-- `supabase/functions/vendor-price-chase/index.ts` — tolerant paging; pass through `skipped` / `skips`.
-- `supabase/functions/vendor-sync-nightly/index.ts` — surface `skipped` in `price_fill` / `reactivation` / `catalog_parity` detail; add stage `recipe_integrity` (per location) to `STAGES` after `catalog_parity`, with its runner calling the new function.
-- New: `supabase/functions/recipe-integrity-scan/index.ts` (service/manager caller guard, same pattern as `vendor-price-chase`); called from `deploy-location-inventory`'s Phase 2 completion path and from the nightly stage.
-- Migration: `recipe_integrity_alerts` (location_id, brand_id, recipe_item_id, recipe_name, ingredient_item_id, ingredient_name, status, first_seen_at, last_seen_at, resolved_at) with grants, RLS (managers read, backend writes), and a unique key on (location_id, recipe_item_id, ingredient_item_id).
-- UI: new `src/components/inventory/RecipeIntegrityCard.tsx` rendered in the Health tab of `src/pages/BrandInventory.tsx`; badge count on the Health tab trigger.
-- No retroactive action on the 979 existing links beyond reporting them once their recipe is active — nothing is auto-disabled.
+- Verified paths (no active-only filter, all count-line driven): `InventoryCountView.tsx` count-items query, `InventoryCount.tsx` submit mutation, `PeriodDetailPanel.tsx` (explicit referenced-ID union), `useReportData.ts` `sumCount`, `varianceReport.ts` `fetchCountItems` / `fetchAllInventoryItems`.
+- Price badge + `headerBits` live in `InventoryCountSession.tsx` (item header block). The `else if (item.cost_per_unit)` guard is what currently swallows zero/null. Data cubes on the dashboard are untouched — this is the count card badge only.
+- New columns on `inventory_items`: `cost_zeroed_at timestamptz`, `cost_zeroed_by uuid`. Migration only adds columns; no drops, no data rewrite.
+- `_shared/vendorPriceChase.ts`: skip the `cost_per_unit` assignment when `cost_zeroed_at` is set (add to `CHASE_SELECT`), keep all other patch fields; add the field to the item type. Fail-soft skip machinery from Stage B stays as-is.
+- Notes row: new `src/components/inventory/CountItemNotes.tsx`, fed from fields already available on the item (`discontinued_at`, `unpriced_since`, `last_ordered_at`, `cost_per_unit`) — these need adding to the count session's item select.
+- Mark-inactive writes `is_active = false`, `deactivated_by = 'manager'`, `deactivated_reason = 'discontinued'`; the session's item list is not refetched during the session, so the row persists naturally. Undo restores the prior values.
+- Mobile-first sizing, tap targets consistent with the existing lane buttons; no new dependencies.
