@@ -96,7 +96,7 @@ export default function LocationActivationList({
       const toastId = toast.loading('Deploying inventory structure…');
       const { data: deployData, error: deployErr } = await supabase.functions.invoke(
         'deploy-location-inventory',
-        { body: { locationId, brandId } },
+        { body: { locationId, brandId, source: 'brand_location_list' } },
       );
       if (deployErr) throw deployErr;
 
@@ -116,7 +116,15 @@ export default function LocationActivationList({
       toast.loading('Pricing and activating items…', { id: toastId });
       const { data: sweep, error: sweepErr } = await supabase.functions.invoke(
         'vendor-price-chase',
-        { body: { locationId, activate: true, includeInactive: true } },
+        {
+          body: {
+            locationId,
+            activate: true,
+            includeInactive: true,
+            source: 'brand_location_list',
+            deployRunId: deployData?.deployRunId ?? null,
+          },
+        },
       );
       if (sweepErr) throw sweepErr;
 

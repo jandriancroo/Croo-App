@@ -45,6 +45,10 @@ Deno.serve(async (req) => {
     // and switch on the ones that came back with a real price.
     const activate: boolean = body?.activate === true;
     const includeInactive: boolean = body?.includeInactive === true || activate;
+    // Deploy log: id handed back by Phase 1 (clients pass it through). The DB trigger
+    // fires both phases independently, so we fall back to the newest open run.
+    const deployRunId: string | null = body?.deployRunId ?? null;
+    const deploySource: string = body?.source ?? "unknown";
 
 
     if (!locationId) {
@@ -150,6 +154,59 @@ Deno.serve(async (req) => {
         recipeIntegrity = await res.json().catch(() => null);
       } catch (e) {
         console.warn("[vendor-price-chase] recipe integrity scan failed:", e);
+      }
+    }
+
+    // ── Persistent deploy log (Phase 2) ──
+    // Activation sweeps only (that's the deploy path). Persists the chasePrices
+    // summary + recipe integrity result as-is; nothing is recomputed.
+    if (activate) {
+      const phase2 = {
+        chased: items.length,
+        priced: summary.priced,
+        still_unpriced: summary.unpriced,
+        ship_ins: summary.shipIns,
+        discontinued: summary.discontinued,
+        activated_house_made: summary.activatedHouseMade,
+        skipped: summary.skipped,
+        skips: summary.skips,
+        page_errors: pageErrors,
+      };
+      try {
+        let runId = deployRunId;
+        if (!runId) {
+          const { data: open } = await supabase
+            .from("inventory_deploy_runs")
+            .select("id")
+            .eq("location_id", locationId)
+            .is("phase_2_result", null)
+            .gte("started_at", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+            .order("started_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          runId = open?.id ?? null;
+        }
+        if (runId) {
+          await supabase
+            .from("inventory_deploy_runs")
+            .update({
+              phase_2_result: phase2,
+              recipe_integrity_result: recipeIntegrity,
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", runId);
+        } else {
+          // Sweep ran without a matching Phase 1 row — still record the outcome.
+          await supabase.from("inventory_deploy_runs").insert({
+            location_id: locationId,
+            source: deploySource,
+            phase_2_result: phase2,
+            recipe_integrity_result: recipeIntegrity,
+            completed_at: new Date().toISOString(),
+          });
+        }
+      } catch (logErr) {
+        console.warn("[vendor-price-chase] deploy run log failed:", logErr);
       }
     }
 
