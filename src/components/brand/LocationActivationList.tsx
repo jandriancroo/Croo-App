@@ -116,7 +116,15 @@ export default function LocationActivationList({
       toast.loading('Pricing and activating items…', { id: toastId });
       const { data: sweep, error: sweepErr } = await supabase.functions.invoke(
         'vendor-price-chase',
-        { body: { locationId, activate: true, includeInactive: true } },
+        {
+          body: {
+            locationId,
+            activate: true,
+            includeInactive: true,
+            source: 'brand_location_list',
+            deployRunId: deployData?.deployRunId ?? null,
+          },
+        },
       );
       if (sweepErr) throw sweepErr;
 
