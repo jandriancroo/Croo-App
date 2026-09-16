@@ -96,7 +96,7 @@ export default function LocationActivationList({
       const toastId = toast.loading('Deploying inventory structure…');
       const { data: deployData, error: deployErr } = await supabase.functions.invoke(
         'deploy-location-inventory',
-        { body: { locationId, brandId } },
+        { body: { locationId, brandId, source: 'brand_location_list' } },
       );
       if (deployErr) throw deployErr;
 
