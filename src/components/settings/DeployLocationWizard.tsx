@@ -220,7 +220,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
     return true;
   };
 
-  const runInitialSync = useCallback(async (locationId: string) => {
+  const runInitialSync = useCallback(async (locationId: string, deployRunId?: string | null) => {
     setSyncing(true);
 
     // Check which integrations exist
@@ -284,7 +284,13 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
     setSyncResult(prev => ({ ...prev, activation: { status: 'running' } }));
     try {
       const { data, error } = await supabase.functions.invoke('vendor-price-chase', {
-        body: { locationId, activate: true, includeInactive: true },
+        body: {
+          locationId,
+          activate: true,
+          includeInactive: true,
+          source: 'deploy_location_wizard',
+          deployRunId: deployRunId ?? null,
+        },
       });
       if (error) throw error;
       setSyncResult(prev => ({
