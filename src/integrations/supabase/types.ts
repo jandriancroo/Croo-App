@@ -4346,6 +4346,60 @@ export type Database = {
           },
         ]
       }
+      inventory_deploy_runs: {
+        Row: {
+          brand_id: string | null
+          completed_at: string | null
+          error: string | null
+          id: string
+          location_id: string
+          phase_1_result: Json | null
+          phase_2_result: Json | null
+          recipe_integrity_result: Json | null
+          source: string
+          started_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          completed_at?: string | null
+          error?: string | null
+          id?: string
+          location_id: string
+          phase_1_result?: Json | null
+          phase_2_result?: Json | null
+          recipe_integrity_result?: Json | null
+          source?: string
+          started_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          completed_at?: string | null
+          error?: string | null
+          id?: string
+          location_id?: string
+          phase_1_result?: Json | null
+          phase_2_result?: Json | null
+          recipe_integrity_result?: Json | null
+          source?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_deploy_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_deploy_runs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_item_locations: {
         Row: {
           count_by: string
