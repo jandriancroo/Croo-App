@@ -45,6 +45,10 @@ Deno.serve(async (req) => {
     // and switch on the ones that came back with a real price.
     const activate: boolean = body?.activate === true;
     const includeInactive: boolean = body?.includeInactive === true || activate;
+    // Deploy log: id handed back by Phase 1 (clients pass it through). The DB trigger
+    // fires both phases independently, so we fall back to the newest open run.
+    const deployRunId: string | null = body?.deployRunId ?? null;
+    const deploySource: string = body?.source ?? "unknown";
 
 
     if (!locationId) {
