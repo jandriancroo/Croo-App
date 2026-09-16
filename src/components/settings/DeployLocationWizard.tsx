@@ -442,6 +442,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       }
 
       // 6. Auto-deploy brand inventory
+      let deployRunId: string | null = null;
       try {
         const { data: orgData2 } = await supabase
           .from('organizations')
@@ -452,12 +453,13 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         if (orgData2?.brand_id) {
           const { data: invResult, error: invError } = await supabase.functions.invoke(
             'deploy-location-inventory',
-            { body: { locationId, brandId: orgData2.brand_id } }
+            { body: { locationId, brandId: orgData2.brand_id, source: 'deploy_location_wizard' } }
           );
           if (invError) {
             console.error('Inventory auto-deploy error:', invError);
           } else {
             console.log('Inventory auto-deploy result:', invResult);
+            deployRunId = invResult?.deployRunId ?? null;
             setDeployResult({
               deployed: invResult?.deployed || 0,
               skipped: invResult?.skipped || 0,
@@ -504,7 +506,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           activation: { status: 'skipped', message: 'Not used in Lite mode' },
         });
       } else {
-        runInitialSync(locationId);
+        runInitialSync(locationId, deployRunId);
       }
 
 
