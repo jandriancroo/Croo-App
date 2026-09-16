@@ -25,7 +25,10 @@ Deno.serve(async (req) => {
   if (denied) return denied;
 
   try {
-    const { locationId, brandId, templateId, sourceLocationId } = await req.json();
+    const body = await req.json();
+    const { locationId, brandId, templateId, sourceLocationId } = body;
+    // Free-text label for the deploy log: which entry point fired this run.
+    const deploySource: string = body?.source ?? (templateId ? "template_trigger" : "unknown");
     // Default shelf template: Hemet
     const HEMET_LOCATION_ID = "12c977c7-1786-4131-90f5-1eef3f96e2c6";
     const shelfSourceId = sourceLocationId || HEMET_LOCATION_ID;
@@ -592,12 +595,44 @@ Deno.serve(async (req) => {
     // invoke can't be waited on or reported, which is what Stage 3 removes.
     const deployedItemIds = Array.from(templateToItemId.values());
 
+    // ── Persistent deploy log (Phase 1) ──
+    // One row per deploy run. Nothing is recomputed here — we persist exactly the
+    // summary that was already assembled above and until now only reached a toast.
+    // Phase 2 (vendor-price-chase, activate:true) completes this same row.
+    let deployRunId: string | null = null;
+    try {
+      const { data: runRow, error: runErr } = await supabase
+        .from("inventory_deploy_runs")
+        .insert({
+          location_id: locationId,
+          brand_id: brandId,
+          source: typeof deploySource === "string" && deploySource ? deploySource : "unknown",
+          phase_1_result: {
+            deployed,
+            skipped,
+            total: templates.length,
+            template_id: templateId ?? null,
+            warnings,
+            integrations: { pfg: !!pfgInt, produce_alliance: !!paInt },
+            deployed_item_count: deployedItemIds.length,
+          },
+        })
+        .select("id")
+        .single();
+      if (runErr) throw runErr;
+      deployRunId = runRow?.id ?? null;
+    } catch (logErr: any) {
+      // Logging must never break a deploy.
+      console.warn("[deploy-location-inventory] deploy run log failed:", logErr?.message || logErr);
+    }
+
     return new Response(
       JSON.stringify({
         deployed,
         skipped,
         total: templates.length,
         deployedItemIds,
+        deployRunId,
         message: `Deployed ${deployed} items (inactive), skipped ${skipped} existing`,
         warnings,
         phase: "structure_only",
