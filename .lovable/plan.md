@@ -1,70 +1,88 @@
-# Why PFG order lines are missing at South Meadows and Tuscaloosa
+# Why 77 South Meadows bid guide rows have no price
 
-Read-only investigation. Nothing changed. **The multi-location hypothesis is not the cause.** The evidence points somewhere much more specific, and it's a code bug on our side.
+Read-only. Nothing changed. Your core conclusion is right — **these items are priced at PFG and we're holding numbers that don't exist at this store's division.** But the mechanism isn't a wrong-column bug in the bid guide writer, and the category correlation isn't exact. Here's what the data actually says.
 
-## The mechanism, in one line
+## The mechanism: two different PFG lists in one table
 
-PFG hands us a working order key on the header. Our order sync **throws that key away before asking for the lines**, then rebuilds a key in one particular format. That rebuilt format happens to be correct at four stores and wrong at the other two — so those two get order headers with no lines, silently.
+There is exactly **one** routine that writes `pfg_bid_items`, and it stores one identifier: PFG's `DisplayProductNumber` (falling back to `ProductNumber`, then the product key). It always writes the category name PFG gives it and always writes the price PFG gives it. It is not picking a different field on different rows.
 
-The pattern lines up perfectly with key format, not with logins:
+What it *does* do is this: it asks PFG for the store's product lists, keeps only lists with **"bid"** in the name — and **if no list matches, it scrapes every list PFG offers and dumps them all into the same table with no marker of which list a row came from.**
 
-| Store | Key format PFG sends | Orders | Orders missing lines |
+South Meadows has no "bid"-named list. So it got everything. And the arrival dates prove it:
+
+| First appeared | Rows | Priced | Uncategorized |
 | --- | --- | --- | --- |
-| Hemet | `428_55067468_2026-09-17_4564931` (4 parts) | 82 | 2 |
-| Palm Springs | 4 parts | 55 | 0 |
-| Palm Desert | 4 parts | 28 | 0 |
-| Rowlett | 4 parts | 26 | 2 |
-| **Tuscaloosa** | `33501384_20260915_4250206` (**3 parts**) | 37 | **30** |
-| **South Meadows** | `20260911_c8aa71bc-…` (**2 parts**) | 9 | **9** |
+| **Aug 23** | 116 | **116 (100%)** | 8 |
+| Aug 25 | 1 | 1 | 1 |
+| **Sep 1** | 80 | **3 (4%)** | 79 |
 
-The rebuilt key our code uses is always the 4-part shape. Every store whose real key is 4 parts is clean. Both stores whose real key isn't 4 parts are broken. That is the whole story.
+Two clean populations, two different days, two different PFG lists. The Aug 23 batch is the real PFG-managed Order Guide — fully priced, properly categorized (Dough, Sauce, Cheese, Chemicals, Paper, Drinks…). The Sep 1 batch is a second list that carries no prices and whose own category label at PFG is literally "Uncategorized."
 
-Confirming detail from South Meadows' own raw order data: order 492744 on Sep 11, **`TotalLines: 48`**, `$4,543`, and a perfectly good `DeliveryKey` of `20260911_c8aa71bc-…` sitting right there on the header we saved. PFG told us there were 48 lines and gave us the key to fetch them. We asked with a different key and got nothing.
+**All 17 of your example items were created on Sep 1** and are still being refreshed nightly (last seen Sep 17), which is why they stay inside the 30-day freshness window and keep looking like live unpriced products.
 
-Also confirming it's a regression, not a never-worked: Tuscaloosa's only 7 orders that *do* have lines are all from **May** (45, 45, 45, 42, 42 lines). Everything from June onward is empty. Something changed in the key handling after May.
+Sep 1 is also when the vendor sync was consolidated into one nightly pipeline, and the master walk was deliberately changed to pick the PFG list "by name pattern, not a stored header ID; falls back to the widest list if no bid-named list exists." That change is dated and documented. This is its side effect at the two stores with no bid-named list.
 
-## 1. How authentication and store scoping actually work
+## Two corrections to the framing
 
-Everything runs through one function, `pfg-service`. Each store has its **own** row in `location_integrations` with its **own** stored credentials: username, password, refresh token, access token, a `customer_id` (a PFG GUID unique per store), and its own bid guide id. A GitHub-scheduled headless login plus a keep-alive routine refresh the tokens; every store's token is distinct.
+**1. The category correlation is not exact.** Uncategorized at South Meadows is 88 rows: **77 unpriced and 11 priced**. So all unpriced rows are Uncategorized, but Uncategorized also contains priced rows. Category is a symptom of the list, not of the price.
 
-Yes, there is a per-store account code, and yes we store it: `deliver_to_customer_number`. South Meadows has **`01206`** — exactly the "PFS Northern Cal - 01206" code from the portal screenshot. When the sync pulls orders it filters the returned list down to that number, which is precisely the multi-location guard you were asking about.
+**2. Numeric vs letter-prefixed does not separate the populations.** We *do* hold letter-prefixed PFG codes — 59 at South Meadows, 33 at Sparks, and **zero at all five other stores**. Brand-wide:
 
-So the account-scoping side is working: South Meadows' 9 orders all come back stamped `CustomerName: "Blaze Pizza 1291"`, `CustomerNumber: "01206"`, `537 S Meadows Pkwy`. Correct store, correct address, correct orders. Nothing leaked in from 1331.
+| Number style | Rows | Priced | Unpriced |
+| --- | --- | --- | --- |
+| numeric only | 1,197 | 1,053 (88%) | 144 |
+| letter-prefixed | 92 | 63 (68%) | 29 |
 
-## 2. Where lines get fetched — and how the key gets lost
+Inside South Meadows' bad Sep 1 batch: 49 numeric and 31 letter-prefixed. Both styles fail together, because both came from the same wrong list.
 
-Lines are a **second request per order** (`GetDeliveryDetail`), not returned with the header.
+**What is exactly true, and it's the important part:** none of the 20 real PFG codes from the owner's export — H0622, F7726, EA940, EC628, NN172, FT250, AND44, CN126, J0526, D0994 and the rest — exists **anywhere** in our system. Not in `pfg_bid_items` at any store, and not in the brand's vendor number registry (`brand_vendor_mappings`), which holds 335 PFG numbers, 312 of them numeric. For your ten example products the registry holds only the numeric number. So we have never captured this division's numbers for these products.
 
-The line-fetch routine was deliberately fixed a while back to trust PFG's native key first and only rebuild as a last resort. That fix is still in place and is correct. **The problem is the caller.** Just before handing each order to the line fetch, the sync repackages it into a small object containing the company number, customer number, delivery date, invoice header key and business-unit key — and **`DeliveryKey` is not among the fields copied over**. So the native key is invisible to the fetch, the "last resort" rebuild fires on *every single order*, and it always produces the 4-part shape.
+We also found a related sloppiness worth noting: some rows store **two numbers jammed into one field** as a literal value — `"038540, B9883"`, `"104752, EL681"`, `"HEC24000, A6847"`. There's a splitter function that's supposed to separate those, and it's applied on the read path but these rows landed unsplit. That's a second, smaller identifier defect in the same table.
 
-For South Meadows the rebuild isn't even close: the real key ends in a customer GUID (`c8aa71bc-…`), while the rebuild ends in the invoice header key (`bd74c189-…`) — a different GUID entirely, and with the wrong number of parts and wrong date format.
+## Sync paths writing `pfg_bid_items`
 
-**On failure it writes NULL and moves on, with no error.** The write is literally "lines if we got any, otherwise NULL," so a header row lands looking normal.
+Only **one** writer exists: `upsertPfgBidItems`, reached solely through the `scrape_bid_all_locations` action, which the nightly pipeline calls as its PFG master stage. It stores `item_number` = `DisplayProductNumber`, plus description, pack size, category, brand and price.
 
-## 3. Shared logins — real, but not the cause
+Six other routines read the table (price chase, SKU health, pack seeder, pack-selection backfill, invoice hints, pack approvals). None write. So there is no competing importer and no brand-master or Blaze-Form import writing rows — the second population came from PFG itself, via a second PFG list.
 
-There **is** one shared login, and it matches your screenshot exactly: **South Meadows and Sparks share a single PFG username.** Every other store — Hemet, Rowlett, Palm Desert, Palm Springs, and **Tuscaloosa** — has its own dedicated login.
+## The Produce Alliance precedent — and yes, PFG never got the same treatment
 
-That kills the hypothesis. Tuscaloosa is on its own dedicated login and is 30-of-37 broken. South Meadows is on the shared login and is 9-of-9 broken. Sharing a login doesn't predict the failure; key format does, with no exceptions.
+You remembered correctly. The PA price path deliberately indexes each product under **every** identifier it might be known by: `item_code`, `master_product_code`, `pa_product_id`, `pa_item_id`. Its comment says so explicitly — one product, several identifiers, match on any of them. The PA catalog table also carries four separate identifier columns for the same reason.
 
-One genuine multi-location loose end worth noting separately: South Meadows carries the `01206` filter, but **Sparks has no filter set at all**. Sparks currently has zero PFG orders stored, so nothing is wrong today — but if Sparks ever syncs orders on that shared login, it would pull in both stores' orders with nothing to separate them.
+**The PFG path has none of that.** It reads exactly one column, `item_number`, builds a single-key lookup, and matches or fails.
 
-## 4. Does the code switch active store before fetching?
+And the loose end I flagged earlier is the same problem seen from the other side: PA's three namespaces (item `16901`, catalog `10176`, order line `00447`) only price correctly because of the multi-key index plus description matching. The repair is real but partial — it papers over the namespaces rather than reconciling them.
 
-There *is* a routine to switch the selected customer at PFG (`setSelectedCustomer`, which tries three different PFG endpoints). **It is never called anywhere.** Dead code.
+## Blast radius
 
-It also isn't needed: PFG's order endpoints accept the customer id in the request body, and we send it. The proof is that South Meadows' headers come back correctly scoped to store 1291 without any switch ever happening.
+| Store | Bid rows | Priced | Uncategorized | Letter-prefixed | First seen |
+| --- | --- | --- | --- | --- | --- |
+| Palm Desert | 201 | 185 | 0 | 0 | Jun 8 |
+| Hemet | 200 | 185 | 0 | 0 | Jun 8 |
+| Palm Springs | 199 | 186 | 0 | 0 | Jun 8 |
+| **South Meadows** | 197 | 120 | **88** | 59 | Aug 23 |
+| **Tuscaloosa** | 184 | 149 | **158** | 0 | Jun 8 |
+| Rowlett | 183 | 166 | 0 | 0 | Jun 8 |
+| **Sparks** | 125 | 125 | 3 | 33 | Aug 23 |
 
-## 5. Logged errors
+Tuscaloosa is worth a second look: 158 of 184 rows are Uncategorized yet 149 are priced. Its rows also came from a non-bid-named list, but that list carried prices. So the "scrape every list" fallback isn't automatically fatal — it's fatal when one of the extra lists is unpriced.
 
-**None — and that's meaningful.** The sync audit log holds 69,600+ rows going back to April 18, and contains **zero** `detail_fetch_failed` entries for any store, ever.
+Items currently without a cost, brand-wide: South Meadows 81, Tuscaloosa 37, Rowlett 25, Hemet 17, Palm Springs 5, Palm Desert 5, plus 27 in the two sandboxes. South Meadows is the clear outlier and the only store where the unpriced count traces to this.
 
-That rules out both an outright request failure and a malformed response, because either one writes an audit row. What's left is the quiet case: PFG accepted our rebuilt key, found nothing matching it, and returned an **empty list**. Zero lines is not treated as a failure anywhere — it writes NULL, logs nothing, and the sync reports success. Which is exactly why this ran for four months without a single alarm.
+## Are the wrong numbers on our inventory items too? Yes — worse than that
+
+**Every inventory item in the entire system carries a numeric-only item number. Zero letter-prefixed numbers exist on `inventory_items` at any store, including South Meadows and Sparks.**
+
+At South Meadows: 189 items with a number, all numeric. 87 of them find a matching bid guide row; 73 find one with a price. Which means the 59 letter-prefixed bid rows we *do* hold — including priced ones like `ALV92` Blaze white sauce at $78.08 and `HHW66` spicy Blaze sauce at $35 — **can never match a single inventory item**, because no item carries a code in that format.
+
+So fixing the bid guide alone would not fix pricing here. The numbers on the items themselves came from the brand catalog, which was populated from the Southern California division, and they don't exist at PFS Northern Cal.
 
 ## What the evidence supports
 
-1. The order sync drops PFG's native delivery key before requesting lines, forcing a rebuild that only produces a valid key for stores using PFG's 4-part key format. South Meadows (2-part) and Tuscaloosa (3-part) fail 100% and ~81% of the time respectively.
-2. An empty line list is indistinguishable from success in our code — no audit row, no error, no warning on the run. This is why the earlier finding that "South Meadows' order history leg was dead" showed up only when we went looking.
-3. Multi-location accounts are being scoped correctly today via the per-store customer id and the `01206` delivery-number filter. The one gap is Sparks having no filter on a shared login — latent, not currently causing harm.
+1. **Wrong list, not wrong column.** One writer, one identifier field. The bad rows are a second PFG product list pulled in by a "scrape every list if none is named bid" fallback, which started at South Meadows on Sep 1. The Aug 23 order-guide scrape was 100% priced.
+2. **This store's real PFG numbers have never been in our system** — not on the bid guide, not in the brand number registry. The numbers we hold are another division's.
+3. **Single-key matching on the PFG side is the structural gap.** Produce Alliance was given multi-identifier matching; PFG was not. One product legitimately has several PFG numbers (some rows literally store two in one field), and our lookup can only hold one.
+4. **The category field is a tell, not a cause** — it identifies which list a row came from. Useful as a signal, not as the diagnosis.
+5. **The unpriced tag is honest here.** These items genuinely have no price *under the numbers we hold*. The tag is telling the truth about our data, not about PFG's.
 
-No fix proposed, per your instruction. When you want one, the smallest correct change is a one-field change at the call site plus making "zero lines returned when the header claimed lines" record itself as a failure instead of passing silently.
+No fix proposed, per your instruction.
