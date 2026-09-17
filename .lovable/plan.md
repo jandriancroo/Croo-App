@@ -1,61 +1,72 @@
-# Pack config unit vocabulary — where the drift comes from and how I'd fix it
+# South Meadows: why 99–103 items came out with no price
 
-Investigation only, nothing changed.
+Read-only diagnostic. Nothing changed. (Current count is 103 unpriced of 219 — the 99 in the deploy log was the number at the moment the sweep finished; three more items have since gone to zero/null.)
 
-## 1. Where the bad vocabulary comes from
+## Bottom line
 
-**The parser, not the approval screen.** Every single odd row is stamped with a vendor-sync source:
+**Not a matching bug.** Of the 103 unpriced items, **zero** have a hit on any of the three legs — no priced bid-guide row, no order line, no invoice line. There is nothing we had and failed to find. Two separate real gaps did show up though, and one of them is worse than the small bid guide:
 
-| unit | rows (approved) | source | created |
+- **The PFG order leg is completely dead at this store.** All 9 PFG orders have `items` = NULL — headers only, no line items. Even if an item had been ordered, the fallback had nothing to read.
+- **This store has never had an invoice uploaded.** Zero rows, ever. That leg cannot fire.
+
+## 1. The 103 unpriced by vendor
+
+| Vendor | Items | Priced | Unpriced |
 | --- | --- | --- | --- |
-| `ga` | 8 | vendor_sync:pfg | Jun 3 |
-| `ga` | 6 | vendor_sync:pfg:pfg_bid | Jun 9–23 |
-| `ga` | 1 | vendor_sync:pfg:pfg_order | Jun 30 |
-| `gal` | 22 | vendor_sync:pfg | May 22 – Jun 3 |
-| `gal` | 2 | vendor_sync:pfg:pfg_bid | Jun 23–30 |
-| `case` | 1 | vendor_sync:pa:pa_order | Jun 23 |
+| PFG (has item number) | 189 | 108 | 81 |
+| Produce Alliance | 14 | 8 | 6 |
+| No vendor identifier at all | 11 | 0 | 11 |
+| House-made / recipe | 5 | 0 | 5 |
+| **Total** | **219** | **116** | **103** |
 
-The shared parser (`supabase/functions/_shared/packParser.ts`, `normalizeUnit`) maps `ga`/`gal`/`gallon` → **`ga`**. So PFG's "2/1 GA" becomes `ga` today and will keep becoming `ga` on every nightly seed. The 24 `gal` rows are the fossil — an earlier parser version emitted `gal` before the mapping changed. The conversion table (`src/utils/unitConversion.ts`) only knows `gal`. The two halves of the system were never agreed on which spelling wins.
+The 16 with no vendor identifier or house-made status can never be priced by a vendor sweep — that's by design, not failure.
 
-So: normalizing the 15 rows today fixes nothing durable. They come back.
+## 2. Three legs, checked independently
 
-**`case` is a different problem.** That row's pack string was literally `"1/1 case"` — the unit-only branch of the parser passes unknown tokens straight through. It isn't a bad spelling of a real unit; it means *the vendor never told us the pack shape* and we invented a config anyway. Two more `case` rows are sitting in the proposed queue right now.
+For all 103 unpriced items:
 
-## 2. Full blast radius — everything that doesn't convert
+| Leg | Hits |
+| --- | --- |
+| On South Meadows' PFG bid guide **with a price** | **0** |
+| On the bid guide but with **no price** on the row | 14 |
+| Any PFG order line, ever | **0** (impossible — see below) |
+| Any Produce Alliance order line, ever | **0** |
+| Any Produce Alliance catalog entry | **0** |
+| Any invoice line, ever | **0** (no invoices exist) |
 
-Checked all three unit columns against what the conversion table actually supports.
+So: **103 of 103 hit zero on all legs. Zero items had data we failed to use.**
 
-**Approved (live) rows:**
-- `common_unit`: `ga` (15), `case` (1). Everything else converts — ea, lb, oz, gal, qt, ml, g, kg, l, rl, cn.
-- `inner_type`: `ga` (19), empty/blank (7), `sleeve` (4), `bag` (4), `jug` (1), `case` (1). `OZ` (1) is fine — the reader lowercases.
-- `outer_type`: this column is a packaging noun, not a measure, so nothing here breaks math. It does have casing drift (`Bottle`, `JUG`, `jugs`, `rolls`, `Roll`) which is cosmetic only.
+The 14 that sit on the guide with a blank price are all non-food and bottled drinks — Coke/Diet Coke/Coke Zero 20oz, Pellegrino, Fanta BIB, crushed red pepper, glass cleaner, plastic wrap, receipt paper, sanitizer wipes, steel polish, napkin dispenser, handle replacement. PFG lists them on the guide without a contract price. That's PFG's data, not ours.
 
-**Proposed queue:** `case` (2) — will get approved into the live set unless stopped.
+Worth knowing about the guide itself: it now holds **197 SKUs, of which only 120 carry a price** — 77 price-less rows. All 197 existed before the deploy started, so the guide was not "smaller at deploy time"; it simply has price gaps.
 
-**Archived (no longer read):** `ga` (40), `case` (11), `gm` (5). Worth knowing `gm` exists because the parser will emit it again if PFG ships a "200/3.5GM" pack — `gm` is not in the conversion table either.
+## 3. Order and invoice history at this location
 
-So the honest total is bigger than 16: **16 live rows on `common_unit`, 36 live rows across `inner_type`**, and two families of failure (misspelling vs. not-a-unit). No hidden 40 beyond that — the columns are otherwise clean.
+| Source | Rows | Oldest | Newest | Usable? |
+| --- | --- | --- | --- | --- |
+| PFG orders | 9 | Aug 14 | Sep 12 | **No — every one has NULL line items** |
+| Produce Alliance orders | 21 | Jul 2 | Sep 16 | Partly — 15 of 21 are empty, 6 carry 43 lines |
+| Invoices | **0** | — | — | No |
+| PFG bid guide | 197 rows (120 priced) | — | refreshed Sep 16 | Yes |
+| PA catalog | 11 rows, all priced | — | Sep 16 | Yes |
 
-## 3. What actually breaks today (honestly: less than it looks)
+Direct answer to your concern: **the 30-day order window did have something to read here** (9 PFG orders and 21 PA orders fall inside it) — but the PFG ones are hollow, so functionally the window was useless. That's not a new-store problem, it's the empty-`items[]` problem showing up on a store where nothing else covers for it.
 
-- **Recipe cost / food cost:** mostly safe. The recipe engines read `item_conversions.canonical_unit` (values there are clean: oz, ea, lb, gal, ft) or `inventory_items.count_unit` (also clean — oz, ea, lb, gal, qt). The bad `ga` never propagated into either, because the propagation trigger only copies `count_unit`, not `common_unit`.
-- **Count screen value on prepped/recipe items:** this is the real exposure. The count screen resolves the item's unit from the approved pack config, and for a prepped item it converts counted quantity into batch-yield units. When the unit doesn't convert, the code falls back to "each counted unit = one whole batch" (`countItemValue.ts` line 213) — so it doesn't show zero, it shows a **silently inflated** value. That's the worst kind of failure.
-- **Regular (non-recipe) count value:** unaffected. It's quantity × case cost ÷ pack quantity, no unit conversion involved.
-- **Variance / theoretical usage:** inherits whatever the count value said, so it drifts wherever the above drifts.
-- **Labels on the count screen:** `sleeve`/`bag`/`jug` sitting in `inner_type` display fine but are semantically wrong (that column is meant to hold a measure).
+## 4. Produce Alliance
 
-Net: no store is being mis-costed on food cost today; the risk is wrong dollars on prepped-item counts and future recipes that ask for oz of a gallon item.
+Yes, South Meadows is mapped and syncing — PA is active in its integrations, the catalog pulled 11 items on Sep 16, and **8 of its 14 PA items priced correctly** straight off that catalog (Romaine hearts $30.59, mushrooms $29.94, cilantro $24.91, cucumbers $24.43, red onions $24.32, grape tomatoes $23.24, peppers $17.99, arugula $17.50, basil $16.69, spring mix $15.38, spinach $7.01).
 
-## 4. My recommendation
+The 6 unpriced PA items — Strawberries, Blueberries, Lemon Juice, Roasted Broccoli, Romaine Lettuce (Bag), Pineapple Tidbits — are unpriced because **there is no catalog entry and no order line for them at this store**. Not a mapping failure, not a sync failure. This store's PA account carries 11 products; those six aren't among them.
 
-**(b) + (a) + a guard, and treat `case` separately. Not (c) alone.**
+One thing I'd flag while we're in here: Produce Alliance uses **three different identifier namespaces** for the same product. The item carries `16901`, the catalog row says `10176`, and the order line says `00447` — all "Arugula, Baby, 4 lb." Pricing succeeded anyway, which means it matched on description, not on ID. That works today and is fragile: rename a product on PA's side and those eight prices go quiet. Worth a look separately.
 
-1. **Fix the parser first (b).** One canonical spelling, chosen to match the conversion table: `gal`, `g`, `l`, `oz`, `lb`, `kg`, `ml`, `ea`. Make `packParser.normalizeUnit` and `unitConversion.normalizeUnit` agree, ideally by having the parser reuse the same vocabulary list instead of keeping its own switch. Without this, everything else is temporary.
-2. **Then normalize the existing rows (a)** — the 16 live `common_unit` rows and 36 `inner_type` rows, `ga`→`gal`, `gm`→`g`. Archived rows can be left or swept in the same pass; they aren't read.
-3. **Add the aliases anyway (c), as a seatbelt** — teach the conversion table `ga` and `gm`. Cheap, and it means the next unknown vendor spelling degrades to correct math instead of inflated math. But it is a seatbelt, not the fix; alone it leaves two spellings of gallon in the data forever and the next new unit still breaks.
-4. **Reject, don't alias, `case` and the packaging nouns.** A pack string the parser can't turn into a real measure should not produce a proposal at all — it should land in the queue flagged "pack shape unknown, needs a human" (or not be proposed). Same for `sleeve`/`bag`/`jug` landing in `inner_type`: those belong in `outer_type`. Aliasing `case` to anything would bake a guess into costing.
-5. **Add a standing check** so this can't silently return: a small validation that every unit written to `brand_pack_configs` is in the supported vocabulary, either as a parser assertion or as part of the nightly health surface, plus a test on the parser's unit mapping.
+## 5. Timing of the PA order fallback
 
-One thing I'd flag as a real judgment call for you: step 4 will make the seeder propose *fewer* configs, and some items will sit without a pack shape until someone supplies one. That's the correct trade — a missing config is visible, a wrong one isn't — but it does mean a little more manual work on the approval screen.
+**It was live before the deploy.** The commit that added `pa_orders` to the order map in `_shared/vendorPriceChase.ts` landed **Sep 15 02:00 UTC**; the deploy run started **Sep 16 04:20 UTC** — 26 hours later. None of these results are stale-code artifacts.
 
-Say which of these you want and I'll write the build plan.
+## What I'd actually chase next (your call, no code written)
+
+1. **The NULL `items` on all 9 PFG orders.** This is the real finding. It kills the order leg at this store entirely and it will kill it at any store with the same pattern. Worth checking how widespread NULL-vs-empty `items` is across all locations before anything else.
+2. **77 price-less bid guide rows.** Decide whether that's a PFG-side ask (get prices on the guide) or an expectation change on our side (these SKUs will never price from the guide).
+3. **The 16 no-vendor / house-made items** should probably be excluded from the "unpriced" count entirely so the number means something.
+4. **PA identifier drift** — matching produce on description is a latent failure.
