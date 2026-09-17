@@ -1,72 +1,70 @@
-# South Meadows: why 99–103 items came out with no price
+# Why PFG order lines are missing at South Meadows and Tuscaloosa
 
-Read-only diagnostic. Nothing changed. (Current count is 103 unpriced of 219 — the 99 in the deploy log was the number at the moment the sweep finished; three more items have since gone to zero/null.)
+Read-only investigation. Nothing changed. **The multi-location hypothesis is not the cause.** The evidence points somewhere much more specific, and it's a code bug on our side.
 
-## Bottom line
+## The mechanism, in one line
 
-**Not a matching bug.** Of the 103 unpriced items, **zero** have a hit on any of the three legs — no priced bid-guide row, no order line, no invoice line. There is nothing we had and failed to find. Two separate real gaps did show up though, and one of them is worse than the small bid guide:
+PFG hands us a working order key on the header. Our order sync **throws that key away before asking for the lines**, then rebuilds a key in one particular format. That rebuilt format happens to be correct at four stores and wrong at the other two — so those two get order headers with no lines, silently.
 
-- **The PFG order leg is completely dead at this store.** All 9 PFG orders have `items` = NULL — headers only, no line items. Even if an item had been ordered, the fallback had nothing to read.
-- **This store has never had an invoice uploaded.** Zero rows, ever. That leg cannot fire.
+The pattern lines up perfectly with key format, not with logins:
 
-## 1. The 103 unpriced by vendor
-
-| Vendor | Items | Priced | Unpriced |
+| Store | Key format PFG sends | Orders | Orders missing lines |
 | --- | --- | --- | --- |
-| PFG (has item number) | 189 | 108 | 81 |
-| Produce Alliance | 14 | 8 | 6 |
-| No vendor identifier at all | 11 | 0 | 11 |
-| House-made / recipe | 5 | 0 | 5 |
-| **Total** | **219** | **116** | **103** |
+| Hemet | `428_55067468_2026-09-17_4564931` (4 parts) | 82 | 2 |
+| Palm Springs | 4 parts | 55 | 0 |
+| Palm Desert | 4 parts | 28 | 0 |
+| Rowlett | 4 parts | 26 | 2 |
+| **Tuscaloosa** | `33501384_20260915_4250206` (**3 parts**) | 37 | **30** |
+| **South Meadows** | `20260911_c8aa71bc-…` (**2 parts**) | 9 | **9** |
 
-The 16 with no vendor identifier or house-made status can never be priced by a vendor sweep — that's by design, not failure.
+The rebuilt key our code uses is always the 4-part shape. Every store whose real key is 4 parts is clean. Both stores whose real key isn't 4 parts are broken. That is the whole story.
 
-## 2. Three legs, checked independently
+Confirming detail from South Meadows' own raw order data: order 492744 on Sep 11, **`TotalLines: 48`**, `$4,543`, and a perfectly good `DeliveryKey` of `20260911_c8aa71bc-…` sitting right there on the header we saved. PFG told us there were 48 lines and gave us the key to fetch them. We asked with a different key and got nothing.
 
-For all 103 unpriced items:
+Also confirming it's a regression, not a never-worked: Tuscaloosa's only 7 orders that *do* have lines are all from **May** (45, 45, 45, 42, 42 lines). Everything from June onward is empty. Something changed in the key handling after May.
 
-| Leg | Hits |
-| --- | --- |
-| On South Meadows' PFG bid guide **with a price** | **0** |
-| On the bid guide but with **no price** on the row | 14 |
-| Any PFG order line, ever | **0** (impossible — see below) |
-| Any Produce Alliance order line, ever | **0** |
-| Any Produce Alliance catalog entry | **0** |
-| Any invoice line, ever | **0** (no invoices exist) |
+## 1. How authentication and store scoping actually work
 
-So: **103 of 103 hit zero on all legs. Zero items had data we failed to use.**
+Everything runs through one function, `pfg-service`. Each store has its **own** row in `location_integrations` with its **own** stored credentials: username, password, refresh token, access token, a `customer_id` (a PFG GUID unique per store), and its own bid guide id. A GitHub-scheduled headless login plus a keep-alive routine refresh the tokens; every store's token is distinct.
 
-The 14 that sit on the guide with a blank price are all non-food and bottled drinks — Coke/Diet Coke/Coke Zero 20oz, Pellegrino, Fanta BIB, crushed red pepper, glass cleaner, plastic wrap, receipt paper, sanitizer wipes, steel polish, napkin dispenser, handle replacement. PFG lists them on the guide without a contract price. That's PFG's data, not ours.
+Yes, there is a per-store account code, and yes we store it: `deliver_to_customer_number`. South Meadows has **`01206`** — exactly the "PFS Northern Cal - 01206" code from the portal screenshot. When the sync pulls orders it filters the returned list down to that number, which is precisely the multi-location guard you were asking about.
 
-Worth knowing about the guide itself: it now holds **197 SKUs, of which only 120 carry a price** — 77 price-less rows. All 197 existed before the deploy started, so the guide was not "smaller at deploy time"; it simply has price gaps.
+So the account-scoping side is working: South Meadows' 9 orders all come back stamped `CustomerName: "Blaze Pizza 1291"`, `CustomerNumber: "01206"`, `537 S Meadows Pkwy`. Correct store, correct address, correct orders. Nothing leaked in from 1331.
 
-## 3. Order and invoice history at this location
+## 2. Where lines get fetched — and how the key gets lost
 
-| Source | Rows | Oldest | Newest | Usable? |
-| --- | --- | --- | --- | --- |
-| PFG orders | 9 | Aug 14 | Sep 12 | **No — every one has NULL line items** |
-| Produce Alliance orders | 21 | Jul 2 | Sep 16 | Partly — 15 of 21 are empty, 6 carry 43 lines |
-| Invoices | **0** | — | — | No |
-| PFG bid guide | 197 rows (120 priced) | — | refreshed Sep 16 | Yes |
-| PA catalog | 11 rows, all priced | — | Sep 16 | Yes |
+Lines are a **second request per order** (`GetDeliveryDetail`), not returned with the header.
 
-Direct answer to your concern: **the 30-day order window did have something to read here** (9 PFG orders and 21 PA orders fall inside it) — but the PFG ones are hollow, so functionally the window was useless. That's not a new-store problem, it's the empty-`items[]` problem showing up on a store where nothing else covers for it.
+The line-fetch routine was deliberately fixed a while back to trust PFG's native key first and only rebuild as a last resort. That fix is still in place and is correct. **The problem is the caller.** Just before handing each order to the line fetch, the sync repackages it into a small object containing the company number, customer number, delivery date, invoice header key and business-unit key — and **`DeliveryKey` is not among the fields copied over**. So the native key is invisible to the fetch, the "last resort" rebuild fires on *every single order*, and it always produces the 4-part shape.
 
-## 4. Produce Alliance
+For South Meadows the rebuild isn't even close: the real key ends in a customer GUID (`c8aa71bc-…`), while the rebuild ends in the invoice header key (`bd74c189-…`) — a different GUID entirely, and with the wrong number of parts and wrong date format.
 
-Yes, South Meadows is mapped and syncing — PA is active in its integrations, the catalog pulled 11 items on Sep 16, and **8 of its 14 PA items priced correctly** straight off that catalog (Romaine hearts $30.59, mushrooms $29.94, cilantro $24.91, cucumbers $24.43, red onions $24.32, grape tomatoes $23.24, peppers $17.99, arugula $17.50, basil $16.69, spring mix $15.38, spinach $7.01).
+**On failure it writes NULL and moves on, with no error.** The write is literally "lines if we got any, otherwise NULL," so a header row lands looking normal.
 
-The 6 unpriced PA items — Strawberries, Blueberries, Lemon Juice, Roasted Broccoli, Romaine Lettuce (Bag), Pineapple Tidbits — are unpriced because **there is no catalog entry and no order line for them at this store**. Not a mapping failure, not a sync failure. This store's PA account carries 11 products; those six aren't among them.
+## 3. Shared logins — real, but not the cause
 
-One thing I'd flag while we're in here: Produce Alliance uses **three different identifier namespaces** for the same product. The item carries `16901`, the catalog row says `10176`, and the order line says `00447` — all "Arugula, Baby, 4 lb." Pricing succeeded anyway, which means it matched on description, not on ID. That works today and is fragile: rename a product on PA's side and those eight prices go quiet. Worth a look separately.
+There **is** one shared login, and it matches your screenshot exactly: **South Meadows and Sparks share a single PFG username.** Every other store — Hemet, Rowlett, Palm Desert, Palm Springs, and **Tuscaloosa** — has its own dedicated login.
 
-## 5. Timing of the PA order fallback
+That kills the hypothesis. Tuscaloosa is on its own dedicated login and is 30-of-37 broken. South Meadows is on the shared login and is 9-of-9 broken. Sharing a login doesn't predict the failure; key format does, with no exceptions.
 
-**It was live before the deploy.** The commit that added `pa_orders` to the order map in `_shared/vendorPriceChase.ts` landed **Sep 15 02:00 UTC**; the deploy run started **Sep 16 04:20 UTC** — 26 hours later. None of these results are stale-code artifacts.
+One genuine multi-location loose end worth noting separately: South Meadows carries the `01206` filter, but **Sparks has no filter set at all**. Sparks currently has zero PFG orders stored, so nothing is wrong today — but if Sparks ever syncs orders on that shared login, it would pull in both stores' orders with nothing to separate them.
 
-## What I'd actually chase next (your call, no code written)
+## 4. Does the code switch active store before fetching?
 
-1. **The NULL `items` on all 9 PFG orders.** This is the real finding. It kills the order leg at this store entirely and it will kill it at any store with the same pattern. Worth checking how widespread NULL-vs-empty `items` is across all locations before anything else.
-2. **77 price-less bid guide rows.** Decide whether that's a PFG-side ask (get prices on the guide) or an expectation change on our side (these SKUs will never price from the guide).
-3. **The 16 no-vendor / house-made items** should probably be excluded from the "unpriced" count entirely so the number means something.
-4. **PA identifier drift** — matching produce on description is a latent failure.
+There *is* a routine to switch the selected customer at PFG (`setSelectedCustomer`, which tries three different PFG endpoints). **It is never called anywhere.** Dead code.
+
+It also isn't needed: PFG's order endpoints accept the customer id in the request body, and we send it. The proof is that South Meadows' headers come back correctly scoped to store 1291 without any switch ever happening.
+
+## 5. Logged errors
+
+**None — and that's meaningful.** The sync audit log holds 69,600+ rows going back to April 18, and contains **zero** `detail_fetch_failed` entries for any store, ever.
+
+That rules out both an outright request failure and a malformed response, because either one writes an audit row. What's left is the quiet case: PFG accepted our rebuilt key, found nothing matching it, and returned an **empty list**. Zero lines is not treated as a failure anywhere — it writes NULL, logs nothing, and the sync reports success. Which is exactly why this ran for four months without a single alarm.
+
+## What the evidence supports
+
+1. The order sync drops PFG's native delivery key before requesting lines, forcing a rebuild that only produces a valid key for stores using PFG's 4-part key format. South Meadows (2-part) and Tuscaloosa (3-part) fail 100% and ~81% of the time respectively.
+2. An empty line list is indistinguishable from success in our code — no audit row, no error, no warning on the run. This is why the earlier finding that "South Meadows' order history leg was dead" showed up only when we went looking.
+3. Multi-location accounts are being scoped correctly today via the per-store customer id and the `01206` delivery-number filter. The one gap is Sparks having no filter on a shared login — latent, not currently causing harm.
+
+No fix proposed, per your instruction. When you want one, the smallest correct change is a one-field change at the call site plus making "zero lines returned when the header claimed lines" record itself as a failure instead of passing silently.
