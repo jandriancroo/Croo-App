@@ -44,12 +44,16 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   const bgColor = template?.color || shiftData.color || "#ef4444";
   const position = template?.position || template?.template_name;
 
-  const hasConflictDetails = hasTimeOffConflict && conflictingTimeOff && conflictingTimeOff.length > 0;
+  const hasTimeOffDetails = hasTimeOffConflict && conflictingTimeOff && conflictingTimeOff.length > 0;
+  const hasAvailabilityDetails = hasAvailabilityNote && availabilityLines.length > 0;
+  // Uniform two-tap: 1st tap = availability / time-off details, 2nd tap = shift menu
+  const hasConflictDetails = hasTimeOffDetails || hasAvailabilityDetails;
+  const isConflicted = hasTimeOffConflict || hasAvailabilityConflict;
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (shift.isTemplate) return;
     e.stopPropagation();
-    // Smart-tap: first click shows time-off info, second click opens shift editor
+    // Smart-tap: first click shows availability/time-off info, second click opens shift editor
     if (hasConflictDetails && !conflictPopoverOpen) {
       setConflictPopoverOpen(true);
       return;
