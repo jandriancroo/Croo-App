@@ -528,6 +528,7 @@ function DayCell({
                     if (canSmartTap) setSmartTapOpen(true);
                   }
                 }}
+                data-timeoff-box
                 className={`${isCompactMode ? 'flex-1 min-h-[22px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
                 style={{
                   background: isCompactMode 
@@ -547,7 +548,7 @@ function DayCell({
                 )}
               </div>
             </PopoverAnchor>
-            <PopoverContent className="w-72 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <PopoverContent className="w-72 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={(e) => { const t = e.target as HTMLElement; if (t.closest?.('[data-timeoff-box]')) e.preventDefault(); }}>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CalendarOff className="h-4 w-4 text-muted-foreground" />
