@@ -3,45 +3,49 @@ import { Clock } from "lucide-react";
 /**
  * Shared visual language for availability on the schedule grid.
  * - Light gray/blue-gray hatching = availability exists (unavailable day or can't-work block)
- * - White cut-out clock = the marker; no text ever renders in the grid
- * - Conflict = the shift keeps its full template colors with an accent hatch striking through it
+ * - Clock cut-out rendered in the darker hatch tone (embossed look); no text ever renders in the grid
+ * - Conflict = the shift keeps its full template colors with a light accent hatch striking through it
  * Details are only revealed on the first tap (popover); the second tap opens the shift menu.
  */
+
+// Darker of the two hatch tones — also the clock cut-out color
+const HATCH_DARK = "#dde3e8";
 
 // Solid hatch used for the availability-only day cell and the corner stamp
 export const AVAILABILITY_HATCH: React.CSSProperties = {
   backgroundColor: "#eceef0",
-  backgroundImage:
-    "repeating-linear-gradient(45deg, #dde3e8 0, #dde3e8 7px, #eceef0 7px, #eceef0 15px)",
+  backgroundImage: `repeating-linear-gradient(45deg, ${HATCH_DARK} 0, ${HATCH_DARK} 7px, #eceef0 7px, #eceef0 15px)`,
 };
 
-// Accent hatch struck across a conflicting shift — no wash, so the shift keeps
-// its full template color and data; the stripes alone signal the conflict.
+// Accent hatch struck across a conflicting shift — kept light so the shift's
+// template color, times, and position text stay fully readable underneath.
 export const CONFLICT_HATCH_OVERLAY: React.CSSProperties = {
   backgroundImage:
-    "repeating-linear-gradient(45deg, rgba(217,68,68,0.5) 0, rgba(217,68,68,0.5) 6px, transparent 6px, transparent 13px)",
+    "repeating-linear-gradient(45deg, rgba(224,106,106,0.28) 0, rgba(224,106,106,0.28) 6px, transparent 6px, transparent 13px)",
 };
 
 // Stamp variant used on a conflicting shift so it reads against the accent hatch
 const CONFLICT_STAMP_HATCH: React.CSSProperties = {
-  backgroundColor: "rgba(217,68,68,0.85)",
+  backgroundColor: "rgba(224,106,106,0.55)",
   backgroundImage:
-    "repeating-linear-gradient(45deg, rgba(180,40,40,0.9) 0, rgba(180,40,40,0.9) 4px, rgba(217,68,68,0.85) 4px, rgba(217,68,68,0.85) 8px)",
+    "repeating-linear-gradient(45deg, rgba(205,85,85,0.6) 0, rgba(205,85,85,0.6) 4px, rgba(224,106,106,0.55) 4px, rgba(224,106,106,0.55) 8px)",
 };
 
-/** White cut-out clock marker. */
+/** Clock cut-out marker, rendered in the darker hatch tone. */
 export function ClockCutout({
   className = "",
   strokeWidth = 2.5,
+  color = HATCH_DARK,
 }: {
   className?: string;
   strokeWidth?: number;
+  color?: string;
 }) {
   return (
     <Clock
-      className={`text-white ${className}`}
+      className={className}
       strokeWidth={strokeWidth}
-      style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.25))" }}
+      style={{ color }}
     />
   );
 }
@@ -61,7 +65,10 @@ export function AvailabilityStamp({
       }`}
       style={conflict ? CONFLICT_STAMP_HATCH : AVAILABILITY_HATCH}
     >
-      <ClockCutout className={compact ? "h-2.5 w-2.5" : "h-3.5 w-3.5"} />
+      <ClockCutout
+        className={compact ? "h-2.5 w-2.5" : "h-3.5 w-3.5"}
+        color={conflict ? "#ffffff" : HATCH_DARK}
+      />
     </div>
   );
 }
