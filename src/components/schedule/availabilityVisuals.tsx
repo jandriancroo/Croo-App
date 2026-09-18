@@ -21,14 +21,17 @@ const hatchStripes = (stripe: string) =>
 export function HatchClock({
   className = "",
   clockClassName = "h-7 w-7",
+  onClick,
 }: {
   className?: string;
   clockClassName?: string;
+  onClick?: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
       className={`relative overflow-hidden flex items-center justify-center ${className}`}
       style={{ backgroundColor: HATCH_BASE, backgroundImage: hatchStripes(HATCH_DARK) }}
+      onClick={onClick}
     >
       <History className={clockClassName} style={{ color: "#c3c9d1" }} strokeWidth={2.2} />
     </div>

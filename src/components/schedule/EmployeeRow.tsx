@@ -339,6 +339,7 @@ function DayCell({
   });
   
   const [smartTapOpen, setSmartTapOpen] = useState(false);
+  const [availabilityPopoverOpen, setAvailabilityPopoverOpen] = useState(false);
   const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
   const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
