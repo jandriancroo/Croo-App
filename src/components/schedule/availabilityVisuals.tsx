@@ -1,39 +1,22 @@
-import { Clock } from "lucide-react";
+import { Clock, History } from "lucide-react";
 
 /**
  * Shared visual language for availability on the schedule grid.
  * - Light gray/blue-gray hatching = availability exists (unavailable day or can't-work block)
- * - The clock is a solid white filled marker (no stroke); hands read in the hatch tone
+ * - The marker is a flat history-style clock icon — line style, no fill, no shadow
  * - Conflict = the shift keeps its full template colors with a light accent hatch striking through it
  * Details are only revealed on the first tap (popover); the second tap opens the shift menu.
  */
 
 const HATCH_DARK = "#dde3e8";
 const HATCH_BASE = "#eceef0";
-const HAND_TONE = "#b8c2cb";
+const ICON_TONE = "#9aa8b5";
 
 const hatchStripes = (stripe: string) =>
   `repeating-linear-gradient(45deg, ${stripe} 0, ${stripe} 7px, transparent 7px, transparent 15px)`;
 
-/** Solid white clock, no stroke — hands knocked out in the hatch tone. */
-function WhiteClock({ className = "", handTone = HAND_TONE }: { className?: string; handTone?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.15))" }}>
-      <circle cx="12" cy="12" r="9.5" fill="#ffffff" />
-      <path
-        d="M12 7v5l3.5 2"
-        fill="none"
-        stroke={handTone}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 /**
- * Hatched panel with the white clock centered.
+ * Hatched panel with the availability clock centered.
  * Fill the parent with it; the parent controls rounding/borders/size.
  */
 export function HatchClock({
@@ -48,7 +31,7 @@ export function HatchClock({
       className={`relative overflow-hidden flex items-center justify-center ${className}`}
       style={{ backgroundColor: HATCH_BASE, backgroundImage: hatchStripes(HATCH_DARK) }}
     >
-      <WhiteClock className={clockClassName} />
+      <History className={clockClassName} style={{ color: ICON_TONE }} strokeWidth={2.2} />
     </div>
   );
 }
@@ -78,7 +61,11 @@ export function AvailabilityStamp({
         backgroundImage: hatchStripes(conflict ? "rgba(205,85,85,0.55)" : HATCH_DARK),
       }}
     >
-      <WhiteClock className={clock} handTone={conflict ? "rgba(205,85,85,0.8)" : HAND_TONE} />
+      <History
+        className={clock}
+        style={{ color: conflict ? "rgba(205,85,85,0.9)" : ICON_TONE }}
+        strokeWidth={2.4}
+      />
     </div>
   );
 }
