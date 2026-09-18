@@ -136,3 +136,8 @@
 - [x] Migration B: stamp archived_at = updated_at on 52 status-archived brand templates, add keep-in-step trigger, column comment
 - [x] Verify: Hemet totals, 9 keepers intact, 17 sessions / 3587 lines intact, no orphan count rows, 0 archived-without-date
 - [x] FLAGGED (no fix): Sprite Bottle 20oz — Hemet item_number 584315 vs brand template 53034
+
+## Hemet hide-and-redeploy — Sep 18 2026
+- [x] Hide Hemet rows not linked to a live brand template (is_active=false, user_hidden=true, reason)
+- [x] Redeploy Hemet: PFG + PA list refresh, structural deploy, phase 2 price/activate sweep
+- [x] Report before/after totals, created vs re-adopted, priced by source, remaining unpriced, 9 R365 keepers active, count history + 47 shortcut rows intact
