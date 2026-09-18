@@ -12,21 +12,16 @@ import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide
 import { getTodayInPST } from "@/utils/dateUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-interface DayAvailability {
-  available: boolean;
-  start?: string;
-  end?: string;
-}
+import {
+  chipLabels,
+  dayHasRestriction,
+  describeAvailability,
+  normalizeDayAvailability,
+  shiftConflictsWithAvailability,
+  type DayAvailability,
+  type WeeklyAvailability,
+} from "@/types/availability";
 
-interface WeeklyAvailability {
-  monday?: DayAvailability;
-  tuesday?: DayAvailability;
-  wednesday?: DayAvailability;
-  thursday?: DayAvailability;
-  friday?: DayAvailability;
-  saturday?: DayAvailability;
-  sunday?: DayAvailability;
-}
 
 interface Profile {
   id: string;
