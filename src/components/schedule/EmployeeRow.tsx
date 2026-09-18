@@ -546,8 +546,8 @@ function DayCell({
                   </div>
                 )}
               </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-3" side="top">
+            </PopoverAnchor>
+            <PopoverContent className="w-72 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CalendarOff className="h-4 w-4 text-muted-foreground" />
