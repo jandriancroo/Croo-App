@@ -66,7 +66,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // Draft styling: reduced opacity, dashed border, and grayscale filter for unpublished shifts
   const isDraft = !isPublished && !shift.isTemplate;
   const draftStyles = isDraft
-    ? "opacity-70 border-2 border-dashed border-foreground/25 grayscale-[30%]"
+    ? "opacity-70 grayscale-[30%] [border-style:dashed] [border-width:2px]"
     : "";
 
   // Check if shift was trimmed by auto-scheduler
