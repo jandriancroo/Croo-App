@@ -1,48 +1,64 @@
-# Raw test: PFG's order-entry search endpoint
+# Raw test: `GetOrderEntryCustomerProductPrice` (bulk pricing)
 
-Tested read-only with South Meadows' live token. Result: the endpoint exists, but it will not return anything outside an active order-in-progress session, so I cannot confirm or rule out pricing on it without starting an order in your PFG account — which I won't do read-only.
+Tested read-only with South Meadows' live token. Good news and a blocker.
 
-## What we already had
+## The route exists and answers us
 
-Searched the whole codebase first: we call `OrderEntrySearch` **nowhere**. No existing payload to copy, so I probed shapes.
+Found the real path by probing — it is **not** under `OrderEntry`:
 
-## What the endpoint did
+```
+POST /api/CustomerProductPrice/V1/GetOrderEntryCustomerProductPrice
+```
 
-`POST /api/OrderEntrySearch/V1/ProductListOrderEntrySearch`
+Every other prefix (`/OrderEntry/V1/…`, `/OrderEntrySearch/V1/…`, `/Order/V1/…`, `/Pricing/V1/…`) returns 404. That one returns **200, `IsSuccess: true`**, with exactly the envelope from your screenshot:
 
-| Request shape tried | Response |
+```json
+{"ResultObject":{"CustomerProductPrices":[],"UpdatedTotals":false},
+ "IsSuccess":true,"ErrorMessages":[],"InformationMessages":[],"SupportMessages":[]}
+```
+
+Note `UpdatedTotals` — this call belongs to an order screen that recalculates a running total, which is consistent with it needing an order context.
+
+## The blocker: it returns an empty price list for every payload we can guess
+
+I pulled the real 186 Order Guide `ProductKey` values from the list endpoint first (they are GUID-style, e.g. `9712B4EE-A99C-4332-BE58-0AA8B84BC3B0` — same shape as the keys in your screenshot, so that cross-check holds), then tried ten body shapes with the first three keys:
+
+| Body shape | Result |
 |---|---|
-| Same shape as our working list search (CustomerId, ProductListHeaderId, QueryText, SortByType, IncludeRecipeItems) | **204 No Content**, empty body |
-| Same + paging fields | 204, empty |
-| Same + IncludePricing / IncludeBidGuide / view-type flags | 204, empty |
-| Same + DeliverToCustomerNumber + a zero order-entry ID | 204, empty |
-| Same + explicit `OrderEntryHeaderId: null` | **400 — `"Order Entry Search page is not available"`** |
+| `Products: [{ProductKey, UnitOfMeasureType}]` | 200, **0 prices** |
+| `CustomerProductPrices: [{ProductKey, UnitOfMeasureType}]` | 200, 0 prices |
+| `ProductPriceRequests: [...]` | 200, 0 prices |
+| `OrderEntryDetails: [...]` | 200, 0 prices |
+| `ProductKeys: [...]` + `ProductListHeaderId` | 200, 0 prices |
+| `ProductListHeaderId` only | 200, 0 prices |
+| lowercase `productKeys` | 200, 0 prices |
+| `Requests: [...]` | 200, 0 prices |
+| `ProductKeys` as comma string | 200, 0 prices |
+| `Products` with `Quantity: 1` | 200, 0 prices |
 
-That last message is the tell. The endpoint isn't rejecting our payload — it's telling us there's no order-entry session to search within. In the portal your owner had already clicked "Create new order," which opens that session; the search then runs inside it. Without that session the endpoint answers 204 and nothing else. That's why the shape probing can't get further.
+Identical empty answer every time — it never complains about our fields, it just has nothing to price. That pattern says the product set comes from **server-side order state**, not from our request body. Same story as `ProductListOrderEntrySearch`, which told us outright: *"Order Entry Search page is not available."*
 
-I also checked for a bulk-priced shortcut and found none:
+I also looked for a read-only way into that state and found nothing: `GetActiveOrder` 404s under every prefix I tried, as does `GetProductListOrderEntrySort`. `Order/V1/GetOrder` exists but rejects the method shape I tried.
 
-- `ProductListSearch` with `IncludePricing: true` / `IncludePrice: true` — accepted, 186 products, **still 0 priced**. The flags are ignored.
-- `ProductPricing/V1/GetProductPricing` — 404
-- `ProductListSearch/V1/SearchProductListWithPricing` — 404
-- `OrderEntrySearch/V1/OrderEntrySearch` — 404
-- `OrderEntry/V1/CreateOrderEntry` — 404
+## Plain answer to your question 4
 
-So the owner's read is plausible and probably right about the portal behaviour — but proving it requires opening an order-entry session against South Meadows' real PFG account.
+**Not proven usable standalone, and the evidence leans toward it needing an order in progress.** But the failure mode is ambiguous: an empty array could equally mean "your body field name is wrong and I silently ignored it." I can't tell those apart by guessing, and I've exhausted the reasonable guesses.
 
-## The decision I need from you
+## The one thing that settles it
 
-To finish this test I'd have to create an order-entry session in your live PFG account for South Meadows. Best case it's a scratch draft nobody sees; worst case it leaves a stray open order in the portal. Two ways forward:
+Your owner already had the winning call open in the Network tab. From that same screenshot's request side, I need for `GetOrderEntryCustomerProductPrice`:
 
-1. **You do it, I watch.** Open "Create new order" in the portal yourself, filter by Order Guide, and send me the browser's network request for `ProductListOrderEntrySearch` — the full request body and any session ID it carries. Then I can replay it read-only from our side and confirm the prices in one call. Zero risk.
-2. **I do it.** I find the create-session call, open a draft for South Meadows, run the search, and report. Faster, but it touches your live PFG account and may leave a draft order behind for someone to delete.
+1. The **full request URL** (confirms the prefix).
+2. The **complete request payload** — the raw JSON body, all fields, including anything order- or session-shaped (`OrderHeaderId`, `OrderKey`, `OrderEntryHeaderId`, `BusinessUnitERPKey`, `DeliveryDate`).
+3. The **request headers** other than the auth token — any custom `X-…` header the portal adds.
 
-## Where this leaves the fix
+With the real payload I can replay it read-only in one call and tell you within minutes whether all 186 come back priced, and whether it works with no order open. Right/wrong field name is a two-second question with the actual body in hand.
 
-Unchanged and still worth doing regardless of how this endpoint turns out:
+## Meanwhile, unchanged and already proven
 
-- **Sort mode `SortByType: 0`** on the list scrape — that alone produces your exact 16 vendor categories with exact counts. Confirmed.
-- **Repoint South Meadows and Sparks** to their real Order Guide IDs for full 186-item coverage. Confirmed.
-- **Prune stale rows** so the table matches the current guide instead of accumulating every list we ever read.
+- `SortByType: 0` on the list scrape produces your exact 16 vendor categories, exact counts. Confirmed.
+- Repointing South Meadows and Sparks to the real Order Guide gets full 186-item coverage. Confirmed.
+- Pruning stale rows clears the Uncategorized backlog.
+- Product-detail calls do return real prices ($63.45, $37.55, $63.21, $158.23) — 186 calls per store. That stays the fallback if this bulk call turns out to need an open order.
 
-The pricing question is the only one this endpoint would change: if it does return prices for a whole filtered list in one call, that replaces the 186-calls-per-store idea entirely, and it's the better fix. Tell me which of the two options above you want and I'll settle it.
+Send me that request payload and I'll close this out.
