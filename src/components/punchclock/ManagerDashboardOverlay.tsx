@@ -51,6 +51,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { getBusinessDateInTimezone, getDayOfWeekInTimezone, getTimezoneOffset, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
+import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { ProjectionIcon } from '@/components/ui/projection-tag';
