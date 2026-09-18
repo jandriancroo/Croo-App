@@ -341,54 +341,27 @@ function DayCell({
   const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
   
-  const formatTime12h = (time: string) => {
-    const parts = time.split(":");
-    const hour = parseInt(parts[0]);
-    const minutes = parts[1];
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-  
-  // Check if employee has limited availability on this day
-  const hasLimitedAvailability = weeklyAvailability && (
-    weeklyAvailability.available === false || 
-    (weeklyAvailability.available && (weeklyAvailability.start || weeklyAvailability.end))
+  // Normalize (migrates legacy "can only work" windows into can't-work blocks)
+  const dayPref = useMemo(
+    () => (weeklyAvailability ? normalizeDayAvailability(weeklyAvailability) : undefined),
+    [weeklyAvailability]
   );
 
-  // Helper to normalize time to HH:MM format for comparison
+  const hasLimitedAvailability = dayHasRestriction(dayPref);
+  const availabilityChips = chipLabels(dayPref);
+
   const normalizeTime = (time: string) => time?.substring(0, 5) || "";
 
-  // Helper to check if a shift conflicts with weekly availability
-  const shiftConflictsWithAvailability = (shift: any) => {
-    if (!hasLimitedAvailability || !weeklyAvailability) return false;
-    
-    // If completely unavailable, any shift conflicts
-    if (weeklyAvailability.available === false) return true;
-    
-    // Normalize times to HH:MM for consistent comparison
-    const shiftStart = normalizeTime(shift.start_time);
-    const shiftEnd = normalizeTime(shift.end_time);
-    const availStart = normalizeTime(weeklyAvailability.start || "");
-    const availEnd = normalizeTime(weeklyAvailability.end || "");
-    
-    // If availability has start time (e.g., "available after 5pm")
-    // Conflict only if shift starts BEFORE the availability window opens
-    if (availStart && shiftStart < availStart) {
-      return true;
-    }
-    
-    // If availability has end time (e.g., "available until 9pm")
-    // Conflict only if shift ends AFTER the availability window closes
-    if (availEnd && shiftEnd > availEnd) {
-      return true;
-    }
-    
-    return false;
-  };
+  const shiftConflicts = (shift: any) =>
+    shiftConflictsWithAvailability(
+      dayPref,
+      normalizeTime(shift.start_time),
+      normalizeTime(shift.end_time)
+    );
 
   // Check if any shift covers the availability restriction
-  const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflictsWithAvailability(shift));
+  const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflicts(shift));
+
   
   const handleSmartTapSelect = (template: any) => {
     setSmartTapOpen(false);
