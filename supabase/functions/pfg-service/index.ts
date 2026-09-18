@@ -556,20 +556,26 @@ async function upsertPfgBidItems(
   for (const cat of categories) {
     const categoryName = cat?.name || null;
     for (const p of (cat?.products || [])) {
-      const itemNumber = p?.itemNumber;
-      if (!itemNumber) continue;
-      const key = String(itemNumber);
-      if (seen.has(key)) continue;
-      seen.set(key, {
-        location_id: locationId,
-        item_number: key,
-        description: p?.fullDescription || p?.name || '',
-        pack_size: p?.packSize || null,
-        category: categoryName,
-        brand_name: p?.brand || null,
-        unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
-        last_seen_at: new Date().toISOString(),
-      });
+      // Some PFG divisions return a comma-joined pair ("038540, B9883") in one
+      // field. Both halves are real, separate PFG numbers, so cache one row per
+      // number carrying the same price/description/pack/category as the source.
+      const codes: string[] = Array.isArray(p?.altItemNumbers) && p.altItemNumbers.length
+        ? p.altItemNumbers.map((c: unknown) => String(c).trim()).filter(Boolean)
+        : splitItemNumbers(p?.itemNumber);
+      if (codes.length === 0) continue;
+      for (const code of codes) {
+        if (seen.has(code)) continue;
+        seen.set(code, {
+          location_id: locationId,
+          item_number: code,
+          description: p?.fullDescription || p?.name || '',
+          pack_size: p?.packSize || null,
+          category: categoryName,
+          brand_name: p?.brand || null,
+          unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
+          last_seen_at: new Date().toISOString(),
+        });
+      }
     }
   }
 
@@ -2542,13 +2548,42 @@ async function handleScrapeBidAllLocations(supabase: any, body: any): Promise<Re
         continue;
       }
 
-      // Prefer guides whose name/description mentions "bid"; fall back to ALL guides.
+      const idOf = (g: any): string =>
+        String(g?.ProductListHeaderId ?? g?.Id ?? g?.ProductListHeaderID ?? '');
       const nameOf = (g: any): string =>
         String(g?.Description || g?.ProductListHeaderDescription || g?.Name || g?.Title || '');
-      const bidGuides = guides.filter((g: any) => /bid/i.test(nameOf(g)));
-      const targetGuides = bidGuides.length > 0 ? bidGuides : guides;
 
-      console.log(`[PFG scrape_bid_all] ${locId}: ${guides.length} total guides, scraping ${targetGuides.length} (bid-match=${bidGuides.length})`);
+      // PRIMARY SELECTOR: the list ID stored on the integration. Every location
+      // has product_list_header_id set and correct — name-matching on "bid" was
+      // picking store-built forms at stores whose vendor list isn't called "Bid".
+      const storedListId = String((credentials as any)?.product_list_header_id ?? '').trim();
+      const storedGuide = storedListId
+        ? guides.find((g: any) => idOf(g) === storedListId)
+        : undefined;
+
+      let targetGuides: any[];
+      let selector: 'stored_id' | 'name_fallback';
+
+      if (storedGuide) {
+        targetGuides = [storedGuide];
+        selector = 'stored_id';
+        console.log(
+          `[PFG scrape_bid_all] ${locId}: using stored product_list_header_id ${storedListId} ("${nameOf(storedGuide)}")`,
+        );
+      } else {
+        // LAST RESORT ONLY. Should be rare/never — log loudly so it's visible.
+        selector = 'name_fallback';
+        const bidGuides = guides.filter((g: any) => /bid/i.test(nameOf(g)));
+        targetGuides = bidGuides.length > 0 ? bidGuides : guides;
+        console.error(
+          `[PFG scrape_bid_all] FALLBACK: ${locId} stored product_list_header_id ` +
+          `${storedListId || '(missing)'} did not resolve against ${guides.length} returned lists ` +
+          `[${guides.map(idOf).join(', ')}] — falling back to name-matching, scraping ${targetGuides.length} list(s). ` +
+          `Fix the stored ID for this location.`,
+        );
+      }
+
+      console.log(`[PFG scrape_bid_all] ${locId}: ${guides.length} total guides, scraping ${targetGuides.length} (selector=${selector})`);
 
       let totalUpserted = 0;
       let guidesScraped = 0;
@@ -2747,7 +2782,14 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         }
 
         const customerIdForDetail = customerIdToUse || order.CustomerId;
+        // CRITICAL: pass PFG's own DeliveryKey straight through. Repacking the
+        // order without it forced fetchDeliveryDetail into its reconstruction
+        // fallback (opCo_cust_YYYY-MM-DD_orderKey), which only happens to match
+        // the divisions using the 4-part format. Hickory/770 (Tuscaloosa) and
+        // Reno (South Meadows) use other formats, so the rebuilt key returned an
+        // empty body and every order was written with items = NULL.
         const orderForDetail = isDeliveryOrder ? {
+          DeliveryKey: order.DeliveryKey,
           OrderOperationCompanyNumber: order.DeliveryOperationCompanyNumber,
           DeliverToCustomerNumber: order.CustomerNumber,
           DeliveryDate: order.DeliveryDate,
@@ -2755,7 +2797,19 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           OrderBusinessUnitERPKey: order.DeliveryBusinessUnitERPKey || 0,
         } : order;
 
-        return { order, pfgOrderId, orderDate, deliveryDate, orderNumber, totalAmount, customerIdForDetail, orderForDetail, isDeliveryOrder };
+        // The header tells us how many lines PFG believes this order has.
+        // Delivery headers use TotalLines; submitted orders use OrderTotalLines.
+        const rawLineCount = Number(
+          isDeliveryOrder ? order.TotalLines : (order.OrderTotalLines ?? order.TotalLines),
+        );
+        const headerLineCount = Number.isFinite(rawLineCount) ? rawLineCount : null;
+        const nativeDeliveryKey = isDeliveryOrder ? (order.DeliveryKey || null) : null;
+
+        return {
+          order, pfgOrderId, orderDate, deliveryDate, orderNumber, totalAmount,
+          customerIdForDetail, orderForDetail, isDeliveryOrder,
+          headerLineCount, nativeDeliveryKey,
+        };
       }).filter(p => p.pfgOrderId && p.orderDate);
 
       // Fetch delivery details in parallel batches of 5
@@ -2810,6 +2864,33 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           console.log(`[PFG Sync] Order ${p.pfgOrderId}: ${items.length} line items fetched`);
         }
 
+        // HARD FAILURE SIGNAL: the header claims N > 0 lines but the detail call
+        // came back with none. That is a real failure, not "this order is empty".
+        // Record it on the row and in the audit log instead of writing a silent NULL.
+        // Scoped to delivery orders carrying a native DeliveryKey — a submitted
+        // order without one hasn't been delivered yet, so an empty detail is the
+        // expected "pending_delivery" state, not a failure.
+        let detailError: string | null = null;
+        if (items.length === 0 && (p.headerLineCount ?? 0) > 0 && p.nativeDeliveryKey) {
+          detailError =
+            `detail_fetch_empty: header reports ${p.headerLineCount} lines, detail returned 0` +
+            ` (deliveryKey=${p.nativeDeliveryKey ?? 'none'})`;
+          console.error(`[PFG Sync] ${detailError} — order ${p.pfgOrderId}`);
+          try {
+            await supabase.from('pfg_refresh_audit').insert({
+              integration_id: integration.id,
+              location_id: integration.location_id,
+              handler: 'fetchDeliveryDetail',
+              caller_action: 'sync_orders',
+              outcome: 'detail_fetch_failed',
+              b2c_error_code: 'empty_detail_with_header_lines',
+              b2c_error_message: `order=${p.pfgOrderId} ${detailError}`.slice(0, 500),
+            });
+          } catch (e) {
+            console.error('[PFG Audit] insert failed:', (e as Error).message);
+          }
+        }
+
         upsertBatch.push({
           location_id: integration.location_id,
           pfg_order_id: String(p.pfgOrderId),
@@ -2820,6 +2901,8 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           total_amount: p.totalAmount,
           items: items.length > 0 ? items : null,
           raw_data: p.order,
+          source_delivery_key: p.nativeDeliveryKey,
+          detail_error: detailError,
           updated_at: new Date().toISOString(),
         });
       }

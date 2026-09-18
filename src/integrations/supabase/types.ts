@@ -9159,6 +9159,7 @@ export type Database = {
           bound_to_count_id: string | null
           created_at: string
           delivery_date: string | null
+          detail_error: string | null
           id: string
           items: Json | null
           location_id: string
@@ -9175,6 +9176,7 @@ export type Database = {
           bound_to_count_id?: string | null
           created_at?: string
           delivery_date?: string | null
+          detail_error?: string | null
           id?: string
           items?: Json | null
           location_id: string
@@ -9191,6 +9193,7 @@ export type Database = {
           bound_to_count_id?: string | null
           created_at?: string
           delivery_date?: string | null
+          detail_error?: string | null
           id?: string
           items?: Json | null
           location_id?: string

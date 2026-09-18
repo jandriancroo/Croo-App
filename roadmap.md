@@ -118,3 +118,10 @@
 - [x] recipe_integrity_alerts table + recipe-integrity-scan function (logic in _shared/recipeIntegrity.ts)
 - [x] Nightly stage recipe_integrity (per-location, after catalog_parity) + call after deploy activation sweep
 - [x] Health tab card: recipes missing ingredients (grouped by missing product, flag-only)
+
+## PFG three fixes — Sep 18 2026
+- [x] Order detail uses PFG's native DeliveryKey (call site no longer drops it); header lines > 0 with 0 detail lines (delivery orders only) writes pfg_orders.detail_error + audit row instead of silent NULL. Deployed; SM 37 orders with lines, Tuscaloosa 8; backfill repaired 5 SM + 26 Tuscaloosa shells
+- [x] Bid list selection uses credentials.product_list_header_id first; name-matching only as loudly-logged last resort. SM stored ID resolves to "Blaze Form" (store-built, type 3) not "Order Guide" (vendor, type 2) → 119 rows, not 186
+- [x] pfg_bid_items write path splits comma-joined item numbers; 20 existing joined rows backfilled; 0 comma-joined rows remain
+- [x] Verify: SM active 117 / unpriced 1 before AND after; 102 inactive unpriced items resolved 0 — their item_numbers appear in 0 of SM's real order lines (wrong-division numbers, not a missing-data problem)
+- [ ] OPEN (needs Jordan): repoint SM + Sparks credentials.product_list_header_id to the vendor Order Guide list ID (SM: 5bda5ec0-0a73-4486-870d-3540683fff3c)
