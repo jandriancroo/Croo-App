@@ -88,16 +88,46 @@ Deno.serve(async (req) => {
     const scopedIds = (scoped || []).map((r: any) => r.user_id);
     if (scopedIds.length === 0) return json({ wages: [] });
 
-    const { data: wages, error: wageErr } = await admin.rpc("get_current_wages_batch", {
-      p_user_ids: scopedIds,
-      p_date: date || new Date().toISOString().slice(0, 10),
-    });
-    if (wageErr) return json({ error: wageErr.message }, 500);
+    const asOf = date || new Date().toISOString().slice(0, 10);
+
+    // Resolve wages directly with the service role. get_current_wages_batch is
+    // NOT usable here: it masks to a flat default unless auth.uid() is a
+    // manager, and inside a service-role call auth.uid() is null. This endpoint
+    // has already authorized the caller above (paired device or manager+), so
+    // read the wage history itself.
+    const { data: history, error: histErr } = await admin
+      .from("wage_history")
+      .select("user_id, hourly_wage, effective_date")
+      .in("user_id", scopedIds)
+      .lte("effective_date", asOf)
+      .order("effective_date", { ascending: false });
+    if (histErr) return json({ error: histErr.message }, 500);
+
+    const wageByUser = new Map<string, number>();
+    for (const row of (history || []) as any[]) {
+      // rows are newest-first, so the first hit per user is the effective wage
+      if (!wageByUser.has(row.user_id) && row.hourly_wage != null) {
+        wageByUser.set(row.user_id, Number(row.hourly_wage));
+      }
+    }
+
+    // Fallback: current wage on the profile for anyone with no history row.
+    const missing = scopedIds.filter((id: string) => !wageByUser.has(id));
+    if (missing.length > 0) {
+      const { data: profs } = await admin
+        .from("profiles")
+        .select("id, hourly_wage")
+        .in("id", missing);
+      for (const p of (profs || []) as any[]) {
+        if (p.hourly_wage != null) wageByUser.set(p.id, Number(p.hourly_wage));
+      }
+    }
 
     return json({
-      wages: (wages || []).map((w: any) => ({
-        user_id: w.user_id,
-        hourly_wage: Number(w.hourly_wage),
+      wages: scopedIds.map((id: string) => ({
+        user_id: id,
+        // last-resort default only when both history and profile are empty
+        hourly_wage: wageByUser.get(id) ?? 15,
       })),
     });
   } catch (e) {
