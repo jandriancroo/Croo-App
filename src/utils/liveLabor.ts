@@ -13,7 +13,14 @@ import { calculateCutoffHour, getDateInTimezone } from '@/utils/timezoneUtils';
  */
 export const fetchLiveLaborForToday = async (
   locationId: string,
-  timezone?: string
+  timezone?: string,
+  /**
+   * `wageSource: 'kiosk'` resolves wages through the `kiosk-wages` edge
+   * function instead of get_current_wages_batch. Required on the punch-clock
+   * Manager Dashboard: a paired device session has no manager role, so the RPC
+   * masks every wage to a flat default and labor dollars come out inflated.
+   */
+  opts?: { wageSource?: 'rpc' | 'kiosk' }
 ): Promise<{ date: string; hours: number; cost: number }> => {
   let zone = timezone;
   if (!zone && locationId) {
