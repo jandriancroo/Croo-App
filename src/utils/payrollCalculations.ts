@@ -58,7 +58,11 @@ export const sortPunches = (punches: TimePunch[]) => {
   });
 };
 
-// Calculate hours for a single day's punches
+// Calculate hours for a single day's punches.
+// showLive=true means OPEN punches count live through "now": a segment with no
+// clock_out yet (and an open 30-min break) runs up to the current moment,
+// mirroring the server punchLabor "still clocked in" logic. Payroll paths pass
+// showLive=false and are unaffected.
 export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): number => {
   const sortedPunches = sortPunches(dayPunches);
   
@@ -133,19 +137,26 @@ export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): num
       })
       .at(-1);
 
-    const endTime = clockOut
+    let endTime = clockOut
       ? new Date(clockOut.punch_time)
       : (lastPunchInWindow ? new Date(lastPunchInWindow.punch_time) : null);
-    
+
     if (!endTime) return;
-    
+
+    // showLive: open punch (no clock_out yet) counts live through now instead
+    // of ending at the last punch (which would be the clock-in itself -> 0h)
+    if (!clockOut && showLive) {
+      const now = new Date();
+      if (now.getTime() > endTime.getTime()) endTime = now;
+    }
+
     if (clockOut) usedClockOutIds.add(clockOut.id);
-    
+
     let hours = calculateTimeDifferenceHours(new Date(clockIn.punch_time), endTime);
-    
+
     const clockOutTime = endTime.getTime();
-    const shiftBreaks = sortedPunches.filter(p => 
-      p.punch_type === 'break_start' && 
+    const shiftBreaks = sortedPunches.filter(p =>
+      p.punch_type === 'break_start' &&
       p.notes?.includes('30 minute') &&
       new Date(p.punch_time).getTime() > clockInTime &&
       new Date(p.punch_time).getTime() < clockOutTime
@@ -173,10 +184,17 @@ export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): num
       
       if (breakEnd) {
         const breakHours = calculateTimeDifferenceHours(
-          new Date(breakStart.punch_time), 
+          new Date(breakStart.punch_time),
           new Date(breakEnd.punch_time)
         );
         hours -= breakHours;
+      } else if (showLive && !clockOut) {
+        // showLive: an open break (no break_end yet) counts through now too
+        const breakHours = calculateTimeDifferenceHours(
+          new Date(breakStart.punch_time),
+          endTime
+        );
+        if (breakHours > 0) hours -= breakHours;
       }
     });
     
