@@ -478,7 +478,9 @@ export function ManagerDashboardOverlay({
   // labor_cache stays history-only (labor-service excludes today).
   const { data: liveLaborToday } = useQuery({
     queryKey: ['live-labor-today', locationId, todayStr],
-    queryFn: () => fetchLiveLaborForToday(locationId, timezone),
+    // Wages via kiosk-wages: this screen runs on paired devices with no manager
+    // role, where get_current_wages_batch masks every rate to a flat default.
+    queryFn: () => fetchLiveLaborForToday(locationId, timezone, { wageSource: 'kiosk' }),
     enabled: !!locationId && !!todayStr,
     staleTime: 60_000,
     refetchInterval: 60_000,
