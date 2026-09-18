@@ -2724,20 +2724,45 @@ async function handleScrapeBidAllLocations(supabase: any, body: any): Promise<Re
       let totalUpserted = 0;
       let guidesScraped = 0;
 
+      let totalPriced = 0;
+      let firstSyncedAt: string | null = null;
+
       for (const guide of targetGuides) {
         const headerId = guide?.ProductListHeaderId || guide?.Id || guide?.ProductListHeaderID;
         if (!headerId) continue;
         try {
           const { categories } = await fetchProductListItems(accessToken, String(headerId), customerId);
-          const { upserted } = await upsertPfgBidItems(supabase, locId, categories || []);
+          const { upserted, priced, syncedAt } = await upsertPfgBidItems(supabase, locId, categories || []);
+          if (!firstSyncedAt) firstSyncedAt = syncedAt;
           totalUpserted += upserted;
+          totalPriced += priced;
           guidesScraped++;
         } catch (e) {
           console.warn(`[PFG scrape_bid_all] guide ${headerId} failed for ${locId}: ${(e as Error).message}`);
         }
       }
 
-      results.push({ locationId: locId, success: true, guidesScraped, itemsUpserted: totalUpserted });
+      // Prune stale rows only after a sync that actually succeeded for every
+      // targeted guide and returned a sane row count.
+      let pruned = 0;
+      if (guidesScraped === targetGuides.length && firstSyncedAt && totalUpserted > 0) {
+        const res = await prunePfgBidItems(supabase, locId, firstSyncedAt, totalUpserted);
+        pruned = res.pruned;
+      } else {
+        console.warn(
+          `[PFG bid prune] SKIPPED for ${locId}: scraped ${guidesScraped}/${targetGuides.length} guides, ` +
+          `${totalUpserted} rows upserted.`,
+        );
+      }
+
+      results.push({
+        locationId: locId,
+        success: true,
+        guidesScraped,
+        itemsUpserted: totalUpserted,
+        itemsPriced: totalPriced,
+        staleRowsPruned: pruned,
+      });
     } catch (e) {
       results.push({
         locationId: locId,
