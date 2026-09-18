@@ -11,6 +11,7 @@ import { Clock, History } from "lucide-react";
 const HATCH_DARK = "#dde3e8";
 const HATCH_BASE = "#eceef0";
 const ICON_TONE = "#9aa8b5";
+const ACCENT = "#cd5555";
 
 const hatchStripes = (stripe: string) =>
   `repeating-linear-gradient(45deg, ${stripe} 0, ${stripe} 7px, transparent 7px, transparent 15px)`;
