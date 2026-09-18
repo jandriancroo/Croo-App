@@ -138,6 +138,6 @@
 - [x] FLAGGED (no fix): Sprite Bottle 20oz — Hemet item_number 584315 vs brand template 53034
 
 ## Hemet hide-and-redeploy — Sep 18 2026
-- [ ] Hide Hemet rows not linked to a live brand template (is_active=false, user_hidden=true, reason)
-- [ ] Redeploy Hemet: PFG + PA list refresh, structural deploy, phase 2 price/activate sweep
-- [ ] Report before/after totals, created vs re-adopted, priced by source, remaining unpriced, 9 R365 keepers active, count history + 47 shortcut rows intact
+- [x] Hide Hemet rows not linked to a live brand template (is_active=false, user_hidden=true, reason)
+- [x] Redeploy Hemet: PFG + PA list refresh, structural deploy, phase 2 price/activate sweep
+- [x] Report before/after totals, created vs re-adopted, priced by source, remaining unpriced, 9 R365 keepers active, count history + 47 shortcut rows intact
