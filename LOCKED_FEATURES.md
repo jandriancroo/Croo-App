@@ -102,3 +102,25 @@
 
 *Add new locked features below this line:*
 
+
+### Live Labor — One Punch Path Everywhere
+**Files:**
+- src/utils/liveLabor.ts (canonical client helper: fetchLiveLaborForToday)
+- supabase/functions/_shared/punchLabor.ts (canonical server helper: calculatePunchLabor)
+- src/components/punchclock/ManagerDashboardOverlay.tsx
+- src/components/dashboard/SalesSummary.tsx
+- supabase/functions/watch-device-service/index.ts
+
+**Description:** Every surface that shows live/today labor MUST get it from the
+shared punch helper. Rules:
+- QuBeyond is SALES TRANSPORT ONLY. It has zero involvement in labor on any
+  surface at any location. Never gate labor display on QU authentication or on
+  any POS integration existing.
+- No local reimplementation of live labor math, and no direct labor_cache query
+  for today (labor_cache is closed-day history only).
+- Any new labor-displaying surface must call the shared helper.
+- Out of scope (different product meaning, do not change): scheduled/projected
+  labor on Schedule (LaborTotals / DayBreakdown / MobileDayPreview),
+  LaborIntelligenceCard, BrandDashboard, historical labor_cache writers.
+
+**Last Updated:** 2026-09-18
