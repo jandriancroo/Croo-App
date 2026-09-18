@@ -9,7 +9,11 @@ const corsHeaders = {
 // ============= AUTO-SCHEDULE TYPES =============
 interface DayAvailability {
   available: boolean;
+  /** UNAVAILABLE (can't-work) windows when available === true */
+  blocks?: { start: string; end: string }[];
+  /** @deprecated legacy "can only work" window */
   start?: string;
+  /** @deprecated legacy "can only work" window */
   end?: string;
 }
 
