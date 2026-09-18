@@ -468,6 +468,77 @@ const parsePackString = (packSize: string | undefined | null): ParsedPack | null
   return { outer_qty, inner_qty, inner_unit, canonical_unit, canonical_qty_per_inner };
 };
 
+// Bulk pricing. PFG's list endpoint returns Price: 0 for every item; the real
+// customer prices come from this order-entry pricing endpoint, which works
+// standalone (no order session) with just CustomerId + DeliveryDate + keys.
+// Returns a lowercase-keyed price map. `ok: false` means the call failed or
+// came back empty when we sent keys — callers must keep existing prices and
+// fall back to the per-item GetProductDetail walk rather than writing zeros.
+async function fetchBulkProductPrices(
+  accessToken: string,
+  customerId: string,
+  productKeys: string[],
+): Promise<{ ok: boolean; prices: Map<string, number>; error?: string }> {
+  const prices = new Map<string, number>();
+  const keys = Array.from(
+    new Set(productKeys.map((k) => String(k || '').trim()).filter(Boolean)),
+  );
+  if (keys.length === 0) return { ok: false, prices, error: 'no product keys' };
+
+  // Any valid date works; use a near-future delivery date.
+  const deliveryDate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+
+  try {
+    const data = await fetchPfgJson(
+      '/CustomerProductPrice/V1/GetOrderEntryCustomerProductPrice',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          CustomerId: customerId,
+          DeliveryDate: deliveryDate,
+          CustomerProductPriceRequests: keys.map((k) => ({
+            ProductKey: k,
+            UnitOfMeasureType: 0,
+          })),
+        }),
+      },
+    );
+
+    const rows = data?.ResultObject?.CustomerProductPrices || [];
+    for (const r of rows) {
+      const key = String(r?.ProductKey || '').trim().toLowerCase();
+      const price = Number(r?.Price);
+      if (key && Number.isFinite(price) && price > 0) prices.set(key, price);
+    }
+
+    if (prices.size === 0) {
+      console.error(
+        `[PFG bulk price] HARD FAILURE: sent ${keys.length} product keys for customer ${customerId} ` +
+        `but got ${rows.length} price rows and 0 usable prices. Keeping existing prices, ` +
+        `falling back to per-item detail. Raw keys present in response: ${rows.length}`,
+      );
+      return { ok: false, prices, error: 'empty CustomerProductPrices' };
+    }
+
+    console.log(
+      `[PFG bulk price] ${prices.size}/${keys.length} priced in one call (customer ${customerId})`,
+    );
+    return { ok: true, prices };
+  } catch (err) {
+    const msg = (err as Error).message?.slice(0, 200);
+    console.error(
+      `[PFG bulk price] HARD FAILURE: call threw for customer ${customerId} (${keys.length} keys): ${msg}. ` +
+      `Keeping existing prices, falling back to per-item detail.`,
+    );
+    return { ok: false, prices, error: msg };
+  }
+}
+
 // Fetch product list items from a specific list (using ProductListHeaderId)
 async function fetchProductListItems(accessToken: string, productListHeaderId: string, customerId: string): Promise<any> {
   console.log('[PFG API] Fetching product list items for list:', productListHeaderId, 'customer:', customerId);
@@ -476,7 +547,9 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     CustomerId: customerId,
     ProductListHeaderId: productListHeaderId,
     QueryText: "",
-    SortByType: 5,
+    // SortByType 0 = PFG's real vendor category structure. Mode 5 collapsed
+    // every item into a single "Uncategorized" bucket.
+    SortByType: 0,
     IncludeRecipeItems: true
   };
 
@@ -506,7 +579,7 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
       const uom = uomList[0] || {};
       const price = uom.Price || uom.UnitPrice || uom.ListPrice || product.Price || null;
       const packSize = uom.PackSize || product.ProductPackSizes?.[0];
-      
+
       const rawItemNumber = product.DisplayProductNumber || product.ProductNumber || product.ProductKey;
       const skuTokens = splitItemNumbers(rawItemNumber);
 
@@ -526,7 +599,23 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     }),
   }));
 
-  return { categories };
+  // One bulk pricing call for the whole list (replaces ~180 per-item calls).
+  // Keys match case-insensitively — PFG lowercases them in the response.
+  const allKeys: string[] = [];
+  for (const cat of categories) {
+    for (const p of cat.products || []) if (p.id) allKeys.push(String(p.id));
+  }
+  const bulk = await fetchBulkProductPrices(accessToken, customerId, allKeys);
+  if (bulk.ok) {
+    for (const cat of categories) {
+      for (const p of cat.products || []) {
+        const hit = p.id ? bulk.prices.get(String(p.id).toLowerCase()) : undefined;
+        if (hit && hit > 0) p.price = hit;
+      }
+    }
+  }
+
+  return { categories, bulkPricingOk: bulk.ok };
 }
 
 // Upsert PFG bid/product-list items into pfg_bid_items cache for a location.
