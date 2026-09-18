@@ -278,7 +278,8 @@ export function usePayrollData() {
       bucketed.forEach((daysForUser, userId) => {
         const wage = wageByUserId.get(userId) ?? 15;
         Object.entries(daysForUser).forEach(([day, dayPunches]) => {
-          const hours = calculateDayHours(dayPunches as any[], day >= todayBusinessDate);
+          // Locked: Time Tracking / payroll must never live-extend open punches.
+          const hours = calculateDayHours(dayPunches as any[], false);
           if (!(hours > 0)) return;
 
           const existing = punchByDate.get(day) || { hours: 0, cost: 0 };
@@ -539,7 +540,9 @@ export function usePayrollData() {
     });
   };
 
-  const calculateDayHours = (dayPunches: any[], showLive = true) => {
+  // showLive defaults to false — payroll/Time Tracking stays locked to closed
+  // segments. Only live-labor paths (liveLabor.ts) count open punches through now.
+  const calculateDayHours = (dayPunches: any[], showLive = false) => {
     const sortedPunches = sortPunches(dayPunches);
     
     if (sortedPunches.length === 0) return 0;
