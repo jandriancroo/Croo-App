@@ -1,69 +1,89 @@
-# Investigation: Hemet's 745 items, menu recipes, and the deploy rule
+# Two cleanup jobs — Hemet R365 cruft, and the missing archive dates
 
-Read-only. Nothing changed.
+All numbers below are live reads. Nothing changed.
 
-## Question 1 — Hemet's 745 rows
+## Job 1 — Hemet's R365 import rows
 
-Hemet is not carrying 500 extra brand items. It is carrying **438 rows imported from R365** (`source = 'r365_import'`) that exist at **no other location**, plus a normal-sized brand set.
+### The exact split
 
-Breakdown of all 745 rows at Hemet:
-
-| Group | Rows | Active | Linked to a brand item |
-|---|---|---|---|
-| R365 import — recipes | 225 | 0 | 2 |
-| R365 import — non-recipes | 204 | 0 | 0 |
-| R365 import — non-recipes (active) | 9 | 9 | 9 |
-| Normal store items (`source = 'manual'`) — active | 169 | 169 | all linked |
-| Normal store items — inactive | 131 | 0 | 108 linked |
-| Recipes (brand-deployed) | 7 | 5 | all linked |
-
-Two import batches, both Hemet-only: **Mar 13 2026** (225 rows) and **Mar 22 2026** (215 rows). Names in those batches are menu dishes and menu modifiers — "vegan pizza", "spicy double pepperoni", "$1 meatball", "- cat - basic signature boxed lunch", "stawberry margarita", "[ARCHIVED] classic prep red sauce". This is a one-time R365 menu/recipe import, not repeated deploy runs: `brand_auto_deployment_log` has **zero rows** for Hemet, and every other store has **zero** `r365_import` rows.
-
-- **Orphans:** 0. No Hemet row points at a deleted brand template, and 0 rows carry `brand_archived_at`.
-- **Duplicates:** 54 brand items appear on two rows each (54 extra rows). **None of those 54 has more than one active row** — in every case one row is active and the other inactive. So no double-counting.
-- **Unlinked:** 450 rows have no `brand_item_id` — 429 of them are the R365 import.
-- **Are they polluting counts?** Historically yes, currently no. 215 of the R365 rows appear in count sessions, but the last count touching an **inactive** R365 row was **Apr 12 2026**; the last count touching an inactive manual row was **May 31 2026**. Only the 9 active R365 rows appear in the last 90 days (24 count rows). Hemet's most recent count is Jul 4 2026.
-
-**Verdict:** dead weight, not live pollution — with one caveat worth a decision: 9 of the R365 rows are still **active** and do show on count sheets. Whether those 9 are legitimate items someone kept on purpose or leftovers is a judgment call, not something the data settles.
-
-## Question 2 — menu dishes deploying as inventory
-
-The brand template list is **not** full of menu dishes. Of the 275 non-archived templates, only **8** are `is_recipe = true`:
-
-| Template | Status | Yield |
+| Group | Rows | Plan |
 |---|---|---|
-| 17oz Dough Ball | live | 1 ea |
-| 6.8oz Dough Ball | live | 1 ea |
-| Chopped Romaine Hearts | live | 4.25 lb |
-| Classic Red Sauce (Prepped) | live | 22 qt |
-| Prepped Dough | live | 45 lb |
-| (NEW) Balsamic Caramelized Onion | archived | 37 oz |
-| Classic Red Sauce OLD | archived | 16 qt |
-| 11" Pepperoni Pizza | archived | 12.8 oz |
+| Active, in use (the 9 you listed) | 9 | Leave completely alone |
+| Inactive, **has** count history | 215 | Keep the row, hide it from everything current |
+| Inactive, **zero** count history ever | 214 | Safe to delete after one preparation step |
+| Total `r365_import` at Hemet | 438 | |
 
-All five live ones are genuine prepped items, and those five are exactly the five active recipe items at every store (Hemet, Palm Desert, Palm Springs, Rowlett, Tuscaloosa; South Meadows has them inactive). **Zero menu dishes are active as inventory anywhere.** The one true menu dish that reached the brand list — 11" Pepperoni Pizza — is `status = 'archived'`, so it never deploys.
+### What a delete would touch
 
-**On the distinguishing field:** `brand_inventory_templates` has no field that separates a prepped item from a menu dish. `is_recipe` is one flag for both, and every one of the 8 has a `recipe_yield_unit`, so yield doesn't separate them either. That is the finding — but the live recipe system already solves it. `recipe_blueprints` carries `recipe_type` and `is_countable`:
+19 tables point at `inventory_items`. For the 214 zero-history rows, only one has any rows at all:
 
-| recipe_type | is_countable | Active | Inactive |
-|---|---|---|---|
-| menu | false | 253 | 94 |
-| prep | true | 39 | 0 |
-| sub_recipe | false | 1 | 1 |
+- `inventory_recipe_ingredients` — 345 rows where the doomed item is the recipe, and 193 rows where it is an **ingredient of another recipe** (90 distinct items). Every one of those 193 links belongs to a parent recipe that is itself one of the doomed inactive R365 rows — no live recipe depends on any of them.
+- All other 18 tables: **zero rows**. Nothing in count legs, item locations, transfers, waste, spot counts, usage rates, invoice matches, checklist prep rows/completions, blueprints, deployments, integrity alerts, sandbox flags, or brand template source links.
 
-Clean and complete: 39 countable prep recipes, 253 menu recipes, no overlap, no nulls. **`recipe_blueprints.recipe_type` + `is_countable` is the correct source of truth for what may deploy.**
+One catch: the ingredient side of that link is a **restrict** foreign key, so it blocks a plain delete. The fix is ordering, not force:
 
-## Question 3 — the actual deploy rule
+1. Delete the `inventory_recipe_ingredients` rows for the 214 (both roles — 538 rows total, all self-contained to this set).
+2. Delete the 214 `inventory_items` rows.
 
-One rule, one filter: **`status = 'live'`**.
+Both steps scoped to Hemet, `source = 'r365_import'`, `is_active = false`, and "no row in `inventory_count_items`". I'd run it as a single migration inside one transaction, with a before/after count in the migration so the numbers are on record.
 
-- The trigger `auto_deploy_brand_template` fires when a template's status becomes `live` (insert or update) and calls the deploy job **once per location** where the location is active and `inventory_enabled = true`.
-- The deploy job selects brand templates with `.eq("brand_id", …).eq("status", "live")` — nothing else. No category filter, no vendor-availability filter, and **no `auto_deploy_enabled` check**.
-- `auto_deploy_enabled` is respected in exactly one place: the nightly availability sweep, when it auto-deploys missing recipe ingredients (`status = 'live'` AND `auto_deploy_enabled = true`). The main deploy path ignores it.
-- Current values across the 275: **`auto_deploy_enabled = true` on all 275. Not one is false.** So even where it is read, it filters nothing today.
+### The 215 with count history
 
-This also explains your first column. Of the 275 templates with `archived_at IS NULL`, only **219** are `status = 'live'` (214 items + 5 recipes); **52 are `status = 'archived'` while `archived_at` is still NULL**, plus 4 drafts. 219 live is what a clean store carries — which is exactly the 219–225 range every store except Hemet shows. The "275" in your table counts 52 templates that are archived by status but were never stamped with an archive date.
+These are not deleted. There is already an established pattern for "keep the row, hide it": **`user_hidden = true`**, which the app uses as a hard filter — the items manager, Start Count, the daily spot check, the unit matrix and the produce sync all query `user_hidden = false`. It sits alongside `is_active`, so a row can be inactive *and* hidden, which is exactly the state we want. No new column, no new mechanism.
 
-## Unproven
+So for the 215: set `user_hidden = true` and stamp `deactivated_reason = 'R365 import cleanup — retained for count history'` (that field is already used for human-readable reasons elsewhere). They stay joinable from `inventory_count_items`, so past counts, variance and food cost are untouched.
 
-Why the 52 templates have `status = 'archived'` with a NULL `archived_at` — the two archive markers disagree and I did not find the write path that leaves them out of sync. Reporting it as a data inconsistency, not a diagnosed bug.
+### The 9 keepers — links are valid
+
+All 9 point at a `brand_inventory_templates` row that is **`status = 'live'`**, and in all 9 cases the brand product name matches the local name exactly. Item numbers match on 8 of 9; **Sprite Bottle 20oz** has a different item number locally than on the brand template. Recommendation: leave all 9 exactly as they are, and look at Sprite Bottle 20oz separately — one mismatched vendor number is a data question for whoever set it, not something to auto-correct in a cleanup.
+
+## Job 2 — the archive date
+
+### What is actually going on
+
+`archived_at` is not drifting. It was **never populated in the first place**. It was added on Jun 30 2026 in a migration that set it on exactly **one** template (the mislabeled meatball bucket) — there was no backfill. Live counts for the brand: **276 templates, 53 with `status = 'archived'`, and exactly 1 carrying an `archived_at`.** So the 52 nulls are every archived template except that one.
+
+And the field is read nowhere. `archived_at` does not appear in a single line of app or function code outside the generated types file. Everything reads **`status`**:
+
+- Archiving is written in three places, all in the brand UI: `src/pages/BrandUnpricedIngredients.tsx` (line 88), and `src/pages/BrandPackConfigApprovals.tsx` (lines 877 and 1100). All three set `status: "archived"` and none sets a date.
+- Reading "is this archived" is `status`-based everywhere: the deploy job (`deploy-location-inventory`) selects `status = 'live'`, the nightly availability sweep filters `status = 'live'`, and the brand screens filter on `status`.
+
+**So `status` is the field the system runs on, and there is no inconsistency between the two — one field is used, the other is dead.** That also explains the "275" in your earlier table: filtering on `archived_at IS NULL` counts 52 archived templates as if they were live. The real deployable set is **219 live** templates, which is why every clean store sits at 219–225.
+
+### Recovering a date
+
+`updated_at` is the only candidate, and it is only fair evidence. The 52 rows span Apr 7 to Aug 23 2026 in a pattern that looks like real archiving activity (17 on Apr 7, 13 on Apr 21, 8 on Aug 23, singles in between), and not one of them was updated on its creation day. But `updated_at` moves on *any* edit, so for a template touched after being archived the date would be too late. There is no audit log for this table to cross-check against.
+
+My recommendation: **use `updated_at` as the archive date for all 52**, and record honestly that it is an approximation by also stamping a marker so nobody later mistakes it for an observed event. Two workable ways to mark it — your call:
+- add a short comment on the column noting pre-Sep-2026 dates are inferred from `updated_at`, or
+- stamp one universal date instead (`2026-08-23`, the last real archiving day) if you'd rather have one obviously-synthetic value than 52 plausible-but-approximate ones.
+
+I lean toward `updated_at`: for most of these it will be right or within days, and the alternative throws away real signal.
+
+### Stopping the drift
+
+Two changes, both small:
+
+1. **A database trigger** on `brand_inventory_templates`, before insert or update: when `status` becomes `'archived'` and `archived_at` is null, set `archived_at = now()`; when status moves back off `'archived'`, clear it. A trigger covers every path — the three UI paths today plus anything added later — which code-level fixes cannot guarantee.
+2. Optionally also set `archived_at` explicitly in the three UI archive calls, so the intent is visible in the code. Not required once the trigger exists.
+
+I would **not** switch any read path from `status` to `archived_at`. `status` works, it's used consistently, and changing what "archived" means across the deploy trigger, the deploy job and the sweep is a much bigger and riskier change than this job needs.
+
+## Technical summary of the proposed migrations
+
+**Migration A — Hemet cleanup (one transaction)**
+1. `UPDATE inventory_items SET user_hidden = true, deactivated_reason = 'R365 import cleanup — retained for count history'` where Hemet + `source='r365_import'` + `is_active=false` + EXISTS a row in `inventory_count_items` → expect 215 rows.
+2. `DELETE FROM inventory_recipe_ingredients` where `recipe_item_id` or `ingredient_item_id` is in the zero-history set → expect 538 rows.
+3. `DELETE FROM inventory_items` for the zero-history set → expect 214 rows.
+4. Never touches `is_active = true` rows.
+
+**Migration B — archive dates**
+1. `UPDATE brand_inventory_templates SET archived_at = updated_at WHERE status='archived' AND archived_at IS NULL` → expect 52 rows.
+2. New trigger function keeping `status` and `archived_at` in step from now on.
+
+## Stated plainly
+
+- Deleting the 214 is safe once their recipe-ingredient links go first; nothing else in the database references them.
+- The 215 with history are never deleted; `user_hidden` is the existing mechanism and needs nothing new.
+- The 9 keepers are correctly linked to live brand templates and should be left alone.
+- The archive-date "drift" is really a column that was never wired up; `status` is the real field, and the trigger is what stops it happening again.
