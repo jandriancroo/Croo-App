@@ -515,11 +515,10 @@ function DayCell({
           return !isCoveredByShift;
         }).map(request => (
           <Popover key={request.id} open={timeOffPopoverId === request.id} onOpenChange={(open) => setTimeOffPopoverId(open ? request.id : null)}>
-            <PopoverTrigger asChild>
+            <PopoverAnchor asChild>
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  e.preventDefault();
                   if (timeOffPopoverId !== request.id) {
                     // First tap: show time-off details
                     setTimeOffPopoverId(request.id);
