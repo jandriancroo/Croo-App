@@ -556,20 +556,26 @@ async function upsertPfgBidItems(
   for (const cat of categories) {
     const categoryName = cat?.name || null;
     for (const p of (cat?.products || [])) {
-      const itemNumber = p?.itemNumber;
-      if (!itemNumber) continue;
-      const key = String(itemNumber);
-      if (seen.has(key)) continue;
-      seen.set(key, {
-        location_id: locationId,
-        item_number: key,
-        description: p?.fullDescription || p?.name || '',
-        pack_size: p?.packSize || null,
-        category: categoryName,
-        brand_name: p?.brand || null,
-        unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
-        last_seen_at: new Date().toISOString(),
-      });
+      // Some PFG divisions return a comma-joined pair ("038540, B9883") in one
+      // field. Both halves are real, separate PFG numbers, so cache one row per
+      // number carrying the same price/description/pack/category as the source.
+      const codes: string[] = Array.isArray(p?.altItemNumbers) && p.altItemNumbers.length
+        ? p.altItemNumbers.map((c: unknown) => String(c).trim()).filter(Boolean)
+        : splitItemNumbers(p?.itemNumber);
+      if (codes.length === 0) continue;
+      for (const code of codes) {
+        if (seen.has(code)) continue;
+        seen.set(code, {
+          location_id: locationId,
+          item_number: code,
+          description: p?.fullDescription || p?.name || '',
+          pack_size: p?.packSize || null,
+          category: categoryName,
+          brand_name: p?.brand || null,
+          unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
+          last_seen_at: new Date().toISOString(),
+        });
+      }
     }
   }
 
