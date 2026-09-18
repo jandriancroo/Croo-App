@@ -403,32 +403,16 @@ function DayCell({
             </div>
           </div>
         )}
-        {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
-        {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
+        {/* Weekly Availability — icon-only hatched box; shown only when no shift shares the cell
+            (with a shift, the marker moves onto the shift card itself) */}
+        {hasLimitedAvailability && userId !== "unassigned" && shifts.length === 0 && (
           <Popover>
             <PopoverTrigger asChild>
               <div 
-                className={`${isCompactMode ? 'flex-1 min-h-[26px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border border-dashed border-muted-foreground/30 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
-                style={{
-                  background: isCompactMode 
-                    ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
-                    : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
-                }}
+                className={`${isCompactMode ? 'flex-1 min-h-[26px] flex items-center justify-center border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px] flex items-center justify-center'} cursor-pointer transition-opacity hover:opacity-90 overflow-hidden`}
+                style={AVAILABILITY_HATCH}
               >
-                <div className="flex flex-col items-center gap-0.5 text-muted-foreground font-medium text-center leading-tight">
-                  {availabilityChips.slice(0, isCompactMode ? 1 : 3).map((label, i) => (
-                    <div key={i} className="flex items-center gap-1">
-                      {!isCompactMode && i === 0 && <Clock className="h-2.5 w-2.5" />}
-                      <span>{label}</span>
-                    </div>
-                  ))}
-                  {availabilityChips.length > (isCompactMode ? 1 : 3) && (
-                    <span className="opacity-70">
-                      +{availabilityChips.length - (isCompactMode ? 1 : 3)} more
-                    </span>
-                  )}
-                </div>
-
+                <ClockCutout className={isCompactMode ? "h-3.5 w-3.5" : "h-6 w-6"} />
               </div>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-3" side="top">
