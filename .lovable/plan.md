@@ -1,51 +1,72 @@
-# Does the deploy price and switch items on by itself? Yes — I was wrong
+# Tuscaloosa unpriced items — match analysis (read-only findings)
 
-**Plainly: my earlier statement was wrong.** I said a redeploy leaves items inactive until the nightly sweep. In fact all three entry points run the pricing/activation step themselves, immediately after the structural deploy. The nightly run is only a backstop.
+Headline: the item-number mismatch is **not** the main story at Tuscaloosa. Only **3 of the 49** unpriced items have a believable replacement on that store's guide. The rest are either not carried by that division at all or aren't PFG items in the first place.
 
-## 1. Does `deploy-location-inventory` itself run phase 2?
+## 1. What the 49 actually are
 
-**No — and by design.** That function is structure only: shelves, items (created inactive), vendor numbers, recipe links. Its own comments and its response say so, and it hands back `nextStep: "vendor-price-chase { activate: true, includeInactive: true }"`. It never calls the sweep. **The caller does.**
-
-## 2. The three entry points
-
-| Entry point | Runs phase 2? | How |
+| Group | Count | Meaning |
 |---|---|---|
-| Deploy wizard (`src/components/settings/DeployLocationWizard.tsx`) | Yes | Structural deploy → refresh PFG + Produce Alliance lists → direct call to `vendor-price-chase` with `activate: true, includeInactive: true`. The wizard shows it as its own step and reports "X items live, Y waiting on a vendor price." |
-| Location activation list (`src/components/brand/LocationActivationList.tsx`) | Yes | Same three-step chain in one click, with toasts: "Deploying structure" → "Syncing PFG + Produce Alliance" → "Pricing and activating items". |
-| `auto_deploy_brand_template` trigger | Yes | Two fire-and-forget web calls per location: phase 1 to the deploy function, phase 2 to `vendor-price-chase`, both logged to `brand_deploy_trigger_log`. |
+| Carries a number used by the SoCal stores, not on Tuscaloosa's guide | 31 | the "mismatch" class |
+| Carries a number that exists on no store's guide | 3 | (NEW) Plastic Spoons, Broom Head Replacement, Pellegrino Glass Bottle 500ml |
+| No PFG number at all | 15 | 7 Heimark beers, 2 dough balls, Prepped Dough, Chopped Romaine Hearts, Classic Red Sauce (Prepped), Romaine Lettuce (Bag), Pineapple Tidbits (Produce Alliance), Water |
 
-One real caveat on the trigger only: its two calls are fire-and-forget with **no ordering guarantee** — the sweep can start before the structural deploy finishes. The code notes this and accepts it because the sweep is idempotent and the nightly run catches anything missed. The two UI paths await each step in order, so they don't have that gap.
+Hard ceiling on what linking can fix: Tuscaloosa's guide has 138 rows and **120 of them are already claimed** by an existing item. Only **18 rows are unclaimed** — that is the entire pool any of the 34 numbered items could be matched into. 49 cannot become 49 no matter how good the matching is.
 
-Also worth knowing: both UI paths refresh the vendor lists *before* pricing, so the sweep reads fresh data rather than yesterday's.
+## 2. Method
 
-## 3. How much of Hemet would be live immediately
+Matching our friendly names ("Coke Zero BIB 5g") against vendor descriptions ("SODA SYRUP COLA ZERO SUGAR BAG-IN-BOX") scores badly and produces garbage. Instead I matched **vendor description to vendor description**: take the description PFG itself gives our SoCal number at the other stores, and compare that to Tuscaloosa's descriptions — same vocabulary both sides. Scoring is `pg_trgm similarity` blended 50/50 with the token-overlap score the invoice matcher already uses, plus a normalized pack-size equality check.
 
-Hemet's bid guide is in good shape: **200 rows, 185 priced**, last refreshed Sep 17.
+## 3. High confidence — 3
 
-Matching all 219 live brand templates against Hemet's own current vendor data, using the same chain the sweep uses (every approved vendor number on the template, not just its own):
+| Our item | Our number (SoCal) | SoCal description / pack / price | Tuscaloosa row | Pack | Tusc price |
+|---|---|---|---|---|---|
+| Equal Sweetener Packets | 27553 | SWEETENER BLUE PACKET W/ASPARTAME · 2000/1 GM · $31.26 | SUGAR SUB BLUE PACKET W/ASPARTAME **#336787** | 2000/1 GM (same) | **$31.26** |
+| Forks | 705219 | FORK PLASTIC HEAVY_WEIGHT BLACK POLYSTYRENE · 1/1000 CT · $25.00 | FORK PLASTIC POLYPROPYLENE EXTRA_HEAVY_WEIGHT BLACK **#708856** | 1/1000 CT (same) | $33.46 |
+| Knives | 707270 | KNIFE PLASTIC HEAVY_WEIGHT BLACK POLYSTYRENE · 1/1000 CT · $25.99 | KNIFE PLASTIC HEAVY_WEIGHT BLACK POLYPROPYLENE INDIVIDUALLY_WRAPPED **#806199** | 1/1000 CT (same) | $30.38 |
 
-| Outcome | Templates |
-|---|---|
-| Priced from the PFG bid guide | 170 |
-| Priced from the Produce Alliance catalog | 16 |
-| **Priced from a master list — live on the spot** | **186** |
-| House-made (no vendor number, no vendor source — activates without a price) | 1 |
-| Left needing an order or invoice price | 33 |
-| Of those, findable in Hemet's PFG order history at some point | 10 |
+Cross-check (item 3 of your list): Equal Sweetener is exact — identical pack, identical price to the cent at all four SoCal stores. Forks and Knives are the same count and use but a **different resin and spec** (polypropylene extra-heavy / individually wrapped vs polystyrene heavy). Prices land +34% and +17% over SoCal — plausible for an upgraded spec, not a red flag, but they are substitutes, not the same SKU. Flagging them as "approve, don't auto-link".
 
-So a redeploy today lands at roughly **187 items live immediately**, with up to about 10 more depending on whether their order history falls inside the sweep's 14-day activity window. That is essentially Hemet's current state (203 active, and the sweep itself turned 20 on within the last hour), so a redeploy is close to a no-op on the count sheet rather than a reset.
+## 4. Ambiguous — 4
 
-The bulk pricing endpoint is indeed **not** wired in — none of this depends on it. Everything above uses the existing bid-guide/orders/invoices chain.
+| Our item | Competing Tuscaloosa rows | Why it's unresolved |
+|---|---|---|
+| Small Gloves (#563906, GLOVE POLY SMALL, 10/100 CT, $17.51) | GLOVE HYBRID STRETCH MEDIUM #609025 / LARGE #608998 / EXTRA_LARGE #609006 — all 10/100 CT, all $17.51 | Guide carries M/L/XL only, no Small; all three already claimed by other items. Linking Small to a bigger size is a size substitution decision, not a match. |
+| Pellegrino Glass Bottle 500ml (number on no guide) | WATER SPARKLING MINERAL PLASTIC #497409 · 24/500 ML · $25.40 | Right water, right volume, **plastic not glass**. |
+| Pink Cleaning Towels (#66140, WIPE FABRIC PINK/WHITE 13X24, 1/200 CT, $21.55) | WIPE MEDIUM WITH-TRACKING RED 13X21 #243695 · 1/150 CT · $36.02 | Different colour, different count, 67% higher. |
+| Dispenser Sani Wipes (#585164, DISPENSER WIPES TRIPLE TAKE RED, 1/1 CT, $14.05) | DISPENSER TOWEL ELEVATION MATIC H1 #363719 · 1/1 CT · $20.05 | Pack matches but it's a paper-towel dispenser, not a wipes dispenser. Likely a false friend. |
 
-## 4. Is there a window where Hemet's count sheet is empty?
+## 5. No match — 42, and why
 
-Realistically, no. The honest list of exposure:
+Nothing on Tuscaloosa's 138-row guide resembles these. My read, by cause:
 
-- **Between phase 1 and phase 2** — minutes, not overnight. On the two UI paths the operator watches it happen. The gap only exists while the sweep is running.
-- **Brand-linked rows are re-used, not recreated.** A redeploy over Hemet's existing rows updates them in place and explicitly does not touch `is_active` — so already-active items never go dark at all. An empty sheet requires deleting the rows first.
-- **The one scenario that does bite:** wipe the rows, then have the sweep fail (PFG token expired, bid guide stale, function error). Then Hemet sits with 219 inactive items and an empty count sheet until someone re-runs the sweep or the nightly job does at 3 AM. That is a real risk of the delete-first approach, and another reason to archive in place instead of deleting.
-- The trigger path's unordered calls can leave a batch unpriced until the nightly run — but that path deploys one template at a time, not a whole store.
+- **Not carried by that division (25 items).** All 7 fountain syrups (Coke Zero, Cherry Coke, Dr Pepper, Fanta, Barq's, Powerade, plus BIB siblings) — Tuscaloosa's guide has **zero** bag-in-box syrup rows, so soda concentrate is bought outside PFG there. Same for the whole ecolab-style chemical program (Glass Cleaner concentrate, Peroxide Disinfectant, Enzyme Drain Cleaner, Hand Soap/Foaming Soap/Sanitizer cartridges, Multi-Surface canister wipes) — Tuscaloosa's 16 chemical rows are a different lineup (EZ SNAP quat/chlorine, quarry-tile cleaner). Also Salami, Sugar Packets (granulated), Wax Paper, Toilet Seat Covers, Handle Replacement, Broom Head, 1" deli hot labels, orange sealed-hot labels, 24oz Coke cups, Entree Salad Container (Tuscaloosa carries a different hinged size), Chipotle Sauce, Fruit/Veggie wash strips, Orange Pellegrino.
+- **Not PFG at all (15 items).** 7 Heimark beers (Bud Light, Michelob Ultra, Stella, Estrella, Firestone, Lagunitas, Coachella Valley) — beer distributor, invoice-priced. Prepped/recipe items (Chopped Romaine Hearts, Classic Red Sauce, Prepped Dough, 17oz and 6.8oz Dough Balls) — cost out from ingredients, should never chase a vendor price. Produce Alliance items (Pineapple Tidbits, Romaine Lettuce bag). Water.
+- **Genuinely unknown (2).** (NEW) Plastic Spoons #1002342 and Pellegrino Glass 500ml — numbers that appear on no store's guide, so we can't even confirm what they are.
 
-## Correction on record
+## 6. Does the plumbing work? Yes — traced
 
-Earlier I wrote that a wiped Hemet would have an empty count sheet "until the nightly sweep runs." Wrong: the deploy paths price and activate in the same operation, and on Hemet's current data that means about 187 of 219 items live within minutes. The wipe risk is real but it is the *delete*, not the deploy.
+`_shared/vendorPriceChase.ts`:
+- `loadApprovedNumbers` reads `brand_inventory_templates.item_number/pa_item_id` **plus every `brand_vendor_mappings` row** for that template and unions them into one set of approved PFG numbers.
+- `numbersForItem` adds the local item's own number to that set.
+- Stage A loads `pfg_bid_items` **filtered to the location being chased** and takes the first number in the set that has a price.
+
+So creating a `brand_vendor_mappings` row with Tuscaloosa's number does feed pricing: the chase will find #336787 on Tuscaloosa's guide, write $31.26, and (in sweep mode) activate. No code change needed.
+
+**Same brand item, two numbers — no collision.** The table's unique key is `(brand_template_id, vendor, vendor_item_id)`, so multiple numbers per brand item are legal by design, and the table already carries `territory` and `source_location_id` columns for exactly this. Because Stage A is location-scoped, a Tuscaloosa-only number can never price a SoCal item — verified: #336787, #708856 and #806199 exist on **no other store's guide**, so nothing can cross-contaminate. Recommendation: still stamp `source_location_id` = Tuscaloosa and `territory` on any new rows so the origin is auditable.
+
+## 7. Expected outcome
+
+- Link the 3 high-confidence matches → **3 of 49** priced and activated. 46 still unpriced.
+- Approve all 4 ambiguous ones too → at most **7 of 49**.
+- 15 of the remainder should never have a PFG price (beer, prepped recipes, produce, water) — the honest fix for those is a non-PFG cost source, not a mapping.
+- That leaves ~27 items that are active at Tuscaloosa but appear not to be bought there at all. The real question is whether they should be active in that store's count at all.
+
+## 8. Flags worth your call before anything gets built
+
+- Tuscaloosa's guide is 138 rows vs ~200 in SoCal, and 12 categories vs 16. Before we mass-map, worth confirming this really is the store's full order guide.
+- Tuscaloosa's PFG order history (37 orders, May 5 – Sep 15) contains **80 distinct item numbers, 12 of which are not on the guide, and 7 of which match no item we have**. Order history is stronger ground truth than the guide for "what this store actually buys" — a second pass matching against orders would likely price more than the guide can.
+- I created nothing. No mappings, no writes.
+
+## Suggested next step (not built)
+
+A review screen, not an auto-linker: show the 18 unclaimed Tuscaloosa rows against the 34 numbered unpriced items with the score, pack check, and SoCal-vs-Tuscaloosa price delta side by side, and require a tap to create each `brand_vendor_mappings` row. Auto-link nothing.
