@@ -182,7 +182,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
             </div>
           )}
           {hasTimeOffDetails && conflictingTimeOff.map((request, idx) => (
-            <div key={request.id || idx} className={idx > 0 ? "pt-3 border-t border-border space-y-2" : "space-y-2"}>
+            <div key={request.id || idx} className={(idx > 0 || hasAvailabilityDetails) ? "pt-3 border-t border-border space-y-2" : "space-y-2"}>
               <div className="flex items-center gap-2">
                 <CalendarOff className="h-4 w-4 text-red-500" />
                 <span className="text-sm font-medium">
