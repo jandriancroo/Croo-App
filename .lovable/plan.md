@@ -1,58 +1,69 @@
-# Did automated PFG pricing ever exist?
+# Investigation: Hemet's 745 items, menu recipes, and the deploy rule
 
-Short answer: **yes, it exists and it runs nightly — and it worked for six of your seven stores. South Meadows is the one store where it produced nothing.** So this isn't "nobody ever automated pricing"; it's "the automated pricing ran everywhere and silently came back empty for one store."
+Read-only. Nothing changed.
 
-One correction to your framing, from the data itself: the Hemet batch you're describing as June 8 / 161 rows isn't what's in the table. Details below.
+## Question 1 — Hemet's 745 rows
 
-## 1. Every pricing call site
+Hemet is not carrying 500 extra brand items. It is carrying **438 rows imported from R365** (`source = 'r365_import'`) that exist at **no other location**, plus a normal-sized brand set.
 
-Only one PFG pricing endpoint has ever been used: **`GetProductDetail`**, one product at a time. There has never been a bulk pricing call anywhere in the app until tonight's discovery.
+Breakdown of all 745 rows at Hemet:
 
-It is called from exactly one place — the `categories` action inside `pfg-service`. That action pulls the store's list, notices which items came back without a price (which is all of them, since the list endpoint sends none), then fetches prices ten products at a time and writes them onto the cached list rows on the way past.
+| Group | Rows | Active | Linked to a brand item |
+|---|---|---|---|
+| R365 import — recipes | 225 | 0 | 2 |
+| R365 import — non-recipes | 204 | 0 | 0 |
+| R365 import — non-recipes (active) | 9 | 9 | 9 |
+| Normal store items (`source = 'manual'`) — active | 169 | 169 | all linked |
+| Normal store items — inactive | 131 | 0 | 108 linked |
+| Recipes (brand-deployed) | 7 | 5 | all linked |
 
-Three things trigger that action:
+Two import batches, both Hemet-only: **Mar 13 2026** (225 rows) and **Mar 22 2026** (215 rows). Names in those batches are menu dishes and menu modifiers — "vegan pizza", "spicy double pepperoni", "$1 meatball", "- cat - basic signature boxed lunch", "stawberry margarita", "[ARCHIVED] classic prep red sauce". This is a one-time R365 menu/recipe import, not repeated deploy runs: `brand_auto_deployment_log` has **zero rows** for Hemet, and every other store has **zero** `r365_import` rows.
 
-| Trigger | Automatic? | Notes |
+- **Orphans:** 0. No Hemet row points at a deleted brand template, and 0 rows carry `brand_archived_at`.
+- **Duplicates:** 54 brand items appear on two rows each (54 extra rows). **None of those 54 has more than one active row** — in every case one row is active and the other inactive. So no double-counting.
+- **Unlinked:** 450 rows have no `brand_item_id` — 429 of them are the R365 import.
+- **Are they polluting counts?** Historically yes, currently no. 215 of the R365 rows appear in count sessions, but the last count touching an **inactive** R365 row was **Apr 12 2026**; the last count touching an inactive manual row was **May 31 2026**. Only the 9 active R365 rows appear in the last 90 days (24 count rows). Hemet's most recent count is Jul 4 2026.
+
+**Verdict:** dead weight, not live pollution — with one caveat worth a decision: 9 of the R365 rows are still **active** and do show on count sheets. Whether those 9 are legitimate items someone kept on purpose or leftovers is a judgment call, not something the data settles.
+
+## Question 2 — menu dishes deploying as inventory
+
+The brand template list is **not** full of menu dishes. Of the 275 non-archived templates, only **8** are `is_recipe = true`:
+
+| Template | Status | Yield |
 |---|---|---|
-| Nightly vendor gap scan (runs 3:15 AM Pacific) | **Yes, automatic** | Loops every store with live PFG credentials. This is the real pricing engine. |
-| Scheduled price sync, every 8 hours | Was automatic | Added Aug 5, **switched off Sep 2** because it wrote costs outside the new pricing chain. |
-| A staff member opening Start Count or the inventory items screen | No, human | Prices whatever list they're looking at, as a side effect. |
+| 17oz Dough Ball | live | 1 ea |
+| 6.8oz Dough Ball | live | 1 ea |
+| Chopped Romaine Hearts | live | 4.25 lb |
+| Classic Red Sauce (Prepped) | live | 22 qt |
+| Prepped Dough | live | 45 lb |
+| (NEW) Balsamic Caramelized Onion | archived | 37 oz |
+| Classic Red Sauce OLD | archived | 16 qt |
+| 11" Pepperoni Pizza | archived | 12.8 oz |
 
-And the nightly **list scrape** — the job that writes the bid-guide rows — deliberately fetches **no** prices. There's a note in the code saying exactly that: pricing every item would take ~170 separate calls per store, so it was left out on purpose, with a suggestion to add a weekly priced job later. That job was never built.
+All five live ones are genuine prepped items, and those five are exactly the five active recipe items at every store (Hemet, Palm Desert, Palm Springs, Rowlett, Tuscaloosa; South Meadows has them inactive). **Zero menu dishes are active as inventory anywhere.** The one true menu dish that reached the brand list — 11" Pepperoni Pizza — is `status = 'archived'`, so it never deploys.
 
-So: pricing has only ever happened as a side effect of the gap scan, or of a person browsing.
+**On the distinguishing field:** `brand_inventory_templates` has no field that separates a prepped item from a menu dish. `is_recipe` is one flag for both, and every one of the 8 has a `recipe_yield_unit`, so yield doesn't separate them either. That is the finding — but the live recipe system already solves it. `recipe_blueprints` carries `recipe_type` and `is_countable`:
 
-## 2. The Hemet batch — what actually happened
+| recipe_type | is_countable | Active | Inactive |
+|---|---|---|---|
+| menu | false | 253 | 94 |
+| prep | true | 39 | 0 |
+| sub_recipe | false | 1 | 1 |
 
-Hemet's write history, straight from the table:
+Clean and complete: 39 countable prep recipes, 253 menu recipes, no overlap, no nulls. **`recipe_blueprints.recipe_type` + `is_countable` is the correct source of truth for what may deploy.**
 
-| When (UTC) | Rows | Priced |
-|---|---|---|
-| Jun 12, Jun 25, Jul 7 | 1 each | 1 each |
-| Jun 13 | 3 | 0 |
-| Sep 1, Sep 12, Sep 17 10:21 | 12 total | 0 |
-| **Sep 17 10:34** | **181** | **181** |
+## Question 3 — the actual deploy rule
 
-So Hemet's priced guide isn't from June at all — it landed in **one batch on Sep 17**, and every row in it came back priced. June 8 is simply the oldest row's creation date across the five original stores (a handful of single rows, mostly unpriced), not a 161-row priced batch.
+One rule, one filter: **`status = 'live'`**.
 
-The Sep 17 10:34 batch is the nightly gap scan doing its per-item pricing walk. And it wasn't just Hemet:
+- The trigger `auto_deploy_brand_template` fires when a template's status becomes `live` (insert or update) and calls the deploy job **once per location** where the location is active and `inventory_enabled = true`.
+- The deploy job selects brand templates with `.eq("brand_id", …).eq("status", "live")` — nothing else. No category filter, no vendor-availability filter, and **no `auto_deploy_enabled` check**.
+- `auto_deploy_enabled` is respected in exactly one place: the nightly availability sweep, when it auto-deploys missing recipe ingredients (`status = 'live'` AND `auto_deploy_enabled = true`). The main deploy path ignores it.
+- Current values across the 275: **`auto_deploy_enabled = true` on all 275. Not one is false.** So even where it is read, it filters nothing today.
 
-| Store | Sep 17 priced batch |
-|---|---|
-| Hemet | 181 of 181 |
-| Palm Springs | 181 of 181 |
-| Tuscaloosa | 138 of 138 |
-| Sparks | 115 of 115 |
-| Rowlett, Palm Desert | same pattern |
-| **South Meadows** | **nothing — only the unpriced list write at 10:21** |
+This also explains your first column. Of the 275 templates with `archived_at IS NULL`, only **219** are `status = 'live'` (214 items + 5 recipes); **52 are `status = 'archived'` while `archived_at` is still NULL**, plus 4 drafts. 219 live is what a clean store carries — which is exactly the 219–225 range every store except Hemet shows. The "275" in your table counts 52 templates that are archived by status but were never stamped with an archive date.
 
-Sparks matters here: it's just as new as South Meadows (both first appeared Aug 23) and it got fully priced anyway. So "new store" isn't the explanation.
+## Unproven
 
-## 3. Bottom line
-
-- Automated pricing **did** exist and **does** work: the nightly gap scan prices a store's whole guide, one item at a time, and it did exactly that for six stores on Sep 17.
-- Hemet wasn't lucky and wasn't hand-fed. It's on the automated path.
-- South Meadows is on the same path with the same code and was **not** excluded — same brand, not on any exclusion list. Its pricing pass simply produced zero rows that night.
-- **Why it produced zero for South Meadows, I can't tell you from evidence.** The logs from Sep 17 are no longer retained, so anything I said about the cause would be a guess. Two candidates worth naming, both unproven: the pricing walk failing or timing out partway for that store, or its wrong list pointer sending the walk somewhere unproductive.
-
-So the honest version: South Meadows was missing something the others got, from a pipeline that does exist — not from a pipeline that never existed. And the fix we found tonight makes the whole question moot: one bulk call per store replaces the 180-call-per-store walk that's been quietly failing for one store and silently costing time at the other six.
+Why the 52 templates have `status = 'archived'` with a NULL `archived_at` — the two archive markers disagree and I did not find the write path that leaves them out of sync. Reporting it as a data inconsistency, not a diagnosed bug.
