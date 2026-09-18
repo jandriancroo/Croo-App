@@ -106,12 +106,16 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       {...listeners}
       {...attributes}
     >
-      {/* Time-off conflict stripe overlay */}
-      {hasTimeOffConflict && (
-        <div 
-          className="absolute inset-0 pointer-events-none rounded-md" 
-          style={stripeOverlayStyle}
+      {/* Conflict: gray hatching overtakes the shift, shift still readable underneath */}
+      {isConflicted && !shift.isTemplate && (
+        <div
+          className="absolute inset-0 pointer-events-none z-[15]"
+          style={CONFLICT_HATCH_OVERLAY}
         />
+      )}
+      {/* Availability marker (also shown on conflicts) — top-right, never collides with the break cup */}
+      {!shift.isTemplate && (hasAvailabilityNote || isConflicted) && (
+        <AvailabilityStamp compact={isCompactMode} />
       )}
       <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left'}`}>
         <div 
