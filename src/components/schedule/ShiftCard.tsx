@@ -77,17 +77,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // For templates, use the position/role field, not the full template_name
   const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
 
-  // Warning border + stripe overlay for time-off conflicts
-  const conflictBorderClass = hasTimeOffConflict ? "ring-2 ring-red-500 ring-offset-1 ring-offset-transparent" : "";
-  const stripeOverlayStyle = hasTimeOffConflict ? {
-    backgroundImage: `repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 8px,
-      rgba(239, 68, 68, 0.28) 8px,
-      rgba(239, 68, 68, 0.28) 16px
-    )`
-  } : {};
+  // Conflict = translucent gray hatching over the whole shift (shift stays readable underneath)
+  const conflictBorderClass = "";
 
   const formatTime = (t: string) => {
     const [h, m] = t.split(":");
