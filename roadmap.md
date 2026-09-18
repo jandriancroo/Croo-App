@@ -132,7 +132,7 @@
 - [ ] Sparks NOT testable: locations.inventory_enabled = false, so filterEnabledLocations excludes it from refresh_keep_alive and every inventory job. Needs Jordan's decision on enabling inventory for Sparks.
 
 ## Hemet R365 cleanup + archive dates — Sep 18 2026
-- [ ] Migration A: hide 215 inactive r365_import rows with count history (user_hidden), delete 538 recipe-ingredient links + 214 zero-history rows; never touch the 9 active items
-- [ ] Migration B: stamp archived_at = updated_at on 52 status-archived brand templates, add keep-in-step trigger, column comment
-- [ ] Verify: Hemet totals, 9 keepers intact, 17 sessions / 3587 lines intact, no orphan count rows, 0 archived-without-date
-- [ ] FLAG only (no fix): Sprite Bottle 20oz local item_number differs from its brand template
+- [x] Migration A: hide 215 inactive r365_import rows with count history (user_hidden), delete 538 recipe-ingredient links + 214 zero-history rows; never touch the 9 active items
+- [x] Migration B: stamp archived_at = updated_at on 52 status-archived brand templates, add keep-in-step trigger, column comment
+- [x] Verify: Hemet totals, 9 keepers intact, 17 sessions / 3587 lines intact, no orphan count rows, 0 archived-without-date
+- [x] FLAGGED (no fix): Sprite Bottle 20oz — Hemet item_number 584315 vs brand template 53034
