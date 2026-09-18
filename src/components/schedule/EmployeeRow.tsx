@@ -470,7 +470,21 @@ function DayCell({
           // Also check weekly availability conflict
           const hasAvailabilityConflict = shiftConflicts(shift);
           
-          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict || hasAvailabilityConflict} conflictingTimeOff={conflictingTimeOff} />;
+          const availabilityLines = dayPref?.available === false ? ["Unavailable all day"] : availabilityChips;
+
+          return <ShiftCard
+            key={shift.id}
+            shift={shift}
+            onDelete={onUpdate}
+            onEdit={() => onEditShift?.(shift)}
+            isPublished={!isShiftDraft}
+            isCompactMode={isCompactMode}
+            hasTimeOffConflict={hasTimeOffConflict}
+            conflictingTimeOff={conflictingTimeOff}
+            hasAvailabilityNote={hasLimitedAvailability && userId !== "unassigned"}
+            hasAvailabilityConflict={hasAvailabilityConflict}
+            availabilityLines={availabilityLines}
+          />;
         })}
         {/* Only show time-off requests that don't have a conflicting shift covering them */}
         {availabilityRequests.filter(request => {
