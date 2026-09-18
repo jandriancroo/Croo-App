@@ -11,7 +11,7 @@ import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide-react";
 import { getTodayInPST } from "@/utils/dateUtils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from "@/components/ui/popover";
 
 import {
   formatTime12h,
@@ -410,13 +410,12 @@ function DayCell({
             Uniform two-tap: 1st tap = availability details, 2nd tap = Smart Tap (add shift). */}
         {hasLimitedAvailability && userId !== "unassigned" && shifts.length === 0 && (
           <Popover open={availabilityPopoverOpen} onOpenChange={setAvailabilityPopoverOpen}>
-            <PopoverTrigger asChild>
+            <PopoverAnchor asChild>
               <HatchClock
                 className={`${isCompactMode ? 'flex-1 min-h-[26px] border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
                 clockClassName={isCompactMode ? "h-4 w-4" : "h-7 w-7"}
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
-                  e.preventDefault();
                   if (!availabilityPopoverOpen) {
                     // First tap: show availability details
                     setAvailabilityPopoverOpen(true);
@@ -427,7 +426,7 @@ function DayCell({
                   }
                 }}
               />
-            </PopoverTrigger>
+            </PopoverAnchor>
             <PopoverContent className="w-64 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
