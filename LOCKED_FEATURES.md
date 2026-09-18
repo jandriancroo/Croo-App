@@ -124,3 +124,34 @@ shared punch helper. Rules:
   LaborIntelligenceCard, BrandDashboard, historical labor_cache writers.
 
 **Last Updated:** 2026-09-18
+
+---
+
+## LOCKED: Availability can't-work blocks
+
+**Files:**
+- src/types/availability.ts (canonical types + helpers)
+- src/hooks/useLocationWeeklyHours.ts
+- src/components/availability/EmployeePreferencesDialog.tsx
+- src/components/availability/SchedulingPreferencesSection.tsx
+- src/components/schedule/EmployeeRow.tsx
+- src/components/schedule/EditShiftDialog.tsx
+- supabase/functions/schedule-service/index.ts (isEmployeeAvailable)
+
+**Description:** Weekly availability on `profiles.weekly_availability` stores
+CAN'T-WORK blocks, not a can-work window. Rules:
+- Day toggle OFF = `{ available: false }` (off all day).
+- Day toggle ON = can work, with 0..N `blocks: [{ start, end }]` of UNAVAILABLE
+  time. ON with no blocks = available all day.
+- Schedule chips, popovers and conflict copy always read "Unavailable …" (one
+  line per block). Never "Can only work …".
+- Legacy `{ available, start?, end? }` ("can only work") is migrated on read via
+  `normalizeWeeklyAvailability`, using that location's `location_hours` for the
+  edges, falling back to 11:00–22:00 only when the location has no hours.
+  Overnight/ambiguous store hours produce no blocks (never block allowed hours).
+- Never wipe existing preferences. Never read raw `start`/`end` directly.
+- Any surface reading weekly availability must use the shared helpers in
+  src/types/availability.ts — no local reimplementation.
+- Out of scope: availability_requests / time-off flow, min/max weekly hours.
+
+**Last Updated:** 2026-09-18
