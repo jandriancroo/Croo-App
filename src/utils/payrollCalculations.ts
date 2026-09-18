@@ -137,19 +137,26 @@ export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): num
       })
       .at(-1);
 
-    const endTime = clockOut
+    let endTime = clockOut
       ? new Date(clockOut.punch_time)
       : (lastPunchInWindow ? new Date(lastPunchInWindow.punch_time) : null);
-    
+
     if (!endTime) return;
-    
+
+    // showLive: open punch (no clock_out yet) counts live through now instead
+    // of ending at the last punch (which would be the clock-in itself -> 0h)
+    if (!clockOut && showLive) {
+      const now = new Date();
+      if (now.getTime() > endTime.getTime()) endTime = now;
+    }
+
     if (clockOut) usedClockOutIds.add(clockOut.id);
-    
+
     let hours = calculateTimeDifferenceHours(new Date(clockIn.punch_time), endTime);
-    
+
     const clockOutTime = endTime.getTime();
-    const shiftBreaks = sortedPunches.filter(p => 
-      p.punch_type === 'break_start' && 
+    const shiftBreaks = sortedPunches.filter(p =>
+      p.punch_type === 'break_start' &&
       p.notes?.includes('30 minute') &&
       new Date(p.punch_time).getTime() > clockInTime &&
       new Date(p.punch_time).getTime() < clockOutTime
