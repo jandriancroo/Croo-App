@@ -414,19 +414,20 @@ function DayCell({
                     : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
                 }}
               >
-                <div className="flex items-center gap-1 text-muted-foreground font-medium text-center">
-                  {!isCompactMode && <Clock className="h-2.5 w-2.5" />}
-                  {weeklyAvailability?.available === false 
-                    ? "Unavailable" 
-                    : weeklyAvailability?.start && weeklyAvailability?.end
-                      ? `${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
-                      : weeklyAvailability?.start
-                        ? `After ${formatTime12h(weeklyAvailability.start)}`
-                        : weeklyAvailability?.end
-                          ? `Until ${formatTime12h(weeklyAvailability.end)}`
-                          : "Limited"
-                  }
+                <div className="flex flex-col items-center gap-0.5 text-muted-foreground font-medium text-center leading-tight">
+                  {availabilityChips.slice(0, isCompactMode ? 1 : 3).map((label, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      {!isCompactMode && i === 0 && <Clock className="h-2.5 w-2.5" />}
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                  {availabilityChips.length > (isCompactMode ? 1 : 3) && (
+                    <span className="opacity-70">
+                      +{availabilityChips.length - (isCompactMode ? 1 : 3)} more
+                    </span>
+                  )}
                 </div>
+
               </div>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-3" side="top">
@@ -435,18 +436,12 @@ function DayCell({
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   Weekly Availability
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {weeklyAvailability?.available === false 
+                <div className="text-sm text-muted-foreground whitespace-pre-line">
+                  {dayPref?.available === false
                     ? "Unavailable all day"
-                    : weeklyAvailability?.start && weeklyAvailability?.end
-                      ? `Can only work ${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
-                      : weeklyAvailability?.start
-                        ? `Available after ${formatTime12h(weeklyAvailability.start)}`
-                        : weeklyAvailability?.end
-                          ? `Available until ${formatTime12h(weeklyAvailability.end)}`
-                          : "Limited availability"
-                  }
+                    : availabilityChips.join("\n")}
                 </div>
+
               </div>
             </PopoverContent>
           </Popover>
@@ -487,7 +482,7 @@ function DayCell({
           const hasTimeOffConflict = conflictingTimeOff.length > 0;
           
           // Also check weekly availability conflict
-          const hasAvailabilityConflict = shiftConflictsWithAvailability(shift);
+          const hasAvailabilityConflict = shiftConflicts(shift);
           
           return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict || hasAvailabilityConflict} conflictingTimeOff={conflictingTimeOff} />;
         })}
