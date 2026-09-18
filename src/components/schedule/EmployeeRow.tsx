@@ -416,7 +416,11 @@ function DayCell({
                 clockClassName={isCompactMode ? "h-4 w-4" : "h-7 w-7"}
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
-                  if (!availabilityPopoverOpen) {
+                  if (smartTapOpen) {
+                    // Smart Tap open: swap back to availability details
+                    setSmartTapOpen(false);
+                    setAvailabilityPopoverOpen(true);
+                  } else if (!availabilityPopoverOpen) {
                     // First tap: show availability details
                     setAvailabilityPopoverOpen(true);
                   } else {
@@ -519,7 +523,11 @@ function DayCell({
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (timeOffPopoverId !== request.id) {
+                  if (smartTapOpen) {
+                    // Smart Tap open: swap back to time-off details
+                    setSmartTapOpen(false);
+                    setTimeOffPopoverId(request.id);
+                  } else if (timeOffPopoverId !== request.id) {
                     // First tap: show time-off details
                     setTimeOffPopoverId(request.id);
                   } else {
