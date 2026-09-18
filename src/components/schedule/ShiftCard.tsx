@@ -16,9 +16,15 @@ interface ShiftCardProps {
   isCompactMode?: boolean;
   hasTimeOffConflict?: boolean;
   conflictingTimeOff?: any[];
+  /** Day has availability noted (unavailable day or can't-work blocks) */
+  hasAvailabilityNote?: boolean;
+  /** This shift lands inside an unavailable day/block */
+  hasAvailabilityConflict?: boolean;
+  /** Human-readable availability lines, shown on first tap only */
+  availabilityLines?: string[];
 }
 
-function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false, conflictingTimeOff = [] }: ShiftCardProps) {
+function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false, conflictingTimeOff = [], hasAvailabilityNote = false, hasAvailabilityConflict = false, availabilityLines = [] }: ShiftCardProps) {
   const [conflictPopoverOpen, setConflictPopoverOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
