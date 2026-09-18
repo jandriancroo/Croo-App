@@ -410,7 +410,7 @@ function DayCell({
             <PopoverTrigger asChild>
               <HatchClock
                 className={`${isCompactMode ? 'flex-1 min-h-[26px] border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
-                clockSize={isCompactMode ? "55%" : "45%"}
+                clockClassName={isCompactMode ? "h-4 w-4" : "h-7 w-7"}
               />
             </PopoverTrigger>
             <PopoverContent className="w-64 p-3" side="top">
