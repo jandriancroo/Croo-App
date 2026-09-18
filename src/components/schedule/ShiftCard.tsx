@@ -170,7 +170,18 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       <PopoverTrigger asChild>{cardEl}</PopoverTrigger>
       <PopoverContent className="w-72 p-3 z-[200]" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="space-y-3">
-          {conflictingTimeOff.map((request, idx) => (
+          {hasAvailabilityDetails && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                Weekly Availability
+              </div>
+              <div className="text-sm text-muted-foreground whitespace-pre-line">
+                {availabilityLines.join("\n")}
+              </div>
+            </div>
+          )}
+          {hasTimeOffDetails && conflictingTimeOff.map((request, idx) => (
             <div key={request.id || idx} className={idx > 0 ? "pt-3 border-t border-border space-y-2" : "space-y-2"}>
               <div className="flex items-center gap-2">
                 <CalendarOff className="h-4 w-4 text-red-500" />
