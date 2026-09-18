@@ -427,7 +427,7 @@ function DayCell({
                 }}
               />
             </PopoverAnchor>
-            <PopoverContent className="w-64 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <PopoverContent className="w-64 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={(e) => { const t = e.target as HTMLElement; if (t.closest?.('[data-availability-box]')) e.preventDefault(); }}>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Clock className="h-4 w-4 text-muted-foreground" />
