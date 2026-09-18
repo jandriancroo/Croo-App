@@ -116,7 +116,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       )}
       {/* Availability marker — top-right, never collides with the break cup */}
       {!shift.isTemplate && (hasAvailabilityNote || isConflicted) && (
-        <AvailabilityStamp compact={isCompactMode} conflict={isConflicted} />
+        <AvailabilityStamp compact={isCompactMode} accent={bgColor} />
       )}
       <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left'}`}>
         <div 
