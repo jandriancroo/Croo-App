@@ -2867,8 +2867,11 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         // HARD FAILURE SIGNAL: the header claims N > 0 lines but the detail call
         // came back with none. That is a real failure, not "this order is empty".
         // Record it on the row and in the audit log instead of writing a silent NULL.
+        // Scoped to delivery orders carrying a native DeliveryKey — a submitted
+        // order without one hasn't been delivered yet, so an empty detail is the
+        // expected "pending_delivery" state, not a failure.
         let detailError: string | null = null;
-        if (items.length === 0 && (p.headerLineCount ?? 0) > 0) {
+        if (items.length === 0 && (p.headerLineCount ?? 0) > 0 && p.nativeDeliveryKey) {
           detailError =
             `detail_fetch_empty: header reports ${p.headerLineCount} lines, detail returned 0` +
             ` (deliveryKey=${p.nativeDeliveryKey ?? 'none'})`;
