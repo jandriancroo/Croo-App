@@ -61,9 +61,11 @@ export const sortPunches = (punches: TimePunch[]) => {
 // Calculate hours for a single day's punches.
 // showLive=true means OPEN punches count live through "now": a segment with no
 // clock_out yet (and an open 30-min break) runs up to the current moment,
-// mirroring the server punchLabor "still clocked in" logic. Payroll paths pass
-// showLive=false and are unaffected.
-export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): number => {
+// mirroring the server punchLabor "still clocked in" logic. DEFAULT IS FALSE:
+// Time Tracking / payroll approval surfaces must never live-extend open punches
+// (a missed clock-out would otherwise run until now and fake 100+ hours).
+// Only live-labor paths (fetchLiveLaborForToday / Manager Dashboard) pass true.
+export const calculateDayHours = (dayPunches: TimePunch[], showLive = false): number => {
   const sortedPunches = sortPunches(dayPunches);
   
   if (sortedPunches.length === 0) return 0;
