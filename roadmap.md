@@ -130,3 +130,9 @@
 - [x] Test-only (no sync changes, no repointing, no price writes): refresh each of the 7 stores' PFG tokens via the app's own refresh routine, pull each store's list with its CURRENT stored list ID at SortByType 0, run the bulk pricing call, report per-store items/price rows/priced>0 plus any zero/null item; extra rows for SM + Sparks against their real Order Guide IDs
 - [x] Result: 6 of 7 stores tested live — every store priced 100% of its list (Hemet 181/181, Palm Desert 181/181, Palm Springs 181/181, Rowlett 163/163, Tuscaloosa 138/138, SM stored/Blaze Form 109/109, SM Order Guide 186/186). Zero gaps anywhere.
 - [ ] Sparks NOT testable: locations.inventory_enabled = false, so filterEnabledLocations excludes it from refresh_keep_alive and every inventory job. Needs Jordan's decision on enabling inventory for Sparks.
+
+## Hemet R365 cleanup + archive dates — Sep 18 2026
+- [x] Migration A: hide 215 inactive r365_import rows with count history (user_hidden), delete 538 recipe-ingredient links + 214 zero-history rows; never touch the 9 active items
+- [x] Migration B: stamp archived_at = updated_at on 52 status-archived brand templates, add keep-in-step trigger, column comment
+- [x] Verify: Hemet totals, 9 keepers intact, 17 sessions / 3587 lines intact, no orphan count rows, 0 archived-without-date
+- [x] FLAGGED (no fix): Sprite Bottle 20oz — Hemet item_number 584315 vs brand template 53034
