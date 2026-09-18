@@ -340,6 +340,7 @@ function DayCell({
   
   const [smartTapOpen, setSmartTapOpen] = useState(false);
   const [availabilityPopoverOpen, setAvailabilityPopoverOpen] = useState(false);
+  const [timeOffPopoverId, setTimeOffPopoverId] = useState<string | null>(null);
   const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
   const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
@@ -514,9 +515,21 @@ function DayCell({
           // Only show if NOT covered by any shift
           return !isCoveredByShift;
         }).map(request => (
-          <Popover key={request.id}>
+          <Popover key={request.id} open={timeOffPopoverId === request.id} onOpenChange={(open) => setTimeOffPopoverId(open ? request.id : null)}>
             <PopoverTrigger asChild>
-              <div 
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (timeOffPopoverId !== request.id) {
+                    // First tap: show time-off details
+                    setTimeOffPopoverId(request.id);
+                  } else {
+                    // Second tap: close details and open Smart Tap (add shift)
+                    setTimeOffPopoverId(null);
+                    if (canSmartTap) setSmartTapOpen(true);
+                  }
+                }}
                 className={`${isCompactMode ? 'flex-1 min-h-[22px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
                 style={{
                   background: isCompactMode 
