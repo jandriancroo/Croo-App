@@ -6,6 +6,7 @@ import { shiftHasBreak } from "@/utils/shiftUtils";
 import { formatTime12Hour } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AvailabilityStamp, CONFLICT_HATCH_OVERLAY } from "./availabilityVisuals";
 
 interface ShiftCardProps {
   shift: any;
@@ -16,9 +17,15 @@ interface ShiftCardProps {
   isCompactMode?: boolean;
   hasTimeOffConflict?: boolean;
   conflictingTimeOff?: any[];
+  /** Day has availability noted (unavailable day or can't-work blocks) */
+  hasAvailabilityNote?: boolean;
+  /** This shift lands inside an unavailable day/block */
+  hasAvailabilityConflict?: boolean;
+  /** Human-readable availability lines, shown on first tap only */
+  availabilityLines?: string[];
 }
 
-function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false, conflictingTimeOff = [] }: ShiftCardProps) {
+function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false, conflictingTimeOff = [], hasAvailabilityNote = false, hasAvailabilityConflict = false, availabilityLines = [] }: ShiftCardProps) {
   const [conflictPopoverOpen, setConflictPopoverOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
@@ -38,12 +45,16 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   const bgColor = template?.color || shiftData.color || "#ef4444";
   const position = template?.position || template?.template_name;
 
-  const hasConflictDetails = hasTimeOffConflict && conflictingTimeOff && conflictingTimeOff.length > 0;
+  const hasTimeOffDetails = hasTimeOffConflict && conflictingTimeOff && conflictingTimeOff.length > 0;
+  const hasAvailabilityDetails = hasAvailabilityNote && availabilityLines.length > 0;
+  // Uniform two-tap: 1st tap = availability / time-off details, 2nd tap = shift menu
+  const hasConflictDetails = hasTimeOffDetails || hasAvailabilityDetails;
+  const isConflicted = hasTimeOffConflict || hasAvailabilityConflict;
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (shift.isTemplate) return;
     e.stopPropagation();
-    // Smart-tap: first click shows time-off info, second click opens shift editor
+    // Smart-tap: first click shows availability/time-off info, second click opens shift editor
     if (hasConflictDetails && !conflictPopoverOpen) {
       setConflictPopoverOpen(true);
       return;
@@ -67,17 +78,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // For templates, use the position/role field, not the full template_name
   const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
 
-  // Warning border + stripe overlay for time-off conflicts
-  const conflictBorderClass = hasTimeOffConflict ? "ring-2 ring-red-500 ring-offset-1 ring-offset-transparent" : "";
-  const stripeOverlayStyle = hasTimeOffConflict ? {
-    backgroundImage: `repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 8px,
-      rgba(239, 68, 68, 0.28) 8px,
-      rgba(239, 68, 68, 0.28) 16px
-    )`
-  } : {};
+  // Conflict = translucent gray hatching over the whole shift (shift stays readable underneath)
+  const conflictBorderClass = "";
 
   const formatTime = (t: string) => {
     const [h, m] = t.split(":");
@@ -105,12 +107,16 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       {...listeners}
       {...attributes}
     >
-      {/* Time-off conflict stripe overlay */}
-      {hasTimeOffConflict && (
-        <div 
-          className="absolute inset-0 pointer-events-none rounded-md" 
-          style={stripeOverlayStyle}
+      {/* Conflict: gray hatching overtakes the shift, shift still readable underneath */}
+      {isConflicted && !shift.isTemplate && (
+        <div
+          className="absolute inset-0 pointer-events-none z-[15]"
+          style={CONFLICT_HATCH_OVERLAY}
         />
+      )}
+      {/* Availability marker (also shown on conflicts) — top-right, never collides with the break cup */}
+      {!shift.isTemplate && (hasAvailabilityNote || isConflicted) && (
+        <AvailabilityStamp compact={isCompactMode} />
       )}
       <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left'}`}>
         <div 
@@ -164,8 +170,19 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       <PopoverTrigger asChild>{cardEl}</PopoverTrigger>
       <PopoverContent className="w-72 p-3 z-[200]" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="space-y-3">
-          {conflictingTimeOff.map((request, idx) => (
-            <div key={request.id || idx} className={idx > 0 ? "pt-3 border-t border-border space-y-2" : "space-y-2"}>
+          {hasAvailabilityDetails && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                Weekly Availability
+              </div>
+              <div className="text-sm text-muted-foreground whitespace-pre-line">
+                {availabilityLines.join("\n")}
+              </div>
+            </div>
+          )}
+          {hasTimeOffDetails && conflictingTimeOff.map((request, idx) => (
+            <div key={request.id || idx} className={(idx > 0 || hasAvailabilityDetails) ? "pt-3 border-t border-border space-y-2" : "space-y-2"}>
               <div className="flex items-center gap-2">
                 <CalendarOff className="h-4 w-4 text-red-500" />
                 <span className="text-sm font-medium">
