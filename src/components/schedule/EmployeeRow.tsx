@@ -12,21 +12,17 @@ import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide
 import { getTodayInPST } from "@/utils/dateUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-interface DayAvailability {
-  available: boolean;
-  start?: string;
-  end?: string;
-}
+import {
+  formatTime12h,
+  chipLabels,
+  dayHasRestriction,
+  describeAvailability,
+  normalizeDayAvailability,
+  shiftConflictsWithAvailability,
+  type DayAvailability,
+  type WeeklyAvailability,
+} from "@/types/availability";
 
-interface WeeklyAvailability {
-  monday?: DayAvailability;
-  tuesday?: DayAvailability;
-  wednesday?: DayAvailability;
-  thursday?: DayAvailability;
-  friday?: DayAvailability;
-  saturday?: DayAvailability;
-  sunday?: DayAvailability;
-}
 
 interface Profile {
   id: string;
@@ -346,54 +342,27 @@ function DayCell({
   const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
   
-  const formatTime12h = (time: string) => {
-    const parts = time.split(":");
-    const hour = parseInt(parts[0]);
-    const minutes = parts[1];
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-  
-  // Check if employee has limited availability on this day
-  const hasLimitedAvailability = weeklyAvailability && (
-    weeklyAvailability.available === false || 
-    (weeklyAvailability.available && (weeklyAvailability.start || weeklyAvailability.end))
+  // Normalize (migrates legacy "can only work" windows into can't-work blocks)
+  const dayPref = useMemo(
+    () => (weeklyAvailability ? normalizeDayAvailability(weeklyAvailability) : undefined),
+    [weeklyAvailability]
   );
 
-  // Helper to normalize time to HH:MM format for comparison
+  const hasLimitedAvailability = dayHasRestriction(dayPref);
+  const availabilityChips = chipLabels(dayPref);
+
   const normalizeTime = (time: string) => time?.substring(0, 5) || "";
 
-  // Helper to check if a shift conflicts with weekly availability
-  const shiftConflictsWithAvailability = (shift: any) => {
-    if (!hasLimitedAvailability || !weeklyAvailability) return false;
-    
-    // If completely unavailable, any shift conflicts
-    if (weeklyAvailability.available === false) return true;
-    
-    // Normalize times to HH:MM for consistent comparison
-    const shiftStart = normalizeTime(shift.start_time);
-    const shiftEnd = normalizeTime(shift.end_time);
-    const availStart = normalizeTime(weeklyAvailability.start || "");
-    const availEnd = normalizeTime(weeklyAvailability.end || "");
-    
-    // If availability has start time (e.g., "available after 5pm")
-    // Conflict only if shift starts BEFORE the availability window opens
-    if (availStart && shiftStart < availStart) {
-      return true;
-    }
-    
-    // If availability has end time (e.g., "available until 9pm")
-    // Conflict only if shift ends AFTER the availability window closes
-    if (availEnd && shiftEnd > availEnd) {
-      return true;
-    }
-    
-    return false;
-  };
+  const shiftConflicts = (shift: any) =>
+    shiftConflictsWithAvailability(
+      dayPref,
+      normalizeTime(shift.start_time),
+      normalizeTime(shift.end_time)
+    );
 
   // Check if any shift covers the availability restriction
-  const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflictsWithAvailability(shift));
+  const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflicts(shift));
+
   
   const handleSmartTapSelect = (template: any) => {
     setSmartTapOpen(false);
@@ -446,19 +415,20 @@ function DayCell({
                     : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
                 }}
               >
-                <div className="flex items-center gap-1 text-muted-foreground font-medium text-center">
-                  {!isCompactMode && <Clock className="h-2.5 w-2.5" />}
-                  {weeklyAvailability?.available === false 
-                    ? "Unavailable" 
-                    : weeklyAvailability?.start && weeklyAvailability?.end
-                      ? `${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
-                      : weeklyAvailability?.start
-                        ? `After ${formatTime12h(weeklyAvailability.start)}`
-                        : weeklyAvailability?.end
-                          ? `Until ${formatTime12h(weeklyAvailability.end)}`
-                          : "Limited"
-                  }
+                <div className="flex flex-col items-center gap-0.5 text-muted-foreground font-medium text-center leading-tight">
+                  {availabilityChips.slice(0, isCompactMode ? 1 : 3).map((label, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      {!isCompactMode && i === 0 && <Clock className="h-2.5 w-2.5" />}
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                  {availabilityChips.length > (isCompactMode ? 1 : 3) && (
+                    <span className="opacity-70">
+                      +{availabilityChips.length - (isCompactMode ? 1 : 3)} more
+                    </span>
+                  )}
                 </div>
+
               </div>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-3" side="top">
@@ -467,18 +437,12 @@ function DayCell({
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   Weekly Availability
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {weeklyAvailability?.available === false 
+                <div className="text-sm text-muted-foreground whitespace-pre-line">
+                  {dayPref?.available === false
                     ? "Unavailable all day"
-                    : weeklyAvailability?.start && weeklyAvailability?.end
-                      ? `Can only work ${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
-                      : weeklyAvailability?.start
-                        ? `Available after ${formatTime12h(weeklyAvailability.start)}`
-                        : weeklyAvailability?.end
-                          ? `Available until ${formatTime12h(weeklyAvailability.end)}`
-                          : "Limited availability"
-                  }
+                    : availabilityChips.join("\n")}
                 </div>
+
               </div>
             </PopoverContent>
           </Popover>
@@ -519,7 +483,7 @@ function DayCell({
           const hasTimeOffConflict = conflictingTimeOff.length > 0;
           
           // Also check weekly availability conflict
-          const hasAvailabilityConflict = shiftConflictsWithAvailability(shift);
+          const hasAvailabilityConflict = shiftConflicts(shift);
           
           return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict || hasAvailabilityConflict} conflictingTimeOff={conflictingTimeOff} />;
         })}

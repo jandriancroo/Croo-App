@@ -18,6 +18,15 @@ import { toast } from "sonner";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { EmployeePreferencesDialog } from "./EmployeePreferencesDialog";
+import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
+import {
+  normalizeWeeklyAvailability,
+  type DayAvailability,
+  type WeeklyAvailability,
+} from "@/types/availability";
+
+// Re-exported for existing importers; canonical types live in @/types/availability
+export type { DayAvailability, WeeklyAvailability };
 
 interface Employee {
   id: string;
@@ -28,34 +37,9 @@ interface Employee {
   weekly_availability: WeeklyAvailability | null;
 }
 
-export interface DayAvailability {
-  available: boolean;
-  start?: string; // e.g., "10:00"
-  end?: string;   // e.g., "15:00"
-}
-
-export interface WeeklyAvailability {
-  monday: DayAvailability;
-  tuesday: DayAvailability;
-  wednesday: DayAvailability;
-  thursday: DayAvailability;
-  friday: DayAvailability;
-  saturday: DayAvailability;
-  sunday: DayAvailability;
-}
-
-const DEFAULT_AVAILABILITY: WeeklyAvailability = {
-  monday: { available: true },
-  tuesday: { available: true },
-  wednesday: { available: true },
-  thursday: { available: true },
-  friday: { available: true },
-  saturday: { available: true },
-  sunday: { available: true },
-};
-
 export function SchedulingPreferencesSection() {
   const { currentLocation } = useAppLocation();
+  const { data: locationHours } = useLocationWeeklyHours(currentLocation?.id);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<string>("lastName");
@@ -238,6 +222,7 @@ export function SchedulingPreferencesSection() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         employee={selectedEmployee}
+        locationHours={locationHours}
         onSave={handleSave}
       />
     </>

@@ -9,7 +9,11 @@ const corsHeaders = {
 // ============= AUTO-SCHEDULE TYPES =============
 interface DayAvailability {
   available: boolean;
+  /** UNAVAILABLE (can't-work) windows when available === true */
+  blocks?: { start: string; end: string }[];
+  /** @deprecated legacy "can only work" window */
   start?: string;
+  /** @deprecated legacy "can only work" window */
   end?: string;
 }
 
@@ -239,31 +243,46 @@ async function handleAutoSchedule(req: Request, supabase: any) {
 
     if (emp.weekly_availability) {
       const dayName = getDayName(dayOfWeek);
-      const dayPref = emp.weekly_availability[dayName];
-      
+      const dayPref: any = (emp.weekly_availability as any)[dayName];
+
       if (dayPref && !dayPref.available) {
         return false;
       }
-      
+
       if (dayPref && dayPref.available) {
         const shiftStartMins = timeToMinutes(startTime);
         const shiftEndMins = timeToMinutes(endTime);
-        
-        if (dayPref.start) {
-          const prefStartMins = timeToMinutes(dayPref.start);
-          if (shiftStartMins < prefStartMins) {
-            return false;
+
+        // New shape: can't-work blocks. Any overlap makes the employee unavailable.
+        if (Array.isArray(dayPref.blocks)) {
+          for (const block of dayPref.blocks) {
+            if (!block?.start || !block?.end) continue;
+            const bStart = timeToMinutes(String(block.start).substring(0, 5));
+            const bEnd = timeToMinutes(String(block.end).substring(0, 5));
+            if (bEnd <= bStart) continue;
+            if (shiftStartMins < bEnd && shiftEndMins > bStart) {
+              return false;
+            }
           }
-        }
-        
-        if (dayPref.end) {
-          const prefEndMins = timeToMinutes(dayPref.end);
-          if (shiftEndMins > prefEndMins) {
-            return false;
+        } else {
+          // Legacy shape: "can only work start..end" — preserve allowed hours.
+          if (dayPref.start) {
+            const prefStartMins = timeToMinutes(dayPref.start);
+            if (shiftStartMins < prefStartMins) {
+              return false;
+            }
+          }
+
+          if (dayPref.end) {
+            const prefEndMins = timeToMinutes(dayPref.end);
+            if (shiftEndMins > prefEndMins) {
+              return false;
+            }
           }
         }
       }
     }
+
 
     const shiftDate = new Date(weekStartDate);
     shiftDate.setDate(shiftDate.getDate() + dayOfWeek);
