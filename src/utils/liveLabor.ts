@@ -69,12 +69,21 @@ export const fetchLiveLaborForToday = async (
   const userIds = [...new Set(punches.map((p: any) => p.user_id))] as string[];
   const wageByUserId = new Map<string, number>();
   if (userIds.length > 0) {
-    const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
-      p_user_ids: userIds,
-    });
-    ((wageRows as any[]) || []).forEach((row: any) => {
-      if (row.hourly_wage != null) wageByUserId.set(row.user_id, Number(row.hourly_wage));
-    });
+    if (opts?.wageSource === 'kiosk') {
+      const { data: res } = await supabase.functions.invoke('kiosk-wages', {
+        body: { location_id: locationId, user_ids: userIds, date: today },
+      });
+      ((res as any)?.wages || []).forEach((w: any) => {
+        if (w.hourly_wage != null) wageByUserId.set(w.user_id, Number(w.hourly_wage));
+      });
+    } else {
+      const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
+        p_user_ids: userIds,
+      });
+      ((wageRows as any[]) || []).forEach((row: any) => {
+        if (row.hourly_wage != null) wageByUserId.set(row.user_id, Number(row.hourly_wage));
+      });
+    }
   }
 
   let hours = 0;
