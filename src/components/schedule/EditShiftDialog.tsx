@@ -1,4 +1,9 @@
-import { useState, useEffect } from "react";
+import {
+  describeAvailability,
+  normalizeDayAvailability,
+  shiftConflictsWithAvailability,
+} from "@/types/availability";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
