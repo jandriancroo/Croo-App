@@ -362,7 +362,6 @@ function DayCell({
     );
 
   // Check if any shift covers the availability restriction
-  const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflicts(shift));
 
   
   const handleSmartTapSelect = (template: any) => {
