@@ -2829,6 +2829,30 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           console.log(`[PFG Sync] Order ${p.pfgOrderId}: ${items.length} line items fetched`);
         }
 
+        // HARD FAILURE SIGNAL: the header claims N > 0 lines but the detail call
+        // came back with none. That is a real failure, not "this order is empty".
+        // Record it on the row and in the audit log instead of writing a silent NULL.
+        let detailError: string | null = null;
+        if (items.length === 0 && (p.headerLineCount ?? 0) > 0) {
+          detailError =
+            `detail_fetch_empty: header reports ${p.headerLineCount} lines, detail returned 0` +
+            ` (deliveryKey=${p.nativeDeliveryKey ?? 'none'})`;
+          console.error(`[PFG Sync] ${detailError} — order ${p.pfgOrderId}`);
+          try {
+            await supabase.from('pfg_refresh_audit').insert({
+              integration_id: integration.id,
+              location_id: integration.location_id,
+              handler: 'fetchDeliveryDetail',
+              caller_action: 'sync_orders',
+              outcome: 'detail_fetch_failed',
+              b2c_error_code: 'empty_detail_with_header_lines',
+              b2c_error_message: `order=${p.pfgOrderId} ${detailError}`.slice(0, 500),
+            });
+          } catch (e) {
+            console.error('[PFG Audit] insert failed:', (e as Error).message);
+          }
+        }
+
         upsertBatch.push({
           location_id: integration.location_id,
           pfg_order_id: String(p.pfgOrderId),
@@ -2839,6 +2863,8 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           total_amount: p.totalAmount,
           items: items.length > 0 ? items : null,
           raw_data: p.order,
+          source_delivery_key: p.nativeDeliveryKey,
+          detail_error: detailError,
           updated_at: new Date().toISOString(),
         });
       }
