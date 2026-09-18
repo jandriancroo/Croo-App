@@ -13,6 +13,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DateTime } from "https://esm.sh/luxon@3.4.4";
 import { METRIC_CONFIGS, formatWatchValue, resolveAccentHex } from "./metricConfigs.ts";
+import { calculatePunchLabor } from "../_shared/punchLabor.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -202,9 +203,28 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     return { cost, hours, percent: salesTotal && salesTotal > 0 ? (cost / salesTotal) * 100 : undefined };
   };
 
-  const dayLabor = laborAgg(today, today, dailySales);
-  const weekLabor = laborAgg(weekStart, today, wtdSales);
-  const monthLabor = laborAgg(monthStart, today, mtdSales);
+  // ── LOCKED (2026-09-18): today labor is ALWAYS punch-based ───────────────
+  // labor_cache is history-only (it excludes today), so today's numbers come
+  // from the shared punch helper. Never gated on any POS integration.
+  const punchToday = await calculatePunchLabor(sb, locationId, today, tz);
+  const dayLabor = punchToday
+    ? {
+        cost: punchToday.laborCost,
+        hours: punchToday.hoursWorked,
+        percent: dailySales && dailySales > 0 ? (punchToday.laborCost / dailySales) * 100 : undefined,
+      }
+    : laborAgg(today, today, dailySales);
+
+  // Week/month: cached closed days + today from punches.
+  const withToday = (from: string, salesTotal?: number) => {
+    const rows = laborIn(from, today).filter((r: any) => r.labor_date !== today);
+    const cost = sum(rows, 'labor_cost') + (punchToday?.laborCost ?? 0);
+    const hours = sum(rows, 'labor_hours') + (punchToday?.hoursWorked ?? 0);
+    if (!rows.length && !punchToday) return { cost: undefined, hours: undefined, percent: undefined };
+    return { cost, hours, percent: salesTotal && salesTotal > 0 ? (cost / salesTotal) * 100 : undefined };
+  };
+  const weekLabor = withToday(weekStart, wtdSales);
+  const monthLabor = withToday(monthStart, mtdSales);
 
   const paymentsDaily: PaymentRow[] = Array.isArray(todayRow?.payments_data) ? todayRow.payments_data : [];
   const paymentsWeekly = mergePayments(inRange(weekStart, today).map(r => (Array.isArray(r.payments_data) ? r.payments_data : [])));

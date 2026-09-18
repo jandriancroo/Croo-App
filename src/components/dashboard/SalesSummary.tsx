@@ -778,6 +778,29 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       }
     }
 
+    // ── LOCKED (2026-09-18): live labor is ALWAYS punch-based ──────────────
+    // Today's top-level labor must never come from the QU edge response, so a
+    // POS integration can never gate whether labor shows. One shared helper.
+    if (isTodayCheck && currentLocation?.id && salesData) {
+      try {
+        const liveLabor = await fetchLiveLaborForToday(currentLocation.id, locationZone);
+        const todaySales = Number(salesData.daily) || 0;
+        salesData.labor = (liveLabor.hours > 0 || liveLabor.cost > 0)
+          ? {
+              laborPercent: todaySales > 0 ? (liveLabor.cost / todaySales) * 100 : 0,
+              laborCost: liveLabor.cost,
+              hoursWorked: liveLabor.hours,
+              regularHours: liveLabor.hours,
+              overtimeHours: 0,
+            }
+          : null;
+      } catch (e) {
+        console.warn('[SalesOverview] live labor overwrite failed:', e);
+      }
+    }
+
+
+
     // If we skipped projections but have cached ones, merge them in
     if (skipProjections && cachedProjections && salesData) {
       salesData.projections = {
