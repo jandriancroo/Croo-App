@@ -1,38 +1,58 @@
-# Is the PFG code the same for every store?
+# Did automated PFG pricing ever exist?
 
-**Yes — one shared integration, no store-specific branches.** Every store runs the identical code and only the account details differ (token, customer ID, list ID). Details below, plus the two wrinkles worth knowing.
+Short answer: **yes, it exists and it runs nightly — and it worked for six of your seven stores. South Meadows is the one store where it produced nothing.** So this isn't "nobody ever automated pricing"; it's "the automated pricing ran everywhere and silently came back empty for one store."
 
-## 1. The list call
+One correction to your framing, from the data itself: the Hemet batch you're describing as June 8 / 161 rows isn't what's in the table. Details below.
 
-There is one endpoint, `ProductListSearch/V1/SearchProductList`, and no location logic anywhere near it. Nothing looks at which store it is. The only inputs that change per store are the token, the customer ID, and the stored list ID.
+## 1. Every pricing call site
 
-It is called from **three places in the same file**, and this is a per-feature difference, not a per-store one:
+Only one PFG pricing endpoint has ever been used: **`GetProductDetail`**, one product at a time. There has never been a bulk pricing call anywhere in the app until tonight's discovery.
 
-- the general product search (used by the browse screen)
-- the nightly list/bid-guide scrape — this is the one sending `SortByType: 5`, the mode that collapses everything into "Uncategorized"
-- the mapped-search path, which **already sends `SortByType: 0`** — the good mode
+It is called from exactly one place — the `categories` action inside `pfg-service`. That action pulls the store's list, notices which items came back without a price (which is all of them, since the list endpoint sends none), then fetches prices ten products at a time and writes them onto the cached list rows on the way past.
 
-So the sort-mode fix is a one-line change in one of three call sites, and one of the other two is already proof the good mode works.
+Three things trigger that action:
 
-## 2. Order fetching
+| Trigger | Automatic? | Notes |
+|---|---|---|
+| Nightly vendor gap scan (runs 3:15 AM Pacific) | **Yes, automatic** | Loops every store with live PFG credentials. This is the real pricing engine. |
+| Scheduled price sync, every 8 hours | Was automatic | Added Aug 5, **switched off Sep 2** because it wrote costs outside the new pricing chain. |
+| A staff member opening Start Count or the inventory items screen | No, human | Prices whatever list they're looking at, as a side effect. |
 
-Also one shared path. Orders are pulled through the same sequence for all seven stores (deliveries first, then submitted orders), and line-item detail goes through a single function. No store is treated specially.
+And the nightly **list scrape** — the job that writes the bid-guide rows — deliberately fetches **no** prices. There's a note in the code saying exactly that: pricing every item would take ~170 separate calls per store, so it was left out on purpose, with a suggestion to add a weekly priced job later. That job was never built.
 
-## 3. Where bulk pricing would go
+So: pricing has only ever happened as a side effect of the gap scan, or of a person browsing.
 
-A single place: right after the list scrape, in that same shared function. One change, all seven stores, no per-store variants.
+## 2. The Hemet batch — what actually happened
 
-## 4. Anything special-casing a store?
+Hemet's write history, straight from the table:
 
-No "if South Meadows" or "if Northern Cal" logic exists. What does exist is **division-shaped, not store-shaped**, in two spots:
+| When (UTC) | Rows | Priced |
+|---|---|---|
+| Jun 12, Jun 25, Jul 7 | 1 each | 1 each |
+| Jun 13 | 3 | 0 |
+| Sep 1, Sep 12, Sep 17 10:21 | 12 total | 0 |
+| **Sep 17 10:34** | **181** | **181** |
 
-- **A default division number of `428`** used when PFG's own data doesn't carry one. 428 is the California division, so this default quietly favours the CA stores; for Reno and Tuscaloosa it's only a fallback that in practice gets overridden by the real value on the order. Worth cleaning up, not urgent.
-- **Order-identifier format handling.** Comments in the code note that divisions format their order keys differently, which is exactly the bug we already fixed by using PFG's own key instead of rebuilding one.
+So Hemet's priced guide isn't from June at all — it landed in **one batch on Sep 17**, and every row in it came back priced. June 8 is simply the oldest row's creation date across the five original stores (a handful of single rows, mostly unpriced), not a 161-row priced batch.
 
-Nothing else keys off a store, division, or customer ID.
+The Sep 17 10:34 batch is the nightly gap scan doing its per-item pricing walk. And it wasn't just Hemet:
 
-## Bottom line for your decision
+| Store | Sep 17 priced batch |
+|---|---|
+| Hemet | 181 of 181 |
+| Palm Springs | 181 of 181 |
+| Tuscaloosa | 138 of 138 |
+| Sparks | 115 of 115 |
+| Rowlett, Palm Desert | same pattern |
+| **South Meadows** | **nothing — only the unpriced list write at 10:21** |
 
-A fix to "the endpoint" applies to all seven stores identically. The reason the stores look so different today is **not** the code — it's their stored data: South Meadows and Sparks point at a franchisee-built list instead of PFG's Order Guide, and some stores have had their prices filled in by people browsing while others haven't. Same engine, different settings.
+Sparks matters here: it's just as new as South Meadows (both first appeared Aug 23) and it got fully priced anyway. So "new store" isn't the explanation.
 
-The one caveat that stands: the bulk pricing call is proven on South Meadows' account only. Since the code path is shared, if it works for one store it will work for all — but confirming it per store needs live tokens, which is the build-mode question still on your desk.
+## 3. Bottom line
+
+- Automated pricing **did** exist and **does** work: the nightly gap scan prices a store's whole guide, one item at a time, and it did exactly that for six stores on Sep 17.
+- Hemet wasn't lucky and wasn't hand-fed. It's on the automated path.
+- South Meadows is on the same path with the same code and was **not** excluded — same brand, not on any exclusion list. Its pricing pass simply produced zero rows that night.
+- **Why it produced zero for South Meadows, I can't tell you from evidence.** The logs from Sep 17 are no longer retained, so anything I said about the cause would be a guess. Two candidates worth naming, both unproven: the pricing walk failing or timing out partway for that store, or its wrong list pointer sending the walk somewhere unproductive.
+
+So the honest version: South Meadows was missing something the others got, from a pipeline that does exist — not from a pipeline that never existed. And the fix we found tonight makes the whole question moot: one bulk call per store replaces the 180-call-per-store walk that's been quietly failing for one store and silently costing time at the other six.
