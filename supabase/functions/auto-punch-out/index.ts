@@ -8,9 +8,11 @@ const corsHeaders = {
 };
 
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
-const POST_CLOSE_BUFFER_HOURS = 3;
+const POST_CLOSE_BUFFER_HOURS = 4; // Auto clock-out at store close + 4hr
 const SCHEDULED_END_BUFFER_HOURS = 1; // Auto-punch at scheduled_end + 1hr
-const PROCESSING_WINDOW_MINUTES = 59; // Window for cron to fire within
+// Hourly cron: keep a wide window so a skipped/late run still catches the day.
+// The per-location/day idempotency log prevents double processing.
+const PROCESSING_WINDOW_MINUTES = 179;
 const MAX_SHIFT_HOURS = 18; // Sanity guard
 
 interface AutoPunchResult {
