@@ -636,9 +636,22 @@ async function upsertPfgBidItems(
   supabase: any,
   locationId: string,
   categories: any[],
-): Promise<{ upserted: number; skipped: number }> {
+): Promise<{ upserted: number; skipped: number; priced: number; syncedAt: string }> {
+  const syncedAt = new Date().toISOString();
   if (!locationId || !Array.isArray(categories) || categories.length === 0) {
-    return { upserted: 0, skipped: 0 };
+    return { upserted: 0, skipped: 0, priced: 0, syncedAt };
+  }
+
+  // Existing prices, so an unpriced sync never wipes a known price.
+  const existingPrice = new Map<string, number>();
+  {
+    const { data: prior } = await supabase
+      .from('pfg_bid_items')
+      .select('item_number, unit_price')
+      .eq('location_id', locationId);
+    for (const r of (prior || []) as any[]) {
+      if (r.unit_price != null) existingPrice.set(String(r.item_number), Number(r.unit_price));
+    }
   }
 
   const seen = new Map<string, any>(); // dedupe by item_number within run
@@ -654,6 +667,7 @@ async function upsertPfgBidItems(
       if (codes.length === 0) continue;
       for (const code of codes) {
         if (seen.has(code)) continue;
+        const fresh = typeof p?.price === 'number' && p.price > 0 ? p.price : null;
         seen.set(code, {
           location_id: locationId,
           item_number: code,
@@ -661,16 +675,18 @@ async function upsertPfgBidItems(
           pack_size: p?.packSize || null,
           category: categoryName,
           brand_name: p?.brand || null,
-          unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
-          last_seen_at: new Date().toISOString(),
+          // Never write a zero/null over a known price.
+          unit_price: fresh ?? existingPrice.get(code) ?? null,
+          last_seen_at: syncedAt,
         });
       }
     }
   }
 
-  if (seen.size === 0) return { upserted: 0, skipped: 0 };
+  if (seen.size === 0) return { upserted: 0, skipped: 0, priced: 0, syncedAt };
 
   const rows = Array.from(seen.values());
+  const priced = rows.filter((r) => r.unit_price != null).length;
   // Chunk to keep payloads sane
   const CHUNK = 500;
   let upserted = 0;
@@ -685,8 +701,39 @@ async function upsertPfgBidItems(
       upserted += chunk.length;
     }
   }
-  console.log(`[PFG bid cache] Upserted ${upserted}/${rows.length} items for location ${locationId}`);
-  return { upserted, skipped: rows.length - upserted };
+  console.log(`[PFG bid cache] Upserted ${upserted}/${rows.length} items (${priced} priced) for location ${locationId}`);
+  return { upserted, skipped: rows.length - upserted, priced, syncedAt };
+}
+
+// Remove rows that this sync did not see — stale leftovers from lists we no
+// longer read. Only ever called after a sync that succeeded and returned a
+// sane number of rows; never on a failed or empty sync.
+async function prunePfgBidItems(
+  supabase: any,
+  locationId: string,
+  syncedAt: string,
+  upsertedThisRun: number,
+): Promise<{ pruned: number; reason?: string }> {
+  const MIN_SANE_ROWS = 50;
+  if (upsertedThisRun < MIN_SANE_ROWS) {
+    console.warn(
+      `[PFG bid prune] SKIPPED for ${locationId}: only ${upsertedThisRun} rows this run (min ${MIN_SANE_ROWS}).`,
+    );
+    return { pruned: 0, reason: `only ${upsertedThisRun} rows this run` };
+  }
+  const { data, error } = await supabase
+    .from('pfg_bid_items')
+    .delete()
+    .eq('location_id', locationId)
+    .lt('last_seen_at', syncedAt)
+    .select('id');
+  if (error) {
+    console.warn(`[PFG bid prune] Delete failed for ${locationId}: ${error.message}`);
+    return { pruned: 0, reason: error.message };
+  }
+  const pruned = (data || []).length;
+  console.log(`[PFG bid prune] Removed ${pruned} stale rows for ${locationId}`);
+  return { pruned };
 }
 
 
