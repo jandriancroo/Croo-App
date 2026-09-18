@@ -412,7 +412,7 @@ function DayCell({
           <Popover open={availabilityPopoverOpen} onOpenChange={setAvailabilityPopoverOpen}>
             <PopoverAnchor asChild>
               <HatchClock
-                className={`${isCompactMode ? 'flex-1 min-h-[26px] border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
+                className={`${isCompactMode ? 'flex-1 min-h-[26px] rounded-none' : 'rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
                 clockClassName={isCompactMode ? "h-4 w-4" : "h-7 w-7"}
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
@@ -529,7 +529,7 @@ function DayCell({
                   }
                 }}
                 data-timeoff-box
-                className={`${isCompactMode ? 'flex-1 min-h-[22px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
+                className={`${isCompactMode ? 'flex-1 min-h-[22px] flex flex-col justify-center items-center rounded-none' : 'p-1 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
                 style={{
                   background: isCompactMode 
                     ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
