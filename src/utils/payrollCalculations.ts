@@ -58,7 +58,11 @@ export const sortPunches = (punches: TimePunch[]) => {
   });
 };
 
-// Calculate hours for a single day's punches
+// Calculate hours for a single day's punches.
+// showLive=true means OPEN punches count live through "now": a segment with no
+// clock_out yet (and an open 30-min break) runs up to the current moment,
+// mirroring the server punchLabor "still clocked in" logic. Payroll paths pass
+// showLive=false and are unaffected.
 export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): number => {
   const sortedPunches = sortPunches(dayPunches);
   
