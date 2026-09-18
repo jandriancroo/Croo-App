@@ -131,6 +131,14 @@
 - [x] Result: 6 of 7 stores tested live — every store priced 100% of its list (Hemet 181/181, Palm Desert 181/181, Palm Springs 181/181, Rowlett 163/163, Tuscaloosa 138/138, SM stored/Blaze Form 109/109, SM Order Guide 186/186). Zero gaps anywhere.
 - [ ] Sparks NOT testable: locations.inventory_enabled = false, so filterEnabledLocations excludes it from refresh_keep_alive and every inventory job. Needs Jordan's decision on enabling inventory for Sparks.
 
+## PFG four fixes shipped — Sep 18 2026
+- [x] Fix 1: bulk pricing (`CustomerProductPrice/V1/GetOrderEntryCustomerProductPrice`) wired into `fetchProductListItems`; one call per list, case-insensitive ProductKey match; empty/failed response = loud console.error, existing prices preserved, per-item `GetProductDetail` walk remains as fallback in the `categories` action.
+- [x] Fix 2: list scrape switched from `SortByType: 5` to `0` (real vendor categories). Other call sites unchanged.
+- [x] Fix 3: repointed South Meadows -> 5bda5ec0-0a73-4486-870d-3540683fff3c and Sparks -> 756af714-508e-486b-a0aa-9484ab3d2acb (verified live via list_guides, ProductListType 2). Other five untouched.
+- [x] Fix 4: `prunePfgBidItems` removes rows not seen in the current sync; only runs when every targeted guide scraped OK and >= 50 rows upserted.
+- [x] Verified: SM 197 rows / 197 priced / 16 real categories / 0 uncategorized; Tuscaloosa 138/138; Rowlett 162/162. Guardrail held: Palm Desert 201 priced-active before and after, Palm Springs 211 before and after.
+
+
 ## Hemet R365 cleanup + archive dates — Sep 18 2026
 - [x] Migration A: hide 215 inactive r365_import rows with count history (user_hidden), delete 538 recipe-ingredient links + 214 zero-history rows; never touch the 9 active items
 - [x] Migration B: stamp archived_at = updated_at on 52 status-archived brand templates, add keep-in-step trigger, column comment

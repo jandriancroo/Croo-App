@@ -468,6 +468,77 @@ const parsePackString = (packSize: string | undefined | null): ParsedPack | null
   return { outer_qty, inner_qty, inner_unit, canonical_unit, canonical_qty_per_inner };
 };
 
+// Bulk pricing. PFG's list endpoint returns Price: 0 for every item; the real
+// customer prices come from this order-entry pricing endpoint, which works
+// standalone (no order session) with just CustomerId + DeliveryDate + keys.
+// Returns a lowercase-keyed price map. `ok: false` means the call failed or
+// came back empty when we sent keys — callers must keep existing prices and
+// fall back to the per-item GetProductDetail walk rather than writing zeros.
+async function fetchBulkProductPrices(
+  accessToken: string,
+  customerId: string,
+  productKeys: string[],
+): Promise<{ ok: boolean; prices: Map<string, number>; error?: string }> {
+  const prices = new Map<string, number>();
+  const keys = Array.from(
+    new Set(productKeys.map((k) => String(k || '').trim()).filter(Boolean)),
+  );
+  if (keys.length === 0) return { ok: false, prices, error: 'no product keys' };
+
+  // Any valid date works; use a near-future delivery date.
+  const deliveryDate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+
+  try {
+    const data = await fetchPfgJson(
+      '/CustomerProductPrice/V1/GetOrderEntryCustomerProductPrice',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          CustomerId: customerId,
+          DeliveryDate: deliveryDate,
+          CustomerProductPriceRequests: keys.map((k) => ({
+            ProductKey: k,
+            UnitOfMeasureType: 0,
+          })),
+        }),
+      },
+    );
+
+    const rows = data?.ResultObject?.CustomerProductPrices || [];
+    for (const r of rows) {
+      const key = String(r?.ProductKey || '').trim().toLowerCase();
+      const price = Number(r?.Price);
+      if (key && Number.isFinite(price) && price > 0) prices.set(key, price);
+    }
+
+    if (prices.size === 0) {
+      console.error(
+        `[PFG bulk price] HARD FAILURE: sent ${keys.length} product keys for customer ${customerId} ` +
+        `but got ${rows.length} price rows and 0 usable prices. Keeping existing prices, ` +
+        `falling back to per-item detail. Raw keys present in response: ${rows.length}`,
+      );
+      return { ok: false, prices, error: 'empty CustomerProductPrices' };
+    }
+
+    console.log(
+      `[PFG bulk price] ${prices.size}/${keys.length} priced in one call (customer ${customerId})`,
+    );
+    return { ok: true, prices };
+  } catch (err) {
+    const msg = (err as Error).message?.slice(0, 200);
+    console.error(
+      `[PFG bulk price] HARD FAILURE: call threw for customer ${customerId} (${keys.length} keys): ${msg}. ` +
+      `Keeping existing prices, falling back to per-item detail.`,
+    );
+    return { ok: false, prices, error: msg };
+  }
+}
+
 // Fetch product list items from a specific list (using ProductListHeaderId)
 async function fetchProductListItems(accessToken: string, productListHeaderId: string, customerId: string): Promise<any> {
   console.log('[PFG API] Fetching product list items for list:', productListHeaderId, 'customer:', customerId);
@@ -476,7 +547,9 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     CustomerId: customerId,
     ProductListHeaderId: productListHeaderId,
     QueryText: "",
-    SortByType: 5,
+    // SortByType 0 = PFG's real vendor category structure. Mode 5 collapsed
+    // every item into a single "Uncategorized" bucket.
+    SortByType: 0,
     IncludeRecipeItems: true
   };
 
@@ -506,7 +579,7 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
       const uom = uomList[0] || {};
       const price = uom.Price || uom.UnitPrice || uom.ListPrice || product.Price || null;
       const packSize = uom.PackSize || product.ProductPackSizes?.[0];
-      
+
       const rawItemNumber = product.DisplayProductNumber || product.ProductNumber || product.ProductKey;
       const skuTokens = splitItemNumbers(rawItemNumber);
 
@@ -526,7 +599,23 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     }),
   }));
 
-  return { categories };
+  // One bulk pricing call for the whole list (replaces ~180 per-item calls).
+  // Keys match case-insensitively — PFG lowercases them in the response.
+  const allKeys: string[] = [];
+  for (const cat of categories) {
+    for (const p of cat.products || []) if (p.id) allKeys.push(String(p.id));
+  }
+  const bulk = await fetchBulkProductPrices(accessToken, customerId, allKeys);
+  if (bulk.ok) {
+    for (const cat of categories) {
+      for (const p of cat.products || []) {
+        const hit = p.id ? bulk.prices.get(String(p.id).toLowerCase()) : undefined;
+        if (hit && hit > 0) p.price = hit;
+      }
+    }
+  }
+
+  return { categories, bulkPricingOk: bulk.ok };
 }
 
 // Upsert PFG bid/product-list items into pfg_bid_items cache for a location.
@@ -547,9 +636,22 @@ async function upsertPfgBidItems(
   supabase: any,
   locationId: string,
   categories: any[],
-): Promise<{ upserted: number; skipped: number }> {
+): Promise<{ upserted: number; skipped: number; priced: number; syncedAt: string }> {
+  const syncedAt = new Date().toISOString();
   if (!locationId || !Array.isArray(categories) || categories.length === 0) {
-    return { upserted: 0, skipped: 0 };
+    return { upserted: 0, skipped: 0, priced: 0, syncedAt };
+  }
+
+  // Existing prices, so an unpriced sync never wipes a known price.
+  const existingPrice = new Map<string, number>();
+  {
+    const { data: prior } = await supabase
+      .from('pfg_bid_items')
+      .select('item_number, unit_price')
+      .eq('location_id', locationId);
+    for (const r of (prior || []) as any[]) {
+      if (r.unit_price != null) existingPrice.set(String(r.item_number), Number(r.unit_price));
+    }
   }
 
   const seen = new Map<string, any>(); // dedupe by item_number within run
@@ -565,6 +667,7 @@ async function upsertPfgBidItems(
       if (codes.length === 0) continue;
       for (const code of codes) {
         if (seen.has(code)) continue;
+        const fresh = typeof p?.price === 'number' && p.price > 0 ? p.price : null;
         seen.set(code, {
           location_id: locationId,
           item_number: code,
@@ -572,16 +675,18 @@ async function upsertPfgBidItems(
           pack_size: p?.packSize || null,
           category: categoryName,
           brand_name: p?.brand || null,
-          unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
-          last_seen_at: new Date().toISOString(),
+          // Never write a zero/null over a known price.
+          unit_price: fresh ?? existingPrice.get(code) ?? null,
+          last_seen_at: syncedAt,
         });
       }
     }
   }
 
-  if (seen.size === 0) return { upserted: 0, skipped: 0 };
+  if (seen.size === 0) return { upserted: 0, skipped: 0, priced: 0, syncedAt };
 
   const rows = Array.from(seen.values());
+  const priced = rows.filter((r) => r.unit_price != null).length;
   // Chunk to keep payloads sane
   const CHUNK = 500;
   let upserted = 0;
@@ -596,8 +701,39 @@ async function upsertPfgBidItems(
       upserted += chunk.length;
     }
   }
-  console.log(`[PFG bid cache] Upserted ${upserted}/${rows.length} items for location ${locationId}`);
-  return { upserted, skipped: rows.length - upserted };
+  console.log(`[PFG bid cache] Upserted ${upserted}/${rows.length} items (${priced} priced) for location ${locationId}`);
+  return { upserted, skipped: rows.length - upserted, priced, syncedAt };
+}
+
+// Remove rows that this sync did not see — stale leftovers from lists we no
+// longer read. Only ever called after a sync that succeeded and returned a
+// sane number of rows; never on a failed or empty sync.
+async function prunePfgBidItems(
+  supabase: any,
+  locationId: string,
+  syncedAt: string,
+  upsertedThisRun: number,
+): Promise<{ pruned: number; reason?: string }> {
+  const MIN_SANE_ROWS = 50;
+  if (upsertedThisRun < MIN_SANE_ROWS) {
+    console.warn(
+      `[PFG bid prune] SKIPPED for ${locationId}: only ${upsertedThisRun} rows this run (min ${MIN_SANE_ROWS}).`,
+    );
+    return { pruned: 0, reason: `only ${upsertedThisRun} rows this run` };
+  }
+  const { data, error } = await supabase
+    .from('pfg_bid_items')
+    .delete()
+    .eq('location_id', locationId)
+    .lt('last_seen_at', syncedAt)
+    .select('id');
+  if (error) {
+    console.warn(`[PFG bid prune] Delete failed for ${locationId}: ${error.message}`);
+    return { pruned: 0, reason: error.message };
+  }
+  const pruned = (data || []).length;
+  console.log(`[PFG bid prune] Removed ${pruned} stale rows for ${locationId}`);
+  return { pruned };
 }
 
 
@@ -2517,6 +2653,8 @@ async function handleScrapeBidAllLocations(supabase: any, body: any): Promise<Re
     success: boolean;
     guidesScraped: number;
     itemsUpserted: number;
+    itemsPriced?: number;
+    staleRowsPruned?: number;
     error?: string;
   }> = [];
 
@@ -2588,20 +2726,45 @@ async function handleScrapeBidAllLocations(supabase: any, body: any): Promise<Re
       let totalUpserted = 0;
       let guidesScraped = 0;
 
+      let totalPriced = 0;
+      let firstSyncedAt: string | null = null;
+
       for (const guide of targetGuides) {
         const headerId = guide?.ProductListHeaderId || guide?.Id || guide?.ProductListHeaderID;
         if (!headerId) continue;
         try {
           const { categories } = await fetchProductListItems(accessToken, String(headerId), customerId);
-          const { upserted } = await upsertPfgBidItems(supabase, locId, categories || []);
+          const { upserted, priced, syncedAt } = await upsertPfgBidItems(supabase, locId, categories || []);
+          if (!firstSyncedAt) firstSyncedAt = syncedAt;
           totalUpserted += upserted;
+          totalPriced += priced;
           guidesScraped++;
         } catch (e) {
           console.warn(`[PFG scrape_bid_all] guide ${headerId} failed for ${locId}: ${(e as Error).message}`);
         }
       }
 
-      results.push({ locationId: locId, success: true, guidesScraped, itemsUpserted: totalUpserted });
+      // Prune stale rows only after a sync that actually succeeded for every
+      // targeted guide and returned a sane row count.
+      let pruned = 0;
+      if (guidesScraped === targetGuides.length && firstSyncedAt && totalUpserted > 0) {
+        const res = await prunePfgBidItems(supabase, locId, firstSyncedAt, totalUpserted);
+        pruned = res.pruned;
+      } else {
+        console.warn(
+          `[PFG bid prune] SKIPPED for ${locId}: scraped ${guidesScraped}/${targetGuides.length} guides, ` +
+          `${totalUpserted} rows upserted.`,
+        );
+      }
+
+      results.push({
+        locationId: locId,
+        success: true,
+        guidesScraped,
+        itemsUpserted: totalUpserted,
+        itemsPriced: totalPriced,
+        staleRowsPruned: pruned,
+      });
     } catch (e) {
       results.push({
         locationId: locId,
