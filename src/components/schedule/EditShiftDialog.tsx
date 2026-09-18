@@ -356,12 +356,12 @@ export function EditShiftDialog({
   const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
   const shiftDayOfWeek = shift.day_of_week;
   const dayName = dayNames[shiftDayOfWeek];
-  const weeklyAvailability = employee?.weekly_availability?.[dayName];
-  
-  const hasAvailabilityConflict = weeklyAvailability && (
-    weeklyAvailability.available === false ||
-    (weeklyAvailability.start && startTime < weeklyAvailability.start) ||
-    (weeklyAvailability.end && endTime > weeklyAvailability.end)
+  const weeklyAvailability = normalizeDayAvailability(employee?.weekly_availability?.[dayName]);
+
+  const hasAvailabilityConflict = shiftConflictsWithAvailability(
+    weeklyAvailability,
+    startTime,
+    endTime
   );
 
   const formatTime12h = (time: string) => {
@@ -373,20 +373,7 @@ export function EditShiftDialog({
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  const getAvailabilityDescription = () => {
-    if (!weeklyAvailability) return "";
-    if (weeklyAvailability.available === false) return "Unavailable this day";
-    if (weeklyAvailability.start && weeklyAvailability.end) {
-      return `Available ${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`;
-    }
-    if (weeklyAvailability.start) {
-      return `Available after ${formatTime12h(weeklyAvailability.start)}`;
-    }
-    if (weeklyAvailability.end) {
-      return `Available until ${formatTime12h(weeklyAvailability.end)}`;
-    }
-    return "Limited availability";
-  };
+  const getAvailabilityDescription = () => describeAvailability(weeklyAvailability);
 
   const selectedProfile = profiles.find((p: any) => p.id === selectedUserId);
   const canOfferUp = isShiftPublished && currentUserId && (isAdmin || shift.user_id === currentUserId);
