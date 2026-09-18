@@ -189,21 +189,36 @@ export function shiftConflictsWithAvailability(
 }
 
 export function formatBlock(block: UnavailableBlock): string {
-  return `${formatTime12h(block.start)} - ${formatTime12h(block.end)}`;
+  return `${formatTime12h(block.start)} – ${formatTime12h(block.end)}`;
 }
 
-/** Short chip label, e.g. "Unavailable" or "Unavailable 2:00 PM - 5:00 PM". */
+/** Join times for one combined label: "A – B and C – D" / "A – B, C – D and E – F". */
+function joinTimeRanges(blocks: UnavailableBlock[]): string {
+  const times = blocks.map((b) => formatBlock(b));
+  if (times.length === 0) return '';
+  if (times.length === 1) return times[0];
+  if (times.length === 2) return `${times[0]} and ${times[1]}`;
+  return `${times.slice(0, -1).join(', ')} and ${times[times.length - 1]}`;
+}
+
+/**
+ * Chip label(s), e.g. "Unavailable" (full day off), or ONE combined label for
+ * 1..N blocks: "Unavailable 11:00 AM – 2:00 PM and 8:30 PM – 10:00 PM".
+ * The word "Unavailable" is never repeated per block.
+ */
 export function chipLabels(day?: DayAvailability | null): string[] {
   if (!day) return [];
   if (day.available === false) return ['Unavailable'];
-  return sanitizeBlocks(day.blocks).map((b) => `Unavailable ${formatBlock(b)}`);
+  const blocks = sanitizeBlocks(day.blocks);
+  if (blocks.length === 0) return [];
+  return [`Unavailable ${joinTimeRanges(blocks)}`];
 }
 
-/** Long description for popovers / conflict alerts. */
+/** Long description for popovers / conflict alerts (same non-repeating copy). */
 export function describeAvailability(day?: DayAvailability | null): string {
   if (!day) return '';
   if (day.available === false) return 'Unavailable all day';
   const blocks = sanitizeBlocks(day.blocks);
   if (blocks.length === 0) return 'Available all day';
-  return blocks.map((b) => `Unavailable ${formatBlock(b)}`).join(' • ');
+  return `Unavailable ${joinTimeRanges(blocks)}`;
 }
