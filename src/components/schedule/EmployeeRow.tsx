@@ -13,6 +13,7 @@ import { getTodayInPST } from "@/utils/dateUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import {
+  formatTime12h,
   chipLabels,
   dayHasRestriction,
   describeAvailability,
