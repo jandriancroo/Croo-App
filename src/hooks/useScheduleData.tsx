@@ -17,21 +17,10 @@ const SCHEDULE_STALE_TIME = 15 * 60 * 1000;
 const SCHEDULE_STALE_TIME_PAST = Infinity;
 const SCHEDULE_GC_TIME = 60 * 60 * 1000;
 
-export interface DayAvailability {
-  available: boolean;
-  start?: string;
-  end?: string;
-}
+import type { DayAvailability, WeeklyAvailability } from "@/types/availability";
 
-export interface WeeklyAvailability {
-  monday?: DayAvailability;
-  tuesday?: DayAvailability;
-  wednesday?: DayAvailability;
-  thursday?: DayAvailability;
-  friday?: DayAvailability;
-  saturday?: DayAvailability;
-  sunday?: DayAvailability;
-}
+export type { DayAvailability, WeeklyAvailability };
+
 
 export interface Profile {
   id: string;
