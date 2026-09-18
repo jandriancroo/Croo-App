@@ -97,8 +97,9 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       style={{ 
         ...style, 
         backgroundColor: `${bgColor}1A`,
-        borderColor: 'transparent',
-        borderLeftColor: bgColor,
+        // Drafts keep a visible dashed border (matches mobile); published shifts hide all but the left accent
+        borderColor: isDraft ? 'hsl(var(--foreground) / 0.35)' : 'transparent',
+        borderLeftColor: isDraft ? 'hsl(var(--foreground) / 0.35)' : bgColor,
         boxShadow: shift.isTemplate ? 'none' : (style as any)?.boxShadow ?? 'none',
       }}
       className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid border-l-[3px] shadow-none' : `${shift.isTemplate ? 'px-2.5 py-2 min-h-[52px]' : 'px-2 py-1.5 min-h-[46px]'} ${shift.isTemplate ? 'rounded-[4px]' : 'rounded-[9px]'} border border-l-[3px] shadow-none`} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[110px]' : 'min-w-[126px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
