@@ -1,81 +1,58 @@
-# Bulk PFG pricing: confirmed working, no order session needed
+# Blast radius: all seven PFG stores
 
-Your captured body was the missing key — but not for the reason we both expected. Tested read-only with South Meadows' live token just now.
+Read-only. Live data where I could get it, and a plain flag where I couldn't.
 
-## 1. The replay worked — and the session ID is irrelevant
+## Token reality first (your question 5)
 
-Replayed your exact body: **200, 3 of 3 priced**, matching your screenshot to the cent ($32.50, $41.58, $11.01). Then swapped in the real Order Guide keys:
+Only **South Meadows** has a usable token sitting in storage right now. The other six store a refresh token but no access token, and all six expire within the hour (refreshed 02:56, expiring 03:56).
 
-| Test | Result |
-|---|---|
-| Your captured body, your 3 keys | 3 returned, **3 priced** |
-| Same body, 16 Order Guide keys | 16 returned, **16 priced** |
-| Same body, **all 186** Order Guide keys | **186 returned, 186 priced — one call** |
-| `OrderEntryHeaderId` field **removed entirely** | 16 returned, **16 priced** |
-| `OrderEntryHeaderId: null` | 16 priced |
-| All-zeros GUID | 16 priced |
-| Made-up random GUID | 16 priced |
+I tried logging in fresh with each store's stored username and password — **all seven failed** with the same PFG error (`AADB2C: An exception has occurred`), including South Meadows, whose stored token works fine. So the password route is dead from this sandbox; PFG is likely blocking it by IP or requiring the browser flow.
 
-The order-entry session ID does nothing. It is not validated at all. My earlier theory that this endpoint is session-scoped was **wrong** — the only thing wrong with my guesses was the field name `CustomerProductPriceRequests`, exactly as you said.
+That leaves one way to test the other six live: use their refresh tokens. PFG rotates a refresh token when it's used, so the new one **must be written back** or that store's nightly sync breaks. Writing is a code change, which I can't do in plan mode. So the six non-South-Meadows live tests need your go-ahead to run in build mode, where the app's own refresh routine saves the new token properly.
 
-## 2. What is actually required — I stripped it field by field
+What follows is therefore: South Meadows live, the other six from our stored data plus the live list enumeration I ran earlier tonight while tokens were valid.
 
-| Field removed | Still priced? |
-|---|---|
-| `DeliveryDate` | **NO — returns empty.** Required. |
-| `BusinessUnitKey` | Yes, works without it |
-| `OperationCompanyNumber` | Yes, works without it |
-| `IgnoreRetry` | Yes |
-| `OrderEntryDetailId` / `LastViewedPrice` per item | Yes |
-| `OrderEntryHeaderId` | Yes |
+## Current state, per store
 
-So the whole recipe is: `CustomerId`, `DeliveryDate` (any date — past, today, or future all work), and `CustomerProductPriceRequests: [{ProductKey, UnitOfMeasureType: 0}]`. That's it. Wrong-but-present business-unit values (`99` / `"0000"`) also priced fine, confirming those two fields are decorative here.
+| Store | Rows | Priced | Uncategorized | Stored list points at | Real vendor Order Guide |
+|---|---|---|---|---|---|
+| Hemet | 200 | **185** | 0 | `!! BLAZE PIZZA MONTHLY AH - Bid 73` (PFG-managed, 181) | same — correct |
+| Palm Desert | 201 | **185** | 0 | same Bid 73 list | same — correct |
+| Palm Springs | 199 | **186** | 0 | same Bid 73 list | same — correct |
+| Rowlett | 183 | **166** | 0 | `!! BLAZE PIZZA DALLAS - Bid 10` (PFG-managed, 163) | same — correct |
+| Sparks | 125 | **125** | 3 | `Blaze Form` (store-built, 115) | `Order Guide` (185) — **wrong pointer** |
+| South Meadows | 197 | **1** | 88 | `Blaze Form` (store-built, 109) | `Order Guide` (186) — **wrong pointer** |
+| Tuscaloosa | 184 | **149** | 158 | `Bid_10_BL305` (PFG-managed, 138) | `Order Guide_10_BLAZE1` (166) — pointer valid but smaller list |
 
-Prices cross-check exactly against the per-item detail call: 597098 $63.45, BGE40 $37.55, BJT16 $63.21, 214134 $158.23 — identical both ways. Keys match the list endpoint's `ProductKey` one-to-one (case differs — response lowercases them, so matching must be case-insensitive), so we can write these straight onto the right rows.
+Three distinct situations, not one.
 
-## 3. No throwaway draft orders needed
+## Does each fix apply where?
 
-Question 3 is moot — nothing gets created, nothing is submitted, no draft appears for store staff. It's a plain read. That whole risk category disappears.
+| Store | 1. Bulk pricing | 2. `SortByType: 0` | 3. Repoint list | 4. Prune stale rows |
+|---|---|---|---|---|
+| Hemet | Helps: fills the 15 unpriced, keeps 185 current | Low risk, already 0 uncategorized | **No — leave alone** | Yes, ~19 stale rows |
+| Palm Desert | Same, 16 unpriced | Low risk | **No** | Yes, ~20 |
+| Palm Springs | Same, 13 unpriced | Low risk | **No** | Yes, ~18 |
+| Rowlett | Helps: 17 unpriced | **Yes — only 1 category today** | **No** | Yes, ~20 |
+| Sparks | Already 125/125 priced | Yes | **Yes** — gains ~60 items | Yes |
+| South Meadows | **Biggest win: 1 → 186 priced** | Yes | **Yes** — 109 → 186 items | Yes, 78 stale rows |
+| Tuscaloosa | Helps: 35 unpriced | **Yes — 158 uncategorized** | Maybe — worth a look, not urgent | Yes, ~46 |
 
-## 4. Business unit / operation company — already in our data
+Answering question 4 directly: **the three healthy California stores do not need repointing.** Their stored pointer already resolves to PFG's own managed Bid list, they have zero uncategorized rows, and 185-ish of ~200 rows are priced. The only thing they gain is having their last dozen-odd unpriced rows filled and their stale leftovers cleared — real but minor. I would not disturb their list pointer at all.
 
-They aren't needed for this call, but you asked whether they're knowable, and they are. Every store's own values are already sitting in our stored order records:
+## What I could not verify live, and why it matters
 
-| Store | BusinessUnitKey | OperationCompanyNumber |
-|---|---|---|
-| Hemet | 0 | 428 |
-| Palm Desert | 0 | 428 |
-| Palm Springs | 0 | 428 |
-| Rowlett | 0 | 412 |
-| South Meadows | **3** | **3425** |
-| Tuscaloosa | 10 | 770 |
-| Sparks | — (no orders stored yet) | — |
+- **Question 2, `SortByType: 0` at every store.** Confirmed at South Meadows (produces your exact 16 categories) and confirmed earlier tonight at Blaze Form and Order Guide both. Not yet confirmed at Hemet's Bid 73, Rowlett's Dallas list, or Tuscaloosa's lists. Rowlett matters most: it has one single category today, so the sort mode could change its whole category structure.
+- **Question 3, bulk pricing at other stores.** Proven only on South Meadows' account. The endpoint is customer-scoped, so it should generalise, but "should" isn't proof and you specifically asked not to assume that.
 
-South Meadows reads 3 / 3425 — exactly your captured values. So **division is knowable and stable** after all: PFG stamps it on every order header, consistent across every order per store, and the CA stores share 0/428 while Reno is 3/3425 and Tuscaloosa 10/770. That's the real explanation for the "wrong-division item numbers" on those 102 dead South Meadows items. Worth revisiting the earlier decision not to model division — the evidence supports it now, though it's a separate piece of work.
+## Recommendation on blast radius
 
-## Straight recommendation
+**Do not ship all four to all seven at once.** Ship in this order:
 
-**Build the bulk call. It isn't close.**
+1. **Bulk pricing + `SortByType: 0`, South Meadows and Sparks first.** Those two are already broken, so there's nothing to regress. Verify counts and categories against your Order Guide export.
+2. **Repoint South Meadows and Sparks** in the same pass — they're the only two with a wrong pointer.
+3. **Then Tuscaloosa and Rowlett**, checking each store's category structure before and after, since both change shape under the new sort mode.
+4. **Hemet, Palm Desert, Palm Springs last, and pricing-only.** No repoint, no pointer change. Confirm their priced count doesn't drop below today's 185/185/186.
+5. **Pruning last of all**, once each store's sync is confirmed producing the right rows — pruning against a bad sync would delete good rows.
 
-| | Bulk call | Per-item detail |
-|---|---|---|
-| Calls per store | **1** | 186 |
-| Calls for 7 stores | **7** | ~1,300 |
-| Runtime | seconds | many minutes, rate-limit exposure |
-| Side effects | none | none |
-| Prices returned | 186/186 | 186/186 |
-| Extra data | none | pack size, unit |
-
-Same prices, same source, 186× fewer calls, no order-session dependency. The only thing the detail call gives that this doesn't is pack size and unit — and we already get pack size from the list endpoint.
-
-One honest caveat: this is an undocumented internal portal endpoint. PFG could change the field names without warning. So the sync should treat an empty `CustomerProductPrices` array as a loud failure (log it, keep the previous prices) rather than silently writing zeros — same hard-failure discipline we added to the order-detail fix. And keeping the per-item detail call as a fallback path costs nothing since it already exists.
-
-## What I'd build, in order
-
-1. **Bulk price fetch** in the list sync: after pulling the list, one pricing call with all product keys, write `unit_price` onto the matching rows (case-insensitive key match). Loud error if the array comes back empty.
-2. **`SortByType: 0`** on the list pull — gives your exact 16 vendor categories with exact counts.
-3. **Repoint South Meadows and Sparks** to their real Order Guide IDs (186 and 185 items) instead of the store-built Blaze Form.
-4. **Prune stale rows** after a successful sync so old scrape leftovers stop accumulating.
-5. Optional, separate: store BusinessUnitKey / OperationCompanyNumber per location and reopen the division question.
-
-Say go and I'll build 1 through 4.
+That's the safe sequence. Two things I need from you: permission to run in build mode so the other six stores' tokens can be refreshed and saved properly for live verification, and confirmation you want the three California stores left on their current list pointer.
