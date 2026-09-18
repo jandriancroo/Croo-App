@@ -125,3 +125,6 @@
 - [x] pfg_bid_items write path splits comma-joined item numbers; 20 existing joined rows backfilled; 0 comma-joined rows remain
 - [x] Verify: SM active 117 / unpriced 1 before AND after; 102 inactive unpriced items resolved 0 — their item_numbers appear in 0 of SM's real order lines (wrong-division numbers, not a missing-data problem)
 - [ ] OPEN (needs Jordan): repoint SM + Sparks credentials.product_list_header_id to the vendor Order Guide list ID (SM: 5bda5ec0-0a73-4486-870d-3540683fff3c)
+
+## PFG bulk pricing validation — Sep 18 2026
+- [ ] Test-only (no sync changes, no repointing, no price writes): refresh each of the 7 stores' PFG tokens via the app's own refresh routine, pull each store's list with its CURRENT stored list ID at SortByType 0, run the bulk pricing call, report per-store items/price rows/priced>0 plus any zero/null item; extra rows for SM + Sparks against their real Order Guide IDs
