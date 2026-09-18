@@ -11,7 +11,7 @@ import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide-react";
 import { getTodayInPST } from "@/utils/dateUtils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from "@/components/ui/popover";
 
 import {
   formatTime12h,
@@ -339,6 +339,8 @@ function DayCell({
   });
   
   const [smartTapOpen, setSmartTapOpen] = useState(false);
+  const [availabilityPopoverOpen, setAvailabilityPopoverOpen] = useState(false);
+  const [timeOffPopoverId, setTimeOffPopoverId] = useState<string | null>(null);
   const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
   const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
@@ -404,16 +406,28 @@ function DayCell({
           </div>
         )}
         {/* Weekly Availability — icon-only hatched box; shown only when no shift shares the cell
-            (with a shift, the marker moves onto the shift card itself) */}
+            (with a shift, the marker moves onto the shift card itself).
+            Uniform two-tap: 1st tap = availability details, 2nd tap = Smart Tap (add shift). */}
         {hasLimitedAvailability && userId !== "unassigned" && shifts.length === 0 && (
-          <Popover>
-            <PopoverTrigger asChild>
+          <Popover open={availabilityPopoverOpen} onOpenChange={setAvailabilityPopoverOpen}>
+            <PopoverAnchor asChild>
               <HatchClock
                 className={`${isCompactMode ? 'flex-1 min-h-[26px] border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
                 clockClassName={isCompactMode ? "h-4 w-4" : "h-7 w-7"}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  if (!availabilityPopoverOpen) {
+                    // First tap: show availability details
+                    setAvailabilityPopoverOpen(true);
+                  } else {
+                    // Second tap: close details and open Smart Tap (add shift)
+                    setAvailabilityPopoverOpen(false);
+                    if (canSmartTap) setSmartTapOpen(true);
+                  }
+                }}
               />
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-3" side="top">
+            </PopoverAnchor>
+            <PopoverContent className="w-64 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={(e) => { const t = e.target as HTMLElement; if (t.closest?.('[data-availability-box]')) e.preventDefault(); }}>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Clock className="h-4 w-4 text-muted-foreground" />
@@ -500,9 +514,21 @@ function DayCell({
           // Only show if NOT covered by any shift
           return !isCoveredByShift;
         }).map(request => (
-          <Popover key={request.id}>
-            <PopoverTrigger asChild>
-              <div 
+          <Popover key={request.id} open={timeOffPopoverId === request.id} onOpenChange={(open) => setTimeOffPopoverId(open ? request.id : null)}>
+            <PopoverAnchor asChild>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (timeOffPopoverId !== request.id) {
+                    // First tap: show time-off details
+                    setTimeOffPopoverId(request.id);
+                  } else {
+                    // Second tap: close details and open Smart Tap (add shift)
+                    setTimeOffPopoverId(null);
+                    if (canSmartTap) setSmartTapOpen(true);
+                  }
+                }}
+                data-timeoff-box
                 className={`${isCompactMode ? 'flex-1 min-h-[22px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
                 style={{
                   background: isCompactMode 
@@ -521,8 +547,8 @@ function DayCell({
                   </div>
                 )}
               </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-3" side="top">
+            </PopoverAnchor>
+            <PopoverContent className="w-72 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={(e) => { const t = e.target as HTMLElement; if (t.closest?.('[data-timeoff-box]')) e.preventDefault(); }}>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CalendarOff className="h-4 w-4 text-muted-foreground" />

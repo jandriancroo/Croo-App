@@ -1,3 +1,4 @@
+import React from "react";
 import { Clock, History } from "lucide-react";
 
 /**
@@ -18,22 +19,26 @@ const hatchStripes = (stripe: string) =>
  * Hatched panel with the availability clock centered.
  * Fill the parent with it; the parent controls rounding/borders/size.
  */
-export function HatchClock({
-  className = "",
-  clockClassName = "h-7 w-7",
-}: {
-  className?: string;
-  clockClassName?: string;
-}) {
+export const HatchClock = React.forwardRef<
+  HTMLDivElement,
+  {
+    className?: string;
+    clockClassName?: string;
+    onClick?: (e: React.MouseEvent) => void;
+  }
+>(function HatchClock({ className = "", clockClassName = "h-7 w-7", onClick }, ref) {
   return (
     <div
+      ref={ref}
+      data-availability-box
       className={`relative overflow-hidden flex items-center justify-center ${className}`}
       style={{ backgroundColor: HATCH_BASE, backgroundImage: hatchStripes(HATCH_DARK) }}
+      onClick={onClick}
     >
       <History className={clockClassName} style={{ color: "#c3c9d1" }} strokeWidth={2.2} />
     </div>
   );
-}
+});
 
 // Accent hatch struck across a conflicting shift — kept light so the shift's
 // template color, times, and position text stay fully readable underneath.
