@@ -32,7 +32,7 @@ export function HatchClock({
       className={`relative overflow-hidden flex items-center justify-center ${className}`}
       style={{ backgroundColor: HATCH_BASE, backgroundImage: hatchStripes(HATCH_DARK) }}
     >
-      <History className={clockClassName} style={{ color: ICON_TONE }} strokeWidth={2.2} />
+      <History className={clockClassName} style={{ color: "#ffffff" }} strokeWidth={2.2} />
     </div>
   );
 }
@@ -44,19 +44,20 @@ export const CONFLICT_HATCH_OVERLAY: React.CSSProperties = {
     "repeating-linear-gradient(45deg, rgba(224,106,106,0.28) 0, rgba(224,106,106,0.28) 6px, transparent 6px, transparent 13px)",
 };
 
-/** Corner clock shown on a shift card when the day has availability noted. Top-right so it never collides with the meal-break cup (bottom-right). No box — just the icon; white normally, accent red on conflicts. */
+/** Corner clock shown on a shift card when the day has availability noted. Top-right so it never collides with the meal-break cup (bottom-right). No box — just the icon; it inherits the shift's accent (template) color. */
 export function AvailabilityStamp({
   compact = false,
-  conflict = false,
+  accent = "#ef4444",
 }: {
   compact?: boolean;
-  conflict?: boolean;
+  /** The shift's template/accent color — the clock inherits it */
+  accent?: string;
 }) {
   const clock = compact ? "h-3.5 w-3.5" : "h-5 w-5";
   return (
     <History
       className={`absolute top-1 right-1 z-20 pointer-events-none ${clock}`}
-      style={{ color: conflict ? ACCENT : "#ffffff" }}
+      style={{ color: accent }}
       strokeWidth={2.4}
     />
   );
