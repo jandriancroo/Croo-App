@@ -6,6 +6,7 @@ import { shiftHasBreak } from "@/utils/shiftUtils";
 import { formatTime12Hour } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AvailabilityStamp, CONFLICT_HATCH_OVERLAY } from "./availabilityVisuals";
 
 interface ShiftCardProps {
   shift: any;
