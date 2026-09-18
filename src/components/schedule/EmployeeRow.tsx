@@ -5,7 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
-import { AVAILABILITY_HATCH, ClockCutout } from "./availabilityVisuals";
+import { HatchClock } from "./availabilityVisuals";
 import { SmartTapPopover } from "./SmartTapPopover";
 import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
