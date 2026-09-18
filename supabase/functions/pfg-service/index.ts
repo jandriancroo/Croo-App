@@ -2747,7 +2747,14 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         }
 
         const customerIdForDetail = customerIdToUse || order.CustomerId;
+        // CRITICAL: pass PFG's own DeliveryKey straight through. Repacking the
+        // order without it forced fetchDeliveryDetail into its reconstruction
+        // fallback (opCo_cust_YYYY-MM-DD_orderKey), which only happens to match
+        // the divisions using the 4-part format. Hickory/770 (Tuscaloosa) and
+        // Reno (South Meadows) use other formats, so the rebuilt key returned an
+        // empty body and every order was written with items = NULL.
         const orderForDetail = isDeliveryOrder ? {
+          DeliveryKey: order.DeliveryKey,
           OrderOperationCompanyNumber: order.DeliveryOperationCompanyNumber,
           DeliverToCustomerNumber: order.CustomerNumber,
           DeliveryDate: order.DeliveryDate,
@@ -2755,7 +2762,19 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           OrderBusinessUnitERPKey: order.DeliveryBusinessUnitERPKey || 0,
         } : order;
 
-        return { order, pfgOrderId, orderDate, deliveryDate, orderNumber, totalAmount, customerIdForDetail, orderForDetail, isDeliveryOrder };
+        // The header tells us how many lines PFG believes this order has.
+        // Delivery headers use TotalLines; submitted orders use OrderTotalLines.
+        const rawLineCount = Number(
+          isDeliveryOrder ? order.TotalLines : (order.OrderTotalLines ?? order.TotalLines),
+        );
+        const headerLineCount = Number.isFinite(rawLineCount) ? rawLineCount : null;
+        const nativeDeliveryKey = isDeliveryOrder ? (order.DeliveryKey || null) : null;
+
+        return {
+          order, pfgOrderId, orderDate, deliveryDate, orderNumber, totalAmount,
+          customerIdForDetail, orderForDetail, isDeliveryOrder,
+          headerLineCount, nativeDeliveryKey,
+        };
       }).filter(p => p.pfgOrderId && p.orderDate);
 
       // Fetch delivery details in parallel batches of 5
