@@ -184,10 +184,17 @@ export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): num
       
       if (breakEnd) {
         const breakHours = calculateTimeDifferenceHours(
-          new Date(breakStart.punch_time), 
+          new Date(breakStart.punch_time),
           new Date(breakEnd.punch_time)
         );
         hours -= breakHours;
+      } else if (showLive && !clockOut) {
+        // showLive: an open break (no break_end yet) counts through now too
+        const breakHours = calculateTimeDifferenceHours(
+          new Date(breakStart.punch_time),
+          endTime
+        );
+        if (breakHours > 0) hours -= breakHours;
       }
     });
     
