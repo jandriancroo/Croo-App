@@ -2542,13 +2542,42 @@ async function handleScrapeBidAllLocations(supabase: any, body: any): Promise<Re
         continue;
       }
 
-      // Prefer guides whose name/description mentions "bid"; fall back to ALL guides.
+      const idOf = (g: any): string =>
+        String(g?.ProductListHeaderId ?? g?.Id ?? g?.ProductListHeaderID ?? '');
       const nameOf = (g: any): string =>
         String(g?.Description || g?.ProductListHeaderDescription || g?.Name || g?.Title || '');
-      const bidGuides = guides.filter((g: any) => /bid/i.test(nameOf(g)));
-      const targetGuides = bidGuides.length > 0 ? bidGuides : guides;
 
-      console.log(`[PFG scrape_bid_all] ${locId}: ${guides.length} total guides, scraping ${targetGuides.length} (bid-match=${bidGuides.length})`);
+      // PRIMARY SELECTOR: the list ID stored on the integration. Every location
+      // has product_list_header_id set and correct — name-matching on "bid" was
+      // picking store-built forms at stores whose vendor list isn't called "Bid".
+      const storedListId = String((credentials as any)?.product_list_header_id ?? '').trim();
+      const storedGuide = storedListId
+        ? guides.find((g: any) => idOf(g) === storedListId)
+        : undefined;
+
+      let targetGuides: any[];
+      let selector: 'stored_id' | 'name_fallback';
+
+      if (storedGuide) {
+        targetGuides = [storedGuide];
+        selector = 'stored_id';
+        console.log(
+          `[PFG scrape_bid_all] ${locId}: using stored product_list_header_id ${storedListId} ("${nameOf(storedGuide)}")`,
+        );
+      } else {
+        // LAST RESORT ONLY. Should be rare/never — log loudly so it's visible.
+        selector = 'name_fallback';
+        const bidGuides = guides.filter((g: any) => /bid/i.test(nameOf(g)));
+        targetGuides = bidGuides.length > 0 ? bidGuides : guides;
+        console.error(
+          `[PFG scrape_bid_all] FALLBACK: ${locId} stored product_list_header_id ` +
+          `${storedListId || '(missing)'} did not resolve against ${guides.length} returned lists ` +
+          `[${guides.map(idOf).join(', ')}] — falling back to name-matching, scraping ${targetGuides.length} list(s). ` +
+          `Fix the stored ID for this location.`,
+        );
+      }
+
+      console.log(`[PFG scrape_bid_all] ${locId}: ${guides.length} total guides, scraping ${targetGuides.length} (selector=${selector})`);
 
       let totalUpserted = 0;
       let guidesScraped = 0;
