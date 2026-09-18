@@ -30,7 +30,7 @@ export function HatchClock({
       className={`relative overflow-hidden flex items-center justify-center ${className}`}
       style={{ backgroundColor: HATCH_BASE, backgroundImage: hatchStripes(HATCH_DARK) }}
     >
-      <History className={clockClassName} style={{ color: "#ffffff" }} strokeWidth={2.2} />
+      <History className={clockClassName} style={{ color: "#c3c9d1" }} strokeWidth={2.2} />
     </div>
   );
 }
