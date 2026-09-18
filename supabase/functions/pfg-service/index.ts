@@ -2653,6 +2653,8 @@ async function handleScrapeBidAllLocations(supabase: any, body: any): Promise<Re
     success: boolean;
     guidesScraped: number;
     itemsUpserted: number;
+    itemsPriced?: number;
+    staleRowsPruned?: number;
     error?: string;
   }> = [];
 
