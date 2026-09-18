@@ -118,3 +118,9 @@
 - [x] recipe_integrity_alerts table + recipe-integrity-scan function (logic in _shared/recipeIntegrity.ts)
 - [x] Nightly stage recipe_integrity (per-location, after catalog_parity) + call after deploy activation sweep
 - [x] Health tab card: recipes missing ingredients (grouped by missing product, flag-only)
+
+## PFG three fixes — Sep 18 2026
+- [ ] Order detail uses PFG's native DeliveryKey (call site no longer drops it); header lines > 0 with 0 detail lines writes pfg_orders.detail_error + audit row instead of silent NULL
+- [ ] Bid list selection uses credentials.product_list_header_id first; name-matching only as loudly-logged last resort
+- [ ] pfg_bid_items write path splits comma-joined item numbers; 20 existing joined rows backfilled into separate rows
+- [ ] Verify: SM + Tuscaloosa populated items arrays, SM bid row count + categories, 0 comma-joined numbers, SM unpriced before/after
