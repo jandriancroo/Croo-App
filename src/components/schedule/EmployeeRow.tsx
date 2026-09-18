@@ -404,16 +404,29 @@ function DayCell({
           </div>
         )}
         {/* Weekly Availability — icon-only hatched box; shown only when no shift shares the cell
-            (with a shift, the marker moves onto the shift card itself) */}
+            (with a shift, the marker moves onto the shift card itself).
+            Uniform two-tap: 1st tap = availability details, 2nd tap = Smart Tap (add shift). */}
         {hasLimitedAvailability && userId !== "unassigned" && shifts.length === 0 && (
-          <Popover>
+          <Popover open={availabilityPopoverOpen} onOpenChange={setAvailabilityPopoverOpen}>
             <PopoverTrigger asChild>
               <HatchClock
                 className={`${isCompactMode ? 'flex-1 min-h-[26px] border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
                 clockClassName={isCompactMode ? "h-4 w-4" : "h-7 w-7"}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (!availabilityPopoverOpen) {
+                    // First tap: show availability details
+                    setAvailabilityPopoverOpen(true);
+                  } else {
+                    // Second tap: close details and open Smart Tap (add shift)
+                    setAvailabilityPopoverOpen(false);
+                    if (canSmartTap) setSmartTapOpen(true);
+                  }
+                }}
               />
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-3" side="top">
+            <PopoverContent className="w-64 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Clock className="h-4 w-4 text-muted-foreground" />
