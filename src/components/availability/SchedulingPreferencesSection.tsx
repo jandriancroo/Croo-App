@@ -39,6 +39,7 @@ interface Employee {
 
 export function SchedulingPreferencesSection() {
   const { currentLocation } = useAppLocation();
+  const { data: locationHours } = useLocationWeeklyHours(currentLocation?.id);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<string>("lastName");
@@ -221,6 +222,7 @@ export function SchedulingPreferencesSection() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         employee={selectedEmployee}
+        locationHours={locationHours}
         onSave={handleSave}
       />
     </>
