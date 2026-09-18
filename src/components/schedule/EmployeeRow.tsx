@@ -408,12 +408,10 @@ function DayCell({
         {hasLimitedAvailability && userId !== "unassigned" && shifts.length === 0 && (
           <Popover>
             <PopoverTrigger asChild>
-              <div 
-                className={`${isCompactMode ? 'flex-1 min-h-[26px] flex items-center justify-center border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px] flex items-center justify-center'} cursor-pointer transition-opacity hover:opacity-90 overflow-hidden`}
-                style={AVAILABILITY_HATCH}
-              >
-                <ClockCutout className={isCompactMode ? "h-3.5 w-3.5" : "h-6 w-6"} />
-              </div>
+              <HatchClock
+                className={`${isCompactMode ? 'flex-1 min-h-[26px] border-0 rounded-none' : 'border border-dashed border-muted-foreground/40 rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
+                clockSize={isCompactMode ? "55%" : "45%"}
+              />
             </PopoverTrigger>
             <PopoverContent className="w-64 p-3" side="top">
               <div className="space-y-2">
