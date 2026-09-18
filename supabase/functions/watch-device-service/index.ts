@@ -13,6 +13,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DateTime } from "https://esm.sh/luxon@3.4.4";
 import { METRIC_CONFIGS, formatWatchValue, resolveAccentHex } from "./metricConfigs.ts";
+import { calculatePunchLabor } from "../_shared/punchLabor.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
