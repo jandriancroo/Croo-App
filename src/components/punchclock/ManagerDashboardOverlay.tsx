@@ -471,39 +471,22 @@ export function ManagerDashboardOverlay({
     refetchInterval: 30000,
   });
 
-  // Historical labor only — today's labor comes live from dashboardSalesData.labor
-  // (calculated from open punches by fetch-qubeyond-sales). labor_cache is
-  // intentionally history-only: labor-service excludes today to keep the cache
-  // idempotent and source-tagged. See cache write rules.
-  const { data: laborDataRaw } = useQuery({
-    queryKey: ['labor-cache-today', locationId, todayStr],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('labor_cache')
-        .select('labor_cost, labor_hours')
-        .eq('location_id', locationId)
-        .eq('labor_date', todayStr);
-
-      if (error) throw error;
-      if (!data || data.length === 0) return null;
-
-      // Sum up all labor sources
-      const totalCost = (data || []).reduce((sum, row) => sum + (row.labor_cost || 0), 0);
-      const totalHours = (data || []).reduce((sum, row) => sum + (row.labor_hours || 0), 0);
-      return { labor_cost: totalCost, labor_hours: totalHours };
-    },
-    enabled: false, // Today's labor is served by dashboardSalesData.labor (live punch calc)
-    refetchInterval: 60000,
+  // ── LOCKED (2026-09-18): live labor is ALWAYS punch-based ────────────────
+  // Today's labor comes from the shared helper (time_punches + wages), never
+  // from the QU sales response — a POS integration must never gate labor.
+  // labor_cache stays history-only (labor-service excludes today).
+  const { data: liveLaborToday } = useQuery({
+    queryKey: ['live-labor-today', locationId, todayStr],
+    queryFn: () => fetchLiveLaborForToday(locationId, timezone),
+    enabled: !!locationId && !!todayStr,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 
-  // Prefer live labor (from fetch-qubeyond-sales punch calc) for today.
-  // Fall back to labor_cache only if the live response is unavailable.
-  const liveLabor = dashboardSalesData?.labor;
-  const laborData = liveLabor
-    ? { laborCost: liveLabor.laborCost, laborHours: liveLabor.hoursWorked }
-    : laborDataRaw
-      ? { laborCost: laborDataRaw.labor_cost, laborHours: laborDataRaw.labor_hours }
-      : null;
+  const laborData = liveLaborToday && (liveLaborToday.hours > 0 || liveLaborToday.cost > 0)
+    ? { laborCost: liveLaborToday.cost, laborHours: liveLaborToday.hours }
+    : null;
+
 
   // Fetch quick tasks for shift managers+
   const { data: quickTasks = [] } = useQuery({
