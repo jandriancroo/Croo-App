@@ -353,6 +353,7 @@ export type Database = {
           location_id: string | null
           media: Json
           pinned: boolean
+          subject: string | null
           updated_at: string
         }
         Insert: {
@@ -371,6 +372,7 @@ export type Database = {
           location_id?: string | null
           media?: Json
           pinned?: boolean
+          subject?: string | null
           updated_at?: string
         }
         Update: {
@@ -389,6 +391,7 @@ export type Database = {
           location_id?: string | null
           media?: Json
           pinned?: boolean
+          subject?: string | null
           updated_at?: string
         }
         Relationships: [

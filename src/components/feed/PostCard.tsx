@@ -329,9 +329,12 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
 
 
       {/* Body */}
-      {post.body && (
+      {(post.subject || post.body) && (
         <div className="px-4 pt-4 pb-3 break-words">
-          <div className="text-[15px] leading-relaxed text-card-foreground whitespace-pre-wrap">{visibleBody}</div>
+          {post.is_announcement && post.subject && (
+            <div className="mb-2 text-base font-semibold leading-snug text-card-foreground">{post.subject}</div>
+          )}
+          {post.body && <div className="text-[15px] leading-relaxed text-card-foreground whitespace-pre-wrap">{visibleBody}</div>}
           {bodyNeedsTruncation && (
             <Button
               type="button"
