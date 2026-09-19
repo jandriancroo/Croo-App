@@ -1389,53 +1389,7 @@ export function MobileScheduleView({
                     )}
 
 
-                    {/* Day Insights — bottom of page */}
-                    <Card className="overflow-hidden p-0 mt-2">
-                      <button
-                        onClick={() => setInsightsExpanded(!insightsExpanded)}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 text-xs font-medium"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <BarChart3 className="h-3.5 w-3.5" /> Day Insights
-                        </span>
-                        <span className="text-muted-foreground">{insightsExpanded ? '▲' : '▼'}</span>
-                      </button>
-                      {insightsExpanded && (
-                        <div className="px-3 py-2.5 border-t border-border/30">
-                          {(() => {
-                            const totalHours = dayInsightsData?.laborHours || dayPunches.reduce((sum, p) => sum + p.hoursWorked, 0);
-                            const laborCost = dayInsightsData?.laborCost || 0;
-                            const sales = dayInsightsData?.sales || 0;
-                            const laborPct = sales > 0 ? (laborCost / sales) * 100 : 0;
-                            const salesPerLH = totalHours > 0 ? sales / totalHours : 0;
-                            return (
-                              <div className="grid grid-cols-5 gap-1 text-center">
-                                <div>
-                                  <span className="text-base font-bold">${sales.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                  <p className="text-[10px] text-muted-foreground">Sales</p>
-                                </div>
-                                <div>
-                                  <span className="text-base font-bold">{totalHours.toFixed(1)}h</span>
-                                  <p className="text-[10px] text-muted-foreground">Hours</p>
-                                </div>
-                                <div>
-                                  <span className="text-base font-bold">${laborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                  <p className="text-[10px] text-muted-foreground">Labor</p>
-                                </div>
-                                <div>
-                                  <span className={`text-base font-bold ${laborPct > 30 ? 'text-destructive' : 'text-green-600'}`}>{laborPct.toFixed(1)}%</span>
-                                  <p className="text-[10px] text-muted-foreground">Labor %</p>
-                                </div>
-                                <div>
-                                  <span className="text-base font-bold">${salesPerLH.toFixed(2)}</span>
-                                  <p className="text-[10px] text-muted-foreground">$/LH</p>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </Card>
+                    {/* Day Insights now renders once for every day below */}
                   </>
                 );
               })()) : isPastDate && dayPunches.length > 0 ? (
@@ -1562,6 +1516,22 @@ export function MobileScheduleView({
                     )
                   )}
                 </div>
+              )}
+
+              {/* Day Insights — same data + theme as the desktop Week Insights bar, one day at a time */}
+              {selectedDateStr && todayStr && (
+                <DayInsightsBar
+                  locationId={currentLocation?.id}
+                  timezone={timezone}
+                  dateStr={selectedDateStr}
+                  todayStr={todayStr}
+                  dayIndex={selectedDayOfWeek}
+                  scheduleId={scheduleId}
+                  shifts={dayShifts as any}
+                  profiles={profiles as any}
+                  canEdit={isAdmin || isManager}
+                  weekStart={format(currentWeekStart, 'yyyy-MM-dd')}
+                />
               )}
             </div>
           </div>
