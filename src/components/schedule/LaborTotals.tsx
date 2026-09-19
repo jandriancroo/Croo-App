@@ -421,7 +421,7 @@ export function LaborTotals({
     fetchActualLabor();
   }, [currentLocation?.id, weekDatesKey, timezone]);
 
-  const handleSalesChange = async (dayIndex: number, value: string) => {
+  const handleSalesChange = async (dayIndex: number, value: string, excludedDates?: string[]) => {
     if (!currentLocation?.id) return;
     const numValue = parseFloat(value) || 0;
     const day = weekDays[dayIndex];
@@ -438,14 +438,15 @@ export function LaborTotals({
     
     try {
       // Save override to sales_cache using the new override_projection column
-      const { error } = await supabase
-        .from('sales_cache')
+      const { error } = await (supabase
+        .from('sales_cache') as any)
         .upsert({
           location_id: currentLocation.id,
           sale_date: dateStr,
           override_projection: numValue,
           override_at: new Date().toISOString(),
-          override_by: user?.id || null
+          override_by: user?.id || null,
+          override_excluded_dates: excludedDates ?? []
         }, {
           onConflict: 'location_id,sale_date'
         });
@@ -480,12 +481,13 @@ export function LaborTotals({
     
     try {
       // Clear override from sales_cache
-      await supabase
-        .from('sales_cache')
+      await (supabase
+        .from('sales_cache') as any)
         .update({
           override_projection: null,
           override_at: null,
-          override_by: null
+          override_by: null,
+          override_excluded_dates: null
         })
         .eq('location_id', currentLocation.id)
         .eq('sale_date', dateStr);
