@@ -97,11 +97,9 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       style={{ 
         ...style, 
         backgroundColor: `${bgColor}1A`,
-        // Set the complete draft border inline so Card variant and breakpoint styles cannot override it.
-        borderStyle: isDraft ? 'dashed' : 'solid',
-        borderWidth: isDraft ? '2px' : undefined,
-        borderColor: isDraft ? 'hsl(var(--foreground) / 0.35)' : 'transparent',
-        borderLeftColor: isDraft ? 'hsl(var(--foreground) / 0.35)' : bgColor,
+        borderStyle: 'solid',
+        borderColor: 'transparent',
+        borderLeftColor: bgColor,
         boxShadow: shift.isTemplate ? 'none' : (style as any)?.boxShadow ?? 'none',
       }}
       data-shift-publish-state={isDraft ? "draft" : "published"}
@@ -111,6 +109,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       {...listeners}
       {...attributes}
     >
+      {/* Dedicated overlay keeps the unpublished outline visible above card colors and conflict hatching. */}
+      {isDraft && (
+        <div className="absolute inset-0 z-30 pointer-events-none rounded-[inherit] border-2 border-dashed border-foreground/50" />
+      )}
       {/* Conflict: accent hatch strikes across the shift; template color & data stay fully visible */}
       {isConflicted && !shift.isTemplate && (
         <div
