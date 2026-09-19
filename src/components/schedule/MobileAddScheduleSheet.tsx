@@ -16,6 +16,12 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { MobileDayPreviewSheet } from './MobileDayPreviewSheet';
 import { AvailabilityRequest } from '@/hooks/useScheduleData';
+import {
+  chipLabels,
+  dayHasRestriction,
+  normalizeDayAvailability,
+  type WeeklyAvailability,
+} from '@/types/availability';
 import { useLocationStations } from '@/hooks/useLocationStations';
 import { useUserStationAssignments } from '@/hooks/useUserStationAssignments';
 import { useQuery } from '@tanstack/react-query';
@@ -26,6 +32,7 @@ interface Profile {
   nickname?: string | null;
   profile_photo_url: string | null;
   role?: string | null;
+  weekly_availability?: WeeklyAvailability | null;
 }
 
 const ROLE_GROUPS: { key: string; label: string; roles: string[] }[] = [
@@ -506,6 +513,16 @@ export function MobileAddScheduleSheet({
     return availabilityForDay(availabilityRequests, empUserId, format(currentDay, 'yyyy-MM-dd'));
   }, [empUserId, currentDay, availabilityRequests]);
 
+  // Recurring weekly availability for the selected employee (can't-work blocks model)
+  const WEEKLY_DAY_NAMES: (keyof WeeklyAvailability)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const weeklyRestrictionForDay = (dayIdx: number) => {
+    const raw = empProfile?.weekly_availability?.[WEEKLY_DAY_NAMES[dayIdx]];
+    if (!raw) return undefined;
+    const pref = normalizeDayAvailability(raw);
+    return dayHasRestriction(pref) ? pref : undefined;
+  };
+  const currentDayWeeklyPref = weeklyRestrictionForDay(dayCursor);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -681,6 +698,19 @@ export function MobileAddScheduleSheet({
                         ))}
                       </div>
                     )}
+
+                    {/* Recurring weekly availability for the selected day */}
+                    {currentDayWeeklyPref && (
+                      <div className="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2">
+                        <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Weekly availability:</span>{' '}
+                          {currentDayWeeklyPref.available === false
+                            ? 'Unavailable all day'
+                            : chipLabels(currentDayWeeklyPref).join(' · ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -743,9 +773,14 @@ export function MobileAddScheduleSheet({
                       }
 
                       const hasAvail = hasApprovedOff || hasPendingOff;
+                      // Recurring weekly availability restriction (can't-work blocks)
+                      const weeklyRestricted = !!weeklyRestrictionForDay(i);
+                      const showHatch = (hasAvail || weeklyRestricted) && !isCursor;
                       const stripeColor = hasApprovedOff
                         ? 'rgba(16,185,129,0.18)' // emerald
-                        : 'rgba(245,158,11,0.20)'; // amber
+                        : hasPendingOff
+                          ? 'rgba(245,158,11,0.20)' // amber
+                          : 'rgba(148,163,184,0.22)'; // gray — weekly availability restriction
 
                       return (
                         <button
@@ -759,7 +794,7 @@ export function MobileAddScheduleSheet({
                             hasAvail && !isCursor && "border-dashed border-2 bg-muted/30"
                           )}
                           style={
-                            hasAvail && !isCursor
+                            showHatch
                               ? {
                                   backgroundImage: `repeating-linear-gradient(45deg, ${stripeColor}, ${stripeColor} 4px, transparent 4px, transparent 8px)`,
                                 }
@@ -770,7 +805,9 @@ export function MobileAddScheduleSheet({
                               ? 'Approved time off'
                               : hasPendingOff
                                 ? 'Pending time-off request'
-                                : undefined
+                                : weeklyRestricted
+                                  ? 'Limited weekly availability'
+                                  : undefined
                           }
                         >
                           <span className="uppercase font-semibold tracking-wide">{DAY_LABELS[i]}</span>
