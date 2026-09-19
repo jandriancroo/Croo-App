@@ -1,25 +1,25 @@
-# Playa Bowls shared projections and pace
+# Chat page magazine feed and inbox switcher
 
-## Goal
-Make Playa Bowls’ Clover data produce the same complete Week Insights sales forecast and live pace results as every supported POS, without changing historical sales or labor.
+## Scope
+- Restyle existing feed cards without changing post data, permissions, ordering, or interactions.
+- Replace the inbox arrow pager with a role-aware segmented control while keeping each existing inbox source and query separate.
 
-## Build
-1. Add a POS-neutral projection action that reads normalized `sales_cache` history and generates daily forecasts for a requested week.
-2. Use the existing shared projection and pace formulas; Clover remains responsible only for translating and saving raw Clover sales.
-3. Preserve manager overrides and the first saved projection. Create missing future-day rows only, or fill missing projection fields without replacing actual sales or overrides.
-4. Update Week Insights to request the shared projection action instead of calling the QuBeyond-only action. Today will refresh through the brand’s enabled POS; future days will then load from the shared cache.
-5. Connect the existing nightly/today sales process to refresh the upcoming week for every enabled POS brand.
+## Feed cards
+- Use `pinned` as the only band-color decision: orange for pinned posts and a thinner teal treatment for regular posts.
+- Keep the existing announcement, badge, and channel labels; arrange them cleanly within the new header area.
+- Keep author details, time, pin indicator, actions, reactions, comment count, seen count, attachments, and nested comments working as they do now.
+- Split the existing body for display only: first line, or approximately the first 60 characters at a word boundary, becomes a bold headline; all remaining text renders directly below at normal weight with no content loss.
+- Place image media full-width directly below the band/header treatment while retaining the current lightbox and multi-image behavior.
+- Apply the established teal, orange, cream, and white brand roles through semantic theme styling.
 
-## Safety boundaries
-- Do not alter `labor_cache`, live labor, scheduled labor, availability, inventory, or any locked feature.
-- Do not rename or remove existing sales columns.
-- Do not overwrite Clover history, manager overrides, or valid existing projections.
-- Use America/Los_Angeles/store-local business dates.
+## Inbox panel
+- Preserve the current right-side desktop sheet and 92%-height mobile bottom sheet.
+- Preserve the existing Direct messages, Hiring, and Support data sources and role rules.
+- Replace previous/next arrows and progress marks with one segmented control listing only role-authorized sources.
+- Hide the segmented control entirely when Direct messages is the user’s only available source.
+- Preserve chat search, new-chat creation, pinning, deep links, unread states, and each detail view.
 
-## Before-and-after proof
-For Playa Bowls Georgetown, September 14–20, 2026:
-- Record the current seven daily sales/projection values and sources from `sales_cache` and Week Insights.
-- Run the shared forecast for the week.
-- Record the resulting daily values, sources, weekly total, and today’s pace value.
-- Verify historical days are byte-for-byte unchanged and future days now show projections.
-- Verify the Week Insights screen displays the same numbers on desktop and mobile widths.
+## Validation and review handoff
+- Check desktop and mobile layouts, including pinned/regular posts, photo posts, nested comments, single-source users, and multi-source managers/admins.
+- Confirm no data, permission, query, or overlay behavior changed.
+- Provide a PR-style diff summary and clearly flag the headline split as the only presentation judgment implemented from the approved rules for Claude Level 2 review.
