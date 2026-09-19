@@ -776,9 +776,10 @@ export function LaborTotals({
         })()}
         </div>
         {dailyTotals.map((day, index) => {
+        const phase = getDayPhase(index);
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/40' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
@@ -811,7 +812,8 @@ export function LaborTotals({
           // Determine background color based on source
           const bgClass = isHistorical ? 'bg-green-500/10' : 
                          isOverride ? 'bg-amber-500/10' : 
-                         isLiving ? 'bg-primary/5' : '';
+                         isLiving ? 'bg-primary/5' :
+                         isPastDay ? 'bg-muted/40' : '';
           
           return (
             <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
