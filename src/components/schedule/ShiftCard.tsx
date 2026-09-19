@@ -66,7 +66,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // Draft styling: reduced opacity, dashed border, and grayscale filter for unpublished shifts
   const isDraft = !isPublished && !shift.isTemplate;
   const draftStyles = isDraft
-    ? "opacity-70 grayscale-[30%] [border-style:dashed] [border-width:2px]"
+    ? "opacity-70 grayscale-[30%]"
     : "";
 
   // Check if shift was trimmed by auto-scheduler
@@ -97,11 +97,14 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       style={{ 
         ...style, 
         backgroundColor: `${bgColor}1A`,
-        // Drafts keep a visible dashed border (matches mobile); published shifts hide all but the left accent
+        // Set the complete draft border inline so Card variant and breakpoint styles cannot override it.
+        borderStyle: isDraft ? 'dashed' : 'solid',
+        borderWidth: isDraft ? '2px' : undefined,
         borderColor: isDraft ? 'hsl(var(--foreground) / 0.35)' : 'transparent',
         borderLeftColor: isDraft ? 'hsl(var(--foreground) / 0.35)' : bgColor,
         boxShadow: shift.isTemplate ? 'none' : (style as any)?.boxShadow ?? 'none',
       }}
+      data-shift-publish-state={isDraft ? "draft" : "published"}
       className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid border-l-[3px] shadow-none' : `${shift.isTemplate ? 'px-2.5 py-2 min-h-[52px]' : 'px-2 py-1.5 min-h-[46px]'} ${shift.isTemplate ? 'rounded-[4px]' : 'rounded-[9px]'} border border-l-[3px] shadow-none`} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[110px]' : 'min-w-[126px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
 
       onClick={handleCardClick}
