@@ -725,21 +725,21 @@ export function LaborTotals({
 
   return <div className="text-xs min-w-[700px]">
       {/* Week Insights tab - rendered inline, pulled up over the border with negative margin */}
-      <div className="-mt-[1.85rem] mb-0 relative z-10">
+      <div className="-mt-[2.15rem] mb-0 relative z-10">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
-            px-3 py-1.5 flex items-center gap-1.5 rounded-t-lg border-t border-x border-border
-            transition-all cursor-pointer text-xs font-medium
+            px-4 py-2 flex items-center gap-2 rounded-t-xl border-t border-x border-border
+            transition-all duration-200 cursor-pointer text-sm font-semibold
             ${isToolsOpen 
               ? 'bg-card text-foreground shadow-sm' 
-              : 'bg-muted hover:bg-card text-muted-foreground hover:text-foreground'
+              : 'bg-muted hover:bg-card text-muted-foreground hover:text-foreground hover:px-5'
             }
           `}
         >
-          <BarChart3 className="h-3.5 w-3.5" />
+          <BarChart3 className="h-4 w-4" />
           <span>Week Insights</span>
-          {isToolsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          {isToolsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
       </div>
 
@@ -748,17 +748,17 @@ export function LaborTotals({
         <div className="-mt-[1px] border border-border rounded-b-lg rounded-tr-lg bg-card shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] overflow-hidden animate-accordion-down mb-2">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-            <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-              <span className="text-xs font-semibold">Week</span>
-              <span className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
-              {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
+            <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week</span>
+              <span className="text-base font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
+              {canViewAllWages && <span className="text-xs font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
             </div>
             {dailyTotals.map((day, index) => {
               const phase = getDayPhase(index);
               return (
-                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${phase === 'completed' ? 'bg-muted' : ''}`}>
-                  <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
-                  {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
+                <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center gap-1.5 ${phase === 'completed' ? 'bg-muted' : ''}`}>
+                  <span className={`text-base font-bold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
+                  {canViewAllWages && <span className="text-xs text-muted-foreground">(${day.wages.toFixed(0)})</span>}
                 </div>
               );
             })}
@@ -766,9 +766,9 @@ export function LaborTotals({
 
       {/* Labor Percentage Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">Labor %</span>
-          {weeklyTotals.sales > 0 ? <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
+        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Labor %</span>
+          {weeklyTotals.sales > 0 ? <span className={`text-base font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
               {weeklyTotals.laborPercent.toFixed(1)}%
             </span> : <span className="text-xs text-muted-foreground">-</span>}
         </div>
@@ -779,8 +779,8 @@ export function LaborTotals({
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
+        return <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-base font-bold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
@@ -789,18 +789,18 @@ export function LaborTotals({
 
       {/* Sales Per Labor Hour Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">$/LH</span>
+        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">$/LH</span>
           {(() => {
           const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
-          return weeklySalesPerLH > 0 ? <span className="text-xs font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
+          return weeklySalesPerLH > 0 ? <span className="text-base font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
         })()}
         </div>
         {dailyTotals.map((day, index) => {
         const phase = getDayPhase(index);
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
+        return <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-base font-bold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
@@ -809,10 +809,10 @@ export function LaborTotals({
 
       {/* Projected Sales Row - Now at bottom */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">Sales</span>
-          {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-          <span className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</span>
+        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sales</span>
+          {isLoadingQuSales && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          <span className="text-base font-bold">${weeklyTotals.sales.toFixed(0)}</span>
         </div>
         {weekDays.map((day, index) => {
           const source = salesSource[index];
@@ -837,14 +837,14 @@ export function LaborTotals({
                          isPastDay ? 'bg-muted' : '';
           
           return (
-            <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
+             <div key={index} className={`p-1.5 border-r border-border text-center relative ${bgClass}`}>
               {isEditable ? (
-                <div className="relative flex items-center justify-center gap-0.5">
+                <div className="relative flex items-center justify-center gap-1">
                   <button
                     type="button"
                     onClick={() => setProjectionDialogDay(index)}
                     data-sales-cell={dayStr}
-                    className={`h-7 flex-1 rounded-md border text-xs font-medium transition-colors hover:bg-muted/60 ${
+                    className={`h-9 flex-1 rounded-md border text-sm font-bold transition-colors hover:bg-muted/60 ${
                       isLiving ? 'border-primary/30' :
                       isInitial ? 'border-primary/20' :
                       isOverride ? 'border-amber-500/30 bg-amber-500/5' :
@@ -906,9 +906,9 @@ export function LaborTotals({
                   type="button"
                   onClick={() => setProjectionDialogDay(index)}
                   data-sales-cell={dayStr}
-                  className="w-full flex items-center justify-center gap-0.5 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                  className="w-full flex items-center justify-center gap-1 py-1.5 rounded-md hover:bg-muted/60 transition-colors"
                 >
-                  <p className="text-xs">
+                  <p className="text-sm font-bold">
                     {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
                   </p>
                   {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
