@@ -15,6 +15,7 @@ import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
+import { fetchActualLaborForDates } from '@/utils/liveLabor';
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
