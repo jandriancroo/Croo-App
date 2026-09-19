@@ -514,7 +514,6 @@ export function MobileAddScheduleSheet({
   }, [empUserId, currentDay, availabilityRequests]);
 
   // Recurring weekly availability for the selected employee (can't-work blocks model)
-  const empProfile = useMemo(() => profiles.find(p => p.id === empUserId), [profiles, empUserId]);
   const WEEKLY_DAY_NAMES: (keyof WeeklyAvailability)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   const weeklyRestrictionForDay = (dayIdx: number) => {
     const raw = empProfile?.weekly_availability?.[WEEKLY_DAY_NAMES[dayIdx]];
