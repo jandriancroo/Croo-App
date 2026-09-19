@@ -337,8 +337,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
         .eq('shift_date', todayStr)
         .in('user_id', userIds);
 
-      const { data: wageRows } = await supabase.rpc('get_current_wages_batch', { p_user_ids: userIds });
-      const wageMap = new Map<string, number>(((wageRows || []) as any[]).map(w => [w.user_id, Number(w.hourly_wage)]));
+      // Per-person wage rates are never sent to this device — cut savings are
+      // estimated server-side via get_cut_savings_estimate (totals only).
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
       const shiftMap = new Map((shifts || []).map(s => [s.user_id, s.template?.end_time]));
@@ -351,7 +351,6 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           profilePhoto: profile?.profile_photo_url || null,
           clockInTime: u.clockInTime,
           isOnBreak: u.isOnBreak,
-          hourlyWage: wageMap.get(u.userId) ?? 16,
           scheduledEndTime: shiftMap.get(u.userId) || undefined,
         } as ActiveShift;
       });
