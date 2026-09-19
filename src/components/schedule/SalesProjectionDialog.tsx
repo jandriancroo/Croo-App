@@ -22,7 +22,7 @@ interface SalesProjectionDialogProps {
   currentValue: number;
   currentSource?: 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
   canEdit: boolean;
-  onSaveOverride: (value: number) => Promise<void> | void;
+  onSaveOverride: (value: number, excludedDates?: string[]) => Promise<void> | void;
   onResetToProjection: () => Promise<void> | void;
 }
 
@@ -33,6 +33,7 @@ interface CacheRow {
   override_projection: number | null;
   override_at: string | null;
   projected_sales: number | null;
+  override_excluded_dates: string[] | null;
 }
 
 interface NearbyEvent {
