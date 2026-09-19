@@ -901,20 +901,45 @@ export function LaborTotals({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-0.5 py-1">
+                <button
+                  type="button"
+                  onClick={() => setProjectionDialogDay(index)}
+                  data-sales-cell={dayStr}
+                  className="w-full flex items-center justify-center gap-0.5 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                >
                   <p className="text-xs">
                     {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
                   </p>
                   {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
                   {isInitial && <Sparkles className="h-2.5 w-2.5 text-primary/60" />}
                   {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
-                </div>
+                </button>
               )}
             </div>
           );
         })}
       </div>
         </div>
+      )}
+
+      {projectionDialogDay !== null && (
+        <SalesProjectionDialog
+          open={projectionDialogDay !== null}
+          onOpenChange={open => { if (!open) setProjectionDialogDay(null); }}
+          locationId={currentLocation?.id}
+          dateStr={format(weekDays[projectionDialogDay], 'yyyy-MM-dd')}
+          todayStr={getTodayPST()}
+          currentValue={projectedSales[projectionDialogDay] || 0}
+          currentSource={salesSource[projectionDialogDay]}
+          canEdit={isEditable}
+          onSaveOverride={async value => {
+            await handleSalesChange(projectionDialogDay!, String(value));
+            toast.success('Sales number saved');
+          }}
+          onResetToProjection={async () => {
+            await handleReloadProjection(projectionDialogDay!);
+          }}
+        />
       )}
     </div>;
 }
