@@ -906,9 +906,9 @@ export function LaborTotals({
                   type="button"
                   onClick={() => setProjectionDialogDay(index)}
                   data-sales-cell={dayStr}
-                  className="w-full flex items-center justify-center gap-0.5 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                  className="w-full flex items-center justify-center gap-1 py-1.5 rounded-md hover:bg-muted/60 transition-colors"
                 >
-                  <p className="text-xs">
+                  <p className="text-sm font-bold">
                     {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
                   </p>
                   {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
