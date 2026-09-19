@@ -172,10 +172,10 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
           side={isMobile ? 'bottom' : 'right'}
           className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl [&_[data-radix-dialog-close]]:text-primary-foreground' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground'}
         >
-          <SheetHeader className="px-4 pt-4 pb-3 pr-12 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
-            <SheetTitle className="text-left text-base text-primary-foreground">Inbox</SheetTitle>
+          <SheetHeader className="px-4 pt-4 pb-3 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
+            <SheetTitle className="pr-8 text-left text-lg text-primary-foreground">Inbox</SheetTitle>
             {steps.length > 1 && (
-              <div className="mt-2 flex w-full items-center gap-1 rounded-full bg-primary-foreground/10 p-1" role="tablist" aria-label="Inbox source">
+              <div className="mt-2 grid w-full grid-cols-[1.45fr_1fr_1fr] items-center gap-1 rounded-full bg-primary-foreground/10 p-1" role="tablist" aria-label="Inbox source">
                 {steps.map(source => {
                   const SourceIcon = source.icon;
                   const selected = source.id === step;
@@ -188,10 +188,10 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
                       variant="ghost"
                       size="sm"
                       onClick={() => setStep(source.id)}
-                      className={`h-9 min-w-0 flex-1 rounded-full px-2 text-xs ${selected ? 'bg-background text-foreground shadow-sm hover:bg-background hover:text-foreground' : 'text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground'}`}
+                      className={`h-10 min-w-0 rounded-full px-2 text-sm ${selected ? 'bg-background text-foreground shadow-sm hover:bg-background hover:text-foreground' : 'text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground'}`}
                     >
-                      <SourceIcon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{source.label}</span>
+                      <SourceIcon className="h-4 w-4 shrink-0" />
+                      <span className="whitespace-nowrap">{source.label}</span>
                     </Button>
                   );
                 })}
