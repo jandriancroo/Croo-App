@@ -687,6 +687,15 @@ export function LaborTotals({
 
   const [isToolsOpen, setIsToolsOpen] = useState(false);
 
+  // Day phase helper: completed days get a shaded column, today is in progress, future days stay clean
+  const getDayPhase = (index: number): 'completed' | 'today' | 'future' => {
+    const dayStr = format(weekDays[index], 'yyyy-MM-dd');
+    const todayStr = getTodayPST();
+    if (dayStr < todayStr) return 'completed';
+    if (dayStr === todayStr) return 'today';
+    return 'future';
+  };
+
   // Only show labor totals to users who can view sales/labor
   // (shift managers and above, OR team members with location setting enabled)
   if (!canSeeSales) {
@@ -724,9 +733,10 @@ export function LaborTotals({
               {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
             </div>
             {dailyTotals.map((day, index) => {
+              const phase = getDayPhase(index);
               return (
-                <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1">
-                  <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
+                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${phase === 'completed' ? 'bg-muted' : ''}`}>
+                  <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
                   {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
                 </div>
               );
@@ -742,12 +752,13 @@ export function LaborTotals({
             </span> : <span className="text-xs text-muted-foreground">-</span>}
         </div>
         {dailyTotals.map((day, index) => {
+        const phase = getDayPhase(index);
         const sales = projectedSales[index] || 0;
         const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
-        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
               {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
@@ -765,9 +776,10 @@ export function LaborTotals({
         })()}
         </div>
         {dailyTotals.map((day, index) => {
+        const phase = getDayPhase(index);
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
@@ -800,7 +812,8 @@ export function LaborTotals({
           // Determine background color based on source
           const bgClass = isHistorical ? 'bg-green-500/10' : 
                          isOverride ? 'bg-amber-500/10' : 
-                         isLiving ? 'bg-primary/5' : '';
+                         isLiving ? 'bg-primary/5' :
+                         isPastDay ? 'bg-muted' : '';
           
           return (
             <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
