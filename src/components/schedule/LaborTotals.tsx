@@ -16,6 +16,7 @@ import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchActualLaborForDates } from '@/utils/liveLabor';
+import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
