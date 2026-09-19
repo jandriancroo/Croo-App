@@ -14,4 +14,4 @@
 - [x] Verify desktop/mobile chat behavior and prepare the review summary
 - [x] Fix inbox segment label truncation and increase label readability
 - [x] Add an easy Unpin action for pinned feed posts
-- [ ] Verify both refinements on desktop and mobile
+- [x] Verify both refinements on desktop and mobile
