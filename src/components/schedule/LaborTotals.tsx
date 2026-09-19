@@ -837,21 +837,20 @@ export function LaborTotals({
           return (
             <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
               {isEditable ? (
-                <div className="relative flex items-center gap-0.5">
-                  <Input 
-                    type="number" 
-                    step="0.01" 
-                    min="0" 
-                    value={projectedSales[index] || ''} 
-                    onChange={e => handleSalesChange(index, e.target.value)} 
-                    className={`h-7 text-center text-xs p-1 flex-1 ${
-                      isLiving ? 'border-primary/30' : 
-                      isInitial ? 'border-primary/20' : 
+                <div className="relative flex items-center justify-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setProjectionDialogDay(index)}
+                    data-sales-cell={dayStr}
+                    className={`h-7 flex-1 rounded-md border text-xs font-medium transition-colors hover:bg-muted/60 ${
+                      isLiving ? 'border-primary/30' :
+                      isInitial ? 'border-primary/20' :
                       isOverride ? 'border-amber-500/30 bg-amber-500/5' :
-                      isHistorical ? 'border-green-500/30 bg-green-500/5' : ''
-                    }`} 
-                    placeholder="$0" 
-                  />
+                      isHistorical ? 'border-green-500/30 bg-green-500/5' : 'border-border'
+                    }`}
+                  >
+                    {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '$0'}
+                  </button>
                   {isLiving && (
                     <Tooltip>
                       <TooltipTrigger asChild>
