@@ -46,7 +46,6 @@ interface ActiveShift {
   profilePhoto: string | null;
   clockInTime: string;
   isOnBreak: boolean;
-  hourlyWage?: number;
   scheduledEndTime?: string;
 }
 
