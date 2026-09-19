@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, MessageCircle, Briefcase, Headphones, Users, ArrowLeft, Plus } from 'lucide-react';
+import { MessageCircle, Briefcase, Headphones, ArrowLeft, Plus } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -47,16 +48,17 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
     );
   }, [chats, dmSearch]);
 
-  const steps: { id: Step; label: string; icon: any }[] = [
+  const steps = useMemo<{ id: Step; label: string; icon: LucideIcon }[]>(() => [
     { id: 'dms', label: 'Direct messages', icon: MessageCircle },
     ...(showHiringTab ? [{ id: 'hiring' as Step, label: 'Hiring', icon: Briefcase }] : []),
     ...(showSupportTab ? [{ id: 'support' as Step, label: 'Support', icon: Headphones }] : []),
-  ];
+  ], [showHiringTab, showSupportTab]);
 
   const [step, setStep] = useState<Step>('dms');
-  const stepIdx = steps.findIndex(s => s.id === step);
-  const goPrev = () => setStep(steps[(stepIdx - 1 + steps.length) % steps.length].id);
-  const goNext = () => setStep(steps[(stepIdx + 1) % steps.length].id);
+
+  useEffect(() => {
+    if (!steps.some(source => source.id === step)) setStep('dms');
+  }, [step, steps]);
 
   // Reset detail view when panel closes
   useEffect(() => {
@@ -73,9 +75,6 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
       setSelectedChatId(initialChatId);
     }
   }, [open, initialChatId, setSelectedChatId]);
-
-  const current = steps[stepIdx] ?? steps[0];
-  const Icon = current.icon;
 
   // DM list panel (also used as base for mobile stepper)
   const dmListPanel = (
@@ -173,30 +172,29 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
           side={isMobile ? 'bottom' : 'right'}
           className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl [&_[data-radix-dialog-close]]:text-primary-foreground' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground'}
         >
-          <SheetHeader className="px-3 pt-4 pb-2 pr-12 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
-            <div className="flex items-center justify-between gap-2">
-              {steps.length > 1 ? (
-                <Button variant="ghost" size="icon" onClick={goPrev} className="h-8 w-8 shrink-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              ) : <div className="h-8 w-8 shrink-0" />}
-              <SheetTitle className="flex items-center gap-2 text-base min-w-0 truncate text-primary-foreground">
-                <Icon className="h-4 w-4 shrink-0" /> <span className="truncate">{current.label}</span>
-              </SheetTitle>
-              {steps.length > 1 ? (
-                <Button variant="ghost" size="icon" onClick={goNext} className="h-8 w-8 shrink-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              ) : <div className="h-8 w-8 shrink-0" />}
-            </div>
+          <SheetHeader className="px-4 pt-4 pb-3 pr-12 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
+            <SheetTitle className="text-left text-base text-primary-foreground">Inbox</SheetTitle>
             {steps.length > 1 && (
-              <div className="flex items-center justify-center gap-1 pt-1">
-                {steps.map(s => (
-                  <span
-                    key={s.id}
-                    className={`h-1 rounded-full transition-all ${s.id === step ? 'w-6 bg-primary-foreground' : 'w-1.5 bg-primary-foreground/40'}`}
-                  />
-                ))}
+              <div className="mt-2 flex w-full items-center gap-1 rounded-full bg-primary-foreground/10 p-1" role="tablist" aria-label="Inbox source">
+                {steps.map(source => {
+                  const SourceIcon = source.icon;
+                  const selected = source.id === step;
+                  return (
+                    <Button
+                      key={source.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setStep(source.id)}
+                      className={`h-9 min-w-0 flex-1 rounded-full px-2 text-xs ${selected ? 'bg-background text-foreground shadow-sm hover:bg-background hover:text-foreground' : 'text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground'}`}
+                    >
+                      <SourceIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{source.label}</span>
+                    </Button>
+                  );
+                })}
               </div>
             )}
           </SheetHeader>

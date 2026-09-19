@@ -26,7 +26,7 @@ interface PostCardProps {
 }
 
 
-const BODY_TRUNCATE_CHARS = 320;
+const HEADLINE_MAX_CHARS = 60;
 
 function getInitials(name?: string | null) {
   if (!name) return '?';
@@ -41,19 +41,35 @@ function friendlyFileName(m: { name?: string; url: string }) {
   } catch { return 'Attachment'; }
 }
 
+function splitPostBody(body: string) {
+  const firstLineBreak = body.indexOf('\n');
+  if (firstLineBreak >= 0) {
+    return {
+      headline: body.slice(0, firstLineBreak).trim(),
+      remainder: body.slice(firstLineBreak + 1).trimStart(),
+    };
+  }
+
+  if (body.length <= HEADLINE_MAX_CHARS) return { headline: body, remainder: '' };
+
+  const candidate = body.slice(0, HEADLINE_MAX_CHARS + 1);
+  const lastSpace = candidate.lastIndexOf(' ');
+  const splitAt = lastSpace > HEADLINE_MAX_CHARS / 2 ? lastSpace : HEADLINE_MAX_CHARS;
+  return {
+    headline: body.slice(0, splitAt).trimEnd(),
+    remainder: body.slice(splitAt).trimStart(),
+  };
+}
+
 function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onEdit, onMarkSeen }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
   const files = post.media.filter(m => m.type !== 'image');
 
-  const [expanded, setExpanded] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const lightboxItems = post.media;
-  const shouldTruncate = post.body.length > BODY_TRUNCATE_CHARS;
-  const displayBody = !shouldTruncate || expanded
-    ? post.body
-    : post.body.slice(0, BODY_TRUNCATE_CHARS).replace(/\s+\S*$/, '') + '…';
+  const { headline, remainder } = splitPostBody(post.body);
 
   // Mark as seen when scrolled into view for ~800ms (once per post per session).
   // Uses a low threshold so tall posts on small viewports still register.
@@ -130,14 +146,14 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
   return (
     <article
       ref={rootRef}
-      className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-colors hover:bg-muted/50"
+      className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-shadow hover:shadow-md"
     >
-      {/* Header */}
-      <header className="relative px-3 pt-3">
+      {/* Magazine band header */}
+      <header className={cn('relative', post.pinned ? 'bg-accent text-accent-foreground' : 'border-t-4 border-primary bg-primary/10')}>
         <div
           ref={headerRef}
           className={cn(
-            "flex items-start gap-3 rounded-xl bg-primary/10 px-3 py-3 select-none",
+            'flex items-start gap-3 px-4 py-3 select-none',
             canManage && "cursor-pointer",
           )}
           onPointerDown={startLongPress}
@@ -148,7 +164,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
         >
           <Avatar className="h-11 w-11 shrink-0">
             <AvatarImage src={post.author?.profile_photo_url ?? undefined} alt={authorName} />
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+            <AvatarFallback className={cn('font-semibold', post.pinned ? 'bg-accent-foreground/15 text-accent-foreground' : 'bg-primary/15 text-primary')}>
               {getInitials(authorName)}
             </AvatarFallback>
           </Avatar>
@@ -156,7 +172,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             {/* Top row: name + timestamp */}
             <div className="flex items-center gap-2 pr-1">
               <span className="font-semibold text-sm truncate">{authorName}</span>
-              <span className="text-xs text-muted-foreground shrink-0">
+              <span className={cn('text-xs shrink-0', post.pinned ? 'text-accent-foreground/80' : 'text-muted-foreground')}>
                 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                 {post.edited_at && <span className="ml-1">· edited</span>}
               </span>
@@ -164,7 +180,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             {/* Second row: badges */}
             <div className="flex items-center gap-1.5 flex-wrap mt-1">
               {post.is_announcement && (
-                <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                <span className={cn('text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded', post.pinned ? 'bg-accent-foreground/15 text-accent-foreground' : 'bg-primary/15 text-primary')}>
                   Announcement
                 </span>
               )}
@@ -185,7 +201,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
                 </span>
               )}
               {post.pinned && (
-                <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" aria-label="Pinned">
+                <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-accent-foreground/15 text-accent-foreground" aria-label="Pinned">
                   <Pin className="h-3 w-3" />
                 </span>
               )}
@@ -195,7 +211,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             <button
               type="button"
               aria-label="Post options"
-              className="shrink-0 -mr-1 -mt-1 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-background/70 hover:text-foreground transition-colors"
+              className={cn('shrink-0 -mr-1 -mt-1 h-8 w-8 rounded-full flex items-center justify-center transition-colors', post.pinned ? 'text-accent-foreground/80 hover:bg-accent-foreground/15 hover:text-accent-foreground' : 'text-muted-foreground hover:bg-background/70 hover:text-foreground')}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -278,12 +294,12 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       )}
 
 
-      {/* Media grid — ABOVE text, rounded and inset */}
+      {/* Media grid — full-width beneath the band */}
       {images.length > 0 && (
-        <div className="px-3 mt-1">
+        <div>
           <div
             className={cn(
-              'grid gap-0.5 w-full bg-muted rounded-xl overflow-hidden',
+              'grid gap-0.5 w-full bg-muted overflow-hidden',
               images.length === 1 && 'grid-cols-1',
               images.length === 2 && 'grid-cols-2',
               images.length === 3 && 'grid-cols-2',
@@ -314,20 +330,9 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
 
       {/* Body */}
       {post.body && (
-        <div className="px-4 pt-3 pb-3 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-          {displayBody}
-          {shouldTruncate && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (expanded) setExpanded(false); else setExpanded(true);
-              }}
-              className="ml-1 text-primary text-sm font-medium hover:underline"
-            >
-              {expanded ? 'Show less' : 'Read more'}
-            </button>
-          )}
+        <div className="px-4 pt-4 pb-3 break-words">
+          {headline && <div className="text-[17px] leading-snug font-semibold text-card-foreground whitespace-pre-wrap">{headline}</div>}
+          {remainder && <div className="mt-2 text-[15px] leading-relaxed text-card-foreground/90 whitespace-pre-wrap">{remainder}</div>}
         </div>
       )}
 
