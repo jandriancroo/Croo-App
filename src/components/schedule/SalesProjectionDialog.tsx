@@ -290,13 +290,11 @@ export function SalesProjectionDialog({
                      </div>
                      {annotations.length > 0 && (
                        <div className={canEdit && !isPast ? 'pl-6' : ''}>
-                         {annotations.map(event => (
-                           <Badge key={`${event.kind}-${event.id}`} variant="secondary" className="mr-1 mb-1 font-normal">
-                             {event.offset < 0 && `${Math.abs(event.offset)}d ← `}
-                             {event.name}
-                             {event.offset > 0 && ` → ${event.offset}d`}
-                           </Badge>
-                         ))}
+                          {annotations.map(event => (
+                            <Badge key={`${event.kind}-${event.id}`} variant="secondary" className="max-w-full whitespace-nowrap font-normal">
+                              <span className="truncate">{event.offset < 0 && `${Math.abs(event.offset)}d ← `}{event.name}{event.offset > 0 && ` → ${event.offset}d`}</span>
+                            </Badge>
+                          ))}
                        </div>
                      )}
                    </div>
