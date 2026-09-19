@@ -1,4 +1,4 @@
-import { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo, useSyncExternalStore } from "react";
 import { getDisplayName } from "@/utils/displayName";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
@@ -23,6 +23,21 @@ import {
   type DayAvailability,
   type WeeklyAvailability,
 } from "@/types/availability";
+
+// Only one schedule-cell popup (availability details, time-off details, or Smart Tap)
+// may be open at a time across the whole grid — opening one closes any other.
+let activeCellPopover: string | null = null;
+const cellPopoverListeners = new Set<() => void>();
+const subscribeCellPopover = (cb: () => void) => {
+  cellPopoverListeners.add(cb);
+  return () => { cellPopoverListeners.delete(cb); };
+};
+const getActiveCellPopover = () => activeCellPopover;
+function setActiveCellPopover(id: string | null) {
+  if (activeCellPopover === id) return;
+  activeCellPopover = id;
+  cellPopoverListeners.forEach((cb) => cb());
+}
 
 
 interface Profile {
@@ -338,9 +353,19 @@ function DayCell({
     id: dropId
   });
   
-  const [smartTapOpen, setSmartTapOpen] = useState(false);
-  const [availabilityPopoverOpen, setAvailabilityPopoverOpen] = useState(false);
-  const [timeOffPopoverId, setTimeOffPopoverId] = useState<string | null>(null);
+  // Popup open state is shared grid-wide (one popup at a time)
+  const activePopover = useSyncExternalStore(subscribeCellPopover, getActiveCellPopover);
+  const smartTapKey = `${userId}-${dayIndex}-smarttap`;
+  const availKey = `${userId}-${dayIndex}-avail`;
+  const timeOffKey = (requestId: string) => `${userId}-${dayIndex}-timeoff-${requestId}`;
+  const smartTapOpen = activePopover === smartTapKey;
+  const availabilityPopoverOpen = activePopover === availKey;
+  const timeOffPopoverId = activePopover?.startsWith(`${userId}-${dayIndex}-timeoff-`)
+    ? activePopover.slice(`${userId}-${dayIndex}-timeoff-`.length)
+    : null;
+  const setSmartTapOpen = (open: boolean) => setActiveCellPopover(open ? smartTapKey : null);
+  const setAvailabilityPopoverOpen = (open: boolean) => setActiveCellPopover(open ? availKey : null);
+  const setTimeOffPopoverId = (requestId: string | null) => setActiveCellPopover(requestId ? timeOffKey(requestId) : null);
   const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
   const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
