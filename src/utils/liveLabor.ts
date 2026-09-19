@@ -101,3 +101,74 @@ export const fetchLiveLaborForToday = async (
 
   return { date: today, hours, cost };
 };
+
+/**
+ * Read-only actual labor for CLOSED business days, derived straight from punches.
+ *
+ * labor_cache is the authoritative store (written by the nightly labor service),
+ * but a missed nightly run leaves a 0-hour row behind. Week views call this to
+ * fill only those gaps — it never writes to labor_cache.
+ */
+export const fetchActualLaborForDates = async (
+  locationId: string,
+  timezone: string,
+  dates: string[]
+): Promise<Record<string, { hours: number; cost: number }>> => {
+  const result: Record<string, { hours: number; cost: number }> = {};
+  if (!locationId || dates.length === 0) return result;
+
+  const sorted = [...dates].sort();
+  const start = new Date(`${sorted[0]}T00:00:00Z`);
+  start.setDate(start.getDate() - 1);
+  const end = new Date(`${sorted[sorted.length - 1]}T00:00:00Z`);
+  end.setDate(end.getDate() + 2);
+
+  const [punchRes, hoursRes] = await Promise.all([
+    supabase
+      .from('time_punches')
+      .select('id, user_id, punch_type, punch_time, notes')
+      .eq('location_id', locationId)
+      .gte('punch_time', start.toISOString())
+      .lte('punch_time', end.toISOString())
+      .order('punch_time', { ascending: true }),
+    supabase
+      .from('location_hours')
+      .select('day_of_week, close_time')
+      .eq('location_id', locationId),
+  ]);
+
+  const punches = (punchRes.data as any[]) || [];
+  if (punches.length === 0) return result;
+
+  const cutoffByDayOfWeek = new Map<number, number>();
+  ((hoursRes.data as any[]) || []).forEach((h: any) => {
+    cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
+  });
+
+  const userIds = [...new Set(punches.map((p: any) => p.user_id))] as string[];
+  const wageByUserId = new Map<string, number>();
+  if (userIds.length > 0) {
+    const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
+      p_user_ids: userIds,
+    });
+    ((wageRows as any[]) || []).forEach((row: any) => {
+      if (row.hourly_wage != null) wageByUserId.set(row.user_id, Number(row.hourly_wage));
+    });
+  }
+
+  const bucketed = bucketPunchesByUserAndDay(punches as any[], timezone, cutoffByDayOfWeek, 5);
+  bucketed.forEach((daysForUser, userId) => {
+    const wage = wageByUserId.get(userId) ?? 15;
+    dates.forEach((dateStr) => {
+      const dayPunches = (daysForUser as any)[dateStr];
+      if (!dayPunches) return;
+      // showLive = false: closed days never count open punches through "now".
+      const dayHours = calculateDayHours(dayPunches as any[], false);
+      if (!(dayHours > 0)) return;
+      const prev = result[dateStr] || { hours: 0, cost: 0 };
+      result[dateStr] = { hours: prev.hours + dayHours, cost: prev.cost + dayHours * wage };
+    });
+  });
+
+  return result;
+};
