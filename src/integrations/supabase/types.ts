@@ -975,6 +975,44 @@ export type Database = {
           },
         ]
       }
+      brand_integration_policies: {
+        Row: {
+          brand_id: string
+          category: string
+          created_at: string
+          id: string
+          integration_key: string
+          is_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          category: string
+          created_at?: string
+          id?: string
+          integration_key: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          integration_key?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_integration_policies_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_inventory_categories: {
         Row: {
           brand_id: string
@@ -13523,6 +13561,10 @@ export type Database = {
       }
       is_brand_admin: {
         Args: { _brand_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_brand_integration_enabled: {
+        Args: { _brand_id: string; _integration_key: string }
         Returns: boolean
       }
       is_brand_or_super_admin: { Args: { _user_id: string }; Returns: boolean }
