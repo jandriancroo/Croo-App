@@ -140,7 +140,7 @@ export function SalesProjectionDialog({
           .lte('event_date', annotationEnd),
       ]);
       if (cancelled) return;
-      setRow((rowRes.data as CacheRow) || null);
+      setRow((rowRes.data as unknown as CacheRow) || null);
       const rows = (histRes.data as any[]) || [];
       const nextHistory = historyDates.map(d => ({
           date: d,
