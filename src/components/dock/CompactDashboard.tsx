@@ -659,7 +659,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       newLaborPercent,
       percentSaved: currentLaborPercent - newLaborPercent,
     };
-  }, [laborCuts, activeShifts, laborData?.labor_cost, totalSales]);
+  }, [laborCuts, cutSavingsByUser, laborData?.labor_cost, totalSales]);
 
   const hasAnyCuts = laborCuts.length > 0;
 
