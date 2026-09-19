@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { format, parseISO, subDays } from 'date-fns';
 import { Loader2, RotateCcw, Sparkles, Radio, CheckCircle2, PencilLine } from 'lucide-react';
+import { DateTime } from 'luxon';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 
@@ -34,6 +35,17 @@ interface CacheRow {
   projected_sales: number | null;
 }
 
+interface NearbyEvent {
+  id: string;
+  date: string;
+  name: string;
+  kind: 'holiday' | 'event';
+}
+
+const BUSINESS_ZONE = 'America/Los_Angeles';
+const fromBusinessDate = (date: string) => DateTime.fromFormat(date, 'yyyy-MM-dd', { zone: BUSINESS_ZONE });
+const displayDate = (date: string, format = 'MMM d, yyyy') => fromBusinessDate(date).toFormat(format);
+
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 export function SalesProjectionDialog({
@@ -53,6 +65,8 @@ export function SalesProjectionDialog({
   const [row, setRow] = useState<CacheRow | null>(null);
   const [history, setHistory] = useState<{ date: string; net_sales: number | null }[]>([]);
   const [lastYear, setLastYear] = useState<{ date: string; net_sales: number | null } | null>(null);
+  const [includedDates, setIncludedDates] = useState<Set<string>>(new Set());
+  const [nearbyEvents, setNearbyEvents] = useState<NearbyEvent[]>([]);
   const [draft, setDraft] = useState('');
 
   const isPast = dateStr < todayStr;
@@ -60,17 +74,19 @@ export function SalesProjectionDialog({
 
   // Same weekday for the previous 4 weeks, plus the same weekday one year back (-364d).
   const historyDates = useMemo(
-    () => [7, 14, 21, 28].map(d => format(subDays(parseISO(dateStr), d), 'yyyy-MM-dd')),
+    () => [7, 14, 21, 28].map(days => fromBusinessDate(dateStr).minus({ days }).toFormat('yyyy-MM-dd')),
     [dateStr]
   );
-  const lastYearDate = useMemo(() => format(subDays(parseISO(dateStr), 364), 'yyyy-MM-dd'), [dateStr]);
+  const lastYearDate = useMemo(() => fromBusinessDate(dateStr).minus({ days: 364 }).toFormat('yyyy-MM-dd'), [dateStr]);
 
   useEffect(() => {
     if (!open || !locationId) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const [rowRes, histRes] = await Promise.all([
+      const annotationStart = fromBusinessDate(historyDates[historyDates.length - 1]).minus({ days: 3 }).toFormat('yyyy-MM-dd');
+      const annotationEnd = fromBusinessDate(historyDates[0]).plus({ days: 3 }).toFormat('yyyy-MM-dd');
+      const [rowRes, histRes, holidayRes, eventRes] = await Promise.all([
         supabase
           .from('sales_cache')
           .select('net_sales, initial_projection, living_projection, override_projection, override_at, projected_sales')
@@ -82,16 +98,45 @@ export function SalesProjectionDialog({
           .select('sale_date, net_sales')
           .eq('location_id', locationId)
           .in('sale_date', [...historyDates, lastYearDate]),
+        supabase
+          .from('holidays')
+          .select('id, holiday_date, holiday_name, holiday_type, is_recurring')
+          .or(`location_id.eq.${locationId},location_id.is.null`)
+          .neq('holiday_type', 'birthday')
+          .gte('holiday_date', annotationStart)
+          .lte('holiday_date', annotationEnd),
+        supabase
+          .from('schedule_events')
+          .select('id, event_date, event_name')
+          .eq('location_id', locationId)
+          .eq('is_daily_task', false)
+          .not('event_date', 'is', null)
+          .gte('event_date', annotationStart)
+          .lte('event_date', annotationEnd),
       ]);
       if (cancelled) return;
       setRow((rowRes.data as CacheRow) || null);
       const rows = (histRes.data as any[]) || [];
-      setHistory(
-        historyDates.map(d => ({
+      const nextHistory = historyDates.map(d => ({
           date: d,
           net_sales: rows.find(r => r.sale_date === d)?.net_sales ?? null,
-        }))
-      );
+        }));
+      setHistory(nextHistory);
+      setIncludedDates(new Set(nextHistory.filter(item => (item.net_sales ?? 0) > 0).map(item => item.date)));
+      setNearbyEvents([
+        ...((holidayRes.data || []).map(holiday => ({
+          id: holiday.id,
+          date: holiday.holiday_date,
+          name: holiday.holiday_name,
+          kind: 'holiday' as const,
+        }))),
+        ...((eventRes.data || []).flatMap(event => event.event_date ? [{
+          id: event.id,
+          date: event.event_date,
+          name: event.event_name,
+          kind: 'event' as const,
+        }] : [])),
+      ]);
       const ly = rows.find(r => r.sale_date === lastYearDate);
       setLastYear(ly ? { date: lastYearDate, net_sales: ly.net_sales } : { date: lastYearDate, net_sales: null });
       setDraft(currentValue ? String(Math.round(currentValue * 100) / 100) : '');
@@ -103,13 +148,33 @@ export function SalesProjectionDialog({
     };
   }, [open, locationId, dateStr, historyDates, lastYearDate, currentValue]);
 
-  const usableHistory = history.filter(h => (h.net_sales ?? 0) > 0);
+  const usableHistory = history.filter(h => (h.net_sales ?? 0) > 0 && includedDates.has(h.date));
   const fourWeekAvg = usableHistory.length
     ? usableHistory.reduce((s, h) => s + (h.net_sales || 0), 0) / usableHistory.length
     : 0;
 
   const resolved = resolveProjection(row || undefined);
   const hasOverride = (row?.override_projection ?? 0) > 0;
+
+  const annotationsFor = (historyDate: string) => nearbyEvents
+    .map(event => ({
+      ...event,
+      offset: Math.round(fromBusinessDate(event.date).diff(fromBusinessDate(historyDate), 'days').days),
+    }))
+    .filter(event => Math.abs(event.offset) <= 3)
+    .sort((a, b) => Math.abs(a.offset) - Math.abs(b.offset));
+
+  const toggleHistoryDate = (historyDate: string, checked: boolean) => {
+    const next = new Set(includedDates);
+    if (checked) next.add(historyDate);
+    else next.delete(historyDate);
+    setIncludedDates(next);
+    const included = history.filter(item => (item.net_sales ?? 0) > 0 && next.has(item.date));
+    const average = included.length
+      ? included.reduce((sum, item) => sum + (item.net_sales || 0), 0) / included.length
+      : 0;
+    setDraft(average > 0 ? String(Math.round(average * 100) / 100) : '');
+  };
 
   const sourceBadge = (() => {
     if (currentSource === 'historical') {
@@ -151,7 +216,7 @@ export function SalesProjectionDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {format(parseISO(dateStr), 'EEEE, MMM d')}
+             {displayDate(dateStr, 'EEEE, MMM d')}
             {sourceBadge}
           </DialogTitle>
           <DialogDescription>
@@ -178,14 +243,39 @@ export function SalesProjectionDialog({
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Same weekday history
               </p>
-              {history.map(h => (
-                <div key={h.date} className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{format(parseISO(h.date), 'MMM d, yyyy')}</span>
-                  <span className={(h.net_sales ?? 0) > 0 ? '' : 'text-muted-foreground'}>
-                    {(h.net_sales ?? 0) > 0 ? money(h.net_sales as number) : 'no sales recorded'}
-                  </span>
-                </div>
-              ))}
+               {history.map(h => {
+                 const hasSales = (h.net_sales ?? 0) > 0;
+                 const annotations = annotationsFor(h.date);
+                 return (
+                   <div key={h.date} className="space-y-1 rounded-md px-1 py-1.5">
+                     <div className="flex items-center gap-2">
+                       {canEdit && !isPast && (
+                         <Checkbox
+                           checked={includedDates.has(h.date)}
+                           disabled={!hasSales}
+                           onCheckedChange={checked => toggleHistoryDate(h.date, checked === true)}
+                           aria-label={`${includedDates.has(h.date) ? 'Exclude' : 'Include'} ${displayDate(h.date)} in goal math`}
+                         />
+                       )}
+                       <span className="min-w-0 flex-1 text-muted-foreground">{displayDate(h.date)}</span>
+                       <span className={hasSales && includedDates.has(h.date) ? '' : 'text-muted-foreground line-through'}>
+                         {hasSales ? money(h.net_sales as number) : 'no sales recorded'}
+                       </span>
+                     </div>
+                     {annotations.length > 0 && (
+                       <div className={canEdit && !isPast ? 'pl-6' : ''}>
+                         {annotations.map(event => (
+                           <Badge key={`${event.kind}-${event.id}`} variant="secondary" className="mr-1 mb-1 font-normal">
+                             {event.offset < 0 && `${Math.abs(event.offset)}d ← `}
+                             {event.name}
+                             {event.offset > 0 && ` → ${event.offset}d`}
+                           </Badge>
+                         ))}
+                       </div>
+                     )}
+                   </div>
+                 );
+               })}
               <Separator className="my-1" />
               <div className="flex items-center justify-between font-medium">
                 <span>{usableHistory.length}-week average</span>
@@ -194,7 +284,7 @@ export function SalesProjectionDialog({
               {lastYear && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">
-                    Same weekday last year ({format(parseISO(lastYear.date), 'MMM d, yyyy')})
+                     Same weekday last year ({displayDate(lastYear.date)})
                   </span>
                   <span className={(lastYear.net_sales ?? 0) > 0 ? '' : 'text-muted-foreground'}>
                     {(lastYear.net_sales ?? 0) > 0 ? money(lastYear.net_sales as number) : '—'}
@@ -229,7 +319,7 @@ export function SalesProjectionDialog({
               </div>
               {hasOverride && row?.override_at && (
                 <p className="text-xs text-muted-foreground">
-                  Set {format(new Date(row.override_at), 'MMM d, yyyy h:mm a')}
+                   Set {DateTime.fromISO(row.override_at, { setZone: true }).setZone(BUSINESS_ZONE).toFormat('MMM d, yyyy h:mm a')}
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
