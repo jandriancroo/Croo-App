@@ -766,9 +766,9 @@ export function LaborTotals({
 
       {/* Labor Percentage Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">Labor %</span>
-          {weeklyTotals.sales > 0 ? <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
+        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Labor %</span>
+          {weeklyTotals.sales > 0 ? <span className={`text-base font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
               {weeklyTotals.laborPercent.toFixed(1)}%
             </span> : <span className="text-xs text-muted-foreground">-</span>}
         </div>
@@ -779,8 +779,8 @@ export function LaborTotals({
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
+        return <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-base font-bold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
@@ -789,18 +789,18 @@ export function LaborTotals({
 
       {/* Sales Per Labor Hour Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">$/LH</span>
+        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">$/LH</span>
           {(() => {
           const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
-          return weeklySalesPerLH > 0 ? <span className="text-xs font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
+          return weeklySalesPerLH > 0 ? <span className="text-base font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
         })()}
         </div>
         {dailyTotals.map((day, index) => {
         const phase = getDayPhase(index);
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
+        return <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-base font-bold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
