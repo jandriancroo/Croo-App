@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_cache ADD COLUMN IF NOT EXISTS override_excluded_dates jsonb;
