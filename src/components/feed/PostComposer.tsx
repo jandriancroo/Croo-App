@@ -21,6 +21,7 @@ interface PostComposerProps {
   canCreateBadges: boolean;
   onSubmit: (input: {
     body: string;
+    subject: string | null;
     media: FeedMedia[];
     channelId: string | null;
     pinned: boolean;
@@ -39,6 +40,7 @@ export function PostComposer({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [body, setBody] = useState('');
+  const [subject, setSubject] = useState('');
   const [media, setMedia] = useState<FeedMedia[]>([]);
   const [channelId, setChannelId] = useState<string | null>(null);
   const [badgeId, setBadgeId] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function PostComposer({
     ?? null;
 
   const reset = () => {
-    setBody(''); setMedia([]); setChannelId(defaultChannelId); setBadgeId(null);
+    setBody(''); setSubject(''); setMedia([]); setChannelId(defaultChannelId); setBadgeId(null);
     setIsAnnouncement(false); setPinned(false);
   };
 
@@ -106,6 +108,7 @@ export function PostComposer({
     try {
       await onSubmit({
         body: body.trim(),
+        subject: isAnnouncement ? subject.trim() || null : null,
         media,
         channelId: channelId ?? defaultChannelId,
         pinned: canAnnounce ? pinned : false,
@@ -139,6 +142,18 @@ export function PostComposer({
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
+            {isAnnouncement && (
+              <div className="space-y-1.5">
+                <Label htmlFor="announcement-subject">Subject</Label>
+                <Input
+                  id="announcement-subject"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                  placeholder="What is this announcement about?"
+                  maxLength={120}
+                />
+              </div>
+            )}
             <Textarea
               autoFocus
               value={body}

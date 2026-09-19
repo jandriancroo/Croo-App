@@ -84,6 +84,7 @@ export interface FeedPost {
   channel_id: string | null;
   badge_id: string | null;
   is_announcement: boolean;
+  subject: string | null;
   body: string;
   media: FeedMedia[];
   pinned: boolean;
@@ -166,7 +167,7 @@ export function useAnnouncementFeed(
     queryFn: async (): Promise<FeedPost[]> => {
       let q = supabase
         .from('announcement_posts')
-        .select('id, author_id, brand_id, location_id, channel_id, badge_id, is_announcement, body, media, pinned, allow_comments, created_at, edited_at')
+        .select('id, author_id, brand_id, location_id, channel_id, badge_id, is_announcement, subject, body, media, pinned, allow_comments, created_at, edited_at')
         .is('deleted_at', null)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
@@ -303,9 +304,9 @@ export function useAnnouncementFeed(
 
   const createPost = useMutation({
     mutationFn: async ({
-      body, media, channelId, pinned, badgeId, isAnnouncement,
+      body, subject, media, channelId, pinned, badgeId, isAnnouncement,
     }: {
-      body: string; media: FeedMedia[]; channelId: string | null; pinned?: boolean;
+      body: string; subject?: string | null; media: FeedMedia[]; channelId: string | null; pinned?: boolean;
       badgeId?: string | null; isAnnouncement?: boolean;
     }) => {
       if (!user || !locationId) throw new Error('Missing context');
@@ -317,6 +318,7 @@ export function useAnnouncementFeed(
         channel_id: channelId,
         badge_id: badgeId ?? null,
         is_announcement: !!isAnnouncement,
+        subject: isAnnouncement ? subject?.trim() || null : null,
         body,
         media: media as any,
         pinned: !!pinned,
@@ -339,7 +341,7 @@ export function useAnnouncementFeed(
             (user.user_metadata as any)?.nickname ||
             (user.user_metadata as any)?.full_name ||
             'Team';
-          const preview = (body || 'Shared a post').slice(0, 140);
+          const preview = (subject?.trim() || body || 'Shared a post').slice(0, 140);
           supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: userIds,

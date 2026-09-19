@@ -17,3 +17,4 @@
 - [x] Verify both refinements on desktop and mobile
 - [x] Restore compact posts with See more/less and uniform body text
 - [x] Replace the labeled Unpin control with a single toggleable pin icon
+- [x] Add optional subject lines to announcements
