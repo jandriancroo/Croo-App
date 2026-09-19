@@ -16,6 +16,12 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { MobileDayPreviewSheet } from './MobileDayPreviewSheet';
 import { AvailabilityRequest } from '@/hooks/useScheduleData';
+import {
+  chipLabels,
+  dayHasRestriction,
+  normalizeDayAvailability,
+  type WeeklyAvailability,
+} from '@/types/availability';
 import { useLocationStations } from '@/hooks/useLocationStations';
 import { useUserStationAssignments } from '@/hooks/useUserStationAssignments';
 import { useQuery } from '@tanstack/react-query';
@@ -26,6 +32,7 @@ interface Profile {
   nickname?: string | null;
   profile_photo_url: string | null;
   role?: string | null;
+  weekly_availability?: WeeklyAvailability | null;
 }
 
 const ROLE_GROUPS: { key: string; label: string; roles: string[] }[] = [
@@ -505,6 +512,17 @@ export function MobileAddScheduleSheet({
     if (!empUserId || !currentDay) return [];
     return availabilityForDay(availabilityRequests, empUserId, format(currentDay, 'yyyy-MM-dd'));
   }, [empUserId, currentDay, availabilityRequests]);
+
+  // Recurring weekly availability for the selected employee (can't-work blocks model)
+  const empProfile = useMemo(() => profiles.find(p => p.id === empUserId), [profiles, empUserId]);
+  const WEEKLY_DAY_NAMES: (keyof WeeklyAvailability)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const weeklyRestrictionForDay = (dayIdx: number) => {
+    const raw = empProfile?.weekly_availability?.[WEEKLY_DAY_NAMES[dayIdx]];
+    if (!raw) return undefined;
+    const pref = normalizeDayAvailability(raw);
+    return dayHasRestriction(pref) ? pref : undefined;
+  };
+  const currentDayWeeklyPref = weeklyRestrictionForDay(dayCursor);
 
   return (
     <>
