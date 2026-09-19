@@ -18,3 +18,4 @@
 - [x] Restore compact posts with See more/less and uniform body text
 - [x] Replace the labeled Unpin control with a single toggleable pin icon
 - [x] Add optional subject lines to announcements
+- [ ] Ship aggregate live-labor RPCs (get_live_labor_totals, get_labor_totals_for_dates, get_cut_savings_estimate); rewire liveLabor.ts + CompactDashboard; verify Palm Springs parity; publish.
