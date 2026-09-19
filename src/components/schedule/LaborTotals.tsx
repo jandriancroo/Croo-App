@@ -809,10 +809,10 @@ export function LaborTotals({
 
       {/* Projected Sales Row - Now at bottom */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">Sales</span>
-          {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-          <span className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</span>
+        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sales</span>
+          {isLoadingQuSales && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          <span className="text-base font-bold">${weeklyTotals.sales.toFixed(0)}</span>
         </div>
         {weekDays.map((day, index) => {
           const source = salesSource[index];
@@ -837,14 +837,14 @@ export function LaborTotals({
                          isPastDay ? 'bg-muted' : '';
           
           return (
-            <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
+             <div key={index} className={`p-1.5 border-r border-border text-center relative ${bgClass}`}>
               {isEditable ? (
-                <div className="relative flex items-center justify-center gap-0.5">
+                <div className="relative flex items-center justify-center gap-1">
                   <button
                     type="button"
                     onClick={() => setProjectionDialogDay(index)}
                     data-sales-cell={dayStr}
-                    className={`h-7 flex-1 rounded-md border text-xs font-medium transition-colors hover:bg-muted/60 ${
+                    className={`h-9 flex-1 rounded-md border text-sm font-bold transition-colors hover:bg-muted/60 ${
                       isLiving ? 'border-primary/30' :
                       isInitial ? 'border-primary/20' :
                       isOverride ? 'border-amber-500/30 bg-amber-500/5' :
