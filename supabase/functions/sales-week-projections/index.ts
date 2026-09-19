@@ -85,6 +85,10 @@ Deno.serve(async (req) => {
     }
 
     if (action === "seed_all_weeks") {
+      // Cron / service-role only — never called from the browser.
+      const denied = await requireAuthorizedCaller(req, corsHeaders);
+      if (denied) return denied;
+
       const offset = Number.isFinite(body.weekOffset) ? Number(body.weekOffset) : 0;
 
       const { data: integrations, error } = await supabase
