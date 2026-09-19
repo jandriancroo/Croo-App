@@ -1,43 +1,66 @@
-# Shift-manager wage privacy vs labor totals — findings only, no code
+# Real labor $ for shift managers, wages never leave the server (SHIP — awaiting write confirmation)
 
-## Conclusion first
+## Problem (confirmed)
 
-- **Yes — today a shift manager sees wrong labor dollars on the phone Summary.** Today's live labor is computed on the phone via `get_current_wages_batch`, which masks every wage to $15 for anyone below `manager`. Shift managers see a wrong (usually inflated) Labor % for the current day. Completed days are correct (server-computed `labor_cache`).
-- **No — shift managers cannot see individual wages anywhere.** They can open team profile cards, but those cards show only name, nickname, photo, phone, birthday. The wage data is unreachable to them at the database level, not just hidden in the UI.
+`fetchLiveLaborForToday` and `fetchActualLaborForDates` call `get_current_wages_batch`, which
+masks every wage to $15 for anyone below `manager`. Shift managers can view sales/labor
+(`canViewSalesAndLabor`) but not wages, so their Labor % is wrong — e.g. Palm Springs: Joey
+(admin) 36.7% ≈ $262 vs Andrea (shift_manager_in_training) 27.2% ≈ $194 on the same $715 sales.
 
-## A) Can a shift manager open another user's profile / user-management card?
+## What we build
 
-- `/users` (UserManagement page): **no.** `src/hooks/useUserManagementData.tsx` line 78: `canAccessPage = isAdmin || isManager`, and line 126-130 redirects away otherwise. In `src/hooks/useUserRole.tsx`, `isManager` starts at the `manager` role — shift managers are excluded.
-- `/my-team` (MyTeam page): **yes, intentionally.** `canViewAllProfiles = isShiftManager` (shift manager and above, `useUserRole.tsx` line ~89). `src/pages/MyTeam.tsx` has no role gate; it lists active teammates at the location with name, nickname, photo, phone, birthday only (line 67 selects exactly those columns).
-- Routes in `src/App.tsx` (lines 215-216) are plain `ProtectedRoute` (signed-in only); the role gate lives inside each page.
+### 1. Two new aggregate-only RPCs (migration, SECURITY DEFINER)
 
-## B) If they can open it, is `hourly_wage` / wage history shown?
+**`get_live_labor_totals(_location_id uuid, _date date)`** → `TABLE(hours numeric, cost numeric)`
 
-Never. Two independent layers:
+- Gate: caller must be `shift_manager` or higher (`has_role_or_higher(auth.uid(), 'shift_manager')`)
+  AND have membership at `_location_id` (`user_locations`). Otherwise returns empty / raises
+  `permission denied`. Mirrors the kiosk-wages authorization pattern.
+- Compute server-side: punches for the business date (timezone from `location_settings`, same
+  bucketing rules as `fetchLiveLaborForToday` — open punches and open breaks count through
+  `now()` for today, closed pairs only for past dates), breaks unpaid, hours × real wage
+  resolved from `wage_history` (fallback `profiles.hourly_wage`, fallback 15) ignoring caller
+  role for the wage lookup.
+- Returns exactly one row: `{ hours, cost }`. No user IDs, no wages, no maps.
 
-1. **UI:** `MyTeam.tsx` selects only `id, full_name, nickname, profile_photo_url, phone_number, birthday`. Wage dialogs exist only in `src/components/users/UserManagementDialogs.tsx` (Wage dialog + history dialog), which is unreachable to shift managers via the `/users` gate above.
-2. **Database:** `profiles.hourly_wage` is column-revoked (see `src/lib/profileColumns.ts` — it is explicitly excluded from selectable columns). `wage_history` RLS (verified live): all four policies require `is_super_admin(auth.uid()) OR has_role(auth.uid(), 'admin')` — select, insert, update, delete. A shift manager's direct query returns zero rows.
+**`get_labor_totals_for_dates(_location_id uuid, _dates date[])`** → `TABLE(date date, hours numeric, cost numeric)`
 
-## C) Where does today's labor $ come from for a shift-manager session?
+- Same gate and same math, but for closed-day gap fills (week views): open punches do **not**
+  count through now. One row per requested date.
 
-| Surface | Today's labor source | Wage resolution for shift_manager | Result |
-|---|---|---|---|
-| Phone Dash Summary (`src/components/dashboard/SalesSummary.tsx` lines 237, 720) | `fetchLiveLaborForToday()` with default wage source | `get_current_wages_batch` (`src/utils/liveLabor.ts` line 80) | **$15 mask → wrong Labor % today** |
-| Phone Summary, completed days (lines 190-207, 395-410) | `labor_cache` (prefers `source='punch_clock'`) | server-computed real wages | correct |
-| Dynamic Manager overlay (`src/components/punchclock/ManagerDashboardOverlay.tsx` lines ~426, ~479) | `kiosk-wages` edge function for both employee list and `fetchLiveLaborForToday({ wageSource: 'kiosk' })` | real wages, authorized by paired device or manager+ | correct — but a shift-manager **phone** session hitting `kiosk-wages` gets 403 (manager-only human path), so this helper can't be reused as-is for phone |
+### 2. Client rewiring (`src/utils/liveLabor.ts`)
 
-`has_role_or_higher(auth.uid(), 'manager')` (verified live) excludes `shift_manager` and `shift_manager_in_training`; `useTeamSalesVisibility.tsx` shows them the Summary anyway. That gap is the bug Jordan is pointing at.
+- `fetchLiveLaborForToday` default path: call `get_live_labor_totals` instead of fetching
+  punches + `get_current_wages_batch` client-side. Keep the `wageSource: 'kiosk'` branch
+  untouched (punch-clock overlay already fixed).
+- `fetchActualLaborForDates`: call `get_labor_totals_for_dates`; same aggregate-only rule.
+- All existing callers (SalesSummary, LaborTotals, DayInsightsBar, CompactDashboard,
+  useOrgDashboardData, usePersonalPayData, etc.) inherit the fix automatically.
 
-## D) Privacy-safe design: aggregate labor without per-person wages
+### 3. CompactDashboard labor-cuts path
 
-Nothing like this exists today for phone sessions. The current options are: `get_current_wages_batch` (per-user wages, manager+ only, $15 mask otherwise) and `kiosk-wages` (per-user wages, paired-device or manager+ only). Both ship individual rates to the client.
+`src/components/dock/CompactDashboard.tsx` lines ~340/354/629/1089 ship per-employee
+`hourly_wage` to the client to estimate "cost saved" when cutting someone. This leaks a
+(masked, wrong) per-person rate and breaks the privacy rule.
 
-Proposed: a new server-side **`live-labor-totals` endpoint** that:
+- Replace with a sibling aggregate RPC **`get_cut_savings_estimate(_location_id uuid, _cuts jsonb)`**
+  (jsonb = `[{user_id, minutes}]`) that returns per-cut dollar savings computed with real wages
+  server-side — savings amounts only, never rates. The dock shows the same savings numbers,
+  correct for every role.
 
-- Authorizes: shift manager or higher with membership at that location (reuse `has_role_or_higher` + `user_locations` check, same pattern as `kiosk-wages`).
-- Computes hours × wage server-side (same punch bucketing as `_shared/punchLabor.ts` / `fetchLiveLaborForToday`) and returns **only** `{ date, hours, cost }` for the location — no per-user wages, no per-user costs, nothing about individuals.
-- Phone Summary (and the Dynamic Manager overlay when opened by a phone manager) calls this instead of the wage RPC. `labor_cache` stays untouched for closed days; locked cache rules unaffected.
+### 4. Explicitly untouched
 
-This gives shift managers real Labor % and Labor $ for labor decisions while keeping every pay rate off their device. It also guarantees all phones agree with each other and with the punch clock.
+- `get_current_wages_batch` — not loosened.
+- `labor_cache` / `sales_cache` writes, sources, unique constraints — untouched.
+- Profile / UserManagement wage visibility — unchanged; shift managers still see no wages.
+- Locked features, kiosk `wageSource: 'kiosk'` path, schedule labor surfaces — untouched.
 
-## No files were changed for this audit.
+## Verification
+
+- Andrea-class (shift_manager_in_training) and Joey-class (admin) sessions show identical
+  Labor % / Labor $ on Summary for the same location and moment (Palm Springs repro).
+- Network tab on a shift-manager session: no `hourly_wage` payload anywhere on the Summary
+  labor fetch.
+- Team member with `view_sales` off: RPCs return permission denied; Summary shows no labor.
+- Week view gap-fill matches `labor_cache`-backed days.
+- Publish to croohq.com after write, per ship note.
