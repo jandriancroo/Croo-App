@@ -148,6 +148,7 @@ export async function seedWeekProjections(
   for (const row of existingRows ?? []) existing.set(row.sale_date, row);
 
   const { open: hoursOpen, close: hoursClose } = await getStoreHours(supabase, locationId);
+  const posSource = await getActivePosSource(supabase, locationId);
   const days: SeededDay[] = [];
 
   for (const date of weekDates) {
@@ -255,6 +256,7 @@ export async function seedWeekProjections(
         guest_count: 0,
         initial_projection: projected,
         living_projection: projected,
+        ...(posSource ? { pos_source: posSource } : {}),
       });
       if (insertErr) throw new Error(`sales_cache insert failed for ${date}: ${insertErr.message}`);
       days.push({ sale_date: date, projection: projected, action: "created" });
