@@ -13297,6 +13297,17 @@ export type Database = {
       }
     }
     Functions: {
+      _labor_totals_authorized: {
+        Args: { _location_id: string }
+        Returns: boolean
+      }
+      _labor_totals_for_date: {
+        Args: { _date: string; _location_id: string; _show_live: boolean }
+        Returns: {
+          cost: number
+          hours: number
+        }[]
+      }
       _validate_widget_authority: {
         Args: {
           _brand_id: string
@@ -13468,6 +13479,29 @@ export type Database = {
         Returns: {
           hourly_wage: number
           user_id: string
+        }[]
+      }
+      get_cut_savings_estimate: {
+        Args: { _cuts: Json; _location_id: string }
+        Returns: {
+          minutes: number
+          savings: number
+          user_id: string
+        }[]
+      }
+      get_labor_totals_for_dates: {
+        Args: { _dates: string[]; _location_id: string }
+        Returns: {
+          cost: number
+          date: string
+          hours: number
+        }[]
+      }
+      get_live_labor_totals: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          cost: number
+          hours: number
         }[]
       }
       get_pin_migration_health: {
