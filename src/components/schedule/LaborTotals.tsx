@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
+import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
@@ -232,6 +233,42 @@ export function LaborTotals({
             : Promise.resolve({ data: null })
         ]);
         
+        // Any future day still missing a projection is filled by the shared,
+        // POS-neutral projection service (works for every brand and POS).
+        let futureRows = futureResponse.data;
+        const missingProjection = futureDates.filter(dateStr => {
+          const row = (futureRows || []).find(r => r.sale_date === dateStr);
+          if (!row) return true;
+          return !resolveProjection({
+            initial_projection: row.initial_projection,
+            living_projection: row.living_projection,
+            override_projection: row.override_projection,
+            projected_sales: row.projected_sales
+          }).value;
+        });
+        
+        if (missingProjection.length > 0) {
+          try {
+            const { error: seedError } = await supabase.functions.invoke('sales-week-projections', {
+              body: {
+                action: 'seed_week',
+                locationId: currentLocation.id,
+                weekStart: format(weekDays[0], 'yyyy-MM-dd')
+              }
+            });
+            if (!seedError) {
+              const { data: refreshed } = await supabase
+                .from('sales_cache')
+                .select('sale_date, initial_projection, living_projection, override_projection, projected_sales')
+                .eq('location_id', currentLocation.id)
+                .in('sale_date', futureDates);
+              if (refreshed) futureRows = refreshed;
+            }
+          } catch (seedErr) {
+            console.warn('[LaborTotals] shared week projection seed failed:', seedErr);
+          }
+        }
+        
         // Process cached data immediately
         const newSales: Record<number, number> = { ...projectedSales };
         const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'> = { ...salesSource };
@@ -250,8 +287,8 @@ export function LaborTotals({
         }
         
         // Future days from projections
-        if (futureResponse.data) {
-          futureResponse.data.forEach(row => {
+        if (futureRows) {
+          futureRows.forEach(row => {
             const resolved = resolveProjection({
               initial_projection: row.initial_projection,
               living_projection: row.living_projection,
@@ -298,13 +335,11 @@ export function LaborTotals({
         // PHASE 2: Fetch today's LIVE data in background (SLOW - ~10s)
         // This updates the display when ready without blocking initial render
         if (todayIndex !== null) {
-          supabase.functions.invoke("fetch-qubeyond-sales", { 
-            body: { locationId: currentLocation.id } 
-          }).then(({ data, error }) => {
-            if (!error && data && data.daily > 0) {
+          refreshLiveSalesForToday(currentLocation.id).then(daily => {
+            if (daily && daily > 0) {
               setProjectedSales(prev => ({
                 ...prev,
-                [todayIndex as number]: Math.round(data.daily * 100) / 100
+                [todayIndex as number]: Math.round(daily * 100) / 100
               }));
               setSalesSource(prev => ({
                 ...prev,
@@ -493,33 +528,52 @@ export function LaborTotals({
         } else {
           toast.info(`No projection available for ${format(day, 'EEE')}`);
         }
+      } else if (isPast || isTodayDate) {
+        // Past/today with no cached row: refresh through the store's own POS.
+        const daily = await refreshLiveSalesForToday(currentLocation.id, timezone);
+        if (daily && daily > 0) {
+          setProjectedSales(prev => ({ ...prev, [dayIndex]: Math.round(daily * 100) / 100 }));
+          setSalesSource(prev => ({ ...prev, [dayIndex]: 'historical' }));
+          toast.success(`Reloaded actual sales for ${format(day, 'EEE')}`);
+        } else {
+          toast.info(`No sales available for ${format(day, 'EEE')}`);
+        }
       } else {
-        // No cache data, try fetching from API
-        const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-          body: { locationId: currentLocation.id, targetDate: dateStr }
+        // Future day with no row: use the shared projection service (any POS).
+        const { error: seedError } = await supabase.functions.invoke('sales-week-projections', {
+          body: {
+            action: 'seed_week',
+            locationId: currentLocation.id,
+            weekStart: format(weekDays[0], 'yyyy-MM-dd')
+          }
         });
         
-        if (!error && data) {
-          let salesValue: number;
-          let source: 'historical' | 'living';
-          
-          if (isPast || isTodayDate) {
-            salesValue = Math.round((data.daily || 0) * 100) / 100;
-            source = 'historical';
-          } else {
-            salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
-            source = 'living';
-          }
-          
-          if (salesValue > 0) {
-            setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
-            setSalesSource(prev => ({ ...prev, [dayIndex]: source }));
-            toast.success(`Reloaded ${source === 'living' ? 'Live AI projection' : 'actual sales'} for ${format(day, 'EEE')}`);
-          } else {
-            toast.info(`No projection available for ${format(day, 'EEE')}`);
-          }
-        } else {
+        if (seedError) {
           toast.error('Failed to reload projection');
+          return;
+        }
+        
+        const { data: seeded } = await supabase
+          .from('sales_cache')
+          .select('initial_projection, living_projection, projected_sales')
+          .eq('location_id', currentLocation.id)
+          .eq('sale_date', dateStr)
+          .maybeSingle();
+        
+        const resolved = resolveProjection({
+          initial_projection: seeded?.initial_projection,
+          living_projection: seeded?.living_projection,
+          override_projection: null,
+          projected_sales: seeded?.projected_sales
+        });
+        const salesValue = Math.round((resolved.value || 0) * 100) / 100;
+        
+        if (salesValue > 0) {
+          setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
+          setSalesSource(prev => ({ ...prev, [dayIndex]: resolved.source === 'legacy' ? 'ai' : (resolved.source as 'living' | 'initial') || 'ai' }));
+          toast.success(`Reloaded AI projection for ${format(day, 'EEE')}`);
+        } else {
+          toast.info(`No projection available for ${format(day, 'EEE')}`);
         }
       }
     } catch (error) {
