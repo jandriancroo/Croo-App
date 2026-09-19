@@ -147,3 +147,6 @@ verify_jwt = false
 
 [functions.corrective-action-transcribe]
 verify_jwt = false
+
+[functions.sales-week-projections]
+verify_jwt = false
