@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Briefcase, Headphones, ArrowLeft, Plus } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -47,11 +48,11 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
     );
   }, [chats, dmSearch]);
 
-  const steps: { id: Step; label: string; icon: any }[] = [
+  const steps = useMemo<{ id: Step; label: string; icon: LucideIcon }[]>(() => [
     { id: 'dms', label: 'Direct messages', icon: MessageCircle },
     ...(showHiringTab ? [{ id: 'hiring' as Step, label: 'Hiring', icon: Briefcase }] : []),
     ...(showSupportTab ? [{ id: 'support' as Step, label: 'Support', icon: Headphones }] : []),
-  ];
+  ], [showHiringTab, showSupportTab]);
 
   const [step, setStep] = useState<Step>('dms');
 
