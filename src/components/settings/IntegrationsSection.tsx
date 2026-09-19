@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
 import { InventoryAccessCard } from "./InventoryAccessCard";
 import AlohaIntegrationCard from "@/components/location/AlohaIntegrationCard";
+import { useBrandIntegrationPolicies } from "@/hooks/useBrandIntegrationPolicies";
 
 interface QuBeyondCredentials {
   username: string;
@@ -90,6 +91,9 @@ function IntegrationCard({
 
 export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
+  const { data: enabledBrandIntegrations, isLoading: brandPoliciesLoading } = useBrandIntegrationPolicies(locationId);
+  const integrationEnabled = (key: 'qubeyond' | 'clover' | 'aloha' | 'pfg' | 'produce_alliance' | 'ovation') =>
+    brandPoliciesLoading || enabledBrandIntegrations?.has(key);
 
   // Dialog state
   const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | 'aloha' | null>(null);
@@ -863,30 +867,30 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       {/* Card Grid */}
       <div className="space-y-2">
         <InventoryAccessCard locationId={locationId} />
-        <IntegrationCard
+        {integrationEnabled('qubeyond') && <IntegrationCard
           title="QuBeyond POS"
           description="Sales & labor data"
           connected={qbConnected}
           status={qbStatus as 'ok' | 'warning' | 'off'}
           isLoading={isLoading || isProbingAuth}
           onEdit={() => setEditingIntegration('qubeyond')}
-        />
-        <IntegrationCard
+        />}
+        {integrationEnabled('pfg') && <IntegrationCard
           title="PFG"
           description="Food ordering system"
           connected={pfgConnected}
           logo={pfgLogo}
           isLoading={pfgIsLoading}
           onEdit={() => setEditingIntegration('pfg')}
-        />
-        <IntegrationCard
+        />}
+        {integrationEnabled('produce_alliance') && <IntegrationCard
           title="Produce Alliance"
           description="Produce orders & pricing"
           connected={paConnected}
           logo={paLogo}
           isLoading={paIsLoading}
           onEdit={() => setEditingIntegration('pa')}
-        />
+        />}
         {FEATURE_FLAGS.KDS_ENABLED && (
           <IntegrationCard
             title="Fresh KDS"
@@ -895,12 +899,12 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             onEdit={() => setEditingIntegration('kds')}
           />
         )}
-        <IntegrationCard
+        {integrationEnabled('ovation') && <IntegrationCard
           title="OvationUp"
           description="Guest reviews & feedback"
           connected={!!ovationIntegration && !!ovationMapping && ((ovationIntegration as any)?.is_active ?? true)}
           onEdit={() => setEditingIntegration('ovation')}
-        />
+        />}
         {FEATURE_FLAGS.OPUS_ENABLED && (
           <IntegrationCard
             title="OPUS LMS"
@@ -909,20 +913,20 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             onEdit={() => setEditingIntegration('opus')}
           />
         )}
-        <IntegrationCard
+        {integrationEnabled('clover') && <IntegrationCard
           title="Clover POS"
           description="Orders & payments (Playa Bowls)"
           connected={!!cloverIntegration?.is_active && !!(cloverIntegration?.credentials as any)?.api_token}
           isLoading={cloverIsLoading}
           onEdit={() => setEditingIntegration('clover')}
-        />
-        <IntegrationCard
+        />}
+        {integrationEnabled('aloha') && <IntegrationCard
           title="Aloha (BWW GO)"
           description="Sierra Food Group Insight portal — sales & labor"
           connected={!!alohaIntegration?.is_active && !!(alohaIntegration?.credentials as any)?.username}
           isLoading={alohaIsLoading}
           onEdit={() => setEditingIntegration('aloha')}
-        />
+        />}
       </div>
 
       {/* ── Aloha Dialog ── */}
