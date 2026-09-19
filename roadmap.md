@@ -12,3 +12,6 @@
 - [x] Restyle chat feed cards with pinned/regular magazine bands and split body typography
 - [x] Replace the DM arrow pager with a role-aware segmented control
 - [x] Verify desktop/mobile chat behavior and prepare the review summary
+- [ ] Fix inbox segment label truncation and increase label readability
+- [ ] Add an easy Unpin action for pinned feed posts
+- [ ] Verify both refinements on desktop and mobile
