@@ -687,6 +687,15 @@ export function LaborTotals({
 
   const [isToolsOpen, setIsToolsOpen] = useState(false);
 
+  // Day phase helper: completed days get a shaded column, today is in progress, future days stay clean
+  const getDayPhase = (index: number): 'completed' | 'today' | 'future' => {
+    const dayStr = format(weekDays[index], 'yyyy-MM-dd');
+    const todayStr = getTodayPST();
+    if (dayStr < todayStr) return 'completed';
+    if (dayStr === todayStr) return 'today';
+    return 'future';
+  };
+
   // Only show labor totals to users who can view sales/labor
   // (shift managers and above, OR team members with location setting enabled)
   if (!canSeeSales) {
