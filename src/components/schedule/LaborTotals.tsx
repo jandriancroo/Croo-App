@@ -725,21 +725,21 @@ export function LaborTotals({
 
   return <div className="text-xs min-w-[700px]">
       {/* Week Insights tab - rendered inline, pulled up over the border with negative margin */}
-      <div className="-mt-[1.85rem] mb-0 relative z-10">
+      <div className="-mt-[2.15rem] mb-0 relative z-10">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
-            px-3 py-1.5 flex items-center gap-1.5 rounded-t-lg border-t border-x border-border
-            transition-all cursor-pointer text-xs font-medium
+            px-4 py-2 flex items-center gap-2 rounded-t-xl border-t border-x border-border
+            transition-all duration-200 cursor-pointer text-sm font-semibold
             ${isToolsOpen 
               ? 'bg-card text-foreground shadow-sm' 
-              : 'bg-muted hover:bg-card text-muted-foreground hover:text-foreground'
+              : 'bg-muted hover:bg-card text-muted-foreground hover:text-foreground hover:px-5'
             }
           `}
         >
-          <BarChart3 className="h-3.5 w-3.5" />
+          <BarChart3 className="h-4 w-4" />
           <span>Week Insights</span>
-          {isToolsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          {isToolsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
       </div>
 
@@ -748,17 +748,17 @@ export function LaborTotals({
         <div className="-mt-[1px] border border-border rounded-b-lg rounded-tr-lg bg-card shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] overflow-hidden animate-accordion-down mb-2">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-            <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-              <span className="text-xs font-semibold">Week</span>
-              <span className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
-              {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
+            <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week</span>
+              <span className="text-base font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
+              {canViewAllWages && <span className="text-xs font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
             </div>
             {dailyTotals.map((day, index) => {
               const phase = getDayPhase(index);
               return (
-                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${phase === 'completed' ? 'bg-muted' : ''}`}>
-                  <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
-                  {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
+                <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center gap-1.5 ${phase === 'completed' ? 'bg-muted' : ''}`}>
+                  <span className={`text-base font-bold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
+                  {canViewAllWages && <span className="text-xs text-muted-foreground">(${day.wages.toFixed(0)})</span>}
                 </div>
               );
             })}
