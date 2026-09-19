@@ -232,7 +232,10 @@ export function SalesProjectionDialog({
     if (!(value >= 0)) return;
     setSaving(true);
     try {
-      await onSaveOverride(Math.round(value * 100) / 100);
+      const excludedDates = history
+        .filter(item => (item.net_sales ?? 0) > 0 && !includedDates.has(item.date))
+        .map(item => item.date);
+      await onSaveOverride(Math.round(value * 100) / 100, excludedDates);
       onOpenChange(false);
     } finally {
       setSaving(false);
