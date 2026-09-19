@@ -46,6 +46,29 @@ const BUSINESS_ZONE = 'America/Los_Angeles';
 const fromBusinessDate = (date: string) => DateTime.fromFormat(date, 'yyyy-MM-dd', { zone: BUSINESS_ZONE });
 const displayDate = (date: string, format = 'MMM d, yyyy') => fromBusinessDate(date).toFormat(format);
 
+const nthWeekday = (year: number, month: number, weekday: number, occurrence: number) => {
+  const first = DateTime.fromObject({ year, month, day: 1 }, { zone: BUSINESS_ZONE });
+  const offset = (weekday - first.weekday + 7) % 7;
+  return first.plus({ days: offset + (occurrence - 1) * 7 });
+};
+
+const lastWeekday = (year: number, month: number, weekday: number) => {
+  const last = DateTime.fromObject({ year, month, day: 1 }, { zone: BUSINESS_ZONE }).endOf('month').startOf('day');
+  return last.minus({ days: (last.weekday - weekday + 7) % 7 });
+};
+
+const standardUSSalesEvents = (years: number[]): NearbyEvent[] => years.flatMap(year => [
+  { id: `new-year-${year}`, date: `${year}-01-01`, name: "New Year's Day", kind: 'holiday' as const },
+  { id: `mlk-${year}`, date: nthWeekday(year, 1, 1, 3).toFormat('yyyy-MM-dd'), name: 'Martin Luther King Jr. Day', kind: 'holiday' as const },
+  { id: `presidents-${year}`, date: nthWeekday(year, 2, 1, 3).toFormat('yyyy-MM-dd'), name: "Presidents' Day", kind: 'holiday' as const },
+  { id: `memorial-${year}`, date: lastWeekday(year, 5, 1).toFormat('yyyy-MM-dd'), name: 'Memorial Day', kind: 'holiday' as const },
+  { id: `juneteenth-${year}`, date: `${year}-06-19`, name: 'Juneteenth', kind: 'holiday' as const },
+  { id: `independence-${year}`, date: `${year}-07-04`, name: 'Independence Day', kind: 'holiday' as const },
+  { id: `labor-${year}`, date: nthWeekday(year, 9, 1, 1).toFormat('yyyy-MM-dd'), name: 'Labor Day', kind: 'holiday' as const },
+  { id: `thanksgiving-${year}`, date: nthWeekday(year, 11, 4, 4).toFormat('yyyy-MM-dd'), name: 'Thanksgiving', kind: 'holiday' as const },
+  { id: `christmas-${year}`, date: `${year}-12-25`, name: 'Christmas Day', kind: 'holiday' as const },
+]);
+
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 export function SalesProjectionDialog({
@@ -86,6 +109,7 @@ export function SalesProjectionDialog({
       setLoading(true);
       const annotationStart = fromBusinessDate(historyDates[historyDates.length - 1]).minus({ days: 3 }).toFormat('yyyy-MM-dd');
       const annotationEnd = fromBusinessDate(historyDates[0]).plus({ days: 3 }).toFormat('yyyy-MM-dd');
+      const annotationYears = Array.from(new Set([fromBusinessDate(annotationStart).year, fromBusinessDate(annotationEnd).year]));
       const [rowRes, histRes, holidayRes, eventRes] = await Promise.all([
         supabase
           .from('sales_cache')
@@ -123,7 +147,8 @@ export function SalesProjectionDialog({
         }));
       setHistory(nextHistory);
       setIncludedDates(new Set(nextHistory.filter(item => (item.net_sales ?? 0) > 0).map(item => item.date)));
-      setNearbyEvents([
+      const loadedEvents: NearbyEvent[] = [
+        ...standardUSSalesEvents(annotationYears),
         ...((holidayRes.data || []).map(holiday => ({
           id: holiday.id,
           date: holiday.holiday_date,
@@ -136,7 +161,8 @@ export function SalesProjectionDialog({
           name: event.event_name,
           kind: 'event' as const,
         }] : [])),
-      ]);
+      ];
+      setNearbyEvents(Array.from(new Map(loadedEvents.map(event => [`${event.date}:${event.name.toLowerCase()}`, event])).values()));
       const ly = rows.find(r => r.sale_date === lastYearDate);
       setLastYear(ly ? { date: lastYearDate, net_sales: ly.net_sales } : { date: lastYearDate, net_sales: null });
       setDraft(currentValue ? String(Math.round(currentValue * 100) / 100) : '');
