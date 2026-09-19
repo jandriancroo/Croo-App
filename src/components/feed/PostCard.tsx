@@ -205,7 +205,6 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
                   <Pin className="h-3 w-3" />
                 </span>
               ) : null}
-              )}
             </div>
           </div>
           {canManage && (
