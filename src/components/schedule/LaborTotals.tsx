@@ -723,18 +723,19 @@ export function LaborTotals({
     return null;
   }
 
+  const insightGrid = "grid grid-cols-[96px_repeat(7,1fr)] md:grid-cols-[116px_repeat(7,1fr)] lg:grid-cols-[150px_repeat(7,1fr)] xl:grid-cols-[170px_repeat(7,1fr)] gap-0";
+
   return <div className="text-xs min-w-[700px]">
-      {/* Week Insights tab - rendered inline, pulled up over the border with negative margin */}
-      <div className="-mt-[2.15rem] mb-0 relative z-10">
-        <button 
+      {/* Week Insights tab - dark floating pill */}
+      <div className="-mt-5 mb-2 relative z-10 flex">
+        <button
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
-            px-4 py-2 flex items-center gap-2 rounded-t-xl border-t border-x border-border
-            transition-all duration-200 cursor-pointer text-sm font-semibold
-            ${isToolsOpen 
-              ? 'bg-card text-foreground shadow-sm' 
-              : 'bg-muted hover:bg-card text-muted-foreground hover:text-foreground hover:px-5'
-            }
+            px-4 py-1.5 flex items-center gap-2 rounded-full text-sm font-semibold border shadow-lg
+            transition-all duration-200 cursor-pointer
+            ${isToolsOpen
+              ? 'bg-slate-900 text-slate-100 border-slate-700/60'
+              : 'bg-slate-800/90 text-slate-300 border-slate-700/40 hover:bg-slate-900 hover:text-slate-100'}
           `}
         >
           <BarChart3 className="h-4 w-4" />
@@ -743,183 +744,199 @@ export function LaborTotals({
         </button>
       </div>
 
-      {/* Content Panel - connects flush to the tab */}
+      {/* Dark dock panel */}
       {isToolsOpen && (
-        <div className="-mt-[1px] border border-border rounded-b-lg rounded-tr-lg bg-card shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] overflow-hidden animate-accordion-down mb-2">
-          {/* Daily Labor Totals */}
-          <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-            <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Week</span>
-              <span className="text-base font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
-              {canViewAllWages && <span className="text-xs font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
+        <div className="rounded-2xl bg-slate-900/95 backdrop-blur-sm border border-slate-700/60 shadow-[0_18px_50px_-12px_rgba(2,6,23,0.7)] overflow-hidden animate-accordion-down mb-2 text-slate-200">
+          {/* Day header */}
+          <div className={`${insightGrid} border-b border-slate-700/40`}>
+            <div className="px-3 py-1.5 bg-blue-950/40 flex items-center">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Week of {format(weekDays[0], 'MMM d')}</span>
             </div>
-            {dailyTotals.map((day, index) => {
+            {weekDays.map((day, index) => {
               const phase = getDayPhase(index);
               return (
-                <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center gap-1.5 ${phase === 'completed' ? 'bg-muted' : ''}`}>
-                  <span className={`text-base font-bold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
-                  {canViewAllWages && <span className="text-xs text-muted-foreground">(${day.wages.toFixed(0)})</span>}
+                <div key={index} className={`px-2 py-1.5 border-r border-slate-700/30 last:border-r-0 text-center whitespace-nowrap ${phase === 'completed' ? 'bg-white/[0.03]' : phase === 'today' ? 'bg-blue-500/15' : ''}`}>
+                  <span className={`text-xs font-bold ${phase === 'today' ? 'text-blue-300' : phase === 'completed' ? 'text-slate-500' : 'text-slate-300'}`}>
+                    {format(day, 'EEE')}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium ml-1">{format(day, 'M/d')}</span>
                 </div>
               );
             })}
           </div>
 
-      {/* Labor Percentage Row */}
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Labor %</span>
-          {weeklyTotals.sales > 0 ? <span className={`text-base font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
-              {weeklyTotals.laborPercent.toFixed(1)}%
-            </span> : <span className="text-xs text-muted-foreground">-</span>}
-        </div>
-        {dailyTotals.map((day, index) => {
-        const phase = getDayPhase(index);
-        const sales = projectedSales[index] || 0;
-        const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
-        const isGood = laborPercent > 0 && laborPercent <= 30;
-        const isWarning = laborPercent > 30 && laborPercent <= 35;
-        const isBad = laborPercent > 35;
-        return <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-base font-bold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
-                  {laborPercent.toFixed(1)}%
-                </span> : <span className="text-xs text-muted-foreground">-</span>}
-            </div>;
-      })}
-      </div>
+          {/* Hours row */}
+          <div className={`${insightGrid} border-b border-slate-700/40`}>
+            <div className="px-3 py-2 bg-blue-950/40 flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Hours</span>
+              <span className="text-sm font-bold text-slate-100">{weeklyTotals.hours.toFixed(1)}h</span>
+              {canViewAllWages && <span className="text-[11px] font-bold text-blue-300">(${weeklyTotals.wages.toFixed(0)})</span>}
+            </div>
+            {dailyTotals.map((day, index) => {
+              const phase = getDayPhase(index);
+              return (
+                <div key={index} className={`px-2 py-2 border-r border-slate-700/30 last:border-r-0 text-center flex items-center justify-center gap-1.5 ${phase === 'completed' ? 'bg-white/[0.03]' : phase === 'today' ? 'bg-blue-500/10' : ''}`}>
+                  <span className={`text-sm font-bold ${phase === 'completed' ? 'text-slate-500' : 'text-slate-100'}`}>{day.hours.toFixed(1)}h</span>
+                  {canViewAllWages && <span className="text-[11px] text-slate-500">(${day.wages.toFixed(0)})</span>}
+                </div>
+              );
+            })}
+          </div>
 
-      {/* Sales Per Labor Hour Row */}
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">$/LH</span>
-          {(() => {
-          const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
-          return weeklySalesPerLH > 0 ? <span className="text-base font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
-        })()}
-        </div>
-        {dailyTotals.map((day, index) => {
-        const phase = getDayPhase(index);
-        const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className={`px-2 py-2.5 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted' : ''}`}>
-              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-base font-bold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
-                  ${salesPerLH.toFixed(2)}
-                </span> : <span className="text-xs text-muted-foreground">-</span>}
-            </div>;
-      })}
-        </div>
+          {/* Labor % row */}
+          <div className={`${insightGrid} border-b border-slate-700/40`}>
+            <div className="px-3 py-2 bg-blue-950/40 flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Labor %</span>
+              {weeklyTotals.sales > 0 ? <span className={`text-sm font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-400' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {weeklyTotals.laborPercent.toFixed(1)}%
+                </span> : <span className="text-xs text-slate-500">-</span>}
+            </div>
+            {dailyTotals.map((day, index) => {
+              const phase = getDayPhase(index);
+              const sales = projectedSales[index] || 0;
+              const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
+              const isGood = laborPercent > 0 && laborPercent <= 30;
+              const isWarning = laborPercent > 30 && laborPercent <= 35;
+              const isBad = laborPercent > 35;
+              return <div key={index} className={`px-2 py-2 border-r border-slate-700/30 last:border-r-0 text-center flex items-center justify-center ${phase === 'completed' ? 'bg-white/[0.03]' : phase === 'today' ? 'bg-blue-500/10' : ''}`}>
+                    {isLoadingSales ? <span className="text-xs text-slate-500">...</span> : sales > 0 ? <span className={`text-sm font-bold ${isGood ? 'text-green-400' : isWarning ? 'text-yellow-400' : isBad ? 'text-red-400' : 'text-slate-100'}`}>
+                        {laborPercent.toFixed(1)}%
+                      </span> : <span className="text-xs text-slate-500">-</span>}
+                  </div>;
+            })}
+          </div>
 
-      {/* Projected Sales Row - Now at bottom */}
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
-        <div className="px-3 py-2.5 border-r border-border bg-muted/50 flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sales</span>
-          {isLoadingQuSales && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-          <span className="text-base font-bold">${weeklyTotals.sales.toFixed(0)}</span>
-        </div>
-        {weekDays.map((day, index) => {
-          const source = salesSource[index];
-          const isLiving = source === 'living';
-          const isInitial = source === 'initial' || source === 'ai';
-          const isHistorical = source === 'historical';
-          const isOverride = source === 'override' || source === 'manual';
-          
-          // Determine if this is a past day (no reload possible - use actuals)
-          const dayStr = format(day, 'yyyy-MM-dd');
-          const todayPST = getTodayPST();
-          const isPastDay = dayStr <= todayPST;
-          const isToday = dayStr === todayPST;
-          
-          // Only show reload button for future days with overrides
-          const canReload = isOverride && !isPastDay;
-          
-          // Determine background color based on source
-          const bgClass = isHistorical ? 'bg-green-500/10' : 
-                         isOverride ? 'bg-amber-500/10' : 
-                         isLiving ? 'bg-primary/5' :
-                         isPastDay ? 'bg-muted' : '';
-          
-          return (
-             <div key={index} className={`p-1.5 border-r border-border text-center relative ${bgClass}`}>
-              {isEditable ? (
-                <div className="relative flex items-center justify-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setProjectionDialogDay(index)}
-                    data-sales-cell={dayStr}
-                    className={`h-9 flex-1 rounded-md border text-sm font-bold transition-colors hover:bg-muted/60 ${
-                      isLiving ? 'border-primary/30' :
-                      isInitial ? 'border-primary/20' :
-                      isOverride ? 'border-amber-500/30 bg-amber-500/5' :
-                      isHistorical ? 'border-green-500/30 bg-green-500/5' : 'border-border'
-                    }`}
-                  >
-                    {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '$0'}
-                  </button>
-                  {isLiving && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Radio className="h-3 w-3 text-primary animate-pulse shrink-0" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Live AI Projection</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {isInitial && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>AI Projection</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {isHistorical && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Actual Sales</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {canReload && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 p-0 shrink-0"
-                          onClick={() => handleReloadProjection(index)}
-                        >
-                          <RotateCcw className="h-3 w-3 text-muted-foreground hover:text-primary" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Clear override & reload AI projection</p>
-                      </TooltipContent>
-                    </Tooltip>
+          {/* $/LH row */}
+          <div className={`${insightGrid} border-b border-slate-700/40`}>
+            <div className="px-3 py-2 bg-blue-950/40 flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">$/LH</span>
+              {(() => {
+                const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
+                return weeklySalesPerLH > 0 ? <span className="text-sm font-bold text-slate-100">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-slate-500">-</span>;
+              })()}
+            </div>
+            {dailyTotals.map((day, index) => {
+              const phase = getDayPhase(index);
+              const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
+              return <div key={index} className={`px-2 py-2 border-r border-slate-700/30 last:border-r-0 text-center flex items-center justify-center ${phase === 'completed' ? 'bg-white/[0.03]' : phase === 'today' ? 'bg-blue-500/10' : ''}`}>
+                    {isLoadingSales ? <span className="text-xs text-slate-500">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-sm font-bold ${phase === 'completed' ? 'text-slate-500' : 'text-slate-100'}`}>
+                        ${salesPerLH.toFixed(2)}
+                      </span> : <span className="text-xs text-slate-500">-</span>}
+                  </div>;
+            })}
+          </div>
+
+          {/* Sales row */}
+          <div className={insightGrid}>
+            <div className="px-3 py-2 bg-blue-950/40 flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Sales</span>
+              {isLoadingQuSales && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />}
+              <span className="text-sm font-bold text-slate-100">${weeklyTotals.sales.toFixed(0)}</span>
+            </div>
+            {weekDays.map((day, index) => {
+              const source = salesSource[index];
+              const isLiving = source === 'living';
+              const isInitial = source === 'initial' || source === 'ai';
+              const isHistorical = source === 'historical';
+              const isOverride = source === 'override' || source === 'manual';
+              
+              const dayStr = format(day, 'yyyy-MM-dd');
+              const todayPST = getTodayPST();
+              const isPastDay = dayStr <= todayPST;
+              const isToday = dayStr === todayPST;
+              const phase = getDayPhase(index);
+              
+              const canReload = isOverride && !isPastDay;
+              
+              const bgClass = isHistorical ? 'bg-green-500/10' : 
+                             isOverride ? 'bg-amber-500/10' : 
+                             isLiving ? 'bg-blue-500/5' :
+                             phase === 'completed' ? 'bg-white/[0.03]' : isToday ? 'bg-blue-500/10' : '';
+              
+              return (
+                 <div key={index} className={`p-1.5 border-r border-slate-700/30 last:border-r-0 text-center relative ${bgClass}`}>
+                  {isEditable ? (
+                    <div className="relative flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setProjectionDialogDay(index)}
+                        data-sales-cell={dayStr}
+                        className={`h-8 flex-1 rounded-lg border text-sm font-bold transition-colors hover:bg-white/5 ${
+                          isLiving ? 'border-blue-400/40 bg-blue-500/10 text-blue-200' :
+                          isInitial ? 'border-blue-400/20 bg-blue-500/5 text-blue-200' :
+                          isOverride ? 'border-amber-500/40 bg-amber-500/10 text-amber-200' :
+                          isHistorical ? 'border-green-500/40 bg-green-500/10 text-green-300' : 'border-slate-600/50 text-slate-100'
+                        }`}
+                      >
+                        {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '$0'}
+                      </button>
+                      {isLiving && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Radio className="h-3 w-3 text-blue-300 animate-pulse shrink-0" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Live AI Projection</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {isInitial && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Sparkles className="h-3 w-3 text-blue-300/60 shrink-0" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>AI Projection</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {isHistorical && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Actual Sales</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {canReload && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 p-0 shrink-0"
+                              onClick={() => handleReloadProjection(index)}
+                            >
+                              <RotateCcw className="h-3 w-3 text-slate-400 hover:text-blue-300" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Clear override & reload AI projection</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setProjectionDialogDay(index)}
+                      data-sales-cell={dayStr}
+                      className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                    >
+                      <p className={`text-sm font-bold ${phase === 'completed' ? 'text-slate-500' : 'text-slate-100'}`}>
+                        {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
+                      </p>
+                      {isLiving && <Radio className="h-2.5 w-2.5 text-blue-300 animate-pulse" />}
+                      {isInitial && <Sparkles className="h-2.5 w-2.5 text-blue-300/60" />}
+                      {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-400" />}
+                    </button>
                   )}
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setProjectionDialogDay(index)}
-                  data-sales-cell={dayStr}
-                  className="w-full flex items-center justify-center gap-1 py-1.5 rounded-md hover:bg-muted/60 transition-colors"
-                >
-                  <p className="text-sm font-bold">
-                    {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
-                  </p>
-                  {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
-                  {isInitial && <Sparkles className="h-2.5 w-2.5 text-primary/60" />}
-                  {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
