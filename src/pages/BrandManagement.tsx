@@ -15,6 +15,7 @@ import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { LibraryEnableSection } from '@/components/library/LibraryEnableSection';
+import { BrandIntegrationSettings, POS_OPTIONS, SUPPORTING_INTEGRATIONS } from '@/components/brand/BrandIntegrationSettings';
 
 export default function BrandManagement() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export default function BrandManagement() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('brands')
-        .select('*, organizations(id, name)')
+        .select('*, organizations(id, name), brand_integration_policies(integration_key, category, is_enabled)')
         .order('name');
       if (error) throw error;
       return data;
@@ -346,7 +347,10 @@ export default function BrandManagement() {
                 </div>
 
                 {editingBrand?.id && (
-                  <LibraryEnableSection brandId={editingBrand.id} />
+                  <>
+                    <BrandIntegrationSettings brandId={editingBrand.id} />
+                    <LibraryEnableSection brandId={editingBrand.id} />
+                  </>
                 )}
 
 
@@ -425,6 +429,23 @@ export default function BrandManagement() {
                     <span>
                       {brand.organizations?.length || 0} organization{(brand.organizations?.length || 0) !== 1 ? 's' : ''}
                     </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(() => {
+                      const enabled = brand.brand_integration_policies?.filter((policy: any) => policy.is_enabled) || [];
+                      const pos = enabled.find((policy: any) => policy.category === 'pos');
+                      const labels = [
+                        ...(pos ? [POS_OPTIONS.find((option) => option.key === pos.integration_key)?.label] : []),
+                        ...enabled
+                          .filter((policy: any) => policy.category !== 'pos')
+                          .map((policy: any) => SUPPORTING_INTEGRATIONS.find((option) => option.key === policy.integration_key)?.label),
+                      ].filter(Boolean);
+                      return labels.length > 0 ? labels.map((label) => (
+                        <span key={label} className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {label}
+                        </span>
+                      )) : <span className="text-xs text-muted-foreground">No integrations enabled</span>;
+                    })()}
                   </div>
                   <Button
                     variant="outline"
