@@ -38,7 +38,24 @@ export const fetchLiveLaborForToday = async (
   if (!locationId) return empty;
   const timezoneResolved = zone;
 
-  // Widen a day on each side so overnight shifts bucket correctly.
+  // Default path: server-side aggregate (real wages, totals only). This keeps
+  // pay rates off the device and gives shift managers the same Labor $ that
+  // managers see. Only the punch-clock kiosk path resolves wages client-side.
+  if (opts?.wageSource !== 'kiosk') {
+    const { data, error } = await supabase.rpc('get_live_labor_totals', {
+      _location_id: locationId,
+      _date: today,
+    });
+    if (error) {
+      console.error('[liveLabor] get_live_labor_totals failed:', error);
+      return empty;
+    }
+    const row = (data as any[])?.[0];
+    return { date: today, hours: Number(row?.hours) || 0, cost: Number(row?.cost) || 0 };
+  }
+
+  // Kiosk path (paired punch-clock device): resolve wages via kiosk-wages and
+  // bucket punches locally so the overlay math works without a user role.
   const start = new Date(`${today}T00:00:00Z`);
   start.setDate(start.getDate() - 1);
   const end = new Date(`${today}T00:00:00Z`);
@@ -69,21 +86,12 @@ export const fetchLiveLaborForToday = async (
   const userIds = [...new Set(punches.map((p: any) => p.user_id))] as string[];
   const wageByUserId = new Map<string, number>();
   if (userIds.length > 0) {
-    if (opts?.wageSource === 'kiosk') {
-      const { data: res } = await supabase.functions.invoke('kiosk-wages', {
-        body: { location_id: locationId, user_ids: userIds, date: today },
-      });
-      ((res as any)?.wages || []).forEach((w: any) => {
-        if (w.hourly_wage != null) wageByUserId.set(w.user_id, Number(w.hourly_wage));
-      });
-    } else {
-      const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
-        p_user_ids: userIds,
-      });
-      ((wageRows as any[]) || []).forEach((row: any) => {
-        if (row.hourly_wage != null) wageByUserId.set(row.user_id, Number(row.hourly_wage));
-      });
-    }
+    const { data: res } = await supabase.functions.invoke('kiosk-wages', {
+      body: { location_id: locationId, user_ids: userIds, date: today },
+    });
+    ((res as any)?.wages || []).forEach((w: any) => {
+      if (w.hourly_wage != null) wageByUserId.set(w.user_id, Number(w.hourly_wage));
+    });
   }
 
   let hours = 0;
@@ -117,58 +125,20 @@ export const fetchActualLaborForDates = async (
   const result: Record<string, { hours: number; cost: number }> = {};
   if (!locationId || dates.length === 0) return result;
 
-  const sorted = [...dates].sort();
-  const start = new Date(`${sorted[0]}T00:00:00Z`);
-  start.setDate(start.getDate() - 1);
-  const end = new Date(`${sorted[sorted.length - 1]}T00:00:00Z`);
-  end.setDate(end.getDate() + 2);
-
-  const [punchRes, hoursRes] = await Promise.all([
-    supabase
-      .from('time_punches')
-      .select('id, user_id, punch_type, punch_time, notes')
-      .eq('location_id', locationId)
-      .gte('punch_time', start.toISOString())
-      .lte('punch_time', end.toISOString())
-      .order('punch_time', { ascending: true }),
-    supabase
-      .from('location_hours')
-      .select('day_of_week, close_time')
-      .eq('location_id', locationId),
-  ]);
-
-  const punches = (punchRes.data as any[]) || [];
-  if (punches.length === 0) return result;
-
-  const cutoffByDayOfWeek = new Map<number, number>();
-  ((hoursRes.data as any[]) || []).forEach((h: any) => {
-    cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
+  // Server-side aggregate with real wages — totals only, no pay rates on the
+  // device. Same math for every role, so week views agree across phones.
+  const { data, error } = await supabase.rpc('get_labor_totals_for_dates', {
+    _location_id: locationId,
+    _dates: [...dates].sort(),
   });
-
-  const userIds = [...new Set(punches.map((p: any) => p.user_id))] as string[];
-  const wageByUserId = new Map<string, number>();
-  if (userIds.length > 0) {
-    const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {
-      p_user_ids: userIds,
-    });
-    ((wageRows as any[]) || []).forEach((row: any) => {
-      if (row.hourly_wage != null) wageByUserId.set(row.user_id, Number(row.hourly_wage));
-    });
+  if (error) {
+    console.error('[liveLabor] get_labor_totals_for_dates failed:', error);
+    return result;
   }
-
-  const bucketed = bucketPunchesByUserAndDay(punches as any[], timezone, cutoffByDayOfWeek, 5);
-  bucketed.forEach((daysForUser, userId) => {
-    const wage = wageByUserId.get(userId) ?? 15;
-    dates.forEach((dateStr) => {
-      const dayPunches = (daysForUser as any)[dateStr];
-      if (!dayPunches) return;
-      // showLive = false: closed days never count open punches through "now".
-      const dayHours = calculateDayHours(dayPunches as any[], false);
-      if (!(dayHours > 0)) return;
-      const prev = result[dateStr] || { hours: 0, cost: 0 };
-      result[dateStr] = { hours: prev.hours + dayHours, cost: prev.cost + dayHours * wage };
-    });
+  ((data as any[]) || []).forEach((row: any) => {
+    const hours = Number(row.hours) || 0;
+    const cost = Number(row.cost) || 0;
+    if (hours > 0 || cost > 0) result[row.date] = { hours, cost };
   });
-
   return result;
 };

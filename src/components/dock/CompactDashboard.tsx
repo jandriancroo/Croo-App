@@ -46,7 +46,6 @@ interface ActiveShift {
   profilePhoto: string | null;
   clockInTime: string;
   isOnBreak: boolean;
-  hourlyWage?: number;
   scheduledEndTime?: string;
 }
 
@@ -337,8 +336,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
         .eq('shift_date', todayStr)
         .in('user_id', userIds);
 
-      const { data: wageRows } = await supabase.rpc('get_current_wages_batch', { p_user_ids: userIds });
-      const wageMap = new Map<string, number>(((wageRows || []) as any[]).map(w => [w.user_id, Number(w.hourly_wage)]));
+      // Per-person wage rates are never sent to this device — cut savings are
+      // estimated server-side via get_cut_savings_estimate (totals only).
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
       const shiftMap = new Map((shifts || []).map(s => [s.user_id, s.template?.end_time]));
@@ -351,7 +350,6 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           profilePhoto: profile?.profile_photo_url || null,
           clockInTime: u.clockInTime,
           isOnBreak: u.isOnBreak,
-          hourlyWage: wageMap.get(u.userId) ?? 16,
           scheduledEndTime: shiftMap.get(u.userId) || undefined,
         } as ActiveShift;
       });
@@ -616,18 +614,33 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     setShowPreviewModal(false);
   };
 
+  // Server-side cut savings: returns { user_id, minutes, savings } computed
+  // with real wages. Savings amounts only — pay rates never reach the device.
+  const { data: cutSavings = [] } = useQuery({
+    queryKey: ['cut-savings', locationId, laborCuts],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cut_savings_estimate', {
+        _location_id: locationId,
+        _cuts: laborCuts.map(c => ({ user_id: c.userId, minutes: c.minutesCut })),
+      });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!locationId && laborCuts.length > 0,
+  });
+  const cutSavingsByUser = useMemo(
+    () => new Map(cutSavings.map((r: any) => [r.user_id, Number(r.savings) || 0])),
+    [cutSavings]
+  );
+
   // Calculate labor savings from cuts
   const calculateLaborSavings = useMemo(() => {
     let totalMinutesSaved = 0;
     let totalCostSaved = 0;
-    
+
     laborCuts.forEach(cut => {
-      const employee = activeShifts.find(s => s.userId === cut.userId);
-      if (employee) {
-        totalMinutesSaved += cut.minutesCut;
-        const hoursSaved = cut.minutesCut / 60;
-        totalCostSaved += hoursSaved * (employee.hourlyWage || 16);
-      }
+      totalMinutesSaved += cut.minutesCut;
+      totalCostSaved += cutSavingsByUser.get(cut.userId) || 0;
     });
 
     const currentLaborCost = laborData?.labor_cost || 0;
@@ -645,7 +658,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       newLaborPercent,
       percentSaved: currentLaborPercent - newLaborPercent,
     };
-  }, [laborCuts, activeShifts, laborData?.labor_cost, totalSales]);
+  }, [laborCuts, cutSavingsByUser, laborData?.labor_cost, totalSales]);
 
   const hasAnyCuts = laborCuts.length > 0;
 
@@ -1085,8 +1098,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   {laborCuts.map(cut => {
                     const employee = activeShifts.find(s => s.userId === cut.userId);
                     if (!employee) return null;
-                    const hoursSaved = cut.minutesCut / 60;
-                    const costSaved = hoursSaved * (employee.hourlyWage || 16);
+                    const costSaved = cutSavingsByUser.get(cut.userId) || 0;
                     return (
                       <div key={cut.userId} className="flex items-center justify-between p-2 rounded-lg bg-accent-foreground/10">
                         <div className="flex items-center gap-2">
