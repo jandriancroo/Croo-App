@@ -166,6 +166,13 @@ export async function seedWeekProjections(
       continue;
     }
 
+    // A day that already has a usable forecast is left alone, so each POS keeps
+    // ownership of its own living projection. This service only fills gaps.
+    if (row && (Number(row.living_projection ?? 0) > 0 || Number(row.projected_sales ?? 0) > 0)) {
+      days.push({ sale_date: date, projection: Number(row.living_projection ?? row.projected_sales), action: "skipped", reason: "forecast already present" });
+      continue;
+    }
+
     // A future day that already carries actual sales is left alone.
     if (row && Number(row.net_sales ?? 0) > 0) {
       days.push({ sale_date: date, projection: Number(row.living_projection ?? row.initial_projection ?? 0), action: "skipped", reason: "actual sales already present" });
