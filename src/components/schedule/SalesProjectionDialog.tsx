@@ -114,7 +114,7 @@ export function SalesProjectionDialog({
       const [rowRes, histRes, holidayRes, eventRes] = await Promise.all([
         supabase
           .from('sales_cache')
-          .select('net_sales, initial_projection, living_projection, override_projection, override_at, projected_sales')
+          .select('net_sales, initial_projection, living_projection, override_projection, override_at, projected_sales, override_excluded_dates')
           .eq('location_id', locationId)
           .eq('sale_date', dateStr)
           .maybeSingle(),
@@ -147,7 +147,18 @@ export function SalesProjectionDialog({
           net_sales: rows.find(r => r.sale_date === d)?.net_sales ?? null,
         }));
       setHistory(nextHistory);
-      setIncludedDates(new Set(nextHistory.filter(item => (item.net_sales ?? 0) > 0).map(item => item.date)));
+      const savedExcluded = new Set(
+        Array.isArray((rowRes.data as any)?.override_excluded_dates)
+          ? ((rowRes.data as any).override_excluded_dates as string[])
+          : []
+      );
+      setIncludedDates(
+        new Set(
+          nextHistory
+            .filter(item => (item.net_sales ?? 0) > 0 && !savedExcluded.has(item.date))
+            .map(item => item.date)
+        )
+      );
       const loadedEvents: NearbyEvent[] = [
         ...standardUSSalesEvents(annotationYears),
         ...((holidayRes.data || []).map(holiday => ({
