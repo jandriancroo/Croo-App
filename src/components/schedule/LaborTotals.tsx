@@ -417,7 +417,7 @@ export function LaborTotals({
     };
     
     fetchActualLabor();
-  }, [currentLocation?.id, weekDatesKey]);
+  }, [currentLocation?.id, weekDatesKey, timezone]);
 
   const handleSalesChange = async (dayIndex: number, value: string) => {
     if (!currentLocation?.id) return;
