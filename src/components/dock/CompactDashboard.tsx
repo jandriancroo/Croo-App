@@ -1099,8 +1099,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   {laborCuts.map(cut => {
                     const employee = activeShifts.find(s => s.userId === cut.userId);
                     if (!employee) return null;
-                    const hoursSaved = cut.minutesCut / 60;
-                    const costSaved = hoursSaved * (employee.hourlyWage || 16);
+                    const costSaved = cutSavingsByUser.get(cut.userId) || 0;
                     return (
                       <div key={cut.userId} className="flex items-center justify-between p-2 rounded-lg bg-accent-foreground/10">
                         <div className="flex items-center gap-2">
