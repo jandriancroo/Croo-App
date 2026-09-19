@@ -604,8 +604,12 @@ export function LaborTotals({
       let totalHours = 0;
       let totalWages = 0;
 
-      const dailyOT = laborRules?.daily_overtime_threshold ?? 8;
-      const dailyDT = laborRules?.daily_double_time_threshold ?? 12;
+      // A 0/null daily threshold means the state has NO daily OT/DT rule (e.g. TX, GA, IN).
+      // Treat it as disabled — otherwise every scheduled hour lands in double time.
+      const rawDailyOT = laborRules?.daily_overtime_threshold;
+      const rawDailyDT = laborRules?.daily_double_time_threshold;
+      const dailyOT = rawDailyOT && rawDailyOT > 0 ? rawDailyOT : Infinity;
+      const dailyDT = rawDailyDT && rawDailyDT > 0 ? rawDailyDT : Infinity;
       const otMult = laborRules?.overtime_multiplier ?? 1.5;
       const dtMult = laborRules?.double_time_multiplier ?? 2.0;
 

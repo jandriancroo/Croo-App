@@ -75,18 +75,22 @@ export function calculateDailyHours(
   let overtimeHours = 0;
   let doubleTimeHours = 0;
 
-  if (dailyTotalHours <= rule.daily_overtime_threshold) {
+  // A 0/null daily threshold means the state has NO daily OT/DT rule (e.g. TX, GA, IN).
+  const otThreshold = rule.daily_overtime_threshold > 0 ? rule.daily_overtime_threshold : Infinity;
+  const dtThreshold = rule.daily_double_time_threshold > 0 ? rule.daily_double_time_threshold : Infinity;
+
+  if (dailyTotalHours <= otThreshold) {
     // All regular time
     regularHours = dailyTotalHours;
-  } else if (dailyTotalHours <= rule.daily_double_time_threshold) {
+  } else if (dailyTotalHours <= dtThreshold) {
     // Regular + OT
-    regularHours = rule.daily_overtime_threshold;
-    overtimeHours = dailyTotalHours - rule.daily_overtime_threshold;
+    regularHours = otThreshold;
+    overtimeHours = dailyTotalHours - otThreshold;
   } else {
     // Regular + OT + DT
-    regularHours = rule.daily_overtime_threshold;
-    overtimeHours = rule.daily_double_time_threshold - rule.daily_overtime_threshold;
-    doubleTimeHours = dailyTotalHours - rule.daily_double_time_threshold;
+    regularHours = otThreshold;
+    overtimeHours = dtThreshold - otThreshold;
+    doubleTimeHours = dailyTotalHours - dtThreshold;
   }
 
   return {
