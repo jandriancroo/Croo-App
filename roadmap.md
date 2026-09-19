@@ -9,6 +9,6 @@
 - [ ] Show before-and-after Week Insights results
 - [ ] Verify brand controls and Week Insights on desktop and mobile
 - [ ] Preserve locked inventory behavior and protected labor cache behavior
-- [ ] Restyle chat feed cards with pinned/regular magazine bands and split body typography
-- [ ] Replace the DM arrow pager with a role-aware segmented control
-- [ ] Verify desktop/mobile chat behavior and prepare the review summary
+- [x] Restyle chat feed cards with pinned/regular magazine bands and split body typography
+- [x] Replace the DM arrow pager with a role-aware segmented control
+- [x] Verify desktop/mobile chat behavior and prepare the review summary
