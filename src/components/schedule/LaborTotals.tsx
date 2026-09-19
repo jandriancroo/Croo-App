@@ -232,6 +232,42 @@ export function LaborTotals({
             : Promise.resolve({ data: null })
         ]);
         
+        // Any future day still missing a projection is filled by the shared,
+        // POS-neutral projection service (works for every brand and POS).
+        let futureRows = futureResponse.data;
+        const missingProjection = futureDates.filter(dateStr => {
+          const row = (futureRows || []).find(r => r.sale_date === dateStr);
+          if (!row) return true;
+          return !resolveProjection({
+            initial_projection: row.initial_projection,
+            living_projection: row.living_projection,
+            override_projection: row.override_projection,
+            projected_sales: row.projected_sales
+          }).value;
+        });
+        
+        if (missingProjection.length > 0) {
+          try {
+            const { error: seedError } = await supabase.functions.invoke('sales-week-projections', {
+              body: {
+                action: 'seed_week',
+                locationId: currentLocation.id,
+                weekStart: format(weekDays[0], 'yyyy-MM-dd')
+              }
+            });
+            if (!seedError) {
+              const { data: refreshed } = await supabase
+                .from('sales_cache')
+                .select('sale_date, initial_projection, living_projection, override_projection, projected_sales')
+                .eq('location_id', currentLocation.id)
+                .in('sale_date', futureDates);
+              if (refreshed) futureRows = refreshed;
+            }
+          } catch (seedErr) {
+            console.warn('[LaborTotals] shared week projection seed failed:', seedErr);
+          }
+        }
+        
         // Process cached data immediately
         const newSales: Record<number, number> = { ...projectedSales };
         const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'> = { ...salesSource };
