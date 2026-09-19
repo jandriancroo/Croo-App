@@ -84,6 +84,7 @@ export function LaborTotals({
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
   const [actualLabor, setActualLabor] = useState<Record<string, { hours: number; cost: number }>>({});
+  const [projectionDialogDay, setProjectionDialogDay] = useState<number | null>(null);
   const { user } = useAuth();
 
   // Fetch labor rules for OT/DT multipliers
