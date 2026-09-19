@@ -141,15 +141,15 @@ export function SalesProjectionDialog({
       ]);
       if (cancelled) return;
       setRow((rowRes.data as unknown as CacheRow) || null);
-      const rows = (histRes.data as any[]) || [];
+      const rows = histRes.data || [];
       const nextHistory = historyDates.map(d => ({
           date: d,
           net_sales: rows.find(r => r.sale_date === d)?.net_sales ?? null,
         }));
       setHistory(nextHistory);
-      const savedExcluded = new Set(
-        Array.isArray((rowRes.data as any)?.override_excluded_dates)
-          ? ((rowRes.data as any).override_excluded_dates as string[])
+      const savedExcluded = new Set<string>(
+        Array.isArray(rowRes.data?.override_excluded_dates)
+          ? (rowRes.data.override_excluded_dates as string[])
           : []
       );
       setIncludedDates(

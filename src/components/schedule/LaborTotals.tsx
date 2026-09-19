@@ -438,8 +438,8 @@ export function LaborTotals({
     
     try {
       // Save override to sales_cache using the new override_projection column
-      const { error } = await (supabase
-        .from('sales_cache') as any)
+      const { error } = await supabase
+        .from('sales_cache')
         .upsert({
           location_id: currentLocation.id,
           sale_date: dateStr,
@@ -481,8 +481,8 @@ export function LaborTotals({
     
     try {
       // Clear override from sales_cache
-      await (supabase
-        .from('sales_cache') as any)
+      await supabase
+        .from('sales_cache')
         .update({
           override_projection: null,
           override_at: null,
