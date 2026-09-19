@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
+import { MessageCircle, Eye, Pin, PinOff, Paperclip, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ interface PostCardProps {
   onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
+  onUnpin?: (postId: string) => void | Promise<void>;
   onEdit?: (postId: string, body: string) => void | Promise<void>;
   onMarkSeen?: (postId: string) => boolean | Promise<boolean>;
 }
@@ -61,7 +62,7 @@ function splitPostBody(body: string) {
   };
 }
 
-function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onEdit, onMarkSeen }: PostCardProps) {
+function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onUnpin, onEdit, onMarkSeen }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
@@ -205,6 +206,22 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
                   <Pin className="h-3 w-3" />
                 </span>
               )}
+              {post.pinned && canManage && onUnpin && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUnpin(post.id);
+                  }}
+                  className="h-6 rounded-full bg-accent-foreground/15 px-2 text-[11px] text-accent-foreground hover:bg-accent-foreground/25 hover:text-accent-foreground"
+                >
+                  <PinOff className="h-3 w-3" />
+                  Unpin
+                </Button>
+              )}
             </div>
           </div>
           {canManage && (
@@ -237,6 +254,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             setEditOpen(true);
           }}
           onDelete={() => setConfirmDeleteOpen(true)}
+          onUnpin={post.pinned && onUnpin ? () => onUnpin(post.id) : undefined}
         />
       )}
 

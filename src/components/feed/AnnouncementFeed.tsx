@@ -195,6 +195,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                       onOpenSeenBy={setSeenByPost}
                       onToggleReaction={toggleReaction}
                       onDelete={(id) => deletePost(id)}
+                      onUnpin={(id) => updatePost({ postId: id, pinned: false })}
                       onEdit={(id, body) => updatePost({ postId: id, body })}
 
                       onMarkSeen={markSeen}
@@ -214,6 +215,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
                   onOpenSeenBy={setSeenByPost}
                   onToggleReaction={toggleReaction}
                   onDelete={(id) => deletePost(id)}
+                  onUnpin={(id) => updatePost({ postId: id, pinned: false })}
                   onEdit={(id, body) => updatePost({ postId: id, body })}
 
                   onMarkSeen={markSeen}

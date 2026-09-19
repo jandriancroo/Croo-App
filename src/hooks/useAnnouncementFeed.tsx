@@ -404,15 +404,21 @@ export function useAnnouncementFeed(
   });
 
   const updatePost = useMutation({
-    mutationFn: async ({ postId, body }: { postId: string; body: string }) => {
+    mutationFn: async ({ postId, body, pinned }: { postId: string; body?: string; pinned?: boolean }) => {
+      const changes: { body?: string; pinned?: boolean; edited_at?: string } = {};
+      if (body !== undefined) {
+        changes.body = body;
+        changes.edited_at = new Date().toISOString();
+      }
+      if (pinned !== undefined) changes.pinned = pinned;
       const { error } = await supabase
         .from('announcement_posts')
-        .update({ body, edited_at: new Date().toISOString() })
+        .update(changes)
         .eq('id', postId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success('Post updated');
+    onSuccess: (_, variables) => {
+      toast.success(variables.pinned === false ? 'Post unpinned' : 'Post updated');
       queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
     },
     onError: (e: any) => toast.error(e.message ?? 'Update failed'),
