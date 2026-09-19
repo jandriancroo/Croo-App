@@ -760,9 +760,14 @@ export function MobileAddScheduleSheet({
                       }
 
                       const hasAvail = hasApprovedOff || hasPendingOff;
+                      // Recurring weekly availability restriction (can't-work blocks)
+                      const weeklyRestricted = !!weeklyRestrictionForDay(i);
+                      const showHatch = (hasAvail || weeklyRestricted) && !isCursor;
                       const stripeColor = hasApprovedOff
                         ? 'rgba(16,185,129,0.18)' // emerald
-                        : 'rgba(245,158,11,0.20)'; // amber
+                        : hasPendingOff
+                          ? 'rgba(245,158,11,0.20)' // amber
+                          : 'rgba(148,163,184,0.22)'; // gray — weekly availability restriction
 
                       return (
                         <button
@@ -776,7 +781,7 @@ export function MobileAddScheduleSheet({
                             hasAvail && !isCursor && "border-dashed border-2 bg-muted/30"
                           )}
                           style={
-                            hasAvail && !isCursor
+                            showHatch
                               ? {
                                   backgroundImage: `repeating-linear-gradient(45deg, ${stripeColor}, ${stripeColor} 4px, transparent 4px, transparent 8px)`,
                                 }
@@ -787,7 +792,9 @@ export function MobileAddScheduleSheet({
                               ? 'Approved time off'
                               : hasPendingOff
                                 ? 'Pending time-off request'
-                                : undefined
+                                : weeklyRestricted
+                                  ? 'Limited weekly availability'
+                                  : undefined
                           }
                         >
                           <span className="uppercase font-semibold tracking-wide">{DAY_LABELS[i]}</span>
