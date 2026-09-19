@@ -10694,6 +10694,7 @@ export type Database = {
           net_sales: number
           override_at: string | null
           override_by: string | null
+          override_excluded_dates: Json | null
           override_projection: number | null
           pace_adjusted_projection: number | null
           pace_calculated_at: string | null
@@ -10724,6 +10725,7 @@ export type Database = {
           net_sales?: number
           override_at?: string | null
           override_by?: string | null
+          override_excluded_dates?: Json | null
           override_projection?: number | null
           pace_adjusted_projection?: number | null
           pace_calculated_at?: string | null
@@ -10754,6 +10756,7 @@ export type Database = {
           net_sales?: number
           override_at?: string | null
           override_by?: string | null
+          override_excluded_dates?: Json | null
           override_projection?: number | null
           pace_adjusted_projection?: number | null
           pace_calculated_at?: string | null
