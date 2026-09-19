@@ -21,13 +21,13 @@ interface PostCardProps {
   onOpenSeenBy: (post: FeedPost) => void;
   onToggleReaction: (postId: string, emoji: string, mine: boolean) => void;
   onDelete: (postId: string) => void;
-  onUnpin?: (postId: string) => void | Promise<void>;
+  onTogglePin?: (postId: string, pinned: boolean) => void | Promise<void>;
   onEdit?: (postId: string, body: string) => void | Promise<void>;
   onMarkSeen?: (postId: string) => boolean | Promise<boolean>;
 }
 
 
-const HEADLINE_MAX_CHARS = 60;
+const BODY_TRUNCATE_CHARS = 320;
 
 function getInitials(name?: string | null) {
   if (!name) return '?';
@@ -42,27 +42,7 @@ function friendlyFileName(m: { name?: string; url: string }) {
   } catch { return 'Attachment'; }
 }
 
-function splitPostBody(body: string) {
-  const firstLineBreak = body.indexOf('\n');
-  if (firstLineBreak >= 0) {
-    return {
-      headline: body.slice(0, firstLineBreak).trim(),
-      remainder: body.slice(firstLineBreak + 1).trimStart(),
-    };
-  }
-
-  if (body.length <= HEADLINE_MAX_CHARS) return { headline: body, remainder: '' };
-
-  const candidate = body.slice(0, HEADLINE_MAX_CHARS + 1);
-  const lastSpace = candidate.lastIndexOf(' ');
-  const splitAt = lastSpace > HEADLINE_MAX_CHARS / 2 ? lastSpace : HEADLINE_MAX_CHARS;
-  return {
-    headline: body.slice(0, splitAt).trimEnd(),
-    remainder: body.slice(splitAt).trimStart(),
-  };
-}
-
-function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onUnpin, onEdit, onMarkSeen }: PostCardProps) {
+function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggleReaction, onDelete, onTogglePin, onEdit, onMarkSeen }: PostCardProps) {
   const authorName = post.author?.nickname || post.author?.full_name || 'Unknown';
   const isMine = post.author_id === currentUserId;
   const images = post.media.filter(m => m.type === 'image').slice(0, 4);
@@ -70,7 +50,11 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const lightboxItems = post.media;
-  const { headline, remainder } = splitPostBody(post.body);
+  const [bodyExpanded, setBodyExpanded] = useState(false);
+  const bodyNeedsTruncation = post.body.length > BODY_TRUNCATE_CHARS;
+  const visibleBody = bodyNeedsTruncation && !bodyExpanded
+    ? `${post.body.slice(0, BODY_TRUNCATE_CHARS).trimEnd()}…`
+    : post.body;
 
   // Mark as seen when scrolled into view for ~800ms (once per post per session).
   // Uses a low threshold so tall posts on small viewports still register.
@@ -201,26 +185,26 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
                   {post.channel.name}
                 </span>
               )}
-              {post.pinned && (
-                <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-accent-foreground/15 text-accent-foreground" aria-label="Pinned">
-                  <Pin className="h-3 w-3" />
-                </span>
-              )}
-              {post.pinned && canManage && onUnpin && (
+              {canManage && onTogglePin ? (
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="icon"
+                  aria-label={post.pinned ? 'Unpin post' : 'Pin post'}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onUnpin(post.id);
+                    onTogglePin(post.id, !post.pinned);
                   }}
-                  className="h-6 rounded-full bg-accent-foreground/15 px-2 text-[11px] text-accent-foreground hover:bg-accent-foreground/25 hover:text-accent-foreground"
+                  className={cn('h-6 w-6 rounded', post.pinned ? 'bg-accent-foreground/15 text-accent-foreground hover:bg-accent-foreground/25 hover:text-accent-foreground' : 'text-primary hover:bg-primary/15')}
                 >
-                  <PinOff className="h-3 w-3" />
-                  Unpin
+                  {post.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
                 </Button>
+              ) : post.pinned ? (
+                <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-accent-foreground/15 text-accent-foreground" aria-label="Pinned">
+                  <Pin className="h-3 w-3" />
+                </span>
+              ) : null}
               )}
             </div>
           </div>
@@ -254,7 +238,6 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             setEditOpen(true);
           }}
           onDelete={() => setConfirmDeleteOpen(true)}
-          onUnpin={post.pinned && onUnpin ? () => onUnpin(post.id) : undefined}
         />
       )}
 
@@ -349,8 +332,18 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* Body */}
       {post.body && (
         <div className="px-4 pt-4 pb-3 break-words">
-          {headline && <div className="text-[17px] leading-snug font-semibold text-card-foreground whitespace-pre-wrap">{headline}</div>}
-          {remainder && <div className="mt-2 text-[15px] leading-relaxed text-card-foreground/90 whitespace-pre-wrap">{remainder}</div>}
+          <div className="text-[15px] leading-relaxed text-card-foreground whitespace-pre-wrap">{visibleBody}</div>
+          {bodyNeedsTruncation && (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={() => setBodyExpanded((expanded) => !expanded)}
+              className="mt-1 h-auto p-0 text-sm font-semibold"
+            >
+              {bodyExpanded ? 'See less' : 'See more'}
+            </Button>
+          )}
         </div>
       )}
 

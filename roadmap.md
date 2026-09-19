@@ -15,3 +15,5 @@
 - [x] Fix inbox segment label truncation and increase label readability
 - [x] Add an easy Unpin action for pinned feed posts
 - [x] Verify both refinements on desktop and mobile
+- [x] Restore compact posts with See more/less and uniform body text
+- [x] Replace the labeled Unpin control with a single toggleable pin icon
