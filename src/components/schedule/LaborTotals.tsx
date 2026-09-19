@@ -393,7 +393,25 @@ export function LaborTotals({
           cost: row.labor_cost || 0
         };
       });
-      
+
+      // Gap-fill only: a missed nightly labor run leaves a 0-hour row behind.
+      // Recompute those days straight from punches (read-only, no cache writes).
+      const missingDates = pastDates.filter(d => !(laborMap[d]?.hours > 0));
+      if (missingDates.length > 0) {
+        try {
+          const fromPunches = await fetchActualLaborForDates(
+            currentLocation.id,
+            timezone || 'America/Los_Angeles',
+            missingDates
+          );
+          Object.entries(fromPunches).forEach(([dateStr, value]) => {
+            if (value.hours > 0) laborMap[dateStr] = value;
+          });
+        } catch (e) {
+          console.error('Punch-derived labor fallback failed:', e);
+        }
+      }
+
       setActualLabor(laborMap);
     };
     
