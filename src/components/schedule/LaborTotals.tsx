@@ -727,7 +727,7 @@ export function LaborTotals({
         <div className="-mt-[1px] border border-border rounded-b-lg rounded-tr-lg bg-card shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] overflow-hidden animate-accordion-down mb-2">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-            <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+            <div className="px-2 py-1 border-r border-border bg-muted/70 flex items-center gap-1.5">
               <span className="text-xs font-semibold">Week</span>
               <span className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
               {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
@@ -735,7 +735,7 @@ export function LaborTotals({
             {dailyTotals.map((day, index) => {
               const phase = getDayPhase(index);
               return (
-                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${phase === 'completed' ? 'bg-muted/50' : ''}`}>
+                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${phase === 'completed' ? 'bg-muted/70' : ''}`}>
                   <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
                   {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
                 </div>
@@ -745,7 +745,7 @@ export function LaborTotals({
 
       {/* Labor Percentage Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+        <div className="px-2 py-1 border-r border-border bg-muted/70 flex items-center gap-1.5">
           <span className="text-xs font-semibold">Labor %</span>
           {weeklyTotals.sales > 0 ? <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
               {weeklyTotals.laborPercent.toFixed(1)}%
@@ -758,7 +758,7 @@ export function LaborTotals({
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/50' : ''}`}>
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/70' : ''}`}>
               {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
@@ -768,7 +768,7 @@ export function LaborTotals({
 
       {/* Sales Per Labor Hour Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+        <div className="px-2 py-1 border-r border-border bg-muted/70 flex items-center gap-1.5">
           <span className="text-xs font-semibold">$/LH</span>
           {(() => {
           const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
@@ -778,7 +778,7 @@ export function LaborTotals({
         {dailyTotals.map((day, index) => {
         const phase = getDayPhase(index);
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/50' : ''}`}>
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/70' : ''}`}>
               {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
@@ -788,7 +788,7 @@ export function LaborTotals({
 
       {/* Projected Sales Row - Now at bottom */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+        <div className="px-2 py-1 border-r border-border bg-muted/70 flex items-center gap-1.5">
           <span className="text-xs font-semibold">Sales</span>
           {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           <span className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</span>
@@ -813,7 +813,7 @@ export function LaborTotals({
           const bgClass = isHistorical ? 'bg-green-500/10' : 
                          isOverride ? 'bg-amber-500/10' : 
                          isLiving ? 'bg-primary/5' :
-                         isPastDay ? 'bg-muted/50' : '';
+                         isPastDay ? 'bg-muted/70' : '';
           
           return (
             <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
