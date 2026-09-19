@@ -1,72 +1,55 @@
-# Tuscaloosa unpriced items — match analysis (read-only findings)
+# Brand integration governance and POS-neutral sales plan
 
-Headline: the item-number mismatch is **not** the main story at Tuscaloosa. Only **3 of the 49** unpriced items have a believable replacement on that store's guide. The rest are either not carried by that division at all or aren't PFG items in the first place.
+## Goal
+Give each brand a clear integration profile, while making sales, projections, pacing, and brand calculations work consistently across QuBeyond, Clover, Aloha, and future sales systems.
 
-## 1. What the 49 actually are
+## Brand integration controls
+- Add an **Integrations** section to each brand’s edit window in Manage Brands.
+- Super admins can choose:
+  - one primary sales system: QuBeyond, Clover, Aloha, or None;
+  - which supporting integrations are available: PFG, Produce Alliance, and OvationUp.
+- Inventory stays always available and is not changed or made optional.
+- A disabled integration disappears from location settings and cannot be newly connected for that brand.
+- Existing credentials and historical data remain intact; disabling brand visibility does not delete data or silently erase an existing connection.
+- Show enabled integrations on each brand card for quick review.
 
-| Group | Count | Meaning |
-|---|---|---|
-| Carries a number used by the SoCal stores, not on Tuscaloosa's guide | 31 | the "mismatch" class |
-| Carries a number that exists on no store's guide | 3 | (NEW) Plastic Spoons, Broom Head Replacement, Pellegrino Glass Bottle 500ml |
-| No PFG number at all | 15 | 7 Heimark beers, 2 dough balls, Prepped Dough, Chopped Romaine Hearts, Classic Red Sauce (Prepped), Romaine Lettuce (Bag), Pineapple Tidbits (Produce Alliance), Water |
+## Enforcement
+- Store brand integration choices in a dedicated brand-level settings table with strict super-admin access.
+- Enforce one primary sales system at the database level.
+- Add a shared brand-integration check used by location settings and connection services, so hiding a card is not the only protection.
+- New brands start with no sales system and no optional vendors enabled; the super admin must choose deliberately.
+- Seed current brands from their existing live connections so nothing disappears during rollout.
 
-Hard ceiling on what linking can fix: Tuscaloosa's guide has 138 rows and **120 of them are already claimed** by an existing item. Only **18 rows are unclaimed** — that is the entire pool any of the 34 numbered items could be matched into. 49 cannot become 49 no matter how good the matching is.
+## POS-neutral sales foundation
+- Keep current shared sales column names and existing vendor archives; do not rename live columns.
+- Define one normalized sales contract covering actual sales, checks, guests, hourly sales, product mix, discounts, tenders, source, and data quality.
+- Each vendor adapter only translates its raw data into that contract.
+- Route all vendors through the same shared calculations for:
+  - initial and live projections;
+  - overrides and pace-adjusted projections;
+  - hourly pace, daypart/shift resets, grace periods, year-over-year, and recent trends;
+  - custom brand calculations and product-mix rules.
+- Move full-week projection seeding out of QuBeyond and into a shared process for every enabled primary sales system.
+- Replace QuBeyond-specific screen refreshes with POS-neutral refresh actions.
 
-## 2. Method
+## Surfaces to update
+- Location integration settings: show only integrations enabled for the selected brand.
+- Schedule Week Insights, dashboards, watch views, alerts, reports, Theo, and background jobs: read the same normalized sales/projection results regardless of POS.
+- Brand inventory vendor readiness: use the brand’s enabled food vendors instead of assuming every brand requires both PFG and Produce Alliance. This changes the readiness check only; it does not alter inventory counting, deployment, matching, or sync behavior.
 
-Matching our friendly names ("Coke Zero BIB 5g") against vendor descriptions ("SODA SYRUP COLA ZERO SUGAR BAG-IN-BOX") scores badly and produces garbage. Instead I matched **vendor description to vendor description**: take the description PFG itself gives our SoCal number at the other stores, and compare that to Tuscaloosa's descriptions — same vocabulary both sides. Scoring is `pg_trgm similarity` blended 50/50 with the token-overlap score the invoice matcher already uses, plus a normalized pack-size equality check.
+## Safety and rollout
+1. Add brand settings and seed them from current connections without changing runtime behavior.
+2. Add the Manage Brands controls and location-card visibility/blocking.
+3. Add shared POS calculation orchestration beside current vendor paths.
+4. Compare outputs per location for actuals, projections, pace, and custom calculations.
+5. Switch each brand only after parity checks pass; retain vendor-specific raw archives and rollback capability.
+6. Verify Blaze remains QuBeyond + PFG + Produce Alliance + OvationUp, with Clover and Aloha hidden.
+7. Verify Playa Bowls exposes Clover, and BWW GO exposes Aloha, based on their saved brand settings.
 
-## 3. High confidence — 3
-
-| Our item | Our number (SoCal) | SoCal description / pack / price | Tuscaloosa row | Pack | Tusc price |
-|---|---|---|---|---|---|
-| Equal Sweetener Packets | 27553 | SWEETENER BLUE PACKET W/ASPARTAME · 2000/1 GM · $31.26 | SUGAR SUB BLUE PACKET W/ASPARTAME **#336787** | 2000/1 GM (same) | **$31.26** |
-| Forks | 705219 | FORK PLASTIC HEAVY_WEIGHT BLACK POLYSTYRENE · 1/1000 CT · $25.00 | FORK PLASTIC POLYPROPYLENE EXTRA_HEAVY_WEIGHT BLACK **#708856** | 1/1000 CT (same) | $33.46 |
-| Knives | 707270 | KNIFE PLASTIC HEAVY_WEIGHT BLACK POLYSTYRENE · 1/1000 CT · $25.99 | KNIFE PLASTIC HEAVY_WEIGHT BLACK POLYPROPYLENE INDIVIDUALLY_WRAPPED **#806199** | 1/1000 CT (same) | $30.38 |
-
-Cross-check (item 3 of your list): Equal Sweetener is exact — identical pack, identical price to the cent at all four SoCal stores. Forks and Knives are the same count and use but a **different resin and spec** (polypropylene extra-heavy / individually wrapped vs polystyrene heavy). Prices land +34% and +17% over SoCal — plausible for an upgraded spec, not a red flag, but they are substitutes, not the same SKU. Flagging them as "approve, don't auto-link".
-
-## 4. Ambiguous — 4
-
-| Our item | Competing Tuscaloosa rows | Why it's unresolved |
-|---|---|---|
-| Small Gloves (#563906, GLOVE POLY SMALL, 10/100 CT, $17.51) | GLOVE HYBRID STRETCH MEDIUM #609025 / LARGE #608998 / EXTRA_LARGE #609006 — all 10/100 CT, all $17.51 | Guide carries M/L/XL only, no Small; all three already claimed by other items. Linking Small to a bigger size is a size substitution decision, not a match. |
-| Pellegrino Glass Bottle 500ml (number on no guide) | WATER SPARKLING MINERAL PLASTIC #497409 · 24/500 ML · $25.40 | Right water, right volume, **plastic not glass**. |
-| Pink Cleaning Towels (#66140, WIPE FABRIC PINK/WHITE 13X24, 1/200 CT, $21.55) | WIPE MEDIUM WITH-TRACKING RED 13X21 #243695 · 1/150 CT · $36.02 | Different colour, different count, 67% higher. |
-| Dispenser Sani Wipes (#585164, DISPENSER WIPES TRIPLE TAKE RED, 1/1 CT, $14.05) | DISPENSER TOWEL ELEVATION MATIC H1 #363719 · 1/1 CT · $20.05 | Pack matches but it's a paper-towel dispenser, not a wipes dispenser. Likely a false friend. |
-
-## 5. No match — 42, and why
-
-Nothing on Tuscaloosa's 138-row guide resembles these. My read, by cause:
-
-- **Not carried by that division (25 items).** All 7 fountain syrups (Coke Zero, Cherry Coke, Dr Pepper, Fanta, Barq's, Powerade, plus BIB siblings) — Tuscaloosa's guide has **zero** bag-in-box syrup rows, so soda concentrate is bought outside PFG there. Same for the whole ecolab-style chemical program (Glass Cleaner concentrate, Peroxide Disinfectant, Enzyme Drain Cleaner, Hand Soap/Foaming Soap/Sanitizer cartridges, Multi-Surface canister wipes) — Tuscaloosa's 16 chemical rows are a different lineup (EZ SNAP quat/chlorine, quarry-tile cleaner). Also Salami, Sugar Packets (granulated), Wax Paper, Toilet Seat Covers, Handle Replacement, Broom Head, 1" deli hot labels, orange sealed-hot labels, 24oz Coke cups, Entree Salad Container (Tuscaloosa carries a different hinged size), Chipotle Sauce, Fruit/Veggie wash strips, Orange Pellegrino.
-- **Not PFG at all (15 items).** 7 Heimark beers (Bud Light, Michelob Ultra, Stella, Estrella, Firestone, Lagunitas, Coachella Valley) — beer distributor, invoice-priced. Prepped/recipe items (Chopped Romaine Hearts, Classic Red Sauce, Prepped Dough, 17oz and 6.8oz Dough Balls) — cost out from ingredients, should never chase a vendor price. Produce Alliance items (Pineapple Tidbits, Romaine Lettuce bag). Water.
-- **Genuinely unknown (2).** (NEW) Plastic Spoons #1002342 and Pellegrino Glass 500ml — numbers that appear on no store's guide, so we can't even confirm what they are.
-
-## 6. Does the plumbing work? Yes — traced
-
-`_shared/vendorPriceChase.ts`:
-- `loadApprovedNumbers` reads `brand_inventory_templates.item_number/pa_item_id` **plus every `brand_vendor_mappings` row** for that template and unions them into one set of approved PFG numbers.
-- `numbersForItem` adds the local item's own number to that set.
-- Stage A loads `pfg_bid_items` **filtered to the location being chased** and takes the first number in the set that has a price.
-
-So creating a `brand_vendor_mappings` row with Tuscaloosa's number does feed pricing: the chase will find #336787 on Tuscaloosa's guide, write $31.26, and (in sweep mode) activate. No code change needed.
-
-**Same brand item, two numbers — no collision.** The table's unique key is `(brand_template_id, vendor, vendor_item_id)`, so multiple numbers per brand item are legal by design, and the table already carries `territory` and `source_location_id` columns for exactly this. Because Stage A is location-scoped, a Tuscaloosa-only number can never price a SoCal item — verified: #336787, #708856 and #806199 exist on **no other store's guide**, so nothing can cross-contaminate. Recommendation: still stamp `source_location_id` = Tuscaloosa and `territory` on any new rows so the origin is auditable.
-
-## 7. Expected outcome
-
-- Link the 3 high-confidence matches → **3 of 49** priced and activated. 46 still unpriced.
-- Approve all 4 ambiguous ones too → at most **7 of 49**.
-- 15 of the remainder should never have a PFG price (beer, prepped recipes, produce, water) — the honest fix for those is a non-PFG cost source, not a mapping.
-- That leaves ~27 items that are active at Tuscaloosa but appear not to be bought there at all. The real question is whether they should be active in that store's count at all.
-
-## 8. Flags worth your call before anything gets built
-
-- Tuscaloosa's guide is 138 rows vs ~200 in SoCal, and 12 categories vs 16. Before we mass-map, worth confirming this really is the store's full order guide.
-- Tuscaloosa's PFG order history (37 orders, May 5 – Sep 15) contains **80 distinct item numbers, 12 of which are not on the guide, and 7 of which match no item we have**. Order history is stronger ground truth than the guide for "what this store actually buys" — a second pass matching against orders would likely price more than the guide can.
-- I created nothing. No mappings, no writes.
-
-## Suggested next step (not built)
-
-A review screen, not an auto-linker: show the 18 unclaimed Tuscaloosa rows against the 34 numbered unpriced items with the score, pack check, and SoCal-vs-Tuscaloosa price delta side by side, and require a tap to create each `brand_vendor_mappings` row. Auto-link nothing.
+## Technical details
+- Use a new brand integration policy table rather than adding vendor-specific columns to `brands`.
+- Use constrained integration keys and a unique brand/key record; enforce only one enabled POS-category record per brand.
+- Keep `location_integrations` as location credentials/status and use brand policy as the allowed catalogue.
+- Preserve `sales_cache` as the normalized sales mailroom, preserve `pos_source`, and do not write labor into it.
+- Do not change `labor_cache`, scheduled labor, live labor, availability, locked 3D cubes, dock/toasts, updates, support tickets, or protected inventory flows.
+- Add adapter contract tests, projection/pace parity tests, permission tests, and mobile/desktop visibility checks.
