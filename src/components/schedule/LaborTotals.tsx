@@ -16,6 +16,7 @@ import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchActualLaborForDates } from '@/utils/liveLabor';
+import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
@@ -84,6 +85,7 @@ export function LaborTotals({
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
   const [actualLabor, setActualLabor] = useState<Record<string, { hours: number; cost: number }>>({});
+  const [projectionDialogDay, setProjectionDialogDay] = useState<number | null>(null);
   const { user } = useAuth();
 
   // Fetch labor rules for OT/DT multipliers
@@ -837,21 +839,20 @@ export function LaborTotals({
           return (
             <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
               {isEditable ? (
-                <div className="relative flex items-center gap-0.5">
-                  <Input 
-                    type="number" 
-                    step="0.01" 
-                    min="0" 
-                    value={projectedSales[index] || ''} 
-                    onChange={e => handleSalesChange(index, e.target.value)} 
-                    className={`h-7 text-center text-xs p-1 flex-1 ${
-                      isLiving ? 'border-primary/30' : 
-                      isInitial ? 'border-primary/20' : 
+                <div className="relative flex items-center justify-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setProjectionDialogDay(index)}
+                    data-sales-cell={dayStr}
+                    className={`h-7 flex-1 rounded-md border text-xs font-medium transition-colors hover:bg-muted/60 ${
+                      isLiving ? 'border-primary/30' :
+                      isInitial ? 'border-primary/20' :
                       isOverride ? 'border-amber-500/30 bg-amber-500/5' :
-                      isHistorical ? 'border-green-500/30 bg-green-500/5' : ''
-                    }`} 
-                    placeholder="$0" 
-                  />
+                      isHistorical ? 'border-green-500/30 bg-green-500/5' : 'border-border'
+                    }`}
+                  >
+                    {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '$0'}
+                  </button>
                   {isLiving && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -901,20 +902,45 @@ export function LaborTotals({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-0.5 py-1">
+                <button
+                  type="button"
+                  onClick={() => setProjectionDialogDay(index)}
+                  data-sales-cell={dayStr}
+                  className="w-full flex items-center justify-center gap-0.5 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                >
                   <p className="text-xs">
                     {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
                   </p>
                   {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
                   {isInitial && <Sparkles className="h-2.5 w-2.5 text-primary/60" />}
                   {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
-                </div>
+                </button>
               )}
             </div>
           );
         })}
       </div>
         </div>
+      )}
+
+      {projectionDialogDay !== null && (
+        <SalesProjectionDialog
+          open={projectionDialogDay !== null}
+          onOpenChange={open => { if (!open) setProjectionDialogDay(null); }}
+          locationId={currentLocation?.id}
+          dateStr={format(weekDays[projectionDialogDay], 'yyyy-MM-dd')}
+          todayStr={getTodayPST()}
+          currentValue={projectedSales[projectionDialogDay] || 0}
+          currentSource={salesSource[projectionDialogDay]}
+          canEdit={isEditable}
+          onSaveOverride={async value => {
+            await handleSalesChange(projectionDialogDay!, String(value));
+            toast.success('Sales number saved');
+          }}
+          onResetToProjection={async () => {
+            await handleReloadProjection(projectionDialogDay!);
+          }}
+        />
       )}
     </div>;
 }
