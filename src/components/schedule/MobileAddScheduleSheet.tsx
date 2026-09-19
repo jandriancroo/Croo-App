@@ -698,6 +698,19 @@ export function MobileAddScheduleSheet({
                         ))}
                       </div>
                     )}
+
+                    {/* Recurring weekly availability for the selected day */}
+                    {currentDayWeeklyPref && (
+                      <div className="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2">
+                        <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Weekly availability:</span>{' '}
+                          {currentDayWeeklyPref.available === false
+                            ? 'Unavailable all day'
+                            : chipLabels(currentDayWeeklyPref).join(' · ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
