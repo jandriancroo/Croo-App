@@ -18,6 +18,7 @@ import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
+import { DayInsightsBar } from './DayInsightsBar';
 // Option6TodayContent kept as standalone component for potential reuse
 
 import { useUserRole } from '@/hooks/useUserRole';
@@ -166,7 +167,6 @@ export function MobileScheduleView({
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string, clockInId: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
-  const [insightsExpanded, setInsightsExpanded] = useState(false);
   
   const { isAdmin, isManager, role } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
@@ -547,87 +547,8 @@ export function MobileScheduleView({
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
-  // Day Insights — references the same SOT as the Dashboard SalesSummary.
-  // For TODAY: prefers the in-memory enriched cache (written by SalesSummary)
-  //   → falls back to the shared localStorage live-sales cache (also written
-  //     by SalesSummary on the dashboard) → finally falls back to sales_cache
-  //     + labor_cache so a fresh visit to /schedule still shows real numbers.
-  // For PAST days: reads sales_cache + labor_cache directly (same tables the
-  // dashboard reads for historical days via checkDatabaseCache).
-  const { data: dayInsightsData } = useQuery({
-    queryKey: ['day-insights', currentLocation?.id, punchDateStr],
-    queryFn: async () => {
-      if (!currentLocation?.id || !punchDateStr) return null;
-      const isToday = punchDateStr === todayStr;
-
-      // 1. In-memory enriched cache from SalesSummary (master writer)
-      const enriched: any = queryClient.getQueryData(['dashboard-sales-enriched', currentLocation.id]);
-      if (isToday && enriched) {
-        return {
-          sales: enriched?.daily || 0,
-          laborCost: enriched?.labor?.laborCost || 0,
-          laborHours: enriched?.labor?.hoursWorked || 0,
-        };
-      }
-
-      // 2. localStorage live-sales cache (shared with SalesSummary)
-      if (isToday) {
-        try {
-          const { getCachedLiveSales } = await import('@/utils/salesCache');
-          const live = getCachedLiveSales(currentLocation.id);
-          if (live?.data) {
-            return {
-              sales: live.data?.daily || 0,
-              laborCost: live.data?.labor?.laborCost || 0,
-              laborHours: live.data?.labor?.hoursWorked || 0,
-            };
-          }
-        } catch {}
-      }
-
-      // 3. Direct DB read (sales_cache + labor_cache)
-      const [salesRes, laborRes] = await Promise.all([
-        supabase
-          .from('sales_cache')
-          .select('net_sales')
-          .eq('location_id', currentLocation.id)
-          .eq('sale_date', punchDateStr)
-          .maybeSingle(),
-        supabase
-          .from('labor_cache')
-          .select('labor_cost, labor_hours, source')
-          .eq('location_id', currentLocation.id)
-          .eq('labor_date', punchDateStr),
-      ]);
-
-      const sales = Number(salesRes.data?.net_sales) || 0;
-      const laborRows = laborRes.data || [];
-      // Match SalesSummary EXACTLY: single preferredRow used for BOTH hours and cost
-      // punch_clock wins only when it has real data (hours>0 or cost>0), else qubeyond
-      const punchClockRow = laborRows.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-      const externalRow = laborRows.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-      const preferredRow = punchClockRow || externalRow;
-
-      // labor_cache only holds CLOSED days — for today fall back to the shared
-      // live-punch helper so this matches the dashboard.
-      if (isToday && !(Number(preferredRow?.labor_hours) > 0)) {
-        const { fetchLiveLaborForToday } = await import('@/utils/liveLabor');
-        const live = await fetchLiveLaborForToday(currentLocation.id);
-        if (live.hours > 0) {
-          return { sales, laborCost: live.cost, laborHours: live.hours };
-        }
-      }
-
-      return {
-        sales,
-        laborCost: Number(preferredRow?.labor_cost) || 0,
-        laborHours: Number(preferredRow?.labor_hours) || 0,
-      };
-    },
-    enabled: !!currentLocation?.id && !!punchDateStr,
-    staleTime: punchDateStr === todayStr ? 60 * 1000 : 5 * 60 * 1000,
-    refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
-  });
+  // Day Insights data now lives in DayInsightsBar, which mirrors the desktop
+  // Week Insights resolution exactly (sales + labor per phase of the day).
 
 
 
@@ -1389,53 +1310,7 @@ export function MobileScheduleView({
                     )}
 
 
-                    {/* Day Insights — bottom of page */}
-                    <Card className="overflow-hidden p-0 mt-2">
-                      <button
-                        onClick={() => setInsightsExpanded(!insightsExpanded)}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 text-xs font-medium"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <BarChart3 className="h-3.5 w-3.5" /> Day Insights
-                        </span>
-                        <span className="text-muted-foreground">{insightsExpanded ? '▲' : '▼'}</span>
-                      </button>
-                      {insightsExpanded && (
-                        <div className="px-3 py-2.5 border-t border-border/30">
-                          {(() => {
-                            const totalHours = dayInsightsData?.laborHours || dayPunches.reduce((sum, p) => sum + p.hoursWorked, 0);
-                            const laborCost = dayInsightsData?.laborCost || 0;
-                            const sales = dayInsightsData?.sales || 0;
-                            const laborPct = sales > 0 ? (laborCost / sales) * 100 : 0;
-                            const salesPerLH = totalHours > 0 ? sales / totalHours : 0;
-                            return (
-                              <div className="grid grid-cols-5 gap-1 text-center">
-                                <div>
-                                  <span className="text-base font-bold">${sales.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                  <p className="text-[10px] text-muted-foreground">Sales</p>
-                                </div>
-                                <div>
-                                  <span className="text-base font-bold">{totalHours.toFixed(1)}h</span>
-                                  <p className="text-[10px] text-muted-foreground">Hours</p>
-                                </div>
-                                <div>
-                                  <span className="text-base font-bold">${laborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                  <p className="text-[10px] text-muted-foreground">Labor</p>
-                                </div>
-                                <div>
-                                  <span className={`text-base font-bold ${laborPct > 30 ? 'text-destructive' : 'text-green-600'}`}>{laborPct.toFixed(1)}%</span>
-                                  <p className="text-[10px] text-muted-foreground">Labor %</p>
-                                </div>
-                                <div>
-                                  <span className="text-base font-bold">${salesPerLH.toFixed(2)}</span>
-                                  <p className="text-[10px] text-muted-foreground">$/LH</p>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </Card>
+                    {/* Day Insights now renders once for every day below */}
                   </>
                 );
               })()) : isPastDate && dayPunches.length > 0 ? (
@@ -1562,6 +1437,22 @@ export function MobileScheduleView({
                     )
                   )}
                 </div>
+              )}
+
+              {/* Day Insights — same data + theme as the desktop Week Insights bar, one day at a time */}
+              {selectedDateStr && todayStr && (
+                <DayInsightsBar
+                  locationId={currentLocation?.id}
+                  timezone={timezone}
+                  dateStr={selectedDateStr}
+                  todayStr={todayStr}
+                  dayIndex={selectedDayOfWeek}
+                  scheduleId={scheduleId}
+                  shifts={dayShifts as any}
+                  profiles={profiles as any}
+                  canEdit={isAdmin || isManager}
+                  weekStart={format(currentWeekStart, 'yyyy-MM-dd')}
+                />
               )}
             </div>
           </div>
