@@ -952,8 +952,8 @@ export function LaborTotals({
           currentValue={projectedSales[projectionDialogDay] || 0}
           currentSource={salesSource[projectionDialogDay]}
           canEdit={isEditable}
-          onSaveOverride={async value => {
-            await handleSalesChange(projectionDialogDay!, String(value));
+          onSaveOverride={async (value, excludedDates) => {
+            await handleSalesChange(projectionDialogDay!, String(value), excludedDates);
             toast.success('Sales number saved');
           }}
           onResetToProjection={async () => {
