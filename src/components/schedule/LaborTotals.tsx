@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
+import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
