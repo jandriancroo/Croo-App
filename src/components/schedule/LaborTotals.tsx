@@ -735,7 +735,7 @@ export function LaborTotals({
             {dailyTotals.map((day, index) => {
               const phase = getDayPhase(index);
               return (
-                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${phase === 'completed' ? 'bg-muted/40' : ''}`}>
+                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${phase === 'completed' ? 'bg-muted/50' : ''}`}>
                   <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : ''}`}>{day.hours.toFixed(1)}h</span>
                   {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
                 </div>
@@ -758,7 +758,7 @@ export function LaborTotals({
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/40' : ''}`}>
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/50' : ''}`}>
               {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
@@ -778,7 +778,7 @@ export function LaborTotals({
         {dailyTotals.map((day, index) => {
         const phase = getDayPhase(index);
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/40' : ''}`}>
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${phase === 'completed' ? 'bg-muted/50' : ''}`}>
               {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className={`text-xs font-semibold ${phase === 'completed' ? 'text-muted-foreground' : 'text-foreground'}`}>
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
@@ -813,7 +813,7 @@ export function LaborTotals({
           const bgClass = isHistorical ? 'bg-green-500/10' : 
                          isOverride ? 'bg-amber-500/10' : 
                          isLiving ? 'bg-primary/5' :
-                         isPastDay ? 'bg-muted/40' : '';
+                         isPastDay ? 'bg-muted/50' : '';
           
           return (
             <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
