@@ -615,18 +615,33 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     setShowPreviewModal(false);
   };
 
+  // Server-side cut savings: returns { user_id, minutes, savings } computed
+  // with real wages. Savings amounts only — pay rates never reach the device.
+  const { data: cutSavings = [] } = useQuery({
+    queryKey: ['cut-savings', locationId, laborCuts],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cut_savings_estimate', {
+        _location_id: locationId,
+        _cuts: laborCuts.map(c => ({ user_id: c.userId, minutes: c.minutesCut })),
+      });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!locationId && laborCuts.length > 0,
+  });
+  const cutSavingsByUser = useMemo(
+    () => new Map(cutSavings.map((r: any) => [r.user_id, Number(r.savings) || 0])),
+    [cutSavings]
+  );
+
   // Calculate labor savings from cuts
   const calculateLaborSavings = useMemo(() => {
     let totalMinutesSaved = 0;
     let totalCostSaved = 0;
-    
+
     laborCuts.forEach(cut => {
-      const employee = activeShifts.find(s => s.userId === cut.userId);
-      if (employee) {
-        totalMinutesSaved += cut.minutesCut;
-        const hoursSaved = cut.minutesCut / 60;
-        totalCostSaved += hoursSaved * (employee.hourlyWage || 16);
-      }
+      totalMinutesSaved += cut.minutesCut;
+      totalCostSaved += cutSavingsByUser.get(cut.userId) || 0;
     });
 
     const currentLaborCost = laborData?.labor_cost || 0;
