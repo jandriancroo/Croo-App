@@ -265,8 +265,49 @@ export async function seedWeekProjections(
         living_projection: projected,
         ...(posSource ? { pos_source: posSource } : {}),
       });
-      if (insertErr) throw new Error(`sales_cache insert failed for ${date}: ${insertErr.message}`);
-      days.push({ sale_date: date, projection: projected, action: "created" });
+
+      if (!insertErr) {
+        days.push({ sale_date: date, projection: projected, action: "created" });
+        continue;
+      }
+
+      // A POS sync may have created this day's row between our read and write.
+      // That is normal, not a failure: fall through and only fill gaps.
+      const isDuplicate =
+        (insertErr as any)?.code === "23505" || /duplicate key/i.test(insertErr.message || "");
+      if (!isDuplicate) {
+        throw new Error(`sales_cache insert failed for ${date}: ${insertErr.message}`);
+      }
+
+      const { data: raced } = await supabase
+        .from("sales_cache")
+        .select("net_sales, initial_projection, living_projection, override_projection, projected_sales")
+        .eq("location_id", locationId)
+        .eq("sale_date", date)
+        .maybeSingle();
+
+      const alreadyForecast =
+        Number(raced?.override_projection ?? 0) > 0 ||
+        Number(raced?.living_projection ?? 0) > 0 ||
+        Number(raced?.projected_sales ?? 0) > 0 ||
+        Number(raced?.net_sales ?? 0) > 0;
+
+      if (alreadyForecast) {
+        days.push({ sale_date: date, projection: Number(raced?.living_projection ?? raced?.override_projection ?? 0), action: "skipped", reason: "another sync filled this day first" });
+        continue;
+      }
+
+      const gapFill: Record<string, any> = { living_projection: projected };
+      if (!(Number(raced?.initial_projection ?? 0) > 0)) gapFill.initial_projection = projected;
+
+      const { error: raceUpdateErr } = await supabase
+        .from("sales_cache")
+        .update(gapFill)
+        .eq("location_id", locationId)
+        .eq("sale_date", date);
+      if (raceUpdateErr) throw new Error(`sales_cache update failed for ${date}: ${raceUpdateErr.message}`);
+
+      days.push({ sale_date: date, projection: projected, action: "filled" });
       continue;
     }
 
