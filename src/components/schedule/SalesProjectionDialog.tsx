@@ -22,7 +22,7 @@ interface SalesProjectionDialogProps {
   currentValue: number;
   currentSource?: 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
   canEdit: boolean;
-  onSaveOverride: (value: number) => Promise<void> | void;
+  onSaveOverride: (value: number, excludedDates?: string[]) => Promise<void> | void;
   onResetToProjection: () => Promise<void> | void;
 }
 
@@ -33,6 +33,7 @@ interface CacheRow {
   override_projection: number | null;
   override_at: string | null;
   projected_sales: number | null;
+  override_excluded_dates: string[] | null;
 }
 
 interface NearbyEvent {
@@ -113,7 +114,7 @@ export function SalesProjectionDialog({
       const [rowRes, histRes, holidayRes, eventRes] = await Promise.all([
         supabase
           .from('sales_cache')
-          .select('net_sales, initial_projection, living_projection, override_projection, override_at, projected_sales')
+          .select('net_sales, initial_projection, living_projection, override_projection, override_at, projected_sales, override_excluded_dates')
           .eq('location_id', locationId)
           .eq('sale_date', dateStr)
           .maybeSingle(),
@@ -139,14 +140,25 @@ export function SalesProjectionDialog({
           .lte('event_date', annotationEnd),
       ]);
       if (cancelled) return;
-      setRow((rowRes.data as CacheRow) || null);
+      setRow((rowRes.data as unknown as CacheRow) || null);
       const rows = (histRes.data as any[]) || [];
       const nextHistory = historyDates.map(d => ({
           date: d,
           net_sales: rows.find(r => r.sale_date === d)?.net_sales ?? null,
         }));
       setHistory(nextHistory);
-      setIncludedDates(new Set(nextHistory.filter(item => (item.net_sales ?? 0) > 0).map(item => item.date)));
+      const savedExcluded = new Set(
+        Array.isArray((rowRes.data as any)?.override_excluded_dates)
+          ? ((rowRes.data as any).override_excluded_dates as string[])
+          : []
+      );
+      setIncludedDates(
+        new Set(
+          nextHistory
+            .filter(item => (item.net_sales ?? 0) > 0 && !savedExcluded.has(item.date))
+            .map(item => item.date)
+        )
+      );
       const loadedEvents: NearbyEvent[] = [
         ...standardUSSalesEvents(annotationYears),
         ...((holidayRes.data || []).map(holiday => ({
@@ -220,7 +232,10 @@ export function SalesProjectionDialog({
     if (!(value >= 0)) return;
     setSaving(true);
     try {
-      await onSaveOverride(Math.round(value * 100) / 100);
+      const excludedDates = history
+        .filter(item => (item.net_sales ?? 0) > 0 && !includedDates.has(item.date))
+        .map(item => item.date);
+      await onSaveOverride(Math.round(value * 100) / 100, excludedDates);
       onOpenChange(false);
     } finally {
       setSaving(false);
