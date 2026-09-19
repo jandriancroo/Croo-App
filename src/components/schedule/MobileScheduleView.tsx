@@ -18,6 +18,7 @@ import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
+import { DayInsightsBar } from './DayInsightsBar';
 // Option6TodayContent kept as standalone component for potential reuse
 
 import { useUserRole } from '@/hooks/useUserRole';
