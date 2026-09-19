@@ -276,8 +276,10 @@ export function SalesProjectionDialog({
         ) : (
           <div className="space-y-3 text-sm">
             <div className="flex items-baseline justify-between rounded-md bg-muted/50 px-3 py-2">
-              <span className="text-muted-foreground">Showing</span>
-              <span className="text-lg font-bold">{money(currentValue || 0)}</span>
+              <span className="text-muted-foreground">{canEdit && !isPast ? 'Goal' : 'Showing'}</span>
+              <span className="text-lg font-bold">
+                {money(canEdit && !isPast && draft !== '' && !isNaN(parseFloat(draft)) ? parseFloat(draft) : currentValue || 0)}
+              </span>
             </div>
 
             <div className="space-y-1.5">
