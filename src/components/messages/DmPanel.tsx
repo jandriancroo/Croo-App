@@ -170,7 +170,7 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side={isMobile ? 'bottom' : 'right'}
-          className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl [&_[data-radix-dialog-close]]:text-primary-foreground' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground'}
+          className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground'}
         >
           <SheetHeader className="px-4 pt-4 pb-3 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
             <SheetTitle className="pr-8 text-left text-lg text-primary-foreground">Inbox</SheetTitle>
