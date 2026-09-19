@@ -286,8 +286,8 @@ export function LaborTotals({
         }
         
         // Future days from projections
-        if (futureResponse.data) {
-          futureResponse.data.forEach(row => {
+        if (futureRows) {
+          futureRows.forEach(row => {
             const resolved = resolveProjection({
               initial_projection: row.initial_projection,
               living_projection: row.living_projection,
@@ -334,13 +334,11 @@ export function LaborTotals({
         // PHASE 2: Fetch today's LIVE data in background (SLOW - ~10s)
         // This updates the display when ready without blocking initial render
         if (todayIndex !== null) {
-          supabase.functions.invoke("fetch-qubeyond-sales", { 
-            body: { locationId: currentLocation.id } 
-          }).then(({ data, error }) => {
-            if (!error && data && data.daily > 0) {
+          refreshLiveSalesForToday(currentLocation.id).then(daily => {
+            if (daily && daily > 0) {
               setProjectedSales(prev => ({
                 ...prev,
-                [todayIndex as number]: Math.round(data.daily * 100) / 100
+                [todayIndex as number]: Math.round(daily * 100) / 100
               }));
               setSalesSource(prev => ({
                 ...prev,
