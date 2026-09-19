@@ -119,9 +119,9 @@ export function SalesProjectionDialog({
       return <Badge variant="outline" className="gap-1 border-amber-500/40 text-amber-600"><PencilLine className="h-3 w-3" />Manager override</Badge>;
     }
     if (currentSource === 'living') {
-      return <Badge variant="outline" className="gap-1 border-primary/40 text-primary"><Radio className="h-3 w-3" />Live forecast</Badge>;
+      return <Badge variant="outline" className="gap-1 border-primary/40 text-primary"><Radio className="h-3 w-3" />Live goal</Badge>;
     }
-    return <Badge variant="outline" className="gap-1 border-primary/30 text-primary"><Sparkles className="h-3 w-3" />Forecast</Badge>;
+    return <Badge variant="outline" className="gap-1 border-primary/30 text-primary"><Sparkles className="h-3 w-3" />Goal</Badge>;
   })();
 
   const handleSave = async () => {
@@ -158,8 +158,8 @@ export function SalesProjectionDialog({
             {isPast
               ? 'Completed day — this is what the store actually rang up.'
               : isToday
-                ? 'In progress today — actual sales so far, tracking against the forecast.'
-                : 'Upcoming day — here is how the forecast was built.'}
+                ? 'In progress today — actual sales so far, tracking against the goal.'
+                : 'Upcoming day — here is how the goal was built.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -214,11 +214,11 @@ export function SalesProjectionDialog({
                 <span>{(row?.net_sales ?? 0) > 0 ? money(row!.net_sales as number) : '—'}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">First forecast</span>
+                <span className="text-muted-foreground">Original goal</span>
                 <span>{(row?.initial_projection ?? 0) > 0 ? money(row!.initial_projection as number) : '—'}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Latest forecast</span>
+                <span className="text-muted-foreground">Latest goal</span>
                 <span>{(row?.living_projection ?? 0) > 0 ? money(row!.living_projection as number) : '—'}</span>
               </div>
               <div className="flex items-center justify-between">
@@ -233,7 +233,7 @@ export function SalesProjectionDialog({
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                Order used: override, then latest forecast, then first forecast
+                Order used: manager override, then latest goal, then original goal
                 {resolved.source ? ` — currently ${resolved.source === 'legacy' ? 'a saved number' : resolved.source}.` : '.'}
               </p>
             </div>
@@ -265,7 +265,7 @@ export function SalesProjectionDialog({
             <>
               <Button variant="outline" onClick={handleReset} disabled={saving} className="gap-1.5">
                 <RotateCcw className="h-3.5 w-3.5" />
-                Use forecast
+                Use goal
               </Button>
               <Button onClick={handleSave} disabled={saving || draft === ''}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save number'}

@@ -542,12 +542,12 @@ export function LaborTotals({
         if (salesValue > 0) {
           setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
           setSalesSource(prev => ({ ...prev, [dayIndex]: source }));
-          const sourceLabel = source === 'living' ? 'Live AI projection' : 
-                             source === 'initial' ? 'AI projection' : 
-                             source === 'historical' ? 'actual sales' : 'AI projection';
+          const sourceLabel = source === 'living' ? 'Live AI goal' : 
+                             source === 'initial' ? 'AI goal' : 
+                             source === 'historical' ? 'actual sales' : 'AI goal';
           toast.success(`Reloaded ${sourceLabel} for ${format(day, 'EEE')}`);
         } else {
-          toast.info(`No projection available for ${format(day, 'EEE')}`);
+          toast.info(`No goal available for ${format(day, 'EEE')}`);
         }
       } else if (isPast || isTodayDate) {
         // Past/today with no cached row: refresh through the store's own POS.
@@ -594,7 +594,7 @@ export function LaborTotals({
           setSalesSource(prev => ({ ...prev, [dayIndex]: resolved.source === 'legacy' ? 'ai' : (resolved.source as 'living' | 'initial') || 'ai' }));
           toast.success(`Reloaded AI projection for ${format(day, 'EEE')}`);
         } else {
-          toast.info(`No projection available for ${format(day, 'EEE')}`);
+          toast.info(`No goal available for ${format(day, 'EEE')}`);
         }
       }
     } catch (error) {
