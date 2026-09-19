@@ -92,6 +92,51 @@ export function requireInternalCaller(
 
 
 /**
+ * Same authorization rules as requireAuthorizedCaller, but returns WHO the
+ * caller is so the endpoint can apply caller-specific scoping (e.g. a
+ * per-location access check). Service-role and cron-secret callers return
+ * kind "service" — they intentionally bypass user-level scoping.
+ *
+ * Returns { caller } when authorized, otherwise { response } (401/403).
+ */
+export async function authorizeCaller(
+  req: Request,
+  corsHeaders: Record<string, string>,
+  opts: { minRole?: string } = {},
+): Promise<{ caller: Caller } | { response: Response }> {
+  const deny = (status: number, error: string) => ({
+    response: new Response(JSON.stringify({ error }), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    }),
+  });
+
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const cronSecret = Deno.env.get("CRON_SECRET");
+
+  if (SERVICE_ROLE_KEY && bearer === SERVICE_ROLE_KEY) return { caller: { kind: "service", userId: null } };
+  if (cronSecret && req.headers.get("x-cron-secret") === cronSecret) return { caller: { kind: "service", userId: null } };
+
+  if (!bearer) return deny(401, "Unauthorized");
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data, error } = await admin.auth.getUser(bearer);
+  const userId = data?.user?.id;
+  if (error || !userId) return deny(401, "Unauthorized");
+
+  if (opts.minRole) {
+    const { data: ok, error: roleErr } = await admin.rpc("has_role_or_higher", {
+      _user_id: userId,
+      _minimum_role: opts.minRole,
+    });
+    if (roleErr || ok !== true) return deny(403, "Forbidden");
+  }
+
+  return { caller: { kind: "user", userId } };
+}
+
+/**
  * Guard for integration endpoints that are reachable from the app UI but must
  * never be open to the internet.
  *

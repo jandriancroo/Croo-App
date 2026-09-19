@@ -13,7 +13,7 @@
 // never replaces an existing first projection, never touches labor or inventory.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { authorizeCaller, requireAuthorizedCaller } from "../_shared/callerAuth.ts";
 import {
   getLocationTimezone,
   seedWeekProjections,
@@ -47,9 +47,6 @@ function addWeeks(dateStr: string, weeks: number): string {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const denied = await requireAuthorizedCaller(req, corsHeaders);
-  if (denied) return denied;
-
   try {
     const body = (await req.json()) as Body;
     const action = body.action || "seed_week";
@@ -60,7 +57,27 @@ Deno.serve(async (req) => {
     );
 
     if (action === "seed_week") {
+      // Browser-reachable action: caller must be a manager+ AND have access
+      // to the specific location being seeded. Service-role / cron callers
+      // bypass the per-location check (they have no location of their own).
+      const auth = await authorizeCaller(req, corsHeaders, { minRole: "manager" });
+      if ("response" in auth) return auth.response;
+
       if (!body.locationId) throw new Error("locationId required");
+
+      if (auth.caller.kind === "user") {
+        const { data: hasAccess, error: accessErr } = await supabase.rpc("has_location_access", {
+          _user_id: auth.caller.userId,
+          _location_id: body.locationId,
+        });
+        if (accessErr || hasAccess !== true) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Forbidden: no access to this location" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+
       const result = await seedWeekProjections(supabase, body.locationId, body.weekStart);
       return new Response(JSON.stringify({ success: true, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -68,6 +85,10 @@ Deno.serve(async (req) => {
     }
 
     if (action === "seed_all_weeks") {
+      // Cron / service-role only — never called from the browser.
+      const denied = await requireAuthorizedCaller(req, corsHeaders);
+      if (denied) return denied;
+
       const offset = Number.isFinite(body.weekOffset) ? Number(body.weekOffset) : 0;
 
       const { data: integrations, error } = await supabase
