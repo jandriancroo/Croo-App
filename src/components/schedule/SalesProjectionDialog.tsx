@@ -272,31 +272,26 @@ export function SalesProjectionDialog({
                {history.map(h => {
                  const hasSales = (h.net_sales ?? 0) > 0;
                  const annotations = annotationsFor(h.date);
+                 const annotation = annotations[0];
                  return (
-                   <div key={h.date} className="space-y-1 rounded-md px-1 py-1.5">
-                     <div className="flex items-center gap-2">
-                       {canEdit && !isPast && (
-                         <Checkbox
-                           checked={includedDates.has(h.date)}
-                           disabled={!hasSales}
-                           onCheckedChange={checked => toggleHistoryDate(h.date, checked === true)}
-                           aria-label={`${includedDates.has(h.date) ? 'Exclude' : 'Include'} ${displayDate(h.date)} in goal math`}
-                         />
-                       )}
-                       <span className="min-w-0 flex-1 text-muted-foreground">{displayDate(h.date)}</span>
-                       <span className={hasSales && includedDates.has(h.date) ? '' : 'text-muted-foreground line-through'}>
-                         {hasSales ? money(h.net_sales as number) : 'no sales recorded'}
-                       </span>
-                     </div>
-                     {annotations.length > 0 && (
-                       <div className={canEdit && !isPast ? 'pl-6' : ''}>
-                          {annotations.map(event => (
-                            <Badge key={`${event.kind}-${event.id}`} variant="secondary" className="max-w-full whitespace-nowrap font-normal">
-                              <span className="truncate">{event.offset < 0 && `${Math.abs(event.offset)}d ← `}{event.name}{event.offset > 0 && ` → ${event.offset}d`}</span>
-                            </Badge>
-                          ))}
-                       </div>
+                   <div key={h.date} className="flex items-center gap-2 rounded-md px-1 py-1.5">
+                     {canEdit && !isPast && (
+                       <Checkbox
+                         checked={includedDates.has(h.date)}
+                         disabled={!hasSales}
+                         onCheckedChange={checked => toggleHistoryDate(h.date, checked === true)}
+                         aria-label={`${includedDates.has(h.date) ? 'Exclude' : 'Include'} ${displayDate(h.date)} in goal math`}
+                       />
                      )}
+                     <span className="min-w-0 shrink-0 text-muted-foreground">{displayDate(h.date)}</span>
+                     {annotation && (
+                       <Badge variant="secondary" className="min-w-0 max-w-[45%] flex-1 justify-start whitespace-nowrap px-1.5 font-normal">
+                         <span className="truncate">{annotation.offset < 0 && `${Math.abs(annotation.offset)}d ← `}{annotation.name}{annotation.offset > 0 && ` → ${annotation.offset}d`}</span>
+                       </Badge>
+                     )}
+                     <span className={`min-w-0 ml-auto shrink-0 ${hasSales && includedDates.has(h.date) ? '' : 'text-muted-foreground line-through'}`}>
+                       {hasSales ? money(h.net_sales as number) : 'no sales'}
+                     </span>
                    </div>
                  );
                })}
