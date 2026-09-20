@@ -260,6 +260,37 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4c. DIVISION GUARD — a PFG number is only valid at the warehouse that
+    // carries it. Tuscaloosa/Rowlett inherited SoCal numbers their own warehouse
+    // never recognised, so those items could never be priced and nothing flagged it.
+    // Validate every inherited number against THIS location's order guide before
+    // stamping it. A number the guide doesn't have is not planted on the local row;
+    // the item is marked unpriced-pending and a gap alert is raised for this store.
+    const localGuideNumbers = new Set<string>();
+    {
+      const { data: guideRows, error: guideErr } = await supabase
+        .from("pfg_bid_items")
+        .select("item_number")
+        .eq("location_id", locationId);
+      if (guideErr) {
+        console.warn("[deploy] guide prefetch failed — skipping number validation:", guideErr);
+      } else {
+        for (const g of guideRows || []) {
+          const n = String((g as any).item_number || "").trim();
+          if (n) localGuideNumbers.add(n);
+        }
+      }
+    }
+    // Only enforce when we actually have a guide for this location. No guide =
+    // unknown, not invalid — never strip numbers on a blind guess.
+    const guideKnown = localGuideNumbers.size > 0;
+    const foreignNumberAlerts: { itemNumber: string; productName: string }[] = [];
+    const isNumberValidHere = (sku: string | undefined): boolean => {
+      if (!sku) return false;
+      if (!guideKnown) return true;
+      return localGuideNumbers.has(String(sku).trim());
+    };
+
     // 5. Create inventory_items for each template (skip dupes)
     const templateToItemId = new Map<string, string>();
     const deploymentRecords: any[] = [];
