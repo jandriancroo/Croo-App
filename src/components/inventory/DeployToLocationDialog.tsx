@@ -672,7 +672,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               is_recipe: tmpl.is_recipe,
               recipe_yield_qty: tmpl.recipe_yield_qty,
               recipe_yield_unit: tmpl.recipe_yield_unit,
-              vendor_source: tmpl.vendor_source as any,
+              vendor_source: resolveTmplVendorSource(tmpl) as any,
             } as any)
             .select("id")
             .single();
@@ -822,7 +822,12 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   name: ing.ingredient_name || 'Unknown Ingredient',
                   storage_location_id: unassignedId,
                   is_active: true,
-                  vendor_source: ing.ingredient_vendor_source as any,
+                  vendor_source: (ing.ingredient_vendor_source ||
+                    (ing.ingredient_item_number
+                      ? "pfg"
+                      : ing.ingredient_pa_item_id
+                        ? "produce_alliance"
+                        : null)) as any,
                 } as any)
                 .select("id")
                 .single();
