@@ -439,6 +439,7 @@ Deno.serve(async (req) => {
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
           ...(pfgSku ? { item_number: pfgSku } : {}),
+          ...(foreignPfg ? { unpriced_since: new Date().toISOString() } : {}),
           ...(paSku ? { pa_item_id: paSku } : {}),
           ...(packOverride != null ? { pack_quantity_override: packOverride } : {}),
           ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
