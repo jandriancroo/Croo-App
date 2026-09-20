@@ -20,3 +20,8 @@
 - [x] Add optional subject lines to announcements
 - [x] Shipped aggregate live-labor RPCs (get_live_labor_totals, get_labor_totals_for_dates, get_cut_savings_estimate); rewired liveLabor.ts + CompactDashboard; verified real wages Palm Springs (14.8h / $324.88); publish requested.
 - [x] vendor_source root-cause fix: closed 3 creation paths (availability sweep auto-deploy, BrandItemActivation, DeployToLocationDialog), dropped the 'manual' column default, backfilled contradicting rows, corrected Palm Springs Blaze Red Sauce Can to pfg. Guardrail held (Palm Desert 201, Palm Springs 211 active-priced).
+
+## Done — bogus PFG numbers cleared off PA produce items (Sep 20 2026)
+- 21 active inventory_items rows had item_number set to NULL (pa_item_id, vendor_source, cost_per_unit untouched)
+- Blaze Red Sauce Can (611957, real PFG) left alone; only remaining row with both identifiers
+- 0 brand_inventory_templates carry both identifiers; 1 inactive contaminated row left (Sandbox Retired Clone Cilantro) — flagged, not fixed
