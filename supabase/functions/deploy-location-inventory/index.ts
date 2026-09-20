@@ -416,8 +416,11 @@ Deno.serve(async (req) => {
       // Many older brand templates have NULL vendor_source even though they have
       // a PFG/PA mapping — without this the activation sweep would treat them as
       // house-made ("no vendor price ever expected") and activate them unpriced.
+      // NOTE: use the RAW pfg number here. A number rejected by the division guard
+      // still proves this is a PFG item, so the vendor label must stay 'pfg' —
+      // otherwise the sweep would mistake it for house-made and activate it unpriced.
       const resolvedVendorSource = tmpl.vendor_source
-        || (pfgSku ? "pfg" : (paSku ? "produce_alliance" : null));
+        || (pfgSkuRaw ? "pfg" : (paSku ? "produce_alliance" : null));
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
