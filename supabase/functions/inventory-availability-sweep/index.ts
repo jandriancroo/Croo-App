@@ -541,12 +541,17 @@ async function autoDeployMissingIngredients(
       // (matches existing deploy-location-inventory behavior; later vendor syncs fill them).
       const resolvedVendorSource =
         tplOwn.get(tpl.id) || tplVendorSource.get(tpl.id) || null;
-      const insertRow = {
+      // Division guard: brand PFG number not on this store's own order guide.
+      const brandPfg = tplPfgNumber.get(tpl.id);
+      const foreignPfg = !!brandPfg && guideKnown && !localGuide.has(brandPfg);
+      if (foreignPfg) foreignNumbers.push({ itemNumber: brandPfg!, productName: tpl.product_name });
+      const insertRow: Record<string, any> = {
         location_id: location.id,
         brand_item_id: tpl.id,
         name: tpl.product_name,
         is_active: true,
         vendor_source: resolvedVendorSource,
+        ...(foreignPfg ? { unpriced_since: new Date().toISOString() } : {}),
       };
       const { data: created, error: insErr } = await supabase
         .from("inventory_items")
