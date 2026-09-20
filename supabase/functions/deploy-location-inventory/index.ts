@@ -402,8 +402,16 @@ Deno.serve(async (req) => {
       // Stamp vendor IDs from prefetched brand_vendor_mappings at INSERT time.
       // Mappings are brand-wide identity (not territory-scoped pricing), so it's safe
       // to stamp at deploy. Syncs remain price-only and don't touch these IDs.
-      const pfgSku = pfgByTemplate.get(tmpl.id);
+      const pfgSkuRaw = pfgByTemplate.get(tmpl.id);
       const paSku = paByTemplate.get(tmpl.id);
+      // Division guard (see 4c): only stamp a PFG number this location's own order
+      // guide actually carries. Otherwise leave it blank, mark unpriced-pending and
+      // raise a gap alert for this store.
+      const pfgSku = isNumberValidHere(pfgSkuRaw) ? pfgSkuRaw : undefined;
+      const foreignPfg = !!pfgSkuRaw && !pfgSku;
+      if (foreignPfg) {
+        foreignNumberAlerts.push({ itemNumber: pfgSkuRaw!, productName: tmpl.product_name });
+      }
       // Derive vendor_source from mappings if template's is blank.
       // Many older brand templates have NULL vendor_source even though they have
       // a PFG/PA mapping — without this the activation sweep would treat them as
