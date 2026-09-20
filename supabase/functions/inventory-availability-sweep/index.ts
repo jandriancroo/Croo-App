@@ -517,11 +517,14 @@ async function autoDeployMissingIngredients(
     } else {
       // Create new minimal local row — vendor SKUs intentionally NOT stamped
       // (matches existing deploy-location-inventory behavior; later vendor syncs fill them).
+      const resolvedVendorSource =
+        tplOwn.get(tpl.id) || tplVendorSource.get(tpl.id) || null;
       const insertRow = {
         location_id: location.id,
         brand_item_id: tpl.id,
         name: tpl.product_name,
         is_active: true,
+        vendor_source: resolvedVendorSource,
       };
       const { data: created, error: insErr } = await supabase
         .from("inventory_items")
