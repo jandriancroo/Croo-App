@@ -466,6 +466,39 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 5a-bis. DIVISION GUARD REPORTING — raise one gap alert per inherited PFG
+    // number this store's order guide does not carry, tagged to this store, so it
+    // lands in the Vendor Gap screen for a human to link to the right local number.
+    if (foreignNumberAlerts.length > 0) {
+      const { data: locRow } = await supabase
+        .from("locations")
+        .select("name, organization_id, organizations(brand_id)")
+        .eq("id", locationId)
+        .maybeSingle();
+      const alertBrandId = (locRow as any)?.organizations?.brand_id ?? null;
+      const locName = (locRow as any)?.name ?? "Unknown";
+      if (alertBrandId) {
+        const seen = new Set<string>();
+        for (const a of foreignNumberAlerts) {
+          if (seen.has(a.itemNumber)) continue;
+          seen.add(a.itemNumber);
+          const { error: gapErr } = await supabase.rpc("upsert_vendor_gap_with_location", {
+            _brand_id: alertBrandId,
+            _vendor_source: "pfg",
+            _item_number: a.itemNumber,
+            _vendor_name: a.productName,
+            _vendor_description: `${a.productName} — number not on ${locName}'s order guide`,
+            _pack_size: "",
+            _category_name: "Needs local number",
+            _location_id: locationId,
+            _location_name: locName,
+          });
+          if (gapErr) console.warn("[deploy] gap alert failed:", gapErr.message);
+        }
+        console.log(`[deploy] Raised ${seen.size} foreign-number gap alerts for ${locName}`);
+      }
+    }
+
     // 5b. (Removed) Separate PFG stamping pass — vendor IDs are now stamped at INSERT time above.
 
     // 5c. (Removed, Stage 3) PFG cost_per_unit backfill. Deploy no longer talks to any
