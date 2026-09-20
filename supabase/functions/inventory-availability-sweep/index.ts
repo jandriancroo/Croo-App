@@ -467,15 +467,19 @@ async function autoDeployMissingIngredients(
   //     (same derivation deploy-location-inventory uses). Without this the column
   //     default used to silently stamp 'manual' and the row fell out of this sweep.
   const tplVendorSource = new Map<string, string>();
+  const tplPfgNumber = new Map<string, string>();
   {
     const { data: vmaps } = await supabase
       .from("brand_vendor_mappings")
-      .select("brand_template_id, vendor")
+      .select("brand_template_id, vendor, vendor_item_id")
       .in("brand_template_id", tplIds);
     for (const m of (vmaps ?? []) as any[]) {
       const v = String(m.vendor || "").toLowerCase();
-      if (v === "pfg") tplVendorSource.set(m.brand_template_id, "pfg");
-      else if ((v === "produce_alliance" || v === "pa") && !tplVendorSource.has(m.brand_template_id)) {
+      if (v === "pfg") {
+        tplVendorSource.set(m.brand_template_id, "pfg");
+        const n = String(m.vendor_item_id || "").trim();
+        if (n) tplPfgNumber.set(m.brand_template_id, n);
+      } else if ((v === "produce_alliance" || v === "pa") && !tplVendorSource.has(m.brand_template_id)) {
         tplVendorSource.set(m.brand_template_id, "produce_alliance");
       }
     }
@@ -487,6 +491,24 @@ async function autoDeployMissingIngredients(
   const tplOwn = new Map<string, string | null>(
     ((tplOwnSource ?? []) as any[]).map((t) => [t.id, t.vendor_source ?? null]),
   );
+
+  // DIVISION GUARD — a brand PFG number is only meaningful at a warehouse that
+  // carries it. Before auto-deploying, check the number against THIS store's own
+  // order guide. Mismatches are left unpriced-pending and raised as gap alerts
+  // instead of quietly deploying an item that can never be priced here.
+  const localGuide = new Set<string>();
+  {
+    const { data: guideRows } = await supabase
+      .from("pfg_bid_items")
+      .select("item_number")
+      .eq("location_id", location.id);
+    for (const g of (guideRows ?? []) as any[]) {
+      const n = String(g.item_number || "").trim();
+      if (n) localGuide.add(n);
+    }
+  }
+  const guideKnown = localGuide.size > 0; // no guide = unknown, never assume invalid
+  const foreignNumbers: { itemNumber: string; productName: string }[] = [];
 
   // 4. Deploy / reactivate
   const logRows: any[] = [];
