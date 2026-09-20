@@ -327,11 +327,21 @@ Deno.serve(async (req) => {
             ? { storage_location_id: brandItemToShelf.get(tmpl.id) }
             : {};
 
-          const inheritedPfg = pfgByTemplate.get(tmpl.id);
+          const inheritedPfgRaw = pfgByTemplate.get(tmpl.id);
           const inheritedPa = paByTemplate.get(tmpl.id);
+          // Division guard: don't inherit a number this warehouse doesn't carry.
+          const inheritedPfg = isNumberValidHere(inheritedPfgRaw) ? inheritedPfgRaw : undefined;
+          if (inheritedPfgRaw && !inheritedPfg && !existing.item_number) {
+            foreignNumberAlerts.push({ itemNumber: inheritedPfgRaw, productName: tmpl.product_name });
+          }
           const skuFill: Record<string, any> = {};
           if (!existing.item_number && inheritedPfg) skuFill.item_number = inheritedPfg;
           if (!existing.pa_item_id && inheritedPa) skuFill.pa_item_id = inheritedPa;
+          // No usable PFG number here → mark unpriced-pending so the chase and
+          // the gap screen both keep it visible instead of silently sitting at $0.
+          if (inheritedPfgRaw && !inheritedPfg && !existing.item_number) {
+            skuFill.unpriced_since = new Date().toISOString();
+          }
 
           await supabase
             .from("inventory_items")
