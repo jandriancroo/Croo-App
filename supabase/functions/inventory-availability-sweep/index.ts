@@ -467,15 +467,19 @@ async function autoDeployMissingIngredients(
   //     (same derivation deploy-location-inventory uses). Without this the column
   //     default used to silently stamp 'manual' and the row fell out of this sweep.
   const tplVendorSource = new Map<string, string>();
+  const tplPfgNumber = new Map<string, string>();
   {
     const { data: vmaps } = await supabase
       .from("brand_vendor_mappings")
-      .select("brand_template_id, vendor")
+      .select("brand_template_id, vendor, vendor_item_id")
       .in("brand_template_id", tplIds);
     for (const m of (vmaps ?? []) as any[]) {
       const v = String(m.vendor || "").toLowerCase();
-      if (v === "pfg") tplVendorSource.set(m.brand_template_id, "pfg");
-      else if ((v === "produce_alliance" || v === "pa") && !tplVendorSource.has(m.brand_template_id)) {
+      if (v === "pfg") {
+        tplVendorSource.set(m.brand_template_id, "pfg");
+        const n = String(m.vendor_item_id || "").trim();
+        if (n) tplPfgNumber.set(m.brand_template_id, n);
+      } else if ((v === "produce_alliance" || v === "pa") && !tplVendorSource.has(m.brand_template_id)) {
         tplVendorSource.set(m.brand_template_id, "produce_alliance");
       }
     }
@@ -487,6 +491,24 @@ async function autoDeployMissingIngredients(
   const tplOwn = new Map<string, string | null>(
     ((tplOwnSource ?? []) as any[]).map((t) => [t.id, t.vendor_source ?? null]),
   );
+
+  // DIVISION GUARD — a brand PFG number is only meaningful at a warehouse that
+  // carries it. Before auto-deploying, check the number against THIS store's own
+  // order guide. Mismatches are left unpriced-pending and raised as gap alerts
+  // instead of quietly deploying an item that can never be priced here.
+  const localGuide = new Set<string>();
+  {
+    const { data: guideRows } = await supabase
+      .from("pfg_bid_items")
+      .select("item_number")
+      .eq("location_id", location.id);
+    for (const g of (guideRows ?? []) as any[]) {
+      const n = String(g.item_number || "").trim();
+      if (n) localGuide.add(n);
+    }
+  }
+  const guideKnown = localGuide.size > 0; // no guide = unknown, never assume invalid
+  const foreignNumbers: { itemNumber: string; productName: string }[] = [];
 
   // 4. Deploy / reactivate
   const logRows: any[] = [];
@@ -519,12 +541,17 @@ async function autoDeployMissingIngredients(
       // (matches existing deploy-location-inventory behavior; later vendor syncs fill them).
       const resolvedVendorSource =
         tplOwn.get(tpl.id) || tplVendorSource.get(tpl.id) || null;
-      const insertRow = {
+      // Division guard: brand PFG number not on this store's own order guide.
+      const brandPfg = tplPfgNumber.get(tpl.id);
+      const foreignPfg = !!brandPfg && guideKnown && !localGuide.has(brandPfg);
+      if (foreignPfg) foreignNumbers.push({ itemNumber: brandPfg!, productName: tpl.product_name });
+      const insertRow: Record<string, any> = {
         location_id: location.id,
         brand_item_id: tpl.id,
         name: tpl.product_name,
         is_active: true,
         vendor_source: resolvedVendorSource,
+        ...(foreignPfg ? { unpriced_since: new Date().toISOString() } : {}),
       };
       const { data: created, error: insErr } = await supabase
         .from("inventory_items")
@@ -544,6 +571,29 @@ async function autoDeployMissingIngredients(
         action: "created",
       });
     }
+  }
+
+  // Raise one gap alert per foreign PFG number so a human can supply this
+  // store's own number instead of the item sitting unpriced forever.
+  if (foreignNumbers.length > 0 && location.brand_id) {
+    const seen = new Set<string>();
+    for (const f of foreignNumbers) {
+      if (seen.has(f.itemNumber)) continue;
+      seen.add(f.itemNumber);
+      const { error: gapErr } = await supabase.rpc("upsert_vendor_gap_with_location", {
+        _brand_id: location.brand_id,
+        _vendor_source: "pfg",
+        _item_number: f.itemNumber,
+        _vendor_name: f.productName,
+        _vendor_description: `${f.productName} — number not on ${location.name}'s order guide`,
+        _pack_size: "",
+        _category_name: "Needs local number",
+        _location_id: location.id,
+        _location_name: location.name,
+      });
+      if (gapErr) out.errors.push(`gap alert ${f.itemNumber}: ${gapErr.message}`);
+    }
+    console.log(`[auto-deploy] ${location.name}: ${seen.size} foreign-number gap alerts`);
   }
 
   if (logRows.length > 0) {

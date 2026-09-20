@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PendingVendorsCard from '@/components/brand/PendingVendorsCard';
+import { rankCandidates } from '@/utils/vendorCandidateMatch';
 
 interface VendorGapFinderProps {
   brandId: string;
@@ -234,6 +235,118 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       return (locs || []).map(l => l.id);
     },
   });
+
+  // ---------------------------------------------------------------------------
+  // Assisted matching data.
+  // A gap line belongs to a store. The likeliest owner of that number is one of
+  // THAT store's own unpriced items — an item carrying a number its warehouse
+  // doesn't recognise. We rank those by pack size / category / price proximity
+  // (never by name similarity, which was measured and failed).
+  // Ranking only: nothing below links or merges anything on its own.
+  // ---------------------------------------------------------------------------
+  const { data: brandItems = [] } = useQuery({
+    queryKey: ['gap-brand-inventory-items', brandId, brandLocationIds.length],
+    queryFn: async () => {
+      if (!brandLocationIds.length) return [];
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('id, name, location_id, brand_item_id, pack_size, category, cost_per_unit, item_number')
+        .in('location_id', brandLocationIds)
+        .eq('is_active', true);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: brandLocationIds.length > 0,
+  });
+
+  // Guide unit prices, so "price within 30% of another store" can be evaluated.
+  const { data: guidePrices = [] } = useQuery({
+    queryKey: ['gap-guide-prices', brandId, brandLocationIds.length],
+    queryFn: async () => {
+      if (!brandLocationIds.length) return [];
+      const { data, error } = await supabase
+        .from('pfg_bid_items')
+        .select('item_number, location_id, unit_price')
+        .in('location_id', brandLocationIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: brandLocationIds.length > 0,
+  });
+
+  const guidePriceByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const g of guidePrices as any[]) {
+      const price = Number(g.unit_price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      m.set(`${g.location_id}:${String(g.item_number).trim()}`, price);
+    }
+    return m;
+  }, [guidePrices]);
+
+  // Best known price for a brand item anywhere else in the brand (a solved sibling store).
+  const siblingPriceByBrandItem = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of brandItems as any[]) {
+      const cost = Number(it.cost_per_unit);
+      if (!it.brand_item_id || !Number.isFinite(cost) || cost <= 0) continue;
+      const prev = m.get(it.brand_item_id);
+      if (prev == null || cost > prev) m.set(it.brand_item_id, cost);
+    }
+    return m;
+  }, [brandItems]);
+
+  // Unpriced items per location — the candidate pool for that store's gap lines.
+  const unpricedByLocation = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const it of brandItems as any[]) {
+      const cost = Number(it.cost_per_unit);
+      if (Number.isFinite(cost) && cost > 0) continue;
+      const list = m.get(it.location_id) || [];
+      list.push(it);
+      m.set(it.location_id, list);
+    }
+    return m;
+  }, [brandItems]);
+
+  // Duplicate brand items created by earlier "add as draft" promotions: a non-live
+  // template carrying the same vendor number the gap is still asking about.
+  const dupeTemplatesByNumber = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const t of templates as any[]) {
+      if (t.status === 'live') continue;
+      const num = String(t.item_number || '').trim();
+      if (!num) continue;
+      const list = m.get(num) || [];
+      list.push(t);
+      m.set(num, list);
+    }
+    return m;
+  }, [templates]);
+
+  /** Ranked suggestions for one gap: that store's unpriced items, best first. */
+  const suggestionsFor = (gap: OutlierItem) => {
+    const locId = gap.reportedByLocations[0]?.id;
+    if (!locId) return [];
+    const pool = unpricedByLocation.get(locId) || [];
+    const gapPrice = guidePriceByKey.get(`${locId}:${String(gap.itemNumber).trim()}`) ?? null;
+    const ranked = rankCandidates(
+      { packSize: gap.packSize, categoryName: gap.categoryName, brand: gap.brand, price: gapPrice },
+      pool.map((it: any) => ({
+        ...it,
+        packSize: it.pack_size,
+        siblingPrice: it.brand_item_id ? siblingPriceByBrandItem.get(it.brand_item_id) ?? null : null,
+      })),
+      3,
+    );
+    // Only suggestions that resolve to a live brand item can be linked.
+    return ranked.filter(r => {
+      const bid = (r.candidate as any).brand_item_id;
+      return bid && templates.some((t: any) => t.id === bid && t.status === 'live');
+    });
+  };
+
+
 
   // Live templates for the Link-to-Existing picker
   const liveTemplates = useMemo(
@@ -513,14 +626,33 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     mutationFn: async (args: { gap: OutlierItem; targetTemplateId: string; targetName: string }) => {
       const { gap, targetTemplateId } = args;
       const vendorKey = gap.vendorSource === 'pa' ? 'produce_alliance' : gap.vendorSource;
-      // Insert mapping
+      // Record WHICH STORE's guide this number was seen valid on. The same brand
+      // item legitimately carries different vendor numbers at different stores;
+      // source_location_id records the observation instead of modelling divisions.
+      const sourceLocationId = gap.reportedByLocations[0]?.id ?? null;
       const { error: mapErr } = await supabase
         .from('brand_vendor_mappings')
         .upsert(
-          { brand_template_id: targetTemplateId, vendor: vendorKey, vendor_item_id: gap.itemNumber } as any,
+          {
+            brand_template_id: targetTemplateId,
+            vendor: vendorKey,
+            vendor_item_id: gap.itemNumber,
+            ...(sourceLocationId ? { source_location_id: sourceLocationId } : {}),
+          } as any,
           { onConflict: 'brand_template_id,vendor,vendor_item_id', ignoreDuplicates: true },
         );
       if (mapErr) throw mapErr;
+      // Backfill source_location_id when the mapping already existed (the upsert
+      // above ignores duplicates, so it would otherwise stay blank).
+      if (sourceLocationId) {
+        await supabase
+          .from('brand_vendor_mappings')
+          .update({ source_location_id: sourceLocationId } as any)
+          .eq('brand_template_id', targetTemplateId)
+          .eq('vendor', vendorKey)
+          .eq('vendor_item_id', gap.itemNumber)
+          .is('source_location_id', null);
+      }
       if (gap.id) {
         await supabase.from('vendor_gap_alerts' as any)
           .update({ status: 'resolved' }).eq('id', gap.id);
@@ -721,23 +853,29 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         <Card>
           <CardHeader className="pb-2 pt-3 px-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <PackagePlus className="h-4 w-4" />
-                Active Gaps — Not in Catalog
-              </CardTitle>
+              <div className="min-w-0">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <PackagePlus className="h-4 w-4" />
+                  Active Gaps — Not in Catalog
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Link each vendor line to the item you already have. Only create a new
+                  item when it truly isn't in the catalog yet.
+                </p>
+              </div>
               {selectedIds.size > 0 && (
-                <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" onClick={handleIgnore}
+                <div className="flex gap-1.5 shrink-0">
+                  <Button size="sm" variant="ghost" onClick={handleIgnore}
                     disabled={ignoreMutation.isPending} className="h-7 text-xs">
                     <EyeOff className="h-3 w-3 mr-1" />
                     Ignore
                   </Button>
-                  <Button size="sm" onClick={handlePromote}
+                  <Button size="sm" variant="outline" onClick={handlePromote}
                     disabled={promoteMutation.isPending} className="h-7 text-xs">
                     {promoteMutation.isPending
                       ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       : <PackagePlus className="h-3 w-3 mr-1" />}
-                    Add {selectedIds.size} as Draft
+                    Create {selectedIds.size} new item{selectedIds.size === 1 ? '' : 's'}
                   </Button>
                 </div>
               )}
@@ -852,7 +990,10 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
             <ScrollArea className="h-[400px]">
               <div className="space-y-1">
-                {filteredOutliers.map(item => (
+                {filteredOutliers.map(item => {
+                  const suggestions = suggestionsFor(item);
+                  const dupes = dupeTemplatesByNumber.get(String(item.itemNumber).trim()) || [];
+                  return (
                   <div key={`${item.vendorSource}-${item.itemNumber}`}
                     className={`flex items-start gap-2 p-2 rounded-lg border text-xs transition-colors ${
                       selectedIds.has(item.itemNumber)
@@ -869,27 +1010,73 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                         {item.packSize && <span>• {item.packSize}</span>}
                         {item.brand && item.brand !== item.name && <span>• {item.brand}</span>}
                         {item.reportedByLocations.length > 0 && (
-                          <span className="flex items-center gap-1 text-foreground/70">
+                          <span className="flex items-center gap-1 text-foreground/70 font-medium">
                             <MapPin className="h-2.5 w-2.5" />
                             {item.reportedByLocations.map(l => l.name).join(' · ')}
                           </span>
                         )}
                       </div>
+
+                      {/* Assisted match — the reporting store's own unpriced items,
+                          ranked. One tap per suggestion, always a human decision. */}
+                      {suggestions.length > 0 && (
+                        <div className="mt-1.5 space-y-1">
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Likely our item at {item.reportedByLocations[0]?.name}
+                          </div>
+                          {suggestions.map(s => {
+                            const cand: any = s.candidate;
+                            const tmpl: any = templates.find((t: any) => t.id === cand.brand_item_id);
+                            return (
+                              <button
+                                key={cand.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (tmpl) handleLinkClick(item, tmpl.id, tmpl.product_name);
+                                }}
+                                disabled={linkToExistingMutation.isPending}
+                                className="w-full text-left flex items-start gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 hover:bg-primary/10 transition-colors disabled:opacity-50"
+                              >
+                                <Link2 className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                                <span className="min-w-0">
+                                  <span className="font-medium block truncate">{cand.name}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {s.reasons.join(' · ')}
+                                  </span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Earlier duplicate created by "add as draft" instead of a link */}
+                      {dupes.length > 0 && (
+                        <div className="mt-1.5 rounded-md border border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-300">
+                          <span className="font-medium">Duplicate created earlier: </span>
+                          {dupes.map((d: any) => `${d.product_name} (${d.status})`).join(', ')}
+                          {' — link this number to the real item above instead.'}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline"
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <Button size="sm"
                         onClick={(e) => { e.stopPropagation(); setLinkDialogItem(item); }}
                         className="h-6 text-[10px] px-2">
                         <Link2 className="h-3 w-3 mr-1" />
-                        Link
+                        Link to item
                       </Button>
-                      <Badge variant="outline" className="text-[10px]">
-                        {item.vendorSource === 'pa' ? 'PA' : item.vendorSource === 'invoice' ? 'INV' : 'PFG'}
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px]">{item.categoryName}</Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">
+                          {item.vendorSource === 'pa' ? 'PA' : item.vendorSource === 'invoice' ? 'INV' : 'PFG'}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px]">{item.categoryName}</Badge>
+                      </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
           </CardContent>
@@ -1008,6 +1195,12 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                       <span>#{linkDialogItem.itemNumber}</span>
                       {linkDialogItem.packSize && <span>• {linkDialogItem.packSize}</span>}
                       {linkDialogItem.categoryName && <span>• {linkDialogItem.categoryName}</span>}
+                      {linkDialogItem.reportedByLocations.length > 0 && (
+                        <span className="flex items-center gap-1 text-foreground/70 font-medium">
+                          <MapPin className="h-3 w-3" />
+                          {linkDialogItem.reportedByLocations.map(l => l.name).join(' · ')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1015,6 +1208,37 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            {/* Ranked suggestions from that store's own unpriced items */}
+            {linkDialogItem && (() => {
+              const sugg = suggestionsFor(linkDialogItem);
+              if (sugg.length === 0) return null;
+              return (
+                <div className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Suggested — unpriced at {linkDialogItem.reportedByLocations[0]?.name}
+                  </div>
+                  {sugg.map(s => {
+                    const cand: any = s.candidate;
+                    const tmpl: any = templates.find((t: any) => t.id === cand.brand_item_id);
+                    if (!tmpl) return null;
+                    return (
+                      <button key={cand.id} type="button"
+                        disabled={linkToExistingMutation.isPending}
+                        onClick={() => handleLinkClick(linkDialogItem, tmpl.id, tmpl.product_name)}
+                        className="w-full text-left flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 px-2 py-1.5 text-xs hover:bg-primary/10 transition-colors disabled:opacity-50">
+                        <Link2 className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium block truncate">{tmpl.product_name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {cand.pack_size ? `${cand.pack_size} · ` : ''}{s.reasons.join(' · ')}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input placeholder="Search live catalog items..." value={linkSearch}

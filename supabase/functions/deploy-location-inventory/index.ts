@@ -260,6 +260,37 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4c. DIVISION GUARD — a PFG number is only valid at the warehouse that
+    // carries it. Tuscaloosa/Rowlett inherited SoCal numbers their own warehouse
+    // never recognised, so those items could never be priced and nothing flagged it.
+    // Validate every inherited number against THIS location's order guide before
+    // stamping it. A number the guide doesn't have is not planted on the local row;
+    // the item is marked unpriced-pending and a gap alert is raised for this store.
+    const localGuideNumbers = new Set<string>();
+    {
+      const { data: guideRows, error: guideErr } = await supabase
+        .from("pfg_bid_items")
+        .select("item_number")
+        .eq("location_id", locationId);
+      if (guideErr) {
+        console.warn("[deploy] guide prefetch failed — skipping number validation:", guideErr);
+      } else {
+        for (const g of guideRows || []) {
+          const n = String((g as any).item_number || "").trim();
+          if (n) localGuideNumbers.add(n);
+        }
+      }
+    }
+    // Only enforce when we actually have a guide for this location. No guide =
+    // unknown, not invalid — never strip numbers on a blind guess.
+    const guideKnown = localGuideNumbers.size > 0;
+    const foreignNumberAlerts: { itemNumber: string; productName: string }[] = [];
+    const isNumberValidHere = (sku: string | undefined): boolean => {
+      if (!sku) return false;
+      if (!guideKnown) return true;
+      return localGuideNumbers.has(String(sku).trim());
+    };
+
     // 5. Create inventory_items for each template (skip dupes)
     const templateToItemId = new Map<string, string>();
     const deploymentRecords: any[] = [];
@@ -296,11 +327,21 @@ Deno.serve(async (req) => {
             ? { storage_location_id: brandItemToShelf.get(tmpl.id) }
             : {};
 
-          const inheritedPfg = pfgByTemplate.get(tmpl.id);
+          const inheritedPfgRaw = pfgByTemplate.get(tmpl.id);
           const inheritedPa = paByTemplate.get(tmpl.id);
+          // Division guard: don't inherit a number this warehouse doesn't carry.
+          const inheritedPfg = isNumberValidHere(inheritedPfgRaw) ? inheritedPfgRaw : undefined;
+          if (inheritedPfgRaw && !inheritedPfg && !existing.item_number) {
+            foreignNumberAlerts.push({ itemNumber: inheritedPfgRaw, productName: tmpl.product_name });
+          }
           const skuFill: Record<string, any> = {};
           if (!existing.item_number && inheritedPfg) skuFill.item_number = inheritedPfg;
           if (!existing.pa_item_id && inheritedPa) skuFill.pa_item_id = inheritedPa;
+          // No usable PFG number here → mark unpriced-pending so the chase and
+          // the gap screen both keep it visible instead of silently sitting at $0.
+          if (inheritedPfgRaw && !inheritedPfg && !existing.item_number) {
+            skuFill.unpriced_since = new Date().toISOString();
+          }
 
           await supabase
             .from("inventory_items")
@@ -361,14 +402,25 @@ Deno.serve(async (req) => {
       // Stamp vendor IDs from prefetched brand_vendor_mappings at INSERT time.
       // Mappings are brand-wide identity (not territory-scoped pricing), so it's safe
       // to stamp at deploy. Syncs remain price-only and don't touch these IDs.
-      const pfgSku = pfgByTemplate.get(tmpl.id);
+      const pfgSkuRaw = pfgByTemplate.get(tmpl.id);
       const paSku = paByTemplate.get(tmpl.id);
+      // Division guard (see 4c): only stamp a PFG number this location's own order
+      // guide actually carries. Otherwise leave it blank, mark unpriced-pending and
+      // raise a gap alert for this store.
+      const pfgSku = isNumberValidHere(pfgSkuRaw) ? pfgSkuRaw : undefined;
+      const foreignPfg = !!pfgSkuRaw && !pfgSku;
+      if (foreignPfg) {
+        foreignNumberAlerts.push({ itemNumber: pfgSkuRaw!, productName: tmpl.product_name });
+      }
       // Derive vendor_source from mappings if template's is blank.
       // Many older brand templates have NULL vendor_source even though they have
       // a PFG/PA mapping — without this the activation sweep would treat them as
       // house-made ("no vendor price ever expected") and activate them unpriced.
+      // NOTE: use the RAW pfg number here. A number rejected by the division guard
+      // still proves this is a PFG item, so the vendor label must stay 'pfg' —
+      // otherwise the sweep would mistake it for house-made and activate it unpriced.
       const resolvedVendorSource = tmpl.vendor_source
-        || (pfgSku ? "pfg" : (paSku ? "produce_alliance" : null));
+        || (pfgSkuRaw ? "pfg" : (paSku ? "produce_alliance" : null));
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -387,6 +439,7 @@ Deno.serve(async (req) => {
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
           ...(pfgSku ? { item_number: pfgSku } : {}),
+          ...(foreignPfg ? { unpriced_since: new Date().toISOString() } : {}),
           ...(paSku ? { pa_item_id: paSku } : {}),
           ...(packOverride != null ? { pack_quantity_override: packOverride } : {}),
           ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
@@ -411,6 +464,39 @@ Deno.serve(async (req) => {
         needs_review: false,
         review_reason: null,
       });
+    }
+
+    // 5a-bis. DIVISION GUARD REPORTING — raise one gap alert per inherited PFG
+    // number this store's order guide does not carry, tagged to this store, so it
+    // lands in the Vendor Gap screen for a human to link to the right local number.
+    if (foreignNumberAlerts.length > 0) {
+      const { data: locRow } = await supabase
+        .from("locations")
+        .select("name")
+        .eq("id", locationId)
+        .maybeSingle();
+      const alertBrandId = brandId;
+      const locName = (locRow as any)?.name ?? "Unknown";
+      if (alertBrandId) {
+        const seen = new Set<string>();
+        for (const a of foreignNumberAlerts) {
+          if (seen.has(a.itemNumber)) continue;
+          seen.add(a.itemNumber);
+          const { error: gapErr } = await supabase.rpc("upsert_vendor_gap_with_location", {
+            _brand_id: alertBrandId,
+            _vendor_source: "pfg",
+            _item_number: a.itemNumber,
+            _vendor_name: a.productName,
+            _vendor_description: `${a.productName} — number not on ${locName}'s order guide`,
+            _pack_size: "",
+            _category_name: "Needs local number",
+            _location_id: locationId,
+            _location_name: locName,
+          });
+          if (gapErr) console.warn("[deploy] gap alert failed:", gapErr.message);
+        }
+        console.log(`[deploy] Raised ${seen.size} foreign-number gap alerts for ${locName}`);
+      }
     }
 
     // 5b. (Removed) Separate PFG stamping pass — vendor IDs are now stamped at INSERT time above.
