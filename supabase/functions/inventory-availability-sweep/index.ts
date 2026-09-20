@@ -463,6 +463,31 @@ async function autoDeployMissingIngredients(
     existingByTpl.set((r as any).brand_item_id, { id: (r as any).id, is_active: (r as any).is_active });
   }
 
+  // 3b. Vendor mappings for those templates, so new rows get a real vendor_source
+  //     (same derivation deploy-location-inventory uses). Without this the column
+  //     default used to silently stamp 'manual' and the row fell out of this sweep.
+  const tplVendorSource = new Map<string, string>();
+  {
+    const { data: vmaps } = await supabase
+      .from("brand_vendor_mappings")
+      .select("brand_template_id, vendor")
+      .in("brand_template_id", tplIds);
+    for (const m of (vmaps ?? []) as any[]) {
+      const v = String(m.vendor || "").toLowerCase();
+      if (v === "pfg") tplVendorSource.set(m.brand_template_id, "pfg");
+      else if ((v === "produce_alliance" || v === "pa") && !tplVendorSource.has(m.brand_template_id)) {
+        tplVendorSource.set(m.brand_template_id, "produce_alliance");
+      }
+    }
+  }
+  const { data: tplOwnSource } = await supabase
+    .from("brand_inventory_templates")
+    .select("id, vendor_source")
+    .in("id", tplIds);
+  const tplOwn = new Map<string, string | null>(
+    ((tplOwnSource ?? []) as any[]).map((t) => [t.id, t.vendor_source ?? null]),
+  );
+
   // 4. Deploy / reactivate
   const logRows: any[] = [];
   for (const tpl of (templates ?? []) as any[]) {
@@ -492,11 +517,14 @@ async function autoDeployMissingIngredients(
     } else {
       // Create new minimal local row — vendor SKUs intentionally NOT stamped
       // (matches existing deploy-location-inventory behavior; later vendor syncs fill them).
+      const resolvedVendorSource =
+        tplOwn.get(tpl.id) || tplVendorSource.get(tpl.id) || null;
       const insertRow = {
         location_id: location.id,
         brand_item_id: tpl.id,
         name: tpl.product_name,
         is_active: true,
+        vendor_source: resolvedVendorSource,
       };
       const { data: created, error: insErr } = await supabase
         .from("inventory_items")

@@ -19,3 +19,4 @@
 - [x] Replace the labeled Unpin control with a single toggleable pin icon
 - [x] Add optional subject lines to announcements
 - [x] Shipped aggregate live-labor RPCs (get_live_labor_totals, get_labor_totals_for_dates, get_cut_savings_estimate); rewired liveLabor.ts + CompactDashboard; verified real wages Palm Springs (14.8h / $324.88); publish requested.
+- [x] vendor_source root-cause fix: closed 3 creation paths (availability sweep auto-deploy, BrandItemActivation, DeployToLocationDialog), dropped the 'manual' column default, backfilled contradicting rows, corrected Palm Springs Blaze Red Sauce Can to pfg. Guardrail held (Palm Desert 201, Palm Springs 211 active-priced).

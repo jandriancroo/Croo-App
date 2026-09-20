@@ -131,17 +131,30 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
   };
 
   // Resolve vendor IDs from brand_vendor_mappings
-  const resolveVendorIds = async (brandItemId: string): Promise<{ item_number?: string; pa_item_id?: string }> => {
-    const { data: mappings } = await supabase
-      .from('brand_vendor_mappings')
-      .select('vendor, vendor_item_id')
-      .eq('brand_template_id', brandItemId);
-    if (!mappings?.length) return {};
-    const result: { item_number?: string; pa_item_id?: string } = {};
-    for (const m of mappings) {
+  const resolveVendorIds = async (
+    brandItemId: string,
+  ): Promise<{ item_number?: string; pa_item_id?: string; vendor_source?: string | null }> => {
+    const [{ data: mappings }, { data: tpl }] = await Promise.all([
+      supabase
+        .from('brand_vendor_mappings')
+        .select('vendor, vendor_item_id')
+        .eq('brand_template_id', brandItemId),
+      supabase
+        .from('brand_inventory_templates')
+        .select('vendor_source')
+        .eq('id', brandItemId)
+        .maybeSingle(),
+    ]);
+    const result: { item_number?: string; pa_item_id?: string; vendor_source?: string | null } = {};
+    for (const m of mappings ?? []) {
       if (m.vendor === 'pfg') result.item_number = m.vendor_item_id;
       if (m.vendor === 'produce_alliance') result.pa_item_id = m.vendor_item_id;
     }
+    // Never let the row fall back to a silent default — derive the vendor the same
+    // way deploy-location-inventory does: template value, else PFG, else PA, else null.
+    result.vendor_source =
+      (tpl as any)?.vendor_source ||
+      (result.item_number ? 'pfg' : result.pa_item_id ? 'produce_alliance' : null);
     return result;
   };
 
