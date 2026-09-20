@@ -625,6 +625,27 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         }
       }
 
+      // Vendor mappings for the selected templates — used as a fallback so an
+      // auto-created item never lands with an unknown vendor_source.
+      const tmplVendorFallback = new Map<string, string>();
+      {
+        const { data: vmaps } = await supabase
+          .from("brand_vendor_mappings")
+          .select("brand_template_id, vendor")
+          .in("brand_template_id", [...selectedTemplateIds]);
+        for (const m of (vmaps || []) as any[]) {
+          const v = String(m.vendor || "").toLowerCase();
+          if (v === "pfg") tmplVendorFallback.set(m.brand_template_id, "pfg");
+          else if ((v === "produce_alliance" || v === "pa") && !tmplVendorFallback.has(m.brand_template_id)) {
+            tmplVendorFallback.set(m.brand_template_id, "produce_alliance");
+          }
+        }
+      }
+      const resolveTmplVendorSource = (t: Template): string | null =>
+        t.vendor_source ||
+        tmplVendorFallback.get(t.id) ||
+        (t.item_number ? "pfg" : t.pa_item_id ? "produce_alliance" : null);
+
       // Step 3: Deploy item configurations
       const deploymentRecords: any[] = [];
       // Track auto-created item IDs for recipe ingredient resolution
