@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PendingVendorsCard from '@/components/brand/PendingVendorsCard';
-import { rankCandidates, normalizePackSize } from '@/utils/vendorCandidateMatch';
+import { rankCandidates } from '@/utils/vendorCandidateMatch';
 
 interface VendorGapFinderProps {
   brandId: string;
