@@ -472,10 +472,10 @@ Deno.serve(async (req) => {
     if (foreignNumberAlerts.length > 0) {
       const { data: locRow } = await supabase
         .from("locations")
-        .select("name, organization_id, organizations(brand_id)")
+        .select("name")
         .eq("id", locationId)
         .maybeSingle();
-      const alertBrandId = (locRow as any)?.organizations?.brand_id ?? null;
+      const alertBrandId = brandId;
       const locName = (locRow as any)?.name ?? "Unknown";
       if (alertBrandId) {
         const seen = new Set<string>();
