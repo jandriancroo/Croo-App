@@ -236,6 +236,118 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     },
   });
 
+  // ---------------------------------------------------------------------------
+  // Assisted matching data.
+  // A gap line belongs to a store. The likeliest owner of that number is one of
+  // THAT store's own unpriced items — an item carrying a number its warehouse
+  // doesn't recognise. We rank those by pack size / category / price proximity
+  // (never by name similarity, which was measured and failed).
+  // Ranking only: nothing below links or merges anything on its own.
+  // ---------------------------------------------------------------------------
+  const { data: brandItems = [] } = useQuery({
+    queryKey: ['gap-brand-inventory-items', brandId, brandLocationIds.length],
+    queryFn: async () => {
+      if (!brandLocationIds.length) return [];
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('id, name, location_id, brand_item_id, pack_size, category, cost_per_unit, item_number')
+        .in('location_id', brandLocationIds)
+        .eq('is_active', true);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: brandLocationIds.length > 0,
+  });
+
+  // Guide unit prices, so "price within 30% of another store" can be evaluated.
+  const { data: guidePrices = [] } = useQuery({
+    queryKey: ['gap-guide-prices', brandId, brandLocationIds.length],
+    queryFn: async () => {
+      if (!brandLocationIds.length) return [];
+      const { data, error } = await supabase
+        .from('pfg_bid_items')
+        .select('item_number, location_id, unit_price')
+        .in('location_id', brandLocationIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: brandLocationIds.length > 0,
+  });
+
+  const guidePriceByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const g of guidePrices as any[]) {
+      const price = Number(g.unit_price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      m.set(`${g.location_id}:${String(g.item_number).trim()}`, price);
+    }
+    return m;
+  }, [guidePrices]);
+
+  // Best known price for a brand item anywhere else in the brand (a solved sibling store).
+  const siblingPriceByBrandItem = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of brandItems as any[]) {
+      const cost = Number(it.cost_per_unit);
+      if (!it.brand_item_id || !Number.isFinite(cost) || cost <= 0) continue;
+      const prev = m.get(it.brand_item_id);
+      if (prev == null || cost > prev) m.set(it.brand_item_id, cost);
+    }
+    return m;
+  }, [brandItems]);
+
+  // Unpriced items per location — the candidate pool for that store's gap lines.
+  const unpricedByLocation = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const it of brandItems as any[]) {
+      const cost = Number(it.cost_per_unit);
+      if (Number.isFinite(cost) && cost > 0) continue;
+      const list = m.get(it.location_id) || [];
+      list.push(it);
+      m.set(it.location_id, list);
+    }
+    return m;
+  }, [brandItems]);
+
+  // Duplicate brand items created by earlier "add as draft" promotions: a non-live
+  // template carrying the same vendor number the gap is still asking about.
+  const dupeTemplatesByNumber = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const t of templates as any[]) {
+      if (t.status === 'live') continue;
+      const num = String(t.item_number || '').trim();
+      if (!num) continue;
+      const list = m.get(num) || [];
+      list.push(t);
+      m.set(num, list);
+    }
+    return m;
+  }, [templates]);
+
+  /** Ranked suggestions for one gap: that store's unpriced items, best first. */
+  const suggestionsFor = (gap: OutlierItem) => {
+    const locId = gap.reportedByLocations[0]?.id;
+    if (!locId) return [];
+    const pool = unpricedByLocation.get(locId) || [];
+    const gapPrice = guidePriceByKey.get(`${locId}:${String(gap.itemNumber).trim()}`) ?? null;
+    const ranked = rankCandidates(
+      { packSize: gap.packSize, categoryName: gap.categoryName, brand: gap.brand, price: gapPrice },
+      pool.map((it: any) => ({
+        ...it,
+        packSize: it.pack_size,
+        siblingPrice: it.brand_item_id ? siblingPriceByBrandItem.get(it.brand_item_id) ?? null : null,
+      })),
+      3,
+    );
+    // Only suggestions that resolve to a live brand item can be linked.
+    return ranked.filter(r => {
+      const bid = (r.candidate as any).brand_item_id;
+      return bid && templates.some((t: any) => t.id === bid && t.status === 'live');
+    });
+  };
+
+
+
   // Live templates for the Link-to-Existing picker
   const liveTemplates = useMemo(
     () => templates.filter((t: any) => t.status === 'live'),
