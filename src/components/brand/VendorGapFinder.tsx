@@ -984,7 +984,10 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
             <ScrollArea className="h-[400px]">
               <div className="space-y-1">
-                {filteredOutliers.map(item => (
+                {filteredOutliers.map(item => {
+                  const suggestions = suggestionsFor(item);
+                  const dupes = dupeTemplatesByNumber.get(String(item.itemNumber).trim()) || [];
+                  return (
                   <div key={`${item.vendorSource}-${item.itemNumber}`}
                     className={`flex items-start gap-2 p-2 rounded-lg border text-xs transition-colors ${
                       selectedIds.has(item.itemNumber)
@@ -1001,27 +1004,73 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                         {item.packSize && <span>• {item.packSize}</span>}
                         {item.brand && item.brand !== item.name && <span>• {item.brand}</span>}
                         {item.reportedByLocations.length > 0 && (
-                          <span className="flex items-center gap-1 text-foreground/70">
+                          <span className="flex items-center gap-1 text-foreground/70 font-medium">
                             <MapPin className="h-2.5 w-2.5" />
                             {item.reportedByLocations.map(l => l.name).join(' · ')}
                           </span>
                         )}
                       </div>
+
+                      {/* Assisted match — the reporting store's own unpriced items,
+                          ranked. One tap per suggestion, always a human decision. */}
+                      {suggestions.length > 0 && (
+                        <div className="mt-1.5 space-y-1">
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Likely our item at {item.reportedByLocations[0]?.name}
+                          </div>
+                          {suggestions.map(s => {
+                            const cand: any = s.candidate;
+                            const tmpl: any = templates.find((t: any) => t.id === cand.brand_item_id);
+                            return (
+                              <button
+                                key={cand.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (tmpl) handleLinkClick(item, tmpl.id, tmpl.product_name);
+                                }}
+                                disabled={linkToExistingMutation.isPending}
+                                className="w-full text-left flex items-start gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 hover:bg-primary/10 transition-colors disabled:opacity-50"
+                              >
+                                <Link2 className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                                <span className="min-w-0">
+                                  <span className="font-medium block truncate">{cand.name}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {s.reasons.join(' · ')}
+                                  </span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Earlier duplicate created by "add as draft" instead of a link */}
+                      {dupes.length > 0 && (
+                        <div className="mt-1.5 rounded-md border border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30 px-2 py-1 text-[10px] text-amber-800 dark:text-amber-300">
+                          <span className="font-medium">Duplicate created earlier: </span>
+                          {dupes.map((d: any) => `${d.product_name} (${d.status})`).join(', ')}
+                          {' — link this number to the real item above instead.'}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline"
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <Button size="sm"
                         onClick={(e) => { e.stopPropagation(); setLinkDialogItem(item); }}
                         className="h-6 text-[10px] px-2">
                         <Link2 className="h-3 w-3 mr-1" />
-                        Link
+                        Link to item
                       </Button>
-                      <Badge variant="outline" className="text-[10px]">
-                        {item.vendorSource === 'pa' ? 'PA' : item.vendorSource === 'invoice' ? 'INV' : 'PFG'}
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px]">{item.categoryName}</Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">
+                          {item.vendorSource === 'pa' ? 'PA' : item.vendorSource === 'invoice' ? 'INV' : 'PFG'}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px]">{item.categoryName}</Badge>
+                      </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
           </CardContent>
