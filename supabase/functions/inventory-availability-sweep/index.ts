@@ -573,6 +573,29 @@ async function autoDeployMissingIngredients(
     }
   }
 
+  // Raise one gap alert per foreign PFG number so a human can supply this
+  // store's own number instead of the item sitting unpriced forever.
+  if (foreignNumbers.length > 0 && location.brand_id) {
+    const seen = new Set<string>();
+    for (const f of foreignNumbers) {
+      if (seen.has(f.itemNumber)) continue;
+      seen.add(f.itemNumber);
+      const { error: gapErr } = await supabase.rpc("upsert_vendor_gap_with_location", {
+        _brand_id: location.brand_id,
+        _vendor_source: "pfg",
+        _item_number: f.itemNumber,
+        _vendor_name: f.productName,
+        _vendor_description: `${f.productName} — number not on ${location.name}'s order guide`,
+        _pack_size: "",
+        _category_name: "Needs local number",
+        _location_id: location.id,
+        _location_name: location.name,
+      });
+      if (gapErr) out.errors.push(`gap alert ${f.itemNumber}: ${gapErr.message}`);
+    }
+    console.log(`[auto-deploy] ${location.name}: ${seen.size} foreign-number gap alerts`);
+  }
+
   if (logRows.length > 0) {
     const { error: logErr } = await supabase
       .from("brand_auto_deployment_log")
