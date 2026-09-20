@@ -626,14 +626,33 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     mutationFn: async (args: { gap: OutlierItem; targetTemplateId: string; targetName: string }) => {
       const { gap, targetTemplateId } = args;
       const vendorKey = gap.vendorSource === 'pa' ? 'produce_alliance' : gap.vendorSource;
-      // Insert mapping
+      // Record WHICH STORE's guide this number was seen valid on. The same brand
+      // item legitimately carries different vendor numbers at different stores;
+      // source_location_id records the observation instead of modelling divisions.
+      const sourceLocationId = gap.reportedByLocations[0]?.id ?? null;
       const { error: mapErr } = await supabase
         .from('brand_vendor_mappings')
         .upsert(
-          { brand_template_id: targetTemplateId, vendor: vendorKey, vendor_item_id: gap.itemNumber } as any,
+          {
+            brand_template_id: targetTemplateId,
+            vendor: vendorKey,
+            vendor_item_id: gap.itemNumber,
+            ...(sourceLocationId ? { source_location_id: sourceLocationId } : {}),
+          } as any,
           { onConflict: 'brand_template_id,vendor,vendor_item_id', ignoreDuplicates: true },
         );
       if (mapErr) throw mapErr;
+      // Backfill source_location_id when the mapping already existed (the upsert
+      // above ignores duplicates, so it would otherwise stay blank).
+      if (sourceLocationId) {
+        await supabase
+          .from('brand_vendor_mappings')
+          .update({ source_location_id: sourceLocationId } as any)
+          .eq('brand_template_id', targetTemplateId)
+          .eq('vendor', vendorKey)
+          .eq('vendor_item_id', gap.itemNumber)
+          .is('source_location_id', null);
+      }
       if (gap.id) {
         await supabase.from('vendor_gap_alerts' as any)
           .update({ status: 'resolved' }).eq('id', gap.id);
