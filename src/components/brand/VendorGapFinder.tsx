@@ -1195,6 +1195,12 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                       <span>#{linkDialogItem.itemNumber}</span>
                       {linkDialogItem.packSize && <span>• {linkDialogItem.packSize}</span>}
                       {linkDialogItem.categoryName && <span>• {linkDialogItem.categoryName}</span>}
+                      {linkDialogItem.reportedByLocations.length > 0 && (
+                        <span className="flex items-center gap-1 text-foreground/70 font-medium">
+                          <MapPin className="h-3 w-3" />
+                          {linkDialogItem.reportedByLocations.map(l => l.name).join(' · ')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1202,6 +1208,37 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            {/* Ranked suggestions from that store's own unpriced items */}
+            {linkDialogItem && (() => {
+              const sugg = suggestionsFor(linkDialogItem);
+              if (sugg.length === 0) return null;
+              return (
+                <div className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Suggested — unpriced at {linkDialogItem.reportedByLocations[0]?.name}
+                  </div>
+                  {sugg.map(s => {
+                    const cand: any = s.candidate;
+                    const tmpl: any = templates.find((t: any) => t.id === cand.brand_item_id);
+                    if (!tmpl) return null;
+                    return (
+                      <button key={cand.id} type="button"
+                        disabled={linkToExistingMutation.isPending}
+                        onClick={() => handleLinkClick(linkDialogItem, tmpl.id, tmpl.product_name)}
+                        className="w-full text-left flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 px-2 py-1.5 text-xs hover:bg-primary/10 transition-colors disabled:opacity-50">
+                        <Link2 className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium block truncate">{tmpl.product_name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {cand.pack_size ? `${cand.pack_size} · ` : ''}{s.reasons.join(' · ')}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input placeholder="Search live catalog items..." value={linkSearch}
