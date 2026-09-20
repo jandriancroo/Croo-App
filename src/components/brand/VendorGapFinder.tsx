@@ -853,23 +853,29 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         <Card>
           <CardHeader className="pb-2 pt-3 px-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <PackagePlus className="h-4 w-4" />
-                Active Gaps — Not in Catalog
-              </CardTitle>
+              <div className="min-w-0">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <PackagePlus className="h-4 w-4" />
+                  Active Gaps — Not in Catalog
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Link each vendor line to the item you already have. Only create a new
+                  item when it truly isn't in the catalog yet.
+                </p>
+              </div>
               {selectedIds.size > 0 && (
-                <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" onClick={handleIgnore}
+                <div className="flex gap-1.5 shrink-0">
+                  <Button size="sm" variant="ghost" onClick={handleIgnore}
                     disabled={ignoreMutation.isPending} className="h-7 text-xs">
                     <EyeOff className="h-3 w-3 mr-1" />
                     Ignore
                   </Button>
-                  <Button size="sm" onClick={handlePromote}
+                  <Button size="sm" variant="outline" onClick={handlePromote}
                     disabled={promoteMutation.isPending} className="h-7 text-xs">
                     {promoteMutation.isPending
                       ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       : <PackagePlus className="h-3 w-3 mr-1" />}
-                    Add {selectedIds.size} as Draft
+                    Create {selectedIds.size} new item{selectedIds.size === 1 ? '' : 's'}
                   </Button>
                 </div>
               )}
