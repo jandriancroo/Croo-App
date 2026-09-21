@@ -165,6 +165,8 @@ export function numbersForItem(
 export interface ActivityHits {
   orderByNumber: Map<string, PriceHit>;
   invoiceByNumber: Map<string, PriceHit>;
+  /** Lines present but unreadable — a writer stored an unexpected shape. */
+  unreadable: UnreadableLines;
 }
 
 /**
