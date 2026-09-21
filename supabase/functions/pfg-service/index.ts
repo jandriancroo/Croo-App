@@ -1253,7 +1253,48 @@ async function fetchInvoiceDetail(
   }
 }
 
-// Mirror of the line-item normalizer used by syncOrders (see ~L2121), plus
+// CANONICAL delivery line-item normalizer. EVERY path that writes
+// pfg_orders.items MUST go through this — syncOrders and handleBackfillItems
+// both call it. Writing PFG's raw PascalCase shape straight to the column makes
+// the order invisible to loadActivityHits() and to gap detection, because both
+// read `itemNumber` / `price`.
+export function normalizeDeliveryLineItem(item: any) {
+  const uom = item?.DeliveryDetailUnitOfMeasures?.[0] || {};
+  const quantity = uom.QuantityOrdered ?? 0;
+  const extended = Number(item?.ExtendedPrice);
+  // UnitPrice is the authoritative per-case price; fall back to
+  // ExtendedPrice / quantity only when the UoM row omits it.
+  let price = Number(uom.UnitPrice);
+  if (!Number.isFinite(price) || price <= 0) {
+    const qty = Number(quantity);
+    price = Number.isFinite(extended) && Number.isFinite(qty) && qty > 0
+      ? Number((extended / qty).toFixed(4))
+      : 0;
+  }
+  return {
+    productId: item?.ProductKey || item?.DeliveryDetailProductKey,
+    itemNumber: uom.ProductNumber || item?.ProductKey,
+    name: item?.ProductDescription || 'Unknown',
+    brand: item?.ProductBrand || null,
+    quantity,
+    quantityShipped: uom.QuantityShipped ?? 0,
+    unit: 'CS',
+    packSize: uom.ProductPackSize || null,
+    price,
+    total: Number.isFinite(extended) ? extended : 0,
+    isCatchWeight: uom.IsCatchWeight || false,
+    isShorted: item?.IsProductShorted || false,
+  };
+}
+
+// True when a stored line item is still in PFG's raw PascalCase shape, i.e. it
+// was written by a path that skipped normalizeDeliveryLineItem.
+export function isRawDeliveryLine(li: any): boolean {
+  return !!li && typeof li === 'object' && li.itemNumber === undefined &&
+    (li.ProductKey !== undefined || li.DeliveryDetailProductKey !== undefined);
+}
+
+// Mirror of the line-item normalizer used by syncOrders, plus
 // invoice-only fields (weight, isCredit/creditAmount). Defensive on field
 // names because the GetInvoiceDetails envelope is still being locked down
 // against a live payload (smoke test on Hemet 4514533).
