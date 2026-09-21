@@ -387,7 +387,7 @@ export async function chasePrices(
   }
 
   // ---- Stage B/C: recent order + invoice line items ------------------------
-  const { orderByNumber, invoiceByNumber } = await loadActivityHits(
+  const { orderByNumber, invoiceByNumber, unreadable } = await loadActivityHits(
     supabase,
     locationId,
     windowDays,
