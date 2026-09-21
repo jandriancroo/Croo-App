@@ -3047,23 +3047,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       for (let i = 0; i < parsedOrders.length; i++) {
         const p = parsedOrders[i];
         const detailItems = orderDetails[i] || [];
-        const items = detailItems.map((item: any) => {
-          const uom = item.DeliveryDetailUnitOfMeasures?.[0] || {};
-          return {
-            productId: item.ProductKey || item.DeliveryDetailProductKey,
-            itemNumber: uom.ProductNumber || item.ProductKey,
-            name: item.ProductDescription || 'Unknown',
-            brand: item.ProductBrand || null,
-            quantity: uom.QuantityOrdered || 0,
-            quantityShipped: uom.QuantityShipped || 0,
-            unit: 'CS',
-            packSize: uom.ProductPackSize || null,
-            price: uom.UnitPrice || 0,
-            total: item.ExtendedPrice || 0,
-            isCatchWeight: uom.IsCatchWeight || false,
-            isShorted: item.IsProductShorted || false,
-          };
-        });
+        const items = detailItems.map(normalizeDeliveryLineItem);
         if (items.length > 0) {
           console.log(`[PFG Sync] Order ${p.pfgOrderId}: ${items.length} line items fetched`);
         }
