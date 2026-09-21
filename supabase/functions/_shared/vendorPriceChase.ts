@@ -203,13 +203,29 @@ export async function loadActivityHits(
       .order("invoice_date", { ascending: false }),
   ]);
 
+  // NEVER SILENTLY SKIP: a line that yields no number or no price means the
+  // writer stored a shape we do not understand, and the whole order is then
+  // invisible to pricing. Count it and shout with the order number.
+  const unreadable: UnreadableLines = { count: 0, refs: [] };
+  const flagUnreadable = (ref: string, kind: string, li: any) => {
+    unreadable.count++;
+    if (unreadable.refs.length < 50) unreadable.refs.push(`${kind}:${ref || "unknown"}`);
+    console.error(
+      `[loadActivityHits] UNREADABLE LINE on ${kind} ${ref || "unknown"} — no readable ` +
+      `item number or price. keys=${Object.keys(li || {}).slice(0, 8).join(",")}`,
+    );
+  };
+
   // Most-recent-wins: iterate newest first, keep first hit per number.
   const orderByNumber = new Map<string, PriceHit>();
   for (const o of (ordersRes.data || []) as any[]) {
     for (const li of Array.isArray(o.items) ? o.items : []) {
       const n = norm(li.itemNumber ?? li.productId);
       const price = Number(li.price ?? li.netPrice);
-      if (!n || !Number.isFinite(price) || price <= 0) continue;
+      if (!n || !Number.isFinite(price) || price <= 0) {
+        flagUnreadable(norm(o.order_number), "pfg_order", li);
+        continue;
+      }
       if (!orderByNumber.has(n)) {
         orderByNumber.set(n, {
           price,
