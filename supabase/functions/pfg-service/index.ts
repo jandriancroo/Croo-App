@@ -2961,6 +2961,8 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       }
 
       let importedCount = 0;
+      // Loud, not silent: order lines gap detection could not read at all.
+      let unreadableGapLines = 0;
 
       // Parse order metadata for all orders first
       const parsedOrders = rawOrders.map(order => {
@@ -3398,7 +3400,18 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         }
       }
 
-      results.push({ locationId: integration.location_id, success: true, ordersImported: importedCount });
+      if (unreadableGapLines > 0) {
+        console.error(
+          `[PFG Gap] ${unreadableGapLines} UNREADABLE order lines at location ${integration.location_id} ` +
+          `— these products are invisible to gap detection and pricing.`,
+        );
+      }
+      results.push({
+        locationId: integration.location_id,
+        success: true,
+        ordersImported: importedCount,
+        unreadableOrderLines: unreadableGapLines,
+      });
 
     } catch (error) {
       console.error(`[PFG Sync] Error for location ${integration.location_id}:`, error);
