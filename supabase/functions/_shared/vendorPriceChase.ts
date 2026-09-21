@@ -81,6 +81,18 @@ export interface ChaseSummary {
   skipped: number;
   skips: ChaseSkip[];
   results: ChaseResult[];
+  /** Order/invoice lines that yielded no readable item number or price. */
+  unreadableLines?: UnreadableLines;
+}
+
+/**
+ * Lines we could not read. A non-zero count means some writer stored a line
+ * shape this reader does not understand (e.g. PFG's raw PascalCase payload) —
+ * those orders are invisible to pricing, so we shout instead of skipping.
+ */
+export interface UnreadableLines {
+  count: number;
+  refs: string[];
 }
 
 
