@@ -81,6 +81,18 @@ export interface ChaseSummary {
   skipped: number;
   skips: ChaseSkip[];
   results: ChaseResult[];
+  /** Order/invoice lines that yielded no readable item number or price. */
+  unreadableLines?: UnreadableLines;
+}
+
+/**
+ * Lines we could not read. A non-zero count means some writer stored a line
+ * shape this reader does not understand (e.g. PFG's raw PascalCase payload) —
+ * those orders are invisible to pricing, so we shout instead of skipping.
+ */
+export interface UnreadableLines {
+  count: number;
+  refs: string[];
 }
 
 
@@ -153,6 +165,8 @@ export function numbersForItem(
 export interface ActivityHits {
   orderByNumber: Map<string, PriceHit>;
   invoiceByNumber: Map<string, PriceHit>;
+  /** Lines present but unreadable — a writer stored an unexpected shape. */
+  unreadable: UnreadableLines;
 }
 
 /**
@@ -189,13 +203,29 @@ export async function loadActivityHits(
       .order("invoice_date", { ascending: false }),
   ]);
 
+  // NEVER SILENTLY SKIP: a line that yields no number or no price means the
+  // writer stored a shape we do not understand, and the whole order is then
+  // invisible to pricing. Count it and shout with the order number.
+  const unreadable: UnreadableLines = { count: 0, refs: [] };
+  const flagUnreadable = (ref: string, kind: string, li: any) => {
+    unreadable.count++;
+    if (unreadable.refs.length < 50) unreadable.refs.push(`${kind}:${ref || "unknown"}`);
+    console.error(
+      `[loadActivityHits] UNREADABLE LINE on ${kind} ${ref || "unknown"} — no readable ` +
+      `item number or price. keys=${Object.keys(li || {}).slice(0, 8).join(",")}`,
+    );
+  };
+
   // Most-recent-wins: iterate newest first, keep first hit per number.
   const orderByNumber = new Map<string, PriceHit>();
   for (const o of (ordersRes.data || []) as any[]) {
     for (const li of Array.isArray(o.items) ? o.items : []) {
       const n = norm(li.itemNumber ?? li.productId);
       const price = Number(li.price ?? li.netPrice);
-      if (!n || !Number.isFinite(price) || price <= 0) continue;
+      if (!n || !Number.isFinite(price) || price <= 0) {
+        flagUnreadable(norm(o.order_number), "pfg_order", li);
+        continue;
+      }
       if (!orderByNumber.has(n)) {
         orderByNumber.set(n, {
           price,
@@ -213,7 +243,12 @@ export async function loadActivityHits(
   for (const o of (paOrdersRes.data || []) as any[]) {
     for (const li of Array.isArray(o.items) ? o.items : []) {
       const price = Number(li.price ?? li.unit_price);
-      if (!Number.isFinite(price) || price <= 0) continue;
+      const anyKey = [li.item_code, li.master_product_code, li.pa_product_id, li.pa_item_id]
+        .some((k) => !!norm(k));
+      if (!Number.isFinite(price) || price <= 0 || !anyKey) {
+        flagUnreadable(norm(o.order_number), "pa_order", li);
+        continue;
+      }
       for (const key of [li.item_code, li.master_product_code, li.pa_product_id, li.pa_item_id]) {
         const n = norm(key);
         if (!n || orderByNumber.has(n)) continue;
@@ -231,7 +266,10 @@ export async function loadActivityHits(
     for (const li of Array.isArray(inv.items) ? inv.items : []) {
       const n = norm(li.itemNumber ?? li.productId);
       const price = Number(li.netPrice ?? li.price);
-      if (!n || !Number.isFinite(price) || price <= 0) continue;
+      if (!n || !Number.isFinite(price) || price <= 0) {
+        flagUnreadable(norm(inv.invoice_number), "pfg_invoice", li);
+        continue;
+      }
       if (!invoiceByNumber.has(n)) {
         invoiceByNumber.set(n, {
           price,
@@ -243,7 +281,14 @@ export async function loadActivityHits(
     }
   }
 
-  return { orderByNumber, invoiceByNumber };
+  if (unreadable.count > 0) {
+    console.error(
+      `[loadActivityHits] ${unreadable.count} UNREADABLE line items at location ${locationId} ` +
+      `— refs: ${[...new Set(unreadable.refs)].join(", ")}`,
+    );
+  }
+
+  return { orderByNumber, invoiceByNumber, unreadable };
 }
 
 /**
@@ -342,7 +387,7 @@ export async function chasePrices(
   }
 
   // ---- Stage B/C: recent order + invoice line items ------------------------
-  const { orderByNumber, invoiceByNumber } = await loadActivityHits(
+  const { orderByNumber, invoiceByNumber, unreadable } = await loadActivityHits(
     supabase,
     locationId,
     windowDays,
@@ -516,6 +561,7 @@ export async function chasePrices(
     skipped: skips.length,
     skips,
     results,
+    unreadableLines: unreadable,
   };
 }
 

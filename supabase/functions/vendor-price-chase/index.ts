@@ -217,6 +217,8 @@ Deno.serve(async (req) => {
         chased: items.length,
         priced: summary.priced,
         still_unpriced: summary.unpriced,
+        unreadable_lines: summary.unreadableLines?.count ?? 0,
+        unreadable_refs: summary.unreadableLines?.refs ?? [],
         ship_ins: summary.shipIns,
         discontinued: summary.discontinued,
         activated_house_made: summary.activatedHouseMade,

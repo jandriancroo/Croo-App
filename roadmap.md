@@ -35,3 +35,22 @@
 - Step 6: price chase run at Tuscaloosa (49 chased, 0 priced) and Rowlett (17 chased, 0 priced) — confirms the numbers are foreign and need human linking
 - Step 7 (marking items not-carried) intentionally NOT done
 - Guardrail held: Palm Desert 211/201, Palm Springs 214/211 before and after
+
+## Done — PFG order-line format regression fixed (Sep 21 2026)
+- Cause: handleBackfillItems wrote fetchDeliveryDetail() raw PascalCase output verbatim; the syncOrders normalizer was never applied
+- normalizeDeliveryLineItem() + isRawDeliveryLine() added in pfg-service; used by BOTH syncOrders and handleBackfillItems
+- Price mapping: DeliveryDetailUnitOfMeasures[0].UnitPrice is authoritative (ExtendedPrice is 0 on shorted lines); verified vs Diet Coke 28969 = $115.95 in both shapes
+- Migration reshaped 38 orders / 1214 lines (Tuscaloosa 33, South Meadows 5) -> 0 raw-format orders remain, 1214/1214 lines readable
+- Readers now fail loudly: loadActivityHits counts + logs unreadable lines (unreadableLines in chase summary, unreadable_lines in vendor-price-chase response, unreadableLines in nightly detail); pfg-service gap loop counts unreadableGapLines and returns unreadableOrderLines per location
+- Re-sync: Tuscaloosa 40 orders / 0 unreadable, South Meadows 27 / 0; 18 new gap alerts (81 -> 99 new)
+- Syrups did NOT become alerts because all 7 numbers are already mapped in brand_vendor_mappings — they are now readable with real prices instead of invisible
+- Price chase after: Tuscaloosa 49 chased / 0 priced, South Meadows 1 / 0 — local rows still carry SoCal numbers (needs Jordan's gap-screen pass)
+- Guardrail held: Palm Desert 211/201, Palm Springs 214/211
+
+## Open — Tuscaloosa second managed list (report only, no action taken)
+- ORDER GUIDE_10_BLAZE1 (d34c215d, type 2, 167 lines) is a strict SUPERSET of BID_10_BL305 (57907965, type 2, 139 lines): 139 shared, 0 bid-only, 28 order-guide-only
+- The 28 extras include every soda syrup (2204, 26383, 26877, 28969, 47772, 662001, 964693, 883022, 955714, 960172, 436444) plus Powerade/Vitamin Water drinks, sugar packets, sea salt, mop handle, freight
+- Cleaning chemicals + dispensers are already on the bid; only the sanitary-napkin wax bag is order-guide-only
+- List endpoint returns ZERO prices for both lists (per-product fetch required, which writes cache — not run, this was read-only)
+- Structural field confirmed on every store: ProductListType 2 = vendor/corporate managed, 3 = store-built, 4 = Purchase History. IsReadOnly + empty CreateUserAlternateKey corroborate
+- Caveat for a "sync every managed list" rule: SoCal + Rowlett each carry a second type-2 "Proprietary Items" list (16-28 items) that would also be pulled in

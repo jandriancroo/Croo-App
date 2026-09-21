@@ -355,6 +355,8 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
       detail = {
         shipIns: summary.shipIns,
         discontinued: summary.discontinued,
+        unreadableLines: summary.unreadableLines?.count ?? 0,
+        unreadableRefs: summary.unreadableLines?.refs ?? [],
         unpricedNames: summary.results.filter((r) => r.unpriced).slice(0, 40).map((r) => r.name),
         skipped: summary.skipped,
         skips: summary.skips.slice(0, 40),
@@ -403,6 +405,7 @@ async function runStage(supabase: any, stage: StageName, locationId: string | nu
       detail = {
         candidates: candidates.length,
         reactivated: summary.priced,
+        unreadableLines: summary.unreadableLines?.count ?? 0,
         names: summary.results.filter((r) => !r.unpriced).slice(0, 40).map((r) => r.name),
         skipped: summary.skipped,
         skips: summary.skips.slice(0, 40),

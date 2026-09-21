@@ -1253,7 +1253,48 @@ async function fetchInvoiceDetail(
   }
 }
 
-// Mirror of the line-item normalizer used by syncOrders (see ~L2121), plus
+// CANONICAL delivery line-item normalizer. EVERY path that writes
+// pfg_orders.items MUST go through this — syncOrders and handleBackfillItems
+// both call it. Writing PFG's raw PascalCase shape straight to the column makes
+// the order invisible to loadActivityHits() and to gap detection, because both
+// read `itemNumber` / `price`.
+export function normalizeDeliveryLineItem(item: any) {
+  const uom = item?.DeliveryDetailUnitOfMeasures?.[0] || {};
+  const quantity = uom.QuantityOrdered ?? 0;
+  const extended = Number(item?.ExtendedPrice);
+  // UnitPrice is the authoritative per-case price; fall back to
+  // ExtendedPrice / quantity only when the UoM row omits it.
+  let price = Number(uom.UnitPrice);
+  if (!Number.isFinite(price) || price <= 0) {
+    const qty = Number(quantity);
+    price = Number.isFinite(extended) && Number.isFinite(qty) && qty > 0
+      ? Number((extended / qty).toFixed(4))
+      : 0;
+  }
+  return {
+    productId: item?.ProductKey || item?.DeliveryDetailProductKey,
+    itemNumber: uom.ProductNumber || item?.ProductKey,
+    name: item?.ProductDescription || 'Unknown',
+    brand: item?.ProductBrand || null,
+    quantity,
+    quantityShipped: uom.QuantityShipped ?? 0,
+    unit: 'CS',
+    packSize: uom.ProductPackSize || null,
+    price,
+    total: Number.isFinite(extended) ? extended : 0,
+    isCatchWeight: uom.IsCatchWeight || false,
+    isShorted: item?.IsProductShorted || false,
+  };
+}
+
+// True when a stored line item is still in PFG's raw PascalCase shape, i.e. it
+// was written by a path that skipped normalizeDeliveryLineItem.
+export function isRawDeliveryLine(li: any): boolean {
+  return !!li && typeof li === 'object' && li.itemNumber === undefined &&
+    (li.ProductKey !== undefined || li.DeliveryDetailProductKey !== undefined);
+}
+
+// Mirror of the line-item normalizer used by syncOrders, plus
 // invoice-only fields (weight, isCredit/creditAmount). Defensive on field
 // names because the GetInvoiceDetails envelope is still being locked down
 // against a live payload (smoke test on Hemet 4514533).
@@ -2920,6 +2961,8 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       }
 
       let importedCount = 0;
+      // Loud, not silent: order lines gap detection could not read at all.
+      let unreadableGapLines = 0;
 
       // Parse order metadata for all orders first
       const parsedOrders = rawOrders.map(order => {
@@ -3006,23 +3049,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       for (let i = 0; i < parsedOrders.length; i++) {
         const p = parsedOrders[i];
         const detailItems = orderDetails[i] || [];
-        const items = detailItems.map((item: any) => {
-          const uom = item.DeliveryDetailUnitOfMeasures?.[0] || {};
-          return {
-            productId: item.ProductKey || item.DeliveryDetailProductKey,
-            itemNumber: uom.ProductNumber || item.ProductKey,
-            name: item.ProductDescription || 'Unknown',
-            brand: item.ProductBrand || null,
-            quantity: uom.QuantityOrdered || 0,
-            quantityShipped: uom.QuantityShipped || 0,
-            unit: 'CS',
-            packSize: uom.ProductPackSize || null,
-            price: uom.UnitPrice || 0,
-            total: item.ExtendedPrice || 0,
-            isCatchWeight: uom.IsCatchWeight || false,
-            isShorted: item.IsProductShorted || false,
-          };
-        });
+        const items = detailItems.map(normalizeDeliveryLineItem);
         if (items.length > 0) {
           console.log(`[PFG Sync] Order ${p.pfgOrderId}: ${items.length} line items fetched`);
         }
@@ -3098,7 +3125,16 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           const dt = String(row.delivery_date || '');
           for (const li of (row.items || []) as any[]) {
             const sku = String(li?.itemNumber || '').trim();
-            if (!sku) continue;
+            if (!sku) {
+              // NEVER SILENTLY SKIP — an unreadable line means gap detection is
+              // blind to that product. Shout with the order number.
+              unreadableGapLines++;
+              console.error(
+                `[PFG Gap] UNREADABLE LINE on order ${row.order_number} — no itemNumber. ` +
+                `raw_shape=${isRawDeliveryLine(li)} keys=${Object.keys(li || {}).slice(0, 8).join(',')}`,
+              );
+              continue;
+            }
             const price = Number(li?.price);
             const validPrice = Number.isFinite(price) && price > 0 ? price : null;
             const existing = skuMeta.get(sku);
@@ -3364,7 +3400,18 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         }
       }
 
-      results.push({ locationId: integration.location_id, success: true, ordersImported: importedCount });
+      if (unreadableGapLines > 0) {
+        console.error(
+          `[PFG Gap] ${unreadableGapLines} UNREADABLE order lines at location ${integration.location_id} ` +
+          `— these products are invisible to gap detection and pricing.`,
+        );
+      }
+      results.push({
+        locationId: integration.location_id,
+        success: true,
+        ordersImported: importedCount,
+        unreadableOrderLines: unreadableGapLines,
+      });
 
     } catch (error) {
       console.error(`[PFG Sync] Error for location ${integration.location_id}:`, error);
@@ -3801,12 +3848,15 @@ async function handleBackfillItems(supabase: any, body: any): Promise<Response> 
       };
 
       try {
-        const items = await fetchDeliveryDetail(accessToken, syntheticOrder, customerId, {
+        const rawItems = await fetchDeliveryDetail(accessToken, syntheticOrder, customerId, {
           supabase,
           integrationId: integration.id,
           locationId: integration.location_id,
           callerAction: 'backfill_items',
         });
+        // MUST normalize — writing PFG's raw shape here is what made 38 repaired
+        // orders invisible to pricing and gap detection.
+        const items = rawItems.map(normalizeDeliveryLineItem);
         if (items.length === 0) {
           rowReport.result = 'still_empty';
           rep.still_empty++;
