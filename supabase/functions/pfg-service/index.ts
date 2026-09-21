@@ -3123,7 +3123,16 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           const dt = String(row.delivery_date || '');
           for (const li of (row.items || []) as any[]) {
             const sku = String(li?.itemNumber || '').trim();
-            if (!sku) continue;
+            if (!sku) {
+              // NEVER SILENTLY SKIP — an unreadable line means gap detection is
+              // blind to that product. Shout with the order number.
+              unreadableGapLines++;
+              console.error(
+                `[PFG Gap] UNREADABLE LINE on order ${row.order_number} — no itemNumber. ` +
+                `raw_shape=${isRawDeliveryLine(li)} keys=${Object.keys(li || {}).slice(0, 8).join(',')}`,
+              );
+              continue;
+            }
             const price = Number(li?.price);
             const validPrice = Number.isFinite(price) && price > 0 ? price : null;
             const existing = skuMeta.get(sku);
