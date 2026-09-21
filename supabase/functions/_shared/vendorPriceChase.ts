@@ -243,7 +243,12 @@ export async function loadActivityHits(
   for (const o of (paOrdersRes.data || []) as any[]) {
     for (const li of Array.isArray(o.items) ? o.items : []) {
       const price = Number(li.price ?? li.unit_price);
-      if (!Number.isFinite(price) || price <= 0) continue;
+      const anyKey = [li.item_code, li.master_product_code, li.pa_product_id, li.pa_item_id]
+        .some((k) => !!norm(k));
+      if (!Number.isFinite(price) || price <= 0 || !anyKey) {
+        flagUnreadable(norm(o.order_number), "pa_order", li);
+        continue;
+      }
       for (const key of [li.item_code, li.master_product_code, li.pa_product_id, li.pa_item_id]) {
         const n = norm(key);
         if (!n || orderByNumber.has(n)) continue;
