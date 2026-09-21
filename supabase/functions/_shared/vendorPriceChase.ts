@@ -266,7 +266,10 @@ export async function loadActivityHits(
     for (const li of Array.isArray(inv.items) ? inv.items : []) {
       const n = norm(li.itemNumber ?? li.productId);
       const price = Number(li.netPrice ?? li.price);
-      if (!n || !Number.isFinite(price) || price <= 0) continue;
+      if (!n || !Number.isFinite(price) || price <= 0) {
+        flagUnreadable(norm(inv.invoice_number), "pfg_invoice", li);
+        continue;
+      }
       if (!invoiceByNumber.has(n)) {
         invoiceByNumber.set(n, {
           price,
@@ -278,7 +281,14 @@ export async function loadActivityHits(
     }
   }
 
-  return { orderByNumber, invoiceByNumber };
+  if (unreadable.count > 0) {
+    console.error(
+      `[loadActivityHits] ${unreadable.count} UNREADABLE line items at location ${locationId} ` +
+      `— refs: ${[...new Set(unreadable.refs)].join(", ")}`,
+    );
+  }
+
+  return { orderByNumber, invoiceByNumber, unreadable };
 }
 
 /**
