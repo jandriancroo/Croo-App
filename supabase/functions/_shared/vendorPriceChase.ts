@@ -561,6 +561,7 @@ export async function chasePrices(
     skipped: skips.length,
     skips,
     results,
+    unreadableLines: unreadable,
   };
 }
 
