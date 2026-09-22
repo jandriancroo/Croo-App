@@ -153,3 +153,6 @@ verify_jwt = false
 
 [functions.sales-week-projections]
 verify_jwt = false
+
+[functions.whos-out-email]
+verify_jwt = true
