@@ -55,38 +55,46 @@ Deno.serve(async (req) => {
     if (!locationId) return json({ error: "location_id required" }, 400);
 
     // ── Caller identity ──
-    const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
-    if (!token) return json({ error: "Unauthorized" }, 401);
-    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-    if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
-    const callerId = userData.user.id;
+    // Service-role / cron callers are internal and may run the location sample.
+    // Everyone else must be a signed-in admin/GM/manager for that location.
+    const caller = await authenticateCaller(req);
+    if (!caller) return json({ error: "Unauthorized" }, 401);
 
-    const { data: callerRoles, error: roleErr } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-    if (roleErr) return json({ error: "Role lookup failed" }, 500);
-    const roles = (callerRoles || []).map((r: any) => r.role);
-    const isSuperAdmin = roles.includes("super_admin");
+    let callerId: string | null = null;
+    if (caller.kind === "user") {
+      callerId = caller.userId;
 
-    if (action === "send_location_sample" && !isSuperAdmin) {
-      return json({ error: "Forbidden" }, 403);
+      const { data: callerRoles, error: roleErr } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", callerId);
+      if (roleErr) return json({ error: "Role lookup failed" }, 500);
+      const roles = (callerRoles || []).map((r: any) => r.role);
+      const isSuperAdmin = roles.includes("super_admin");
+
+      if (action === "send_location_sample" && !isSuperAdmin) {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      if (!roles.some((r: string) => ALLOWED_SAMPLE_ROLES.includes(r))) {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      if (!isSuperAdmin) {
+        const { data: assignment, error: assignErr } = await supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("user_id", callerId)
+          .eq("location_id", locationId)
+          .maybeSingle();
+        if (assignErr) return json({ error: "Access lookup failed" }, 500);
+        if (!assignment) return json({ error: "Forbidden" }, 403);
+      }
+    } else if (action === "send_sample") {
+      // No personal inbox for a service caller — use send_location_sample.
+      return json({ error: "send_sample requires a signed-in caller" }, 400);
     }
 
-    if (!roles.some((r: string) => ALLOWED_SAMPLE_ROLES.includes(r))) {
-      return json({ error: "Forbidden" }, 403);
-    }
-
-    if (!isSuperAdmin) {
-      const { data: assignment, error: assignErr } = await supabase
-        .from("user_locations")
-        .select("user_id")
-        .eq("user_id", callerId)
-        .eq("location_id", locationId)
-        .maybeSingle();
-      if (assignErr) return json({ error: "Access lookup failed" }, 500);
-      if (!assignment) return json({ error: "Forbidden" }, 403);
-    }
 
     // ── Target week in the location's own timezone ──
     const { data: settings, error: settingsErr } = await supabase
