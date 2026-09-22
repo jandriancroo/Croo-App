@@ -64,3 +64,10 @@
 - send-push-notification: new_job_application mapped to its own user_notification_settings key + emoji title
 - Settings UI: Hiring section with "New Job Applications" (GM/manager/admin only), alert/push/email, email defaults ON
 - PublicApplication.tsx now sends only the application id; submit never fails on notify error
+
+## Next-week time-off digest (Who's Out, Option E) — shipped 2026-09-22
+- `_shared/whos-out.ts`: approved-only loader, location-scoped recipient resolver (shift managers excluded), pure Option E HTML builder. Never reads paid/unpaid, hours, notes, denial reasons or pay.
+- Nightly task `whos-out-next-week` inside maintenance-service (no new cron), after daily-logbook-summaries, before weekly-schedule-emails. Target week computed per location timezone. Dedup key `whos_out_v1_{location}_{week_start}`; 23505 = already queued. No email when nobody is out.
+- `whos-out-email` (verify_jwt = true): `send_sample` → caller's own address only, `[Sample]` prefix, source `test_preview`, dedup_key null. `send_location_sample` → super_admin / internal only, real recipient list.
+- Settings: `time_off_weekly_digest` under a new Time Off group (manager+), email defaults ON, missing row = ON.
+- One-shot Hemet sample queued to Dave Matthews, Aubrey Andrian, Jordan Andrian (Joe Roselli excluded — inactive profile).
