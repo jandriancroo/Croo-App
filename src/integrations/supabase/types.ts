@@ -612,6 +612,38 @@ export type Database = {
           },
         ]
       }
+      application_notify_log: {
+        Row: {
+          application_id: string
+          channel: string
+          created_at: string
+          id: string
+          recipient: string
+        }
+        Insert: {
+          application_id: string
+          channel: string
+          created_at?: string
+          id?: string
+          recipient: string
+        }
+        Update: {
+          application_id?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          recipient?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_notify_log_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_punch_events: {
         Row: {
           clock_in_punch_id: string | null
