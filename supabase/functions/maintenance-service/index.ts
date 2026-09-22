@@ -2,6 +2,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import {
+  WHOS_OUT_NOTIFICATION_TYPE,
+  buildWhosOutHtml,
+  loadWhosOut,
+  localDateInTimezone,
+  nextWeekRange,
+  resolveWhosOutRecipients,
+  whosOutSubject,
+} from "../_shared/whos-out.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -265,6 +274,73 @@ async function handleNightlyMaintenance(
 
     return { sent: sentCount, skipped: skippedCount };
   }));
+
+  // Task 6b: Next-week time-off digest ("who's out") — one email per location.
+  // Each location's target week is computed in ITS OWN timezone.
+  results.push(await runResumableTask(supabase, runDate, completedSet, "whos-out-next-week", async () => {
+    let queued = 0, skippedNobodyOut = 0, skippedNoRecipients = 0, alreadyQueued = 0, failed = 0;
+
+    for (const location of allLocations || []) {
+      try {
+        const { data: settings, error: settingsErr } = await supabase
+          .from("location_settings")
+          .select("timezone")
+          .eq("location_id", location.id)
+          .maybeSingle();
+        if (settingsErr) console.error(`[NIGHTLY][whos-out] settings read failed for ${location.name}:`, settingsErr);
+        const timezone = settings?.timezone || "America/Los_Angeles";
+        const localToday = localDateInTimezone(timezone);
+        const { weekStart, weekEnd } = nextWeekRange(localToday);
+
+        const data = await loadWhosOut(supabase, location.id, weekStart, weekEnd);
+        if (data.totalRequests === 0) {
+          skippedNobodyOut++;
+          continue;
+        }
+
+        const recipients = await resolveWhosOutRecipients(supabase, location.id);
+        if (recipients.length === 0) {
+          skippedNoRecipients++;
+          continue;
+        }
+
+        const { error: queueErr } = await supabase.from("email_queue").insert({
+          from_address: "CrooHQ <hello@croohq.email>",
+          to_addresses: recipients.map((r: any) => r.email),
+          subject: whosOutSubject(data),
+          html: buildWhosOutHtml(data),
+          source: "whos_out_digest",
+          dedup_key: `whos_out_v1_${location.id}_${weekStart}`,
+          metadata: {
+            notification_type: WHOS_OUT_NOTIFICATION_TYPE,
+            location_id: location.id,
+            week_start: weekStart,
+            week_end: weekEnd,
+            requests: data.totalRequests,
+            people_out: data.peopleOut,
+          },
+        });
+
+        if (queueErr) {
+          if (queueErr.code === "23505") {
+            alreadyQueued++;
+          } else {
+            failed++;
+            console.error(`[NIGHTLY][whos-out] queue failed for ${location.name}:`, queueErr);
+          }
+        } else {
+          queued++;
+        }
+      } catch (e) {
+        failed++;
+        console.error(`[NIGHTLY][whos-out] error for ${location.name}:`, e);
+      }
+    }
+
+    return { queued, alreadyQueued, skippedNobodyOut, skippedNoRecipients, failed };
+  }));
+
+
 
   // Task 6: Weekly schedule emails (Monday only)
   results.push(await runResumableTask(supabase, runDate, completedSet, "weekly-schedule-emails", async () => {

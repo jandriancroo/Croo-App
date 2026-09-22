@@ -38,6 +38,7 @@ const NOTIFICATION_TYPES = [
   { key: 'cash_safe_count', label: 'Safe Counts', description: 'Safe count submissions', category: 'cash', managerOnly: true },
   { key: 'cash_bank_deposit', label: 'Bank Deposits', description: 'Bank deposit submissions', category: 'cash', managerOnly: true },
   { key: 'new_job_application', label: 'New Job Applications', description: 'When someone applies at this location', category: 'hiring', managerOnly: true },
+  { key: 'time_off_weekly_digest', label: "Next Week's Time Off", description: 'Nightly digest of approved time off for next week', category: 'timeoff', managerOnly: true },
 ] as const;
 
 
@@ -99,8 +100,10 @@ export const UnifiedNotificationSettings = () => {
         const existing = existingSettings?.find(s => s.notification_type === nt.key);
         const isCashNotification = nt.category === 'cash';
         const isHiringNotification = nt.category === 'hiring';
-        // Hiring alerts default to email ON for everyone who can see them.
-        const defaultEmailEnabled = isHiringNotification || (isCashNotification && isManagerOrAbove);
+        const isTimeOffNotification = nt.category === 'timeoff';
+        // Hiring and time-off digests default to email ON for everyone who can see them.
+        const defaultEmailEnabled =
+          isHiringNotification || isTimeOffNotification || (isCashNotification && isManagerOrAbove);
         return {
           notification_type: nt.key,
           location_id: selectedLocationId,
@@ -545,6 +548,56 @@ export const UnifiedNotificationSettings = () => {
                 <div className="text-sm font-medium text-muted-foreground mb-2">Hiring</div>
                 <div className="space-y-1">
                   {NOTIFICATION_TYPES.filter(nt => nt.category === 'hiring').map(nt => {
+                    const setting = getSetting(nt.key, selectedLocationId);
+                    return (
+                      <div key={nt.key}>
+                        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50">
+                          <div>
+                            <span className="text-sm">{nt.label}</span>
+                          </div>
+                          <div className="w-10 flex justify-center">
+                            <Checkbox
+                              checked={setting?.alert_enabled ?? true}
+                              onCheckedChange={(checked) =>
+                                updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
+                              }
+                            />
+                          </div>
+                          <div className="w-10 flex justify-center">
+                            <Checkbox
+                              checked={setting?.push_enabled ?? true}
+                              onCheckedChange={(checked) =>
+                                updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
+                              }
+                              disabled={needsPermission}
+                            />
+                          </div>
+                          <div className="w-10 flex justify-center">
+                            <Checkbox
+                              checked={setting?.email_enabled ?? true}
+                              onCheckedChange={(checked) =>
+                                updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
+                              }
+                            />
+                          </div>
+                        </div>
+                        <p className="ml-1 text-[11px] text-muted-foreground leading-tight">
+                          {nt.description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Time off digest - general managers and admins only */}
+            {canSeeHiring && (
+              <>
+                <Separator className="my-4" />
+                <div className="text-sm font-medium text-muted-foreground mb-2">Time Off</div>
+                <div className="space-y-1">
+                  {NOTIFICATION_TYPES.filter(nt => nt.category === 'timeoff').map(nt => {
                     const setting = getSetting(nt.key, selectedLocationId);
                     return (
                       <div key={nt.key}>
