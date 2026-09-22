@@ -609,8 +609,10 @@ ${data.notes.map((n) => `<p style="color:${INK};font-size:13px;line-height:1.6;m
           let detail = "full day";
           if (e.timeScope === "partial_day" && e.startTime) {
             detail = `${fmtTime(e.startTime)}–${fmtTime(e.endTime)}`;
-          } else if (e.startDate < day.date) {
+          } else if (e.startDate < day.date && e.endDate > day.date) {
             detail = `continues through ${prettyDate(e.endDate)}`;
+          } else if (e.startDate < day.date) {
+            detail = `last day of ${prettyDate(e.startDate)}–${prettyDate(e.endDate)}`;
           } else if (e.endDate > day.date) {
             detail = `through ${prettyDate(e.endDate)}`;
           }
