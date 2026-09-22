@@ -590,6 +590,56 @@ export const UnifiedNotificationSettings = () => {
                 </div>
               </>
             )}
+
+            {/* Time off digest - general managers and admins only */}
+            {canSeeHiring && (
+              <>
+                <Separator className="my-4" />
+                <div className="text-sm font-medium text-muted-foreground mb-2">Time Off</div>
+                <div className="space-y-1">
+                  {NOTIFICATION_TYPES.filter(nt => nt.category === 'timeoff').map(nt => {
+                    const setting = getSetting(nt.key, selectedLocationId);
+                    return (
+                      <div key={nt.key}>
+                        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50">
+                          <div>
+                            <span className="text-sm">{nt.label}</span>
+                          </div>
+                          <div className="w-10 flex justify-center">
+                            <Checkbox
+                              checked={setting?.alert_enabled ?? true}
+                              onCheckedChange={(checked) =>
+                                updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
+                              }
+                            />
+                          </div>
+                          <div className="w-10 flex justify-center">
+                            <Checkbox
+                              checked={setting?.push_enabled ?? true}
+                              onCheckedChange={(checked) =>
+                                updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
+                              }
+                              disabled={needsPermission}
+                            />
+                          </div>
+                          <div className="w-10 flex justify-center">
+                            <Checkbox
+                              checked={setting?.email_enabled ?? true}
+                              onCheckedChange={(checked) =>
+                                updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
+                              }
+                            />
+                          </div>
+                        </div>
+                        <p className="ml-1 text-[11px] text-muted-foreground leading-tight">
+                          {nt.description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
