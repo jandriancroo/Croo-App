@@ -17,6 +17,7 @@
 // Delivery is left to the existing email-queue-sender.
 // ---------------------------------------------------------------------------
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateCaller } from "../_shared/callerAuth.ts";
 import {
   buildWhosOutHtml,
   loadWhosOut,
