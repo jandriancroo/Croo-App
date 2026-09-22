@@ -54,3 +54,13 @@
 - List endpoint returns ZERO prices for both lists (per-product fetch required, which writes cache — not run, this was read-only)
 - Structural field confirmed on every store: ProductListType 2 = vendor/corporate managed, 3 = store-built, 4 = Purchase History. IsReadOnly + empty CreateUserAlternateKey corroborate
 - Caveat for a "sync every managed list" rule: SoCal + Rowlett each carry a second type-2 "Proprietary Items" list (16-28 items) that would also be pulled in
+
+## Done — new job application notifications (push + email)
+- New edge function notify-new-application (verify_jwt=false): trusts only applicationId, re-fetches everything service-side
+- Recipients: active general_manager at the applied-to location + active admin/org_admin/super_admin in that org; shift_manager excluded
+- Prefs read from user_notification_settings at the application's location_id; missing row = ON for push and email
+- Push body = position + location only; email = first name + position + location + https://croohq.com/hiring link. No phone/email in either
+- Dedup table application_notify_log (application_id, channel, recipient) unique; email also uses email_queue dedup_key
+- send-push-notification: new_job_application mapped to its own user_notification_settings key + emoji title
+- Settings UI: Hiring section with "New Job Applications" (GM/manager/admin only), alert/push/email, email defaults ON
+- PublicApplication.tsx now sends only the application id; submit never fails on notify error
