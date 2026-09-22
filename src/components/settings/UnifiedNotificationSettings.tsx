@@ -38,6 +38,7 @@ const NOTIFICATION_TYPES = [
   { key: 'cash_safe_count', label: 'Safe Counts', description: 'Safe count submissions', category: 'cash', managerOnly: true },
   { key: 'cash_bank_deposit', label: 'Bank Deposits', description: 'Bank deposit submissions', category: 'cash', managerOnly: true },
   { key: 'new_job_application', label: 'New Job Applications', description: 'When someone applies at this location', category: 'hiring', managerOnly: true },
+  { key: 'time_off_weekly_digest', label: "Next Week's Time Off", description: 'Nightly digest of approved time off for next week', category: 'timeoff', managerOnly: true },
 ] as const;
 
 
@@ -99,8 +100,10 @@ export const UnifiedNotificationSettings = () => {
         const existing = existingSettings?.find(s => s.notification_type === nt.key);
         const isCashNotification = nt.category === 'cash';
         const isHiringNotification = nt.category === 'hiring';
-        // Hiring alerts default to email ON for everyone who can see them.
-        const defaultEmailEnabled = isHiringNotification || (isCashNotification && isManagerOrAbove);
+        const isTimeOffNotification = nt.category === 'timeoff';
+        // Hiring and time-off digests default to email ON for everyone who can see them.
+        const defaultEmailEnabled =
+          isHiringNotification || isTimeOffNotification || (isCashNotification && isManagerOrAbove);
         return {
           notification_type: nt.key,
           location_id: selectedLocationId,
