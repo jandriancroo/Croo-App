@@ -61,6 +61,9 @@ verify_jwt = false
 [functions.notify-hiring-message]
 verify_jwt = false
 
+[functions.notify-new-application]
+verify_jwt = false
+
 [functions.send-weekly-schedule-email]
 verify_jwt = false
 
