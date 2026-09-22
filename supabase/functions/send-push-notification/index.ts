@@ -386,6 +386,8 @@ function formatNotificationContent(type: string | undefined, title: string, body
       return { title: `🔐 ${title}`, body };
     case 'arcade_scores':
       return { title: `🕹️ ${title}`, body };
+    case 'new_job_application':
+      return { title: `🧑‍🍳 ${title}`, body };
     default:
       return { title, body };
   }
@@ -557,6 +559,8 @@ const handler = async (req: Request): Promise<Response> => {
       'cash_safe_count': 'cash_safe_count',
       'cash_drawer_count': 'cash_drawer_count',
       'cash_bank_deposit': 'cash_bank_deposit',
+      // Hiring: respects user_notification_settings.push_enabled at the applied-to location
+      'new_job_application': 'new_job_application',
     };
 
     // Also filter by user notification preferences
