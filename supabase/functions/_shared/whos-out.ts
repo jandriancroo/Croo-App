@@ -663,9 +663,11 @@ ${anyoneOut ? `<div style="color:#5b6167;font-size:11px;font-weight:800;letter-s
 }
 
 export function whosOutSubject(data: WhosOutData, isSample = false): string {
-  const prefix = isSample ? "[Sample] " : "";
+  // Samples use the plain named subject Jordan asked for; nightly sends keep
+  // the count + date range so an inbox scan shows the week at a glance.
+  if (isSample) return `[Sample] Next week’s time-off — ${data.locationName}`;
   if (data.totalRequests === 0) {
-    return `${prefix}${data.locationName}: nobody out next week (${prettyDate(data.weekStart)}–${prettyDate(data.weekEnd)})`;
+    return `${data.locationName}: nobody out next week (${prettyDate(data.weekStart)}–${prettyDate(data.weekEnd)})`;
   }
-  return `${prefix}${data.locationName}: ${data.peopleOut} out next week (${prettyDate(data.weekStart)}–${prettyDate(data.weekEnd)})`;
+  return `${data.locationName}: ${data.peopleOut} out next week (${prettyDate(data.weekStart)}–${prettyDate(data.weekEnd)})`;
 }
