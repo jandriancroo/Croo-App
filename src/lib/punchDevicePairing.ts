@@ -626,6 +626,16 @@ export async function refreshDeviceSession(): Promise<boolean> {
  */
 export async function repairDeviceSession(): Promise<boolean> {
   if (!getPairing()) return false;
+
+  const startedAt = Date.now();
+  // Wake repair (or boot restore) may already be fixing exactly this. Wait for
+  // it instead of failing the punch — that wait IS the freeze fix.
+  if (isPairingLockBusy() && pairingLockHolder() !== 'punch-repair') {
+    await waitForPairingLock(10000);
+  }
+  // Someone else installed a fresh session while we waited → the caller just retries.
+  if (lastSessionInstalledAt >= startedAt) return true;
+
   const result = await withPairingLock('punch-repair', async () => {
     const cred = getPairing();
     if (cred?.deviceSecret) {
