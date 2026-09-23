@@ -639,16 +639,19 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
             existingData={entry?.logbook_entry_values?.[0]?.value_text ? JSON.parse(entry.logbook_entry_values[0].value_text) : null}
             entryCount={drawerCountEntries.length}
             drawerBank={locationSettings?.drawer_bank ?? 200}
-            priorPulls={drawerCountEntries.map((e: any) => {
-              try {
-                const parsed = JSON.parse(e.logbook_entry_values?.[0]?.value_text || '{}');
-                return {
-                  amount: parsed.actualDeposit || 0,
-                  time: e.created_at,
-                  createdBy: e.profiles?.full_name,
-                } as PriorPull;
-              } catch { return null; }
-            }).filter(Boolean) as PriorPull[]}
+            priorPulls={drawerCountEntries
+              // Never count the entry being edited as one of its own earlier pulls.
+              .filter((e: any) => !entry?.id || e.id !== entry.id)
+              .map((e: any) => {
+                try {
+                  const parsed = JSON.parse(e.logbook_entry_values?.[0]?.value_text || '{}');
+                  return {
+                    amount: parsed.actualDeposit || 0,
+                    time: e.created_at,
+                    createdBy: e.profiles?.full_name,
+                  } as PriorPull;
+                } catch { return null; }
+              }).filter(Boolean) as PriorPull[]}
           />
         </div>
       );
