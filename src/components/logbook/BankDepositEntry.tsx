@@ -64,6 +64,33 @@ interface BankDepositEntryProps {
 export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
   const [open, setOpen] = useState(false);
 
+  // Prefer day-level data (slip + audit apply once per day). Fall back to the
+  // legacy one-item-per-day entries[] shape for deposits saved before 2026-09-23.
+  const dayRows: Array<{
+    key: string;
+    entryDate: string;
+    amount: number;
+    slipPath?: string;
+    audit?: BankDepositDayAudit;
+    pulls?: number;
+  }> = data.days?.length
+    ? data.days.map((d) => ({
+        key: d.entryDate,
+        entryDate: d.entryDate,
+        amount: d.depositAmount,
+        slipPath: d.slipPath,
+        audit: d.audit,
+        pulls: d.entryIds?.length,
+      }))
+    : (data.entries || []).map((e, idx) => ({
+        key: e.entryId || String(idx),
+        entryDate: e.entryDate,
+        amount: e.depositAmount,
+        slipPath: e.slipPath,
+        audit: e.audit,
+      }));
+
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
