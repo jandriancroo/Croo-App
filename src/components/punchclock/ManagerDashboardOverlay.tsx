@@ -78,8 +78,7 @@ interface ActiveShift {
   breakStartTime: string | null;
   breakType: string | null;
   position?: string;
-  /** null when the current session isn't allowed to read wages (kiosk device). */
-  hourlyWage?: number | null;
+  /* No per-person wage ever reaches this device — see kioskCutSavings.ts. */
   scheduledStartTime?: string; // HH:mm format from shift template
   scheduledEndTime?: string; // HH:mm format from shift template
 }
@@ -416,23 +415,9 @@ export function ManagerDashboardOverlay({
         .select('id, full_name, profile_photo_url')
         .in('id', userIds);
 
-      // Wages aren't readable directly by the client (PII protection), and the
-      // paired kiosk device session has no role. The `kiosk-wages` edge function
-      // authorizes either a manager+ human session OR an active paired device
-      // bound to this location, then returns real wages for on-shift users.
-      const wageMap = new Map<string, number>();
-      let wagesReadable = false;
-      try {
-        const { data: wageRes, error: wageErr } = await supabase.functions.invoke('kiosk-wages', {
-          body: { location_id: locationId, user_ids: userIds, date: todayStr },
-        });
-        if (!wageErr && Array.isArray(wageRes?.wages)) {
-          wageRes.wages.forEach((w: any) => wageMap.set(w.user_id, Number(w.hourly_wage)));
-          wagesReadable = wageMap.size > 0;
-        }
-      } catch (e) {
-        console.warn('[ManagerDashboardOverlay] wage lookup unavailable', e);
-      }
+      // No wage lookup on this screen. Individual pay rates never reach a paired
+      // device; dollar estimates come from the store-total blended rate instead.
+
 
 
 
