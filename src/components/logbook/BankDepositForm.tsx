@@ -837,16 +837,16 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         </Button>
       )}
 
-      {auditTargetEntry && (
+      {auditTargetDay && (
         <DepositAuditDialog
           open={!!auditTarget}
           onOpenChange={(o) => !o && setAuditTarget(null)}
-          expectedAmount={auditTargetEntry.depositAmount}
-          dateLabel={format(new Date(auditTargetEntry.entryDate + 'T12:00:00'), 'EEEE, MMM d, yyyy')}
+          expectedAmount={auditTargetDay.recordedTotal}
+          dateLabel={format(new Date(auditTargetDay.entryDate + 'T12:00:00'), 'EEEE, MMM d, yyyy')}
           auditorName={auditorName}
-          existing={audits[auditTargetEntry.entryDate] || null}
+          existing={audits[auditTargetDay.entryDate] || null}
           onSubmit={(audit) =>
-            setAudits((prev) => ({ ...prev, [auditTargetEntry.entryDate]: audit }))
+            setAudits((prev) => ({ ...prev, [auditTargetDay.entryDate]: audit }))
           }
         />
       )}
@@ -866,7 +866,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                   <span className="text-muted-foreground">Drawer count</span>
                   <span className="font-mono line-through text-muted-foreground">
                     {formatCurrency(
-                      summary.entries.find((e) => e.entryDate === auditInfoTarget)?.depositAmount || 0
+                      summary.days.find((d) => d.entryDate === auditInfoTarget)?.recordedTotal || 0
                     )}
                   </span>
                 </div>
