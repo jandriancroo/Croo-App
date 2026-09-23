@@ -6,30 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { getBankVerificationUrl } from "./BankVerificationPhoto";
 
-export interface BankDepositData {
-  startDate: string;
-  endDate: string;
-  entries: Array<{
-    entryId: string;
-    entryDate: string;
-    depositAmount: number;
-    slipPath?: string;
-    audit?: {
-      countedAmount: number;
-      variance: number;
-      auditedAt: string;
-      auditedByName?: string;
-    };
-  }>;
-
-  totalDollars: number;
-  totalChange: number;
-  totalAmount: number;
-  daysIncluded: number;
-  notes?: string;
-  receiptPath?: string;
-  verificationRequired?: boolean;
-}
+export type { BankDepositData } from "./BankDepositForm";
+import type { BankDepositData, BankDepositDayAudit } from "./BankDepositForm";
 
 function VerificationPhotoLink({ path, label }: { path: string; label: string }) {
   const [open, setOpen] = useState(false);
