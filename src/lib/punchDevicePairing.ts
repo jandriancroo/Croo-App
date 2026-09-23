@@ -216,6 +216,9 @@ export function isPairingDead(): boolean {
 }
 export function markPairingDead() {
   try { localStorage.setItem(PAIRING_DEAD_KEY, '1'); } catch {}
+  // Let the punch clock react immediately (land on /auth when idle) instead of
+  // waiting for the next boot.
+  try { window.dispatchEvent(new Event('croohq:pairing-dead')); } catch {}
 }
 export function clearPairingDead() {
   try { localStorage.removeItem(PAIRING_DEAD_KEY); } catch {}
