@@ -52,6 +52,7 @@ import { Input } from '@/components/ui/input';
 import { getBusinessDateInTimezone, getDayOfWeekInTimezone, getTimezoneOffset, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { fetchLiveLaborForToday } from '@/utils/liveLabor';
+import { calcKioskCutSavings } from '@/utils/kioskCutSavings';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { ProjectionIcon } from '@/components/ui/projection-tag';
@@ -78,8 +79,7 @@ interface ActiveShift {
   breakStartTime: string | null;
   breakType: string | null;
   position?: string;
-  /** null when the current session isn't allowed to read wages (kiosk device). */
-  hourlyWage?: number | null;
+  /* No per-person wage ever reaches this device — see kioskCutSavings.ts. */
   scheduledStartTime?: string; // HH:mm format from shift template
   scheduledEndTime?: string; // HH:mm format from shift template
 }
@@ -416,23 +416,9 @@ export function ManagerDashboardOverlay({
         .select('id, full_name, profile_photo_url')
         .in('id', userIds);
 
-      // Wages aren't readable directly by the client (PII protection), and the
-      // paired kiosk device session has no role. The `kiosk-wages` edge function
-      // authorizes either a manager+ human session OR an active paired device
-      // bound to this location, then returns real wages for on-shift users.
-      const wageMap = new Map<string, number>();
-      let wagesReadable = false;
-      try {
-        const { data: wageRes, error: wageErr } = await supabase.functions.invoke('kiosk-wages', {
-          body: { location_id: locationId, user_ids: userIds, date: todayStr },
-        });
-        if (!wageErr && Array.isArray(wageRes?.wages)) {
-          wageRes.wages.forEach((w: any) => wageMap.set(w.user_id, Number(w.hourly_wage)));
-          wagesReadable = wageMap.size > 0;
-        }
-      } catch (e) {
-        console.warn('[ManagerDashboardOverlay] wage lookup unavailable', e);
-      }
+      // No wage lookup on this screen. Individual pay rates never reach a paired
+      // device; dollar estimates come from the store-total blended rate instead.
+
 
 
 
@@ -463,7 +449,6 @@ export function ManagerDashboardOverlay({
           breakStartTime: u.breakStartTime,
           breakType: u.breakType,
           position: shiftInfo?.position || undefined,
-          hourlyWage: wagesReadable ? (wageMap.get(u.userId) ?? null) : null,
           scheduledStartTime: shiftInfo?.startTime || undefined,
           scheduledEndTime: shiftInfo?.endTime || undefined,
         } as ActiveShift;
@@ -478,9 +463,9 @@ export function ManagerDashboardOverlay({
   // labor_cache stays history-only (labor-service excludes today).
   const { data: liveLaborToday } = useQuery({
     queryKey: ['live-labor-today', locationId, todayStr],
-    // Wages via kiosk-wages: this screen runs on paired devices with no manager
-    // role, where get_current_wages_batch masks every rate to a flat default.
-    queryFn: () => fetchLiveLaborForToday(locationId, timezone, { wageSource: 'kiosk' }),
+    // Store-total aggregate RPC — same numbers the phone dashboard shows, and no
+    // per-person wage is ever sent to the device.
+    queryFn: () => fetchLiveLaborForToday(locationId, timezone),
     enabled: !!locationId && !!todayStr,
     staleTime: 60_000,
     refetchInterval: 60_000,
@@ -983,34 +968,29 @@ export function ManagerDashboardOverlay({
     setShowPreviewModal(false);
   };
 
-  // Calculate labor savings. Dollar figures are only meaningful when the
-  // session can actually read wages — otherwise we report minutes only.
-  const wagesKnown = useMemo(
-    () => activeShifts.length > 0 && activeShifts.every(s => typeof s.hourlyWage === 'number'),
-    [activeShifts]
-  );
-
+  // Labor savings from the store-total blended rate. There are no per-person
+  // wages on this device, so only aggregate dollars can ever be shown.
   const calculateLaborSavings = useMemo(() => {
-    let totalMinutesSaved = 0;
-    let totalCostSaved = 0;
-
-    laborCuts.forEach(cut => {
-      const employee = activeShifts.find(s => s.userId === cut.userId);
-      if (employee) {
-        totalMinutesSaved += cut.minutesCut;
-        const hoursSaved = cut.minutesCut / 60;
-        totalCostSaved += hoursSaved * (employee.hourlyWage ?? 0);
-      }
-    });
+    const totalMinutesSaved = laborCuts.reduce(
+      (sum, cut) => (activeShifts.some(s => s.userId === cut.userId) ? sum + cut.minutesCut : sum),
+      0
+    );
 
     const currentLaborCost = laborData?.laborCost || 0;
-    const newLaborCost = Math.max(0, currentLaborCost - totalCostSaved);
-    
+    const currentLaborHours = laborData?.laborHours || 0;
+    const { blendedRate, totalCostSaved, newLaborCost } = calcKioskCutSavings(
+      totalMinutesSaved,
+      currentLaborCost,
+      currentLaborHours
+    );
+
     const currentLaborPercent = totalSales > 0 ? (currentLaborCost / totalSales) * 100 : 0;
-    const newLaborPercent = totalSales > 0 ? (newLaborCost / totalSales) * 100 : 0;
+    const newLaborPercent =
+      totalSales > 0 && newLaborCost != null ? (newLaborCost / totalSales) * 100 : 0;
 
     return {
       totalMinutesSaved,
+      blendedRate,
       totalCostSaved,
       currentLaborCost,
       newLaborCost,
@@ -1018,7 +998,10 @@ export function ManagerDashboardOverlay({
       newLaborPercent,
       percentSaved: currentLaborPercent - newLaborPercent,
     };
-  }, [laborCuts, activeShifts, laborData?.laborCost, totalSales]);
+  }, [laborCuts, activeShifts, laborData?.laborCost, laborData?.laborHours, totalSales]);
+
+  /** Aggregate dollars are only meaningful when a blended rate exists. */
+  const dollarsKnown = calculateLaborSavings.totalCostSaved != null;
 
 
   const hasAnyCuts = laborCuts.length > 0;
@@ -1225,14 +1208,14 @@ export function ManagerDashboardOverlay({
                         <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Labor</h3>
                         <div className="mt-2 flex items-end gap-2">
                           <span className={`text-3xl font-bold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
-                            {(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
+                            {(cutsSaved && hasAnyCuts && dollarsKnown ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
                           </span>
                           <span className={`pb-1 text-xs ${laborStatus === 'good' ? 'text-emerald-500/80' : laborStatus === 'warning' ? 'text-amber-500/80' : 'text-red-500/80'}`}>
                             {laborStatus === 'good' ? 'on target' : laborStatus === 'warning' ? 'watching' : 'over target'}
                           </span>
                         </div>
                         <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          {formatCurrency(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
+                          {formatCurrency(cutsSaved && hasAnyCuts && dollarsKnown ? (calculateLaborSavings.newLaborCost ?? 0) : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
                         </p>
                       </div>
                         <div className={`rounded-full p-2 ${isDayMode ? 'bg-white' : 'bg-neutral-900/60'}`}>
@@ -1471,8 +1454,6 @@ export function ManagerDashboardOverlay({
                 {laborCuts.map(cut => {
                   const employee = activeShifts.find(s => s.userId === cut.userId);
                   if (!employee) return null;
-                  const hoursSaved = cut.minutesCut / 60;
-                  const costSaved = hoursSaved * (employee.hourlyWage ?? 0);
                   return (
                     <div key={cut.userId} className={`flex items-center justify-between p-2 rounded ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
                       <div className="flex items-center gap-2">
@@ -1485,18 +1466,16 @@ export function ManagerDashboardOverlay({
                         <span className={`text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{employee.fullName}</span>
                       </div>
                       <div className="text-right">
+                        {/* Minutes only — no per-person dollars on this device. */}
                         <Badge className="bg-red-500/30 text-red-500 text-xs">-{cut.minutesCut}m</Badge>
-                        {wagesKnown && (
-                          <p className="text-green-500 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
-                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Comparison — only meaningful when wages are readable */}
-              {wagesKnown && (
+              {/* Comparison — only meaningful when a blended rate exists */}
+              {dollarsKnown && (
                 <div className="grid grid-cols-2 gap-4">
                   {/* Current Labor */}
                   <div className={`p-4 rounded-lg text-center ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
@@ -1520,7 +1499,7 @@ export function ManagerDashboardOverlay({
                       {calculateLaborSavings.newLaborPercent.toFixed(1)}%
                     </p>
                     <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                      {formatCurrency(calculateLaborSavings.newLaborCost)}
+                      {formatCurrency(calculateLaborSavings.newLaborCost ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -1528,12 +1507,12 @@ export function ManagerDashboardOverlay({
 
               {/* Summary */}
               <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-                {wagesKnown ? (
+                {dollarsKnown ? (
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Total Savings</p>
+                      <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Est. savings</p>
                       <p className="text-green-500 text-xl font-bold">
-                        {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                        {formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1550,11 +1529,11 @@ export function ManagerDashboardOverlay({
                       {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m
                     </p>
                     <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                      Dollar savings hidden — wages aren't available on this device.
+                      Dollar estimate unavailable until today's labor hours are in.
                     </p>
                   </div>
                 )}
-                {wagesKnown && (
+                {dollarsKnown && (
                   <p className={`text-xs mt-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                     {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m total hours cut
                   </p>
