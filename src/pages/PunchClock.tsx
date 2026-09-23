@@ -266,24 +266,41 @@ export default function PunchClock() {
     const maybeReloadForNewBuild = async () => {
       if (!onPinScreenRef.current) return;                                  // never mid-punch
       if (Date.now() - lastInteractionRef.current < 3 * 60 * 1000) return;  // never mid-PIN
-      if (isPairingLockBusy()) return;                                      // repair in flight
+
+      // Version check runs OUTSIDE the lock: plain unauthenticated fetch, never
+      // on the punch clock's Supabase session.
       const serverVersion = await fetchServerVersion();
       if (!serverVersion || serverVersion === LOADED_VERSION) return;
-      if (!onPinScreenRef.current || isPairingLockBusy()) return;           // re-check after await
-      console.log(`[PunchClock] New build ${serverVersion} published (running ${LOADED_VERSION}) — reloading idle kiosk.`);
-      reloadToVersion(serverVersion);
+
+      // Take the shared lock so the reload can't land mid-repair. Deferred →
+      // the next wake tries again.
+      const result = await withPairingLock('idle-reload', async () => {
+        if (!onPinScreenRef.current) return;
+        if (Date.now() - lastInteractionRef.current < 3 * 60 * 1000) return;
+        const latest = await fetchServerVersion();
+        if (!latest || latest === LOADED_VERSION) return;
+        console.log(`[PunchClock] New build ${latest} published (running ${LOADED_VERSION}) — reloading idle kiosk.`);
+        reloadToVersion(latest);
+      });
+      if (result === PAIRING_DEFERRED) {
+        console.log('[PunchClock] Idle reload deferred — pairing repair in flight; will retry on next wake.');
+      }
     };
 
-    const onWake = () => {
+    // Wake chores run IN SEQUENCE: repair first, then heartbeat, then the build
+    // check. Running them concurrently is what let the idle reload fight the
+    // wake repair for the shared lock.
+    const onWake = async () => {
       if (document.visibilityState !== 'visible') return;
       if (Date.now() - last < 60 * 1000) return;
       last = Date.now();
       if (isPaired()) {
-        refreshDeviceSession().catch(() => {});
+        await refreshDeviceSession().catch(() => false);
         sendDeviceHeartbeat().catch(() => {});
       }
-      maybeReloadForNewBuild().catch(() => {});
+      await maybeReloadForNewBuild().catch(() => {});
     };
+
 
     document.addEventListener('visibilitychange', onWake);
     window.addEventListener('focus', onWake);
