@@ -56,6 +56,14 @@ export interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
   priorPullsTotal?: number;
   priorPulls?: PriorPull[];
+  /**
+   * True when no expected cash figure could be resolved (POS unavailable and
+   * nobody typed one in). Variance is meaningless in that case and must not be
+   * displayed as OVER/UNDER.
+   */
+  expectedUnavailable?: boolean;
+  /** Where the expected figure came from: live POS, cached POS cash, or manual. */
+  expectedSource?: "pos_live" | "pos_cache" | "manual" | "none";
 }
 
 export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate, priorPulls = [] }: DrawerCountFormProps) {
