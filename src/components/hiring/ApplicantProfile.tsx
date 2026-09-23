@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2, Calendar, Clock } from 'lucide-react';
+import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2, Calendar, Clock, CalendarPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -33,10 +34,12 @@ interface ApplicantProfileProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  onScheduleInterview?: (applicationId: string) => void;
 }
 
-export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange }: ApplicantProfileProps) {
+export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange, onScheduleInterview }: ApplicantProfileProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: application, isLoading } = useQuery({
@@ -164,11 +167,12 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                     )}
                   </div>
                 </div>
+                <div className="flex gap-2 w-full sm:w-auto shrink-0">
                 <Select 
                   value={application.status} 
                   onValueChange={val => onStatusChange(application.id, val as ApplicationStatus)}
                 >
-                  <SelectTrigger className="w-full sm:w-[140px] shrink-0">
+                  <SelectTrigger className="flex-1 sm:w-[140px] min-h-[44px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -179,6 +183,25 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                     <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
+                {application.interview_date ? (
+                  <Button
+                    variant="outline"
+                    className="min-h-[44px]"
+                    onClick={() => navigate(`/messages?tab=hiring&applicationId=${application.id}`)}
+                  >
+                    <CalendarPlus className="h-4 w-4 mr-2" />
+                    Reschedule
+                  </Button>
+                ) : (
+                  <Button
+                    className="min-h-[44px]"
+                    onClick={() => onScheduleInterview?.(application.id)}
+                  >
+                    <CalendarPlus className="h-4 w-4 mr-2" />
+                    Schedule Interview
+                  </Button>
+                )}
+                </div>
               </div>
             </DialogHeader>
 

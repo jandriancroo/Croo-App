@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { ensureHiringConversation } from '@/lib/hiring/interviewActions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Briefcase, Headphones, ArrowLeft, Plus } from 'lucide-react';
@@ -20,9 +23,11 @@ interface DmPanelProps {
   onOpenChange: (open: boolean) => void;
   /** Deep link target (e.g. from a push notification): opens straight into this chat. */
   initialChatId?: string | null;
+  /** Deep link target: opens straight into this application's hiring thread. */
+  initialHiringApplicationId?: string | null;
 }
 
-export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
+export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplicationId }: DmPanelProps) {
   const data = useMessagesData();
   const isMobile = useIsMobile();
   const {
@@ -75,6 +80,41 @@ export function DmPanel({ open, onOpenChange, initialChatId }: DmPanelProps) {
       setSelectedChatId(initialChatId);
     }
   }, [open, initialChatId, setSelectedChatId]);
+
+  // Deep link: /messages?tab=hiring&applicationId=<id> → open that hiring thread directly.
+  const hiringHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) { hiringHandledRef.current = null; return; }
+    if (!initialHiringApplicationId || hiringHandledRef.current === initialHiringApplicationId) return;
+    if (loading || roleLoading) return; // wait until role/tab visibility is known
+    hiringHandledRef.current = initialHiringApplicationId;
+    if (!showHiringTab) {
+      toast.error("You don't have access to hiring chat");
+      setStep('dms');
+      return;
+    }
+    const appId = initialHiringApplicationId;
+    setStep('hiring');
+    (async () => {
+      try {
+        const conv = await ensureHiringConversation(appId);
+        const { data: app, error } = await supabase
+          .from('job_applications')
+          .select('full_name')
+          .eq('id', appId)
+          .maybeSingle();
+        if (error) throw error;
+        setSelectedHiringConversation({
+          id: conv.id,
+          application_id: appId,
+          application: { full_name: app?.full_name || 'Applicant' },
+        } as any);
+      } catch (err: any) {
+        console.error('Hiring deep link failed:', err);
+        toast.error(err?.message ? `Couldn't open hiring chat: ${err.message}` : "Couldn't open hiring chat");
+      }
+    })();
+  }, [open, initialHiringApplicationId, loading, showHiringTab, setSelectedHiringConversation]);
 
   // DM list panel (also used as base for mobile stepper)
   const dmListPanel = (

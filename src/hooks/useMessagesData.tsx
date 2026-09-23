@@ -374,17 +374,8 @@ export function useMessagesData() {
   // Handle URL chat parameter
   useEffect(() => {
     const urlChatId = searchParams.get('chat');
-    const urlTab = searchParams.get('tab');
-    const urlApplicationId = searchParams.get('applicationId');
-    
-    if (urlTab === 'hiring' && urlApplicationId && !urlChatIdProcessed.current) {
-      setViewMode('hiring');
-      setPendingHiringApplicationId(urlApplicationId);
-      urlChatIdProcessed.current = true;
-      setShowChatList(false);
-      setSearchParams({}, { replace: true });
-      return;
-    }
+    // ?tab=hiring&applicationId= deep links are handled by Messages.tsx → DmPanel.
+
     
     if (!urlChatId || urlChatIdProcessed.current || loading || chats.length === 0) return;
 

@@ -1,0 +1,1 @@
+create unique index if not exists hiring_conversations_application_id_key on public.hiring_conversations(application_id);
