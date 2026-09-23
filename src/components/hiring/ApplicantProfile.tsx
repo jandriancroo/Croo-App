@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { HiringChatPreview } from './HiringChatPreview';
 import { ApplicantFlagSelector } from './ApplicantFlagSelector';
 import { ApplicantNotesSection } from './ApplicantNotesSection';
+import { useUserRole } from '@/hooks/useUserRole';
 
 type ApplicationStatus = 'pending' | 'interested' | 'interviewing' | 'hired' | 'rejected';
 
@@ -59,6 +60,42 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
       return data;
     },
     enabled: !!applicationId && open,
+  });
+
+  const { isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
+  const isOrgLevel = isOrgAdmin || isBrandAdmin || isSuperAdmin;
+  const needsLocation = !!application && !application.location_id && isOrgLevel;
+
+  const { data: assignableLocations } = useQuery({
+    queryKey: ['assignable-locations', application?.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name')
+        .eq('organization_id', application!.organization_id)
+        .eq('location_type', 'standard')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: needsLocation,
+  });
+
+  const assignLocationMutation = useMutation({
+    mutationFn: async (locationId: string) => {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ location_id: locationId })
+        .eq('id', applicationId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application-detail', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['job-applications-unassigned-count'] });
+      toast.success('Location assigned');
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to assign location'),
   });
 
 
@@ -192,6 +229,24 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                     <div className="flex items-center gap-2 text-sm">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                       <span>{application.location.name}</span>
+                    </div>
+                  )}
+                  {!application.location_id && isOrgLevel && assignableLocations && assignableLocations.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <Select
+                        onValueChange={(v) => assignLocationMutation.mutate(v)}
+                        disabled={assignLocationMutation.isPending}
+                      >
+                        <SelectTrigger className="h-8 w-[200px]">
+                          <SelectValue placeholder="Assign location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assignableLocations.map(l => (
+                            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                   {application.resume_url && (

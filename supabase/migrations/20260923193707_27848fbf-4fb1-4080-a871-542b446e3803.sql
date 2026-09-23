@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.validate_job_application_location() FROM PUBLIC, anon, authenticated;

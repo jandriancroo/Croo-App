@@ -121,6 +121,32 @@ export default function PublicApplication() {
     enabled: !!organization?.id,
   });
 
+  const noLocations = !!locations && locations.length === 0;
+
+  // Preselect a location: single-store orgs auto-select; ?listing= preselects its store.
+  const listingParam = searchParams.get('listing');
+  const { data: listingLocationId } = useQuery({
+    queryKey: ['listing-location', listingParam],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('job_listings')
+        .select('location_id')
+        .eq('id', listingParam!)
+        .maybeSingle();
+      return (data?.location_id as string | null) ?? null;
+    },
+    enabled: !!listingParam,
+  });
+
+  useEffect(() => {
+    if (!locations || selectedLocation) return;
+    if (locations.length === 1) {
+      setSelectedLocation(locations[0].id);
+    } else if (listingLocationId && locations.some(l => l.id === listingLocationId)) {
+      setSelectedLocation(listingLocationId);
+    }
+  }, [locations, listingLocationId, selectedLocation]);
+
   // Fetch application templates for the organization
   const { data: templates } = useQuery({
     queryKey: ['org-templates', organization?.id],
@@ -393,6 +419,7 @@ export default function PublicApplication() {
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (!organization || !selectedTemplate) throw new Error('Missing required data');
+      if (!selectedLocation) throw new Error('Please choose a location');
 
       // Capture source from URL params
       const utmSource = searchParams.get('utm_source') || 'direct';
@@ -409,7 +436,7 @@ export default function PublicApplication() {
           id: applicationId,
           template_id: selectedTemplate,
           organization_id: organization.id,
-          location_id: selectedLocation || null,
+          location_id: selectedLocation,
           full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           email: email.trim(),
           phone: phone.trim(),
@@ -490,9 +517,9 @@ export default function PublicApplication() {
       localStorage.setItem('applicant_email', email.toLowerCase().trim());
       setSubmitted(true);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Submit error:', error);
-      toast.error('Failed to submit application. Please try again.');
+      toast.error(error?.message ? `Failed to submit application: ${error.message}` : 'Failed to submit application. Please try again.');
     },
   });
 
@@ -543,6 +570,10 @@ export default function PublicApplication() {
     }
     if (!selectedTemplate) {
       toast.error('Please select a position');
+      return;
+    }
+    if (!selectedLocation || !locations?.some(l => l.id === selectedLocation)) {
+      toast.error('Please choose a location');
       return;
     }
 
@@ -743,9 +774,18 @@ export default function PublicApplication() {
                   placeholder="(555) 123-4567"
                 />
               </div>
-              {locations && locations.length > 0 && (
+              {noLocations && (
+                <p className="text-sm text-destructive">Applications aren't open for this organization right now.</p>
+              )}
+              {locations && locations.length === 1 && (
+                <div className="py-1">
+                  <p className="text-sm text-muted-foreground">Applying at</p>
+                  <p className="text-base font-semibold text-foreground">{locations[0].name}</p>
+                </div>
+              )}
+              {locations && locations.length > 1 && (
                 <div className="space-y-2">
-                  <Label>Preferred Location</Label>
+                  <Label>Location *</Label>
                   <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select location" />
@@ -1068,7 +1108,7 @@ export default function PublicApplication() {
           <Button 
             type="submit" 
             className="w-full h-12 text-lg"
-            disabled={submitMutation.isPending || !turnstileToken}
+            disabled={submitMutation.isPending || !turnstileToken || noLocations}
           >
             {submitMutation.isPending ? (
               <>
