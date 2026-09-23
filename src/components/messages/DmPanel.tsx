@@ -86,7 +86,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
   useEffect(() => {
     if (!open) { hiringHandledRef.current = null; return; }
     if (!initialHiringApplicationId || hiringHandledRef.current === initialHiringApplicationId) return;
-    if (loading) return; // wait until role/tab visibility is known
+    if (loading || roleLoading) return; // wait until role/tab visibility is known
     hiringHandledRef.current = initialHiringApplicationId;
     if (!showHiringTab) {
       toast.error("You don't have access to hiring chat");
