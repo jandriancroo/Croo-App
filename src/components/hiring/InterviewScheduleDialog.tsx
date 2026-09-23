@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 interface InterviewScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSchedule: (date: Date, time: string) => void;
+  onSchedule: (date: Date, time: string) => Promise<void>;
   applicantName: string;
   isRescheduling?: boolean;
   applicationId?: string;
@@ -147,12 +147,17 @@ export function InterviewScheduleDialog({
     fetchShifts();
   }, [selectedDate, user, locationId]);
 
-  const handleSchedule = () => {
-    if (!selectedDate || !selectedTime) return;
+  const handleSchedule = async () => {
+    if (!selectedDate || !selectedTime || loading) return;
     setLoading(true);
-    onSchedule(selectedDate, selectedTime);
-    setLoading(false);
-    onOpenChange(false);
+    try {
+      await onSchedule(selectedDate, selectedTime);
+      onOpenChange(false);
+    } catch {
+      // Caller shows the error toast; keep the dialog open so the manager can retry.
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isWorkingOnSelectedDate = myShifts.length > 0;
