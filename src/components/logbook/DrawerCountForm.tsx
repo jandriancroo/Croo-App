@@ -287,6 +287,12 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       removalSuggestions: calculations.removalSuggestions,
       priorPullsTotal: calculations.priorPullsTotal,
       priorPulls: priorPulls.map((p) => ({ amount: p.amount, time: p.time, createdBy: p.createdBy })),
+      expectedUnavailable: !calculations.expectedKnown,
+      expectedSource: calculations.expectedKnown
+        ? expectedSource === "none"
+          ? "manual"
+          : expectedSource
+        : "none",
     };
     onSave(data);
   };
