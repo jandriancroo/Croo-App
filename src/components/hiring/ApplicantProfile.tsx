@@ -204,20 +204,37 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
 
                         // The resumes bucket is private — mint a short-lived
                         // signed URL on click instead of linking a public URL.
+                        // iOS Safari / standalone PWA blocks popups that happen
+                        // after an await, so open a blank tab synchronously on
+                        // click, then navigate it once the URL is minted.
                         const openResume = async () => {
                           const path = url.split('/resumes/')[1];
                           if (!path) {
                             toast.error('Resume link is invalid');
                             return;
                           }
+                          // Must run before any await to count as a user gesture.
+                          const tab = window.open('about:blank', '_blank');
                           const { data, error } = await supabase.storage
                             .from('resumes')
                             .createSignedUrl(decodeURIComponent(path), 300);
                           if (error || !data?.signedUrl) {
+                            tab?.close();
                             toast.error('Could not open resume');
                             return;
                           }
-                          window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                          if (tab) {
+                            tab.location.href = data.signedUrl;
+                          } else {
+                            // Popup was blocked — the signed URL is already
+                            // minted, so offer a one-tap retry from the toast.
+                            toast.error('Allow pop-ups to view the resume', {
+                              action: {
+                                label: 'Open',
+                                onClick: () => window.open(data.signedUrl, '_blank', 'noopener,noreferrer'),
+                              },
+                            });
+                          }
                         };
 
                         return (
