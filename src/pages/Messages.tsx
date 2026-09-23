@@ -30,6 +30,20 @@ export default function Messages() {
     if (chatParam) setDmOpen(true);
   }, [chatParam]);
 
+  // Deep link: /messages?tab=hiring&applicationId=<id> — captured once on mount.
+  const [hiringTarget, setHiringTarget] = useState<string | null>(() =>
+    searchParams.get('tab') === 'hiring' ? searchParams.get('applicationId') : null
+  );
+  useEffect(() => {
+    if (!hiringTarget) return;
+    setDmOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('tab');
+    next.delete('applicationId');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <Layout>
       <div className="mx-auto w-full max-w-[640px] pb-8">
@@ -71,7 +85,12 @@ export default function Messages() {
         />
       </div>
 
-      <DmPanel open={dmOpen} onOpenChange={setDmOpen} initialChatId={chatParam} />
+      <DmPanel
+        open={dmOpen}
+        onOpenChange={(o) => { setDmOpen(o); if (!o) setHiringTarget(null); }}
+        initialChatId={chatParam}
+        initialHiringApplicationId={hiringTarget}
+      />
     </Layout>
   );
 }
