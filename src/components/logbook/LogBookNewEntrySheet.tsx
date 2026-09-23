@@ -609,7 +609,9 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
 
                 if (locationSettings?.drawer_count_notifications_enabled !== false) {
                   try {
-                    const overUnderText = drawerData.variance > 0 ? `OVER $${drawerData.variance.toFixed(2)}` : drawerData.variance < 0 ? `SHORT $${Math.abs(drawerData.variance).toFixed(2)}` : 'BALANCED';
+                    const overUnderText = drawerData.expectedUnavailable
+                      ? 'Expected cash not reported by POS'
+                      : drawerData.variance > 0 ? `OVER $${drawerData.variance.toFixed(2)}` : drawerData.variance < 0 ? `SHORT $${Math.abs(drawerData.variance).toFixed(2)}` : 'BALANCED';
                     await supabase.functions.invoke('send-push-notification', {
                       body: { notification_type: 'drawer_count', title: `Drawer Count - ${currentLocation?.name || 'Location'}`, body: `Deposit: $${drawerData.actualDeposit.toFixed(2)} | ${overUnderText}`, location_id: currentLocation?.id, roles: ['admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'super_admin'] }
                     });
