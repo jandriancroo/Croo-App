@@ -13340,6 +13340,10 @@ export type Database = {
           hours: number
         }[]
       }
+      _location_business_date: {
+        Args: { _location_id: string }
+        Returns: string
+      }
       _validate_widget_authority: {
         Args: {
           _brand_id: string
@@ -13519,6 +13523,13 @@ export type Database = {
           minutes: number
           savings: number
           user_id: string
+        }[]
+      }
+      get_cut_savings_total: {
+        Args: { _cuts: Json; _location_id: string }
+        Returns: {
+          est_savings: number
+          total_minutes: number
         }[]
       }
       get_labor_totals_for_dates: {
