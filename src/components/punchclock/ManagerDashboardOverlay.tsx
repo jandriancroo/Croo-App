@@ -52,7 +52,8 @@ import { Input } from '@/components/ui/input';
 import { getBusinessDateInTimezone, getDayOfWeekInTimezone, getTimezoneOffset, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { fetchLiveLaborForToday } from '@/utils/liveLabor';
-import { calcKioskCutSavings } from '@/utils/kioskCutSavings';
+import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
+import { summarizeCuts } from '@/utils/cutSavingsSummary';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { ProjectionIcon } from '@/components/ui/projection-tag';
@@ -79,7 +80,8 @@ interface ActiveShift {
   breakStartTime: string | null;
   breakType: string | null;
   position?: string;
-  /* No per-person wage ever reaches this device — see kioskCutSavings.ts. */
+  /* No per-person wage ever reaches this device — savings are an exact
+     aggregate computed on the server (get_cut_savings_total). */
   scheduledStartTime?: string; // HH:mm format from shift template
   scheduledEndTime?: string; // HH:mm format from shift template
 }
@@ -968,40 +970,24 @@ export function ManagerDashboardOverlay({
     setShowPreviewModal(false);
   };
 
-  // Labor savings from the store-total blended rate. There are no per-person
-  // wages on this device, so only aggregate dollars can ever be shown.
-  const calculateLaborSavings = useMemo(() => {
-    const totalMinutesSaved = laborCuts.reduce(
-      (sum, cut) => (activeShifts.some(s => s.userId === cut.userId) ? sum + cut.minutesCut : sum),
-      0
-    );
+  // Exact aggregate savings from the server — priced with real wages there, so
+  // no per-person wage or dollar figure ever reaches this device.
+  const cutSavingsTotal = useCutSavingsTotal(locationId, laborCuts);
 
-    const currentLaborCost = laborData?.laborCost || 0;
-    const currentLaborHours = laborData?.laborHours || 0;
-    const { blendedRate, totalCostSaved, newLaborCost } = calcKioskCutSavings(
-      totalMinutesSaved,
-      currentLaborCost,
-      currentLaborHours
-    );
+  const calculateLaborSavings = useMemo(
+    () =>
+      summarizeCuts({
+        totalMinutesCut: cutSavingsTotal.totalMinutes,
+        estSavings: cutSavingsTotal.estSavings,
+        currentLaborCost: laborData?.laborCost || 0,
+        totalSales,
+      }),
+    [cutSavingsTotal.totalMinutes, cutSavingsTotal.estSavings, laborData?.laborCost, totalSales]
+  );
 
-    const currentLaborPercent = totalSales > 0 ? (currentLaborCost / totalSales) * 100 : 0;
-    const newLaborPercent =
-      totalSales > 0 && newLaborCost != null ? (newLaborCost / totalSales) * 100 : 0;
-
-    return {
-      totalMinutesSaved,
-      blendedRate,
-      totalCostSaved,
-      currentLaborCost,
-      newLaborCost,
-      currentLaborPercent,
-      newLaborPercent,
-      percentSaved: currentLaborPercent - newLaborPercent,
-    };
-  }, [laborCuts, activeShifts, laborData?.laborCost, laborData?.laborHours, totalSales]);
-
-  /** Aggregate dollars are only meaningful when a blended rate exists. */
-  const dollarsKnown = calculateLaborSavings.totalCostSaved != null;
+  /** Aggregate dollars are only meaningful when the server returned them. */
+  const dollarsKnown = calculateLaborSavings.dollarsKnown;
+  const totalMinutesSaved = cutSavingsTotal.totalMinutes;
 
 
   const hasAnyCuts = laborCuts.length > 0;
