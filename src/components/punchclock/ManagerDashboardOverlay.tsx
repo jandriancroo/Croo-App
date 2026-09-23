@@ -1466,18 +1466,16 @@ export function ManagerDashboardOverlay({
                         <span className={`text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{employee.fullName}</span>
                       </div>
                       <div className="text-right">
+                        {/* Minutes only — no per-person dollars on this device. */}
                         <Badge className="bg-red-500/30 text-red-500 text-xs">-{cut.minutesCut}m</Badge>
-                        {wagesKnown && (
-                          <p className="text-green-500 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
-                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Comparison — only meaningful when wages are readable */}
-              {wagesKnown && (
+              {/* Comparison — only meaningful when a blended rate exists */}
+              {dollarsKnown && (
                 <div className="grid grid-cols-2 gap-4">
                   {/* Current Labor */}
                   <div className={`p-4 rounded-lg text-center ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
