@@ -216,6 +216,9 @@ export function isPairingDead(): boolean {
 }
 export function markPairingDead() {
   try { localStorage.setItem(PAIRING_DEAD_KEY, '1'); } catch {}
+  // Let the punch clock react immediately (land on /auth when idle) instead of
+  // waiting for the next boot.
+  try { window.dispatchEvent(new Event('croohq:pairing-dead')); } catch {}
 }
 export function clearPairingDead() {
   try { localStorage.removeItem(PAIRING_DEAD_KEY); } catch {}
@@ -264,10 +267,81 @@ export async function withPairingLock<T>(
   return lockPromise as Promise<T>;
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+
+/**
+ * Wait (bounded) for whoever holds the shared lock to finish. Used by callers
+ * that must not give up just because another pairing chore is mid-flight —
+ * a punch write, for example, waits for wake repair instead of erroring.
+ * Returns true when the lock is free.
+ */
+export async function waitForPairingLock(maxMs: number): Promise<boolean> {
+  if (!lockHolder) return true;
+  const held = lockPromise ? lockPromise.catch(() => undefined) : Promise.resolve();
+  await Promise.race([held, sleep(maxMs)]);
+  return !isPairingLockBusy();
+}
+
+// Stamped every time a device session is successfully installed. Lets a
+// deferred caller tell "someone else already fixed this" from "nothing happened".
+let lastSessionInstalledAt = 0;
+
+/**
+ * Single call path to punch-device-service with a hard timeout and an honest
+ * classification of the result. ONLY a real 403/404 carrying `dead: true` may
+ * be treated as dead — timeouts, network drops, 5xx, 409 and 429 are retryable.
+ */
+async function invokeDeviceService(
+  body: Record<string, unknown>,
+  timeoutMs = 10000,
+): Promise<{ data: any; status: number | null; dead: boolean; retryable: boolean }> {
+  try {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('punch-device-service', { body }) as Promise<any>,
+      timeoutMs,
+      'punch-device-service timeout',
+    );
+
+    if (!error) {
+      return { data, status: 200, dead: data?.dead === true, retryable: false };
+    }
+
+    let status: number | null = null;
+    let parsed: any = null;
+    const ctx: any = (error as any)?.context;
+    if (ctx && typeof ctx === 'object' && typeof ctx.status === 'number') {
+      status = ctx.status;
+      try {
+        parsed = await (typeof ctx.clone === 'function' ? ctx.clone() : ctx).json();
+      } catch {}
+    }
+
+    const dead = (status === 403 || status === 404) && parsed?.dead === true;
+    return { data: parsed, status, dead, retryable: !dead };
+  } catch {
+    // Timeout or network failure — never a verdict about the pairing.
+    return { data: null, status: null, dead: false, retryable: true };
+  }
+}
+
+/** setSession with a hard bound; a hung install is retryable, not fatal. */
+async function setSessionBounded(tokens: { access_token: string; refresh_token: string }) {
+  try {
+    return await withTimeout(
+      supabase.auth.setSession(tokens) as Promise<any>,
+      8000,
+      'setSession timeout',
+    );
+  } catch {
+    return { data: { session: null }, error: { message: 'setSession timed out' } } as any;
+  }
+}
+
 // ---------------------------------------------------------------- flow
 
 function applySession(session: { access_token: string; refresh_token: string; expires_at?: number }) {
   updateStoredSession(session);
+  lastSessionInstalledAt = Date.now();
 }
 
 /**
@@ -280,28 +354,30 @@ async function reissueOnce(): Promise<boolean> {
   const cred = getPairing();
   if (!cred?.deviceSecret) return false;
 
-  const { data, error } = await supabase.functions.invoke('punch-device-service', {
-    body: { action: 'reissue', deviceId: cred.deviceId, deviceSecret: cred.deviceSecret },
+  const { data, dead } = await invokeDeviceService({
+    action: 'reissue',
+    deviceId: cred.deviceId,
+    deviceSecret: cred.deviceSecret,
   });
 
-  if (data?.dead === true) {
+  if (dead) {
     console.warn('[punchDevicePairing] device is revoked or missing — pairing is dead');
     markPairingDead();
     return false;
   }
-  if (error || !data?.session?.refresh_token) {
-    console.warn('[punchDevicePairing] reissue failed (retryable):', error?.message || data?.error);
+  if (!data?.session?.refresh_token) {
+    console.warn('[punchDevicePairing] reissue failed (retryable):', data?.error);
     return false;
   }
 
   // Install the NEW session FIRST. Never sign out before we have a working
   // replacement — a gap with no auth is exactly what let a boot race decide the
   // tablet was signed out and push it to /auth.
-  const { data: set, error: setErr } = await supabase.auth.setSession({
+  const { data: set, error: setErr } = await setSessionBounded({
     access_token: data.session.access_token,
     refresh_token: data.session.refresh_token,
   });
-  if (setErr || !set.session) {
+  if (setErr || !set?.session) {
     console.warn('[punchDevicePairing] reissued session could not be installed:', setErr?.message);
     return false;
   }
@@ -318,6 +394,7 @@ async function reissueOnce(): Promise<boolean> {
     },
   };
   setPairing(next);
+  lastSessionInstalledAt = Date.now();
   clearPairingDead();
   return true;
 }
@@ -339,14 +416,12 @@ async function backfillSecretOnce(): Promise<boolean> {
   const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
   if (!sess?.session || !isPunchDeviceUser(sess.session.user)) return false;
 
-  const { data, error } = await supabase.functions.invoke('punch-device-service', {
-    body: { action: 'backfill_secret' },
-  });
-  if (data?.dead === true) {
+  const { data, dead } = await invokeDeviceService({ action: 'backfill_secret' });
+  if (dead) {
     markPairingDead();
     return false;
   }
-  if (error || !data?.deviceSecret) return false;
+  if (!data?.deviceSecret) return false;
 
   storeDeviceSecret(data.deviceSecret);
   console.log('[punchDevicePairing] device key stored — this tablet will self-recover from now on');
@@ -372,15 +447,13 @@ async function rebuildPairingOnce(): Promise<boolean> {
   const session = sess?.session;
   if (!session || !isPunchDeviceUser(session.user)) return false;
 
-  const { data, error } = await supabase.functions.invoke('punch-device-service', {
-    body: { action: 'backfill_secret' },
-  });
-  if (data?.dead === true) {
+  const { data, dead } = await invokeDeviceService({ action: 'backfill_secret' });
+  if (dead) {
     markPairingDead();
     return false;
   }
-  if (error || !data?.deviceId || !data?.deviceSecret) {
-    console.warn('[punchDevicePairing] pairing rebuild failed (retryable):', error?.message || data?.error);
+  if (!data?.deviceId || !data?.deviceSecret) {
+    console.warn('[punchDevicePairing] pairing rebuild failed (retryable):', data?.error);
     return false;
   }
 
@@ -417,6 +490,18 @@ export async function rebuildPairingFromDeviceSession(): Promise<boolean> {
  * Caller navigates to /punch-clock after. Returns true on success.
  */
 export async function enterKioskMode(task: PairingTask = 'boot-restore'): Promise<boolean> {
+  const startedAt = Date.now();
+
+  // Another pairing chore is mid-flight — wait for it rather than giving up.
+  if (isPairingLockBusy() && pairingLockHolder() !== task) {
+    await waitForPairingLock(10000);
+    // It may have installed a perfectly good session for us already.
+    if (lastSessionInstalledAt >= startedAt) {
+      const existing = await supabase.auth.getSession().catch(() => null);
+      if (existing?.data?.session && isPunchDeviceUser(existing.data.session.user)) return true;
+    }
+  }
+
   const result = await withPairingLock(task, enterKioskModeOnce);
   return result === PAIRING_DEFERRED ? false : result;
 }
@@ -454,12 +539,12 @@ async function enterKioskModeOnce(): Promise<boolean> {
   // LEGACY / fallback: restore from the stored refresh token. setSession replaces
   // whatever session is installed, so we never sign out first (no auth gap).
   if (cred.session?.refresh_token) {
-    const { data, error } = await supabase.auth.setSession({
+    const { data, error } = await setSessionBounded({
       access_token: cred.session.access_token,
       refresh_token: cred.session.refresh_token,
     });
 
-    if (!error && data.session) {
+    if (!error && data?.session) {
       applySession({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -541,6 +626,16 @@ export async function refreshDeviceSession(): Promise<boolean> {
  */
 export async function repairDeviceSession(): Promise<boolean> {
   if (!getPairing()) return false;
+
+  const startedAt = Date.now();
+  // Wake repair (or boot restore) may already be fixing exactly this. Wait for
+  // it instead of failing the punch — that wait IS the freeze fix.
+  if (isPairingLockBusy() && pairingLockHolder() !== 'punch-repair') {
+    await waitForPairingLock(10000);
+  }
+  // Someone else installed a fresh session while we waited → the caller just retries.
+  if (lastSessionInstalledAt >= startedAt) return true;
+
   const result = await withPairingLock('punch-repair', async () => {
     const cred = getPairing();
     if (cred?.deviceSecret) {

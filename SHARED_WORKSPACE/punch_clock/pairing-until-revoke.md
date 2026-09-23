@@ -165,3 +165,46 @@ label could only mean `getPairing()` read null.
 - If an edit moves a punch across business days, BOTH days are refreshed.
 - Nightly 4:01 AM PT refresh of stale days remains the safety net.
 - No table, UI, or calculation changes. Migration committed: `mark_labor_cache_stale_and_backfill` now uses `public.cron_edge_headers()`.
+
+## 2026-09-23 — Phase-1 client leftovers (4 gaps, one build)
+
+1. **Server: no false "dead".** `punch-device-service` `reissue`, `backfill_secret`
+   and `verify` now destructure the device lookup error. A failed lookup returns
+   `{ error: 'Device lookup failed', retryable: true }` with 503. Only a missing
+   row (404) or `revoked_at` (403) may carry `dead: true`. `verify` no longer
+   answers 200 `{ ok:false, revoked:true }` for a missing row — it returns the
+   same 404/403 shape as the other actions.
+2. **Client: one honest invoke path.** `invokeDeviceService()` in
+   `src/lib/punchDevicePairing.ts` wraps every `punch-device-service` call in
+   `withTimeout` (10s), reads `error.context` (the Response) for status and body,
+   and declares dead ONLY on (403|404) + `dead === true`. Timeout, network error,
+   5xx, 409 and 429 are retryable. Used by `reissueOnce`, `backfillSecretOnce`
+   and `rebuildPairingOnce`. Every `setSession` goes through `setSessionBounded`
+   (8s); a hung install is a retryable false, never a verdict.
+3. **Client: wait instead of defer.** New `lastSessionInstalledAt` stamp plus
+   `waitForPairingLock(maxMs)`. `repairDeviceSession()` and `enterKioskMode()`
+   now wait up to 10s for a different lock holder; if a fresh session was
+   installed while waiting they return true so the caller simply retries. This is
+   why a punch fired during wake repair no longer errors.
+4. **Idle reload under the lock.** `PunchClock`'s wake handler runs its chores in
+   sequence (refresh → heartbeat → build check). The version fetch stays outside
+   the lock (unauthenticated, `no-store`); the reload itself runs inside
+   `withPairingLock('idle-reload')` and re-checks PIN screen + idle + version.
+   `PAIRING_DEFERRED` → skip, next wake retries.
+5. **Revoke reaches the floor.** `markPairingDead()` dispatches
+   `croohq:pairing-dead`. `PunchClock` listens: on the PIN screen it calls
+   `exitKioskMode()` then goes to `/auth` (PunchDeviceEntry shows "Needs
+   Re-Pairing"); mid-punch it defers until the screen returns to PIN. A punch that
+   can't be repaired on a revoked tablet now reads "This tablet was removed from
+   CrooHQ. Tell a manager — your time will be added manually."
+6. **Cold boot retries.** `KioskAutoRestore` retries a failed boot restore at
+   2s, 5s, 10s, 20s, 30s then every 60s, and immediately on `online` /
+   visibility-visible. Re-checks paired / not dead / no exit flag before each
+   attempt, skips while a manager has touched `/auth` in the last 60s, stops on
+   success, dead, exit flag or unmount. One ref-guarded loop only.
+7. **HomeRoute holding screen.** A signed-out paired tablet that is neither dead
+   nor in exit-kiosk shows a neutral "Reconnecting punch clock…" screen instead
+   of the marketing home page.
+
+Unchanged: pairing code TTL, exit-kiosk 30-minute flag, the 4–6 AM daily reload,
+Replace-vs-Add, device data access.

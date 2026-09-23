@@ -303,12 +303,17 @@ serve(async (req) => {
       const { deviceId, deviceSecret } = payload;
       if (!deviceId || !deviceSecret) return json({ error: 'deviceId and deviceSecret are required' }, 400);
 
-      const { data: device } = await sb
+      const { data: device, error: lookupErr } = await sb
         .from('punch_clock_devices')
         .select('id, auth_user_id, location_id, device_name, revoked_at, device_secret_hash, reissue_window_start, reissue_count_in_window')
         .eq('id', deviceId)
         .maybeSingle();
 
+      // A failed lookup is NEVER "dead" — it is retryable infrastructure noise.
+      if (lookupErr) {
+        console.error('[punch-device-service] reissue device lookup failed:', lookupErr.message);
+        return json({ error: 'Device lookup failed', retryable: true }, 503);
+      }
       // "Dead" is only ever: row gone, or revoked. Nothing else unpairs a tablet.
       if (!device) return json({ error: 'Device not found', dead: true }, 404);
       if (device.revoked_at) return json({ error: 'This device was revoked', dead: true, revoked: true }, 403);
@@ -364,11 +369,15 @@ serve(async (req) => {
       const userId = await getAuthedUser(req);
       if (!userId) return json({ error: 'Unauthorized' }, 401);
 
-      const { data: device } = await sb
+      const { data: device, error: lookupErr } = await sb
         .from('punch_clock_devices')
         .select('id, device_name, location_id, revoked_at, device_secret_hash')
         .eq('auth_user_id', userId)
         .maybeSingle();
+      if (lookupErr) {
+        console.error('[punch-device-service] backfill_secret device lookup failed:', lookupErr.message);
+        return json({ error: 'Device lookup failed', retryable: true }, 503);
+      }
       if (!device) return json({ error: 'Device not found', dead: true }, 404);
       if (device.revoked_at) return json({ error: 'This device was revoked', dead: true, revoked: true }, 403);
 
@@ -451,12 +460,17 @@ serve(async (req) => {
     if (action === 'verify') {
       const userId = await getAuthedUser(req);
       if (!userId) return json({ error: 'Unauthorized' }, 401);
-      const { data: device } = await sb
+      const { data: device, error: lookupErr } = await sb
         .from('punch_clock_devices')
         .select('id, device_name, location_id, revoked_at, device_secret_hash, locations(id, name, store_number, organization_id)')
         .eq('auth_user_id', userId)
         .maybeSingle();
-      if (!device || device.revoked_at) return json({ ok: false, revoked: true });
+      if (lookupErr) {
+        console.error('[punch-device-service] verify device lookup failed:', lookupErr.message);
+        return json({ error: 'Device lookup failed', retryable: true }, 503);
+      }
+      if (!device) return json({ error: 'Device not found', dead: true }, 404);
+      if (device.revoked_at) return json({ error: 'This device was revoked', dead: true, revoked: true }, 403);
       return json({ ok: true, device, hasSecret: !!device.device_secret_hash });
     }
 

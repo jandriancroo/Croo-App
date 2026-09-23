@@ -26,11 +26,29 @@ import {
   isPairingLockBusy,
 } from '@/lib/punchDevicePairing';
 
+// Cold-boot restore must never strand the tablet on a login screen because the
+// network happened to be down at launch. Retry with backoff, and immediately
+// when the network or the app comes back.
+const RETRY_BACKOFF_MS = [2000, 5000, 10000, 20000, 30000];
+const RETRY_STEADY_MS = 60000;
+
 export const KioskAutoRestore = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading } = useAuth();
   const inFlightRef = useRef(false);
+  const retryLoopRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+  const retryAttemptRef = useRef(0);
+  const lastTouchRef = useRef(0);
+
+  // Track typing/taps so a retry never yanks a manager off the login form.
+  useEffect(() => {
+    const touch = () => { lastTouchRef.current = Date.now(); };
+    const events: (keyof DocumentEventMap)[] = ['pointerdown', 'keydown', 'touchstart'];
+    events.forEach((e) => document.addEventListener(e, touch, { passive: true }));
+    return () => events.forEach((e) => document.removeEventListener(e, touch));
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -86,10 +104,94 @@ export const KioskAutoRestore = () => {
         // quietly. This is the migration path: no new pairing code needed.
         ensureDeviceSecret().catch(() => {});
         navigate('/punch-clock', { replace: true });
+      } else if (!isPairingDead()) {
+        startRetryLoop();
       }
       inFlightRef.current = false;
     })();
+
+    // ---- retry machinery -------------------------------------------------
+
+    function clearRetry() {
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      retryLoopRef.current = false;
+      retryAttemptRef.current = 0;
+    }
+
+    function stillEligible(): boolean {
+      if (!isPaired()) return false;
+      if (isPairingDead()) return false;
+      if (isKioskExitActive()) return false;
+      // Already restored and parked on the punch clock → nothing to do.
+      if (window.location.pathname === '/punch-clock' && isPunchDeviceUser(user)) return false;
+      return true;
+    }
+
+    async function attemptRestore() {
+      if (!retryLoopRef.current) return;
+      if (!stillEligible()) { clearRetry(); return; }
+      // A manager may be typing on the login screen — don't interrupt.
+      const typingOnAuth =
+        window.location.pathname === '/auth' && Date.now() - lastTouchRef.current < 60 * 1000;
+
+      if (!typingOnAuth && !inFlightRef.current) {
+        inFlightRef.current = true;
+        const restored = await enterKioskMode('boot-restore').catch(() => false);
+        inFlightRef.current = false;
+        if (restored) {
+          ensureDeviceSecret().catch(() => {});
+          clearRetry();
+          navigate('/punch-clock', { replace: true });
+          return;
+        }
+        if (isPairingDead()) { clearRetry(); return; }
+      }
+      scheduleNext();
+    }
+
+    function scheduleNext() {
+      if (!retryLoopRef.current) return;
+      const i = retryAttemptRef.current;
+      const delay = RETRY_BACKOFF_MS[i] ?? RETRY_STEADY_MS;
+      retryAttemptRef.current = i + 1;
+      retryTimerRef.current = window.setTimeout(() => { attemptRestore(); }, delay);
+    }
+
+    function startRetryLoop() {
+      if (retryLoopRef.current) return;   // only one loop at a time
+      retryLoopRef.current = true;
+      retryAttemptRef.current = 0;
+      console.log('[KioskAutoRestore] Boot restore failed — retrying until the tablet reconnects.');
+      scheduleNext();
+    }
+
+    const onBackOnline = () => {
+      if (!retryLoopRef.current) return;
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      attemptRestore();
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') onBackOnline(); };
+
+    window.addEventListener('online', onBackOnline);
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      window.removeEventListener('online', onBackOnline);
+      document.removeEventListener('visibilitychange', onVisible);
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      retryLoopRef.current = false;
+    };
   }, [loading, user?.id, location.pathname, navigate]);
+
 
 
   // Mirror rotated refresh tokens back into our own storage so a subsequent

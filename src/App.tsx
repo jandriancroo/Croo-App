@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { isPunchDeviceUser } from "@/lib/punchDevicePairing";
+import { isPunchDeviceUser, isPaired, isPairingDead, isKioskExitActive } from "@/lib/punchDevicePairing";
 import { LocationProvider, useLocation as useAppLocation } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { FEATURE_FLAGS } from "@/config/featureFlags";
@@ -173,6 +173,17 @@ const HomeRoute = () => {
   if (!loading && user) {
     if (isPunchDeviceUser(user)) return <Navigate to="/punch-clock" replace />;
     return <Navigate to="/dashboard" replace />;
+  }
+  // Paired tablet still reconnecting (usually no network at launch). Show a calm
+  // holding screen instead of the marketing home page — KioskAutoRestore keeps
+  // retrying and will navigate to the punch clock on its own.
+  if (!loading && !user && isPaired() && !isPairingDead() && !isKioskExitActive()) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-background text-muted-foreground">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <p className="text-sm font-medium">Reconnecting punch clock…</p>
+      </div>
+    );
   }
   return <Home />;
 };
