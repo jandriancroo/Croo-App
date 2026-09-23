@@ -258,15 +258,27 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
 
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Expected (from Qu):</span>
-                  <span className="font-medium">{formatCurrency(data.expectedDeposit)}</span>
+                  <span className="text-muted-foreground text-sm">Expected (from POS):</span>
+                  <span className="font-medium">
+                    {expectedKnown ? formatCurrency(data.expectedDeposit) : 'Not reported'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Variance{audit ? ' (audited)' : ''}:</span>
-                  <span className={`font-bold ${varianceColor}`}>
-                    {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
-                  </span>
+                  {expectedKnown ? (
+                    <span className={`font-bold ${varianceColor}`}>
+                      {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-muted-foreground">Not calculated</span>
+                  )}
                 </div>
+                {!expectedKnown && (
+                  <p className="text-xs text-muted-foreground">
+                    The POS didn't report expected cash for this count, so no over/short was
+                    calculated. Reopen the count to enter the expected amount.
+                  </p>
+                )}
               </div>
             </div>
           </DialogContent>
