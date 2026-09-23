@@ -52,6 +52,7 @@ import { Input } from '@/components/ui/input';
 import { getBusinessDateInTimezone, getDayOfWeekInTimezone, getTimezoneOffset, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { fetchLiveLaborForToday } from '@/utils/liveLabor';
+import { calcKioskCutSavings } from '@/utils/kioskCutSavings';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { ProjectionIcon } from '@/components/ui/projection-tag';
@@ -1207,14 +1208,14 @@ export function ManagerDashboardOverlay({
                         <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Labor</h3>
                         <div className="mt-2 flex items-end gap-2">
                           <span className={`text-3xl font-bold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
-                            {(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
+                            {(cutsSaved && hasAnyCuts && dollarsKnown ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
                           </span>
                           <span className={`pb-1 text-xs ${laborStatus === 'good' ? 'text-emerald-500/80' : laborStatus === 'warning' ? 'text-amber-500/80' : 'text-red-500/80'}`}>
                             {laborStatus === 'good' ? 'on target' : laborStatus === 'warning' ? 'watching' : 'over target'}
                           </span>
                         </div>
                         <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          {formatCurrency(cutsSaved && hasAnyCuts && wagesKnown ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
+                          {formatCurrency(cutsSaved && hasAnyCuts && dollarsKnown ? (calculateLaborSavings.newLaborCost ?? 0) : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
                         </p>
                       </div>
                         <div className={`rounded-full p-2 ${isDayMode ? 'bg-white' : 'bg-neutral-900/60'}`}>
@@ -1453,8 +1454,6 @@ export function ManagerDashboardOverlay({
                 {laborCuts.map(cut => {
                   const employee = activeShifts.find(s => s.userId === cut.userId);
                   if (!employee) return null;
-                  const hoursSaved = cut.minutesCut / 60;
-                  const costSaved = hoursSaved * (employee.hourlyWage ?? 0);
                   return (
                     <div key={cut.userId} className={`flex items-center justify-between p-2 rounded ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
                       <div className="flex items-center gap-2">
