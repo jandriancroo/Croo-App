@@ -492,7 +492,9 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                   <Label>Expected Deposit from Qu</Label>
                   {isLoadingQuDeposit && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   {quDepositLoaded && !isLoadingQuDeposit && (
-                    <Badge variant="secondary" className="text-[10px] py-0">Auto-filled</Badge>
+                    <Badge variant="secondary" className="text-[10px] py-0">
+                      {expectedSource === "pos_cache" ? "From cash sales" : "Auto-filled"}
+                    </Badge>
                   )}
                 </div>
                 <div className="relative">
@@ -502,12 +504,26 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                     step="0.01"
                     min="0"
                     value={expectedDeposit}
-                    onChange={(e) => setExpectedDeposit(e.target.value)}
+                    onChange={(e) => {
+                      setExpectedDeposit(e.target.value);
+                      setExpectedSource("manual");
+                    }}
                     placeholder="0.00"
                     className="pl-7"
                   />
                 </div>
               </div>
+
+              {!isLoadingQuDeposit && !calculations.expectedKnown && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    Expected cash isn't available from the POS yet. Enter it above to check the
+                    drawer, or save now — this count will be recorded with no over/short instead of
+                    being compared to $0.00.
+                  </span>
+                </div>
+              )}
 
               {/* Total Cash Handled ladder (when prior pulls exist) */}
               {priorPulls.length > 0 && (
