@@ -194,6 +194,24 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                       <span>{application.location.name}</span>
                     </div>
                   )}
+                  {!application.location_id && isOrgLevel && assignableLocations && assignableLocations.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <Select
+                        onValueChange={(v) => assignLocationMutation.mutate(v)}
+                        disabled={assignLocationMutation.isPending}
+                      >
+                        <SelectTrigger className="h-8 w-[200px]">
+                          <SelectValue placeholder="Assign location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assignableLocations.map(l => (
+                            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   {application.resume_url && (
                     <div className="flex items-center gap-2 text-sm">
                       <FileText className="h-4 w-4 text-muted-foreground" />
