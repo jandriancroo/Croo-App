@@ -349,6 +349,37 @@ export default function PunchClock() {
     };
   }, []);
 
+  // A manager revoked this tablet. Only the server can say that, and when it
+  // does we leave kiosk mode so the login screen shows "Needs Re-Pairing".
+  // Never mid-punch: if someone is on their screen we wait for the PIN screen.
+  const pairingDeadPendingRef = useRef(false);
+  useEffect(() => {
+    const leaveKiosk = async () => {
+      await exitKioskMode().catch(() => {});
+      window.location.href = '/auth';
+    };
+    const onDead = () => {
+      if (onPinScreenRef.current) {
+        leaveKiosk();
+      } else {
+        pairingDeadPendingRef.current = true;
+      }
+    };
+    window.addEventListener('croohq:pairing-dead', onDead);
+    return () => window.removeEventListener('croohq:pairing-dead', onDead);
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser && pairingDeadPendingRef.current) {
+      pairingDeadPendingRef.current = false;
+      exitKioskMode()
+        .catch(() => {})
+        .finally(() => { window.location.href = '/auth'; });
+    }
+  }, [currentUser]);
+
+
+
 
   /**
    * Write a punch with a bounded wait and ONE automatic repair-and-retry.
@@ -381,6 +412,9 @@ export default function PunchClock() {
 
     const repaired = await repairDeviceSession();
     if (!repaired) {
+      if (isPairingDead()) {
+        return { error: { message: 'This tablet was removed from CrooHQ. Tell a manager — your time will be added manually.' } };
+      }
       return { error: { message: 'This tablet lost its connection to CrooHQ. Tell a manager — your time will be added manually.' } };
     }
 
