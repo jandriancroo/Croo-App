@@ -27,6 +27,9 @@ import { BulkRejectionEmailDialog, type BulkRejectApplicant } from '@/components
 import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
+import { InterviewScheduleDialog } from '@/components/hiring/InterviewScheduleDialog';
+import { sendInterviewInvite } from '@/lib/hiring/interviewActions';
+import { useAuth } from '@/lib/auth';
 import { BulkApplicantActionsBar } from '@/components/hiring/BulkApplicantActionsBar';
 import { ApplicantFlagDot } from '@/components/hiring/ApplicantFlagSelector';
 import { QRCodeSVG } from 'qrcode.react';
@@ -68,6 +71,12 @@ export default function Hiring() {
   const [applicantToHire, setApplicantToHire] = useState<{ id: string; full_name: string; email: string; phone?: string } | null>(null);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [templatesSubTab, setTemplatesSubTab] = useState<'application' | 'rejection'>('application');
+  const [applicantToSchedule, setApplicantToSchedule] = useState<{ id: string; full_name: string } | null>(null);
+  const { user } = useAuth();
+  const openScheduleFor = (a: { id: string; full_name: string }) => {
+    setSelectedApplicant(null);
+    setApplicantToSchedule(a);
+  };
 
   // Redirect if no access
   useEffect(() => {
@@ -787,9 +796,17 @@ export default function Hiring() {
               });
               setSelectedApplicant(null);
               setShowRejectionEmail(true);
+            }
+            // Interviewing with no interview yet → schedule first; the invite writes the status
+            else if (status === 'interviewing' && !app.interview_date) {
+              openScheduleFor({ id: app.id, full_name: app.full_name });
             } else {
               updateStatusMutation.mutate({ id, status });
             }
+          }}
+          onScheduleInterview={(id) => {
+            const app = applications?.find((a: any) => a.id === id);
+            openScheduleFor({ id, full_name: app?.full_name || 'this applicant' });
           }}
         />
 
@@ -801,6 +818,28 @@ export default function Hiring() {
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['job-applications'] });
             setApplicantToHire(null);
+          }}
+        />
+
+        {/* Interview Schedule Dialog (from status change or profile button) */}
+        <InterviewScheduleDialog
+          open={!!applicantToSchedule}
+          onOpenChange={(o) => { if (!o) setApplicantToSchedule(null); }}
+          applicantName={applicantToSchedule?.full_name || ''}
+          applicationId={applicantToSchedule?.id}
+          onSchedule={async (date, time) => {
+            if (!applicantToSchedule || !user?.id) throw new Error('Not signed in');
+            const id = applicantToSchedule.id;
+            try {
+              await sendInterviewInvite({ applicationId: id, date, time, userId: user.id });
+            } catch (err: any) {
+              console.error('Error scheduling interview:', err);
+              toast.error(err?.message ? `Failed to schedule interview: ${err.message}` : 'Failed to schedule interview');
+              throw err;
+            }
+            toast.success('Interview invitation sent!');
+            queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+            queryClient.invalidateQueries({ queryKey: ['application-detail', id] });
           }}
         />
 
