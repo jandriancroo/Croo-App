@@ -14,51 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _labor_perm_test: {
-        Row: {
-          result: string | null
-          step: string | null
-        }
-        Insert: {
-          result?: string | null
-          step?: string | null
-        }
-        Update: {
-          result?: string | null
-          step?: string | null
-        }
-        Relationships: []
-      }
-      _labor_perm_test2: {
-        Row: {
-          result: string | null
-          step: string | null
-        }
-        Insert: {
-          result?: string | null
-          step?: string | null
-        }
-        Update: {
-          result?: string | null
-          step?: string | null
-        }
-        Relationships: []
-      }
-      _labor_perm_test3: {
-        Row: {
-          result: string | null
-          step: string | null
-        }
-        Insert: {
-          result?: string | null
-          step?: string | null
-        }
-        Update: {
-          result?: string | null
-          step?: string | null
-        }
-        Relationships: []
-      }
       alarm_task_completions: {
         Row: {
           completed_at: string
