@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +52,10 @@ export default function Hiring() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rejectionTemplateFilter, setRejectionTemplateFilter] = useState<string>('all');
-  const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id ?? 'all');
+  useEffect(() => {
+    if (currentLocation?.id) setLocationFilter(currentLocation.id);
+  }, [currentLocation?.id]);
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showQrDialog, setShowQrDialog] = useState(false);
@@ -145,9 +148,35 @@ export default function Hiring() {
     enabled: !!organization?.id,
   });
 
+  // Single-store orgs always scope to the current store; the dropdown is hidden.
+  const isSingleStore = (orgLocations?.length ?? 0) <= 1;
+  const scopedLocationIds = (orgLocations || []).map((l: any) => l.id as string).sort();
+
+  // Count of applications with no location (org-level users, multi-store orgs only)
+  const { data: unassignedCount = 0 } = useQuery({
+    queryKey: ['job-applications-unassigned-count', organization?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('job_applications')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organization!.id)
+        .is('location_id', null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!organization?.id && isOrgLevelAccess && !isSingleStore,
+    refetchInterval: 20_000,
+  });
+  const showUnassigned = isOrgLevelAccess && !isSingleStore && unassignedCount > 0;
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    if (value !== 'rejected') setRejectionTemplateFilter('all');
+  };
+
   // Fetch applications
   const { data: applications, isLoading: appsLoading } = useQuery({
-    queryKey: ['job-applications', organization?.id, statusFilter, locationFilter, rejectionTemplateFilter, isOrgLevelAccess],
+    queryKey: ['job-applications', organization?.id, statusFilter, locationFilter, rejectionTemplateFilter, isOrgLevelAccess, currentLocation?.id, scopedLocationIds.join(',')],
     queryFn: async () => {
       if (!organization?.id) return [];
 
@@ -163,13 +192,19 @@ export default function Hiring() {
         .eq('organization_id', organization.id)
         .order('submitted_at', { ascending: false });
 
-      // Location scoping
-      if (locationFilter !== 'all') {
+      // Location scoping — never unconstrained
+      if (isSingleStore) {
+        if (!currentLocation?.id) return [];
+        query = query.eq('location_id', currentLocation.id);
+      } else if (locationFilter === 'unassigned') {
+        if (!isOrgLevelAccess) return [];
+        query = query.is('location_id', null);
+      } else if (locationFilter !== 'all') {
+        if (!scopedLocationIds.includes(locationFilter)) return [];
         query = query.eq('location_id', locationFilter);
-      } else if (!isOrgLevelAccess && orgLocations?.length) {
-        // Non-org-level users: scope to their assigned locations only
-        const assignedLocationIds = orgLocations.map((l: any) => l.id);
-        query = query.in('location_id', assignedLocationIds);
+      } else {
+        if (scopedLocationIds.length === 0) return [];
+        query = query.in('location_id', scopedLocationIds);
       }
 
       if (statusFilter !== 'all') {
@@ -189,16 +224,19 @@ export default function Hiring() {
       if (error) throw error;
       return data;
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && orgLocations !== undefined,
+    refetchInterval: 20_000,
   });
 
-  // Auto-analyze applications that need analysis (new or missing availability info)
+  // Auto-analyze applications that need analysis — each id at most once per page session
+  const analyzeAttemptedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const analyzeUnanalyzed = async () => {
       if (!applications) return;
       
       const needsAnalysis = applications.filter(
         (app: any) => {
+          if (analyzeAttemptedRef.current.has(app.id)) return false;
           // Not analyzed yet - trigger if has work history OR has a resume to parse
           if (app.ai_analyzed_at === null && (app.work_history?.length > 0 || app.resume_url)) return true;
           // Analyzed but missing availability note (needs re-analysis with new prompt)
@@ -207,7 +245,10 @@ export default function Hiring() {
         }
       );
 
-      for (const app of needsAnalysis.slice(0, 5)) { // Limit to 5 at a time to avoid rate limits
+      const batch = needsAnalysis.slice(0, 5); // Limit to 5 at a time to avoid rate limits
+      batch.forEach((app: any) => analyzeAttemptedRef.current.add(app.id));
+
+      for (const app of batch) {
         try {
           await supabase.functions.invoke('ai-extraction-service?action=analyze-application', {
             body: { applicationId: app.id }
@@ -217,8 +258,7 @@ export default function Hiring() {
         }
       }
 
-      if (needsAnalysis.length > 0) {
-        // Refetch after analysis
+      if (batch.length > 0) {
         setTimeout(() => {
           queryClient.invalidateQueries({ queryKey: ['job-applications'] });
         }, 2000);
@@ -448,7 +488,7 @@ export default function Hiring() {
               
               {/* Mobile: Dropdowns */}
               <div className="sm:hidden flex flex-wrap gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                   <SelectTrigger className="flex-1 min-w-[120px]">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
@@ -471,6 +511,9 @@ export default function Hiring() {
                       {orgLocations.map(loc => (
                         <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                       ))}
+                      {showUnassigned && (
+                        <SelectItem value="unassigned">Unassigned ({unassignedCount})</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 )}
@@ -505,13 +548,7 @@ export default function Hiring() {
                     key={status.value}
                     variant={statusFilter === status.value ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => {
-                      setStatusFilter(status.value);
-                      // Clear rejection template filter when switching away from rejected
-                      if (status.value !== 'rejected') {
-                        setRejectionTemplateFilter('all');
-                      }
-                    }}
+                    onClick={() => handleStatusFilterChange(status.value)}
                     className="min-w-[80px]"
                   >
                     {status.label}
@@ -529,6 +566,9 @@ export default function Hiring() {
                       {orgLocations.map(loc => (
                         <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                       ))}
+                      {showUnassigned && (
+                        <SelectItem value="unassigned">Unassigned ({unassignedCount})</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 )}
@@ -656,7 +696,7 @@ export default function Hiring() {
                             
                             {/* Location + Date */}
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
-                              {app.location && <span>{app.location.name}</span>}
+                              {app.location ? <span>{app.location.name}</span> : <Badge variant="outline" className="text-[10px] px-1.5 py-0">No location</Badge>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
                             </div>
                             
