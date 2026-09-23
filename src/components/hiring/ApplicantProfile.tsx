@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { HiringChatPreview } from './HiringChatPreview';
 import { ApplicantFlagSelector } from './ApplicantFlagSelector';
 import { ApplicantNotesSection } from './ApplicantNotesSection';
+import { useUserRole } from '@/hooks/useUserRole';
 
 type ApplicationStatus = 'pending' | 'interested' | 'interviewing' | 'hired' | 'rejected';
 
@@ -59,6 +60,42 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
       return data;
     },
     enabled: !!applicationId && open,
+  });
+
+  const { isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
+  const isOrgLevel = isOrgAdmin || isBrandAdmin || isSuperAdmin;
+  const needsLocation = !!application && !application.location_id && isOrgLevel;
+
+  const { data: assignableLocations } = useQuery({
+    queryKey: ['assignable-locations', application?.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name')
+        .eq('organization_id', application!.organization_id)
+        .eq('location_type', 'standard')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: needsLocation,
+  });
+
+  const assignLocationMutation = useMutation({
+    mutationFn: async (locationId: string) => {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ location_id: locationId })
+        .eq('id', applicationId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application-detail', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['job-applications-unassigned-count'] });
+      toast.success('Location assigned');
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to assign location'),
   });
 
 
