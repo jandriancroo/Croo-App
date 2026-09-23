@@ -161,6 +161,26 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           return;
         }
 
+        // Tills came back empty (drawers not closed out yet, or the report is unavailable).
+        // The same live response also carries today's cash payments for the whole day —
+        // that is the day's expected cash, so use it before touching the cache.
+        if (!error) {
+          const livePayments = (data?.payments?.daily as
+            | { paymentType?: string; amount?: number }[]
+            | undefined) ?? [];
+          const liveCash = Array.isArray(livePayments)
+            ? livePayments
+                .filter((p) => (p.paymentType || "").toLowerCase().includes("cash"))
+                .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+            : 0;
+          if (liveCash > 0) {
+            setExpectedDeposit(liveCash.toFixed(2));
+            setExpectedSource("pos_live");
+            setQuDepositLoaded(true);
+            return;
+          }
+        }
+
         // Last resort: cash payments already recorded for this business day.
         // Never fall back to total/net sales — that is not cash owed.
         const cacheDate = businessDate || null;
