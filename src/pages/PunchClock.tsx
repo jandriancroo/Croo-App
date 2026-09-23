@@ -32,6 +32,9 @@ import {
   repairDeviceSession,
   sendDeviceHeartbeat,
   isPairingLockBusy,
+  isPairingDead,
+  withPairingLock,
+  PAIRING_DEFERRED,
   withTimeout,
 } from '@/lib/punchDevicePairing';
 import { LOADED_VERSION, fetchServerVersion, reloadToVersion } from '@/utils/buildVersion';
