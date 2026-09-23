@@ -118,7 +118,9 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   // (e.g., if it's 12:30 AM but the store closed at midnight, we want Saturday's data not Sunday's)
   useEffect(() => {
     const fetchExpectedDeposit = async () => {
-      if (!currentLocation?.id || existingData?.expectedDeposit || quDepositLoaded) return;
+      if (!currentLocation?.id || quDepositLoaded) return;
+      if (existingData?.expectedDeposit && existingData.expectedDeposit > 0) return;
+      if (expectedSource === "manual") return;
 
       setIsLoadingQuDeposit(true);
       try {
@@ -130,8 +132,14 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
         };
         if (businessDate) cloverBody.date = businessDate;
         const cloverRes = await supabase.functions.invoke("clover-sync", { body: cloverBody });
-        if (!cloverRes.error && cloverRes.data?.success && typeof cloverRes.data?.expectedCash === "number") {
+        if (
+          !cloverRes.error &&
+          cloverRes.data?.success &&
+          typeof cloverRes.data?.expectedCash === "number" &&
+          cloverRes.data.expectedCash > 0
+        ) {
           setExpectedDeposit(cloverRes.data.expectedCash.toFixed(2));
+          setExpectedSource("pos_live");
           setQuDepositLoaded(true);
           return;
         }
@@ -146,22 +154,51 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           body: requestBody,
         });
 
-        if (!error && data?.tills?.expectedCash) {
+        if (!error && data?.tills?.expectedCash > 0) {
           setExpectedDeposit(data.tills.expectedCash.toFixed(2));
+          setExpectedSource("pos_live");
           setQuDepositLoaded(true);
-        } else if (!error && data?.daily) {
-          setExpectedDeposit(data.daily.toFixed(2));
-          setQuDepositLoaded(true);
+          return;
         }
+
+        // Last resort: cash payments already recorded for this business day.
+        // Never fall back to total/net sales — that is not cash owed.
+        const cacheDate = businessDate || null;
+        if (cacheDate) {
+          const { data: cache } = await supabase
+            .from("sales_cache")
+            .select("payments_data")
+            .eq("location_id", currentLocation.id)
+            .eq("sale_date", cacheDate)
+            .maybeSingle();
+          const payments = (cache?.payments_data as
+            | { paymentType?: string; amount?: number }[]
+            | null) ?? null;
+          const cashTotal = Array.isArray(payments)
+            ? payments
+                .filter((p) => (p.paymentType || "").toLowerCase().includes("cash"))
+                .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+            : 0;
+          if (cashTotal > 0) {
+            setExpectedDeposit(cashTotal.toFixed(2));
+            setExpectedSource("pos_cache");
+            setQuDepositLoaded(true);
+            return;
+          }
+        }
+
+        // Nothing usable — leave blank so the count is never scored against $0.
+        setExpectedSource("none");
       } catch (err) {
         console.error("Failed to fetch expected deposit:", err);
+        setExpectedSource("none");
       } finally {
         setIsLoadingQuDeposit(false);
       }
     };
 
     fetchExpectedDeposit();
-  }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded, businessDate]);
+  }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded, businessDate, expectedSource]);
   const [drawerSet, setDrawerSet] = useState(!!existingData);
 
   // Calculate totals
