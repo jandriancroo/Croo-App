@@ -114,27 +114,30 @@ export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
               <div className="space-y-2">
                 <div className="font-medium text-sm">Daily Breakdown</div>
                 <div className="space-y-1">
-                  {data.entries.map((entry, idx) => (
-                    <div key={entry.entryId || idx} className="space-y-0.5">
+                  {dayRows.map((row) => (
+                    <div key={row.key} className="space-y-0.5">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
-                          {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
-                          {entry.slipPath && (
+                          {format(new Date(row.entryDate + 'T12:00:00'), 'EEE, MMM d')}
+                          {row.pulls && row.pulls > 1 ? (
+                            <span className="text-[11px]">({row.pulls} pulls)</span>
+                          ) : null}
+                          {row.slipPath && (
                             <VerificationPhotoLink
-                              path={entry.slipPath}
-                              label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
+                              path={row.slipPath}
+                              label={`Deposit slip — ${format(new Date(row.entryDate + 'T12:00:00'), 'MMM d')}`}
                             />
                           )}
                         </span>
-                        <span className="font-medium">{formatCurrency(entry.depositAmount)}</span>
+                        <span className="font-medium tabular-nums">{formatCurrency(row.amount)}</span>
                       </div>
-                      {entry.audit && (
-                        <div className={`flex items-center gap-1 text-[11px] ${entry.audit.variance === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {row.audit && (
+                        <div className={`flex items-center gap-1 text-[11px] ${row.audit.variance === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                           <ShieldCheck className="h-3 w-3" />
                           <span>
-                            Audited {formatCurrency(entry.audit.countedAmount)}
-                            {entry.audit.variance !== 0 && ` · ${entry.audit.variance > 0 ? '+' : ''}${formatCurrency(entry.audit.variance)}`}
-                            {entry.audit.auditedByName ? ` · ${entry.audit.auditedByName}` : ''}
+                            Audited {formatCurrency(row.audit.countedAmount)}
+                            {row.audit.variance !== 0 && ` · ${row.audit.variance > 0 ? '+' : ''}${formatCurrency(row.audit.variance)}`}
+                            {row.audit.auditedByName ? ` · ${row.audit.auditedByName}` : ''}
                           </span>
                         </div>
                       )}
