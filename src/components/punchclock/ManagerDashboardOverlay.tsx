@@ -987,7 +987,6 @@ export function ManagerDashboardOverlay({
 
   /** Aggregate dollars are only meaningful when the server returned them. */
   const dollarsKnown = calculateLaborSavings.dollarsKnown;
-  const totalMinutesSaved = cutSavingsTotal.totalMinutes;
 
 
   const hasAnyCuts = laborCuts.length > 0;
