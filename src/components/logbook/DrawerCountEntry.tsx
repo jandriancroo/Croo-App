@@ -110,9 +110,15 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
           </div>
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">Variance:</span>
-            <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
-              {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
-            </span>
+            {expectedKnown ? (
+              <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
+                {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
+              </span>
+            ) : (
+              <span className="font-medium ml-2 sm:ml-1 text-muted-foreground">
+                Not calculated
+              </span>
+            )}
           </div>
         </div>
         
