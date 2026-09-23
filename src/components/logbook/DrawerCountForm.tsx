@@ -74,7 +74,13 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
     return DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {});
   });
   const [expectedDeposit, setExpectedDeposit] = useState<string>(
-    existingData?.expectedDeposit?.toString() || ""
+    existingData?.expectedDeposit && existingData.expectedDeposit > 0
+      ? existingData.expectedDeposit.toString()
+      : ""
+  );
+  const [expectedSource, setExpectedSource] = useState<"pos_live" | "pos_cache" | "manual" | "none">(
+    existingData?.expectedSource ??
+      (existingData?.expectedDeposit && existingData.expectedDeposit > 0 ? "manual" : "none")
   );
   const [isLoadingQuDeposit, setIsLoadingQuDeposit] = useState(false);
   const [quDepositLoaded, setQuDepositLoaded] = useState(false);
