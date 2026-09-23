@@ -18,20 +18,38 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { format, eachDayOfInterval, isBefore, startOfDay, isAfter, parse, isSameDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 
+export interface BankDepositDayAudit {
+  countedAmount: number;
+  variance: number;
+  auditedAt: string;
+  auditedByName?: string;
+}
+
 export interface BankDepositData {
   startDate: string;
   endDate: string;
+  /**
+   * ONE item per drawer-count pull. Every pull's entryId is recorded so all of
+   * them count as deposited. Legacy records (pre 2026-09-23) carry one item per
+   * DAY and may also carry `slipPath` / `audit` here — readers must fall back to
+   * that shape. New records never write slipPath/audit on entries[].
+   */
   entries: Array<{
     entryId: string;
     entryDate: string;
     depositAmount: number;
     slipPath?: string;
-    audit?: {
-      countedAmount: number;
-      variance: number;
-      auditedAt: string;
-      auditedByName?: string;
-    };
+    audit?: BankDepositDayAudit;
+  }>;
+
+  /** Day-level truth: slip photo and audit apply ONCE per day, never per pull. */
+  days?: Array<{
+    entryDate: string;
+    entryIds: string[];
+    recordedAmount: number;
+    depositAmount: number;
+    slipPath?: string;
+    audit?: BankDepositDayAudit;
   }>;
 
   totalDollars: number;
