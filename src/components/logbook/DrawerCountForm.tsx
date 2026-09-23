@@ -246,16 +246,20 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
     // Prior pulls total
     const priorPullsTotal = priorPulls.reduce((sum, p) => sum + p.amount, 0);
 
-    // Variance calculation: (this deposit + prior pulls) vs expected from Qu
+    // Variance calculation: (this deposit + prior pulls) vs expected from the POS.
+    // An expected figure of 0 means "unknown", not "zero cash owed" — scoring
+    // against it would report the whole drawer as OVER.
     const expectedDep = parseFloat(expectedDeposit) || 0;
+    const expectedKnown = expectedDep > 0;
     const totalCashHandled = actualDeposit + priorPullsTotal;
-    const variance = totalCashHandled - expectedDep;
+    const variance = expectedKnown ? totalCashHandled - expectedDep : 0;
 
     return {
       totalDollars,
       actualDeposit,
       removalSuggestions,
       variance,
+      expectedKnown,
       isOverBank: totalDollars > bankAmount,
       priorPullsTotal,
       totalCashHandled,
