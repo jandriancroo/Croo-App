@@ -1499,7 +1499,7 @@ export function ManagerDashboardOverlay({
                       {calculateLaborSavings.newLaborPercent.toFixed(1)}%
                     </p>
                     <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                      {formatCurrency(calculateLaborSavings.newLaborCost)}
+                      {formatCurrency(calculateLaborSavings.newLaborCost ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -1507,12 +1507,12 @@ export function ManagerDashboardOverlay({
 
               {/* Summary */}
               <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-                {wagesKnown ? (
+                {dollarsKnown ? (
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Total Savings</p>
+                      <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Est. savings</p>
                       <p className="text-green-500 text-xl font-bold">
-                        {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                        {formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1529,11 +1529,11 @@ export function ManagerDashboardOverlay({
                       {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m
                     </p>
                     <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                      Dollar savings hidden — wages aren't available on this device.
+                      Dollar estimate unavailable until today's labor hours are in.
                     </p>
                   </div>
                 )}
-                {wagesKnown && (
+                {dollarsKnown && (
                   <p className={`text-xs mt-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                     {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m total hours cut
                   </p>
