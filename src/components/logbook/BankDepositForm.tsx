@@ -243,65 +243,85 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   });
   
   
-  // Calculate summary from drawer entries
+  // Calculate summary from drawer entries — grouped by day, ALL pulls summed.
   const summary = useMemo(() => {
-    const availableEntries: Array<{
+    type Pull = {
       entryId: string;
-      entryDate: string;
-      depositAmount: number;
+      createdAt: string;
+      amountCents: number;
       alreadyDeposited: boolean;
-    }> = [];
-    
-    let totalDollars = 0;
-    let totalChange = 0;
-    
+      duplicateOf?: number;
+    };
+
+    const byDate = new Map<string, Pull[]>();
+
     drawerEntries.forEach((entry: any) => {
-      const alreadyDeposited = depositedEntryIds.includes(entry.id);
-      
       try {
         const valueText = entry.logbook_entry_values?.[0]?.value_text;
-        if (valueText) {
-          const data = JSON.parse(valueText);
-          const recorded = data.actualDeposit || 0;
-          // If this day was audited, the audited (physically counted) amount wins.
-          const audit = audits[entry.entry_date];
-          const depositAmount = audit ? audit.countedAmount : recorded;
-          
-          // Exact split: whole dollars in bills, remaining cents as coin.
-          // The deposit must match the drawer math to the penny (change included).
-          const cents = Math.round(depositAmount * 100);
-          const dollars = Math.floor(cents / 100);
-          const change = (cents - dollars * 100) / 100;
-
-          
-          availableEntries.push({
-            entryId: entry.id,
-            entryDate: entry.entry_date,
-            depositAmount: recorded,
-            alreadyDeposited,
-          });
-          
-          if (!alreadyDeposited) {
-            totalDollars += dollars;
-            totalChange += change;
-          }
-        }
+        if (!valueText) return;
+        const data = JSON.parse(valueText);
+        // actualDeposit is PER PULL. Never use priorPullsTotal / priorPulls here
+        // — those exist only for the drawer form's expected-cash math.
+        const amountCents = Math.round((Number(data.actualDeposit) || 0) * 100);
+        const list = byDate.get(entry.entry_date) || [];
+        list.push({
+          entryId: entry.id,
+          createdAt: entry.created_at,
+          amountCents,
+          alreadyDeposited: depositedEntryIds.includes(entry.id),
+        });
+        byDate.set(entry.entry_date, list);
       } catch (e) {
         console.error("Failed to parse drawer entry:", e);
       }
     });
-    
-    const includableEntries = availableEntries.filter(e => !e.alreadyDeposited);
-    const auditedDays = includableEntries.filter(e => !!audits[e.entryDate]).length;
-    
+
+    const days = Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([entryDate, rawPulls]) => {
+        const pulls = [...rawPulls].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        // Same-amount-to-the-cent pulls get a neutral confirm note (never excluded).
+        pulls.forEach((p, i) => {
+          const firstIdx = pulls.findIndex((o) => o.amountCents === p.amountCents);
+          if (firstIdx < i) p.duplicateOf = firstIdx + 1;
+        });
+
+        const recordedCents = pulls.reduce((s, p) => s + p.amountCents, 0);
+        const audit = audits[entryDate];
+        // Audit applies ONCE per day, to the day's total — never per pull.
+        const depositCents = audit ? Math.round(audit.countedAmount * 100) : recordedCents;
+
+        return {
+          entryDate,
+          pulls,
+          recordedCents,
+          recordedTotal: recordedCents / 100,
+          depositCents,
+          depositAmount: depositCents / 100,
+          alreadyDeposited: pulls.some((p) => p.alreadyDeposited),
+        };
+      });
+
+    const includableDays = days.filter((d) => !d.alreadyDeposited);
+
+    // Exact split per day: whole dollars in bills, remaining cents as coin.
+    let totalDollars = 0;
+    let totalChangeCents = 0;
+    includableDays.forEach((d) => {
+      const dollars = Math.floor(d.depositCents / 100);
+      totalDollars += dollars;
+      totalChangeCents += d.depositCents - dollars * 100;
+    });
+    const totalChange = totalChangeCents / 100;
+
     return {
-      entries: availableEntries,
-      includableEntries,
+      days,
+      includableDays,
       totalDollars,
       totalChange,
-      totalAmount: totalDollars + totalChange,
-      daysIncluded: includableEntries.length,
-      auditedDays,
+      totalAmount: Math.round((totalDollars * 100 + totalChangeCents)) / 100,
+      daysIncluded: includableDays.length,
+      auditedDays: includableDays.filter((d) => !!audits[d.entryDate]).length,
     };
   }, [drawerEntries, depositedEntryIds, audits]);
   
