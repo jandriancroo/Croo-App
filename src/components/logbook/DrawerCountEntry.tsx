@@ -91,7 +91,9 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm flex-1">
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">Expected:</span>
-            <span className="font-medium ml-2 sm:ml-1">{formatCurrency(data.expectedDeposit)}</span>
+            <span className="font-medium ml-2 sm:ml-1">
+              {expectedKnown ? formatCurrency(data.expectedDeposit) : 'Not reported'}
+            </span>
           </div>
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">{hasPriorPulls ? 'Total Handled:' : 'Actual:'}</span>
