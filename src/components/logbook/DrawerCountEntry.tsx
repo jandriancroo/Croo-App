@@ -52,6 +52,10 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
     ? (data.auditedVariance ?? data.variance + (audit.countedAmount - data.actualDeposit))
     : data.variance;
 
+  // An expected figure of 0 means the POS never reported one. Reporting the whole
+  // drawer as OVER in that case is wrong, so show it as not calculated.
+  const expectedKnown = !data.expectedUnavailable && (data.expectedDeposit ?? 0) > 0;
+
   const varianceColor = effectiveVariance > 0
     ? 'text-green-600'
     : effectiveVariance < 0
