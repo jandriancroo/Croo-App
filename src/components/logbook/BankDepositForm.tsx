@@ -231,19 +231,13 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         .gte("entry_date", startStr)
         .lte("entry_date", endStr)
         .order("entry_date", { ascending: true })
-        .order("created_at", { ascending: false }); // Most recent first for each date
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      
-      // Deduplicate: keep only the most recent entry per date
-      const entriesByDate = new Map<string, any>();
-      (data || []).forEach((entry: any) => {
-        if (!entriesByDate.has(entry.entry_date)) {
-          entriesByDate.set(entry.entry_date, entry);
-        }
-        // Since we ordered by created_at DESC, the first one we see for each date is the most recent
-      });
-      
-      return Array.from(entriesByDate.values());
+
+      // NO dedupe. Every drawer count (mid-day pulls included) must be returned
+      // and summed — dropping all but the latest count per day is what made
+      // mid-day pulls vanish from the deposit.
+      return data || [];
     },
     enabled: !!currentLocation && !!drawerCountCategory && shouldFetchEntries,
   });
