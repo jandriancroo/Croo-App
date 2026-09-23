@@ -106,8 +106,11 @@ export function HiringChatList({ onSelectConversation, selectedId, autoSelectApp
         })
       );
 
-      // Only show conversations that have at least one message
-      const filteredConversations = conversationsWithMessages.filter(conv => conv.last_message);
+      // Empty threads show only for active applicants; hide empty hired/rejected ones
+      const ACTIVE = ['pending', 'interested', 'interviewing'];
+      const filteredConversations = conversationsWithMessages.filter(
+        conv => conv.last_message || ACTIVE.includes(conv.application?.status)
+      );
       setConversations(filteredConversations);
     } catch (err) {
       console.error('Error fetching hiring conversations:', err);
@@ -146,8 +149,8 @@ export function HiringChatList({ onSelectConversation, selectedId, autoSelectApp
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-500/10 text-yellow-600';
-      case 'reviewed': return 'bg-blue-500/10 text-blue-600';
-      case 'interview': return 'bg-purple-500/10 text-purple-600';
+      case 'interested': return 'bg-blue-500/10 text-blue-600';
+      case 'interviewing': return 'bg-purple-500/10 text-purple-600';
       case 'hired': return 'bg-green-500/10 text-green-600';
       case 'rejected': return 'bg-red-500/10 text-red-600';
       default: return 'bg-muted text-muted-foreground';
@@ -241,6 +244,9 @@ export function HiringChatList({ onSelectConversation, selectedId, autoSelectApp
               </Avatar>
               <div className="flex-1 min-w-0">
                 <span className="font-medium truncate block">{conv.application.full_name}</span>
+                {!conv.last_message && (
+                  <span className="text-xs text-muted-foreground block">No messages yet</span>
+                )}
                 <Badge variant="secondary" className={`text-xs mt-1 ${getStatusColor(conv.application.status)}`}>
                   {conv.application.status}
                 </Badge>
