@@ -609,7 +609,9 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
 
                 if (locationSettings?.drawer_count_notifications_enabled !== false) {
                   try {
-                    const overUnderText = drawerData.variance > 0 ? `OVER $${drawerData.variance.toFixed(2)}` : drawerData.variance < 0 ? `SHORT $${Math.abs(drawerData.variance).toFixed(2)}` : 'BALANCED';
+                    const overUnderText = drawerData.expectedUnavailable
+                      ? 'Expected cash not reported by POS'
+                      : drawerData.variance > 0 ? `OVER $${drawerData.variance.toFixed(2)}` : drawerData.variance < 0 ? `SHORT $${Math.abs(drawerData.variance).toFixed(2)}` : 'BALANCED';
                     await supabase.functions.invoke('send-push-notification', {
                       body: { notification_type: 'drawer_count', title: `Drawer Count - ${currentLocation?.name || 'Location'}`, body: `Deposit: $${drawerData.actualDeposit.toFixed(2)} | ${overUnderText}`, location_id: currentLocation?.id, roles: ['admin', 'manager', 'shift_manager', 'shift_manager_in_training', 'super_admin'] }
                     });
@@ -639,16 +641,19 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
             existingData={entry?.logbook_entry_values?.[0]?.value_text ? JSON.parse(entry.logbook_entry_values[0].value_text) : null}
             entryCount={drawerCountEntries.length}
             drawerBank={locationSettings?.drawer_bank ?? 200}
-            priorPulls={drawerCountEntries.map((e: any) => {
-              try {
-                const parsed = JSON.parse(e.logbook_entry_values?.[0]?.value_text || '{}');
-                return {
-                  amount: parsed.actualDeposit || 0,
-                  time: e.created_at,
-                  createdBy: e.profiles?.full_name,
-                } as PriorPull;
-              } catch { return null; }
-            }).filter(Boolean) as PriorPull[]}
+            priorPulls={drawerCountEntries
+              // Never count the entry being edited as one of its own earlier pulls.
+              .filter((e: any) => !entry?.id || e.id !== entry.id)
+              .map((e: any) => {
+                try {
+                  const parsed = JSON.parse(e.logbook_entry_values?.[0]?.value_text || '{}');
+                  return {
+                    amount: parsed.actualDeposit || 0,
+                    time: e.created_at,
+                    createdBy: e.profiles?.full_name,
+                  } as PriorPull;
+                } catch { return null; }
+              }).filter(Boolean) as PriorPull[]}
           />
         </div>
       );

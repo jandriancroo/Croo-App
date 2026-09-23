@@ -13,6 +13,9 @@ interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
   priorPullsTotal?: number;
   priorPulls?: { amount: number; time: string; createdBy?: string }[];
+  /** No expected cash figure was available — variance is not meaningful. */
+  expectedUnavailable?: boolean;
+  expectedSource?: "pos_live" | "pos_cache" | "manual" | "none";
   /** Set when the deposit for this day was audited during Bank Deposit. */
   audit?: {
     countedAmount: number;
@@ -49,6 +52,10 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
     ? (data.auditedVariance ?? data.variance + (audit.countedAmount - data.actualDeposit))
     : data.variance;
 
+  // An expected figure of 0 means the POS never reported one. Reporting the whole
+  // drawer as OVER in that case is wrong, so show it as not calculated.
+  const expectedKnown = !data.expectedUnavailable && (data.expectedDeposit ?? 0) > 0;
+
   const varianceColor = effectiveVariance > 0
     ? 'text-green-600'
     : effectiveVariance < 0
@@ -84,7 +91,9 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm flex-1">
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">Expected:</span>
-            <span className="font-medium ml-2 sm:ml-1">{formatCurrency(data.expectedDeposit)}</span>
+            <span className="font-medium ml-2 sm:ml-1">
+              {expectedKnown ? formatCurrency(data.expectedDeposit) : 'Not reported'}
+            </span>
           </div>
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">{hasPriorPulls ? 'Total Handled:' : 'Actual:'}</span>
@@ -101,9 +110,15 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
           </div>
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">Variance:</span>
-            <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
-              {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
-            </span>
+            {expectedKnown ? (
+              <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
+                {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
+              </span>
+            ) : (
+              <span className="font-medium ml-2 sm:ml-1 text-muted-foreground">
+                Not calculated
+              </span>
+            )}
           </div>
         </div>
         
@@ -243,15 +258,27 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
 
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Expected (from Qu):</span>
-                  <span className="font-medium">{formatCurrency(data.expectedDeposit)}</span>
+                  <span className="text-muted-foreground text-sm">Expected (from POS):</span>
+                  <span className="font-medium">
+                    {expectedKnown ? formatCurrency(data.expectedDeposit) : 'Not reported'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Variance{audit ? ' (audited)' : ''}:</span>
-                  <span className={`font-bold ${varianceColor}`}>
-                    {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
-                  </span>
+                  {expectedKnown ? (
+                    <span className={`font-bold ${varianceColor}`}>
+                      {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-muted-foreground">Not calculated</span>
+                  )}
                 </div>
+                {!expectedKnown && (
+                  <p className="text-xs text-muted-foreground">
+                    The POS didn't report expected cash for this count, so no over/short was
+                    calculated. Reopen the count to enter the expected amount.
+                  </p>
+                )}
               </div>
             </div>
           </DialogContent>

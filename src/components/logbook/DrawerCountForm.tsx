@@ -56,6 +56,14 @@ export interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
   priorPullsTotal?: number;
   priorPulls?: PriorPull[];
+  /**
+   * True when no expected cash figure could be resolved (POS unavailable and
+   * nobody typed one in). Variance is meaningless in that case and must not be
+   * displayed as OVER/UNDER.
+   */
+  expectedUnavailable?: boolean;
+  /** Where the expected figure came from: live POS, cached POS cash, or manual. */
+  expectedSource?: "pos_live" | "pos_cache" | "manual" | "none";
 }
 
 export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate, priorPulls = [] }: DrawerCountFormProps) {
@@ -66,7 +74,13 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
     return DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {});
   });
   const [expectedDeposit, setExpectedDeposit] = useState<string>(
-    existingData?.expectedDeposit?.toString() || ""
+    existingData?.expectedDeposit && existingData.expectedDeposit > 0
+      ? existingData.expectedDeposit.toString()
+      : ""
+  );
+  const [expectedSource, setExpectedSource] = useState<"pos_live" | "pos_cache" | "manual" | "none">(
+    existingData?.expectedSource ??
+      (existingData?.expectedDeposit && existingData.expectedDeposit > 0 ? "manual" : "none")
   );
   const [isLoadingQuDeposit, setIsLoadingQuDeposit] = useState(false);
   const [quDepositLoaded, setQuDepositLoaded] = useState(false);
@@ -104,7 +118,9 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   // (e.g., if it's 12:30 AM but the store closed at midnight, we want Saturday's data not Sunday's)
   useEffect(() => {
     const fetchExpectedDeposit = async () => {
-      if (!currentLocation?.id || existingData?.expectedDeposit || quDepositLoaded) return;
+      if (!currentLocation?.id || quDepositLoaded) return;
+      if (existingData?.expectedDeposit && existingData.expectedDeposit > 0) return;
+      if (expectedSource === "manual") return;
 
       setIsLoadingQuDeposit(true);
       try {
@@ -116,8 +132,14 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
         };
         if (businessDate) cloverBody.date = businessDate;
         const cloverRes = await supabase.functions.invoke("clover-sync", { body: cloverBody });
-        if (!cloverRes.error && cloverRes.data?.success && typeof cloverRes.data?.expectedCash === "number") {
+        if (
+          !cloverRes.error &&
+          cloverRes.data?.success &&
+          typeof cloverRes.data?.expectedCash === "number" &&
+          cloverRes.data.expectedCash > 0
+        ) {
           setExpectedDeposit(cloverRes.data.expectedCash.toFixed(2));
+          setExpectedSource("pos_live");
           setQuDepositLoaded(true);
           return;
         }
@@ -132,22 +154,51 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           body: requestBody,
         });
 
-        if (!error && data?.tills?.expectedCash) {
+        if (!error && data?.tills?.expectedCash > 0) {
           setExpectedDeposit(data.tills.expectedCash.toFixed(2));
+          setExpectedSource("pos_live");
           setQuDepositLoaded(true);
-        } else if (!error && data?.daily) {
-          setExpectedDeposit(data.daily.toFixed(2));
-          setQuDepositLoaded(true);
+          return;
         }
+
+        // Last resort: cash payments already recorded for this business day.
+        // Never fall back to total/net sales — that is not cash owed.
+        const cacheDate = businessDate || null;
+        if (cacheDate) {
+          const { data: cache } = await supabase
+            .from("sales_cache")
+            .select("payments_data")
+            .eq("location_id", currentLocation.id)
+            .eq("sale_date", cacheDate)
+            .maybeSingle();
+          const payments = (cache?.payments_data as
+            | { paymentType?: string; amount?: number }[]
+            | null) ?? null;
+          const cashTotal = Array.isArray(payments)
+            ? payments
+                .filter((p) => (p.paymentType || "").toLowerCase().includes("cash"))
+                .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+            : 0;
+          if (cashTotal > 0) {
+            setExpectedDeposit(cashTotal.toFixed(2));
+            setExpectedSource("pos_cache");
+            setQuDepositLoaded(true);
+            return;
+          }
+        }
+
+        // Nothing usable — leave blank so the count is never scored against $0.
+        setExpectedSource("none");
       } catch (err) {
         console.error("Failed to fetch expected deposit:", err);
+        setExpectedSource("none");
       } finally {
         setIsLoadingQuDeposit(false);
       }
     };
 
     fetchExpectedDeposit();
-  }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded, businessDate]);
+  }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded, businessDate, expectedSource]);
   const [drawerSet, setDrawerSet] = useState(!!existingData);
 
   // Calculate totals
@@ -195,16 +246,20 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
     // Prior pulls total
     const priorPullsTotal = priorPulls.reduce((sum, p) => sum + p.amount, 0);
 
-    // Variance calculation: (this deposit + prior pulls) vs expected from Qu
+    // Variance calculation: (this deposit + prior pulls) vs expected from the POS.
+    // An expected figure of 0 means "unknown", not "zero cash owed" — scoring
+    // against it would report the whole drawer as OVER.
     const expectedDep = parseFloat(expectedDeposit) || 0;
+    const expectedKnown = expectedDep > 0;
     const totalCashHandled = actualDeposit + priorPullsTotal;
-    const variance = totalCashHandled - expectedDep;
+    const variance = expectedKnown ? totalCashHandled - expectedDep : 0;
 
     return {
       totalDollars,
       actualDeposit,
       removalSuggestions,
       variance,
+      expectedKnown,
       isOverBank: totalDollars > bankAmount,
       priorPullsTotal,
       totalCashHandled,
@@ -232,6 +287,12 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       removalSuggestions: calculations.removalSuggestions,
       priorPullsTotal: calculations.priorPullsTotal,
       priorPulls: priorPulls.map((p) => ({ amount: p.amount, time: p.time, createdBy: p.createdBy })),
+      expectedUnavailable: !calculations.expectedKnown,
+      expectedSource: calculations.expectedKnown
+        ? expectedSource === "none"
+          ? "manual"
+          : expectedSource
+        : "none",
     };
     onSave(data);
   };
@@ -431,7 +492,9 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                   <Label>Expected Deposit from Qu</Label>
                   {isLoadingQuDeposit && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   {quDepositLoaded && !isLoadingQuDeposit && (
-                    <Badge variant="secondary" className="text-[10px] py-0">Auto-filled</Badge>
+                    <Badge variant="secondary" className="text-[10px] py-0">
+                      {expectedSource === "pos_cache" ? "From cash sales" : "Auto-filled"}
+                    </Badge>
                   )}
                 </div>
                 <div className="relative">
@@ -441,12 +504,26 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                     step="0.01"
                     min="0"
                     value={expectedDeposit}
-                    onChange={(e) => setExpectedDeposit(e.target.value)}
+                    onChange={(e) => {
+                      setExpectedDeposit(e.target.value);
+                      setExpectedSource("manual");
+                    }}
                     placeholder="0.00"
                     className="pl-7"
                   />
                 </div>
               </div>
+
+              {!isLoadingQuDeposit && !calculations.expectedKnown && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    Expected cash isn't available from the POS yet. Enter it above to check the
+                    drawer, or save now — this count will be recorded with no over/short instead of
+                    being compared to $0.00.
+                  </span>
+                </div>
+              )}
 
               {/* Total Cash Handled ladder (when prior pulls exist) */}
               {priorPulls.length > 0 && (
