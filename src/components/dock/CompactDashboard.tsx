@@ -33,6 +33,8 @@ import { Input } from '@/components/ui/input';
 import { getTimezoneOffset } from '@/utils/timezoneUtils';
 import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 import { useAuth } from '@/lib/auth';
+import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
+import { summarizeCuts } from '@/utils/cutSavingsSummary';
 
 interface CompactDashboardProps {
   isExpanded: boolean;
@@ -336,8 +338,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
         .eq('shift_date', todayStr)
         .in('user_id', userIds);
 
-      // Per-person wage rates are never sent to this device — cut savings are
-      // estimated server-side via get_cut_savings_estimate (totals only).
+      // exact wages, server-side aggregate via get_cut_savings_total; no
+      // per-person $ reaches this device
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
       const shiftMap = new Map((shifts || []).map(s => [s.user_id, s.template?.end_time]));
@@ -614,51 +616,23 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     setShowPreviewModal(false);
   };
 
-  // Server-side cut savings: returns { user_id, minutes, savings } computed
-  // with real wages. Savings amounts only — pay rates never reach the device.
-  const { data: cutSavings = [] } = useQuery({
-    queryKey: ['cut-savings', locationId, laborCuts],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_cut_savings_estimate', {
-        _location_id: locationId,
-        _cuts: laborCuts.map(c => ({ user_id: c.userId, minutes: c.minutesCut })),
-      });
-      if (error) throw error;
-      return (data as any[]) || [];
-    },
-    enabled: !!locationId && laborCuts.length > 0,
-  });
-  const cutSavingsByUser = useMemo(
-    () => new Map(cutSavings.map((r: any) => [r.user_id, Number(r.savings) || 0])),
-    [cutSavings]
+  // Exact cut savings, aggregate only — computed server-side with real wages.
+  // The response carries just { total_minutes, est_savings }; no per-person
+  // dollars or pay rates ever reach this device.
+  const cutSavingsTotal = useCutSavingsTotal(locationId, laborCuts);
+
+  const calculateLaborSavings = useMemo(
+    () =>
+      summarizeCuts({
+        totalMinutesCut: cutSavingsTotal.totalMinutes,
+        estSavings: cutSavingsTotal.estSavings,
+        currentLaborCost: laborData?.labor_cost || 0,
+        totalSales,
+      }),
+    [cutSavingsTotal.totalMinutes, cutSavingsTotal.estSavings, laborData?.labor_cost, totalSales]
   );
 
-  // Calculate labor savings from cuts
-  const calculateLaborSavings = useMemo(() => {
-    let totalMinutesSaved = 0;
-    let totalCostSaved = 0;
-
-    laborCuts.forEach(cut => {
-      totalMinutesSaved += cut.minutesCut;
-      totalCostSaved += cutSavingsByUser.get(cut.userId) || 0;
-    });
-
-    const currentLaborCost = laborData?.labor_cost || 0;
-    const newLaborCost = Math.max(0, currentLaborCost - totalCostSaved);
-    
-    const currentLaborPercent = totalSales > 0 ? (currentLaborCost / totalSales) * 100 : 0;
-    const newLaborPercent = totalSales > 0 ? (newLaborCost / totalSales) * 100 : 0;
-
-    return {
-      totalMinutesSaved,
-      totalCostSaved,
-      currentLaborCost,
-      newLaborCost,
-      currentLaborPercent,
-      newLaborPercent,
-      percentSaved: currentLaborPercent - newLaborPercent,
-    };
-  }, [laborCuts, cutSavingsByUser, laborData?.labor_cost, totalSales]);
+  const dollarsKnown = calculateLaborSavings.dollarsKnown;
 
   const hasAnyCuts = laborCuts.length > 0;
 
@@ -1051,7 +1025,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                       -{calculateLaborSavings.percentSaved.toFixed(1)}% labor
                     </p>
                     <p className="text-accent-foreground/50 text-[10px]">
-                      Save {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                      {dollarsKnown
+                        ? `Est. savings ${formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}`
+                        : `${calculateLaborSavings.totalMinutesCut}m — savings estimate unavailable right now.`}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -1098,7 +1074,6 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   {laborCuts.map(cut => {
                     const employee = activeShifts.find(s => s.userId === cut.userId);
                     if (!employee) return null;
-                    const costSaved = cutSavingsByUser.get(cut.userId) || 0;
                     return (
                       <div key={cut.userId} className="flex items-center justify-between p-2 rounded-lg bg-accent-foreground/10">
                         <div className="flex items-center gap-2">
@@ -1111,8 +1086,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                           <span className="text-xs">{employee.fullName}</span>
                         </div>
                         <div className="text-right">
+                          {/* Minutes only — no per-person dollars on any device. */}
                           <Badge className="bg-red-500/30 text-red-500 text-[10px]">-{cut.minutesCut}m</Badge>
-                          <p className="text-green-500 text-[10px] mt-0.5">-{formatCurrency(costSaved)}</p>
                         </div>
                       </div>
                     );
@@ -1145,15 +1120,21 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                 <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-[10px] text-accent-foreground/70">Total Savings</p>
-                      <p className="text-green-500 text-lg font-bold">
-                        {formatCurrency(calculateLaborSavings.totalCostSaved)}
-                      </p>
+                      <p className="text-[10px] text-accent-foreground/70">Est. savings</p>
+                      {dollarsKnown ? (
+                        <p className="text-green-500 text-lg font-bold">
+                          {formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}
+                        </p>
+                      ) : (
+                        <p className="text-accent-foreground/60 text-[10px] mt-0.5">
+                          Savings estimate unavailable right now.
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-accent-foreground/70">Time Cut</p>
                       <p className="text-green-500 text-lg font-bold">
-                        {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m
+                        {Math.floor(calculateLaborSavings.totalMinutesCut / 60)}h {calculateLaborSavings.totalMinutesCut % 60}m
                       </p>
                     </div>
                   </div>

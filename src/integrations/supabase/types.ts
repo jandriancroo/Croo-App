@@ -14,51 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _labor_perm_test: {
-        Row: {
-          result: string | null
-          step: string | null
-        }
-        Insert: {
-          result?: string | null
-          step?: string | null
-        }
-        Update: {
-          result?: string | null
-          step?: string | null
-        }
-        Relationships: []
-      }
-      _labor_perm_test2: {
-        Row: {
-          result: string | null
-          step: string | null
-        }
-        Insert: {
-          result?: string | null
-          step?: string | null
-        }
-        Update: {
-          result?: string | null
-          step?: string | null
-        }
-        Relationships: []
-      }
-      _labor_perm_test3: {
-        Row: {
-          result: string | null
-          step: string | null
-        }
-        Insert: {
-          result?: string | null
-          step?: string | null
-        }
-        Update: {
-          result?: string | null
-          step?: string | null
-        }
-        Relationships: []
-      }
       alarm_task_completions: {
         Row: {
           completed_at: string
@@ -13385,6 +13340,10 @@ export type Database = {
           hours: number
         }[]
       }
+      _location_business_date: {
+        Args: { _location_id: string }
+        Returns: string
+      }
       _validate_widget_authority: {
         Args: {
           _brand_id: string
@@ -13564,6 +13523,13 @@ export type Database = {
           minutes: number
           savings: number
           user_id: string
+        }[]
+      }
+      get_cut_savings_total: {
+        Args: { _cuts: Json; _location_id: string }
+        Returns: {
+          est_savings: number
+          total_minutes: number
         }[]
       }
       get_labor_totals_for_dates: {
