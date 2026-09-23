@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-import { MessageCircle, ExternalLink, Copy, Check } from 'lucide-react';
+import { MessageCircle, ExternalLink, Copy, Check, Loader2 } from 'lucide-react';
+import { ensureHiringConversation } from '@/lib/hiring/interviewActions';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -85,6 +86,21 @@ export function HiringChatPreview({
     navigate(`/messages?tab=hiring&applicationId=${applicationId}`);
   };
 
+  const [starting, setStarting] = useState(false);
+  const startChat = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      await ensureHiringConversation(applicationId);
+      openChat();
+    } catch (err: any) {
+      console.error('Start chat failed:', err);
+      toast.error(err?.message ? `Couldn't start chat: ${err.message}` : "Couldn't start chat");
+    } finally {
+      setStarting(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -123,10 +139,21 @@ export function HiringChatPreview({
         ) : messageCount === 0 ? (
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground mb-2">No messages yet</p>
-            {accessToken && (
-              <Button variant="outline" size="sm" onClick={copyApplicantLink}>
-                <Copy className="h-3.5 w-3.5 mr-2" />
-                Copy Chat Link
+            {accessToken ? (
+              <div className="flex justify-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={copyApplicantLink} className="min-h-[44px]">
+                  <Copy className="h-3.5 w-3.5 mr-2" />
+                  Copy Chat Link
+                </Button>
+                <Button size="sm" onClick={openChat} className="min-h-[44px]">
+                  <MessageCircle className="h-3.5 w-3.5 mr-2" />
+                  Open chat
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" onClick={startChat} disabled={starting} className="min-h-[44px]">
+                {starting ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5 mr-2" />}
+                Start chat
               </Button>
             )}
           </div>
