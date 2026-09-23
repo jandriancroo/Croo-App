@@ -377,17 +377,27 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   };
   
   const handleSubmit = () => {
-    if (!startDate || !endDate || summary.includableEntries.length === 0) return;
-    
+    if (!startDate || !endDate || summary.includableDays.length === 0) return;
+
     const data: BankDepositData = {
       startDate: format(startDate, "yyyy-MM-dd"),
       endDate: format(endDate, "yyyy-MM-dd"),
-      entries: summary.includableEntries.map(e => ({
-        entryId: e.entryId,
-        entryDate: e.entryDate,
-        depositAmount: e.depositAmount,
-        slipPath: slipPaths[e.entryDate] || undefined,
-        audit: audits[e.entryDate] || undefined,
+      // One item PER PULL so every drawer count is marked deposited.
+      entries: summary.includableDays.flatMap((d) =>
+        d.pulls.map((p) => ({
+          entryId: p.entryId,
+          entryDate: d.entryDate,
+          depositAmount: p.amountCents / 100,
+        }))
+      ),
+      // Day-level truth: slip + audit live here, once per day.
+      days: summary.includableDays.map((d) => ({
+        entryDate: d.entryDate,
+        entryIds: d.pulls.map((p) => p.entryId),
+        recordedAmount: d.recordedTotal,
+        depositAmount: d.depositAmount,
+        slipPath: slipPaths[d.entryDate] || undefined,
+        audit: audits[d.entryDate] || undefined,
       })),
       totalDollars: summary.totalDollars,
       totalChange: summary.totalChange,
@@ -397,7 +407,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
       receiptPath: receiptPath || undefined,
       verificationRequired: verificationEnabled || undefined,
     };
-    
+
     onSave(data);
   };
   
@@ -411,15 +421,26 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   
   const canShowPreview = startDate && endDate && !loadingEntries;
   const missingSlips = verificationEnabled
-    ? summary.includableEntries.filter((e) => !slipPaths[e.entryDate]).length
+    ? summary.includableDays.filter((d) => !slipPaths[d.entryDate]).length
     : 0;
   const missingReceipt = verificationEnabled && !receiptPath;
-  const unaudited = summary.includableEntries.filter((e) => !audits[e.entryDate]).length;
+  const unaudited = summary.includableDays.filter((d) => !audits[d.entryDate]).length;
   const canSubmit =
-    canShowPreview && summary.includableEntries.length > 0 && missingSlips === 0 && !missingReceipt;
-  const auditTargetEntry = auditTarget
-    ? summary.includableEntries.find((e) => e.entryDate === auditTarget)
+    canShowPreview && summary.includableDays.length > 0 && missingSlips === 0 && !missingReceipt;
+  const auditTargetDay = auditTarget
+    ? summary.includableDays.find((d) => d.entryDate === auditTarget)
     : undefined;
+  const formatPullTime = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", {
+        timeZone: timezone,
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
   
 
   
