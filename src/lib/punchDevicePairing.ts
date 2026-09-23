@@ -267,10 +267,81 @@ export async function withPairingLock<T>(
   return lockPromise as Promise<T>;
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+
+/**
+ * Wait (bounded) for whoever holds the shared lock to finish. Used by callers
+ * that must not give up just because another pairing chore is mid-flight —
+ * a punch write, for example, waits for wake repair instead of erroring.
+ * Returns true when the lock is free.
+ */
+export async function waitForPairingLock(maxMs: number): Promise<boolean> {
+  if (!lockHolder) return true;
+  const held = lockPromise ? lockPromise.catch(() => undefined) : Promise.resolve();
+  await Promise.race([held, sleep(maxMs)]);
+  return !isPairingLockBusy();
+}
+
+// Stamped every time a device session is successfully installed. Lets a
+// deferred caller tell "someone else already fixed this" from "nothing happened".
+let lastSessionInstalledAt = 0;
+
+/**
+ * Single call path to punch-device-service with a hard timeout and an honest
+ * classification of the result. ONLY a real 403/404 carrying `dead: true` may
+ * be treated as dead — timeouts, network drops, 5xx, 409 and 429 are retryable.
+ */
+async function invokeDeviceService(
+  body: Record<string, unknown>,
+  timeoutMs = 10000,
+): Promise<{ data: any; status: number | null; dead: boolean; retryable: boolean }> {
+  try {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('punch-device-service', { body }) as Promise<any>,
+      timeoutMs,
+      'punch-device-service timeout',
+    );
+
+    if (!error) {
+      return { data, status: 200, dead: data?.dead === true, retryable: false };
+    }
+
+    let status: number | null = null;
+    let parsed: any = null;
+    const ctx: any = (error as any)?.context;
+    if (ctx && typeof ctx === 'object' && typeof ctx.status === 'number') {
+      status = ctx.status;
+      try {
+        parsed = await (typeof ctx.clone === 'function' ? ctx.clone() : ctx).json();
+      } catch {}
+    }
+
+    const dead = (status === 403 || status === 404) && parsed?.dead === true;
+    return { data: parsed, status, dead, retryable: !dead };
+  } catch {
+    // Timeout or network failure — never a verdict about the pairing.
+    return { data: null, status: null, dead: false, retryable: true };
+  }
+}
+
+/** setSession with a hard bound; a hung install is retryable, not fatal. */
+async function setSessionBounded(tokens: { access_token: string; refresh_token: string }) {
+  try {
+    return await withTimeout(
+      supabase.auth.setSession(tokens) as Promise<any>,
+      8000,
+      'setSession timeout',
+    );
+  } catch {
+    return { data: { session: null }, error: { message: 'setSession timed out' } } as any;
+  }
+}
+
 // ---------------------------------------------------------------- flow
 
 function applySession(session: { access_token: string; refresh_token: string; expires_at?: number }) {
   updateStoredSession(session);
+  lastSessionInstalledAt = Date.now();
 }
 
 /**
