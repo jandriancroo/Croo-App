@@ -1,26 +1,18 @@
 import { supabase } from '@/integrations/supabase/client';
-import { bucketPunchesByUserAndDay } from '@/utils/payrollDayBucketing';
-import { calculateDayHours } from '@/utils/payrollCalculations';
-import { calculateCutoffHour, getDateInTimezone } from '@/utils/timezoneUtils';
+import { getDateInTimezone } from '@/utils/timezoneUtils';
 
 /**
  * Live labor for the current business day, derived from punches.
  *
  * labor_cache only holds CLOSED days (written by the nightly labor service), so
  * anything that needs today's hours/cost (dashboard week/month totals, pay
- * period cards) has to compute it from time_punches. Both surfaces call this so
- * they can never disagree.
+ * period cards, the punch-clock Manager Dashboard) has to compute it from
+ * time_punches. Every surface calls the same server-side aggregate RPC so they
+ * can never disagree — and so no per-person wage ever reaches a client.
  */
 export const fetchLiveLaborForToday = async (
   locationId: string,
-  timezone?: string,
-  /**
-   * `wageSource: 'kiosk'` resolves wages through the `kiosk-wages` edge
-   * function instead of get_current_wages_batch. Required on the punch-clock
-   * Manager Dashboard: a paired device session has no manager role, so the RPC
-   * masks every wage to a flat default and labor dollars come out inflated.
-   */
-  opts?: { wageSource?: 'rpc' | 'kiosk' }
+  timezone?: string
 ): Promise<{ date: string; hours: number; cost: number }> => {
   let zone = timezone;
   if (!zone && locationId) {
@@ -30,84 +22,25 @@ export const fetchLiveLaborForToday = async (
       .eq('location_id', locationId)
       .maybeSingle();
     zone = (data as any)?.timezone || 'America/Los_Angeles';
-
   }
   zone = zone || 'America/Los_Angeles';
   const today = getDateInTimezone(new Date(), zone);
   const empty = { date: today, hours: 0, cost: 0 };
   if (!locationId) return empty;
-  const timezoneResolved = zone;
 
-  // Default path: server-side aggregate (real wages, totals only). This keeps
-  // pay rates off the device and gives shift managers the same Labor $ that
-  // managers see. Only the punch-clock kiosk path resolves wages client-side.
-  if (opts?.wageSource !== 'kiosk') {
-    const { data, error } = await supabase.rpc('get_live_labor_totals', {
-      _location_id: locationId,
-      _date: today,
-    });
-    if (error) {
-      console.error('[liveLabor] get_live_labor_totals failed:', error);
-      return empty;
-    }
-    const row = (data as any[])?.[0];
-    return { date: today, hours: Number(row?.hours) || 0, cost: Number(row?.cost) || 0 };
-  }
-
-  // Kiosk path (paired punch-clock device): resolve wages via kiosk-wages and
-  // bucket punches locally so the overlay math works without a user role.
-  const start = new Date(`${today}T00:00:00Z`);
-  start.setDate(start.getDate() - 1);
-  const end = new Date(`${today}T00:00:00Z`);
-  end.setDate(end.getDate() + 2);
-
-  const [punchRes, hoursRes] = await Promise.all([
-    supabase
-      .from('time_punches')
-      .select('id, user_id, punch_type, punch_time, notes')
-      .eq('location_id', locationId)
-      .gte('punch_time', start.toISOString())
-      .lte('punch_time', end.toISOString())
-      .order('punch_time', { ascending: true }),
-    supabase
-      .from('location_hours')
-      .select('day_of_week, close_time')
-      .eq('location_id', locationId),
-  ]);
-
-  const punches = (punchRes.data as any[]) || [];
-  if (punches.length === 0) return empty;
-
-  const cutoffByDayOfWeek = new Map<number, number>();
-  ((hoursRes.data as any[]) || []).forEach((h: any) => {
-    cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
+  // Server-side aggregate (real wages, totals only). This keeps pay rates off
+  // the device and gives shift managers and paired punch-clock devices the same
+  // Labor $ that managers see.
+  const { data, error } = await supabase.rpc('get_live_labor_totals', {
+    _location_id: locationId,
+    _date: today,
   });
-
-  const userIds = [...new Set(punches.map((p: any) => p.user_id))] as string[];
-  const wageByUserId = new Map<string, number>();
-  if (userIds.length > 0) {
-    const { data: res } = await supabase.functions.invoke('kiosk-wages', {
-      body: { location_id: locationId, user_ids: userIds, date: today },
-    });
-    ((res as any)?.wages || []).forEach((w: any) => {
-      if (w.hourly_wage != null) wageByUserId.set(w.user_id, Number(w.hourly_wage));
-    });
+  if (error) {
+    console.error('[liveLabor] get_live_labor_totals failed:', error);
+    return empty;
   }
-
-  let hours = 0;
-  let cost = 0;
-  const bucketed = bucketPunchesByUserAndDay(punches as any[], timezoneResolved, cutoffByDayOfWeek, 5);
-  bucketed.forEach((daysForUser, userId) => {
-    const wage = wageByUserId.get(userId) ?? 15;
-    const dayPunches = (daysForUser as any)[today];
-    if (!dayPunches) return;
-    const dayHours = calculateDayHours(dayPunches as any[], true);
-    if (!(dayHours > 0)) return;
-    hours += dayHours;
-    cost += dayHours * wage;
-  });
-
-  return { date: today, hours, cost };
+  const row = (data as any[])?.[0];
+  return { date: today, hours: Number(row?.hours) || 0, cost: Number(row?.cost) || 0 };
 };
 
 /**
