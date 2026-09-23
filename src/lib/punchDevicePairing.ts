@@ -416,14 +416,12 @@ async function backfillSecretOnce(): Promise<boolean> {
   const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
   if (!sess?.session || !isPunchDeviceUser(sess.session.user)) return false;
 
-  const { data, error } = await supabase.functions.invoke('punch-device-service', {
-    body: { action: 'backfill_secret' },
-  });
-  if (data?.dead === true) {
+  const { data, dead } = await invokeDeviceService({ action: 'backfill_secret' });
+  if (dead) {
     markPairingDead();
     return false;
   }
-  if (error || !data?.deviceSecret) return false;
+  if (!data?.deviceSecret) return false;
 
   storeDeviceSecret(data.deviceSecret);
   console.log('[punchDevicePairing] device key stored — this tablet will self-recover from now on');
@@ -449,15 +447,13 @@ async function rebuildPairingOnce(): Promise<boolean> {
   const session = sess?.session;
   if (!session || !isPunchDeviceUser(session.user)) return false;
 
-  const { data, error } = await supabase.functions.invoke('punch-device-service', {
-    body: { action: 'backfill_secret' },
-  });
-  if (data?.dead === true) {
+  const { data, dead } = await invokeDeviceService({ action: 'backfill_secret' });
+  if (dead) {
     markPairingDead();
     return false;
   }
-  if (error || !data?.deviceId || !data?.deviceSecret) {
-    console.warn('[punchDevicePairing] pairing rebuild failed (retryable):', error?.message || data?.error);
+  if (!data?.deviceId || !data?.deviceSecret) {
+    console.warn('[punchDevicePairing] pairing rebuild failed (retryable):', data?.error);
     return false;
   }
 
