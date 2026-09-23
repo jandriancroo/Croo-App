@@ -490,6 +490,18 @@ export async function rebuildPairingFromDeviceSession(): Promise<boolean> {
  * Caller navigates to /punch-clock after. Returns true on success.
  */
 export async function enterKioskMode(task: PairingTask = 'boot-restore'): Promise<boolean> {
+  const startedAt = Date.now();
+
+  // Another pairing chore is mid-flight — wait for it rather than giving up.
+  if (isPairingLockBusy() && pairingLockHolder() !== task) {
+    await waitForPairingLock(10000);
+    // It may have installed a perfectly good session for us already.
+    if (lastSessionInstalledAt >= startedAt) {
+      const existing = await supabase.auth.getSession().catch(() => null);
+      if (existing?.data?.session && isPunchDeviceUser(existing.data.session.user)) return true;
+    }
+  }
+
   const result = await withPairingLock(task, enterKioskModeOnce);
   return result === PAIRING_DEFERRED ? false : result;
 }
@@ -527,12 +539,12 @@ async function enterKioskModeOnce(): Promise<boolean> {
   // LEGACY / fallback: restore from the stored refresh token. setSession replaces
   // whatever session is installed, so we never sign out first (no auth gap).
   if (cred.session?.refresh_token) {
-    const { data, error } = await supabase.auth.setSession({
+    const { data, error } = await setSessionBounded({
       access_token: cred.session.access_token,
       refresh_token: cred.session.refresh_token,
     });
 
-    if (!error && data.session) {
+    if (!error && data?.session) {
       applySession({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
