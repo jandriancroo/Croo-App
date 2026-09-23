@@ -481,30 +481,58 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
 
                 // Write audits back onto the drawer counts so the audited amount
                 // becomes the authoritative data point for reporting/summaries.
-                const auditedEntries = (depositData.entries || []).filter((e: any) => e.audit);
-                if (auditedEntries.length > 0) {
+                // Prefer day-level days[] (audit applies ONCE per day, to the sum of
+                // that day's pulls); fall back to legacy per-entry audits.
+                const auditedDays = depositData.days?.length
+                  ? depositData.days
+                      .filter((d: any) => d.audit)
+                      .map((d: any) => ({ entryIds: d.entryIds || [], audit: d.audit }))
+                  : (depositData.entries || [])
+                      .filter((e: any) => e.audit)
+                      .map((e: any) => ({ entryIds: [e.entryId], audit: e.audit }));
+
+                if (auditedDays.length > 0) {
+                  const allIds = auditedDays.flatMap((d: any) => d.entryIds);
                   const { data: drawerValues } = await supabase
                     .from('logbook_entry_values')
                     .select('id, entry_id, value_text')
-                    .in('entry_id', auditedEntries.map((e: any) => e.entryId));
-                  for (const row of drawerValues || []) {
-                    const target = auditedEntries.find((e: any) => e.entryId === row.entry_id);
-                    if (!target?.audit) continue;
+                    .in('entry_id', allIds);
+
+                  for (const day of auditedDays) {
+                    const rows = (drawerValues || []).filter((r: any) => day.entryIds.includes(r.entry_id));
+                    if (rows.length === 0) continue;
+                    // Keep the day's pull order stable (entryIds are chronological).
+                    rows.sort(
+                      (a: any, b: any) => day.entryIds.indexOf(a.entry_id) - day.entryIds.indexOf(b.entry_id)
+                    );
                     try {
-                      const parsed = JSON.parse(row.value_text || '{}');
-                      if (parsed.actualDeposit === undefined) continue;
-                      const recorded = Number(parsed.actualDeposit) || 0;
-                      const counted = Number(target.audit.countedAmount) || 0;
-                      const updated = {
-                        ...parsed,
-                        audit: target.audit,
-                        auditedDeposit: counted,
-                        auditedVariance: (Number(parsed.variance) || 0) + (counted - recorded),
-                      };
-                      await supabase
-                        .from('logbook_entry_values')
-                        .update({ value_text: JSON.stringify(updated) })
-                        .eq('id', row.id);
+                      const parsedRows = rows.map((r: any) => ({ r, parsed: JSON.parse(r.value_text || '{}') }));
+                      if (parsedRows.some((p) => p.parsed.actualDeposit === undefined)) continue;
+
+                      const countedCents = Math.round((Number(day.audit.countedAmount) || 0) * 100);
+                      const pullCents = parsedRows.map((p) => Math.round((Number(p.parsed.actualDeposit) || 0) * 100));
+                      // The whole day's variance lands on the last pull, so per-entry
+                      // reporting still sums to the audited day total.
+                      const lastIdx = parsedRows.length - 1;
+                      const others = pullCents.reduce((s, c, i) => (i === lastIdx ? s : s + c), 0);
+
+                      for (let i = 0; i < parsedRows.length; i++) {
+                        if (i !== lastIdx) continue;
+                        const { r, parsed } = parsedRows[i];
+                        const recordedCents = pullCents[i];
+                        const pullCounted = (countedCents - others) / 100;
+                        const updated = {
+                          ...parsed,
+                          audit: { ...day.audit, countedAmount: pullCounted },
+                          auditedDeposit: pullCounted,
+                          auditedVariance:
+                            (Number(parsed.variance) || 0) + (pullCounted - recordedCents / 100),
+                        };
+                        await supabase
+                          .from('logbook_entry_values')
+                          .update({ value_text: JSON.stringify(updated) })
+                          .eq('id', r.id);
+                      }
                     } catch (e) { console.error('Failed to write audit back to drawer count:', e); }
                   }
                 }
