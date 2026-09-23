@@ -1512,7 +1512,7 @@ export function ManagerDashboardOverlay({
                   <div>
                     <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Hours Saved</p>
                     <p className="text-green-500 text-xl font-bold">
-                      {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m
+                      {Math.floor(calculateLaborSavings.totalMinutesCut / 60)}h {calculateLaborSavings.totalMinutesCut % 60}m
                     </p>
                     <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                       Dollar estimate unavailable until today's labor hours are in.
@@ -1521,7 +1521,7 @@ export function ManagerDashboardOverlay({
                 )}
                 {dollarsKnown && (
                   <p className={`text-xs mt-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                    {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m total hours cut
+                    {Math.floor(calculateLaborSavings.totalMinutesCut / 60)}h {calculateLaborSavings.totalMinutesCut % 60}m total hours cut
                   </p>
                 )}
               </div>
