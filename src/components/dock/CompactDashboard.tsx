@@ -1025,7 +1025,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                       -{calculateLaborSavings.percentSaved.toFixed(1)}% labor
                     </p>
                     <p className="text-accent-foreground/50 text-[10px]">
-                      Save {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                      {dollarsKnown
+                        ? `Est. savings ${formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}`
+                        : `${calculateLaborSavings.totalMinutesCut}m — savings estimate unavailable right now.`}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -1072,7 +1074,6 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   {laborCuts.map(cut => {
                     const employee = activeShifts.find(s => s.userId === cut.userId);
                     if (!employee) return null;
-                    const costSaved = cutSavingsByUser.get(cut.userId) || 0;
                     return (
                       <div key={cut.userId} className="flex items-center justify-between p-2 rounded-lg bg-accent-foreground/10">
                         <div className="flex items-center gap-2">
@@ -1085,8 +1086,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                           <span className="text-xs">{employee.fullName}</span>
                         </div>
                         <div className="text-right">
+                          {/* Minutes only — no per-person dollars on any device. */}
                           <Badge className="bg-red-500/30 text-red-500 text-[10px]">-{cut.minutesCut}m</Badge>
-                          <p className="text-green-500 text-[10px] mt-0.5">-{formatCurrency(costSaved)}</p>
                         </div>
                       </div>
                     );
@@ -1119,15 +1120,21 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                 <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-[10px] text-accent-foreground/70">Total Savings</p>
-                      <p className="text-green-500 text-lg font-bold">
-                        {formatCurrency(calculateLaborSavings.totalCostSaved)}
-                      </p>
+                      <p className="text-[10px] text-accent-foreground/70">Est. savings</p>
+                      {dollarsKnown ? (
+                        <p className="text-green-500 text-lg font-bold">
+                          {formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}
+                        </p>
+                      ) : (
+                        <p className="text-accent-foreground/60 text-[10px] mt-0.5">
+                          Savings estimate unavailable right now.
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-accent-foreground/70">Time Cut</p>
                       <p className="text-green-500 text-lg font-bold">
-                        {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m
+                        {Math.floor(calculateLaborSavings.totalMinutesCut / 60)}h {calculateLaborSavings.totalMinutesCut % 60}m
                       </p>
                     </div>
                   </div>
