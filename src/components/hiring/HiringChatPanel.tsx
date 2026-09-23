@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { InterviewScheduleDialog } from './InterviewScheduleDialog';
 import { InterviewInviteMessage } from './InterviewInviteMessage';
+import { ensureHiringConversation, sendInterviewInvite } from '@/lib/hiring/interviewActions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -131,32 +132,11 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
 
   const fetchOrCreateConversation = async () => {
     try {
-      // Check for existing conversation
-      const { data: existing } = await supabase
-        .from('hiring_conversations')
-        .select('id, access_token')
-        .eq('application_id', applicationId)
-        .single();
-
-      if (existing) {
-        setConversationId(existing.id);
-        setAccessToken(existing.access_token);
-        await fetchMessages(existing.id);
-        await markConversationAsRead(existing.id);
-      } else {
-        // Create new conversation
-        const { data: newConv, error } = await supabase
-          .from('hiring_conversations')
-          .insert({ application_id: applicationId })
-          .select('id, access_token')
-          .single();
-
-        if (error) throw error;
-        
-        setConversationId(newConv.id);
-        setAccessToken(newConv.access_token);
-        await markConversationAsRead(newConv.id);
-      }
+      const conv = await ensureHiringConversation(applicationId);
+      setConversationId(conv.id);
+      setAccessToken(conv.access_token);
+      await fetchMessages(conv.id);
+      await markConversationAsRead(conv.id);
     } catch (err) {
       console.error('Error with conversation:', err);
       toast.error('Failed to load chat');
@@ -270,12 +250,6 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
 
   const handleScheduleInterview = async (date: Date, time: string) => {
     if (!conversationId || !user) return;
-    
-    const interviewData = {
-      date: format(date, 'yyyy-MM-dd'),
-      time,
-      status: 'pending'
-    };
 
     setSending(true);
     try {
@@ -284,62 +258,14 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         await cancelInterviewInternal(false);
       }
 
-      // Send interview invitation message
-      const { error: msgError } = await supabase
-        .from('hiring_messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_type: 'staff',
-          sender_id: user.id,
-          content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}`
-        });
-
-      if (msgError) throw msgError;
-
-      // Update application with interview details
-      const { data: application, error: appError } = await supabase
-        .from('job_applications')
-        .update({
-          interview_date: interviewData.date,
-          interview_time: time,
-          interview_status: 'pending',
-          status: 'interviewing'
-        })
-        .eq('id', applicationId)
-        .select('location:locations(name, address)')
-        .single();
-
-      if (appError) throw appError;
-
-      // Get sender name for email
-      const { data: senderProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .single();
-
-      const location = application?.location as any;
-
-      // Send interview invite email with calendar attachment
-      supabase.functions.invoke('hiring-email-service', {
-        body: {
-          action: 'send_interview_invite',
-          conversationId,
-          interviewDate: interviewData.date,
-          interviewTime: time,
-          locationName: location?.name || 'TBD',
-          locationAddress: location?.address,
-          scheduledByName: senderProfile?.full_name || 'Hiring Team'
-        }
-      }).then(({ error }) => {
-        if (error) console.error('Failed to send interview invite email:', error);
-      });
+      await sendInterviewInvite({ applicationId, date, time, userId: user.id });
 
       toast.success(isRescheduling ? 'Interview rescheduled!' : 'Interview invitation sent!');
       setIsRescheduling(false);
     } catch (err) {
       console.error('Error scheduling interview:', err);
       toast.error('Failed to schedule interview');
+      throw err;
     } finally {
       setSending(false);
     }
