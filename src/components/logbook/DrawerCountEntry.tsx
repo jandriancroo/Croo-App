@@ -13,6 +13,9 @@ interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
   priorPullsTotal?: number;
   priorPulls?: { amount: number; time: string; createdBy?: string }[];
+  /** No expected cash figure was available — variance is not meaningful. */
+  expectedUnavailable?: boolean;
+  expectedSource?: "pos_live" | "pos_cache" | "manual" | "none";
   /** Set when the deposit for this day was audited during Bank Deposit. */
   audit?: {
     countedAmount: number;
