@@ -595,7 +595,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
-            ) : summary.includableEntries.length === 0 ? (
+            ) : summary.includableDays.length === 0 ? (
               <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-amber-700 dark:text-amber-400">
                 <AlertCircle className="h-5 w-5 shrink-0" />
                 <span className="text-sm">No drawer counts found for this date range, or all have already been deposited.</span>
@@ -620,22 +620,27 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     </div>
                   </div>
                   <div className="rounded-lg border divide-y max-h-56 overflow-y-auto">
-                    {summary.entries.map((entry) => {
-                      const audit = audits[entry.entryDate];
-                      const dateLabel = format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d');
+                    {summary.days.map((day) => {
+                      const audit = audits[day.entryDate];
+                      const dateLabel = format(new Date(day.entryDate + 'T12:00:00'), 'EEE, MMM d');
                       return (
                       <div 
-                        key={entry.entryId}
+                        key={day.entryDate}
                         className={cn(
                           "p-3",
-                          entry.alreadyDeposited && "opacity-50 bg-muted"
+                          day.alreadyDeposited && "opacity-50 bg-muted"
                         )}
                       >
                         <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">{dateLabel}</span>
-                            {entry.alreadyDeposited && (
+                            {day.pulls.length > 1 && (
+                              <Badge variant="outline" className="text-[10px]">
+                                {day.pulls.length} pulls
+                              </Badge>
+                            )}
+                            {day.alreadyDeposited && (
                               <Badge variant="secondary" className="text-xs">Already deposited</Badge>
                             )}
                           </div>
@@ -643,23 +648,23 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
 
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {verificationEnabled && !entry.alreadyDeposited && currentLocation && (
+                          {verificationEnabled && !day.alreadyDeposited && currentLocation && (
                             <BankVerificationPhoto
                               locationId={currentLocation.id}
-                              slug={`slip-${entry.entryDate}`}
-                              label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
-                              value={slipPaths[entry.entryDate] || null}
+                              slug={`slip-${day.entryDate}`}
+                              label={`Deposit slip — ${format(new Date(day.entryDate + 'T12:00:00'), 'MMM d')}`}
+                              value={slipPaths[day.entryDate] || null}
                               onChange={(path) =>
                                 setSlipPaths((prev) => {
                                   const next = { ...prev };
-                                  if (path) next[entry.entryDate] = path;
-                                  else delete next[entry.entryDate];
+                                  if (path) next[day.entryDate] = path;
+                                  else delete next[day.entryDate];
                                   return next;
                                 })
                               }
                             />
                           )}
-                          {!entry.alreadyDeposited && (
+                          {!day.alreadyDeposited && (
                             <Button
                               type="button"
                               variant={audit ? "outline" : "secondary"}
@@ -670,7 +675,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                               )}
                               title={audit ? "Audited — tap to re-audit" : "Audit this deposit"}
                               aria-label={`Audit deposit for ${dateLabel}`}
-                              onClick={() => setAuditTarget(entry.entryDate)}
+                              onClick={() => setAuditTarget(day.entryDate)}
                             >
                               <ShieldCheck className="h-4 w-4" />
                             </Button>
@@ -678,28 +683,50 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                           {audit ? (
                             <button
                               type="button"
-                              onClick={() => setAuditInfoTarget(entry.entryDate)}
+                              onClick={() => setAuditInfoTarget(day.entryDate)}
                               className="w-24 text-right leading-tight"
                               aria-label={`View audit details for ${dateLabel}`}
                             >
-                              <span className="block font-mono text-xs text-muted-foreground line-through">
-                                {formatCurrency(entry.depositAmount)}
+                              <span className="block font-mono text-xs text-muted-foreground line-through tabular-nums">
+                                {formatCurrency(day.recordedTotal)}
                               </span>
-                              <span className="block font-mono text-sm font-semibold text-destructive underline decoration-dotted">
+                              <span className="block font-mono text-sm text-destructive underline decoration-dotted tabular-nums" style={{ fontWeight: 800 }}>
                                 {formatCurrency(audit.countedAmount)}
                               </span>
                             </button>
                           ) : (
                             <span className={cn(
-                              "font-mono text-sm w-20 text-right",
-                              entry.alreadyDeposited ? "line-through" : "font-semibold"
-                            )}>
-                              {formatCurrency(entry.depositAmount)}
+                              "font-mono text-sm w-20 text-right tabular-nums",
+                              day.alreadyDeposited && "line-through"
+                            )}
+                            style={day.alreadyDeposited ? undefined : { fontWeight: 800 }}>
+                              {formatCurrency(day.recordedTotal)}
                             </span>
                           )}
                         </div>
                         </div>
 
+                        {day.pulls.length > 1 && (
+                          <div className="mt-1.5 space-y-0.5 pl-0.5">
+                            {day.pulls.map((p, i) => (
+                              <div key={p.entryId}>
+                                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                                  <span>
+                                    Pull #{i + 1} · {formatPullTime(p.createdAt)}
+                                  </span>
+                                  <span className="font-mono tabular-nums">
+                                    {formatCurrency(p.amountCents / 100)}
+                                  </span>
+                                </div>
+                                {p.duplicateOf && (
+                                  <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                                    Same amount as Pull #{p.duplicateOf} — confirm or audit.
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       );
