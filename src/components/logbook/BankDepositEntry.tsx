@@ -6,30 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { getBankVerificationUrl } from "./BankVerificationPhoto";
 
-export interface BankDepositData {
-  startDate: string;
-  endDate: string;
-  entries: Array<{
-    entryId: string;
-    entryDate: string;
-    depositAmount: number;
-    slipPath?: string;
-    audit?: {
-      countedAmount: number;
-      variance: number;
-      auditedAt: string;
-      auditedByName?: string;
-    };
-  }>;
-
-  totalDollars: number;
-  totalChange: number;
-  totalAmount: number;
-  daysIncluded: number;
-  notes?: string;
-  receiptPath?: string;
-  verificationRequired?: boolean;
-}
+export type { BankDepositData } from "./BankDepositForm";
+import type { BankDepositData, BankDepositDayAudit } from "./BankDepositForm";
 
 function VerificationPhotoLink({ path, label }: { path: string; label: string }) {
   const [open, setOpen] = useState(false);
@@ -86,6 +64,33 @@ interface BankDepositEntryProps {
 export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
   const [open, setOpen] = useState(false);
 
+  // Prefer day-level data (slip + audit apply once per day). Fall back to the
+  // legacy one-item-per-day entries[] shape for deposits saved before 2026-09-23.
+  const dayRows: Array<{
+    key: string;
+    entryDate: string;
+    amount: number;
+    slipPath?: string;
+    audit?: BankDepositDayAudit;
+    pulls?: number;
+  }> = data.days?.length
+    ? data.days.map((d) => ({
+        key: d.entryDate,
+        entryDate: d.entryDate,
+        amount: d.depositAmount,
+        slipPath: d.slipPath,
+        audit: d.audit,
+        pulls: d.entryIds?.length,
+      }))
+    : (data.entries || []).map((e, idx) => ({
+        key: e.entryId || String(idx),
+        entryDate: e.entryDate,
+        amount: e.depositAmount,
+        slipPath: e.slipPath,
+        audit: e.audit,
+      }));
+
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -136,27 +141,30 @@ export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
               <div className="space-y-2">
                 <div className="font-medium text-sm">Daily Breakdown</div>
                 <div className="space-y-1">
-                  {data.entries.map((entry, idx) => (
-                    <div key={entry.entryId || idx} className="space-y-0.5">
+                  {dayRows.map((row) => (
+                    <div key={row.key} className="space-y-0.5">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
-                          {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
-                          {entry.slipPath && (
+                          {format(new Date(row.entryDate + 'T12:00:00'), 'EEE, MMM d')}
+                          {row.pulls && row.pulls > 1 ? (
+                            <span className="text-[11px]">({row.pulls} pulls)</span>
+                          ) : null}
+                          {row.slipPath && (
                             <VerificationPhotoLink
-                              path={entry.slipPath}
-                              label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
+                              path={row.slipPath}
+                              label={`Deposit slip — ${format(new Date(row.entryDate + 'T12:00:00'), 'MMM d')}`}
                             />
                           )}
                         </span>
-                        <span className="font-medium">{formatCurrency(entry.depositAmount)}</span>
+                        <span className="font-medium tabular-nums">{formatCurrency(row.amount)}</span>
                       </div>
-                      {entry.audit && (
-                        <div className={`flex items-center gap-1 text-[11px] ${entry.audit.variance === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {row.audit && (
+                        <div className={`flex items-center gap-1 text-[11px] ${row.audit.variance === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                           <ShieldCheck className="h-3 w-3" />
                           <span>
-                            Audited {formatCurrency(entry.audit.countedAmount)}
-                            {entry.audit.variance !== 0 && ` · ${entry.audit.variance > 0 ? '+' : ''}${formatCurrency(entry.audit.variance)}`}
-                            {entry.audit.auditedByName ? ` · ${entry.audit.auditedByName}` : ''}
+                            Audited {formatCurrency(row.audit.countedAmount)}
+                            {row.audit.variance !== 0 && ` · ${row.audit.variance > 0 ? '+' : ''}${formatCurrency(row.audit.variance)}`}
+                            {row.audit.auditedByName ? ` · ${row.audit.auditedByName}` : ''}
                           </span>
                         </div>
                       )}

@@ -18,20 +18,38 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { format, eachDayOfInterval, isBefore, startOfDay, isAfter, parse, isSameDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 
+export interface BankDepositDayAudit {
+  countedAmount: number;
+  variance: number;
+  auditedAt: string;
+  auditedByName?: string;
+}
+
 export interface BankDepositData {
   startDate: string;
   endDate: string;
+  /**
+   * ONE item per drawer-count pull. Every pull's entryId is recorded so all of
+   * them count as deposited. Legacy records (pre 2026-09-23) carry one item per
+   * DAY and may also carry `slipPath` / `audit` here — readers must fall back to
+   * that shape. New records never write slipPath/audit on entries[].
+   */
   entries: Array<{
     entryId: string;
     entryDate: string;
     depositAmount: number;
     slipPath?: string;
-    audit?: {
-      countedAmount: number;
-      variance: number;
-      auditedAt: string;
-      auditedByName?: string;
-    };
+    audit?: BankDepositDayAudit;
+  }>;
+
+  /** Day-level truth: slip photo and audit apply ONCE per day, never per pull. */
+  days?: Array<{
+    entryDate: string;
+    entryIds: string[];
+    recordedAmount: number;
+    depositAmount: number;
+    slipPath?: string;
+    audit?: BankDepositDayAudit;
   }>;
 
   totalDollars: number;
@@ -213,83 +231,97 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         .gte("entry_date", startStr)
         .lte("entry_date", endStr)
         .order("entry_date", { ascending: true })
-        .order("created_at", { ascending: false }); // Most recent first for each date
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      
-      // Deduplicate: keep only the most recent entry per date
-      const entriesByDate = new Map<string, any>();
-      (data || []).forEach((entry: any) => {
-        if (!entriesByDate.has(entry.entry_date)) {
-          entriesByDate.set(entry.entry_date, entry);
-        }
-        // Since we ordered by created_at DESC, the first one we see for each date is the most recent
-      });
-      
-      return Array.from(entriesByDate.values());
+
+      // NO dedupe. Every drawer count (mid-day pulls included) must be returned
+      // and summed — dropping all but the latest count per day is what made
+      // mid-day pulls vanish from the deposit.
+      return data || [];
     },
     enabled: !!currentLocation && !!drawerCountCategory && shouldFetchEntries,
   });
   
   
-  // Calculate summary from drawer entries
+  // Calculate summary from drawer entries — grouped by day, ALL pulls summed.
   const summary = useMemo(() => {
-    const availableEntries: Array<{
+    type Pull = {
       entryId: string;
-      entryDate: string;
-      depositAmount: number;
+      createdAt: string;
+      amountCents: number;
       alreadyDeposited: boolean;
-    }> = [];
-    
-    let totalDollars = 0;
-    let totalChange = 0;
-    
+      duplicateOf?: number;
+    };
+
+    const byDate = new Map<string, Pull[]>();
+
     drawerEntries.forEach((entry: any) => {
-      const alreadyDeposited = depositedEntryIds.includes(entry.id);
-      
       try {
         const valueText = entry.logbook_entry_values?.[0]?.value_text;
-        if (valueText) {
-          const data = JSON.parse(valueText);
-          const recorded = data.actualDeposit || 0;
-          // If this day was audited, the audited (physically counted) amount wins.
-          const audit = audits[entry.entry_date];
-          const depositAmount = audit ? audit.countedAmount : recorded;
-          
-          // Exact split: whole dollars in bills, remaining cents as coin.
-          // The deposit must match the drawer math to the penny (change included).
-          const cents = Math.round(depositAmount * 100);
-          const dollars = Math.floor(cents / 100);
-          const change = (cents - dollars * 100) / 100;
-
-          
-          availableEntries.push({
-            entryId: entry.id,
-            entryDate: entry.entry_date,
-            depositAmount: recorded,
-            alreadyDeposited,
-          });
-          
-          if (!alreadyDeposited) {
-            totalDollars += dollars;
-            totalChange += change;
-          }
-        }
+        if (!valueText) return;
+        const data = JSON.parse(valueText);
+        // actualDeposit is PER PULL. Never use priorPullsTotal / priorPulls here
+        // — those exist only for the drawer form's expected-cash math.
+        const amountCents = Math.round((Number(data.actualDeposit) || 0) * 100);
+        const list = byDate.get(entry.entry_date) || [];
+        list.push({
+          entryId: entry.id,
+          createdAt: entry.created_at,
+          amountCents,
+          alreadyDeposited: depositedEntryIds.includes(entry.id),
+        });
+        byDate.set(entry.entry_date, list);
       } catch (e) {
         console.error("Failed to parse drawer entry:", e);
       }
     });
-    
-    const includableEntries = availableEntries.filter(e => !e.alreadyDeposited);
-    const auditedDays = includableEntries.filter(e => !!audits[e.entryDate]).length;
-    
+
+    const days = Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([entryDate, rawPulls]) => {
+        const pulls = [...rawPulls].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        // Same-amount-to-the-cent pulls get a neutral confirm note (never excluded).
+        pulls.forEach((p, i) => {
+          const firstIdx = pulls.findIndex((o) => o.amountCents === p.amountCents);
+          if (firstIdx < i) p.duplicateOf = firstIdx + 1;
+        });
+
+        const recordedCents = pulls.reduce((s, p) => s + p.amountCents, 0);
+        const audit = audits[entryDate];
+        // Audit applies ONCE per day, to the day's total — never per pull.
+        const depositCents = audit ? Math.round(audit.countedAmount * 100) : recordedCents;
+
+        return {
+          entryDate,
+          pulls,
+          recordedCents,
+          recordedTotal: recordedCents / 100,
+          depositCents,
+          depositAmount: depositCents / 100,
+          alreadyDeposited: pulls.some((p) => p.alreadyDeposited),
+        };
+      });
+
+    const includableDays = days.filter((d) => !d.alreadyDeposited);
+
+    // Exact split per day: whole dollars in bills, remaining cents as coin.
+    let totalDollars = 0;
+    let totalChangeCents = 0;
+    includableDays.forEach((d) => {
+      const dollars = Math.floor(d.depositCents / 100);
+      totalDollars += dollars;
+      totalChangeCents += d.depositCents - dollars * 100;
+    });
+    const totalChange = totalChangeCents / 100;
+
     return {
-      entries: availableEntries,
-      includableEntries,
+      days,
+      includableDays,
       totalDollars,
       totalChange,
-      totalAmount: totalDollars + totalChange,
-      daysIncluded: includableEntries.length,
-      auditedDays,
+      totalAmount: Math.round((totalDollars * 100 + totalChangeCents)) / 100,
+      daysIncluded: includableDays.length,
+      auditedDays: includableDays.filter((d) => !!audits[d.entryDate]).length,
     };
   }, [drawerEntries, depositedEntryIds, audits]);
   
@@ -345,17 +377,27 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   };
   
   const handleSubmit = () => {
-    if (!startDate || !endDate || summary.includableEntries.length === 0) return;
-    
+    if (!startDate || !endDate || summary.includableDays.length === 0) return;
+
     const data: BankDepositData = {
       startDate: format(startDate, "yyyy-MM-dd"),
       endDate: format(endDate, "yyyy-MM-dd"),
-      entries: summary.includableEntries.map(e => ({
-        entryId: e.entryId,
-        entryDate: e.entryDate,
-        depositAmount: e.depositAmount,
-        slipPath: slipPaths[e.entryDate] || undefined,
-        audit: audits[e.entryDate] || undefined,
+      // One item PER PULL so every drawer count is marked deposited.
+      entries: summary.includableDays.flatMap((d) =>
+        d.pulls.map((p) => ({
+          entryId: p.entryId,
+          entryDate: d.entryDate,
+          depositAmount: p.amountCents / 100,
+        }))
+      ),
+      // Day-level truth: slip + audit live here, once per day.
+      days: summary.includableDays.map((d) => ({
+        entryDate: d.entryDate,
+        entryIds: d.pulls.map((p) => p.entryId),
+        recordedAmount: d.recordedTotal,
+        depositAmount: d.depositAmount,
+        slipPath: slipPaths[d.entryDate] || undefined,
+        audit: audits[d.entryDate] || undefined,
       })),
       totalDollars: summary.totalDollars,
       totalChange: summary.totalChange,
@@ -365,7 +407,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
       receiptPath: receiptPath || undefined,
       verificationRequired: verificationEnabled || undefined,
     };
-    
+
     onSave(data);
   };
   
@@ -379,15 +421,26 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   
   const canShowPreview = startDate && endDate && !loadingEntries;
   const missingSlips = verificationEnabled
-    ? summary.includableEntries.filter((e) => !slipPaths[e.entryDate]).length
+    ? summary.includableDays.filter((d) => !slipPaths[d.entryDate]).length
     : 0;
   const missingReceipt = verificationEnabled && !receiptPath;
-  const unaudited = summary.includableEntries.filter((e) => !audits[e.entryDate]).length;
+  const unaudited = summary.includableDays.filter((d) => !audits[d.entryDate]).length;
   const canSubmit =
-    canShowPreview && summary.includableEntries.length > 0 && missingSlips === 0 && !missingReceipt;
-  const auditTargetEntry = auditTarget
-    ? summary.includableEntries.find((e) => e.entryDate === auditTarget)
+    canShowPreview && summary.includableDays.length > 0 && missingSlips === 0 && !missingReceipt;
+  const auditTargetDay = auditTarget
+    ? summary.includableDays.find((d) => d.entryDate === auditTarget)
     : undefined;
+  const formatPullTime = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", {
+        timeZone: timezone,
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
   
 
   
@@ -542,7 +595,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
-            ) : summary.includableEntries.length === 0 ? (
+            ) : summary.includableDays.length === 0 ? (
               <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-amber-700 dark:text-amber-400">
                 <AlertCircle className="h-5 w-5 shrink-0" />
                 <span className="text-sm">No drawer counts found for this date range, or all have already been deposited.</span>
@@ -567,22 +620,27 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     </div>
                   </div>
                   <div className="rounded-lg border divide-y max-h-56 overflow-y-auto">
-                    {summary.entries.map((entry) => {
-                      const audit = audits[entry.entryDate];
-                      const dateLabel = format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d');
+                    {summary.days.map((day) => {
+                      const audit = audits[day.entryDate];
+                      const dateLabel = format(new Date(day.entryDate + 'T12:00:00'), 'EEE, MMM d');
                       return (
                       <div 
-                        key={entry.entryId}
+                        key={day.entryDate}
                         className={cn(
                           "p-3",
-                          entry.alreadyDeposited && "opacity-50 bg-muted"
+                          day.alreadyDeposited && "opacity-50 bg-muted"
                         )}
                       >
                         <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">{dateLabel}</span>
-                            {entry.alreadyDeposited && (
+                            {day.pulls.length > 1 && (
+                              <Badge variant="outline" className="text-[10px]">
+                                {day.pulls.length} pulls
+                              </Badge>
+                            )}
+                            {day.alreadyDeposited && (
                               <Badge variant="secondary" className="text-xs">Already deposited</Badge>
                             )}
                           </div>
@@ -590,23 +648,23 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
 
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {verificationEnabled && !entry.alreadyDeposited && currentLocation && (
+                          {verificationEnabled && !day.alreadyDeposited && currentLocation && (
                             <BankVerificationPhoto
                               locationId={currentLocation.id}
-                              slug={`slip-${entry.entryDate}`}
-                              label={`Deposit slip — ${format(new Date(entry.entryDate + 'T12:00:00'), 'MMM d')}`}
-                              value={slipPaths[entry.entryDate] || null}
+                              slug={`slip-${day.entryDate}`}
+                              label={`Deposit slip — ${format(new Date(day.entryDate + 'T12:00:00'), 'MMM d')}`}
+                              value={slipPaths[day.entryDate] || null}
                               onChange={(path) =>
                                 setSlipPaths((prev) => {
                                   const next = { ...prev };
-                                  if (path) next[entry.entryDate] = path;
-                                  else delete next[entry.entryDate];
+                                  if (path) next[day.entryDate] = path;
+                                  else delete next[day.entryDate];
                                   return next;
                                 })
                               }
                             />
                           )}
-                          {!entry.alreadyDeposited && (
+                          {!day.alreadyDeposited && (
                             <Button
                               type="button"
                               variant={audit ? "outline" : "secondary"}
@@ -617,7 +675,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                               )}
                               title={audit ? "Audited — tap to re-audit" : "Audit this deposit"}
                               aria-label={`Audit deposit for ${dateLabel}`}
-                              onClick={() => setAuditTarget(entry.entryDate)}
+                              onClick={() => setAuditTarget(day.entryDate)}
                             >
                               <ShieldCheck className="h-4 w-4" />
                             </Button>
@@ -625,28 +683,50 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                           {audit ? (
                             <button
                               type="button"
-                              onClick={() => setAuditInfoTarget(entry.entryDate)}
+                              onClick={() => setAuditInfoTarget(day.entryDate)}
                               className="w-24 text-right leading-tight"
                               aria-label={`View audit details for ${dateLabel}`}
                             >
-                              <span className="block font-mono text-xs text-muted-foreground line-through">
-                                {formatCurrency(entry.depositAmount)}
+                              <span className="block font-mono text-xs text-muted-foreground line-through tabular-nums">
+                                {formatCurrency(day.recordedTotal)}
                               </span>
-                              <span className="block font-mono text-sm font-semibold text-destructive underline decoration-dotted">
+                              <span className="block font-mono text-sm text-destructive underline decoration-dotted tabular-nums" style={{ fontWeight: 800 }}>
                                 {formatCurrency(audit.countedAmount)}
                               </span>
                             </button>
                           ) : (
                             <span className={cn(
-                              "font-mono text-sm w-20 text-right",
-                              entry.alreadyDeposited ? "line-through" : "font-semibold"
-                            )}>
-                              {formatCurrency(entry.depositAmount)}
+                              "font-mono text-sm w-20 text-right tabular-nums",
+                              day.alreadyDeposited && "line-through"
+                            )}
+                            style={day.alreadyDeposited ? undefined : { fontWeight: 800 }}>
+                              {formatCurrency(day.recordedTotal)}
                             </span>
                           )}
                         </div>
                         </div>
 
+                        {day.pulls.length > 1 && (
+                          <div className="mt-1.5 space-y-0.5 pl-0.5">
+                            {day.pulls.map((p, i) => (
+                              <div key={p.entryId}>
+                                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                                  <span>
+                                    Pull #{i + 1} · {formatPullTime(p.createdAt)}
+                                  </span>
+                                  <span className="font-mono tabular-nums">
+                                    {formatCurrency(p.amountCents / 100)}
+                                  </span>
+                                </div>
+                                {p.duplicateOf && (
+                                  <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                                    Same amount as Pull #{p.duplicateOf} — confirm or audit.
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       );
@@ -757,16 +837,16 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         </Button>
       )}
 
-      {auditTargetEntry && (
+      {auditTargetDay && (
         <DepositAuditDialog
           open={!!auditTarget}
           onOpenChange={(o) => !o && setAuditTarget(null)}
-          expectedAmount={auditTargetEntry.depositAmount}
-          dateLabel={format(new Date(auditTargetEntry.entryDate + 'T12:00:00'), 'EEEE, MMM d, yyyy')}
+          expectedAmount={auditTargetDay.recordedTotal}
+          dateLabel={format(new Date(auditTargetDay.entryDate + 'T12:00:00'), 'EEEE, MMM d, yyyy')}
           auditorName={auditorName}
-          existing={audits[auditTargetEntry.entryDate] || null}
+          existing={audits[auditTargetDay.entryDate] || null}
           onSubmit={(audit) =>
-            setAudits((prev) => ({ ...prev, [auditTargetEntry.entryDate]: audit }))
+            setAudits((prev) => ({ ...prev, [auditTargetDay.entryDate]: audit }))
           }
         />
       )}
@@ -786,7 +866,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                   <span className="text-muted-foreground">Drawer count</span>
                   <span className="font-mono line-through text-muted-foreground">
                     {formatCurrency(
-                      summary.entries.find((e) => e.entryDate === auditInfoTarget)?.depositAmount || 0
+                      summary.days.find((d) => d.entryDate === auditInfoTarget)?.recordedTotal || 0
                     )}
                   </span>
                 </div>
