@@ -78,40 +78,37 @@ export function HiringChatList({ onSelectConversation, selectedId, autoSelectApp
 
       if (error) throw error;
 
-      // Fetch last message for each conversation and filter out empty ones
-      const conversationsWithMessages = await Promise.all(
-        (convs || []).map(async (conv: any) => {
-          const lastReadAt = conv.last_read_at || '1970-01-01T00:00:00.000Z';
-          const [lastMessageResult, unreadResult] = await Promise.all([
-            supabase
-              .from('hiring_messages')
-              .select('content, sender_type, created_at')
-              .eq('conversation_id', conv.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle(),
-            supabase
-              .from('hiring_messages')
-              .select('id', { count: 'exact', head: true })
-              .eq('conversation_id', conv.id)
-              .eq('sender_type', 'applicant')
-              .gt('created_at', lastReadAt),
-          ]);
+      const conversationIds = (convs || []).map(conv => conv.id);
+      const { data: allMessages, error: messagesError } = conversationIds.length > 0
+        ? await supabase
+            .from('hiring_messages')
+            .select('conversation_id, content, sender_type, created_at')
+            .in('conversation_id', conversationIds)
+            .order('created_at', { ascending: false })
+        : { data: [], error: null };
 
-          if (lastMessageResult.error) {
-            console.error('Error fetching last hiring message:', lastMessageResult.error);
-          }
-          if (unreadResult.error) {
-            console.error('Error fetching unread hiring messages:', unreadResult.error);
-          }
+      if (messagesError) throw messagesError;
 
-          return {
-            ...conv,
-            last_message: lastMessageResult.data || undefined,
-            unread_count: unreadResult.count || 0,
-          };
-        })
-      );
+      const messagesByConversation = new Map<string, typeof allMessages>();
+      (allMessages || []).forEach(message => {
+        const existing = messagesByConversation.get(message.conversation_id) || [];
+        existing.push(message);
+        messagesByConversation.set(message.conversation_id, existing);
+      });
+
+      const conversationsWithMessages = (convs || []).map(conv => {
+        const conversationMessages = messagesByConversation.get(conv.id) || [];
+        const lastReadMillis = conv.last_read_at ? Date.parse(conv.last_read_at) : 0;
+        const unreadCount = conversationMessages.filter(message =>
+          message.sender_type === 'applicant' && Date.parse(message.created_at) > lastReadMillis
+        ).length;
+
+        return {
+          ...conv,
+          last_message: conversationMessages[0] || undefined,
+          unread_count: unreadCount,
+        };
+      });
 
       // Empty threads show only for active applicants; hide empty hired/rejected ones
       const ACTIVE = ['pending', 'interested', 'interviewing'];
