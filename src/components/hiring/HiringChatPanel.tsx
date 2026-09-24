@@ -421,6 +421,14 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         applicantName={applicantName}
         isRescheduling={isRescheduling}
         applicationId={applicationId}
+        initial={isRescheduling ? (() => {
+          const latest = [...messages].reverse().find(m => m.content.startsWith('INTERVIEW_INVITE:'));
+          if (!latest) return null;
+          try {
+            const d = JSON.parse(latest.content.replace('INTERVIEW_INVITE:', ''));
+            return { date: d.date, time: d.time, modality: d.modality || 'in_person', meetingUrl: d.meeting_url || null };
+          } catch { return null; }
+        })() : null}
       />
 
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
