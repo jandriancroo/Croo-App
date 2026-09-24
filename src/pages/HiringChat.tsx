@@ -222,57 +222,33 @@ export default function HiringChat() {
     }
   };
 
-  const handleRespondToInterview = async (messageId: string, accepted: boolean) => {
-    if (!conversation) return;
-    
+  const handleRespondToInterview = async (messageId: string, response: 'accept' | 'decline' | 'reschedule') => {
+    if (!conversation || !token) return;
     setRespondingToMessageId(messageId);
     try {
-      // Find the message and update the interview data
-      const message = messages.find(m => m.id === messageId);
-      if (!message) return;
-      
-      const jsonStr = message.content.replace('INTERVIEW_INVITE:', '');
-      const interviewData = JSON.parse(jsonStr);
-      interviewData.status = accepted ? 'accepted' : 'declined';
-      
-      // Update the message content
-      const { error: msgError } = await supabase
-        .from('hiring_messages')
-        .update({ content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}` })
-        .eq('id', messageId);
-      
-      if (msgError) throw msgError;
-      
-      // Update the application status
-      const { error: appError } = await supabase
-        .from('job_applications')
-        .update({ 
-          interview_status: accepted ? 'accepted' : 'declined',
-          status: accepted ? 'interviewing' : 'interested'
-        })
-        .eq('id', conversation.application_id);
-      
-      if (appError) throw appError;
-      
-      // Update local state immediately
-      setMessages(prev => prev.map(m => 
-        m.id === messageId 
-          ? { ...m, content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}` }
-          : m
-      ));
-      
-      // Send a response message
-      await supabase.rpc('applicant_send_hiring_message', {
-        _token: token,
-        _content: accepted
-          ? "I've accepted the interview invitation. Looking forward to meeting you!"
-          : "I'm unable to make that time. Could we schedule for a different time?",
+      const { data, error } = await supabase.functions.invoke('hiring-interview-response', {
+        body: { token, messageId, response },
       });
-      
-      toast.success(accepted ? 'Interview accepted!' : 'Interview declined');
-    } catch (err) {
+      if (error) {
+        let details = error.message;
+        try { details = (JSON.parse(await (error as any).context.text()).error) || details; } catch { /* ignore */ }
+        throw new Error(details);
+      }
+      const newStatus = (data as any)?.status;
+      setMessages(prev => prev.map(m => {
+        if (m.id !== messageId) return m;
+        try {
+          const d = JSON.parse(m.content.replace('INTERVIEW_INVITE:', ''));
+          d.status = newStatus;
+          return { ...m, content: `INTERVIEW_INVITE:${JSON.stringify(d)}` };
+        } catch { return m; }
+      }));
+      toast.success(
+        response === 'accept' ? 'Interview accepted!' : response === 'decline' ? 'Interview declined' : "Got it — we'll send a new time"
+      );
+    } catch (err: any) {
       console.error('Error responding to interview:', err);
-      toast.error('Failed to respond to interview');
+      toast.error(err?.message || 'Failed to respond to interview');
     } finally {
       setRespondingToMessageId(null);
     }
@@ -508,7 +484,7 @@ export default function HiringChat() {
                       <InterviewInviteMessage 
                         content={message.content} 
                         isApplicantView={!isStaffView}
-                        onRespond={(accepted) => handleRespondToInterview(message.id, accepted)}
+                        onRespond={(r) => handleRespondToInterview(message.id, r)}
                         responding={respondingToMessageId === message.id}
                       />
                     ) : (
