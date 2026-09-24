@@ -636,6 +636,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
           <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p>
           ${modalityBlock}
         </div>
+        <p style="color:#666;font-size:14px;text-align:center;margin:0 0 8px;">Take your time — reply when you're ready to accept, decline, or ask to reschedule.</p>
         <div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a></div>
       </td></tr>
       ${getEmailFooter()}`),

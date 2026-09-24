@@ -111,6 +111,12 @@ export function InterviewInviteMessage({
           </div>
         )}
 
+        {data.status === 'pending' && !isPast && isApplicantView && (
+          <p className="text-xs text-muted-foreground text-center pt-1">
+            Take your time — reply when you're ready to accept, decline, or ask to reschedule.
+          </p>
+        )}
+
         {data.status === 'pending' && !isPast && isApplicantView && onRespond && (
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button
