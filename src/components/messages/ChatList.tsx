@@ -181,6 +181,8 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       className={`group w-full flex items-center gap-3 px-3 py-3 transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
+          : chat.isPinned
+          ? 'bg-yellow-500/10 hover:bg-yellow-500/15'
           : chat.unreadCount && chat.unreadCount > 0
           ? 'bg-muted/60'
           : 'hover:bg-muted/50'
