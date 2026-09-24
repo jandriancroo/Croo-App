@@ -5729,6 +5729,8 @@ export type Database = {
           id: string
           internal_notes: string | null
           interview_date: string | null
+          interview_meeting_url: string | null
+          interview_modality: string | null
           interview_status: string | null
           interview_time: string | null
           job_listing_id: string | null
@@ -5757,6 +5759,8 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           interview_date?: string | null
+          interview_meeting_url?: string | null
+          interview_modality?: string | null
           interview_status?: string | null
           interview_time?: string | null
           job_listing_id?: string | null
@@ -5785,6 +5789,8 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           interview_date?: string | null
+          interview_meeting_url?: string | null
+          interview_modality?: string | null
           interview_status?: string | null
           interview_time?: string | null
           job_listing_id?: string | null
