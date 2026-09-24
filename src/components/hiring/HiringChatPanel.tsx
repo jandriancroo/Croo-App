@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, MessageCircle, Loader2, Copy, Check, ExternalLink, CalendarPlus } from 'lucide-react';
+import { Send, MessageCircle, Loader2, Copy, Check, ExternalLink, CalendarPlus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { InterviewScheduleDialog } from './InterviewScheduleDialog';
@@ -38,9 +38,10 @@ interface Message {
 interface HiringChatPanelProps {
   applicationId: string;
   applicantName: string;
+  onConversationDeleted?: () => void;
 }
 
-export function HiringChatPanel({ applicationId, applicantName }: HiringChatPanelProps) {
+export function HiringChatPanel({ applicationId, applicantName, onConversationDeleted }: HiringChatPanelProps) {
   const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
   const [copied, setCopied] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -288,6 +290,26 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
     setShowScheduleDialog(true);
   };
 
+  const handleDeleteConversation = async () => {
+    if (!conversationId) return;
+    setSending(true);
+    try {
+      const { error } = await supabase
+        .from('hiring_conversations')
+        .delete()
+        .eq('id', conversationId);
+      if (error) throw error;
+      toast.success('Conversation deleted');
+      setShowDeleteDialog(false);
+      onConversationDeleted?.();
+    } catch (err) {
+      console.error('Error deleting hiring conversation:', err);
+      toast.error('Failed to delete conversation');
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -323,6 +345,16 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
               className="text-xs"
             >
               <ExternalLink className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowDeleteDialog(true)}
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              aria-label="Delete conversation"
+              title="Delete conversation"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -446,6 +478,28 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Cancel Interview
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the hiring conversation with {applicantName}. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConversation}
+              disabled={sending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete Conversation
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
