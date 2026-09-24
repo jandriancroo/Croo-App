@@ -28,12 +28,20 @@ import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
 import { InterviewScheduleDialog } from '@/components/hiring/InterviewScheduleDialog';
-import { sendInterviewInvite } from '@/lib/hiring/interviewActions';
+import { sendInterviewInvite, cancelInterview } from '@/lib/hiring/interviewActions';
+import type { InterviewScheduleInitial } from '@/components/hiring/InterviewScheduleDialog';
+import { InterviewJoinLink, InterviewModalityBadge } from '@/components/hiring/InterviewMeetingInfo';
 import { useAuth } from '@/lib/auth';
 import { BulkApplicantActionsBar } from '@/components/hiring/BulkApplicantActionsBar';
 import { ApplicantFlagDot } from '@/components/hiring/ApplicantFlagSelector';
 import { QRCodeSVG } from 'qrcode.react';
 import { Checkbox } from '@/components/ui/checkbox';
+
+const formatTime12 = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+};
 
 const STATUS_COLORS: Record<ApplicationStatus, string> = {
   pending: 'bg-muted text-muted-foreground',
@@ -71,12 +79,29 @@ export default function Hiring() {
   const [applicantToHire, setApplicantToHire] = useState<{ id: string; full_name: string; email: string; phone?: string } | null>(null);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [templatesSubTab, setTemplatesSubTab] = useState<'application' | 'rejection'>('application');
-  const [applicantToSchedule, setApplicantToSchedule] = useState<{ id: string; full_name: string } | null>(null);
+  // Queue so bulk "move to Interviewing" walks through the same schedule dialog one applicant at a time.
+  type ScheduleTarget = { id: string; full_name: string; reschedule?: boolean; initial?: InterviewScheduleInitial | null };
+  const [scheduleQueue, setScheduleQueue] = useState<ScheduleTarget[]>([]);
+  const applicantToSchedule = scheduleQueue[0] || null;
   const { user } = useAuth();
-  const openScheduleFor = (a: { id: string; full_name: string }) => {
+  const openScheduleFor = (a: ScheduleTarget | ScheduleTarget[]) => {
     setSelectedApplicant(null);
-    setApplicantToSchedule(a);
+    setScheduleQueue(Array.isArray(a) ? a : [a]);
   };
+  const openScheduleForApp = (app: any, reschedule = false) =>
+    openScheduleFor({
+      id: app.id,
+      full_name: app.full_name,
+      reschedule,
+      initial: reschedule
+        ? {
+            date: app.interview_date,
+            time: app.interview_time,
+            modality: app.interview_modality || 'in_person',
+            meetingUrl: app.interview_meeting_url || null,
+          }
+        : null,
+    });
 
   // Redirect if no access
   useEffect(() => {
@@ -336,16 +361,33 @@ export default function Hiring() {
       return;
     }
 
+    let idsToUpdate = Array.from(selectedIds);
+
+    // Interviewing is decided in the schedule dialog, same as a single applicant.
+    // Anyone without a booked interview gets the dialog; the invite writes the status.
+    if (status === 'interviewing') {
+      const selectedApps = (applications || []).filter((a: any) => selectedIds.has(a.id));
+      const needInvite = selectedApps.filter((a: any) => !a.interview_date);
+      idsToUpdate = selectedApps.filter((a: any) => a.interview_date).map((a: any) => a.id);
+      if (needInvite.length > 0) {
+        openScheduleFor(needInvite.map((a: any) => ({ id: a.id, full_name: a.full_name })));
+      }
+      if (idsToUpdate.length === 0) {
+        setSelectedIds(new Set());
+        return;
+      }
+    }
+
     setIsBulkUpdating(true);
     try {
       const { error } = await supabase
         .from('job_applications')
         .update({ status: status as ApplicationStatus, updated_at: new Date().toISOString() })
-        .in('id', Array.from(selectedIds));
+        .in('id', idsToUpdate);
       
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['job-applications'] });
-      toast.success(`Updated ${selectedIds.size} applications`);
+      toast.success(`Updated ${idsToUpdate.length} applications`);
       setSelectedIds(new Set());
     } catch (error) {
       console.error('Bulk status update error:', error);
@@ -663,12 +705,16 @@ export default function Hiring() {
                             
                             {/* Row 2: Interview info when interviewing */}
                             {app.status === 'interviewing' && app.interview_date && (
-                              <div className="flex items-center gap-2 mt-1 text-xs">
+                              <div className="flex items-center gap-2 mt-1 text-xs flex-wrap">
                                 <Calendar className="h-3 w-3 text-primary" />
                                 <span className="text-primary font-medium">
                                   {format(new Date(app.interview_date + 'T00:00:00'), 'MMM d')}
-                                  {app.interview_time && ` @ ${app.interview_time}`}
+                                  {app.interview_time && ` @ ${formatTime12(app.interview_time)}`}
                                 </span>
+                                <InterviewModalityBadge modality={app.interview_modality} />
+                                {app.interview_modality === 'virtual' && (
+                                  <InterviewJoinLink url={app.interview_meeting_url} compact />
+                                )}
                                 {app.interview_status === 'accepted' && (
                                   <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-500/10 text-green-600 border-green-500/30">
                                     Confirmed
@@ -679,9 +725,29 @@ export default function Hiring() {
                                     Invite Sent
                                   </Badge>
                                 )}
+                                {app.interview_status === 'reschedule_requested' && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                    New time requested
+                                  </Badge>
+                                )}
                               </div>
                             )}
-                            
+                            {app.status === 'interviewing' && (!app.interview_date || app.interview_status === 'reschedule_requested') && (
+                              <div className="mt-1.5">
+                                <Button
+                                  size="sm"
+                                  className="h-9 min-h-[36px] text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openScheduleForApp(app, !!app.interview_date);
+                                  }}
+                                >
+                                  <Calendar className="h-3.5 w-3.5 mr-1" />
+                                  Send interview invite
+                                </Button>
+                              </div>
+                            )}
+
                             {/* Rejection email info when rejected */}
                             {app.status === 'rejected' && (
                               <div className="flex items-center gap-2 mt-1 text-xs">
@@ -804,9 +870,19 @@ export default function Hiring() {
               updateStatusMutation.mutate({ id, status });
             }
           }}
-          onScheduleInterview={(id) => {
-            const app = applications?.find((a: any) => a.id === id);
-            openScheduleFor({ id, full_name: app?.full_name || 'this applicant' });
+          onScheduleInterview={async (id, opts) => {
+            let app: any = applications?.find((a: any) => a.id === id);
+            if (opts?.reschedule) {
+              // Pull fresh interview fields so the dialog prefills what's stored now.
+              const { data } = await supabase
+                .from('job_applications')
+                .select('id, full_name, interview_date, interview_time, interview_modality, interview_meeting_url' as any)
+                .eq('id', id)
+                .maybeSingle();
+              if (data) app = data;
+            }
+            if (!app) app = { id, full_name: 'this applicant' };
+            openScheduleForApp(app, !!opts?.reschedule);
           }}
         />
 
@@ -824,22 +900,45 @@ export default function Hiring() {
         {/* Interview Schedule Dialog (from status change or profile button) */}
         <InterviewScheduleDialog
           open={!!applicantToSchedule}
-          onOpenChange={(o) => { if (!o) setApplicantToSchedule(null); }}
-          applicantName={applicantToSchedule?.full_name || ''}
+          onOpenChange={(o) => { if (!o) setScheduleQueue([]); }}
+          applicantName={
+            applicantToSchedule
+              ? `${applicantToSchedule.full_name}${scheduleQueue.length > 1 ? ` (${scheduleQueue.length} left)` : ''}`
+              : ''
+          }
           applicationId={applicantToSchedule?.id}
-          onSchedule={async (date, time) => {
+          isRescheduling={!!applicantToSchedule?.reschedule}
+          initial={applicantToSchedule?.initial || null}
+          key={applicantToSchedule?.id || 'none'}
+          onSchedule={async (date, time, details) => {
             if (!applicantToSchedule || !user?.id) throw new Error('Not signed in');
             const id = applicantToSchedule.id;
             try {
-              await sendInterviewInvite({ applicationId: id, date, time, userId: user.id });
+              if (applicantToSchedule.reschedule) {
+                await cancelInterview({ applicationId: id, userId: user.id });
+              }
+              await sendInterviewInvite({
+                applicationId: id,
+                date,
+                time,
+                userId: user.id,
+                modality: details.modality,
+                meetingUrl: details.meetingUrl,
+              });
             } catch (err: any) {
               console.error('Error scheduling interview:', err);
               toast.error(err?.message ? `Failed to schedule interview: ${err.message}` : 'Failed to schedule interview');
               throw err;
             }
-            toast.success('Interview invitation sent!');
+            toast.success(applicantToSchedule.reschedule ? 'Interview rescheduled!' : 'Interview invitation sent!');
             queryClient.invalidateQueries({ queryKey: ['job-applications'] });
             queryClient.invalidateQueries({ queryKey: ['application-detail', id] });
+            queryClient.invalidateQueries({ queryKey: ['interviews'] });
+            // Advance a bulk queue: next applicant opens in a fresh dialog.
+            if (scheduleQueue.length > 1) {
+              const rest = scheduleQueue.slice(1);
+              setTimeout(() => setScheduleQueue(rest), 150);
+            }
           }}
         />
 
