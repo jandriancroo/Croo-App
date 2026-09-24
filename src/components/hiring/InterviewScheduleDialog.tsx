@@ -79,10 +79,10 @@ export function InterviewScheduleDialog({
 
   const urlValid = modality !== 'virtual' || isValidMeetingUrl(meetingUrl);
 
-  // Time slots from 8 AM to 6 PM
-  const timeSlots = Array.from({ length: 21 }, (_, i) => {
-    const hour = Math.floor(i / 2) + 8;
-    const minute = i % 2 === 0 ? '00' : '30';
+  // Time slots from 8 AM to 6 PM, every 15 min
+  const timeSlots = Array.from({ length: 41 }, (_, i) => {
+    const hour = Math.floor(i / 4) + 8;
+    const minute = ['00', '15', '30', '45'][i % 4];
     const time24 = `${hour.toString().padStart(2, '0')}:${minute}`;
     const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
     const ampm = hour >= 12 ? 'PM' : 'AM';
