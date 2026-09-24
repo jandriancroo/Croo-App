@@ -202,9 +202,9 @@ export function AvailabilityDialogs({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Request</AlertDialogTitle>
+            <AlertDialogTitle>Withdraw Request</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this time-off request? This action cannot be undone.
+              Withdraw this time-off request? It stays on record as withdrawn and can't be reopened. A new request is needed if the time off is still wanted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -213,7 +213,7 @@ export function AvailabilityDialogs({
               onClick={handleDeleteRequest}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {processing ? "Deleting..." : "Delete"}
+              {processing ? "Withdrawing..." : "Withdraw"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

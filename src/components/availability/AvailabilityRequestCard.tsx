@@ -56,6 +56,8 @@ export function AvailabilityRequestCard({
         ? "bg-primary text-primary-foreground"
         : request.status === "denied"
         ? "bg-destructive text-destructive-foreground"
+        : request.status === "withdrawn"
+        ? "border border-dashed border-input bg-muted text-muted-foreground line-through"
         : "border border-input bg-background hover:bg-accent"
     }`}>
       {statusLabel}
@@ -63,7 +65,15 @@ export function AvailabilityRequestCard({
     </div>
   );
 
-  const StatusDropdownItems = canApproveRequests ? (
+  const isWithdrawn = request.status === "withdrawn";
+  const withdrawnAt = (request as any).withdrawn_at as string | null | undefined;
+  const wasStatus = (request as any).status_before_withdraw as string | null | undefined;
+  const StatusDropdownItems = isWithdrawn ? (
+    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal max-w-[240px]">
+      Withdrawn{withdrawnAt ? ` ${new Date(withdrawnAt).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}
+      {wasStatus ? ` (was ${wasStatus})` : ""}. A new request is needed.
+    </DropdownMenuLabel>
+  ) : canApproveRequests ? (
     <>
       <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
         Set Status
@@ -96,7 +106,7 @@ export function AvailabilityRequestCard({
         className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
       >
         <Trash2 className="h-4 w-4" />
-        <span>Delete</span>
+        <span>Withdraw</span>
       </DropdownMenuItem>
     </>
   ) : (
@@ -107,7 +117,7 @@ export function AvailabilityRequestCard({
           className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
         >
           <Trash2 className="h-4 w-4" />
-          <span>Delete</span>
+          <span>Withdraw</span>
         </DropdownMenuItem>
       </>
     ) : null

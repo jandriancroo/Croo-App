@@ -22,11 +22,12 @@ import { useAvailabilityData } from "@/hooks/useAvailabilityData";
 
 export default function Availability() {
   const data = useAvailabilityData();
+  const activeRequests = data.requests.filter((r) => r.status !== "withdrawn");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const dayRequests = selectedDate
-    ? data.requests.filter((r) => expandDates(r).includes(selectedDate))
+    ? activeRequests.filter((r) => expandDates(r).includes(selectedDate))
     : [];
   const weekRequests = selectedWeek
     ? (() => {
@@ -37,7 +38,7 @@ export default function Availability() {
           days.push(dt.toISOString().slice(0, 10));
         }
         const daySet = new Set(days);
-        return data.requests.filter((r) => expandDates(r).some((ds) => daySet.has(ds)));
+        return activeRequests.filter((r) => expandDates(r).some((ds) => daySet.has(ds)));
       })()
     : [];
   const weekEndLabel = selectedWeek
@@ -133,6 +134,16 @@ export default function Availability() {
                     Hide past
                   </label>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="show-withdrawn"
+                    checked={data.showWithdrawn}
+                    onCheckedChange={(checked) => data.setShowWithdrawn(checked === true)}
+                  />
+                  <label htmlFor="show-withdrawn" className="text-sm cursor-pointer text-muted-foreground whitespace-nowrap">
+                    Show withdrawn
+                  </label>
+                </div>
                 <div className="flex-1 min-w-[120px]">
                   <Select value={data.filterStatus} onValueChange={data.setFilterStatus}>
                     <SelectTrigger>
@@ -143,6 +154,7 @@ export default function Availability() {
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="approved">Approved</SelectItem>
                       <SelectItem value="denied">Denied</SelectItem>
+                      <SelectItem value="withdrawn">Withdrawn</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -212,7 +224,7 @@ export default function Availability() {
           ) : (
             <>
               <AvailabilityCalendarView
-                requests={data.requests}
+                requests={activeRequests}
                 selectedDate={selectedDate}
                 onSelectDate={(d) => {
                   setSelectedDate(d);
