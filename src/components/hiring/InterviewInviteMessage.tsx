@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { CalendarCheck, Check, X, Loader2, CalendarX, RefreshCw, Video, Phone, MapPin, Copy, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import { DateTime } from 'luxon';
 import { cn } from '@/lib/utils';
 
 interface InterviewData {
@@ -50,7 +51,14 @@ export function InterviewInviteMessage({
   };
 
   const interviewDate = parseISO(data.date);
-  const isPast = new Date() > interviewDate;
+  // Compare against the actual interview start (date + time) in store-local
+  // Pacific time — not midnight of the interview day.
+  const interviewStart = DateTime.fromFormat(
+    `${data.date} ${(data.time || '23:59').slice(0, 5)}`,
+    'yyyy-MM-dd HH:mm',
+    { zone: 'America/Los_Angeles' },
+  );
+  const isPast = interviewStart.isValid ? DateTime.now() > interviewStart : false;
   const canModify = !isPast && data.status !== 'cancelled' && data.status !== 'declined';
   const modality = data.modality || 'in_person';
   let safeUrl: string | null = null;
