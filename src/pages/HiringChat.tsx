@@ -233,9 +233,40 @@ export default function HiringChat() {
       console.error('Error responding to interview:', err);
       toast.error(err?.message || 'Failed to respond to interview');
     } finally {
-      setRespondingToMessageId(null);
+    setRespondingToMessageId(null);
     }
   };
+
+  // Email deep links: Accept Interview / Schedule another time land here with
+  // ?action=accept or ?action=reschedule and fire the response once, on the
+  // newest pending (not-yet-past) interview invite. No-op if already answered.
+  const emailActionHandled = useRef(false);
+  useEffect(() => {
+    if (!conversation || messages.length === 0 || emailActionHandled.current) return;
+    const action = searchParams.get('action');
+    if (action !== 'accept' && action !== 'reschedule') return;
+
+    const invite = [...messages].reverse().find((m) => {
+      if (!m.content.startsWith('INTERVIEW_INVITE:')) return false;
+      try {
+        const d = JSON.parse(m.content.replace('INTERVIEW_INVITE:', ''));
+        if (d.status !== 'pending') return false;
+        const start = DateTime.fromFormat(
+          `${d.date} ${(d.time || '23:59').slice(0, 5)}`,
+          'yyyy-MM-dd HH:mm',
+          { zone: 'America/Los_Angeles' },
+        );
+        return start.isValid && DateTime.now() <= start;
+      } catch { return false; }
+    });
+    if (!invite) return;
+
+    emailActionHandled.current = true;
+    handleRespondToInterview(invite.id, action);
+    searchParams.delete('action');
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation, messages]);
 
   const handleSend = async () => {
     if (!newMessage.trim() || !conversation) return;
