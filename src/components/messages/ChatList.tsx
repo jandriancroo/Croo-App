@@ -343,6 +343,10 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     <button
       key={chat.id}
       onClick={() => onSelectChat(chat.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setLongPressChat(chat);
+      }}
       onTouchStart={(e) => handleTouchStart(chat, e)}
       onTouchEnd={() => handleTouchEnd(chat)}
       onTouchMove={handleTouchMove}
