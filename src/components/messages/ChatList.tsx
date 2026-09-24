@@ -291,22 +291,34 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     </div>
   );
 
-  const sortedChats = [
-    ...pinnedChats.sort((a, b) => {
-      const aIsShifts = a.title === 'Shift Marketplace' ? 1 : 0;
-      const bIsShifts = b.title === 'Shift Marketplace' ? 1 : 0;
-      return aIsShifts - bIsShifts;
-    }),
-    ...unpinnedChats,
-  ];
+  const sortedPinned = pinnedChats.sort((a, b) => {
+    const aIsShifts = a.title === 'Shift Marketplace' ? 1 : 0;
+    const bIsShifts = b.title === 'Shift Marketplace' ? 1 : 0;
+    return aIsShifts - bIsShifts;
+  });
 
   return (
     <>
       <div className="overflow-y-auto flex-1 pb-16">
+        {sortedPinned.length > 0 && (
+          <div className="mb-1">
+            <div className="flex items-center gap-1.5 px-4 py-1.5 bg-yellow-500/10 border-y border-yellow-500/20">
+              <Pin className="h-3 w-3 text-yellow-600 dark:text-yellow-500" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-yellow-700 dark:text-yellow-500">
+                Pinned
+              </span>
+              <span className="text-[11px] text-muted-foreground">({sortedPinned.length})</span>
+            </div>
+            <div className="divide-y divide-border/50 px-1">
+              {sortedPinned.map(renderChat)}
+            </div>
+          </div>
+        )}
         <div className="divide-y divide-border/50 px-1">
-          {sortedChats.map(renderChat)}
+          {unpinnedChats.map(renderChat)}
         </div>
       </div>
+
 
       {/* Long-press dialog for mobile pin actions */}
       <Dialog open={!!longPressChat} onOpenChange={(open) => !open && setLongPressChat(null)}>
