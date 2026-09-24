@@ -156,3 +156,6 @@ verify_jwt = false
 
 [functions.whos-out-email]
 verify_jwt = true
+
+[functions.hiring-interview-response]
+verify_jwt = false
