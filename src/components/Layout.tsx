@@ -28,6 +28,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { AiAssistantBubble } from '@/components/ai/AiAssistantBubble';
+import { TheoOrb } from '@/components/dock/TheoOrb';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
@@ -988,6 +989,23 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
             {/* Right side items */}
             <div className="flex items-center gap-1 px-2">
+
+              {/* Ask Theo — shift managers and above */}
+              {!roleLoading && isShiftManager && (
+                <button
+                  onClick={() => window.dispatchEvent(new Event('open-theo'))}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground"
+                  aria-label="Ask Theo"
+                >
+                  <span className="relative hidden md:flex items-center rounded-full bg-white text-foreground text-xs font-semibold px-2.5 py-1 shadow-sm">
+                    Ask Theo
+                    <span className="absolute -right-1 top-1/2 -translate-y-1/2 w-0 h-0 border-y-4 border-y-transparent border-l-4 border-l-white" />
+                  </span>
+                  <span className="h-7 w-7 rounded-full bg-white/15 ring-2 ring-white/30 flex items-center justify-center animate-pulse">
+                    <TheoOrb size={22} className="text-white pointer-events-none" />
+                  </span>
+                </button>
+              )}
 
               {/* Location Selector */}
               {(currentLocation || location.pathname === '/org-dash') && (

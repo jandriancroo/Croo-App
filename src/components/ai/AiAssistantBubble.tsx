@@ -14,44 +14,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { openDockForTour } from '@/components/dock/dockBridge';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useTheoUnread } from '@/hooks/useTheoUnread';
 
-// Teaching tab: shows for 7 days after first mount, then disappears.
-const TEACH_KEY = 'theo-tab-teaching-v1';
-function useTheoTeachingTab() {
-  const [visible, setVisible] = useState(() => {
-    try {
-      const raw = localStorage.getItem(TEACH_KEY);
-      if (raw === 'dismissed') return false;
-      const firstSeen = raw ? parseInt(raw, 10) : NaN;
-      if (!firstSeen || Number.isNaN(firstSeen)) {
-        const now = Date.now();
-        localStorage.setItem(TEACH_KEY, String(now));
-        return true;
-      }
-      const days = (Date.now() - firstSeen) / (1000 * 60 * 60 * 24);
-      return days < 7;
-    } catch { return true; }
-  });
-  const dismiss = useCallback(() => {
-    try { localStorage.setItem(TEACH_KEY, 'dismissed'); } catch { /* ignore */ }
-    setVisible(false);
-  }, []);
-  return { visible, dismiss };
-}
-
-/* Clean 4-point star — no tiny accent dots */
-/* Clean 4-point star */
-const Star4 = ({ size }: { size: number }) => (
-  <svg width={size * 2} height={size * 2} viewBox="0 0 20 20" fill="none">
-    <path
-      d="M10,0 Q10.8,8 20,10 Q10.8,12 10,20 Q9.2,12 0,10 Q9.2,8 10,0Z"
-      fill="white"
-    />
-  </svg>
-);
 
 interface Message {
   role: 'user' | 'assistant';
@@ -71,8 +35,6 @@ export function AiAssistantBubble() {
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const isMobile = useIsMobile();
-  const { visible: teachingVisible, dismiss: dismissTeaching } = useTheoTeachingTab();
   const { count: theoUnreadCount, latestId: theoUnreadLatestId, markRead: markTheoRead } = useTheoUnread();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -380,56 +342,6 @@ export function AiAssistantBubble() {
 
   return createPortal(
     <>
-      {/* ── Teaching Tab (right edge) — points users to Theo's new home in the
-            manager dash. Auto-disappears 7 days after first sight. No manual
-            dismiss so it can't be accidentally swiped away. ── */}
-      <AnimatePresence initial={false}>
-        {!open && !isMobile && (
-          <motion.button
-            type="button"
-            initial={{ x: 80 }}
-            animate={{ x: 0 }}
-            exit={{ x: 80 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            onClick={() => {
-              if (isMobile) {
-                // Mobile: nudge the user toward the dock where Theo now lives.
-                openDockForTour();
-              } else {
-                // Tablet/desktop: there's no dock — open Theo directly.
-                setOpen(true);
-              }
-            }}
-            className="fixed right-0 z-[55] bg-accent text-white flex flex-col items-center justify-center gap-1 px-2 py-3 border-l border-y border-white/15"
-            style={{
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 44,
-              minHeight: 130,
-              borderTopLeftRadius: 12,
-              borderBottomLeftRadius: 12,
-              boxShadow: '-6px 0 20px rgba(0,0,0,0.3), -2px 0 6px rgba(0,0,0,0.15)',
-            }}
-            aria-label={isMobile ? 'Theo moved — open the manager dash to find him' : 'Ask Theo'}
-          >
-            <Star4 size={4} />
-            <Star4 size={7} />
-            <span
-              className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/95 mt-1"
-              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-            >
-              {isMobile ? 'Theo moved ↓' : 'Ask Theo'}
-            </span>
-            {(hasUnreadBriefing || theoUnreadCount > 0) && (
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse ring-2 ring-white/40" />
-            )}
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-
-
-
       {/* ── Backdrop + Panel ── */}
       <AnimatePresence>
         {open && (
