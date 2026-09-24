@@ -570,6 +570,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
         </div>
         <div style="text-align:center;margin:24px 0;">
           <a href="#" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a>
+          <div style="margin-top:14px;"><a href="#" style="color:#999;font-size:13px;text-decoration:underline;">Schedule another time</a></div>
         </div>
       </td></tr>
       ${getEmailFooter()}`);
@@ -636,7 +637,10 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
           <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p>
           ${modalityBlock}
         </div>
-        <div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a></div>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="${chatUrl}?action=accept" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a>
+          <div style="margin-top:14px;"><a href="${chatUrl}?action=reschedule" style="color:#999;font-size:13px;text-decoration:underline;">Schedule another time</a></div>
+        </div>
       </td></tr>
       ${getEmailFooter()}`),
     source: 'interview_invite',
