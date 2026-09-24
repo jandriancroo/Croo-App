@@ -11,11 +11,29 @@ import { useAuth } from '@/lib/auth';
 import { format, addDays } from 'date-fns';
 import { Loader2, CalendarCheck, Clock, AlertCircle, CheckCircle2, RefreshCw, Users, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { MapPin, Video, Phone } from 'lucide-react';
+import { isValidMeetingUrl, type InterviewModality } from '@/lib/hiring/interviewActions';
+
+export interface InterviewScheduleDetails {
+  modality: InterviewModality;
+  meetingUrl: string | null;
+}
+
+export interface InterviewScheduleInitial {
+  date?: string | null; // yyyy-MM-dd
+  time?: string | null; // HH:mm[:ss]
+  modality?: InterviewModality | null;
+  meetingUrl?: string | null;
+}
 
 interface InterviewScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSchedule: (date: Date, time: string) => Promise<void>;
+  onSchedule: (date: Date, time: string, details: InterviewScheduleDetails) => Promise<void>;
+  initial?: InterviewScheduleInitial | null;
   applicantName: string;
   isRescheduling?: boolean;
   applicationId?: string;
@@ -27,7 +45,8 @@ export function InterviewScheduleDialog({
   onSchedule,
   applicantName,
   isRescheduling = false,
-  applicationId
+  applicationId,
+  initial,
 }: InterviewScheduleDialogProps) {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(addDays(new Date(), 1));
@@ -37,6 +56,28 @@ export function InterviewScheduleDialog({
   const [locationId, setLocationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingSchedule, setCheckingSchedule] = useState(false);
+  const [modality, setModality] = useState<InterviewModality>('in_person');
+  const [meetingUrl, setMeetingUrl] = useState('');
+  const [urlTouched, setUrlTouched] = useState(false);
+
+  // Reset / prefill each time the dialog opens
+  useEffect(() => {
+    if (!open) return;
+    if (initial?.date) {
+      const [y, m, d] = initial.date.split('-').map(Number);
+      const prefilled = new Date(y, m - 1, d, 12);
+      setSelectedDate(prefilled < new Date(new Date().setHours(0, 0, 0, 0)) ? addDays(new Date(), 1) : prefilled);
+    } else {
+      setSelectedDate(addDays(new Date(), 1));
+    }
+    setSelectedTime(initial?.time ? initial.time.slice(0, 5) : '10:00');
+    setModality(initial?.modality || 'in_person');
+    setMeetingUrl(initial?.meetingUrl || '');
+    setUrlTouched(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const urlValid = modality !== 'virtual' || isValidMeetingUrl(meetingUrl);
 
   // Time slots from 8 AM to 6 PM
   const timeSlots = Array.from({ length: 21 }, (_, i) => {
@@ -149,9 +190,13 @@ export function InterviewScheduleDialog({
 
   const handleSchedule = async () => {
     if (!selectedDate || !selectedTime || loading) return;
+    if (!urlValid) { setUrlTouched(true); return; }
     setLoading(true);
     try {
-      await onSchedule(selectedDate, selectedTime);
+      await onSchedule(selectedDate, selectedTime, {
+        modality,
+        meetingUrl: modality === 'virtual' ? meetingUrl.trim() : null,
+      });
       onOpenChange(false);
     } catch {
       // Caller shows the error toast; keep the dialog open so the manager can retry.
@@ -193,6 +238,67 @@ export function InterviewScheduleDialog({
           <p className="text-sm text-muted-foreground">
             {isRescheduling ? 'Reschedule' : 'Schedule'} an interview with <span className="font-medium text-foreground">{applicantName}</span>
           </p>
+
+          {/* Interview type */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Interview type</Label>
+            <RadioGroup
+              value={modality}
+              onValueChange={(v) => setModality(v as InterviewModality)}
+              className="grid grid-cols-3 gap-2"
+            >
+              {([
+                { v: 'in_person', label: 'In person', Icon: MapPin },
+                { v: 'virtual', label: 'Virtual', Icon: Video },
+                { v: 'phone', label: 'Phone', Icon: Phone },
+              ] as const).map(({ v, label, Icon }) => (
+                <Label
+                  key={v}
+                  htmlFor={`modality-${v}`}
+                  className={cn(
+                    'flex min-h-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-md border px-2 text-sm',
+                    modality === v ? 'border-primary bg-primary/10 text-primary' : 'border-border'
+                  )}
+                >
+                  <RadioGroupItem id={`modality-${v}`} value={v} className="sr-only" />
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </Label>
+              ))}
+            </RadioGroup>
+
+            {modality === 'virtual' && (
+              <div className="space-y-1.5 pt-1">
+                <Label htmlFor="meeting-url" className="text-sm">Meeting link *</Label>
+                <Input
+                  id="meeting-url"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://zoom.us/j/..."
+                  value={meetingUrl}
+                  onChange={(e) => setMeetingUrl(e.target.value)}
+                  onBlur={() => setUrlTouched(true)}
+                  aria-invalid={urlTouched && !urlValid}
+                />
+                {urlTouched && !urlValid && (
+                  <p className="text-xs text-destructive">Paste a full link starting with https://</p>
+                )}
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p>Create the meeting in Zoom, Google Meet, or Teams, then paste the join link here. It goes on the invite email and calendar.</p>
+                  <p>Zoom: New Meeting → Copy Invitation / Copy Link</p>
+                  <p>Google Meet: Calendar → Add Google Meet → copy meet.google.com link</p>
+                  <p>Teams: Calendar → New meeting → Copy meeting link</p>
+                  <p>Prefer a lasting room (Zoom PMI / recurring Meet) if you might reschedule.</p>
+                </div>
+              </div>
+            )}
+
+            {modality === 'phone' && (
+              <p className="text-xs text-muted-foreground">
+                You'll call the applicant. Their invite just says a manager will reach out by phone.
+              </p>
+            )}
+          </div>
 
           {/* Calendar */}
           <div className="flex justify-center">
@@ -306,6 +412,8 @@ export function InterviewScheduleDialog({
               </p>
               <p className="text-primary font-medium">
                 {timeSlots.find(t => t.value === selectedTime)?.label}
+                {' · '}
+                {modality === 'virtual' ? 'Virtual' : modality === 'phone' ? 'Phone call' : 'In person'}
               </p>
             </div>
           )}
@@ -317,7 +425,7 @@ export function InterviewScheduleDialog({
           </Button>
           <Button 
             onClick={handleSchedule} 
-            disabled={!selectedDate || !selectedTime || loading}
+            disabled={!selectedDate || !selectedTime || loading || (modality === 'virtual' && !urlValid)}
           >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isRescheduling ? 'Send New Invitation' : 'Send Invitation'}
