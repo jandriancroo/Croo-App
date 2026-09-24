@@ -294,11 +294,14 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
     if (!conversationId) return;
     setSending(true);
     try {
-      const { error } = await supabase
+      const { data: deletedConversation, error } = await supabase
         .from('hiring_conversations')
         .delete()
-        .eq('id', conversationId);
+        .eq('id', conversationId)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (!deletedConversation) throw new Error('Conversation was not deleted');
       toast.success('Conversation deleted');
       setShowDeleteDialog(false);
       onConversationDeleted?.();
