@@ -306,7 +306,7 @@ export function InterviewScheduleDialog({
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              disabled={(date) => date < new Date()}
+              disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
               className="rounded-md border pointer-events-auto"
             />
           </div>
@@ -395,7 +395,7 @@ export function InterviewScheduleDialog({
                 <SelectValue placeholder="Select time" />
               </SelectTrigger>
               <SelectContent className="max-h-[200px]">
-                {timeSlots.map(slot => (
+                {timeSlots.filter(slot => { if (!selectedDate) return true; const n = new Date(); if (selectedDate.toDateString() !== n.toDateString()) return true; const [h,m] = slot.value.split(':').map(Number); return h*60+m > n.getHours()*60+n.getMinutes(); }).map(slot => (
                   <SelectItem key={slot.value} value={slot.value}>
                     {slot.label}
                   </SelectItem>
