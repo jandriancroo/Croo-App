@@ -177,6 +177,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
             <HiringChatPanel
               applicationId={selectedHiringConversation.application_id}
               applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
+              onConversationDeleted={() => setSelectedHiringConversation(null)}
             />
           </div>
         </>

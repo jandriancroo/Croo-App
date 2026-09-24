@@ -2,6 +2,7 @@
 
 ## In progress
 - [ ] Per-till expected cash fix: fetch individual QU till rows (AM/PM), match to the count instead of summing the day; keep live fallbacks; never $0.
+- [x] Hiring inbox parity: DM-style preview/date/unread rows and delete inside the open conversation.
 
 ## Open
 - [ ] Overnight fill-in: after QU reconciles the closing till, fill expected cash for counts saved with no/blank expected.
