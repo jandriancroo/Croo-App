@@ -1,19 +1,24 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarCheck, Check, X, Loader2, CalendarX, RefreshCw } from 'lucide-react';
+import { CalendarCheck, Check, X, Loader2, CalendarX, RefreshCw, Video, Phone, MapPin, Copy, CalendarClock } from 'lucide-react';
+import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface InterviewData {
   date: string;
   time: string;
-  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'reschedule_requested';
+  modality?: 'in_person' | 'virtual' | 'phone';
+  meeting_url?: string;
 }
+
+export type InterviewResponse = 'accept' | 'decline' | 'reschedule';
 
 interface InterviewInviteMessageProps {
   content: string;
   isApplicantView: boolean;
-  onRespond?: (accepted: boolean) => void;
+  onRespond?: (response: InterviewResponse) => void;
   onCancel?: () => void;
   onReschedule?: () => void;
   responding?: boolean;
@@ -47,6 +52,15 @@ export function InterviewInviteMessage({
   const interviewDate = parseISO(data.date);
   const isPast = new Date() > interviewDate;
   const canModify = !isPast && data.status !== 'cancelled' && data.status !== 'declined';
+  const modality = data.modality || 'in_person';
+  let safeUrl: string | null = null;
+  if (modality === 'virtual' && data.meeting_url) {
+    try {
+      const u = new URL(data.meeting_url);
+      if (u.protocol === 'https:') safeUrl = u.toString();
+    } catch { /* ignore */ }
+  }
+  const showJoin = safeUrl && data.status !== 'cancelled' && data.status !== 'declined';
 
   return (
     <div className="space-y-3">
@@ -68,15 +82,42 @@ export function InterviewInviteMessage({
           <p className="text-lg font-bold text-primary">
             {formatTime12h(data.time)}
           </p>
+          <p className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            {modality === 'virtual' ? <Video className="h-3 w-3" /> : modality === 'phone' ? <Phone className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+            {modality === 'virtual'
+              ? 'Virtual interview'
+              : modality === 'phone'
+                ? (isApplicantView ? 'Phone interview — a manager will reach out by phone' : 'Phone — you call the applicant')
+                : 'In person'}
+          </p>
         </div>
 
-        {data.status === 'pending' && !isPast && isApplicantView && onRespond && (
-          <div className="flex gap-2 pt-2">
+        {showJoin && (
+          <div className="flex gap-2">
+            <Button asChild size="sm" className="flex-1 min-h-[40px]">
+              <a href={safeUrl!} target="_blank" rel="noopener noreferrer">
+                <Video className="h-4 w-4 mr-1" /> Join meeting
+              </a>
+            </Button>
             <Button
               size="sm"
               variant="outline"
-              className="flex-1 border-red-500/30 text-red-600 hover:bg-red-500/10"
-              onClick={() => onRespond(false)}
+              className="min-h-[40px]"
+              onClick={() => { navigator.clipboard.writeText(safeUrl!); toast.success('Meeting link copied'); }}
+              aria-label="Copy meeting link"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {data.status === 'pending' && !isPast && isApplicantView && onRespond && (
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-500/30 text-red-600 hover:bg-red-500/10"
+              onClick={() => onRespond('decline')}
               disabled={responding}
             >
               {responding ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4 mr-1" />}
@@ -84,12 +125,22 @@ export function InterviewInviteMessage({
             </Button>
             <Button
               size="sm"
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              onClick={() => onRespond(true)}
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => onRespond('accept')}
               disabled={responding}
             >
               {responding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
               Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="col-span-2"
+              onClick={() => onRespond('reschedule')}
+              disabled={responding}
+            >
+              <CalendarClock className="h-4 w-4 mr-1" />
+              Ask for a different time
             </Button>
           </div>
         )}
@@ -105,6 +156,13 @@ export function InterviewInviteMessage({
           <Badge className="w-full justify-center bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30">
             <X className="h-3 w-3 mr-1" />
             Declined
+          </Badge>
+        )}
+
+        {data.status === 'reschedule_requested' && (
+          <Badge className="w-full justify-center bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30">
+            <CalendarClock className="h-3 w-3 mr-1" />
+            New time requested
           </Badge>
         )}
 
