@@ -14,8 +14,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { openDockForTour } from '@/components/dock/dockBridge';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useTheoUnread } from '@/hooks/useTheoUnread';
 
 
@@ -37,8 +35,6 @@ export function AiAssistantBubble() {
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const isMobile = useIsMobile();
-  const { visible: teachingVisible, dismiss: dismissTeaching } = useTheoTeachingTab();
   const { count: theoUnreadCount, latestId: theoUnreadLatestId, markRead: markTheoRead } = useTheoUnread();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
