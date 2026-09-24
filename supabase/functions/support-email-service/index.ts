@@ -553,7 +553,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 
   if (userIds.length > 0) {
     const [{ data: profiles }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("id, email, full_name").in("id", userIds),
+      supabase.from("profiles").select("id, email, full_name").in("id", userIds).eq("is_active", true),
       supabase.from("user_roles").select("user_id, role").in("user_id", userIds),
     ]);
     const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
@@ -1274,7 +1274,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
 
   if (userIds.length > 0) {
     const [{ data: profiles }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("id, email, full_name").in("id", userIds),
+      supabase.from("profiles").select("id, email, full_name").in("id", userIds).eq("is_active", true),
       supabase.from("user_roles").select("user_id, role").in("user_id", userIds),
     ]);
     const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));

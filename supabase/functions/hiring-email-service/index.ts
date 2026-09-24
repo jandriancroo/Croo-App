@@ -806,7 +806,7 @@ async function notifyEmployeeJoined(payload: any): Promise<Response> {
     return new Response(JSON.stringify({ success: true, message: "No managers found" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  const { data: managerProfiles } = await supabase.from("profiles").select("id, email, full_name").in("id", managerIds);
+  const { data: managerProfiles } = await supabase.from("profiles").select("id, email, full_name").in("id", managerIds).eq("is_active", true);
   const managerEmails = [...new Set((managerProfiles || []).map(p => p.email).filter(Boolean))] as string[];
 
   if (managerEmails.length === 0) {
