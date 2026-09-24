@@ -771,9 +771,12 @@ export type Database = {
           start_date: string
           start_time: string | null
           status: string
+          status_before_withdraw: string | null
           time_scope: string
           updated_at: string
           user_id: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
         }
         Insert: {
           created_at?: string
@@ -792,9 +795,12 @@ export type Database = {
           start_date: string
           start_time?: string | null
           status?: string
+          status_before_withdraw?: string | null
           time_scope: string
           updated_at?: string
           user_id: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
         }
         Update: {
           created_at?: string
@@ -813,9 +819,12 @@ export type Database = {
           start_date?: string
           start_time?: string | null
           status?: string
+          status_before_withdraw?: string | null
           time_scope?: string
           updated_at?: string
           user_id?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
         }
         Relationships: [
           {
@@ -842,6 +851,13 @@ export type Database = {
           {
             foreignKeyName: "availability_requests_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_requests_withdrawn_by_fkey"
+            columns: ["withdrawn_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -13853,6 +13869,10 @@ export type Database = {
         Returns: boolean
       }
       validate_6_digit_pin: { Args: { p_pin: string }; Returns: string }
+      withdraw_availability_request: {
+        Args: { _request_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
