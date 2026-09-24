@@ -35,7 +35,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
     showHiringTab, showSupportTab,
     chats, selectedChatId, setSelectedChatId,
     isNewChatOpen, setIsNewChatOpen,
-    loading,
+    loading, roleLoading,
     selectedHiringConversation, setSelectedHiringConversation,
     pendingHiringApplicationId, setPendingHiringApplicationId,
     fetchChats, handleTogglePin,

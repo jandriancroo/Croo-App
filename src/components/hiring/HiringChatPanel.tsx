@@ -10,7 +10,8 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { InterviewScheduleDialog } from './InterviewScheduleDialog';
 import { InterviewInviteMessage } from './InterviewInviteMessage';
-import { ensureHiringConversation, sendInterviewInvite } from '@/lib/hiring/interviewActions';
+import { ensureHiringConversation, sendInterviewInvite, cancelInterview } from '@/lib/hiring/interviewActions';
+import type { InterviewScheduleDetails } from './InterviewScheduleDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -187,15 +188,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         .eq('id', user.id)
         .single();
 
-      // Send email notification to applicant
-      supabase.functions.invoke('notify-hiring-message', {
-        body: {
-          conversationId,
-          messageContent,
-          senderName: senderProfile?.full_name || 'Hiring Team'
-        }
-      }).catch(err => console.error('Failed to send email notification:', err));
-
+      // Chat is push-only — no per-message email to the applicant (comms policy).
       // Send push notification to applicant (if they have PWA installed)
       supabase.functions.invoke('hiring-email-service', {
         body: {
@@ -248,7 +241,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleScheduleInterview = async (date: Date, time: string) => {
+  const handleScheduleInterview = async (date: Date, time: string, details: InterviewScheduleDetails) => {
     if (!conversationId || !user) return;
 
     setSending(true);
@@ -258,7 +251,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         await cancelInterviewInternal(false);
       }
 
-      await sendInterviewInvite({ applicationId, date, time, userId: user.id });
+      await sendInterviewInvite({ applicationId, date, time, userId: user.id, modality: details.modality, meetingUrl: details.meetingUrl });
 
       toast.success(isRescheduling ? 'Interview rescheduled!' : 'Interview invitation sent!');
       setIsRescheduling(false);
@@ -272,42 +265,8 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
   };
 
   const cancelInterviewInternal = async (sendMessage = true) => {
-    if (!conversationId || !user) return;
-
-    // Find the latest pending/accepted interview message and update it
-    const latestInterviewMsg = [...messages].reverse().find(m => 
-      m.content.startsWith('INTERVIEW_INVITE:') && 
-      !m.content.includes('"status":"cancelled"') &&
-      !m.content.includes('"status":"declined"')
-    );
-
-    if (latestInterviewMsg && sendMessage) {
-      // Parse and update status
-      const jsonStr = latestInterviewMsg.content.replace('INTERVIEW_INVITE:', '');
-      const data = JSON.parse(jsonStr);
-      data.status = 'cancelled';
-
-      // Send cancellation message
-      await supabase
-        .from('hiring_messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_type: 'staff',
-          sender_id: user.id,
-          content: `INTERVIEW_INVITE:${JSON.stringify(data)}`
-        });
-    }
-
-    // Clear interview from application
-    await supabase
-      .from('job_applications')
-      .update({
-        interview_date: null,
-        interview_time: null,
-        interview_status: null,
-        status: 'pending'
-      })
-      .eq('id', applicationId);
+    if (!user) return;
+    await cancelInterview({ applicationId, userId: user.id, postMessage: sendMessage });
   };
 
   const handleCancelInterview = async () => {
@@ -462,6 +421,14 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         applicantName={applicantName}
         isRescheduling={isRescheduling}
         applicationId={applicationId}
+        initial={isRescheduling ? (() => {
+          const latest = [...messages].reverse().find(m => m.content.startsWith('INTERVIEW_INVITE:'));
+          if (!latest) return null;
+          try {
+            const d = JSON.parse(latest.content.replace('INTERVIEW_INVITE:', ''));
+            return { date: d.date, time: d.time, modality: d.modality || 'in_person', meetingUrl: d.meeting_url || null };
+          } catch { return null; }
+        })() : null}
       />
 
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>

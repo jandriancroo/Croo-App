@@ -1,6 +1,24 @@
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
+export type InterviewModality = 'in_person' | 'virtual' | 'phone';
+
+export const MODALITY_LABEL: Record<InterviewModality, string> = {
+  in_person: 'In person',
+  virtual: 'Virtual',
+  phone: 'Phone',
+};
+
+export function isValidMeetingUrl(v: string | null | undefined): boolean {
+  if (!v) return false;
+  try {
+    const u = new URL(v.trim());
+    return u.protocol === 'https:' && !!u.hostname;
+  } catch {
+    return false;
+  }
+}
+
 export interface HiringConversationRow {
   id: string;
   access_token: string | null;
@@ -42,12 +60,20 @@ export async function sendInterviewInvite({
   date,
   time,
   userId,
+  modality = 'in_person',
+  meetingUrl = null,
 }: {
   applicationId: string;
   date: Date;
   time: string;
   userId: string;
+  modality?: InterviewModality;
+  meetingUrl?: string | null;
 }): Promise<void> {
+  const url = modality === 'virtual' ? (meetingUrl || '').trim() : '';
+  if (modality === 'virtual' && !isValidMeetingUrl(url)) {
+    throw new Error('A valid https meeting link is required for a virtual interview');
+  }
   const conversation = await ensureHiringConversation(applicationId);
   const conversationId = conversation.id;
 
@@ -55,6 +81,8 @@ export async function sendInterviewInvite({
     date: format(date, 'yyyy-MM-dd'),
     time,
     status: 'pending',
+    modality,
+    ...(url ? { meeting_url: url } : {}),
   };
 
   const { error: msgError } = await supabase.from('hiring_messages').insert({
@@ -71,8 +99,10 @@ export async function sendInterviewInvite({
       interview_date: interviewData.date,
       interview_time: time,
       interview_status: 'pending',
+      interview_modality: modality,
+      interview_meeting_url: url || null,
       status: 'interviewing',
-    })
+    } as any)
     .eq('id', applicationId)
     .select('location:locations(name, address)')
     .single();
@@ -97,9 +127,76 @@ export async function sendInterviewInvite({
         locationName: location?.name || 'TBD',
         locationAddress: location?.address,
         scheduledByName: senderProfile?.full_name || 'Hiring Team',
+        modality,
+        meetingUrl: url || null,
       },
     })
     .then(({ error }) => {
       if (error) console.error('Failed to send interview invite email:', error);
     });
+}
+
+/**
+ * Cancels the current interview. Marks the latest open invite bubble cancelled,
+ * clears the date/time/link on the application, sets interview_status
+ * 'cancelled' and leaves the applicant in Interviewing (never bounces to pending).
+ */
+export async function cancelInterview({
+  applicationId,
+  userId,
+  postMessage = true,
+}: {
+  applicationId: string;
+  userId: string;
+  postMessage?: boolean;
+}): Promise<void> {
+  if (postMessage) {
+    const { data: conv, error: convErr } = await supabase
+      .from('hiring_conversations')
+      .select('id')
+      .eq('application_id', applicationId)
+      .maybeSingle();
+    if (convErr) throw convErr;
+    if (conv) {
+      const { data: msgs, error: mErr } = await supabase
+        .from('hiring_messages')
+        .select('id, content')
+        .eq('conversation_id', conv.id)
+        .like('content', 'INTERVIEW_INVITE:%')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (mErr) throw mErr;
+      const latest = msgs?.[0];
+      if (latest) {
+        try {
+          const data = JSON.parse(latest.content.replace('INTERVIEW_INVITE:', ''));
+          if (data.status !== 'cancelled' && data.status !== 'declined') {
+            data.status = 'cancelled';
+            const { error: insErr } = await supabase.from('hiring_messages').insert({
+              conversation_id: conv.id,
+              sender_type: 'staff',
+              sender_id: userId,
+              content: `INTERVIEW_INVITE:${JSON.stringify(data)}`,
+            });
+            if (insErr) throw insErr;
+          }
+        } catch (e) {
+          if ((e as any)?.code) throw e;
+        }
+      }
+    }
+  }
+
+  const { error } = await supabase
+    .from('job_applications')
+    .update({
+      interview_date: null,
+      interview_time: null,
+      interview_status: 'cancelled',
+      interview_meeting_url: null,
+      interview_modality: null,
+      status: 'interviewing',
+    } as any)
+    .eq('id', applicationId);
+  if (error) throw error;
 }

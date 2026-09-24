@@ -16,6 +16,9 @@ import { HiringChatPreview } from './HiringChatPreview';
 import { ApplicantFlagSelector } from './ApplicantFlagSelector';
 import { ApplicantNotesSection } from './ApplicantNotesSection';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/lib/auth';
+import { cancelInterview } from '@/lib/hiring/interviewActions';
+import { InterviewJoinLink, InterviewModalityBadge } from './InterviewMeetingInfo';
 
 type ApplicationStatus = 'pending' | 'interested' | 'interviewing' | 'hired' | 'rejected';
 
@@ -34,11 +37,31 @@ interface ApplicantProfileProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
-  onScheduleInterview?: (applicationId: string) => void;
+  onScheduleInterview?: (applicationId: string, opts?: { reschedule?: boolean }) => void;
 }
 
 export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange, onScheduleInterview }: ApplicantProfileProps) {
   const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const handleCancelInterview = async () => {
+    if (!authUser?.id) return;
+    setCancelling(true);
+    try {
+      await cancelInterview({ applicationId, userId: authUser.id });
+      toast.success('Interview cancelled');
+      setConfirmCancel(false);
+      queryClient.invalidateQueries({ queryKey: ['application-detail', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['interviews'] });
+    } catch (err: any) {
+      console.error('Cancel interview failed:', err);
+      toast.error(err?.message ? `Failed to cancel: ${err.message}` : 'Failed to cancel interview');
+    } finally {
+      setCancelling(false);
+    }
+  };
   const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -137,12 +160,17 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
       pending: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
       accepted: 'bg-green-500/20 text-green-700 dark:text-green-300',
       declined: 'bg-red-500/20 text-red-700 dark:text-red-300',
+      reschedule_requested: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
       cancelled: 'bg-muted text-muted-foreground',
     };
 
     return (
       <Badge className={statusColors[application.interview_status] || 'bg-muted'}>
-        {application.interview_status === 'pending' ? 'Invite Sent' : application.interview_status}
+        {application.interview_status === 'pending'
+          ? 'Invite Sent'
+          : application.interview_status === 'reschedule_requested'
+            ? 'New time requested'
+            : application.interview_status}
       </Badge>
     );
   };
@@ -187,7 +215,7 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                   <Button
                     variant="outline"
                     className="min-h-[44px]"
-                    onClick={() => navigate(`/messages?tab=hiring&applicationId=${application.id}`)}
+                    onClick={() => onScheduleInterview?.(application.id, { reschedule: true })}
                   >
                     <CalendarPlus className="h-4 w-4 mr-2" />
                     Reschedule
@@ -214,7 +242,10 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                       <Calendar className="h-4 w-4 text-primary" />
                       <span className="text-sm font-medium">Interview Scheduled</span>
                     </div>
-                    {getInterviewStatusBadge()}
+                    <div className="flex items-center gap-2">
+                      <InterviewModalityBadge modality={(application as any).interview_modality} />
+                      {getInterviewStatusBadge()}
+                    </div>
                   </div>
                   <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                     <span>{format(new Date(application.interview_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}</span>
@@ -225,8 +256,55 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                       </span>
                     )}
                   </div>
+                  {(application as any).interview_modality === 'phone' && (
+                    <p className="mt-2 text-xs text-muted-foreground">Outbound call — call the applicant at the number below.</p>
+                  )}
+                  {(application as any).interview_modality === 'virtual' && (
+                    <div className="mt-3">
+                      <InterviewJoinLink url={(application as any).interview_meeting_url} />
+                    </div>
+                  )}
+                  <div className="mt-3 flex gap-2 border-t border-primary/10 pt-3">
+                    <Button
+                      variant="outline"
+                      className="min-h-[44px] flex-1"
+                      onClick={() => onScheduleInterview?.(application.id, { reschedule: true })}
+                    >
+                      <CalendarPlus className="h-4 w-4 mr-2" />
+                      Reschedule
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="min-h-[44px] flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                      onClick={() => setConfirmCancel(true)}
+                    >
+                      Cancel interview
+                    </Button>
+                  </div>
                 </div>
               )}
+
+              <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel this interview?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {application.full_name} will see it cancelled in the chat. They stay in Interviewing so you can send a new invite.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={cancelling}>Keep interview</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => { e.preventDefault(); handleCancelInterview(); }}
+                      disabled={cancelling}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {cancelling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Cancel interview
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               {/* Contact Info */}
               <Card>

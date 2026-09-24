@@ -37,7 +37,7 @@ export type ViewMode = 'all' | 'announcements' | 'hiring' | 'support';
 
 export function useMessagesData() {
   const { user } = useAuth();
-  const { isAdmin, isManager, isSuperAdmin } = useUserRole();
+  const { isAdmin, isManager, isSuperAdmin, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const showHiringTab = isAdmin || isManager;
@@ -426,6 +426,7 @@ export function useMessagesData() {
     setIsMarketplaceIconOpen,
     marketplaceChatId,
     loading,
+    roleLoading,
     showChatList,
     setShowChatList,
     searchQuery,

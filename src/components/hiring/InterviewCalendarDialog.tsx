@@ -1,3 +1,5 @@
+import { InterviewJoinLink, InterviewModalityBadge } from './InterviewMeetingInfo';
+import { toast } from 'sonner';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,10 +31,10 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from('job_applications')
-        .select('id, full_name, interview_date, interview_time, interview_status, location_id, location:locations(name)')
+        .select('id, full_name, interview_date, interview_time, interview_status, interview_modality, interview_meeting_url, location_id, location:locations(name)')
         .eq('organization_id', organizationId)
         .not('interview_date', 'is', null)
-        .in('interview_status', ['pending', 'accepted']);
+        .in('interview_status', ['pending', 'accepted', 'reschedule_requested']);
       
       return data || [];
     },
@@ -218,7 +220,24 @@ export function InterviewCalendarDialog({
                         <tbody className="divide-y">
                           {selectedDateInterviews.map(interview => (
                             <tr key={interview.id} className="hover:bg-muted/30">
-                              <td className="px-3 py-2 font-medium">{interview.full_name}</td>
+                              <td className="px-3 py-2 font-medium">
+                                <div>{interview.full_name}</div>
+                                <div className="mt-0.5 flex items-center gap-2 text-xs font-normal">
+                                  <InterviewModalityBadge modality={interview.interview_modality} />
+                                  {interview.interview_modality === 'virtual' && interview.interview_meeting_url && (
+                                    <>
+                                      <InterviewJoinLink url={interview.interview_meeting_url} compact />
+                                      <button
+                                        type="button"
+                                        className="text-muted-foreground hover:text-foreground"
+                                        onClick={() => { navigator.clipboard.writeText(interview.interview_meeting_url); toast.success('Meeting link copied'); }}
+                                      >
+                                        Copy
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
                               <td className="px-3 py-2 text-muted-foreground">
                                 {formatTime12h(interview.interview_time)}
                               </td>
@@ -232,7 +251,7 @@ export function InterviewCalendarDialog({
                                       : 'bg-amber-500/10 text-amber-600 border-amber-500/30'
                                   )}
                                 >
-                                  {interview.interview_status === 'accepted' ? 'Confirmed' : 'Invite Sent'}
+                                  {interview.interview_status === 'accepted' ? 'Confirmed' : interview.interview_status === 'reschedule_requested' ? 'New time asked' : 'Invite Sent'}
                                 </Badge>
                               </td>
                             </tr>
