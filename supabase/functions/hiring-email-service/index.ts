@@ -302,15 +302,20 @@ function getCTAButton(url: string, text: string): string {
   return `<div style="text-align:center;"><a href="${url}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">${text}</a></div>`;
 }
 
-function generateICS(date: string, time: string, orgName: string, locationName: string, locationAddress: string | undefined): string {
+function generateICS(date: string, time: string, orgName: string, locationName: string, locationAddress: string | undefined, modality: string = 'in_person', meetingUrl: string | null = null): string {
   const [year, month, day] = date.split('-').map(Number);
   const [hours, minutes] = time.split(':').map(Number);
   const startDate = new Date(Date.UTC(year, month - 1, day, hours + 8, minutes));
   const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
   const formatICSDate = (d: Date): string => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const uid = `interview-${date}-${time}-${Date.now()}@croohq.email`;
-  const location = locationAddress || locationName;
-  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//CrooHQ//Interview//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${formatICSDate(new Date())}\nDTSTART:${formatICSDate(startDate)}\nDTEND:${formatICSDate(endDate)}\nSUMMARY:Interview at ${orgName}\nLOCATION:${location}\nSTATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR`;
+  const icsEsc = (v: string) => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  const location = modality === 'virtual' && meetingUrl ? meetingUrl : modality === 'phone' ? 'Phone call' : (locationAddress || locationName);
+  const description = modality === 'virtual' && meetingUrl
+    ? `Virtual interview. Join: ${meetingUrl}`
+    : modality === 'phone' ? 'Phone interview. A manager will reach out by phone.' : '';
+  const extra = (description ? `DESCRIPTION:${icsEsc(description)}\n` : '') + (modality === 'virtual' && meetingUrl ? `URL:${meetingUrl}\n` : '');
+  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//CrooHQ//Interview//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${formatICSDate(new Date())}\nDTSTART:${formatICSDate(startDate)}\nDTEND:${formatICSDate(endDate)}\nSUMMARY:${icsEsc(`${modality === 'phone' ? 'Phone interview' : 'Interview'} with ${orgName}`)}\nLOCATION:${icsEsc(location)}\n${extra}STATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR`;
 }
 
 // ============ EMAIL ACTIONS ============
@@ -571,6 +576,13 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
     return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   const { conversationId, interviewDate, interviewTime, locationName, locationAddress, scheduledByName } = payload;
+  const modality = ['in_person', 'virtual', 'phone'].includes(payload.modality) ? payload.modality : 'in_person';
+  let meetingUrl: string | null = null;
+  if (modality === 'virtual') {
+    try { const u = new URL(String(payload.meetingUrl || '')); if (u.protocol === 'https:') meetingUrl = u.toString(); } catch { /* invalid */ }
+    if (!meetingUrl) return new Response(JSON.stringify({ error: "A valid https meetingUrl is required for virtual interviews" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  const escH = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   if (!conversationId || !interviewDate || !interviewTime) {
     return new Response(JSON.stringify({ error: "conversationId, interviewDate, interviewTime required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
@@ -595,7 +607,12 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const hour12 = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const formattedTime = `${hour12}:${mins.toString().padStart(2, '0')} ${ampm}`;
-  const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress);
+  const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress, modality, meetingUrl);
+  const modalityBlock = modality === 'virtual'
+    ? `<p style="color:#666;font-size:14px;margin:0 0 12px;">Virtual interview</p><a href="${escH(meetingUrl)}" style="display:inline-block;background:${primaryColor};color:#fff;text-decoration:none;padding:10px 22px;border-radius:10px;font-weight:600;font-size:14px;">Join meeting</a><p style="color:#888;font-size:12px;margin:10px 0 0;word-break:break-all;">${escH(meetingUrl)}</p>`
+    : modality === 'phone'
+      ? `<p style="color:#666;font-size:14px;margin:0;">Phone interview — a manager will reach out by phone.</p>`
+      : `<p style="color:#666;font-size:14px;margin:0;">${locationName}</p>${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}`;
   const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
 
   await queueEmail({
@@ -617,14 +634,13 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Interview Details</p>
           <p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">${formattedDate}</p>
           <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p>
-          <p style="color:#666;font-size:14px;margin:0;">${locationName}</p>
-          ${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}
+          ${modalityBlock}
         </div>
         <div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a></div>
       </td></tr>
       ${getEmailFooter()}`),
     source: 'interview_invite',
-    dedupKey: `interview_${conversationId}_${interviewDate}_${interviewTime}`,
+    dedupKey: `interview_${conversationId}_${interviewDate}_${interviewTime}_${modality}_${meetingUrl || ''}`,
     metadata: { attachments: [{ filename: "interview.ics", content: btoa(icsContent) }] },
   });
 
