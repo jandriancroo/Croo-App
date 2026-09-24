@@ -102,10 +102,6 @@ export function AvailabilityRequestCard({
   ) : (
     request.user_id === userId && request.status === "pending" ? (
       <>
-        <DropdownMenuItem onClick={() => onEmployeeEdit(request)} className="gap-2">
-          <Pencil className="h-4 w-4 text-muted-foreground" />
-          <span>Edit Request</span>
-        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => onDelete(request.id)}
           className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
