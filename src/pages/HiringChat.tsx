@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { DateTime } from 'luxon';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +44,7 @@ import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
 
 export default function HiringChat() {
   const { token } = useParams<{ token: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isStaffView = useMemo(() => searchParams.get('staff') === 'true', [searchParams]);
 
   const [conversation, setConversation] = useState<ConversationData | null>(null);
