@@ -54,7 +54,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
   }, [chats, dmSearch]);
 
   const steps = useMemo<{ id: Step; label: string; icon: LucideIcon }[]>(() => [
-    { id: 'dms', label: 'Direct messages', icon: MessageCircle },
+    { id: 'dms', label: "DM's", icon: MessageCircle },
     ...(showHiringTab ? [{ id: 'hiring' as Step, label: 'Hiring', icon: Briefcase }] : []),
     ...(showSupportTab ? [{ id: 'support' as Step, label: 'Support', icon: Headphones }] : []),
   ], [showHiringTab, showSupportTab]);
