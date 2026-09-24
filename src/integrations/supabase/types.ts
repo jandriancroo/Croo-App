@@ -13366,6 +13366,7 @@ export type Database = {
         Args: { p_pin: string; p_target_user_id: string }
         Returns: Json
       }
+      applicant_get_hiring_chat: { Args: { _token: string }; Returns: Json }
       applicant_send_hiring_message: {
         Args: { _content: string; _token: string }
         Returns: string

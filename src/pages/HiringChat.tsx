@@ -165,7 +165,7 @@ export default function HiringChat() {
             newMsg.sender = sender || undefined;
           }
           
-          setMessages(prev => [...prev, newMsg]);
+          setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
         }
       )
       .subscribe();
@@ -175,52 +175,34 @@ export default function HiringChat() {
     };
   }, [conversation]);
 
-  const fetchConversation = async () => {
+  const fetchConversation = async (silent = false) => {
     try {
-      // Fetch conversation by token
-      const { data: conv, error: convError } = await supabase
-        .from('hiring_conversations')
-        .select(`
-          id,
-          application_id,
-          application:job_applications(
-            full_name,
-            organization:organizations(name, logo_url)
-          )
-        `)
-        .eq('access_token', token)
-        .single();
-
-      if (convError || !conv) {
-        setError('Conversation not found. Please check your link.');
-        setLoading(false);
+      // Applicants aren't signed in, so they can't read hiring tables directly.
+      // This token-gated server lookup returns only this chat + its messages.
+      const { data, error: rpcError } = await (supabase as any).rpc('applicant_get_hiring_chat', { _token: token });
+      if (rpcError || !data) {
+        if (!silent) setError('Conversation not found. Please check your link.');
         return;
       }
-
-      setConversation(conv as unknown as ConversationData);
-
-      // Fetch messages
-      const { data: msgs } = await supabase
-        .from('hiring_messages')
-        .select(`
-          id,
-          sender_type,
-          sender_id,
-          content,
-          created_at,
-          sender:profiles(full_name, profile_photo_url)
-        `)
-        .eq('conversation_id', conv.id)
-        .order('created_at', { ascending: true });
-
+      const { messages: msgs, ...conv } = data as any;
+      setConversation(prev => (prev && prev.id === conv.id ? prev : (conv as ConversationData)));
       setMessages((msgs || []) as Message[]);
     } catch (err) {
       console.error('Error fetching conversation:', err);
-      setError('Failed to load conversation');
+      if (!silent) setError('Failed to load conversation');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Live updates can't reach signed-out applicants, so refresh every 8s.
+  useEffect(() => {
+    if (!token || !conversation) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') fetchConversation(true);
+    }, 8000);
+    return () => window.clearInterval(id);
+  }, [token, conversation?.id]);
 
   const handleRespondToInterview = async (messageId: string, response: 'accept' | 'decline' | 'reschedule') => {
     if (!conversation || !token) return;
@@ -281,14 +263,11 @@ export default function HiringChat() {
 
       if (sendError) throw sendError;
       setNewMessage('');
+      fetchConversation(true);
 
       // Only notify staff when an applicant sends a message
       if (!isStaffView) {
-        const { data: application } = await supabase
-          .from('job_applications')
-          .select('organization_id, location_id')
-          .eq('id', conversation.application_id)
-          .single();
+        const application = { location_id: (conversation as any).location_id as string | null };
 
         if (application?.location_id) {
           supabase.functions.invoke('send-push-notification', {
