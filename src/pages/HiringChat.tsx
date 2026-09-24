@@ -165,7 +165,7 @@ export default function HiringChat() {
             newMsg.sender = sender || undefined;
           }
           
-          setMessages(prev => [...prev, newMsg]);
+          setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
         }
       )
       .subscribe();
