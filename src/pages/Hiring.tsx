@@ -28,7 +28,8 @@ import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
 import { InterviewScheduleDialog } from '@/components/hiring/InterviewScheduleDialog';
-import { sendInterviewInvite, cancelInterview } from '@/lib/hiring/interviewActions';
+import { sendInterviewInvite, cancelInterview, bumpInterview } from '@/lib/hiring/interviewActions';
+import { DateTime } from 'luxon';
 import type { InterviewScheduleInitial } from '@/components/hiring/InterviewScheduleDialog';
 import { InterviewJoinLink, InterviewModalityBadge } from '@/components/hiring/InterviewMeetingInfo';
 import { useAuth } from '@/lib/auth';
@@ -84,6 +85,7 @@ export default function Hiring() {
   const [scheduleQueue, setScheduleQueue] = useState<ScheduleTarget[]>([]);
   const applicantToSchedule = scheduleQueue[0] || null;
   const { user } = useAuth();
+  const [bumpingId, setBumpingId] = useState<string | null>(null);
   const openScheduleFor = (a: ScheduleTarget | ScheduleTarget[]) => {
     setSelectedApplicant(null);
     setScheduleQueue(Array.isArray(a) ? a : [a]);
@@ -729,6 +731,37 @@ export default function Hiring() {
                                   <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                                     New time requested
                                   </Badge>
+                                )}
+                                {app.interview_time && ['pending', 'accepted'].includes(app.interview_status) &&
+                                  DateTime.fromFormat(`${app.interview_date} ${app.interview_time.slice(0, 5)}`, 'yyyy-MM-dd HH:mm', { zone: 'America/Los_Angeles' }) > DateTime.now() && (
+                                  <span className="inline-flex gap-1">
+                                    {[15, 30].map((mins) => (
+                                      <Button
+                                        key={mins}
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-[11px]"
+                                        disabled={bumpingId === app.id}
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (!user) return;
+                                          setBumpingId(app.id);
+                                          try {
+                                            const t = await bumpInterview({ app, minutes: mins, userId: user.id });
+                                            toast.success(`Moved to ${formatTime12(t)} — ${app.full_name?.split(' ')[0] || 'applicant'} was notified`);
+                                            queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+                                            queryClient.invalidateQueries({ queryKey: ['interviews'] });
+                                          } catch (err: any) {
+                                            toast.error(err?.message || 'Could not move the interview');
+                                          } finally {
+                                            setBumpingId(null);
+                                          }
+                                        }}
+                                      >
+                                        +{mins} min
+                                      </Button>
+                                    ))}
+                                  </span>
                                 )}
                               </div>
                             )}

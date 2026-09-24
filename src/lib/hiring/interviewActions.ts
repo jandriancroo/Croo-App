@@ -62,6 +62,7 @@ export async function sendInterviewInvite({
   userId,
   modality = 'in_person',
   meetingUrl = null,
+  keepStatus = 'pending',
 }: {
   applicationId: string;
   date: Date;
@@ -69,6 +70,7 @@ export async function sendInterviewInvite({
   userId: string;
   modality?: InterviewModality;
   meetingUrl?: string | null;
+  keepStatus?: 'pending' | 'accepted';
 }): Promise<void> {
   const url = modality === 'virtual' ? (meetingUrl || '').trim() : '';
   if (modality === 'virtual' && !isValidMeetingUrl(url)) {
@@ -80,7 +82,7 @@ export async function sendInterviewInvite({
   const interviewData = {
     date: format(date, 'yyyy-MM-dd'),
     time,
-    status: 'pending',
+    status: keepStatus,
     modality,
     ...(url ? { meeting_url: url } : {}),
   };
@@ -98,7 +100,7 @@ export async function sendInterviewInvite({
     .update({
       interview_date: interviewData.date,
       interview_time: time,
-      interview_status: 'pending',
+      interview_status: keepStatus,
       interview_modality: modality,
       interview_meeting_url: url || null,
       status: 'interviewing',
@@ -199,4 +201,42 @@ export async function cancelInterview({
     } as any)
     .eq('id', applicationId);
   if (error) throw error;
+}
+
+/**
+ * Quick bump: pushes an upcoming interview back N minutes (same day, same link).
+ * Posts a new invite bubble + email with the new time. An already-accepted
+ * interview stays accepted. Returns the new HH:mm.
+ */
+export async function bumpInterview({
+  app,
+  minutes,
+  userId,
+}: {
+  app: {
+    id: string;
+    interview_date: string;
+    interview_time: string;
+    interview_status?: string | null;
+    interview_modality?: InterviewModality | null;
+    interview_meeting_url?: string | null;
+  };
+  minutes: number;
+  userId: string;
+}): Promise<string> {
+  const [h, m] = app.interview_time.slice(0, 5).split(':').map(Number);
+  const total = h * 60 + m + minutes;
+  if (total >= 24 * 60) throw new Error('That would push the interview past midnight');
+  const newTime = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  const [y, mo, d] = app.interview_date.split('-').map(Number);
+  await sendInterviewInvite({
+    applicationId: app.id,
+    date: new Date(y, mo - 1, d),
+    time: newTime,
+    userId,
+    modality: app.interview_modality || 'in_person',
+    meetingUrl: app.interview_meeting_url || null,
+    keepStatus: app.interview_status === 'accepted' ? 'accepted' : 'pending',
+  });
+  return newTime;
 }
