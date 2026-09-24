@@ -182,9 +182,30 @@ export function InterviewInviteMessage({
           </Badge>
         )}
 
-        {data.status === 'pending' && isPast && (
+        {data.status === 'pending' && isPast && isApplicantView && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              This interview time has passed. If you weren't able to make it, no worries —
+              just send the manager a message here in this chat to set up a new time.
+            </p>
+            {onRespond && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => onRespond('reschedule')}
+                disabled={responding}
+              >
+                {responding ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4 mr-1" />}
+                Ask for a different time
+              </Button>
+            )}
+          </div>
+        )}
+
+        {data.status === 'pending' && isPast && !isApplicantView && (
           <Badge className="w-full justify-center" variant="secondary">
-            Expired
+            Interview time has passed
           </Badge>
         )}
 
