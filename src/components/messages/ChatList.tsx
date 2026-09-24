@@ -181,6 +181,8 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       className={`group w-full flex items-center gap-3 px-3 py-3 transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
+          : chat.isPinned
+          ? 'bg-yellow-500/10 hover:bg-yellow-500/15'
           : chat.unreadCount && chat.unreadCount > 0
           ? 'bg-muted/60'
           : 'hover:bg-muted/50'
@@ -289,109 +291,21 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     </div>
   );
 
-  const getAvatarContent = (chat: Chat) => {
-    if (chat.title === 'Shift Marketplace') {
-      return (
-        <AvatarFallback className="bg-accent/15">
-          <ArrowLeftRight className="h-6 w-6 text-accent" />
-        </AvatarFallback>
-      );
-    }
-    if (chat.is_announcement) {
-      return (
-        <>
-          <AvatarImage
-            src={
-              chat.chat_members?.find((m) => m.user_id === chat.created_by)?.profiles?.profile_photo_url ||
-              undefined
-            }
-          />
-          <AvatarFallback className="text-lg font-medium">
-            {chat.title?.charAt(0) || 'A'}
-          </AvatarFallback>
-        </>
-      );
-    }
-    if (chat.is_group) {
-      return (
-        <>
-          <AvatarImage src={chat.group_image_url || undefined} />
-          <AvatarFallback><Users className="h-6 w-6" /></AvatarFallback>
-        </>
-      );
-    }
-    return (
-      <>
-        <AvatarImage
-          src={
-            chat.chat_members?.find((m) => m.user_id !== currentUserId)?.profiles?.profile_photo_url ||
-            undefined
-          }
-        />
-        <AvatarFallback className="text-lg font-medium">
-          {chat.title?.charAt(0) || 'C'}
-        </AvatarFallback>
-      </>
-    );
-  };
-
-  const pinnedCount = pinnedChats.length;
-  // Avatar size scales: 1-3 pinned = large (h-16), 4+ = smaller (h-14)
-  const avatarSize = pinnedCount <= 3 ? 'h-16 w-16' : 'h-14 w-14';
-
-  const renderPinnedBubble = (chat: Chat) => (
-    <button
-      key={chat.id}
-      onClick={() => onSelectChat(chat.id)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setLongPressChat(chat);
-      }}
-      onTouchStart={(e) => handleTouchStart(chat, e)}
-      onTouchEnd={() => handleTouchEnd(chat)}
-      onTouchMove={handleTouchMove}
-      className={`flex flex-col items-center gap-1.5 select-none flex-1 min-w-0 ${
-        pinnedCount > 4 ? 'max-w-[calc(25%-0.375rem)]' : ''
-      }`}
-    >
-      <div className="relative">
-        <Avatar className={avatarSize}>
-          {getAvatarContent(chat)}
-        </Avatar>
-        {chat.unreadCount != null && chat.unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-5 h-5 px-1 text-[10px] font-bold bg-destructive text-destructive-foreground rounded-full">
-            {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
-          </span>
-        )}
-      </div>
-      <span className="text-[11px] font-medium text-center leading-tight line-clamp-2 w-full">
-        {chat.title === 'Shift Marketplace' ? 'Shifts' : (chat.title || (chat.is_group ? 'Group' : 'DM'))}
-      </span>
-    </button>
-  );
+  const sortedChats = [
+    ...pinnedChats.sort((a, b) => {
+      const aIsShifts = a.title === 'Shift Marketplace' ? 1 : 0;
+      const bIsShifts = b.title === 'Shift Marketplace' ? 1 : 0;
+      return aIsShifts - bIsShifts;
+    }),
+    ...unpinnedChats,
+  ];
 
   return (
     <>
       <div className="overflow-y-auto flex-1 pb-16">
-        {pinnedChats.length > 0 && (
-          <>
-            <div className="flex flex-wrap gap-3 px-4 py-3 justify-center">
-              {[...pinnedChats].sort((a, b) => {
-                const aIsShifts = a.title === 'Shift Marketplace' ? 1 : 0;
-                const bIsShifts = b.title === 'Shift Marketplace' ? 1 : 0;
-                return aIsShifts - bIsShifts;
-              }).map(renderPinnedBubble)}
-            </div>
-            {unpinnedChats.length > 0 && (
-              <div className="mx-3 border-t border-border" />
-            )}
-          </>
-        )}
-        {unpinnedChats.length > 0 && (
-          <div className="divide-y divide-border/50 px-1">
-            {unpinnedChats.map(renderChat)}
-          </div>
-        )}
+        <div className="divide-y divide-border/50 px-1">
+          {sortedChats.map(renderChat)}
+        </div>
       </div>
 
       {/* Long-press dialog for mobile pin actions */}
