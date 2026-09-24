@@ -876,7 +876,7 @@ export default function Hiring() {
               // Pull fresh interview fields so the dialog prefills what's stored now.
               const { data } = await supabase
                 .from('job_applications')
-                .select('id, full_name, interview_date, interview_time, interview_modality, interview_meeting_url' as any)
+                .select('id, full_name, interview_date, interview_time, interview_modality, interview_meeting_url')
                 .eq('id', id)
                 .maybeSingle();
               if (data) app = data;

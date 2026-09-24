@@ -31,7 +31,7 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from('job_applications')
-        .select('id, full_name, interview_date, interview_time, interview_status, interview_modality, interview_meeting_url, location_id, location:locations(name)' as any)
+        .select('id, full_name, interview_date, interview_time, interview_status, interview_modality, interview_meeting_url, location_id, location:locations(name)')
         .eq('organization_id', organizationId)
         .not('interview_date', 'is', null)
         .in('interview_status', ['pending', 'accepted', 'reschedule_requested']);
