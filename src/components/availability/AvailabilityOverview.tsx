@@ -71,6 +71,7 @@ export function AvailabilityOverview() {
           *,
           profiles!availability_requests_user_id_fkey(full_name, nickname, profile_photo_url)
         `)
+        .neq("status", "withdrawn")
         .order("created_at", { ascending: false })
         .limit(10);
 

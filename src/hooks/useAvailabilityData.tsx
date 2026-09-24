@@ -62,6 +62,7 @@ export function useAvailabilityData() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [hidePastRequests, setHidePastRequests] = useState(true);
+  const [showWithdrawn, setShowWithdrawn] = useState(false);
 
   // Dialog state
   const [denyDialogOpen, setDenyDialogOpen] = useState(false);
@@ -308,22 +309,17 @@ export function useAvailabilityData() {
     if (!deletingRequestId) return;
     setProcessing(true);
     try {
-      const { data, error } = await supabase
-        .from("availability_requests")
-        .delete()
-        .eq("id", deletingRequestId)
-        .select("id");
+      const { error } = await supabase.rpc("withdraw_availability_request" as any, {
+        _request_id: deletingRequestId,
+      });
       if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error("You don't have permission to delete this request");
-      }
-      toast.success("Request deleted");
+      toast.success("Request withdrawn. It stays on record.");
       setDeleteDialogOpen(false);
       setDeletingRequestId(null);
       fetchData();
     } catch (error: any) {
       console.error("Error deleting request:", error);
-      toast.error(error?.message || "Failed to delete request");
+      toast.error(error?.message || "Failed to withdraw request");
     } finally {
       setProcessing(false);
     }
@@ -372,6 +368,7 @@ export function useAvailabilityData() {
       const requestDate = parseDateStringInTimezone(request.start_date, TZ);
       if (isBefore(requestDate, currentWeekStart)) return false;
     }
+    if (request.status === "withdrawn" && !showWithdrawn && filterStatus !== "withdrawn") return false;
     if (filterStatus !== "all" && request.status !== filterStatus) return false;
     if (filterType !== "all" && request.request_type !== filterType) return false;
     return true;
@@ -425,6 +422,7 @@ export function useAvailabilityData() {
     filterStatus, setFilterStatus,
     filterType, setFilterType,
     hidePastRequests, setHidePastRequests,
+    showWithdrawn, setShowWithdrawn,
     // Request dialog
     requestDialogOpen, setRequestDialogOpen,
     // Deny dialog
