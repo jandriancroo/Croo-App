@@ -356,20 +356,21 @@ export function AiAssistantBubble() {
               className="fixed inset-0 z-[58] bg-black/50 backdrop-blur-sm"
             />
 
-            {/* Floating panel — full width, 75% height, vertically centered */}
+            {/* Floating panel — drops down from the Ask Theo pill in the top bar */}
             <motion.div
-              initial={{ x: '100%', opacity: 0.5 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0 }}
+              initial={{ y: '-105%', opacity: 0.5 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '-105%', opacity: 0 }}
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
               className="fixed z-[60] flex flex-col bg-background overflow-hidden border border-border/30"
               style={{
                 left: 0,
                 right: 0,
-                top: '4%',
-                height: '92%',
-                borderRadius: 16,
+                top: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)',
+                height: 'calc(100% - env(safe-area-inset-top, 0px) - 5.5rem)',
+                borderRadius: '0 0 16px 16px',
                 margin: '0 8px',
+                transformOrigin: 'top center',
                 boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4)',
               }}
             >
