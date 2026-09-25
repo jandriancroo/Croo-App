@@ -1336,6 +1336,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return;
     }
 
+    // Cubes are labeled "today" — never hand them another date's numbers
+    // when a manager is looking back at a past day in this widget.
+    if (!isToday) return;
+
     const weekTargetEow = calculatedWeekProjected;
     const weekPace = calculatedWeekPace;
     const monthTargetEom = calculatedMonthProjected;
@@ -1401,6 +1405,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     onSalesDataChange,
     queryClient,
     currentLocation?.id,
+    isToday,
   ]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {

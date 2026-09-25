@@ -523,9 +523,9 @@ export function calculatePaceAdjustedProjection(
     if (lunchPcts.length >= 3) activeAvg = lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length;
   }
   if (activeAvg !== null) {
-    const severity = Math.min(Math.abs(activeAvg) / 0.50, 1.0);
-    const rand = Math.random();
-    const variant = activeAvg < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+    // Momentum boost (deterministic): only when the store is running ahead,
+    // scaled by how far ahead, capped at +3%. No random wobble, no extra drop.
+    const variant = activeAvg > 0 ? 0.03 * Math.min(activeAvg / 0.50, 1.0) : 0;
     adjustmentFactor = 1.0 + activeAvg + variant;
   }
 

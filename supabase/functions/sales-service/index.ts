@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
+import { calculatePaceAdjustedProjection } from '../_shared/projections.ts';
+import { fetchQuLabor, saveQuLabor } from '../_shared/quLabor.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -625,7 +627,7 @@ async function handleSyncLive(supabase: any): Promise<Response> {
   for (const integration of integrations) {
     const locationId = integration.location_id;
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { location_id?: string | number };
+    const credentials = integration.credentials as { location_id?: string | number; pull_labor?: boolean };
     const settings = settingsByLocation[locationId];
     const timezone = settings?.timezone || 'America/Los_Angeles';
 
@@ -677,6 +679,16 @@ async function handleSyncLive(supabase: any): Promise<Response> {
       throw err;
     }
 
+    // Stores on POS labor: keep today's QU labor fresh (source = 'qubeyond').
+    if (credentials.pull_labor) {
+      try {
+        const labor = await fetchQuLabor(tokenGw, todayStr, qbLocationId);
+        await saveQuLabor(supabase, locationId, todayStr, labor);
+      } catch (e) {
+        console.error(`${locationName}: QU labor skipped`, e);
+      }
+    }
+
     if (salesData.netSales > 0) {
       const payload = buildUpsertPayload(locationId, todayStr, salesData);
 
@@ -690,6 +702,40 @@ async function handleSyncLive(supabase: any): Promise<Response> {
       } else {
         console.log(`${locationName}: Updated - $${salesData.netSales.toFixed(2)}, ${salesData.guestCount} guests, ${salesData.pizzaCount} pizzas, ${salesData.productMix.length} items, ${salesData.paymentsData.length} payments, YOY: ${salesData.yoyNetSales ? '$' + salesData.yoyNetSales.toFixed(2) : 'n/a'}`);
         results.push({ locationId, name: locationName, status: 'success', salesUpdated: salesData.netSales, pizzaCount: salesData.pizzaCount });
+
+        // Save today's pace (same shared math, store's own clock) so the watch and
+        // company screens read one pace instead of recalculating their own.
+        try {
+          const { data: row } = await supabase
+            .from('sales_cache')
+            .select('hourly_data')
+            .eq('location_id', locationId)
+            .eq('sale_date', todayStr)
+            .maybeSingle();
+          const hourly = Array.isArray(row?.hourly_data) ? (row!.hourly_data as any[]) : [];
+          const hasProjected = hourly.some(h => Number(h?.projected) > 0);
+          if (hasProjected) {
+            const norm = hourly.map(h => {
+              const hh = parseInt(String(h.hour), 10);
+              return { hour: `${String(hh).padStart(2, '0')}:00`, sales: Number(h.sales) || 0, projected: Number(h.projected) || 0 };
+            });
+            const openH = parseInt(openTime.split(':')[0] || '10', 10);
+            const closeRaw = parseInt(closeTime.split(':')[0] || '22', 10);
+            const closeH = closeRaw === 0 ? 24 : closeRaw;
+            const pace = calculatePaceAdjustedProjection(
+              salesData.netSales, currentTime.hours, currentTime.minutes, openH, closeH, norm,
+            );
+            if (pace > 0) {
+              await supabase
+                .from('sales_cache')
+                .update({ pace_adjusted_projection: pace })
+                .eq('location_id', locationId)
+                .eq('sale_date', todayStr);
+            }
+          }
+        } catch (e) {
+          console.error(`${locationName}: pace save skipped`, e);
+        }
       }
     } else {
       console.log(`${locationName}: No sales data yet (${salesData.netSales}), skipping update to preserve existing data`);
@@ -1013,6 +1059,34 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
   );
 }
 
+// ACTION: backfill-qu-labor — service role only. Refills saved QU labor
+// (source = 'qubeyond') for a store whose "Pull Qu Labor %" switch is ON.
+// Body: { locationId, from: 'yyyy-MM-dd', to: 'yyyy-MM-dd' } (max 31 days per call).
+async function handleBackfillQuLabor(req: Request, supabase: any): Promise<Response> {
+  const json = (b: any, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  const body = await req.json().catch(() => ({}));
+  const { locationId, from, to } = body || {};
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (typeof locationId !== 'string' || !re.test(from) || !re.test(to) || from > to) return json({ error: 'locationId, from, to required' }, 400);
+  const { data: integ } = await supabase.from('location_integrations').select('credentials')
+    .eq('location_id', locationId).eq('integration_type', 'qubeyond').eq('is_active', true).maybeSingle();
+  const creds = (integ?.credentials || {}) as { location_id?: string | number; pull_labor?: boolean };
+  if (!creds.pull_labor) return json({ error: 'Store is not on POS labor' }, 400);
+  const qb = getQbLocationId(creds);
+  const token = await authenticateV4();
+  if (!qb || !token) return json({ error: 'QU not reachable' }, 502);
+  const dates: string[] = [];
+  const d = new Date(from + 'T12:00:00Z');
+  while (d.toISOString().slice(0, 10) <= to && dates.length < 31) { dates.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+  const out: { date: string; cost: number | null; saved: boolean }[] = [];
+  for (const date of dates) {
+    const labor = await fetchQuLabor(token, date, qb);
+    const saved = await saveQuLabor(supabase, locationId, date, labor);
+    out.push({ date, cost: labor?.laborCost ?? null, saved });
+  }
+  return json({ success: true, results: out });
+}
+
 // ============================================================================
 // ACTION: sync-yesterday — No auth required, uses service role (called by nightly maintenance)
 // ============================================================================
@@ -1035,67 +1109,62 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
 
   const results: { locationId: string; name: string; status: string }[] = [];
 
-  for (const integration of integrations) {
+  // One QU login for the whole run (was one per store, which ran out of time
+  // after 2–3 stores and left the rest — e.g. Rowlett — frozen at close).
+  const tokenGw = await authenticateV4();
+  if (!tokenGw) {
+    return new Response(JSON.stringify({ success: false, reason: 'qu_auth_failed' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const syncOne = async (integration: any) => {
     const locationId = integration.location_id;
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { location_id?: string | number };
+    const credentials = integration.credentials as { location_id?: string | number; pull_labor?: boolean };
     const qbLocationId = getQbLocationId(credentials);
-
     if (!qbLocationId) {
       results.push({ locationId, name: locationName, status: 'missing_qb_location_id' });
-      continue;
+      return;
     }
-
-    // Get timezone for this location
     const { data: settings } = await supabase
-      .from('location_settings')
-      .select('timezone')
-      .eq('location_id', locationId)
-      .maybeSingle();
-
+      .from('location_settings').select('timezone').eq('location_id', locationId).maybeSingle();
     const timezone = settings?.timezone || 'America/Los_Angeles';
-    
-    // Calculate yesterday in the location's timezone
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
-    const todayStr = formatter.format(now);
-    const yesterdayDate = new Date(todayStr + 'T12:00:00');
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
-
-    console.log(`[sales-service] sync-yesterday: ${locationName} syncing ${yesterdayStr}`);
-
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const y = new Date(todayStr + 'T12:00:00');
+    y.setDate(y.getDate() - 1);
+    const yesterdayStr = y.toISOString().slice(0, 10);
     try {
-      const tokenGw = await authenticateV4();
-      if (!tokenGw) {
-        results.push({ locationId, name: locationName, status: 'auth_failed' });
-        continue;
+      // Stores on POS labor: save yesterday's final QU labor (source = 'qubeyond').
+      if (credentials.pull_labor) {
+        const labor = await fetchQuLabor(tokenGw, yesterdayStr, qbLocationId);
+        await saveQuLabor(supabase, locationId, yesterdayStr, labor);
       }
-
       const salesData = await fetchAllSalesData(supabase, tokenGw, yesterdayStr, qbLocationId, locationId);
-
       if (salesData.netSales <= 0) {
         results.push({ locationId, name: locationName, status: 'no_sales' });
-        continue;
+        return;
       }
-
       const payload = buildUpsertPayload(locationId, yesterdayStr, salesData);
-
       const { error: upsertError } = await supabase
-        .from('sales_cache')
-        .upsert(payload, { onConflict: 'location_id,sale_date' });
-
+        .from('sales_cache').upsert(payload, { onConflict: 'location_id,sale_date' });
       if (upsertError) {
         console.error(`[sales-service] sync-yesterday ${locationName} upsert error:`, upsertError);
         results.push({ locationId, name: locationName, status: 'upsert_error' });
       } else {
-        console.log(`[sales-service] sync-yesterday ${locationName}: $${salesData.netSales.toFixed(2)}, ${salesData.productMix.length} mix items`);
+        console.log(`[sales-service] sync-yesterday ${locationName} ${yesterdayStr}: $${salesData.netSales.toFixed(2)}`);
         results.push({ locationId, name: locationName, status: 'success' });
       }
     } catch (err) {
       console.error(`[sales-service] sync-yesterday ${locationName} error:`, err);
       results.push({ locationId, name: locationName, status: 'error' });
     }
+  };
+
+  // A few stores at a time so every store finishes inside the time limit.
+  const CONCURRENCY = 4;
+  for (let i = 0; i < integrations.length; i += CONCURRENCY) {
+    await Promise.all(integrations.slice(i, i + CONCURRENCY).map(syncOne));
   }
 
   return new Response(JSON.stringify({
@@ -1568,6 +1637,12 @@ serve(async (req) => {
 
       case 'test-api':
         return await handleTestApi(supabase);
+
+      case 'backfill-qu-labor':
+        if (authed.caller?.kind !== 'service') {
+          return new Response(JSON.stringify({ error: 'Service role required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        return await handleBackfillQuLabor(req, supabase);
       
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {

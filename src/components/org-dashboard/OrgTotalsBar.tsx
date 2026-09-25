@@ -32,9 +32,13 @@ export function OrgTotalsBar({ locationData, locationIds, period }: OrgTotalsBar
         totalSales += d.salesMtd ?? 0;
       }
 
-      if (d.laborPercent != null && d.laborPercent > 0) {
-        laborSum += d.laborPercent;
-        laborCount++;
+      // Weighted labor %: add up every store's labor $ and sales $, then divide.
+      // Only count stores that have labor for the period so sales and labor pair up.
+      const periodSales = period === 'day' ? (d.salesToday ?? 0) : period === 'week' ? (d.salesWtd ?? 0) : (d.salesMtd ?? 0);
+      const periodLabor = period === 'day' ? d.laborCost : period === 'week' ? d.laborCostWtd : d.laborCostMtd;
+      if (periodLabor != null && periodLabor > 0 && periodSales > 0) {
+        laborSum += periodLabor;
+        laborCount += periodSales;
       }
     }
 
@@ -42,7 +46,7 @@ export function OrgTotalsBar({ locationData, locationIds, period }: OrgTotalsBar
       goal: hasGoal ? totalGoal : null,
       pace: hasPace ? totalPace : null,
       sales: totalSales,
-      laborAvg: laborCount > 0 ? laborSum / laborCount : null,
+      laborAvg: laborCount > 0 ? (laborSum / laborCount) * 100 : null,
     };
   }, [locationData, locationIds, period]);
 
