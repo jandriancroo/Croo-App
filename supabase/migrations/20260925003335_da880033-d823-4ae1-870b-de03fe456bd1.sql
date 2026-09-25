@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Service role can read applicant push subscriptions" ON public.applicant_push_subscriptions;

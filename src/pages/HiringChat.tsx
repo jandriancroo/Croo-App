@@ -116,16 +116,14 @@ export default function HiringChat() {
         // Save to applicant_push_subscriptions table
         const { error: saveError } = await supabase
           .from('applicant_push_subscriptions' as any)
-          .upsert({
+          .insert({
             conversation_id: conversation.id,
             subscription_data: subscriptionData,
             platform: 'web',
             updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'conversation_id,subscription_data'
           });
 
-        if (saveError) {
+        if (saveError && saveError.code !== '23505') {
           console.error('[Applicant Push] Failed to save subscription:', saveError);
         } else {
           console.log('[Applicant Push] Subscription saved successfully');
@@ -342,16 +340,17 @@ export default function HiringChat() {
 
           const subscriptionData = JSON.stringify(subscription);
 
-          await supabase
+          const { error: saveError } = await supabase
             .from('applicant_push_subscriptions' as any)
-            .upsert({
+            .insert({
               conversation_id: conversation.id,
               subscription_data: subscriptionData,
               platform: 'web',
               updated_at: new Date().toISOString(),
-            }, {
-              onConflict: 'conversation_id,subscription_data'
             });
+          if (saveError && saveError.code !== '23505') {
+            console.error('[Applicant Push] Failed to save subscription:', saveError);
+          }
 
           pushSetupDone.current = true;
         }

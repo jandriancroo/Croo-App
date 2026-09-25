@@ -160,3 +160,10 @@ Client (`useConversationRecorder`, iPad-first PWA):
     new reason. Both fields stay fully editable and the "suggested from the recording" hint
     clears on the first manual edit. `notes_bullets` still never touch `issue_description`.
   - Untouched: admin employee-picker product, table name, trails/`family_id`, sign UX, RLS.
+- **2026-09-24** — CA Delete: org_admin+ delete with warning; RLS unchanged.
+  - `WriteUpsSection.tsx` + `EmployeeRecordsSection.tsx` CA detail dialogs: Delete button gated to
+    org_admin / fbc / brand_admin / super_admin, AlertDialog confirm (name, reason, date, Signed vs
+    Pending; stronger wording when signed). Delete uses `.delete().eq('id').select('id')` and succeeds
+    only when a row comes back. Linked `temporary_tasks` cascade via FK; `audit_writeup_delete` untouched.
+  - Untouched: RLS/policies, send-notification-email, EmailPreview, recording pipeline, trails/`family_id`,
+    sign UX, transcript read paths, punch clock, table/column names.
