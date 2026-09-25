@@ -122,6 +122,15 @@ export function useBrandLocations(brandId: string | null) {
   });
 }
 
+// Which labor row wins for a day. QU rows are only written when the store's
+// "Pull Qu Labor %" switch is on, so a QU row means the store is on POS labor.
+// A $0 time clock row never hides real labor.
+function laborRank(r: { source?: string | null; labor_cost?: any }): number {
+  if (r.source === 'qubeyond' && Number(r.labor_cost) > 0) return 0;
+  if (Number(r.labor_cost) > 0) return 1;
+  return 2;
+}
+
 /**
  * Fetches sales/labor data for multiple locations from sales_cache + labor_cache.
  * targetDate: the selected date (yyyy-MM-dd). For month view this is the 1st of the month.
@@ -203,8 +212,19 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
         .from('labor_cache')
         .select('location_id, labor_date, labor_cost, source')
         .in('location_id', locationIds)
-        .gte('labor_date', mtdStart)
+        // Start from whichever is earlier (Monday or the 1st) so a week that
+        // crosses a month boundary keeps all its days.
+        .gte('labor_date', wtdStart < mtdStart ? wtdStart : mtdStart)
         .lte('labor_date', effectiveToday);
+
+      // Each store's own time zone (for "what hour is it now" in pace)
+      const { data: tzRows } = await supabase
+        .from('location_settings')
+        .select('location_id, timezone')
+        .in('location_id', locationIds);
+      const tzByLoc = new Map<string, string>(
+        (tzRows || []).map((r: any) => [r.location_id, r.timezone || LA_TZ])
+      );
 
       // labor_cache only holds CLOSED days — pull today's live labor per location
       // from the shared punch helper so org cards match each store's dashboard.
@@ -239,7 +259,7 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
         // Pace: only for real today, not historical
         let paceToday: number | null = null;
         if (!isHistorical && todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
-          const nowLA = new Date(nowReal.toLocaleString('en-US', { timeZone: LA_TZ }));
+          const nowLA = new Date(nowReal.toLocaleString('en-US', { timeZone: tzByLoc.get(locId) || LA_TZ }));
           const currentHour = nowLA.getHours();
           const currentMinutes = nowLA.getMinutes();
           
@@ -287,9 +307,9 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
           }
           
           if (activeAvg !== null) {
-            const severity = Math.min(Math.abs(activeAvg) / 0.50, 1.0);
-            const rand = Math.random();
-            const variant = activeAvg < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+            // Momentum boost (deterministic): only when the store is running ahead,
+            // scaled by how far ahead, capped at +3%. No random wobble, no extra drop.
+            const variant = activeAvg > 0 ? 0.03 * Math.min(activeAvg / 0.50, 1.0) : 0;
             adjustmentFactor = 1.0 + activeAvg + variant;
           }
           
@@ -316,8 +336,8 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
           paceToday = paceSum > 0 ? Math.max(paceSum, salesToday) : null;
         }
 
-        // Goal: override > initial > projected
-        const goalToday = Number(todayRow?.override_projection) || Number(todayRow?.initial_projection) || Number(todayRow?.projected_sales) || null;
+        // Goal: override > living > initial > projected (same rule as the store dashboard)
+        const goalToday = Number(todayRow?.override_projection) || Number(todayRow?.living_projection) || Number(todayRow?.initial_projection) || Number(todayRow?.projected_sales) || null;
 
         // Last year same day
         const salesLastYearDay = todayRow?.yoy_net_sales != null ? Number(todayRow.yoy_net_sales) : null;
@@ -363,14 +383,14 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
         // Labor — prefer punch_clock source
         const todayLabor = locLabor
           .filter(r => r.labor_date === effectiveToday)
-          .sort((a, b) => (a.source === 'punch_clock' ? -1 : 1));
+          .sort((a, b) => laborRank(a) - laborRank(b));
         const laborCost = todayLabor.length > 0 ? Number(todayLabor[0].labor_cost) || null : null;
         const laborPercent = laborCost != null && salesToday > 0 ? (laborCost / salesToday) * 100 : null;
 
         // Labor WTD
         const wtdLabor = locLabor.filter(r => r.labor_date >= wtdStart && r.labor_date <= effectiveToday);
         const wtdLaborByDate = new Map<string, number>();
-        for (const r of wtdLabor.sort((a, b) => (a.source === 'punch_clock' ? -1 : 1))) {
+        for (const r of wtdLabor.sort((a, b) => laborRank(a) - laborRank(b))) {
           if (!wtdLaborByDate.has(r.labor_date)) {
             wtdLaborByDate.set(r.labor_date, Number(r.labor_cost) || 0);
           }
@@ -380,7 +400,7 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
         // Labor MTD
         const mtdLabor = locLabor.filter(r => r.labor_date >= mtdStart && r.labor_date <= effectiveToday);
         const mtdLaborByDate = new Map<string, number>();
-        for (const r of mtdLabor.sort((a, b) => (a.source === 'punch_clock' ? -1 : 1))) {
+        for (const r of mtdLabor.sort((a, b) => laborRank(a) - laborRank(b))) {
           if (!mtdLaborByDate.has(r.labor_date)) {
             mtdLaborByDate.set(r.labor_date, Number(r.labor_cost) || 0);
           }

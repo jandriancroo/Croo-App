@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
+import { fetchQuLabor } from '../_shared/quLabor.ts';
 
 
 // Declare EdgeRuntime for background tasks
@@ -1249,7 +1250,9 @@ async function getCachedLaborData(
         // Pick punch_clock if it exists and has data, otherwise qubeyond
         const punchRow = rows.find((r: any) => r.source === 'punch_clock' && (parseFloat(r.labor_hours) > 0 || parseFloat(r.labor_cost) > 0));
         const qubeyondRow = rows.find((r: any) => r.source === 'qubeyond');
-        const preferredRow = punchRow || qubeyondRow;
+        // QU rows exist only when the store's "Pull Qu Labor %" switch is on — they win.
+        const quWithData = rows.find((r: any) => r.source === 'qubeyond' && parseFloat(r.labor_cost) > 0);
+        const preferredRow = quWithData || punchRow || qubeyondRow;
         
         if (preferredRow) {
           cachedLabor.set(date, {
@@ -2029,9 +2032,9 @@ function calculatePaceAdjustedProjection(
   }
   
   if (activeAvg !== null) {
-    const severity = Math.min(Math.abs(activeAvg) / 0.50, 1.0);
-    const rand = Math.random();
-    const variant = activeAvg < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+    // Momentum boost (deterministic): only when the store is running ahead,
+    // scaled by how far ahead, capped at +3%. No random wobble, no extra drop.
+    const variant = activeAvg > 0 ? 0.03 * Math.min(activeAvg / 0.50, 1.0) : 0;
     adjustmentFactor = 1.0 + activeAvg + variant;
     console.log(`[PACE-V3] shift=${isDinnerShift ? 'dinner' : 'lunch'}, lunch=${lunchPcts.length}pts, dinner=${dinnerPcts.length}pts, avgPct: ${(activeAvg * 100).toFixed(1)}%, adjustment: ${(adjustmentFactor * 100).toFixed(1)}%`);
   }
@@ -2242,6 +2245,7 @@ serve(async (req) => {
     let credentials: QuBeyondCredentials;
     let hoursOpen = 11;
     let hoursClose = 22;
+    let storeTimezone = 'America/Los_Angeles';
     let integration: any = null;
     
     if (testCredentials) {
@@ -2279,7 +2283,14 @@ serve(async (req) => {
       
       // Fetch location hours for today's day of week
       const now = new Date();
-      const timezone = 'America/Los_Angeles'; // Default timezone
+      // Use the store's own time zone (Texas/East Coast stores are not Pacific)
+      const { data: tzRow } = await supabase
+        .from('location_settings')
+        .select('timezone')
+        .eq('location_id', locationId)
+        .maybeSingle();
+      if (tzRow?.timezone) storeTimezone = tzRow.timezone;
+      const timezone = storeTimezone;
       const localDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
       const dayOfWeek = localDate.getDay(); // 0 = Sunday, 6 = Saturday
       
@@ -2385,7 +2396,7 @@ serve(async (req) => {
       throw new Error('Could not determine QuBeyond location ID. Please configure it in settings.');
     }
     
-    const timezone = 'America/Los_Angeles';
+    const timezone = storeTimezone;
     const now = new Date();
     const todayStr = targetDate || getDateStringForTimezone(now, timezone);
     const weekStartStr = getWeekStartDate(todayStr);
@@ -2560,6 +2571,22 @@ serve(async (req) => {
       
       laborData = todayPunchLabor;
       weeklyLaborData = weekPunchLabor;
+
+      // Store is on POS labor ("Pull Qu Labor %" ON): today comes live from QU,
+      // past days from saved QU rows. Punch totals are ignored for this store.
+      if ((credentials as any)?.pull_labor) {
+        const quToday = await fetchQuLabor(tokenGw, todayStr, qbLocationId);
+        const zero = { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
+        const t = quToday ? { laborCost: quToday.laborCost, hoursWorked: quToday.hoursWorked, regularHours: quToday.regularHours, overtimeHours: quToday.overtimeHours } : zero;
+        laborData = { ...(todayPunchLabor || {}), ...t } as any;
+        const pastWeek = weekDates.filter(d => d < todayStr);
+        const wk = { ...t, dailyLabor: [] as { date: string; laborPercent: number; laborCost: number }[] };
+        for (const d of pastWeek) {
+          const c = cachedLabor.get(d);
+          if (c) { wk.laborCost += c.laborCost; wk.hoursWorked += c.hoursWorked; wk.regularHours += c.regularHours; wk.overtimeHours += c.overtimeHours; wk.dailyLabor.push({ date: d, laborPercent: 0, laborCost: c.laborCost }); }
+        }
+        weeklyLaborData = wk as any;
+      }
       
       // Calculate cached labor totals
       let cachedLaborCost = 0;
@@ -2579,8 +2606,9 @@ serve(async (req) => {
         }
       }
       
-      const punchLabor = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
-      const todayLaborData = todayPunchLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
+      const onPosLabor = !!(credentials as any)?.pull_labor;
+      const punchLabor = (!onPosLabor && punchMonthLabor) || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
+      const todayLaborData = (onPosLabor ? laborData : todayPunchLabor) || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
       
       monthlyLaborData = {
         laborCost: cachedLaborCost + punchLabor.laborCost + todayLaborData.laborCost,

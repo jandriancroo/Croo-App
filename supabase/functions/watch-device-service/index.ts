@@ -147,18 +147,20 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
 
   const [{ data: salesRows }, { data: laborRows }] = await Promise.all([
     sb.from('sales_cache').select(salesCols).eq('location_id', locationId).gte('sale_date', rangeStart).lte('sale_date', rangeEnd),
-    sb.from('labor_cache').select('labor_date, labor_cost, labor_hours, source').eq('location_id', locationId).gte('labor_date', monthStart).lte('labor_date', today),
+    sb.from('labor_cache').select('labor_date, labor_cost, labor_hours, source').eq('location_id', locationId).gte('labor_date', weekStart < monthStart ? weekStart : monthStart).lte('labor_date', today),
   ]);
 
   const sales = salesRows || [];
   const inRange = (from: string, to: string) => sales.filter(r => r.sale_date >= from && r.sale_date <= to);
   const todayRow = sales.find(r => r.sale_date === today);
 
-  // Labor: one row per (date, source) — prefer punch_clock when both exist.
+  // Labor: one row per date. QU rows exist only when the store's "Pull Qu Labor %"
+  // switch is on, so they win; a $0 row never hides real labor.
+  const laborRank = (r: any) => (r.source === 'qubeyond' && Number(r.labor_cost) > 0 ? 0 : Number(r.labor_cost) > 0 ? 1 : 2);
   const laborByDate = new Map<string, any>();
   for (const r of laborRows || []) {
     const existing = laborByDate.get(r.labor_date);
-    if (!existing || r.source === 'punch_clock') laborByDate.set(r.labor_date, r);
+    if (!existing || laborRank(r) < laborRank(existing)) laborByDate.set(r.labor_date, r);
   }
   const laborIn = (from: string, to: string) =>
     Array.from(laborByDate.entries()).filter(([d]) => d >= from && d <= to).map(([, r]) => r);
@@ -168,7 +170,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const mtdSales = sum(inRange(monthStart, today), 'net_sales');
 
   const projectionFor = (row: any): number | undefined =>
-    num(row?.override_projection) ?? num(row?.living_projection) ?? num(row?.projected_sales) ?? num(row?.initial_projection);
+    num(row?.override_projection) ?? num(row?.living_projection) ?? num(row?.initial_projection) ?? num(row?.projected_sales);
 
   const dayPace = (() => {
     // Prefer the stored pace projection; fall back to the living projection so
@@ -203,10 +205,15 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     return { cost, hours, percent: salesTotal && salesTotal > 0 ? (cost / salesTotal) * 100 : undefined };
   };
 
-  // ── LOCKED (2026-09-18): today labor is ALWAYS punch-based ───────────────
+  // ── Today labor: punch-based unless the store is on POS labor (see above) ──
   // labor_cache is history-only (it excludes today), so today's numbers come
   // from the shared punch helper. Never gated on any POS integration.
-  const punchToday = await calculatePunchLabor(sb, locationId, today, tz);
+  // Updated 2026-09-25 (Jordan): stores on POS labor ("Pull Qu Labor %" ON) use
+  // today's saved QU row instead of punches. Everyone else stays punch-based.
+  const quTodayRow = (laborRows || []).find((r: any) => r.labor_date === today && r.source === 'qubeyond' && Number(r.labor_cost) > 0);
+  const punchToday = quTodayRow
+    ? { laborCost: Number(quTodayRow.labor_cost) || 0, hoursWorked: Number(quTodayRow.labor_hours) || 0 }
+    : await calculatePunchLabor(sb, locationId, today, tz);
   const dayLabor = punchToday
     ? {
         cost: punchToday.laborCost,
