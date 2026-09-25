@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +6,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface WriteUpsSectionProps {
   userId: string;
+  employeeName?: string;
 }
 
 interface WriteUp {
@@ -25,7 +36,7 @@ interface WriteUp {
   location?: { name: string } | null;
 }
 
-export function WriteUpsSection({ userId }: WriteUpsSectionProps) {
+export function WriteUpsSection({ userId, employeeName }: WriteUpsSectionProps) {
   const [selectedWriteUp, setSelectedWriteUp] = useState<WriteUp | null>(null);
 
   const { data: writeUps = [] } = useQuery({
@@ -184,11 +195,107 @@ export function WriteUpsSection({ userId }: WriteUpsSectionProps) {
                     </div>
                   )}
                 </div>
+                <DeleteCorrectiveActionButton
+                  writeUp={selectedWriteUp}
+                  employeeName={employeeName || "this employee"}
+                  onDeleted={() => setSelectedWriteUp(null)}
+                />
               </div>
             )}
           </ScrollArea>
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function DeleteCorrectiveActionButton({
+  writeUp,
+  employeeName,
+  onDeleted,
+}: {
+  writeUp: { id: string; reason: string; created_at: string; signed_at: string | null };
+  employeeName: string;
+  onDeleted: () => void;
+}) {
+  const { isOrgAdmin, role, loading } = useUserRole();
+  const canDeleteCA = isOrgAdmin || (role as string) === "fbc";
+  const queryClient = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const inFlight = useRef(false);
+
+  if (loading || !canDeleteCA) return null;
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase
+        .from("employee_writeups")
+        .delete()
+        .eq("id", writeUp.id)
+        .select("id");
+      if (error || !data || data.length === 0) {
+        toast.error(
+          "Couldn't delete this Corrective Action. You may not have permission, or it was already removed." +
+            (error?.message ? ` (${error.message})` : "")
+        );
+        return;
+      }
+      toast.success("Corrective Action deleted");
+      setConfirmOpen(false);
+      onDeleted();
+      queryClient.invalidateQueries({ queryKey: ["employee-writeups"] });
+      queryClient.invalidateQueries({ queryKey: ["write-up-for-task"] });
+      queryClient.invalidateQueries({ queryKey: ["temporary-tasks"] });
+    } finally {
+      inFlight.current = false;
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="pt-2 border-t border-border">
+      <Button variant="destructive" size="sm" onClick={() => setConfirmOpen(true)}>
+        <Trash2 className="h-4 w-4 mr-1.5" />
+        Delete
+      </Button>
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => { if (!deleting) setConfirmOpen(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this Corrective Action?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <div className="space-y-0.5 text-foreground">
+                  <div><span className="text-muted-foreground">Employee:</span> {employeeName}</div>
+                  <div><span className="text-muted-foreground">Reason:</span> {writeUp.reason}</div>
+                  <div><span className="text-muted-foreground">Date:</span> {format(new Date(writeUp.created_at), "MMMM d, yyyy")}</div>
+                  <div><span className="text-muted-foreground">Status:</span> {writeUp.signed_at ? "Signed" : "Pending acknowledgment"}</div>
+                </div>
+                <p>This permanently deletes this Corrective Action and cannot be undone.</p>
+                {writeUp.signed_at && (
+                  <p className="font-semibold text-destructive">
+                    This Corrective Action was signed by the employee. Deleting removes the signed record.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              disabled={deleting}
+              onClick={handleDelete}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
