@@ -994,7 +994,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               {!roleLoading && isShiftManager && (
                 <button
                   onClick={() => window.dispatchEvent(new Event('open-theo'))}
-                  className="group relative flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-full bg-white/10 border border-white/20 hover:bg-white/15 hover:border-white/30 active:scale-95 transition-all duration-200"
+                  className="group relative flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200"
                   aria-label="Ask Theo"
                 >
                   <span className="relative flex items-center justify-center h-5 w-5 shrink-0">
@@ -1002,7 +1002,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <span className="absolute inset-0 rounded-full bg-white/20 animate-pulse" />
                     <TheoOrb size={20} className="relative text-white pointer-events-none" />
                   </span>
-                  <span className="text-sm font-semibold text-primary-foreground tracking-tight hidden md:inline">
+                  <span className="text-sm font-bold text-white tracking-tight hidden md:inline">
                     Ask Theo
                   </span>
                 </button>
