@@ -6332,6 +6332,7 @@ export type Database = {
           rest_break_hours: number | null
           rule_name: string
           state_code: string | null
+          unpaid_break_min_minutes: number
           updated_at: string | null
           weekly_overtime_threshold: number | null
         }
@@ -6358,6 +6359,7 @@ export type Database = {
           rest_break_hours?: number | null
           rule_name: string
           state_code?: string | null
+          unpaid_break_min_minutes?: number
           updated_at?: string | null
           weekly_overtime_threshold?: number | null
         }
@@ -6384,6 +6386,7 @@ export type Database = {
           rest_break_hours?: number | null
           rule_name?: string
           state_code?: string | null
+          unpaid_break_min_minutes?: number
           updated_at?: string | null
           weekly_overtime_threshold?: number | null
         }
@@ -13362,9 +13365,50 @@ export type Database = {
           hours: number
         }[]
       }
+      _legacy_get_cut_savings_total: {
+        Args: { _cuts: Json; _location_id: string }
+        Returns: {
+          est_savings: number
+          total_minutes: number
+        }[]
+      }
+      _legacy_get_labor_totals_for_dates: {
+        Args: { _dates: string[]; _location_id: string }
+        Returns: {
+          cost: number
+          date: string
+          hours: number
+        }[]
+      }
+      _legacy_get_live_labor_totals: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          cost: number
+          hours: number
+        }[]
+      }
+      _legacy_labor_totals_for_date: {
+        Args: { _date: string; _location_id: string; _show_live: boolean }
+        Returns: {
+          cost: number
+          hours: number
+        }[]
+      }
       _location_business_date: {
         Args: { _location_id: string }
         Returns: string
+      }
+      _store_labor: {
+        Args: { _date: string; _live: boolean; _location_id: string }
+        Returns: {
+          as_of: string
+          cost: number
+          hours: number
+          is_live: boolean
+          labor_pct: number
+          net_sales: number
+          source: string
+        }[]
       }
       _validate_widget_authority: {
         Args: {
@@ -13400,6 +13444,17 @@ export type Database = {
           _units_per_unit: number
         }
         Returns: Json
+      }
+      business_date: {
+        Args: { _at?: string; _location_id: string }
+        Returns: string
+      }
+      business_day_window: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          end_at: string
+          start_at: string
+        }[]
       }
       can_manage_org_applications: {
         Args: { _organization_id: string; _user_id: string }
@@ -13599,6 +13654,20 @@ export type Database = {
           pin_pending_set_at: string
         }[]
       }
+      get_store_labor: {
+        Args: { _end: string; _location_ids: string[]; _start: string }
+        Returns: {
+          as_of: string
+          cost: number
+          date: string
+          hours: number
+          is_live: boolean
+          labor_pct: number
+          location_id: string
+          net_sales: number
+          source: string
+        }[]
+      }
       get_theo_unread: {
         Args: { p_location_id: string }
         Returns: {
@@ -13704,6 +13773,31 @@ export type Database = {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
+      labor_day_totals: {
+        Args: { _date: string; _live: boolean; _location_id: string }
+        Returns: {
+          cost: number
+          hours: number
+          open_shift_count: number
+          unclosed_break_count: number
+          wage_missing_count: number
+        }[]
+      }
+      labor_day_user_totals: {
+        Args: { _date: string; _live: boolean; _location_id: string }
+        Returns: {
+          cost: number
+          open_shift: boolean
+          paid_hours: number
+          unclosed_break_count: number
+          unpaid_break_hours: number
+          user_id: string
+          wage: number
+          wage_missing: boolean
+        }[]
+      }
+      labor_new_rule_start: { Args: never; Returns: string }
+      labor_source_for: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
         Args: { p_location_id: string; p_message_id: string }
