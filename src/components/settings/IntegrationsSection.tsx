@@ -280,7 +280,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryKey: ['ovation-integration', ovationBrandId],
     queryFn: async () => {
       if (!ovationBrandId) return null;
-      const { data } = await supabase.from('ovation_integrations').select('*').eq('brand_id', ovationBrandId).maybeSingle();
+      const { data } = await supabase.from('ovation_integrations').select('id, brand_id, company_id, is_active, token_updated_at, created_at, updated_at').eq('brand_id', ovationBrandId).maybeSingle();
       return data;
     },
     enabled: !!ovationBrandId,
@@ -290,7 +290,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryKey: ['ovation-mapping', locationId],
     queryFn: async () => {
       if (!locationId) return null;
-      const { data } = await supabase.from('ovation_location_mappings').select('*').eq('location_id', locationId).maybeSingle();
+      const { data } = await supabase.from('ovation_location_mappings').select('id, location_id, ovation_location_id, company_id, token_updated_at, created_at').eq('location_id', locationId).maybeSingle();
       return data;
     },
     enabled: !!locationId,
@@ -335,23 +335,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   }, [locationKdsData]);
 
   useEffect(() => {
-    // Load credentials from per-location mapping first, fall back to brand integration
-    if (ovationMapping) {
-      setOvationLocationId(ovationMapping.ovation_location_id || '');
-      if ((ovationMapping as any).cognito_username) {
-        setOvationEmail((ovationMapping as any).cognito_username || '');
-        setOvationPassword((ovationMapping as any).cognito_password || '');
-        setOvationCompanyId((ovationMapping as any).company_id || '');
-      } else if (ovationIntegration) {
-        setOvationEmail((ovationIntegration as any).cognito_username || '');
-        setOvationPassword((ovationIntegration as any).cognito_password || '');
-        setOvationCompanyId(ovationIntegration.company_id || '');
-      }
-    } else if (ovationIntegration) {
-      setOvationEmail((ovationIntegration as any).cognito_username || '');
-      setOvationPassword((ovationIntegration as any).cognito_password || '');
-      setOvationCompanyId(ovationIntegration.company_id || '');
-    }
+    // Ovation login is write-only: never pre-fill email/password. Company ID comes
+    // from the per-location mapping first, then the brand integration.
+    setOvationLocationId(ovationMapping?.ovation_location_id || '');
+    setOvationCompanyId(ovationMapping?.company_id || ovationIntegration?.company_id || '');
   }, [ovationMapping, ovationIntegration]);
 
   // Load OPUS session + mappings from integration
@@ -1527,7 +1514,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <Input 
                   value={ovationEmail} 
                   onChange={(e) => setOvationEmail(e.target.value)} 
-                  placeholder="jordan@example.com" 
+                  placeholder={(ovationMapping || ovationIntegration) ? 'Saved. Re-enter to change' : 'jordan@example.com'} 
                   className="h-9 text-xs" 
                 />
               </div>
@@ -1538,7 +1525,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     value={ovationPassword} 
                     onChange={(e) => setOvationPassword(e.target.value)} 
                     type={ovationShowPassword ? 'text' : 'password'}
-                    placeholder="••••••••" 
+                    placeholder={(ovationMapping || ovationIntegration) ? 'Saved. Re-enter to change' : '••••••••'} 
                     className="h-9 text-xs pr-10" 
                   />
                   <button

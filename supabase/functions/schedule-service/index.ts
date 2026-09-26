@@ -537,7 +537,16 @@ async function handleOptimizeLabor(req: Request, supabase: any) {
 
   const weekStartDate = new Date(week_start + "T12:00:00Z");
 
-  const userIds = [...new Set((generated_shifts || []).map((s: GeneratedShift) => s.user_id))];
+  const requestedIds = [...new Set((generated_shifts || []).map((s: GeneratedShift) => s.user_id))];
+
+  // Only people who belong to this location — never price anyone else's wage.
+  const { data: memberRows, error: memberErr } = await supabase
+    .from("user_locations")
+    .select("user_id")
+    .eq("location_id", location_id)
+    .in("user_id", requestedIds.length ? requestedIds : ["00000000-0000-0000-0000-000000000000"]);
+  if (memberErr) throw memberErr;
+  const userIds = (memberRows || []).map((r: any) => r.user_id);
   
   const { data: profiles, error: profileError } = await supabase
     .from("profiles")
@@ -935,13 +944,38 @@ serve(async (req) => {
 
     console.log(`[schedule-service] Action: ${action}`);
 
-    if (action === "auto-schedule") {
-      return await handleAutoSchedule(req, supabase);
-    } else if (action === "optimize-labor") {
-      return await handleOptimizeLabor(req, supabase);
-    } else {
+    if (action !== "auto-schedule" && action !== "optimize-labor") {
       throw new Error(`Unknown action: ${action}`);
     }
+
+    // Both actions read wages. Require a signed-in manager+ with access to the location.
+    const deny = (status: number, error: string) =>
+      new Response(JSON.stringify({ error }), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    if (!bearer) return deny(401, "Unauthorized");
+    const { data: userData, error: userErr } = await supabase.auth.getUser(bearer);
+    const callerId = userData?.user?.id;
+    if (userErr || !callerId) return deny(401, "Unauthorized");
+
+    let bodyLocationId: string | undefined;
+    try {
+      bodyLocationId = (await req.clone().json())?.location_id;
+    } catch { /* handler reports missing params */ }
+    if (!bodyLocationId) return deny(400, "Missing required parameter: location_id");
+
+    const [{ data: isManager }, { data: hasAccess }] = await Promise.all([
+      supabase.rpc("has_role_or_higher", { _user_id: callerId, _minimum_role: "manager" }),
+      supabase.rpc("has_location_access", { _user_id: callerId, _location_id: bodyLocationId }),
+    ]);
+    if (isManager !== true || hasAccess !== true) return deny(403, "Forbidden");
+
+    if (action === "auto-schedule") {
+      return await handleAutoSchedule(req, supabase);
+    }
+    return await handleOptimizeLabor(req, supabase);
 
   } catch (error: any) {
     console.error("[schedule-service] Error:", error);
