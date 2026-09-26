@@ -103,27 +103,24 @@
 *Add new locked features below this line:*
 
 
-### Live Labor — One Punch Path Everywhere
-**Files:**
-- src/utils/liveLabor.ts (canonical client helper: fetchLiveLaborForToday)
-- supabase/functions/_shared/punchLabor.ts (canonical server helper: calculatePunchLabor)
-- src/components/punchclock/ManagerDashboardOverlay.tsx
-- src/components/dashboard/SalesSummary.tsx
-- supabase/functions/watch-device-service/index.ts
+### One Store Labor Number
+**Source of truth (database):** labor_day_user_totals / labor_day_totals (the only
+labor math), get_store_labor (the one store labor lookup), business_date /
+business_day_window, labor_new_rule_start() = 2026-09-26.
 
-**Description:** Every surface that shows live/today labor MUST get it from the
-shared punch helper. Rules:
-- QuBeyond is SALES TRANSPORT ONLY. It has zero involvement in labor on any
-  surface at any location. Never gate labor display on QU authentication or on
-  any POS integration existing.
-- No local reimplementation of live labor math, and no direct labor_cache query
-  for today (labor_cache is closed-day history only).
-- Any new labor-displaying surface must call the shared helper.
-- Out of scope (different product meaning, do not change): scheduled/projected
-  labor on Schedule (LaborTotals / DayBreakdown / MobileDayPreview),
-  LaborIntelligenceCard, BrandDashboard, historical labor_cache writers.
+**Rules:**
+- Hours, labor $, labor %, and cut savings are computed server-side only. Screens
+  display; no client-side labor math.
+- Source per store: "Pull Qu Labor %" on → qubeyond rows; off → punch_clock.
+- Breaks: length rule, per-store labor_rules.unpaid_break_min_minutes (default 30,
+  inclusive). Straight wages, no OT.
+- Dates before labor_new_rule_start() keep the legacy math and are never rewritten.
+- Virginia St (5ce2f74e-7292-4ccd-84c1-7b8b28e4bc0d) stays on the legacy path.
+- labor-service writes closed punch_clock days from labor_day_totals only;
+  backfill_labor uses a 7-day lookback clamped to the cutoff.
+- Existing RPC access gates (manager / paired device) must not change.
 
-**Last Updated:** 2026-09-18
+**Last Updated:** 2026-09-26
 
 ---
 
