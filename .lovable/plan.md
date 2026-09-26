@@ -1,198 +1,218 @@
 # Pack 2: One labor number (plan only; nothing built until Jordan approves)
 
 ## In plain English
-The database will work out each labor number once, the same way everywhere, and every screen will show that one number. Breaks follow a length rule each store can set, and labor $ is straight wages. Virginia St is left completely alone.
+The database will work out each labor number once, the same way everywhere, and every screen will show that one number. Breaks follow a length rule each store can set. Labor $ is straight wages. Virginia St is left completely alone, and payroll is not touched.
 
-It ships in two parts, each approved separately:
+This ships in two parts, each approved separately:
 - **2A (this approval):** the database and backend jobs only. No screen changes and no kiosk changes.
-- **2B (separate approval, after the paired-tablet test passes):** switching the screens over and scheduled labor.
+- **2B:** switching the screens over and scheduled labor. This is a separate approval, after the paired-tablet test passes.
 
 ---
 
 # 2A: server side (self-contained)
 
-## Checked against the live system
-- **Existing functions:** these exist today and are SECURITY DEFINER. Each keeps its exact signature and return shape:
-  - `get_live_labor_totals(_location_id uuid, _date date) -> TABLE(hours numeric, cost numeric)`
-  - `get_labor_totals_for_dates(_location_id uuid, _dates date[]) -> TABLE(date date, hours numeric, cost numeric)`
-  - `get_cut_savings_total(_location_id uuid, _cuts jsonb) -> TABLE(total_minutes integer, est_savings numeric)`
-  - `_labor_totals_for_date(_location_id uuid, _date date, _show_live boolean) -> TABLE(hours numeric, cost numeric)`
-  - `_labor_totals_authorized(_location_id uuid) -> boolean` (kept as is)
-  - `_location_business_date(_location_id uuid) -> date`
-- **labor_rules:** has no break-length column today, so this pack adds one.
-- **QU switch:** `location_integrations.credentials->>'pull_labor'` on the active qubeyond integration. It is 'true' only at Rowlett today. **Confirmed by Ryan.**
-- **Backfill job:** it lives in `supabase/functions/maintenance-queue-processor/index.ts`, case "backfill_labor" (line 140).
+## Step 0: facts checked against the live system and code (Sep 26)
+- **Who uses `_location_business_date`:** only `get_cut_savings_total` (searched the database and the codebase). **Confirmed.**
+- **Function security settings today:**
+  - All 6 functions are SECURITY DEFINER with `search_path=public`: `get_live_labor_totals`, `get_labor_totals_for_dates`, `get_cut_savings_total`, `_labor_totals_for_date`, `_labor_totals_authorized`, `_location_business_date`.
+  - The three public functions can be run by authenticated and service_role.
+  - `_labor_totals_for_date`, `_labor_totals_authorized` and `_location_business_date` can be run by service_role only.
+  - A direct permission check shows anon cannot run any of the 6. **Confirmed.**
+- **Kiosk:** `src/utils/liveLabor.ts:27` passes `getDateInTimezone()`, which is the store's local calendar date, not its business date. It uses the signed-in or paired session. **Confirmed.**
+- **Who reads `hourly_breakdown`:** ai-assistant at line 2169 reads it (aloha-sync writes it). **Confirmed.**
+- **Who reads `employee_breakdown`:**
+  - labor-intelligence:199.
+  - maintenance-service:154. Its validate-labor-cache step marks punch_clock rows stale when the breakdown hours don't add up to the total.
+  - ai-assistant:841, 1919 and 2037.
+  - **Confirmed.**
+- **Punch triggers:** `mark_labor_cache_stale` and `mark_labor_cache_stale_and_backfill` both use `(punch_time AT TIME ZONE tz)::date`, which is the calendar date. So a 00:30 punch queues a backfill for the next calendar day. **Confirmed.** labor-service will also recompute the previous business date (see below).
+- **auto-punch-out:** inserts a clock_out with `is_auto_punched_out=true`, with an 18-hour sanity limit (MAX_SHIFT_HOURS=18). I'm relying on your finding that it fires at close+4h or scheduled end+1h and has happened once in 60 days; I didn't re-count.
+- **changelog_entries:**
+  - The only reader is `src/pages/Changelog.tsx` (select, insert, delete), and that screen is super-admin only.
+  - It has 3 policies: "Admins can manage changelog" (ALL), "Super admins can manage changelog" (ALL) and "Super admins can view changelog" (SELECT).
+  - There is no customer-facing reader. **Confirmed.**
+- **Punches with the same timestamp (60 days):** 5 groups: clock_out×2, clock_out×3, clock_out×4, clock_in+clock_out, and break_start+clock_out. **Confirmed.**
+- **Labor jobs on a timer:**
+  - job 22 "queue-nightly-maintenance" at 11:00 UTC.
+  - job 24 "nightly-labor-maintenance" at 11:01 UTC.
+  - job 239 "process-maintenance-queue" every minute.
+  - **Confirmed.**
+- **July backfill wage fallback:** 1 person-day falls back to today's profile wage: user a3f510f4-371b-4230-bb2c-f47cb24c4fdf, Georgetown 2026-08-01 (their first wage_history is 2026-08-12). Nobody has no wage at all. **Confirmed.**
+- **QU switch:** `location_integrations.credentials->>'pull_labor'` on the active qubeyond integration. It is 'true' only at Rowlett. **Confirmed by Ryan.**
+- **Backfill job location:** `supabase/functions/maintenance-queue-processor/index.ts`, case "backfill_labor" (line 140).
 
-## Virginia St exclusion (location id 5ce2f74e-7292-4ccd-84c1-7b8b28e4bc0d)
-- Every new function starts with a guard that returns nothing for this id, so it never returns or recomputes Virginia St.
-- labor-service and the backfill skip this id.
-- The repointed `get_live_labor_totals`, `get_labor_totals_for_dates` and `_labor_totals_for_date` hand this id to their current (pre-2A) logic, kept inside the migration as `_legacy_*` copies. Its output stays exactly as it is today.
-- `get_cut_savings_total` gets the same treatment.
-- There is no aloha source, no aloha passthrough, and nothing keyed on Aloha integrations. aloha-sync and its labor_cache rows are untouched.
-- In 2B, every screen and job keeps today's code path for this id.
+## Virginia St exclusion (5ce2f74e-7292-4ccd-84c1-7b8b28e4bc0d)
+- **New functions:** every new function returns nothing for this id.
+- **Backend jobs:** labor-service and backfill_labor skip it.
+- **Repointed functions** (`get_live_labor_totals`, `get_labor_totals_for_dates`, `get_cut_savings_total`, `_labor_totals_for_date`): for this id, they call `_legacy_*` copies of today's logic. Those copies still call the unchanged `_location_business_date`.
+- **No aloha source:** there is no aloha source, no aloha passthrough, and nothing keyed on Aloha. aloha-sync and its rows are untouched.
 
 ## Migration outline
-1. **Setting and seed**
-   - `ALTER TABLE public.labor_rules ADD COLUMN unpaid_break_min_minutes integer NOT NULL DEFAULT 30;`
-   - `UPDATE public.labor_rules SET unpaid_break_min_minutes = 30 WHERE state_code = 'CA';` This covers Hemet, Palm Desert, Palm Springs, Anaheim and [TEST] Sandbox. It runs as a data step through the data tool, not inside the migration.
-   - Stores with no labor_rules row (Reno - Diamond Pkwy, [TEST] Lite QA) use `coalesce(..., 30)`.
+1. **Setting:** `ALTER TABLE public.labor_rules ADD COLUMN unpaid_break_min_minutes integer NOT NULL DEFAULT 30;`
+   - The CA rows (Hemet, Palm Desert, Palm Springs, Anaheim, [TEST] Sandbox) are set to 30 as a separate data step.
+   - Stores with no labor_rules row use `coalesce(..., 30)`.
    - Hayward is left as is.
-2. **Business date**
-   - `public.business_date(_location_id uuid, _at timestamptz DEFAULT now()) -> date`
-   - `public.business_day_window(_location_id uuid, _date date) -> TABLE(start_at timestamptz, end_at timestamptz)`
-   - Both use the store's timezone.
-   - The cutoff is (previous day's close hour + 3) % 24, defaulting to 5.
-   - The date rolls back one day only when the cutoff is between 1 and 11 AND the local hour is before the cutoff.
-   - `_location_business_date(_location_id)` becomes `SELECT business_date(_location_id, now())`.
-   - Test vectors, checked with SELECTs after apply:
-     - Georgetown 9/26 13:31 CT -> 9/26
-     - Reno 11:31 PT -> 9/26
-     - Hemet 9/27 00:30 -> 9/26, and 01:00 -> 9/27
-     - Palm Desert 9/27 01:30 -> 9/26
-     - Rowlett 9/27 00:45 CT -> 9/26
-3. **One labor calculation** (internal)
-   - `public.labor_day_user_totals(_location_id uuid, _date date, _live boolean) -> TABLE(user_id uuid, paid_hours numeric, unpaid_break_hours numeric, wage numeric, cost numeric, wage_missing boolean)`
-   - `public.labor_day_totals(_location_id uuid, _date date, _live boolean) -> TABLE(hours numeric, cost numeric, wage_missing_count integer)`
-   - `_labor_totals_for_date` becomes a wrapper that returns `(hours, cost)` from labor_day_totals, except for Virginia St.
-4. **One store labor lookup**
-   - `public.labor_source_for(_location_id uuid) -> text`: Virginia St is excluded first. Then it returns 'qubeyond' if the active qubeyond integration has `credentials->>'pull_labor' = 'true'`, otherwise 'punch_clock'.
-   - `public._store_labor(_location_id uuid, _date date, _live boolean) -> TABLE(source text, hours numeric, cost numeric, net_sales numeric, labor_pct numeric, is_live boolean, as_of timestamptz)`
-     - 'qubeyond' stores read their qubeyond labor_cache row.
-     - 'punch_clock' stores use labor_day_totals: live when the date is business today, otherwise the cached punch_clock row.
-     - net_sales comes from sales_cache (read only).
-     - `labor_pct = cost / net * 100` unrounded, and null when net sales are 0.
-   - `public.get_store_labor(_location_ids uuid[], _start date, _end date) -> TABLE(location_id uuid, date date, source text, hours numeric, cost numeric, net_sales numeric, labor_pct numeric, is_live boolean, as_of timestamptz)`
+2. **Business date** (new):
+   - `business_date(_location_id uuid, _at timestamptz DEFAULT now()) -> date`
+   - `business_day_window(_location_id uuid, _date date) -> TABLE(start_at timestamptz, end_at timestamptz)`
+   - The window is built as `(date + cutoff)::timestamp AT TIME ZONE tz`.
+   - Cutoff = (previous day's close hour + 3) % 24, defaulting to 5. The date rolls back one day only when the cutoff is between 1 and 11 and the local hour is before the cutoff.
+   - **`_location_business_date` stays unchanged.** New code calls `business_date` directly.
+3. **One labor calculation** (internal):
+   - `labor_day_user_totals(_location_id uuid, _date date, _live boolean) -> TABLE(user_id uuid, paid_hours numeric, unpaid_break_hours numeric, wage numeric, cost numeric, wage_missing boolean, open_shift boolean, unclosed_break_count integer)`
+   - `labor_day_totals(_location_id uuid, _date date, _live boolean) -> TABLE(hours numeric, cost numeric, wage_missing_count integer, open_shift_count integer, unclosed_break_count integer)`
+   - `_labor_totals_for_date(uuid,date,boolean)` is changed with CREATE OR REPLACE. Virginia St goes to `_legacy_labor_totals_for_date`; every other store goes to `labor_day_totals` and returns (hours, cost).
+4. **One store labor lookup:**
+   - `labor_source_for(_location_id uuid) -> text`: Virginia St is excluded first. Then it returns 'qubeyond' if `pull_labor = 'true'`, otherwise 'punch_clock'.
+   - `_store_labor(_location_id uuid, _date date, _live boolean) -> TABLE(source text, hours numeric, cost numeric, net_sales numeric, labor_pct numeric, is_live boolean, as_of timestamptz)`
+     - qubeyond stores read their qubeyond cache row.
+     - punch_clock stores: business today is calculated live. Past dates use the cached row; if the row is missing or stale, it runs `labor_day_totals(_live => false)` without saving anything.
+     - net_sales comes from sales_cache. `labor_pct = cost/net*100`, unrounded, and null when net = 0.
+   - `get_store_labor(_location_ids uuid[], _start date, _end date) -> TABLE(location_id uuid, date date, source text, hours numeric, cost numeric, net_sales numeric, labor_pct numeric, is_live boolean, as_of timestamptz)`
      - Checks `_labor_totals_authorized` for each location.
      - A punch device gets only its own location, and only for business today.
-     - Returns store totals only, with Virginia St skipped.
-5. **Repoint existing functions** (same signatures and shapes, logic inside the database)
-   - `get_live_labor_totals` and `get_labor_totals_for_dates` read from _store_labor (Virginia St goes to its legacy copy).
-   - `get_cut_savings_total` uses the per-person wages from labor_day_user_totals. It returns exact results for any group size, including 1, and never returns a wage.
-6. **Grants** (explicit statements; the database's defaults would otherwise let signed-out visitors and signed-in users run every new function)
-   - Every new function is `SECURITY DEFINER SET search_path = public`.
-   - Internal helpers:
-     ```sql
-     REVOKE ALL ON FUNCTION public._store_labor(uuid,date,boolean), public.labor_source_for(uuid), public.labor_day_totals(uuid,date,boolean), public.labor_day_user_totals(uuid,date,boolean) FROM PUBLIC, anon, authenticated;
-     GRANT EXECUTE ON FUNCTION public._store_labor(uuid,date,boolean), public.labor_source_for(uuid), public.labor_day_totals(uuid,date,boolean), public.labor_day_user_totals(uuid,date,boolean) TO service_role;
-     ```
-   - `_legacy_*` copies:
-     ```sql
-     REVOKE ALL ON FUNCTION public._legacy_labor_totals_for_date(uuid,date,boolean), public._legacy_get_live_labor_totals(uuid,date), public._legacy_get_labor_totals_for_dates(uuid,date[]), public._legacy_get_cut_savings_total(uuid,jsonb) FROM PUBLIC, anon, authenticated;
-     GRANT EXECUTE ON FUNCTION public._legacy_labor_totals_for_date(uuid,date,boolean), public._legacy_get_live_labor_totals(uuid,date), public._legacy_get_labor_totals_for_dates(uuid,date[]), public._legacy_get_cut_savings_total(uuid,jsonb) TO service_role;
-     ```
-   - Public lookup:
-     ```sql
-     REVOKE ALL ON FUNCTION public.get_store_labor(uuid[],date,date) FROM PUBLIC, anon;
-     GRANT EXECUTE ON FUNCTION public.get_store_labor(uuid[],date,date) TO authenticated, service_role;
-     ```
-   - `business_date(uuid,timestamptz)` and `business_day_window(uuid,date)`: REVOKE from PUBLIC and anon; GRANT to authenticated and service_role.
-   - `get_live_labor_totals`, `get_labor_totals_for_dates`, `get_cut_savings_total` and `_labor_totals_for_date` are changed with **CREATE OR REPLACE** only, never dropped and recreated, so their current permissions stay as they are.
+     - Capped at 93 days per call. Store totals only, and Virginia St is skipped.
+5. **Repointed public functions** (CREATE OR REPLACE, same signatures and shapes):
+   - `get_live_labor_totals(uuid,date)` and `get_labor_totals_for_dates(uuid,date[])` run `_labor_totals_authorized`, then read `_store_labor`.
+   - **Kiosk date:** if `_date = business_date(loc) + 1` and that is the store's local calendar date (after midnight, before the cutoff), the call is treated as a live business-today call.
+   - **`get_cut_savings_total(uuid,jsonb)` lockdown:**
+     - It prices only people who have a shift at that location on that business date. Anyone else is dropped silently.
+     - Minutes are clamped to 0–480.
+     - Error messages are generic, never specific to a person.
+     - It uses the wages from `labor_day_user_totals`, returns exact results even for one person, and never returns a wage.
+6. **Security:** every new or replaced function that reads wages is `SECURITY DEFINER SET search_path = public, pg_temp`. The grants are:
+   ```sql
+   REVOKE ALL ON FUNCTION public._store_labor(uuid,date,boolean), public.labor_source_for(uuid), public.labor_day_totals(uuid,date,boolean), public.labor_day_user_totals(uuid,date,boolean) FROM PUBLIC, anon, authenticated;
+   GRANT EXECUTE ON FUNCTION public._store_labor(uuid,date,boolean), public.labor_source_for(uuid), public.labor_day_totals(uuid,date,boolean), public.labor_day_user_totals(uuid,date,boolean) TO service_role;
+   REVOKE ALL ON FUNCTION public._legacy_labor_totals_for_date(uuid,date,boolean), public._legacy_get_live_labor_totals(uuid,date), public._legacy_get_labor_totals_for_dates(uuid,date[]), public._legacy_get_cut_savings_total(uuid,jsonb) FROM PUBLIC, anon, authenticated;
+   GRANT EXECUTE ON FUNCTION public._legacy_labor_totals_for_date(uuid,date,boolean), public._legacy_get_live_labor_totals(uuid,date), public._legacy_get_labor_totals_for_dates(uuid,date[]), public._legacy_get_cut_savings_total(uuid,jsonb) TO service_role;
+   REVOKE ALL ON FUNCTION public.get_store_labor(uuid[],date,date), public.business_date(uuid,timestamptz), public.business_day_window(uuid,date) FROM PUBLIC, anon;
+   GRANT EXECUTE ON FUNCTION public.get_store_labor(uuid[],date,date), public.business_date(uuid,timestamptz), public.business_day_window(uuid,date) TO authenticated, service_role;
+   ```
+   - The three public functions and `_labor_totals_for_date` are CREATE OR REPLACE only, so their current permissions stay as they are.
    - No hidden column is re-granted.
-7. **Piggyback: remove the changelog admin policy**
-   - `DROP POLICY "Admins can manage changelog" ON public.changelog_entries;`
-   - Checked live: this policy lets anyone with the 'admin' role do anything with the changelog, so customer admins can read and change CrooHQ's internal changelog.
-   - "Super admins can manage changelog" and "Super admins can view changelog" stay.
-   - Out of scope: removing signed-out visitors' add/change/delete rights on profiles and labor_cache is a separate ship later.
+7. **Piggyback:** `DROP POLICY "Admins can manage changelog" ON public.changelog_entries;` The two super-admin policies stay. Removing signed-out visitors' add/change/delete rights on profiles and labor_cache is out of scope.
 
 ## Break and pairing block (one commented section)
-1. **Punches:** for each person, take their punches in the business-day window, ordered by time. When times tie, the order is clock_in, then break_start, then break_end, then clock_out, then id.
-2. **Shifts:**
-   - clock_in opens a shift. If a shift is already open, the extra clock_in is ignored.
-   - clock_out closes the open shift. A clock_out with no open shift is ignored, so the first one wins.
-   - A person can have several shifts per day (split shifts). A shift belongs to the business date of its clock_in.
-3. **Breaks within a shift:**
-   - break_start opens a break only if none is open; the first one wins.
-   - break_end closes the open break. A duplicate break_end is ignored.
-   - A break with no end finishes at the clock_out.
-4. **Break rule:** a break is unpaid when it lasts at least N minutes, where N = `coalesce(labor_rules.unpaid_break_min_minutes, 30)`. Its full length is deducted. Shorter breaks stay paid. `break_type` and notes are ignored.
-5. **Live (business today):**
+1. **Window:** read the person's punches from 24 hours before the business-day window to 24 hours after it. Keep only shifts where `business_date(clock_in) = _date`. This way a weekend closer's clock-out after the cutoff is no longer dropped.
+2. **Same timestamps:**
+   - First, cancel out same-kind duplicates at the same moment. Only one of each kind is kept, which handles the clock_out ×2, ×3 and ×4 groups.
+   - Then sort ties as break_end, then clock_out, then clock_in, then break_start, then by id.
+3. **Shifts:**
+   - clock_in opens a shift; if one is already open, the extra clock_in is ignored.
+   - clock_out closes the open shift; with no open shift it is ignored (the first clock-out wins).
+   - Split shifts count, and each shift has its own breaks.
+4. **Breaks:**
+   - break_start opens a break only inside an open shift, and only if no break is open.
+   - break_end closes the open break. An unmatched or duplicate break_end is ignored, and so are breaks outside a shift.
+   - An open break is closed at the clock_out and counted in `unclosed_break_count`.
+5. **Orphans:** a past shift with no clock_out counts as zero and is counted in `open_shift_count`.
+6. **Live (business today):**
    - An open shift runs until now().
    - An open break counts as worked until it reaches N, then its whole elapsed length is deducted. **Approved.**
-6. **Pay:**
-   - paid_hours = shift time minus unpaid breaks.
-   - The wage comes from wage_history (the latest effective on or before the date), then profiles.hourly_wage, then 15 with `wage_missing` marked.
-   - cost = paid_hours × wage, straight time.
-   - overtime_hours and double_time_hours are written as 0.
-7. **Rounding:** only the final totals are rounded, to 4 decimals for hours and 2 for dollars.
+7. **Break rule:** a break is unpaid when `(break_end - break_start) >= make_interval(mins => N)`, where N = `coalesce(labor_rules.unpaid_break_min_minutes, 30)`. Its full length is deducted.
+   - The math is exact time intervals only: no date_trunc, no float or epoch math.
+   - break_type and notes are ignored.
+8. **Wage:**
+   - Take wage_history where `effective_date <= _date`, ordered by effective_date DESC, then created_at DESC, then id DESC.
+   - If there is none, use profiles.hourly_wage. If that is missing too, use $15 and mark `wage_missing`.
+   - **Pending Jordan decision:** replace the $15 fallback with the store's minimum wage.
+9. **Totals:**
+   - cost = paid_hours × wage, straight time. overtime_hours and double_time_hours are written as 0.
+   - Unrounded per-person values are added up, and only the final totals are rounded (4 decimals for hours, 2 for dollars).
 
 ## Backend changes
-- `supabase/functions/labor-service/index.ts`:
-  - Delete calculateDayHours, calculateLaborFromPunches, the cutoff cap and the latest-wage map.
-  - Upsert labor_cache rows from `labor_day_totals` with source='punch_clock', unique on (location_id, labor_date, source), and overtime/double-time set to 0.
+- **`supabase/functions/labor-service/index.ts`:**
+  - Delete the TypeScript labor engine: calculateDayHours, calculateLaborFromPunches, the cutoff cap and the latest-wage map.
+  - Upsert punch_clock rows from `labor_day_totals`, unique on (location_id, labor_date, source), with OT/DT = 0.
+  - Keep writing `employee_breakdown` from `labor_day_user_totals` (user_id, hours, wage, cost), with the breakdown hours adding up to labor_hours so maintenance-service doesn't flag the rows. This stays backend-only.
+  - Leave `hourly_breakdown` untouched in the upsert.
+  - Recompute the previous business date too (startDate −1 day), because the triggers send calendar dates.
   - Skip business today and Virginia St.
   - The 'backfill' and 'refresh-stale' actions and their payloads stay identical.
-- `supabase/functions/maintenance-queue-processor/index.ts`, case "backfill_labor": two-day lookback with forceRefresh, and skip Virginia St.
-- `LOCKED_FEATURES.md`: replace "Live Labor: One Punch Path Everywhere" with "One Store Labor Number" (the QU switch is honored, there is no labor math in the app, and the app never reads labor_cache).
+- **`supabase/functions/maintenance-queue-processor/index.ts`,** backfill_labor: a **7-day** lookback with forceRefresh, skipping Virginia St.
+- **`LOCKED_FEATURES.md`:** "Live Labor: One Punch Path Everywhere" is replaced by "One Store Labor Number".
 
-## Backfill
-1. **Snapshot first.** Create `labor_cache_backup_pack2` from the punch_clock rows being rewritten:
-   - Stores: Hemet, Palm Desert, Palm Springs and Georgetown.
-   - Dates: 2026-07-28 to yesterday.
-   - It copies only the columns needed for an exact restore: id, location_id, labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours, double_time_hours, hourly_breakdown, employee_breakdown, fetched_at, is_stale and last_validated_at.
-   - In the same step: `REVOKE ALL ON public.labor_cache_backup_pack2 FROM PUBLIC, anon, authenticated; GRANT ALL ON public.labor_cache_backup_pack2 TO service_role; ALTER TABLE public.labor_cache_backup_pack2 ENABLE ROW LEVEL SECURITY;`
-   - It has no policies, so no client role can read employee_breakdown from it.
-2. **Recompute** those rows through labor-service 'backfill'. The QU rows (Rowlett) and Virginia St are untouched.
+## Backup and backfill
+1. **Pause the labor jobs:** jobs 22 and 24, plus the backfill_labor queue items. Job 239 keeps running for the other queue items.
+2. **Backup, in one transaction:**
+   - Create schema `backup`. It is not reachable from the app.
+   - Create `backup.labor_cache_backup_pack2` with every labor_cache column, including employee_breakdown, so the restore is exact.
+   - Scope: punch_clock rows for Hemet, Palm Desert, Palm Springs and Georgetown, from 2026-07-28 to yesterday.
+   - `REVOKE ALL ON SCHEMA backup` and on the table `FROM PUBLIC, anon, authenticated`; `GRANT ALL` to service_role; `ENABLE ROW LEVEL SECURITY` with no policies.
+   - Drop the table on 2026-10-10 or after 2B passes, whichever is later, and log the drop.
+3. **Hemet 9/24:** fill in the expected $ target by hand before the backfill (about 38.334h).
+4. **Recompute:** run the backfill through labor-service 'backfill'. Rowlett's QU rows and Virginia St are untouched.
+5. **Restart the paused jobs.**
 
 ## Acceptance checks for 2A
-- **Cache matches the function:** at the punch stores for 9/19–9/25, the labor_cache punch_clock row, labor_day_totals and get_labor_totals_for_dates must agree to the cent and to 0.0001h.
+- **Cache matches the function:** at the punch stores for 9/19–9/25, the labor_cache row, `labor_day_totals` and `get_labor_totals_for_dates` agree to the cent and to 0.0001h.
+- **Warning counts:** `wage_missing_count`, `open_shift_count` and `unclosed_break_count` are reported for each store-day.
 - **Hemet:**
-  - 9/24: about 38.334h (the 30:01 break is now deducted). I'll report the new dollar amount.
   - 9/22: $807.11 / 37.486h.
   - 9/23: $752.28 / 34.715h.
+  - 9/24: about 38.334h, against the $ target filled in by hand.
   - 9/25: $846.97 / 40.530h.
 - **Palm Desert:** 9/23 $561.35 / 26.877h, and 9/24 $609.55 / 28.539h.
-- **Split shifts:** a person with two shifts in one day gets both shifts and both shifts' breaks counted.
-- **Per-store setting:** changing one store's N and recomputing changes only that store.
-- **Rowlett 9/22–9/25:** get_store_labor returns source 'qubeyond':
-  - Labor $: $341.67 / $374.41 / $348.78 / $406.22.
-  - Labor %: 40.36 / 24.31 / 24.45 / 15.97.
-- **Virginia St:** every existing function returns exactly what it returned before (compared before and after apply).
-- **Same minute at Hemet:** a shift manager, a manager and the paired tablet get identical totals. Shift managers and the kiosk get no per-person rows and no wages.
-- **Georgetown after 12 PM CT:** live labor and cut savings use today's punches.
-- **Permissions check, right after apply:**
-  `SELECT proname, proacl FROM pg_proc WHERE pronamespace='public'::regnamespace AND (proname IN ('_store_labor','labor_source_for','labor_day_totals','labor_day_user_totals','get_store_labor','get_live_labor_totals','get_labor_totals_for_dates','get_cut_savings_total') OR proname LIKE '\_legacy\_%');`
-  - Internal helpers and `_legacy_*`: no anon and no authenticated.
-  - get_store_labor: authenticated, no anon.
-  - The 3 repointed functions: authenticated + service_role only, no anon (same as today).
-- **Backup table check:** `SELECT relname, relacl, relrowsecurity FROM pg_class WHERE oid='public.labor_cache_backup_pack2'::regclass;`
-  - Expected: service_role only, and row security on.
-  - No client role can read it, including its employee_breakdown copy.
+- **Split shifts:** both shifts and both shifts' breaks count. Same-timestamp and orphan cases behave as described above.
+- **Per-store setting:** changing one store's N changes only that store.
+- **Rowlett 9/22–9/25:** source qubeyond; $341.67 / $374.41 / $348.78 / $406.22; labor % 40.36 / 24.31 / 24.45 / 15.97.
+- **Virginia St:** before and after are identical, including a call after midnight (before the cutoff).
+- **Business-date test vectors:**
+  - Georgetown 13:31 CT on 9/26 → 9/26.
+  - Reno 11:31 PT → 9/26.
+  - Hemet 9/27 00:30 → 9/26, and 01:00 → 9/27.
+  - Palm Desert 9/27 01:30 → 9/26.
+  - Rowlett 9/27 00:45 CT → 9/26.
+  - Daylight-saving windows: Hemet 2026-11-01 (the repeated hour) and 2027-03-08.
+- **Kiosk date:** the calendar date after midnight is treated as live business today.
+- **Cut savings:** a person with no shift that day is priced at $0, minutes over 480 are clamped, and errors are generic.
+- **Same minute at Hemet:** a shift manager, a manager and the paired tablet get identical totals, and shift managers get no per-person rows.
+- **Georgetown after 12 PM CT:** uses today's punches.
+- **Standing permissions check** (run after every migration), using `has_function_privilege('anon'|'authenticated', oid, 'execute')` on every function above:
+  - No anon anywhere.
+  - authenticated only on get_store_labor, business_date, business_day_window and the three public functions.
+- **Backup table:** `has_table_privilege` is false for anon and authenticated, and row security is on.
 - **Changelog:**
-  - C1: an admin who isn't a super admin gets 0 rows when reading changelog_entries and deletes 0 rows.
-  - C2: the super admin can still list, add and delete on /changelog.
+  - C1: an admin who isn't a super admin is denied reading, adding, changing and deleting (0 rows).
+  - C2: the super admin can still list, add and delete.
 
 ## Kiosk impact
-KIOSK ITEM: **none.** No kiosk file changes. The kiosk gets the fix through get_live_labor_totals and get_cut_savings_total, which keep their signatures and return shapes.
+KIOSK ITEM: **none.** The kiosk's calendar-date call is handled on the server, and signatures and return shapes are unchanged.
 
 ## Order (after close, on Jordan's go)
-1. Save the current function definitions with pg_get_functiondef, so the rollback is exact.
-2. Apply the migration.
-3. Seed the setting (the CA update).
-4. Run the business-date test vectors.
-5. Deploy labor-service and maintenance-queue-processor.
-6. Take the labor_cache snapshot.
-7. Run the backfill.
-8. Run the acceptance checks.
-9. Do the paired-tablet test.
+1. Save the definitions of the 4 replaced functions and the changelog policies with pg_get_functiondef and pg_policies.
+2. Pause the labor jobs.
+3. Take the backup snapshot.
+4. Apply the migration.
+5. Seed the CA rows.
+6. Run the permissions check and the business-date test vectors.
+7. Deploy labor-service and maintenance-queue-processor.
+8. Fill in the Hemet 9/24 target.
+9. Run the backfill.
+10. Run the acceptance checks.
+11. Restart the paused jobs.
+12. Do the paired-tablet test.
 
 ## Rollback (kept open during apply)
-- Restore `_labor_totals_for_date`, `get_live_labor_totals`, `get_labor_totals_for_dates`, `get_cut_savings_total` and `_location_business_date` with **CREATE OR REPLACE** from the saved pg_get_functiondef, so their permissions stay as they are.
-- Drop the new functions and the `_legacy_*` copies.
-- `ALTER TABLE labor_rules DROP COLUMN unpaid_break_min_minutes`.
-- Restore the punch_clock labor_cache rows from `labor_cache_backup_pack2`.
-- Redeploy the previous labor-service and maintenance-queue-processor.
-- Changelog policy:
-  `CREATE POLICY "Admins can manage changelog" ON public.changelog_entries FOR ALL TO public USING (EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = auth.uid() AND user_roles.role = 'admin'::app_role));`
+1. Pause the labor jobs.
+2. Redeploy the previous labor-service and maintenance-queue-processor.
+3. Restore `_labor_totals_for_date`, `get_live_labor_totals`, `get_labor_totals_for_dates` and `get_cut_savings_total` with CREATE OR REPLACE from the saved definitions.
+4. Drop the new functions and the `_legacy_*` copies, then `ALTER TABLE labor_rules DROP COLUMN unpaid_break_min_minutes`.
+5. Delete the in-scope punch_clock rows, then put the backup rows back.
+6. Recreate "Admins can manage changelog" from the saved pg_policies definition.
+7. Restart the paused jobs.
 
 ## Paired-tablet test (Hemet and Georgetown)
 1. Clock in → 10-minute break → 30-minute break → clock out → clock in again → clock out.
-2. Every punch should succeed and the break notes should be unchanged.
+2. Every punch should succeed, and the break notes should be unchanged.
 3. The 10-minute break should stay paid and the 30-minute one should be deducted. Both shifts should count.
-4. The manager overlay should match the web dashboard.
+4. The overlay should match the web dashboard.
 5. A one-person cut should show exact savings.
 
-## Follow-up (not in this pack)
-- **Payroll:** stays out of scope. The Hemet 9/24 30:01 "10 minute paid break" is deducted by the new rule but not by payroll's note check, so payroll and labor will differ by about 0.5h that day.
+## Follow-ups (not in this pack)
+- **Payroll:** stays out of scope. On Hemet 9/24, the 30:01 "10 minute paid break" is deducted by the new rule but not by payroll's note check, so payroll and labor will differ by about 0.5h that day.
+- **$15 wage fallback:** a pending decision for Jordan (switch to the store's minimum wage).
 
 ---
 
@@ -205,7 +225,7 @@ KIOSK ITEM: **none.** No kiosk file changes. The kiosk gets the fix through get_
   - useReportData
   - LaborTotals and DayInsightsBar actuals (replace getTodayPST with the store business date)
   - ChecklistHeatmap
-- **Backend jobs to switch:** send_hourly_sales_pulse and send_day_part_pulse (the labor lookup only), labor-intelligence (re-run 9/19–9/25), watch-device-service (delete `_shared/punchLabor.ts`), fetch-qubeyond-sales (same response shape), support-email-service.
+- **Backend jobs to switch:** send_hourly_sales_pulse and send_day_part_pulse, labor-intelligence (re-run 9/19–9/25), watch-device-service (delete `_shared/punchLabor.ts`), fetch-qubeyond-sales (same response shape), support-email-service.
 - **Virginia St:** every one of these keeps today's code path for its id.
 - **Scheduled labor:**
   - New `get_scheduled_labor_totals(loc, start, end)`: SECURITY DEFINER, shift manager or above, effective-dated wages, straight time, shifts over 5 hours minus 0.5h.
