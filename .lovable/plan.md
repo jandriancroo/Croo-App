@@ -227,19 +227,123 @@ No job pause is needed for the rollback either. If a rollback had to happen near
 
 ---
 
-# 2B: screens and scheduled labor (separate approval, after the paired-tablet test)
-- **Switch to get_store_labor:**
-  - SalesSummary.tsx (WTD/MTD % = total cost / total net sales)
-  - CompactDashboard.tsx
-  - usePrefetchDashboard (delete the labor prefetch)
-  - useOrgDashboardData (drop laborRank and the per-store live loop)
-  - useReportData
-  - LaborTotals and DayInsightsBar actuals (replace getTodayPST with the store business date)
-  - ChecklistHeatmap
-- **Backend jobs to switch:** send_hourly_sales_pulse and send_day_part_pulse, labor-intelligence (re-run 9/19–9/25), watch-device-service (delete `_shared/punchLabor.ts`), fetch-qubeyond-sales (same response shape), support-email-service.
-- **Virginia St:** every one of these keeps today's code path for its id.
-- **Scheduled labor:**
-  - New `get_scheduled_labor_totals(loc, start, end)`: SECURITY DEFINER, shift manager or above, effective-dated wages, straight time, shifts over 5 hours minus 0.5h.
-  - Repoints LaborTotals, DayInsightsBar, DayBreakdownDialog and MobileDayPreviewSheet.
-  - Per-person $ for manager and above only; below manager, hours only, never $15.
-- **Cleanup:** delete `src/utils/kioskCutSavings.ts` and `kioskCutSavings.test.ts`.
+# 2B: every screen reads the one server labor number, plus Time Tracking fixes (plan only)
+
+## Plain English
+Right now some screens do their own labor math on the phone. After 2B, the server computes labor once and every screen shows that result. Time Tracking will count breaks by length, show an open shift's hours live today, flag and block pay-period close for a forgotten clock-out, and stop merging split shifts.
+
+## Step 0: live 2A re-check (read-only, Sep 26 ~23:30 UTC)
+- These functions exist: `labor_day_totals(uuid,date,boolean)`, `labor_day_user_totals(uuid,date,boolean)`, `get_store_labor(uuid[],date,date)`, `business_date(uuid,timestamptz)`, `business_day_window(uuid,date)`, `labor_new_rule_start()`, `get_live_labor_totals(uuid,date)`, `get_labor_totals_for_dates(uuid,date[])`, `get_cut_savings_total(uuid,jsonb)`, `has_role_or_higher(uuid,text)`, `has_location_access(uuid,uuid)`.
+- `labor_day_user_totals` is SECURITY DEFINER, search_path public, pg_temp, and excludes Virginia St by id. Same-time sort order is break_end < clock_out < clock_in < break_start. Zero-length pairs are dropped.
+- **Confirmed split-shift gap:** when a clock_in arrives while a shift is still open, the server ignores it (`IF v_shift_start IS NULL` is the only branch). So clock_in, clock_in, clock_out becomes one long shift from the first clock_in to the clock_out. A clock_in during an open break is ignored the same way, so the break keeps running until break_end or clock_out.
+- Jaysen, Hemet, 9/25 (PT): clock-in 08:59, break 13:21–13:51, clock-out 15:06, then clock-in 18:01, break 19:29–19:59, clock-out 00:00. That is a proper split shift with a clock-out in between, so the server gives it two shifts. Each break is 30 minutes, so it's unpaid under N=30. Expected paid hours: 5.62 + 5.48 = **11.10h**. The old and new Time Tracking hours get computed at build from the live client code and recorded in E. 9/25 is before the cutoff, so the server reports it through the legacy path.
+
+## A) One number on every screen
+Line numbers are approximate and get confirmed at build. Role visibility: store totals (hours, $, %) for shift manager and above, as today. Per-person $ for manager and above only.
+
+| Surface | File (approx lines) | Current source | New source |
+|---|---|---|---|
+| Dashboard widgets, WTD/MTD, the "LOCKED always punch" overwrite, weekly repair | components/dashboard/SalesSummary.tsx | labor_cache read + liveLabor.ts overwrite + fetchActualLaborForDates gap fill | get_store_labor(range) for closed days + get_live_labor_totals for today. Remove the overwrite and repair. WTD/MTD % = total $ / total net sales |
+| Dock dashboard | components/dock/CompactDashboard.tsx | labor_cache + liveLabor.ts | get_store_labor / get_live_labor_totals |
+| Prefetch | hooks/usePrefetchDashboard.tsx | labor_cache prefetch | delete the labor prefetch, share the query key with SalesSummary |
+| Org dashboard (laborRank, labor_cache read, per-store live loop) | hooks/useOrgDashboardData.ts | labor_cache + a live RPC per store | one get_store_labor(all ids, range) call + live for today. laborRank uses its numbers |
+| Reports | hooks/useReportData.ts | labor_cache | get_store_labor |
+| Schedule actuals | components/schedule/LaborTotals.tsx, DayInsightsBar.tsx | labor_cache + liveLabor, getTodayPST | get_store_labor / get_live_labor_totals, using the store's business date |
+| Checklist heatmap | components/history/ChecklistHeatmap.tsx | labor_cache | get_store_labor |
+| Pay-period cards | usePayrollData.tsx, utils/payrollCalculations.ts, payrollDayBucketing.ts | client punch math | get_store_labor(period) + live today |
+| Labor intelligence | functions/labor-intelligence | labor_cache (service) | labor_day_totals (internal) |
+| Watch | functions/watch-device-service + _shared/punchLabor.ts | punchLabor.ts TS math | labor_day_totals / get_live_labor_totals logic. Delete punchLabor.ts |
+| QU sales fn labor branch | functions/fetch-qubeyond-sales (calculateLaborFromPunches, ...ForDates, getCachedLaborData) | own TS math + cache | labor_day_totals via service. The response shape stays the same |
+| Support email | functions/support-email-service | labor_cache | labor_day_totals |
+| Hourly/day-part pulse | SQL send_hourly_sales_pulse / send_day_part_pulse | labor_cache / own math | labor_day_totals(loc, today, true) |
+| Also found in the code | functions/ai-assistant, auto-punch-out, maintenance-service, aloha-sync, _shared/quLabor.ts, _shared/weekProjections.ts | labor_cache | ai-assistant/weekProjections: read via labor_day_totals for dates on or after the cutoff. auto-punch-out: timing only, no labor $, unchanged. maintenance/aloha/quLabor: writers (QU source / Virginia), unchanged |
+| Kiosk | utils/liveLabor.ts, punchclock/ManagerDashboardOverlay.tsx, utils/kioskCutSavings.ts | RPCs already | **not touched** (see C) |
+
+- **Edge functions that change:** watch-device-service, fetch-qubeyond-sales, support-email-service, labor-intelligence, ai-assistant (read path only). Pulse SQL functions are replaced in the migration.
+- **Browser code stops reading labor_cache directly:** grants are left for a later cleanup pack so nothing breaks mid-rollout.
+- **QU-labor stores (pull_labor true):** get_store_labor already returns the qubeyond row when it's present, which keeps today's rule.
+- **Virginia St:** screens call the same RPCs, which route it to legacy. No client branch is needed.
+
+## B) Time Tracking
+**New server function:** `labor_shifts(_location_id uuid, _start date, _end date)`
+- SECURITY DEFINER, search_path = public, pg_temp, STABLE. EXECUTE is revoked from PUBLIC and anon and granted to authenticated.
+- Gate: `has_role_or_higher(auth.uid(),'manager') AND has_location_access(auth.uid(), _location_id)`, otherwise raise 42501. `has_role_or_higher` puts shift_manager below manager, so shift managers are denied.
+- Returns one row per shift: user_id, business_date, clock_in, clock_out, paid_hours, paid_break_min, unpaid_break_min, wage, cost, and flags open_shift_live, missing_clock_out, unclosed_break, ignored_duplicates, and resolved_zero (with resolved_by and resolved_at).
+
+**One source of truth:** move the pairing loop into an internal `_labor_pair_shifts(loc, window, live)` that emits shift rows. `labor_day_user_totals` then sums those rows, `labor_day_totals` sums the users, and `labor_shifts` returns the rows. So for dates on or after the cutoff, the Time Tracking store-day sum equals labor_day_totals **exactly**.
+
+1. **Break rule:** a break at least N minutes long (unpaid_break_min_minutes) is unpaid; shorter breaks are paid. Note text is never used. The client calculateDayHours (~L545-644) and the note checks at L609/665/720/980/1209/1369, DayByDayView L155 and DesktopTimeTrackingTable L120 all switch to the server rows. The 30m/10m label becomes the actual minutes.
+2. **Open shift today:** the server returns live-to-now hours. The dead showLive switch is removed.
+3. **Past open shift:** 0h and flagged "Missing clock-out" in By Employee and By Day. Close Pay Period is blocked while any unresolved row exists. It can be fixed with a clock-out in EditShiftForm, or with "Resolve as 0h".
+   - Recording "resolved" **needs a small schema change:** a new table `labor_shift_resolutions(id, location_id, user_id, clock_in_punch_id unique, resolved_by, resolved_at, note)`. It gets manager+ RLS and GRANTs to authenticated/service_role. No existing punch rows change.
+4. **Open break then clock_out:** the break closes at clock-out. This is already the server behavior (the unclosed_break flag).
+5. **Split shifts / forgotten clock-out:** a server change for dates on or after the cutoff only.
+   - A clock_in while a shift is open closes the earlier shift as a missing clock-out (0h if the day is past, flagged) and starts a new shift.
+   - A clock_in during a break closes the break at that time; the shift continues and is flagged `unclosed_break`.
+   - Same-time sort order and zero-length drops are unchanged. Kiosk RPC signatures are unchanged.
+   - Before and after numbers are run read-only at build for every person-day on or after 9/26 where a double clock_in exists. The count and $ difference per store get reported before the apply.
+   - Approve and Approve All (L1207-1218, L1367-1377, ~L1425) check meal-break warnings on **every** shift, using the length rule.
+   - Day bucketing uses the server's business_date per shift. This removes the clockInsByDay.set last-wins code in usePayrollData ~L886 and payrollDayBucketing L50; that helper gets deleted or kept only for pre-cutoff days.
+6. **Hide-approved totals:** both views sum the same filtered server rows.
+7. **Pay-period Labor $:** get_store_labor for past days + get_live_labor_totals for today.
+
+**Pre-cutoff days in the current period (Jordan decision):**
+- Option 1 (recommended): days before 9/26 keep the legacy client math shown today, labelled "old rule". The server hours and $ for those days stay the frozen cache.
+- Option 2: apply the new rule to those days on the Time Tracking screen only. Payroll hours would then differ from the frozen dashboard numbers.
+- The $ and hour difference for Hemet, Palm Desert and Georgetown is computed at build for each option and shown before Jordan chooses.
+
+Out of scope: OT premium, payroll export math, kiosk punch code, Virginia St.
+
+## C) Kiosk
+No kiosk file changes. `src/utils/liveLabor.ts` and `components/punchclock/ManagerDashboardOverlay.tsx` are **not touched**. They already call get_live_labor_totals / get_cut_savings_total, whose signatures don't change. SalesSummary and the other screens call the RPCs directly rather than editing liveLabor.ts.
+
+## D) Rollback
+- **Frontend:** one revert commit of the 2B files (the table above plus the Time Tracking files).
+- **Edge functions:** redeploy watch-device-service, fetch-qubeyond-sales, support-email-service, labor-intelligence and ai-assistant from 3e0570c.
+- **SQL:** before apply, save pg_get_functiondef for labor_day_user_totals, labor_day_totals, send_hourly_sales_pulse and send_day_part_pulse. Rollback restores those definitions and drops labor_shifts, _labor_pair_shifts and labor_shift_resolutions.
+
+## E) Acceptance
+- Hemet and Palm Desert 9/26 (and 9/27 if it's there at build): every screen = get_store_labor = labor_day_totals = Time Tracking store-day sum, to the cent. Before and after numbers are shown.
+- Jaysen, Hemet 9/25: punches listed above, old client hours vs new; 11.10h expected under the new rule.
+- A synthetic double clock_in on or after the cutoff gets flagged and is not merged.
+- A past open shift blocks Close Pay Period. Resolving it as 0h records who and when, and unblocks.
+- Shift manager login: no per-person $ in Time Tracking, schedule or dashboards. labor_shifts returns 42501.
+- Paired-tablet smoke test unchanged. Standing has_function_privilege check: anon has no EXECUTE on any labor function.
+
+## Order and shipping
+1. B server (migration: pairing refactor + split-shift rule + labor_shifts + resolutions table). Can ship alone.
+2. Time Tracking frontend.
+3. Screen repoints (A frontend).
+4. Edge functions and the pulse SQL.
+Each step ships and rolls back on its own.
+
+**Open questions**
+- Pre-cutoff rule for Time Tracking (Option 1 or 2).
+- Does the new split-shift rule apply from 9/26, or from the 2B apply date?
+- Should "Resolve as 0h" be manager+ or admin only?
+
+---
+
+# Separate section: Andy's security piggyback (vendor-invoices storage)
+Not part of the labor work.
+
+**Verified read-only**
+- Current policies:
+  - "Authenticated users can view invoices" — SELECT TO authenticated USING (bucket_id = 'vendor-invoices')
+  - "Authenticated users can upload invoices" — INSERT TO authenticated WITH CHECK (bucket_id = 'vendor-invoices')
+- `has_location_access(uuid, uuid)` exists.
+- Clients that use this bucket: InvoiceUploadDialog, LiteInvoiceUploadDialog, LiteInvoicesList, parse-vendor-invoice(-lite). No kiosk file uses it.
+- The upload paths, the no-upsert check and the LiteInvoicesList ~L462 own-path signed URL get a code read confirmation at build.
+- First folder segments of the existing files (all UUIDs, so each store keeps access to its own):
+  - 01a87b8b… (8 files)
+  - d667741f… (10 files)
+  - lite/5ce2f74e… (17 files)
+  - lite/9a5c1e00-0000-4000-8000-000000000002 (1 file; this location exists)
+
+**SQL:** Ryan's text, applied verbatim (the BEGIN/COMMIT is dropped because the runner wraps it in a transaction).
+
+**Rollback:** rebuild the two policies from the capture above (which matches the fallback text).
+
+**Tests:** V1–V5 as specified.
+
+**Follow-up (not this ship):** parse-vendor-invoice(-lite) accepts a storagePath + locationId from the client and signs it with service role, without a has_location_access check on the caller.
