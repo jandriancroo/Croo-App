@@ -68,12 +68,31 @@ It ships in two parts, each approved separately:
 5. **Repoint existing functions** (same signatures and shapes, logic inside the database)
    - `get_live_labor_totals` and `get_labor_totals_for_dates` read from _store_labor (Virginia St goes to its legacy copy).
    - `get_cut_savings_total` uses the per-person wages from labor_day_user_totals. It returns exact results for any group size, including 1, and never returns a wage.
-6. **Grants**
-   - Every new function is `SECURITY DEFINER SET search_path = public`, with `REVOKE ALL ... FROM PUBLIC, anon`.
-   - `business_date`, `business_day_window` and `get_store_labor`: EXECUTE for authenticated and service_role.
-   - `labor_day_user_totals`, `labor_day_totals`, `labor_source_for`, `_store_labor` and the `_legacy_*` copies: service_role only, also revoked from authenticated.
-   - The repointed functions keep their current grants.
+6. **Grants** (explicit statements; the database's defaults would otherwise let signed-out visitors and signed-in users run every new function)
+   - Every new function is `SECURITY DEFINER SET search_path = public`.
+   - Internal helpers:
+     ```sql
+     REVOKE ALL ON FUNCTION public._store_labor(uuid,date,boolean), public.labor_source_for(uuid), public.labor_day_totals(uuid,date,boolean), public.labor_day_user_totals(uuid,date,boolean) FROM PUBLIC, anon, authenticated;
+     GRANT EXECUTE ON FUNCTION public._store_labor(uuid,date,boolean), public.labor_source_for(uuid), public.labor_day_totals(uuid,date,boolean), public.labor_day_user_totals(uuid,date,boolean) TO service_role;
+     ```
+   - `_legacy_*` copies:
+     ```sql
+     REVOKE ALL ON FUNCTION public._legacy_labor_totals_for_date(uuid,date,boolean), public._legacy_get_live_labor_totals(uuid,date), public._legacy_get_labor_totals_for_dates(uuid,date[]), public._legacy_get_cut_savings_total(uuid,jsonb) FROM PUBLIC, anon, authenticated;
+     GRANT EXECUTE ON FUNCTION public._legacy_labor_totals_for_date(uuid,date,boolean), public._legacy_get_live_labor_totals(uuid,date), public._legacy_get_labor_totals_for_dates(uuid,date[]), public._legacy_get_cut_savings_total(uuid,jsonb) TO service_role;
+     ```
+   - Public lookup:
+     ```sql
+     REVOKE ALL ON FUNCTION public.get_store_labor(uuid[],date,date) FROM PUBLIC, anon;
+     GRANT EXECUTE ON FUNCTION public.get_store_labor(uuid[],date,date) TO authenticated, service_role;
+     ```
+   - `business_date(uuid,timestamptz)` and `business_day_window(uuid,date)`: REVOKE from PUBLIC and anon; GRANT to authenticated and service_role.
+   - `get_live_labor_totals`, `get_labor_totals_for_dates`, `get_cut_savings_total` and `_labor_totals_for_date` are changed with **CREATE OR REPLACE** only, never dropped and recreated, so their current permissions stay as they are.
    - No hidden column is re-granted.
+7. **Piggyback: remove the changelog admin policy**
+   - `DROP POLICY "Admins can manage changelog" ON public.changelog_entries;`
+   - Checked live: this policy lets anyone with the 'admin' role do anything with the changelog, so customer admins can read and change CrooHQ's internal changelog.
+   - "Super admins can manage changelog" and "Super admins can view changelog" stay.
+   - Out of scope: removing signed-out visitors' add/change/delete rights on profiles and labor_cache is a separate ship later.
 
 ## Break and pairing block (one commented section)
 1. **Punches:** for each person, take their punches in the business-day window, ordered by time. When times tie, the order is clock_in, then break_start, then break_end, then clock_out, then id.
@@ -109,7 +128,9 @@ It ships in two parts, each approved separately:
 1. **Snapshot first.** Create `labor_cache_backup_pack2` from the punch_clock rows being rewritten:
    - Stores: Hemet, Palm Desert, Palm Springs and Georgetown.
    - Dates: 2026-07-28 to yesterday.
-   - Access: service_role only, with no client grants.
+   - It copies only the columns needed for an exact restore: id, location_id, labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours, double_time_hours, hourly_breakdown, employee_breakdown, fetched_at, is_stale and last_validated_at.
+   - In the same step: `REVOKE ALL ON public.labor_cache_backup_pack2 FROM PUBLIC, anon, authenticated; GRANT ALL ON public.labor_cache_backup_pack2 TO service_role; ALTER TABLE public.labor_cache_backup_pack2 ENABLE ROW LEVEL SECURITY;`
+   - It has no policies, so no client role can read employee_breakdown from it.
 2. **Recompute** those rows through labor-service 'backfill'. The QU rows (Rowlett) and Virginia St are untouched.
 
 ## Acceptance checks for 2A
@@ -128,6 +149,17 @@ It ships in two parts, each approved separately:
 - **Virginia St:** every existing function returns exactly what it returned before (compared before and after apply).
 - **Same minute at Hemet:** a shift manager, a manager and the paired tablet get identical totals. Shift managers and the kiosk get no per-person rows and no wages.
 - **Georgetown after 12 PM CT:** live labor and cut savings use today's punches.
+- **Permissions check, right after apply:**
+  `SELECT proname, proacl FROM pg_proc WHERE pronamespace='public'::regnamespace AND (proname IN ('_store_labor','labor_source_for','labor_day_totals','labor_day_user_totals','get_store_labor','get_live_labor_totals','get_labor_totals_for_dates','get_cut_savings_total') OR proname LIKE '\_legacy\_%');`
+  - Internal helpers and `_legacy_*`: no anon and no authenticated.
+  - get_store_labor: authenticated, no anon.
+  - The 3 repointed functions: authenticated + service_role only, no anon (same as today).
+- **Backup table check:** `SELECT relname, relacl, relrowsecurity FROM pg_class WHERE oid='public.labor_cache_backup_pack2'::regclass;`
+  - Expected: service_role only, and row security on.
+  - No client role can read it, including its employee_breakdown copy.
+- **Changelog:**
+  - C1: an admin who isn't a super admin gets 0 rows when reading changelog_entries and deletes 0 rows.
+  - C2: the super admin can still list, add and delete on /changelog.
 
 ## Kiosk impact
 KIOSK ITEM: **none.** No kiosk file changes. The kiosk gets the fix through get_live_labor_totals and get_cut_savings_total, which keep their signatures and return shapes.
@@ -144,11 +176,13 @@ KIOSK ITEM: **none.** No kiosk file changes. The kiosk gets the fix through get_
 9. Do the paired-tablet test.
 
 ## Rollback (kept open during apply)
-- Restore the saved definitions of `_labor_totals_for_date`, `get_live_labor_totals`, `get_labor_totals_for_dates`, `get_cut_savings_total` and `_location_business_date`.
+- Restore `_labor_totals_for_date`, `get_live_labor_totals`, `get_labor_totals_for_dates`, `get_cut_savings_total` and `_location_business_date` with **CREATE OR REPLACE** from the saved pg_get_functiondef, so their permissions stay as they are.
 - Drop the new functions and the `_legacy_*` copies.
 - `ALTER TABLE labor_rules DROP COLUMN unpaid_break_min_minutes`.
 - Restore the punch_clock labor_cache rows from `labor_cache_backup_pack2`.
 - Redeploy the previous labor-service and maintenance-queue-processor.
+- Changelog policy:
+  `CREATE POLICY "Admins can manage changelog" ON public.changelog_entries FOR ALL TO public USING (EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = auth.uid() AND user_roles.role = 'admin'::app_role));`
 
 ## Paired-tablet test (Hemet and Georgetown)
 1. Clock in → 10-minute break → 30-minute break → clock out → clock in again → clock out.
