@@ -403,6 +403,46 @@ Facts re-checked (read-only):
 
 **R13. Jaysen, Hemet 9/25, exact:** 5.6130h + 5.4768h = **11.0898h** (breaks 30:15 and 30:11, both unpaid). This replaces the rounded 11.10h in Step 0 and E.
 
+## Final review round (Ryan, 23:37 UTC). Where these conflict with R1–R13, these win.
+
+**R14. Checksum (replaces the 609207d3… value in R3).**
+- Formula: `md5(string_agg(concat_ws('|', location_id, labor_date, source, labor_hours, labor_cost, overtime_hours, double_time_hours, employee_breakdown::text), E'\n' ORDER BY location_id, labor_date, source))`
+- Rows: source = 'punch_clock' AND labor_date < '2026-09-26'.
+- Baseline: n = 3702, md5 **be1bd3380da920b25abdc827c2ad526c**. Checked before and after each server step and after the R4 recompute.
+
+**R15. Close trigger (replaces the R7 trigger wording).**
+- Close Pay Period is an upsert (usePayrollData ~L1513, status 'closed'), so the first close is an INSERT.
+- `trg_pay_period_close_guard`: BEFORE INSERT OR UPDATE ON pay_periods, fires only when NEW.status = 'closed'. The function is SECURITY DEFINER with search_path = public, pg_temp.
+- Reopening (~L1543, status 'open') doesn't trigger it.
+- Locations checked: every location with at least one time_punches row inside the period's business-day windows, excluding Virginia St.
+- Blocks when any unresolved missing clock-out exists on any business date in the period. A real clock_out or a labor_shift_resolutions row counts as fixed.
+- The error message and the UI list show location, person and business date. `pay_period_open_issues` returns the same list.
+- Who can close today, unchanged: pay_periods policy "Admins and managers can manage pay periods" (ALL, has_role admin OR has_role manager).
+
+**R16. Clock_in rules (replaces the R2 break wording).**
+- Clock_in with a shift open and a break open: the break closes at that clock_in and the shift continues, flagged unclosed_break (wrong button on return from break).
+- Clock_in with a shift open and no break open: the earlier shift ends as missing_clock_out with 0h (whether it's today or a past day), and a new shift starts.
+
+**R17. Brand path (replaces R5 gate wording).**
+- The get_store_labor store-totals gate becomes `has_role_or_higher(uid,'shift_manager') AND (has_location_access(uid,loc) OR has_brand_access_via_location(uid,loc))`. The paired-device branch is unchanged.
+- Only get_store_labor changes. `_labor_totals_authorized` is not touched, because kiosk-reachable functions use it.
+- Its pg_get_functiondef is saved before the change and restored in rollback.
+- Tests: a brand-only user gets totals OK, and 42501 on labor_shifts and pay_period_open_issues.
+
+**R18. Virginia St on client screens (corrects A).**
+- get_store_labor skips Virginia St, so "no client branch needed" in A is wrong.
+- Every client surface keeps its current code path for the Virginia St id, and the org dashboard gets Virginia St's numbers from its current path.
+- Acceptance: Virginia St screens are identical before and after.
+
+**R19. Kiosk note (adds to C).**
+- The pairing change is server-only, with no kiosk file change. But it changes the tablet's live labor and cut-savings numbers on person-days with a double clock_in, which is intended and matches the dashboards.
+- The paired-tablet test is re-run after the server step (own store OK, other store 42501, numbers = get_store_labor).
+
+**R20. DST vector.**
+- labor_shifts and pay_period_open_issues use business_day_window.
+- Acceptance: a Hemet shift spanning 01:00–02:00 on 2026-11-01 lands on exactly one business date, with nothing dropped or double-counted.
+- Still open from 2A: the fall-back day window counts 24h, not 25h.
+
 ---
 
 # Separate section: Andy's security piggyback (vendor-invoices storage)
