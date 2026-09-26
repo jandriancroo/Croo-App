@@ -467,7 +467,7 @@ The setting:
 3. **Per-person data stays manager+ always, whatever the setting.** That covers labor_shifts, pay_period_open_issues, employee_breakdown and wages.
 4. **UI:** every labor tile or number (SalesSummary, dock, schedule actuals, reports, heatmap, org dashboard) shows for team members exactly when `useTeamSalesVisibility.canSeeSales` is true, the same rule as the server. The client doesn't call get_store_labor when it's false. This replaces R5's "hidden below shift manager" wording.
    - **Behavior change:** with view_sales off (today), team members at non-QU stores stop seeing labor. Today they see it via the Dashboard ~L558 `!hasQuBeyondIntegration` branch and labor_cache read access. Sales widgets themselves are unchanged.
-5. **Follow-up, not this ship:** role_permissions is global. Making it per-org needs an organization_id column plus a UI change.
+5. **Per-org:** superseded by D3 below (now part of step 1).
 6. **Tests:**
    - Team member, view_sales ON: get_store_labor totals for their own store OK, another store 42501, labor_shifts 42501, no per-person $ anywhere.
    - Team member, OFF: get_store_labor 42501 and the tile is hidden.
@@ -475,6 +475,83 @@ The setting:
    - Toggling the setting takes effect without a deploy.
    - Standing check: get_store_labor's definition references role_permissions view_sales.
 7. **Rollback:** restore the saved get_store_labor definition (R17).
+
+## D3. Per-org role settings (part of step 1). Jordan approved 2B at 4:51 PM PT.
+
+**Plain English:** each organization gets its own copy of the role switches ("See Store Sales Data" and the others) and of the role notification switches. An admin in one company can no longer flip a switch for all 12. On ship day every switch reads exactly as it does now.
+
+**Facts (Ryan, read-only; re-checked at build before apply)**
+- role_permissions: 53 rows, 26 keys, 6 roles, unique (role, permission_key). role_notification_settings: 169 rows, 25 types, 8 roles, unique (role, notification_type). No org column; 12 orgs share them.
+- RLS today: "Everyone can view" (true, public, so anon can read) and "Admins can manage" = has_role(uid,'admin'), no org check. Only updated_at triggers; no DB function inserts into them.
+- Helpers exist: is_org_member, is_org_admin, is_super_admin.
+- 16 app-role 'admin' users, only 3 with an organization_members admin row. All 15 org_admins and the super_admin have one. Hence the third write branch below.
+
+**1. Schema (one migration, inside step 1)**
+- Capture first: full copies of both tables into `_bak_role_permissions_20260926` / `_bak_role_notification_settings_20260926` (original ids kept), plus pg_policies and constraint definitions for both tables.
+- Add `organization_id uuid REFERENCES organizations(id) ON DELETE CASCADE` (nullable at first).
+- Backfill: insert one copy per org (12) from the global rows, same role, key/type, label, enabled. New ids.
+- **Original rows: deleted after copying** (they stay in the backup tables and the templates). Why not reassign to one org: that org would keep the old ids while the others get new ones, which makes the rollback and the "every org equals snapshot" check asymmetric. Nothing refers to these ids by foreign key (confirm at build via pg_constraint); the clients read by id only after a fresh fetch.
+- SET NOT NULL; drop unique (role, key/type); add unique (organization_id, role, permission_key) and (organization_id, role, notification_type). Add an index on organization_id for each.
+- Expected counts: 636 and 2028. The migration raises and aborts if either count is off.
+
+**2. Defaults for new orgs (Ryan's proposal accepted; it is the safer option)**
+- New tables `role_permissions_template` and `role_notification_settings_template`: exact copy of today's global rows (53 / 169), same unique keys as today. GRANT SELECT to authenticated, ALL to service_role. RLS: SELECT authenticated; INSERT/UPDATE/DELETE is_super_admin only.
+- `seed_org_role_settings(_org uuid)`: SECURITY DEFINER, search_path = public, pg_temp, copies both templates into the live tables for that org, ON CONFLICT DO NOTHING (idempotent). EXECUTE revoked from public, anon, authenticated; only the trigger and service_role use it.
+- AFTER INSERT trigger on organizations calls it.
+- No null-org rows in the live tables, ever.
+
+**3. RLS on both live tables (old two policies dropped)**
+- SELECT TO authenticated: is_super_admin(uid) OR is_org_member(uid, organization_id).
+- INSERT / UPDATE / DELETE TO authenticated (USING and WITH CHECK): is_super_admin(uid) OR is_org_admin(uid, organization_id) OR (has_role(uid,'admin') AND is_org_member(uid, organization_id)). The last branch keeps the 13 app-admins working for their own org only.
+- No anon grant or policy. Build check before apply: grep kiosk, public job-board/apply pages, applicant portal and every edge function using the anon key for either table name; today's listed readers are all signed-in screens or service-role functions and the kiosk reads neither. If any anon reader turns up, stop and report before apply.
+
+**4. Client (ships in the same release as the migration)**
+- useRolePermissions: filters `.eq('organization_id', currentLocation.organization_id)`, org in the query key, disabled until the org is known (keeps current default while loading). Downstream hooks (useTeamSalesVisibility, useTeamScheduleVisibility, useAvailabilityData, Hiring, Settings, MyTimecard, TemporaryTasksSection, Layout, Inventory) inherit this with no change.
+- RoleManagementSection: reads and updates with `.eq('organization_id', organizationId)` (update keeps id plus org filter).
+- NotificationsDashboard (~L41 read, ~L60 update) and useLogBookData (~L561): filter by the current org.
+- AudienceSelector: filter by org.
+- Build step: repo-wide grep for both table names to list any other direct reader; each one gets the same org filter or is listed back to Jordan before ship.
+
+**5. Server**
+- send_day_part_pulse and send_hourly_sales_pulse: read the row for `locations.organization_id` of the location being pulsed; if no org row, use the template value.
+- send-push-notification (~L527): org from the request's location_id if present, else each recipient's org (organization_members, then location-based); read that org's rows; missing row falls back to the template, so nothing goes silent. This is the only edge function redeployed in step 1.
+- Save pg_get_functiondef for both pulse functions and the current send-push-notification source before changes.
+
+**6. get_store_labor (D2 gate update)**
+- The view_sales check reads role_permissions for the LOCATION's org (`locations.organization_id`), falling back to the template row. Off -> 42501.
+
+**7. Tests**
+- Toggle in org A; org B's row unchanged.
+- For all 12 orgs, every (role, key/type) enabled value equals the pre-ship snapshot (both tables).
+- Team member / non-admin cannot update (0 rows or RLS error).
+- Org A admin cannot update org B; an app-admin with membership in A can update A.
+- Team member labor/sales visibility follows their own org's switch (UI and get_store_labor).
+- Day-part pulse, hourly pulse and a push send still deliver for a sample store.
+- Insert a test org: 53 + 169 rows seeded; then delete it (cascade removes them).
+- Paired device path unchanged.
+- Standing permissions check includes seed_org_role_settings: no EXECUTE for anon or authenticated.
+- Anon SELECT on both tables returns nothing / permission denied.
+
+**8. Rollback (script prepared before apply)**
+1. Redeploy the saved send-push-notification source.
+2. Restore both pulse functions and get_store_labor from saved definitions.
+3. Drop the organizations trigger and seed_org_role_settings.
+4. Delete all org copies; restore the original 53 / 169 rows from backups with original ids.
+5. Drop organization_id; drop the new unique constraints; restore unique (role, permission_key) and (role, notification_type).
+6. Drop the new policies; recreate the two old policies from captured pg_policies.
+7. Revert the D3 client files. Template tables can stay (unused) or be dropped.
+
+## STEP 1 contents after D3 (exact)
+Server:
+- 2B pairing refactor and split-shift rule; labor_shifts; _labor_pair_shifts; labor_shift_resolutions; pay_period_open_issues plus the close trigger.
+- get_store_labor brand and team-member gates (D2, with the D3 per-org read).
+- Post-cutoff cache recompute.
+- D3 schema, templates, seed function and trigger, RLS, pulse function updates, send-push-notification redeploy.
+- Andy's vendor-invoices storage policies (section below).
+
+Client, D3 only: useRolePermissions, RoleManagementSection, NotificationsDashboard, useLogBookData, AudienceSelector, plus any extra direct reader found by the grep.
+
+Not in step 1: screen repoints, Time Tracking UI, and step 4 edge function repoints (other than send-push-notification for D3).
 
 ---
 
