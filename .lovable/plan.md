@@ -73,9 +73,12 @@ This ships in two parts, each approved separately:
      - A punch device gets only its own location, and only for business today.
      - Capped at 93 days per call. Store totals only, and Virginia St is skipped.
 5. **Repointed public functions** (CREATE OR REPLACE, same signatures and shapes):
-   - `get_live_labor_totals(uuid,date)` and `get_labor_totals_for_dates(uuid,date[])` run `_labor_totals_authorized`, then read `_store_labor`.
+   - **Each function keeps its current access check character for character** in its CREATE OR REPLACE body:
+     - `get_live_labor_totals(uuid,date)`: `_labor_totals_authorized(loc) OR (auth.uid() IS NOT NULL AND punch_device_location(auth.uid()) = loc)`, then reads `_store_labor`.
+     - `get_labor_totals_for_dates(uuid,date[])`: `_labor_totals_authorized(loc)` only, then reads `_store_labor`.
+     - `get_cut_savings_total(uuid,jsonb)`: the same OR check as get_live_labor_totals, run first, before any input check.
    - **Kiosk date:** if `_date = business_date(loc) + 1` and that is the store's local calendar date (after midnight, before the cutoff), the call is treated as a live business-today call.
-   - **`get_cut_savings_total(uuid,jsonb)` lockdown:**
+   - **`get_cut_savings_total(uuid,jsonb)` lockdown** (after its unchanged access check above):
      - It prices only people who have a shift at that location on that business date. Anyone else is dropped silently.
      - Minutes are clamped to 0–480.
      - Error messages are generic, never specific to a person.
@@ -97,6 +100,8 @@ This ships in two parts, each approved separately:
 1. **Window:** read the person's punches from 24 hours before the business-day window to 24 hours after it. Keep only shifts where `business_date(clock_in) = _date`. This way a weekend closer's clock-out after the cutoff is no longer dropped.
 2. **Same timestamps:**
    - First, cancel out same-kind duplicates at the same moment. Only one of each kind is kept, which handles the clock_out ×2, ×3 and ×4 groups.
+   - **Zero-length pairs:** a clock_in and a clock_out at the same moment for the same person, when no shift is open just before it, is a zero-length shift. Both punches are dropped, so a live call never opens a phantom shift that runs to now(). The same goes for a break_start and break_end at the same moment with no break open.
+   - When a shift is already open, the tie order below (clock_out before clock_in) treats the pair as a back-to-back boundary, and the shift stays continuous. The one live case (9/16 17:37 UTC: the previous punch was a clock_in, the next a break_start) is a boundary.
    - Then sort ties as break_end, then clock_out, then clock_in, then break_start, then by id.
 3. **Shifts:**
    - clock_in opens a shift; if one is already open, the extra clock_in is ignored.
@@ -167,6 +172,7 @@ This ships in two parts, each approved separately:
   - Daylight-saving windows: Hemet 2026-11-01 (the repeated hour) and 2027-03-08.
 - **Kiosk date:** the calendar date after midnight is treated as live business today.
 - **Cut savings:** a person with no shift that day is priced at $0, minutes over 480 are clamped, and errors are generic.
+- **Paired device access:** a paired-device session calls get_live_labor_totals and get_cut_savings_total for its own location without an error, and gets permission denied for another location.
 - **Same minute at Hemet:** a shift manager, a manager and the paired tablet get identical totals, and shift managers get no per-person rows.
 - **Georgetown after 12 PM CT:** uses today's punches.
 - **Standing permissions check** (run after every migration), using `has_function_privilege('anon'|'authenticated', oid, 'execute')` on every function above:
