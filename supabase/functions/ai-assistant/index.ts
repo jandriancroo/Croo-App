@@ -701,9 +701,24 @@ const tools = [
 ];
 
 // Execute tool calls against the database
-async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string): Promise<string> {
+const MANAGER_PLUS_ROLES = ["manager", "general_manager", "admin", "org_admin", "brand_admin", "super_admin"];
+
+async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string): Promise<string> {
   const offset = getTzOffset(timezone);
+  // Per-person wage/cost data is manager+ only.
+  const canSeeWages = MANAGER_PLUS_ROLES.includes(userRole || "");
   try {
+    // Only when a specific store is requested: the caller must have access to it.
+    // Tools without a location (org-wide, admin queries) are never refused here.
+    if (args?.location_id && userId) {
+      const { data: hasAccess, error: accessErr } = await supabase.rpc("has_location_access", {
+        _user_id: userId,
+        _location_id: args.location_id,
+      });
+      if (accessErr || hasAccess !== true) {
+        return JSON.stringify({ error: "You don't have access to that location." });
+      }
+    }
     switch (toolName) {
       case "query_sales": {
         const endDate = args.end_date || args.start_date;
@@ -822,7 +837,9 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const endDate = args.end_date || args.start_date;
         const { data: laborData, error: laborError } = await supabase
           .from("labor_cache")
-          .select("labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours, employee_breakdown")
+          .select(canSeeWages
+            ? "labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours, employee_breakdown"
+            : "labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours")
           .eq("location_id", args.location_id)
           .gte("labor_date", args.start_date)
           .lte("labor_date", endDate)
@@ -1896,12 +1913,14 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .lte("start_date", endDate)
           .gte("end_date", args.start_date);
 
-        const { data: laborRows } = await supabase
-          .from("labor_cache")
-          .select("labor_date, employee_breakdown")
-          .eq("location_id", args.location_id)
-          .gte("labor_date", args.start_date)
-          .lte("labor_date", endDate);
+        const { data: laborRows } = canSeeWages
+          ? await supabase
+              .from("labor_cache")
+              .select("labor_date, employee_breakdown")
+              .eq("location_id", args.location_id)
+              .gte("labor_date", args.start_date)
+              .lte("labor_date", endDate)
+          : { data: [] as any[] };
         const wageMap: Record<string, number> = {};
         (laborRows || []).forEach((row: any) => {
           (row.employee_breakdown || []).forEach((e: any) => {
@@ -2012,12 +2031,14 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           : { data: [] as any[] };
         const shifts = shiftsRes.data || [];
 
-        const { data: laborRows } = await supabase
-          .from("labor_cache")
-          .select("employee_breakdown")
-          .eq("location_id", args.location_id)
-          .gte("labor_date", args.start_date)
-          .lte("labor_date", endDate);
+        const { data: laborRows } = canSeeWages
+          ? await supabase
+              .from("labor_cache")
+              .select("employee_breakdown")
+              .eq("location_id", args.location_id)
+              .gte("labor_date", args.start_date)
+              .lte("labor_date", endDate)
+          : { data: [] as any[] };
         const wageMap: Record<string, number> = {};
         (laborRows || []).forEach((row: any) => {
           (row.employee_breakdown || []).forEach((e: any) => {
@@ -2759,7 +2780,7 @@ DATE ANCHORS:
           : tc.function.arguments;
         
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
-        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id);
+        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole);
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
         
         currentMessages.push({
