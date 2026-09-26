@@ -443,6 +443,39 @@ Facts re-checked (read-only):
 - Acceptance: a Hemet shift spanning 01:00–02:00 on 2026-11-01 lands on exactly one business date, with nothing dropped or double-counted.
 - Still open from 2A: the fall-back day window counts 24h, not 25h.
 
+## Jordan decisions (Sep 26, 23:46 UTC). These win over R5 and the Option 1/2 text in B.
+
+**D1. Pre-cutoff Time Tracking = Option 1.**
+- Days before 9/26 (9/21–9/25 in the current period) keep today's legacy client hours math.
+- Those days are labelled "old rule" in By Employee, By Day and the period totals.
+- Flags and the Close Pay Period block still cover those days (R7/R15 unchanged).
+
+**D2. Team members and store labor follow the existing "See Store Sales Data" setting, enforced on the server.**
+
+The setting:
+- It's the `role_permissions` row role='team_member', permission_key='view_sales'. It is global (no org column), and OFF today.
+- It's toggled in RoleManagementSection (Organization Profile and Settings > Roles).
+- `location_settings.team_member_sales_view_enabled` is dead (never read) and is not used.
+
+1. **get_store_labor gate, per location** (replaces R5/R17 gate text):
+   - `(has_role_or_higher(uid,'shift_manager') AND (has_location_access OR has_brand_access_via_location))`
+   - OR the paired device, own store, business today only (unchanged)
+   - OR `(has_role_or_higher(uid,'team_member') AND has_location_access(uid,loc) AND EXISTS (SELECT 1 FROM role_permissions WHERE role='team_member' AND permission_key='view_sales' AND enabled))`
+
+   The setting is read inside the SECURITY DEFINER function (search_path = public, pg_temp). It returns store totals only (hours, cost, net_sales, labor_pct), with the same range limits. Setting off → 42501.
+2. **Only get_store_labor changes.** `_labor_totals_authorized`, get_live_labor_totals, get_labor_totals_for_dates and get_cut_savings_total are unchanged (the kiosk path). Team-member screens get today's live number from get_store_labor (is_live), not get_live_labor_totals.
+3. **Per-person data stays manager+ always, whatever the setting.** That covers labor_shifts, pay_period_open_issues, employee_breakdown and wages.
+4. **UI:** every labor tile or number (SalesSummary, dock, schedule actuals, reports, heatmap, org dashboard) shows for team members exactly when `useTeamSalesVisibility.canSeeSales` is true, the same rule as the server. The client doesn't call get_store_labor when it's false. This replaces R5's "hidden below shift manager" wording.
+   - **Behavior change:** with view_sales off (today), team members at non-QU stores stop seeing labor. Today they see it via the Dashboard ~L558 `!hasQuBeyondIntegration` branch and labor_cache read access. Sales widgets themselves are unchanged.
+5. **Follow-up, not this ship:** role_permissions is global. Making it per-org needs an organization_id column plus a UI change.
+6. **Tests:**
+   - Team member, view_sales ON: get_store_labor totals for their own store OK, another store 42501, labor_shifts 42501, no per-person $ anywhere.
+   - Team member, OFF: get_store_labor 42501 and the tile is hidden.
+   - Shift manager, manager and the paired device are unchanged.
+   - Toggling the setting takes effect without a deploy.
+   - Standing check: get_store_labor's definition references role_permissions view_sales.
+7. **Rollback:** restore the saved get_store_labor definition (R17).
+
 ---
 
 # Separate section: Andy's security piggyback (vendor-invoices storage)
