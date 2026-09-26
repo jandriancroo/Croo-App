@@ -37,7 +37,6 @@ This ships in two parts, each approved separately:
   - job 24 "nightly-labor-maintenance" at 11:01 UTC.
   - job 239 "process-maintenance-queue" every minute.
   - **Confirmed.**
-- **July backfill wage fallback:** 1 person-day falls back to today's profile wage: user a3f510f4-371b-4230-bb2c-f47cb24c4fdf, Georgetown 2026-08-01 (their first wage_history is 2026-08-12). Nobody has no wage at all. **Confirmed.**
 - **QU switch:** `location_integrations.credentials->>'pull_labor'` on the active qubeyond integration. It is 'true' only at Rowlett. **Confirmed by Ryan.**
 - **Backfill job location:** `supabase/functions/maintenance-queue-processor/index.ts`, case "backfill_labor" (line 140).
 
@@ -61,12 +60,16 @@ This ships in two parts, each approved separately:
 3. **One labor calculation** (internal):
    - `labor_day_user_totals(_location_id uuid, _date date, _live boolean) -> TABLE(user_id uuid, paid_hours numeric, unpaid_break_hours numeric, wage numeric, cost numeric, wage_missing boolean, open_shift boolean, unclosed_break_count integer)`
    - `labor_day_totals(_location_id uuid, _date date, _live boolean) -> TABLE(hours numeric, cost numeric, wage_missing_count integer, open_shift_count integer, unclosed_break_count integer)`
-   - `_labor_totals_for_date(uuid,date,boolean)` is changed with CREATE OR REPLACE. Virginia St goes to `_legacy_labor_totals_for_date`; every other store goes to `labor_day_totals` and returns (hours, cost).
+   - `_labor_totals_for_date(uuid,date,boolean)` is changed with CREATE OR REPLACE:
+     - Virginia St, and any date before the cutoff, go to `_legacy_labor_totals_for_date`.
+     - Every other store and date goes to `labor_day_totals`, returning (hours, cost).
 4. **One store labor lookup:**
    - `labor_source_for(_location_id uuid) -> text`: Virginia St is excluded first. Then it returns 'qubeyond' if `pull_labor = 'true'`, otherwise 'punch_clock'.
    - `_store_labor(_location_id uuid, _date date, _live boolean) -> TABLE(source text, hours numeric, cost numeric, net_sales numeric, labor_pct numeric, is_live boolean, as_of timestamptz)`
      - qubeyond stores read their qubeyond cache row.
-     - punch_clock stores: business today is calculated live. Past dates use the cached row; if the row is missing or stale, it runs `labor_day_totals(_live => false)` without saving anything.
+     - punch_clock stores, business today: calculated live.
+     - punch_clock stores, dates on or after the cutoff: use the cached row; if it is missing or stale, run `labor_day_totals(_live => false)` without saving anything.
+     - punch_clock stores, **dates before the cutoff:** return the cached row as is, even if it is stale. If no row exists, return what today's code returns for that day: `_legacy_labor_totals_for_date` (I checked the live source: today's function recalculates the day from punches, the old way, rather than returning zero). This makes get_store_labor, get_labor_totals_for_dates and _labor_totals_for_date agree for old dates.
      - net_sales comes from sales_cache. `labor_pct = cost/net*100`, unrounded, and null when net = 0.
    - `get_store_labor(_location_ids uuid[], _start date, _end date) -> TABLE(location_id uuid, date date, source text, hours numeric, cost numeric, net_sales numeric, labor_pct numeric, is_live boolean, as_of timestamptz)`
      - Checks `_labor_totals_authorized` for each location.
@@ -133,32 +136,30 @@ This ships in two parts, each approved separately:
   - Keep writing `employee_breakdown` from `labor_day_user_totals` (user_id, hours, wage, cost), with the breakdown hours adding up to labor_hours so maintenance-service doesn't flag the rows. This stays backend-only.
   - Leave `hourly_breakdown` untouched in the upsert.
   - Recompute the previous business date too (startDate −1 day), because the triggers send calendar dates.
-  - Skip business today and Virginia St.
+  - Skip business today, Virginia St, and **any labor_date before `labor_new_rule_start()`**. This applies to 'backfill' (including the −1 day recompute) and to 'refresh-stale'.
   - The 'backfill' and 'refresh-stale' actions and their payloads stay identical.
-- **`supabase/functions/maintenance-queue-processor/index.ts`,** backfill_labor: a **7-day** lookback with forceRefresh, skipping Virginia St.
+- **`supabase/functions/maintenance-queue-processor/index.ts`,** backfill_labor: a **7-day** lookback with forceRefresh. It skips Virginia St and clamps its start date to the cutoff.
 - **`LOCKED_FEATURES.md`:** "Live Labor: One Punch Path Everywhere" is replaced by "One Store Labor Number".
 
-## Backup and backfill
-1. **Pause the labor jobs:** jobs 22 and 24, plus the backfill_labor queue items. Job 239 keeps running for the other queue items.
-2. **Backup, in one transaction:**
-   - Create schema `backup`. It is not reachable from the app.
-   - Create `backup.labor_cache_backup_pack2` with every labor_cache column, including employee_breakdown, so the restore is exact.
-   - Scope: punch_clock rows for Hemet, Palm Desert, Palm Springs and Georgetown, from 2026-07-28 to yesterday.
-   - `REVOKE ALL ON SCHEMA backup` and on the table `FROM PUBLIC, anon, authenticated`; `GRANT ALL` to service_role; `ENABLE ROW LEVEL SECURITY` with no policies.
-   - Drop the table on 2026-10-10 or after 2B passes, whichever is later, and log the drop.
-3. **Hemet 9/24:** fill in the expected $ target by hand before the backfill (about 38.334h).
-4. **Recompute:** run the backfill through labor-service 'backfill'. Rowlett's QU rows and Virginia St are untouched.
-5. **Restart the paused jobs.**
+## No historical backfill (Jordan, Sep 26 3:25 PM PT)
+- **Cutoff:** a single function `public.labor_new_rule_start() RETURNS date` returns a constant set to the build day's date. It is IMMUTABLE, SECURITY DEFINER, `search_path = public, pg_temp`, service_role only.
+- **The build day itself is included:** the new math applies when `labor_date >= labor_new_rule_start()`.
+- Existing labor_cache rows keep their current (old-math) numbers.
+- **What each automatic path does after build:**
+  - **Job 22** (queue-nightly-maintenance → backfill_labor, 7-day lookback): rewrites only days on or after the cutoff. **Without the cutoff, yes: the first nightly run would rewrite up to 7 pre-build days.** With it, those days are skipped.
+  - **Job 24** (nightly-labor-maintenance → refresh-stale): today this picks up stale punch_clock rows of any age. After build, it refreshes only stale rows on or after the cutoff.
+  - **Punch triggers:** they still mark a row stale and queue backfill_labor for any date, since triggers are untouched. labor-service skips any date before the cutoff, including its extra "startDate −1 day" recompute.
+  - **maintenance-service validate-labor-cache:** it may still mark old rows stale (it isn't changed). Nothing rewrites them.
+- **A stale row before the cutoff:** left exactly as it is: frozen, old math. It stays marked stale and is never recomputed.
+  - **Jordan decision (not chosen):** if a punch correction on a pre-build day should still update its number, the smallest option is for labor-service to route dates before the cutoff to `_legacy_labor_totals_for_date` (today's old math) instead of skipping them.
 
 ## Acceptance checks for 2A
-- **Cache matches the function:** at the punch stores for 9/19–9/25, the labor_cache row, `labor_day_totals` and `get_labor_totals_for_dates` agree to the cent and to 0.0001h.
+- **Cache matches the function (post-build days):** for the first 1–2 business days after build at the punch stores, the labor_cache row, `labor_day_totals` and `get_labor_totals_for_dates` agree to the cent and to 0.0001h.
 - **Warning counts:** `wage_missing_count`, `open_shift_count` and `unclosed_break_count` are reported for each store-day.
-- **Hemet:**
-  - 9/22: $807.11 / 37.486h.
-  - 9/23: $752.28 / 34.715h.
-  - 9/24: about 38.334h, against the $ target filled in by hand.
-  - 9/25: $846.97 / 40.530h.
-- **Palm Desert:** 9/23 $561.35 / 26.877h, and 9/24 $609.55 / 28.539h.
+- **New-rule targets, checked read-only by calling `labor_day_totals` directly (nothing saved):**
+  - Hemet: 9/22 $807.11 / 37.486h; 9/23 $752.28 / 34.715h; 9/24 about 38.334h (I'll report the $); 9/25 $846.97 / 40.530h.
+  - Palm Desert: 9/23 $561.35 / 26.877h, and 9/24 $609.55 / 28.539h.
+- **Old numbers still returned:** for those same pre-build dates, `get_labor_totals_for_dates` and `get_store_labor` still return the existing cached (old) numbers unchanged.
 - **Split shifts:** both shifts and both shifts' breaks count. Same-timestamp and orphan cases behave as described above.
 - **Per-store setting:** changing one store's N changes only that store.
 - **Rowlett 9/22–9/25:** source qubeyond; $341.67 / $374.41 / $348.78 / $406.22; labor % 40.36 / 24.31 / 24.45 / 15.97.
@@ -178,7 +179,8 @@ This ships in two parts, each approved separately:
 - **Standing permissions check** (run after every migration), using `has_function_privilege('anon'|'authenticated', oid, 'execute')` on every function above:
   - No anon anywhere.
   - authenticated only on get_store_labor, business_date, business_day_window and the three public functions.
-- **Backup table:** `has_table_privilege` is false for anon and authenticated, and row security is on.
+- **Pre-build rows unchanged:** before the build, take a read-only count and checksum of punch_clock labor_cache rows with labor_date before the cutoff (md5 of location_id, labor_date, labor_cost, labor_hours and updated_at, ordered). Take it again after the first nightly run. The two must be identical.
+- `labor_new_rule_start()` can be run by service_role only.
 - **Changelog:**
   - C1: an admin who isn't a super admin is denied reading, adding, changing and deleting (0 rows).
   - C2: the super admin can still list, add and delete.
@@ -186,28 +188,27 @@ This ships in two parts, each approved separately:
 ## Kiosk impact
 KIOSK ITEM: **none.** The kiosk's calendar-date call is handled on the server, and signatures and return shapes are unchanged.
 
-## Order (after close, on Jordan's go)
+## Order (after close, on Jordan's go; no labor job pauses needed)
 1. Save the definitions of the 4 replaced functions and the changelog policies with pg_get_functiondef and pg_policies.
-2. Pause the labor jobs.
-3. Take the backup snapshot.
-4. Apply the migration.
-5. Seed the CA rows.
-6. Run the permissions check and the business-date test vectors.
-7. Deploy labor-service and maintenance-queue-processor.
-8. Fill in the Hemet 9/24 target.
-9. Run the backfill.
-10. Run the acceptance checks.
-11. Restart the paused jobs.
-12. Do the paired-tablet test.
+2. Take the read-only count and checksum of pre-cutoff punch_clock rows.
+3. Apply the migration. It sets `labor_new_rule_start()` to the build day's date.
+4. Seed the CA rows.
+5. Run the permissions check and the business-date test vectors.
+6. Deploy labor-service and maintenance-queue-processor.
+7. Run the read-only acceptance checks.
+8. After the first nightly run, re-check the checksum and the post-build cache match.
+9. Do the paired-tablet test.
+
+**Why no pauses:** the nightly jobs run at 11:00 and 11:01 UTC (4 AM PT). Applying after close is hours away from them. Pre-build rows are protected by the cutoff, not by timing.
 
 ## Rollback (kept open during apply)
-1. Pause the labor jobs.
-2. Redeploy the previous labor-service and maintenance-queue-processor.
-3. Restore `_labor_totals_for_date`, `get_live_labor_totals`, `get_labor_totals_for_dates` and `get_cut_savings_total` with CREATE OR REPLACE from the saved definitions.
-4. Drop the new functions and the `_legacy_*` copies, then `ALTER TABLE labor_rules DROP COLUMN unpaid_break_min_minutes`.
-5. Delete the in-scope punch_clock rows, then put the backup rows back.
-6. Recreate "Admins can manage changelog" from the saved pg_policies definition.
-7. Restart the paused jobs.
+1. Redeploy the previous labor-service and maintenance-queue-processor.
+2. Restore `_labor_totals_for_date`, `get_live_labor_totals`, `get_labor_totals_for_dates` and `get_cut_savings_total` with CREATE OR REPLACE from the saved definitions.
+3. Drop the new functions, the `_legacy_*` copies and `labor_new_rule_start()`, then `ALTER TABLE labor_rules DROP COLUMN unpaid_break_min_minutes`.
+4. **Rows written by the new code (labor_date on or after the cutoff):** recompute from the cutoff to yesterday with the old labor-service 'backfill' and forceRefresh. This is punch stores only, not Virginia St or Rowlett's QU rows, and only a few days at most. Pre-build rows never changed, so they need nothing.
+5. Recreate "Admins can manage changelog" from the saved pg_policies definition.
+
+No job pause is needed for the rollback either. If a rollback had to happen near 11:00 UTC, the one option is to hold the nightly jobs for those minutes.
 
 ## Paired-tablet test (Hemet and Georgetown)
 1. Clock in → 10-minute break → 30-minute break → clock out → clock in again → clock out.
