@@ -61,7 +61,7 @@ This ships in two parts, each approved separately:
    - `labor_day_user_totals(_location_id uuid, _date date, _live boolean) -> TABLE(user_id uuid, paid_hours numeric, unpaid_break_hours numeric, wage numeric, cost numeric, wage_missing boolean, open_shift boolean, unclosed_break_count integer)`
    - `labor_day_totals(_location_id uuid, _date date, _live boolean) -> TABLE(hours numeric, cost numeric, wage_missing_count integer, open_shift_count integer, unclosed_break_count integer)`
    - `_labor_totals_for_date(uuid,date,boolean)` is changed with CREATE OR REPLACE:
-     - Virginia St, and any date before the cutoff, go to `_legacy_labor_totals_for_date`.
+     - Virginia St, and any date before the cutoff, go to `_legacy_labor_totals_for_date` (exactly today's result).
      - Every other store and date goes to `labor_day_totals`, returning (hours, cost).
 4. **One store labor lookup:**
    - `labor_source_for(_location_id uuid) -> text`: Virginia St is excluded first. Then it returns 'qubeyond' if `pull_labor = 'true'`, otherwise 'punch_clock'.
@@ -69,7 +69,7 @@ This ships in two parts, each approved separately:
      - qubeyond stores read their qubeyond cache row.
      - punch_clock stores, business today: calculated live.
      - punch_clock stores, dates on or after the cutoff: use the cached row; if it is missing or stale, run `labor_day_totals(_live => false)` without saving anything.
-     - punch_clock stores, **dates before the cutoff:** return the cached row as is, even if it is stale. If no row exists, return what today's code returns for that day: `_legacy_labor_totals_for_date` (I checked the live source: today's function recalculates the day from punches, the old way, rather than returning zero). This makes get_store_labor, get_labor_totals_for_dates and _labor_totals_for_date agree for old dates.
+     - punch_clock stores, **dates before the cutoff:** return the cached row if it exists, is not stale, and is not a 0-hour placeholder. Otherwise return `_legacy_labor_totals_for_date` (read-only, never saved). Either way it's old math, never the new rule.
      - net_sales comes from sales_cache. `labor_pct = cost/net*100`, unrounded, and null when net = 0.
    - `get_store_labor(_location_ids uuid[], _start date, _end date) -> TABLE(location_id uuid, date date, source text, hours numeric, cost numeric, net_sales numeric, labor_pct numeric, is_live boolean, as_of timestamptz)`
      - Checks `_labor_totals_authorized` for each location.
@@ -77,8 +77,9 @@ This ships in two parts, each approved separately:
      - Capped at 93 days per call. Store totals only, and Virginia St is skipped.
 5. **Repointed public functions** (CREATE OR REPLACE, same signatures and shapes):
    - **Each function keeps its current access check character for character** in its CREATE OR REPLACE body:
-     - `get_live_labor_totals(uuid,date)`: `_labor_totals_authorized(loc) OR (auth.uid() IS NOT NULL AND punch_device_location(auth.uid()) = loc)`, then reads `_store_labor`.
-     - `get_labor_totals_for_dates(uuid,date[])`: `_labor_totals_authorized(loc)` only, then reads `_store_labor`.
+     - `get_live_labor_totals(uuid,date)`: `_labor_totals_authorized(loc) OR (auth.uid() IS NOT NULL AND punch_device_location(auth.uid()) = loc)`. Then, for dates before the cutoff, it goes to `_legacy_get_live_labor_totals` (exactly today's result); for other dates it reads `_store_labor`.
+     - `get_labor_totals_for_dates(uuid,date[])`: `_labor_totals_authorized(loc)` only. Then, for each date before the cutoff, it goes to `_legacy_get_labor_totals_for_dates`, so today's recalculation that fills 0-hour placeholders still works; other dates read `_store_labor`.
+     - **get_cut_savings_total never uses the legacy path**, for any date, so an old date can't get around the shift check or the 0–480 clamp.
      - `get_cut_savings_total(uuid,jsonb)`: the same OR check as get_live_labor_totals, run first, before any input check.
    - **Kiosk date:** if `_date = business_date(loc) + 1` and that is the store's local calendar date (after midnight, before the cutoff), the call is treated as a live business-today call.
    - **`get_cut_savings_total(uuid,jsonb)` lockdown** (after its unchanged access check above):
@@ -94,6 +95,8 @@ This ships in two parts, each approved separately:
    GRANT EXECUTE ON FUNCTION public._legacy_labor_totals_for_date(uuid,date,boolean), public._legacy_get_live_labor_totals(uuid,date), public._legacy_get_labor_totals_for_dates(uuid,date[]), public._legacy_get_cut_savings_total(uuid,jsonb) TO service_role;
    REVOKE ALL ON FUNCTION public.get_store_labor(uuid[],date,date), public.business_date(uuid,timestamptz), public.business_day_window(uuid,date) FROM PUBLIC, anon;
    GRANT EXECUTE ON FUNCTION public.get_store_labor(uuid[],date,date), public.business_date(uuid,timestamptz), public.business_day_window(uuid,date) TO authenticated, service_role;
+   REVOKE ALL ON FUNCTION public.labor_new_rule_start() FROM PUBLIC, anon, authenticated;
+   GRANT EXECUTE ON FUNCTION public.labor_new_rule_start() TO service_role;
    ```
    - The three public functions and `_labor_totals_for_date` are CREATE OR REPLACE only, so their current permissions stay as they are.
    - No hidden column is re-granted.
@@ -142,7 +145,7 @@ This ships in two parts, each approved separately:
 - **`LOCKED_FEATURES.md`:** "Live Labor: One Punch Path Everywhere" is replaced by "One Store Labor Number".
 
 ## No historical backfill (Jordan, Sep 26 3:25 PM PT)
-- **Cutoff:** a single function `public.labor_new_rule_start() RETURNS date` returns a constant set to the build day's date. It is IMMUTABLE, SECURITY DEFINER, `search_path = public, pg_temp`, service_role only.
+- **Cutoff:** a single function `public.labor_new_rule_start() RETURNS date` returns a constant set to the build day's date. It is STABLE, SECURITY DEFINER, `search_path = public, pg_temp`, service_role only.
 - **The build day itself is included:** the new math applies when `labor_date >= labor_new_rule_start()`.
 - Existing labor_cache rows keep their current (old-math) numbers.
 - **What each automatic path does after build:**
@@ -159,7 +162,7 @@ This ships in two parts, each approved separately:
 - **New-rule targets, checked read-only by calling `labor_day_totals` directly (nothing saved):**
   - Hemet: 9/22 $807.11 / 37.486h; 9/23 $752.28 / 34.715h; 9/24 about 38.334h (I'll report the $); 9/25 $846.97 / 40.530h.
   - Palm Desert: 9/23 $561.35 / 26.877h, and 9/24 $609.55 / 28.539h.
-- **Old numbers still returned:** for those same pre-build dates, `get_labor_totals_for_dates` and `get_store_labor` still return the existing cached (old) numbers unchanged.
+- **Old numbers still returned:** for those same pre-build dates, `get_labor_totals_for_dates` returns exactly what it returns today (the legacy path), and `get_store_labor` returns old-math numbers (the cached row, or the legacy calculation).
 - **Split shifts:** both shifts and both shifts' breaks count. Same-timestamp and orphan cases behave as described above.
 - **Per-store setting:** changing one store's N changes only that store.
 - **Rowlett 9/22–9/25:** source qubeyond; $341.67 / $374.41 / $348.78 / $406.22; labor % 40.36 / 24.31 / 24.45 / 15.97.
@@ -179,8 +182,9 @@ This ships in two parts, each approved separately:
 - **Standing permissions check** (run after every migration), using `has_function_privilege('anon'|'authenticated', oid, 'execute')` on every function above:
   - No anon anywhere.
   - authenticated only on get_store_labor, business_date, business_day_window and the three public functions.
-- **Pre-build rows unchanged:** before the build, take a read-only count and checksum of punch_clock labor_cache rows with labor_date before the cutoff (md5 of location_id, labor_date, labor_cost, labor_hours and updated_at, ordered). Take it again after the first nightly run. The two must be identical.
-- `labor_new_rule_start()` can be run by service_role only.
+  - `labor_new_rule_start()`: no anon and no authenticated.
+- **Pre-build rows unchanged:** before the build, take a read-only count and checksum of punch_clock labor_cache rows with labor_date before the cutoff: md5 of location_id, labor_date, source, labor_hours, labor_cost, overtime_hours, double_time_hours and employee_breakdown, ordered. updated_at and is_stale are left out, because marking a row stale changes them. Take it again after the first nightly run. The two must be identical.
+- **Old-date function calls unchanged:** for a pre-build date, get_live_labor_totals and get_labor_totals_for_dates return the same result before and after the build.
 - **Changelog:**
   - C1: an admin who isn't a super admin is denied reading, adding, changing and deleting (0 rows).
   - C2: the super admin can still list, add and delete.
