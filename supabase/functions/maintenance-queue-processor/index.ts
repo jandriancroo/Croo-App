@@ -219,14 +219,31 @@ async function processDailySummary(supabaseUrl: string, supabaseKey: string, tas
 // ============================================================================
 // BACKFILL LABOR — calls labor-service
 // ============================================================================
+const LABOR_EXCLUDED_LOCATION_ID = "5ce2f74e-7292-4ccd-84c1-7b8b28e4bc0d"; // Virginia St, legacy path
+
 async function processBackfillLabor(supabaseUrl: string, supabaseKey: string, task: any) {
+  if (task.location_id === LABOR_EXCLUDED_LOCATION_ID) {
+    return { success: true, skipped: "excluded location" };
+  }
+  // 7-day lookback ending at target_date, clamped to the new-rule cutoff.
+  const svc = createClient(supabaseUrl, supabaseKey);
+  const { data: cutoffData, error: cutoffErr } = await svc.rpc("labor_new_rule_start");
+  if (cutoffErr || !cutoffData) throw new Error(`labor_new_rule_start failed: ${cutoffErr?.message}`);
+  const cutoff = String(cutoffData);
+  const end = String(task.target_date);
+  const d = new Date(end + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 7);
+  let start = d.toISOString().slice(0, 10);
+  if (start < cutoff) start = cutoff;
+  if (end < cutoff) return { success: true, skipped: "before cutoff" };
+
   const response = await fetch(`${supabaseUrl}/functions/v1/labor-service?action=backfill`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
     body: JSON.stringify({
       locationId: task.location_id,
-      startDate: task.target_date,
-      endDate: task.target_date,
+      startDate: start,
+      endDate: end,
       forceRefresh: true,
     }),
   });
