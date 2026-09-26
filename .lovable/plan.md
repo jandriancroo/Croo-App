@@ -324,6 +324,87 @@ Each step ships and rolls back on its own.
 
 ---
 
+## 2B review revisions (Ryan, 23:33 UTC). Where these conflict with A–E above, these win.
+Facts re-checked (read-only):
+- `_store_labor(uuid,date,boolean)`: only service_role can run it.
+- `get_store_labor`: authenticated can run it. It is gated by `_labor_totals_authorized` or the paired device (today only). It caps at 92 days and 100 stores, and one bad store id raises 42501 for the whole call.
+- **get_store_labor returns no rows for Virginia St** (it skips that id).
+- labor_cache read access: has_location_access OR has_brand_access_via_location, plus the paired device.
+- pay_periods columns: id, start_date, end_date, status, closed_at, closed_by, created_at. There is no location column.
+- Virginia St: 0 punches in the last 30 days.
+
+**R1. Server consumers use `_store_labor(loc, date, live)`, not labor_day_totals.**
+- This covers labor-intelligence, watch-device-service, fetch-qubeyond-sales, support-email-service, both pulse SQL functions, ai-assistant and `_shared/weekProjections`.
+- That way the QU switch (Rowlett), pre-cutoff routing and the frozen cache all apply.
+- Virginia St: consumers keep their current legacy code for that id, because `_store_labor`/get_store_labor return nothing for it.
+- The A table's "New source" column for these rows now reads `_store_labor`.
+
+**R2. Cross-day forgotten clock-out.**
+- Confirmed with 2A live: yesterday's open shift + today's clock_in (ignored) + today's clock_out pairs into one long shift dated yesterday, and today shows 0.
+- New rule (dates on or after the cutoff): a clock_in while a shift is open ends the earlier shift as missing_clock_out with 0h, whether it's today or a past day, then starts a new shift. A clock_in during an open break closes the break at that clock_in and flags unclosed_break.
+- The ±24h punch window covers case (b), because the pairing loop sees the prior day's clock_in and the next day's punches.
+- Acceptance:
+  - (a) Same-day double clock_in.
+  - (b) 9/26 open, then a 9/27 clock_in/out: 9/26 = 0h flagged, 9/27 = its own shift.
+  - (c) Clock_in during an open break.
+
+**R3. Refactor parity.**
+- labor_day_user_totals and labor_day_totals keep their exact signatures and return columns: CREATE OR REPLACE, SECURITY DEFINER, search_path = public, pg_temp, grants unchanged.
+- Acceptance:
+  - For every post-cutoff store-day at the punch stores, each user without a double clock_in gets identical output before and after (to 0.0001h and the cent).
+  - The pre-cutoff punch_clock checksum (609207d36c6764d245343595add7c66b, n=3702) is unchanged.
+  - Old-date get_live_labor_totals and get_labor_totals_for_dates outputs are unchanged.
+  - get_cut_savings_total and the paired-device own-store OK / other-store 42501 test get re-run.
+
+**R4. Cache recompute.** After the pairing change, run labor-service 'backfill' forceRefresh from the cutoff to yesterday, for the punch stores only (not Virginia St, and not Rowlett's QU rows). That makes the cache equal the function. The rollback repeats this after restoring the old definitions.
+
+**R5. Store-total gate (Jordan confirm).**
+- **Who loses labor visibility:** team members (below shift manager) could read store labor on every labor_cache screen: dashboard, dock, reports, heatmap, schedule actuals and the org dashboard. After 2B the labor tile is hidden for them. The RPC is not called, so they see no error.
+- **Brand-level users:** brand_admin/fbc with brand access only add the brand-access path to the store-totals gate (`has_brand_access_via_location`), used by get_store_labor only. It is never added to labor_shifts or anything per-person.
+- **Callers pass only accessible ids:** the org dashboard passes only the ids it already lists for that user.
+
+**R6. Limits.**
+- get_store_labor: 93 days / 100 stores. Reports (custom ranges) and the heatmap (year view) chunk by 90 days. The org dashboard chunks by 100 stores; month-to-date fits.
+- labor_shifts: cap at 45 days (a pay period plus slack), otherwise 22023.
+- Virginia St Time Tracking is unaffected: it has 0 recent punches and stays excluded.
+
+**R7. Close Pay Period.**
+- Blocked on unresolved missing clock-outs across **all** locations the org period covers. This is enforced server-side by a new `pay_period_open_issues(_period_id)`, manager+ with a has_location_access-scoped listing, plus a BEFORE UPDATE trigger on pay_periods that raises when status → closed with open issues. The UI shows the list.
+- The flags and the block cover every day in the period, including pre-cutoff days. labor_shifts can pair any date for flags; the hours rule for pre-cutoff days is still Jordan's call.
+
+**R8. labor_shift_resolutions.**
+- RLS on; GRANT SELECT, INSERT to authenticated and ALL to service_role; no anon.
+- SELECT and INSERT for manager+ with has_location_access. No client UPDATE or DELETE.
+- clock_in_punch_id is a foreign key to time_punches, ON DELETE CASCADE.
+- A resolution is ignored once a real clock_out exists for that shift.
+- Who can resolve: manager+ (the same people who close periods).
+
+**R9. Standing permission-check additions:**
+- labor_shifts: authenticated only.
+- _labor_pair_shifts: service_role only.
+- pay_period_open_issues: authenticated only.
+- labor_shift_resolutions: no anon privileges.
+- Vendor-invoices: the two new policies exist and the old two are gone.
+
+**R10. One call per range.** SalesSummary, the dock and the org dashboard make one get_store_labor call per range. Today comes back live with is_live, and labor % uses the server's net_sales. No mixing with get_live_labor_totals or client-side net sales.
+
+**R11. Deferred, not touched in 2B:**
+- Scheduled labor (get_scheduled_labor_totals)
+- kioskCutSavings.ts cleanup
+- usePersonalPayData / payrollCalculations: the employee's own pay view still uses note-based breaks.
+- Note: pay-period cards read get_store_labor and no longer call payrollCalculations for labor $.
+
+**R12. Rollback per step:**
+1. **Server step:** restore the saved pg_get_functiondef for labor_day_user_totals and labor_day_totals. Drop labor_shifts, _labor_pair_shifts, pay_period_open_issues, the pay_periods trigger and labor_shift_resolutions. Then run the R4 cache recompute.
+2. **Time Tracking frontend:** revert that commit.
+3. **Screen repoints:** revert that commit. Drop the brand-path gate change (restore the saved get_store_labor definition).
+4. **Edge functions:** redeploy watch-device-service, fetch-qubeyond-sales, support-email-service, labor-intelligence and ai-assistant from 3e0570c. Restore the saved pulse function definitions.
+5. **Andy's policies:** drop the new two and rebuild the old two from the captured pg_policies.
+
+**R13. Jaysen, Hemet 9/25, exact:** 5.6130h + 5.4768h = **11.0898h** (breaks 30:15 and 30:11, both unpaid). This replaces the rounded 11.10h in Step 0 and E.
+
+---
+
 # Separate section: Andy's security piggyback (vendor-invoices storage)
 Not part of the labor work.
 
