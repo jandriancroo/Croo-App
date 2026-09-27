@@ -39,6 +39,21 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Andy (security): caller must have access to the target store, and the
+    // file must live in that store's folder. Service role bypasses RLS, so
+    // this function has to enforce it itself.
+    const forbidden = () => new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+    const canAccess = async (locId: unknown) => {
+      if (typeof locId !== "string" || !locId) return false;
+      const { data, error } = await admin.rpc("has_location_access", { _user_id: user.id, _location_id: locId });
+      return !error && data === true;
+    };
+    if (locationId && !(await canAccess(locationId))) return forbidden();
+    if (storagePath && (typeof storagePath !== "string" || !locationId
+        || !storagePath.startsWith(`${locationId}/`) || storagePath.includes(".."))) return forbidden();
+
     // Symmetric guard: this endpoint writes to Brand governance tables
     // (vendor_invoices, inventory_items, vendor_gap_alerts). Refuse if the
     // target location is Lite mode — those uploads must go through
@@ -87,6 +102,8 @@ serve(async (req) => {
       .eq("id", invoiceId)
       .single();
     if (invErr || !invoice) throw new Error("Invoice not found");
+    if (!(await canAccess(invoice.location_id))) return forbidden();
+    if (!String(invoice.image_url?.replace("vendor-invoices/", "") ?? "").startsWith(`${invoice.location_id}/`)) return forbidden();
 
     // Get the image URL (signed if private bucket)
     let imageUrl = invoice.image_url;

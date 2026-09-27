@@ -82,6 +82,21 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Andy (security): caller must have access to the target store, and the
+    // file must live in that store's folder. Service role bypasses RLS, so
+    // this function has to enforce it itself.
+    const forbidden = () => new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+    const canAccess = async (locId: unknown) => {
+      if (typeof locId !== "string" || !locId) return false;
+      const { data, error } = await admin.rpc("has_location_access", { _user_id: user.id, _location_id: locId });
+      return !error && data === true;
+    };
+    if (locationId && !(await canAccess(locationId))) return forbidden();
+    if (storagePath && (typeof storagePath !== "string" || !locationId
+        || !storagePath.startsWith(`lite/${locationId}/`) || storagePath.includes(".."))) return forbidden();
+
     // Verify the target location is Lite mode. Refuse otherwise — this endpoint
     // must never write to Brand governance tables.
     if (locationId) {
@@ -128,6 +143,8 @@ serve(async (req) => {
       .eq("id", invoiceId)
       .single();
     if (invErr || !invoice) throw new Error("Lite invoice not found");
+    if (!(await canAccess(invoice.location_id))) return forbidden();
+    if (!String(invoice.storage_path ?? "").startsWith(`lite/${invoice.location_id}/`)) return forbidden();
 
     // Sign the storage path (reuses shared vendor-invoices bucket, Lite paths are prefixed).
     let imageUrl: string | null = null;

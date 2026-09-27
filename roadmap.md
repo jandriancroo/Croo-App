@@ -24,3 +24,6 @@
 - [x] Andy vendor-invoices storage policies
 - [x] send-push-notification org-aware redeploy
 - [x] D3 client filters (5 files)
+
+## Package A (approved Sep 26 7:42 PM PT)
+- [ ] 0 snapshots · 1 schema · 2 data fixes · 3 logic · 4 triggers · 5 labor deploys · 6 V0 · 7 recompute · 8 V1–V7 · 9 A-SEC

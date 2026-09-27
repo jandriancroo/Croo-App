@@ -10,7 +10,12 @@ const corsHeaders = {
 // Pack 2A: all labor math lives in the database (labor_day_totals /
 // labor_day_user_totals). This job only writes closed punch_clock days.
 // Virginia St is on its legacy path and is never written here.
-const EXCLUDED_LOCATION_ID = '5ce2f74e-7292-4ccd-84c1-7b8b28e4bc0d';
+// Stores whose labor comes from the register (labor_source_for <> 'punch_clock') are skipped.
+async function isPunchClockStore(supabase: any, locationId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('labor_source_for', { _location_id: locationId });
+  if (error) throw new Error(`labor_source_for failed: ${error.message}`);
+  return data === 'punch_clock';
+}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -46,8 +51,8 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   if (!locationId) return json({ error: 'locationId is required' }, 400);
 
-  if (locationId === EXCLUDED_LOCATION_ID) {
-    return json({ success: true, message: 'Location excluded (legacy path)', processed: 0, skipped: 0 });
+  if (!(await isPunchClockStore(supabase, locationId))) {
+    return json({ success: true, message: 'Location uses register labor (skipped)', processed: 0, skipped: 0 });
   }
 
   console.log(`[labor-service] backfill: location=${locationId}, daysBack=${daysBack}`);
@@ -170,8 +175,7 @@ async function handleRefreshStale(supabase: any): Promise<Response> {
     .select('location_id, labor_date')
     .eq('is_stale', true)
     .eq('source', 'punch_clock')
-    .gte('labor_date', cutoff)
-    .neq('location_id', EXCLUDED_LOCATION_ID);
+    .gte('labor_date', cutoff);
 
   if (staleError) throw new Error(`Failed to fetch stale records: ${staleError.message}`);
 
