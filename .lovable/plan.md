@@ -20,8 +20,8 @@ Checked against the live database on 9/26 at 8:20 PM PT: `labor_estimated_end` s
 
 (Old correction 3, skipping an open break, is removed per C2.)
 
-## One conflict in C8 to resolve
-C8 says "every would_write row has `planned_clock_out >= close_at + setting`". Under C1, the write time can be earlier than that (scheduled end + 1h), so that check would fail on correct rows. The proposed replacement check is `first_seen >= close_at + setting` (or `>= ci + max_open_shift_hours` for no-hours rows), plus `planned_clock_out <= first_seen`. V5 below uses that version. Ryan and Jordan need to approve it.
+## C8 check (accepted by Ryan)
+Under C1 the write time can be earlier than close + setting (for example, scheduled end + 1h). So V5 checks `first_seen >= due_at` and `planned_clock_out <= first_seen`. `due_at` is close + setting, or clock-in + max open hours when the store has no close time that day.
 
 ## Migration B-1 (log-only, SQL only), outline
 ```sql
@@ -46,7 +46,7 @@ CREATE TABLE public.auto_clock_out_settings(
   mode text NOT NULL DEFAULT 'log_only' CHECK (mode IN ('off','log_only','live')),
   updated_at timestamptz NOT NULL DEFAULT now(), updated_by uuid);
 INSERT INTO public.auto_clock_out_settings DEFAULT VALUES;
-REVOKE ALL ON public.auto_clock_out_settings FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.auto_clock_out_settings FROM PUBLIC, anon, authenticated, service_role;   -- R2
 GRANT SELECT ON public.auto_clock_out_settings TO service_role;
 ALTER TABLE public.auto_clock_out_settings ENABLE ROW LEVEL SECURITY;   -- no policies
 
@@ -82,7 +82,10 @@ GRANT EXECUTE ON FUNCTION public._labor_estimate_detail(uuid) TO service_role;
 CREATE OR REPLACE FUNCTION public.labor_estimated_end(_clock_in_punch_id uuid) RETURNS timestamptz
   LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
   AS $$ SELECT least(d.floored_end, now()) FROM public._labor_estimate_detail($1) d $$;
--- re-apply exec_roles from pkgb_backup_functions exactly
+-- R1: Andy's rule 1 applies to the replaced function too (stays SECURITY DEFINER, search_path public, pg_temp)
+REVOKE ALL ON FUNCTION public.labor_estimated_end(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.labor_estimated_end(uuid) TO service_role;
+-- then re-apply exec_roles from pkgb_backup_functions exactly
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.pkgb_est_before b
              WHERE b.est IS DISTINCT FROM public.labor_estimated_end(b.id)) THEN
@@ -165,7 +168,12 @@ SELECT cron.unschedule('auto-punch-out-early');
   - `auto_punch_events` still got v1 rows overnight.
   - Every `would_write` row has `first_seen >= due_at`, `planned_clock_out <= first_seen`, and `due_at` equal to `close_at + setting`, or to clock-in + max open hours when there is no close time. (This is the version from the C8 conflict section above.)
   - The `would_write` shift list matches the shifts in `auto_punch_events`.
-- **V6 (BEGIN ... ROLLBACK at [TEST] Sandbox, mode set to live inside the transaction):**
+- **V6 safety (R4):**
+  - Pre-check: the candidate query plus the due gate, run for every store except [TEST] Sandbox, must return 0 rows. If it returns more than 0, wait and re-check.
+  - V6 runs as ONE `DO` block that ends in `RAISE EXCEPTION 'V6 done'`. That rolls back every write, every trigger effect, and every queued background refresh request.
+  - Results are reported through `RAISE NOTICE` before the final exception.
+  - Post-check: 0 new `time_punches`, 0 new `scheduled_shifts`, and 0 `auto_clock_out_log` rows since the start time.
+- **V6 (one DO block at [TEST] Sandbox, mode set to live inside the block):**
   - one clock_out is written with the parent's `shift_id`, and no phantom shift is created
   - a second run writes 0
   - a later clock_in gives `skipped_next_punch`
@@ -184,8 +192,12 @@ SELECT cron.unschedule('auto-punch-out-early');
 UPDATE public.auto_clock_out_settings SET mode='off';
 -- only after B-2:
 SELECT cron.schedule('auto-punch-out-early', '0 * * * *', (SELECT command FROM public.pkgb_backup_cron));
+-- R3: first list auto clock-outs a manager edited, for review by hand (never deleted)
+SELECT tp.id, tp.location_id, tp.user_id, tp.punch_time, tp.edited_by, tp.edited_at
+  FROM public.time_punches tp JOIN public.auto_clock_out_log l ON l.time_punch_id = tp.id AND l.status='written'
+ WHERE tp.edited_at IS NOT NULL;
 DELETE FROM public.time_punches WHERE id IN (SELECT time_punch_id FROM public.auto_clock_out_log WHERE status='written')
-  AND is_auto_punched_out AND edited_at IS NULL;
+  AND is_auto_punched_out AND edited_at IS NULL AND notes LIKE 'auto_clock_out:%';
 -- full removal
 SELECT cron.unschedule('auto-clock-out');
 DROP FUNCTION public.run_auto_clock_out();
