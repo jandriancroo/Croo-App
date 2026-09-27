@@ -10632,6 +10632,47 @@ export type Database = {
           id: string
           notification_label: string
           notification_type: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notification_label: string
+          notification_type: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notification_label?: string
+          notification_type?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_notification_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_notification_settings_template: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          notification_label: string
+          notification_type: string
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
@@ -10656,6 +10697,47 @@ export type Database = {
         Relationships: []
       }
       role_permissions: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          organization_id: string
+          permission_key: string
+          permission_label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          organization_id: string
+          permission_key: string
+          permission_label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          organization_id?: string
+          permission_key?: string
+          permission_label?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_permissions_template: {
         Row: {
           created_at: string
           enabled: boolean
@@ -13398,6 +13480,18 @@ export type Database = {
         Args: { _location_id: string }
         Returns: string
       }
+      _org_role_notification_settings: {
+        Args: { _location_id: string }
+        Returns: {
+          enabled: boolean
+          notification_type: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      _org_role_permission_enabled: {
+        Args: { _key: string; _location_id: string; _role: string }
+        Returns: boolean
+      }
       _store_labor: {
         Args: { _date: string; _live: boolean; _location_id: string }
         Returns: {
@@ -13906,6 +14000,7 @@ export type Database = {
           topic: string
         }[]
       }
+      seed_org_role_settings: { Args: { _org: string }; Returns: undefined }
       send_day_part_pulse: { Args: never; Returns: undefined }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       send_shift_overstay_alerts: { Args: never; Returns: undefined }
