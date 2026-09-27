@@ -219,14 +219,15 @@ async function processDailySummary(supabaseUrl: string, supabaseKey: string, tas
 // ============================================================================
 // BACKFILL LABOR — calls labor-service
 // ============================================================================
-const LABOR_EXCLUDED_LOCATION_ID = "5ce2f74e-7292-4ccd-84c1-7b8b28e4bc0d"; // Virginia St, legacy path
 
 async function processBackfillLabor(supabaseUrl: string, supabaseKey: string, task: any) {
-  if (task.location_id === LABOR_EXCLUDED_LOCATION_ID) {
-    return { success: true, skipped: "excluded location" };
-  }
   // 7-day lookback ending at target_date, clamped to the new-rule cutoff.
   const svc = createClient(supabaseUrl, supabaseKey);
+  const { data: srcData, error: srcErr } = await svc.rpc("labor_source_for", { _location_id: task.location_id });
+  if (srcErr) throw new Error(`labor_source_for failed: ${srcErr.message}`);
+  if (srcData !== "punch_clock") {
+    return { success: true, skipped: "register labor store" };
+  }
   const { data: cutoffData, error: cutoffErr } = await svc.rpc("labor_new_rule_start");
   if (cutoffErr || !cutoffData) throw new Error(`labor_new_rule_start failed: ${cutoffErr?.message}`);
   const cutoff = String(cutoffData);

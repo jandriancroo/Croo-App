@@ -6312,14 +6312,17 @@ export type Database = {
         Row: {
           allow_early_clock_in: boolean
           allow_unscheduled_clock_in: boolean
+          auto_clock_out_after_close_min: number
           auto_punch_out_time: string | null
           created_at: string | null
           daily_double_time_threshold: number | null
           daily_overtime_threshold: number | null
           double_time_multiplier: number | null
+          duplicate_tap_minutes: number
           early_clock_in_minutes: number
           id: string
           location_id: string
+          max_open_shift_hours: number
           meal_break_duration: number | null
           meal_break_hours: number | null
           overtime_multiplier: number | null
@@ -6339,14 +6342,17 @@ export type Database = {
         Insert: {
           allow_early_clock_in?: boolean
           allow_unscheduled_clock_in?: boolean
+          auto_clock_out_after_close_min?: number
           auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
           daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
+          duplicate_tap_minutes?: number
           early_clock_in_minutes?: number
           id?: string
           location_id: string
+          max_open_shift_hours?: number
           meal_break_duration?: number | null
           meal_break_hours?: number | null
           overtime_multiplier?: number | null
@@ -6366,14 +6372,17 @@ export type Database = {
         Update: {
           allow_early_clock_in?: boolean
           allow_unscheduled_clock_in?: boolean
+          auto_clock_out_after_close_min?: number
           auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
           daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
+          duplicate_tap_minutes?: number
           early_clock_in_minutes?: number
           id?: string
           location_id?: string
+          max_open_shift_hours?: number
           meal_break_duration?: number | null
           meal_break_hours?: number | null
           overtime_multiplier?: number | null
@@ -6407,6 +6416,7 @@ export type Database = {
           id: string
           location_id: string
           note: string | null
+          resolution: string
           resolved_at: string
           resolved_by: string
           user_id: string
@@ -6417,6 +6427,7 @@ export type Database = {
           id?: string
           location_id: string
           note?: string | null
+          resolution?: string
           resolved_at?: string
           resolved_by?: string
           user_id: string
@@ -6427,6 +6438,7 @@ export type Database = {
           id?: string
           location_id?: string
           note?: string | null
+          resolution?: string
           resolved_at?: string
           resolved_by?: string
           user_id?: string
@@ -7630,6 +7642,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "location_stations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_timezone_pending: {
+        Row: {
+          address: string | null
+          created_at: string
+          current_tz: string | null
+          derived_state: string | null
+          id: string
+          kind: string
+          location_id: string
+          proposed_tz: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          current_tz?: string | null
+          derived_state?: string | null
+          id?: string
+          kind?: string
+          location_id: string
+          proposed_tz?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          current_tz?: string | null
+          derived_state?: string | null
+          id?: string
+          kind?: string
+          location_id?: string
+          proposed_tz?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_timezone_pending_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -9442,6 +9507,120 @@ export type Database = {
           created_at?: string
           id?: string
           target_user_id?: string
+        }
+        Relationships: []
+      }
+      pkga_backup_functions: {
+        Row: {
+          definition: string
+          grants: string | null
+          identity_args: string | null
+          name: string
+          saved_at: string
+        }
+        Insert: {
+          definition: string
+          grants?: string | null
+          identity_args?: string | null
+          name: string
+          saved_at?: string
+        }
+        Update: {
+          definition?: string
+          grants?: string | null
+          identity_args?: string | null
+          name?: string
+          saved_at?: string
+        }
+        Relationships: []
+      }
+      pkga_backup_integrations: {
+        Row: {
+          credentials_md5: string | null
+          credentials_without_pull_labor_md5: string | null
+          id: string
+          integration_type: string | null
+          location_id: string | null
+          pull_labor_key_exists: boolean | null
+          pull_labor_value: string | null
+          saved_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          credentials_md5?: string | null
+          credentials_without_pull_labor_md5?: string | null
+          id: string
+          integration_type?: string | null
+          location_id?: string | null
+          pull_labor_key_exists?: boolean | null
+          pull_labor_value?: string | null
+          saved_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          credentials_md5?: string | null
+          credentials_without_pull_labor_md5?: string | null
+          id?: string
+          integration_type?: string | null
+          location_id?: string | null
+          pull_labor_key_exists?: boolean | null
+          pull_labor_value?: string | null
+          saved_at?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      pkga_backup_policies: {
+        Row: {
+          check_expr: string | null
+          cmd: string | null
+          polname: string | null
+          roles: string | null
+          saved_at: string
+          tablename: string | null
+          using_expr: string | null
+        }
+        Insert: {
+          check_expr?: string | null
+          cmd?: string | null
+          polname?: string | null
+          roles?: string | null
+          saved_at?: string
+          tablename?: string | null
+          using_expr?: string | null
+        }
+        Update: {
+          check_expr?: string | null
+          cmd?: string | null
+          polname?: string | null
+          roles?: string | null
+          saved_at?: string
+          tablename?: string | null
+          using_expr?: string | null
+        }
+        Relationships: []
+      }
+      pkga_backup_rows: {
+        Row: {
+          location_id: string | null
+          row_data: Json
+          row_id: string | null
+          saved_at: string
+          table_name: string | null
+        }
+        Insert: {
+          location_id?: string | null
+          row_data: Json
+          row_id?: string | null
+          saved_at?: string
+          table_name?: string | null
+        }
+        Update: {
+          location_id?: string | null
+          row_data?: Json
+          row_id?: string | null
+          saved_at?: string
+          table_name?: string | null
         }
         Relationships: []
       }
@@ -13484,6 +13663,10 @@ export type Database = {
       }
     }
     Functions: {
+      _labor_cache_refresh_from: {
+        Args: { _from: string; _location_id: string }
+        Returns: undefined
+      }
       _labor_pair_shifts: {
         Args: {
           _date: string
@@ -13496,6 +13679,10 @@ export type Database = {
           clock_in: string
           clock_in_punch_id: string
           clock_out: string
+          clock_out_punch_id: string
+          estimated: boolean
+          estimated_end: string
+          max_unpaid_break_sec: number
           missing_clock_out: boolean
           open_shift_live: boolean
           paid_break_sec: number
@@ -13562,11 +13749,13 @@ export type Database = {
         Returns: boolean
       }
       _pay_period_open_issues: {
-        Args: { _end: string; _start: string }
+        Args: { _end: string; _start: string; _user: string }
         Returns: {
+          blocking: boolean
           business_date: string
           clock_in: string
           clock_in_punch_id: string
+          kind: string
           location_id: string
           location_name: string
           user_id: string
@@ -13583,6 +13772,18 @@ export type Database = {
           labor_pct: number
           net_sales: number
           source: string
+        }[]
+      }
+      _tz_valid_for_state: {
+        Args: { _state: string; _tz: string }
+        Returns: boolean
+      }
+      _us_state_list: {
+        Args: never
+        Returns: {
+          code: string
+          name: string
+          tz: string
         }[]
       }
       _validate_widget_authority: {
@@ -13687,6 +13888,13 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      derive_store_region: {
+        Args: { address: string }
+        Returns: {
+          state_code: string
+          timezone: string
+        }[]
       }
       duplicate_checklist_as_draft: {
         Args: { _activation_at?: string; _source_id: string }
@@ -13971,16 +14179,26 @@ export type Database = {
           wage_missing: boolean
         }[]
       }
+      labor_estimated_end: {
+        Args: { _clock_in_punch_id: string }
+        Returns: string
+      }
       labor_new_rule_start: { Args: never; Returns: string }
       labor_shifts: {
         Args: { _end: string; _location_id: string; _start: string }
         Returns: {
+          auto_clock_out: boolean
+          auto_reviewed: boolean
           business_date: string
           clock_in: string
           clock_in_punch_id: string
           clock_out: string
+          clock_out_punch_id: string
           cost: number
+          estimated: boolean
+          estimated_end: string
           ignored_duplicates: number
+          meal_break_missing: boolean
           missing_clock_out: boolean
           open_shift_live: boolean
           paid_break_min: number
@@ -13992,6 +14210,7 @@ export type Database = {
           unpaid_break_min: number
           user_id: string
           wage: number
+          wage_missing: boolean
         }[]
       }
       labor_source_for: { Args: { _location_id: string }; Returns: string }
@@ -14024,9 +14243,11 @@ export type Database = {
       pay_period_open_issues: {
         Args: { _period_id: string }
         Returns: {
+          blocking: boolean
           business_date: string
           clock_in: string
           clock_in_punch_id: string
+          kind: string
           location_id: string
           location_name: string
           user_id: string
