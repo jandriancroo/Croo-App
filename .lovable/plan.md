@@ -36,7 +36,8 @@ labor_day_user_totals -> get_cut_savings_total   (!)
 - relacl and column-ACL md5 for profiles and labor_cache, and the cron.job list.
 - get_store_labor for Hemet, Palm Desert, Palm Springs, Georgetown and Virginia St for 9/20–9/27.
 - get_labor_totals_for_dates for those stores, 9/20–9/25.
-- get_cut_savings_total for a fixed sample.
+- get_cut_savings_total for a fixed sample. It denies callers with no user (42501 as postgres), so it is called inside a read-only, rolled-back transaction with `request.jwt.claims` set to a Hemet manager's id. Fallback: record labor_day_user_totals (user_id, wage, paid_hours) for the same sample. Stage 4 uses the same method.
+- The EXECUTE grants and the has_function_privilege matrix (anon, authenticated, service_role) for every function Stage 4 rebuilds.
 - Signatures and grants of the 3 kiosk functions.
 
 ## Stage 1: Andy's security fix (its own migration, verbatim)
@@ -107,10 +108,14 @@ Stage 0 confirms which column cut savings reads. If it reads anything other than
 - `labor_day_user_totals`: adds the trailing columns.
 - `labor_day_totals`: cost = straight + premium, plus OT and DT hours.
 - `labor_shifts`: per-shift premium columns added at the end.
-- Picked up through `labor_day_totals` with no rebuild: `_labor_totals_for_date`, `_store_labor`, get_store_labor, get_live_labor_totals and get_labor_totals_for_dates. These are rebuilt only if their live return shape must carry OT hours, and then only as trailing columns.
+- Picked up through `labor_day_totals` with no change to their shape: `_labor_totals_for_date`, `_store_labor`, get_store_labor, get_live_labor_totals and get_labor_totals_for_dates. The premium is inside cost, so these are not rebuilt.
 - `_labor_pair_shifts` is not touched.
 
-**Cache:** labor-service writes overtime_hours, double_time_hours and cost on punch_clock rows with labor_date ≥ 2026-09-26 only; this bundle is the explicit protected-cache confirmation. Then it recomputes 9/26 through today with the service role.
+**Return-type changes:** CREATE OR REPLACE can't add OUT columns, so each function whose shape changes (labor_day_user_totals, labor_shifts, and labor_day_totals only if its shape changes) is rebuilt as DROP FUNCTION + CREATE in the same migration transaction. Right after:
+- re-apply the exact EXECUTE grants recorded in Stage 0
+- check that the has_function_privilege matrix (anon, authenticated, service_role) equals Stage 0 for every rebuilt function
+
+**Cache:** labor-service writes overtime_hours, double_time_hours and cost on punch_clock rows with labor_date ≥ 2026-09-26 only; this bundle is the explicit protected-cache confirmation. For those rows, each person's employee_breakdown cost = cost + premium_cost, so the breakdown sums to labor_cost. Then it recomputes 9/26 through today with the service role.
 
 Checks:
 - The checksum holds.
@@ -119,13 +124,15 @@ Checks:
 - A synthetic 9-hour CA shift in a rolled-back DO block adds 1h × 0.5 × wage. The same shift at a TX store adds 0.
 - Stores with daily_overtime_threshold = 0 (TX, GA, IL, IN, AL, WI) are unchanged for 9/26 to today.
 - Flipping the setting off in a rolled-back DO block returns the Stage 0 numbers.
-- get_cut_savings_total equals the Stage 0 sample, and the kiosk signatures and grants are unchanged.
+- get_cut_savings_total equals the Stage 0 sample, captured the same way (Hemet manager claims in a rolled-back transaction, or the labor_day_user_totals fallback). The kiosk signatures and grants are unchanged.
+- For 9/26 to today, per store-day: the sum of employee_breakdown costs = labor_cache.labor_cost = labor_day_totals.cost.
+- The has_function_privilege matrix equals Stage 0 for every rebuilt function.
 
-Rollback: set enabled=false and recompute 9/26 to today. If needed, restore the functions from pkgc_backup_functions and redeploy labor-service from the Stage 0 commit.
+Rollback: set enabled=false and recompute 9/26 to today. If needed, DROP and re-CREATE the old definitions from pkgc_backup_functions, re-apply their Stage 0 grants and re-check the privilege matrix, then redeploy labor-service from the Stage 0 commit.
 
 ## Stage 5: Pack 3 server (sales, pace, last year)
 **SQL:**
-- `resolve_goal(_location_id, _date)`: override > living > initial > projected, each NULLIF 0; granted to authenticated and service_role.
+- `resolve_goal(_location_id, _date)`: override > living > initial > projected, each NULLIF 0; granted to authenticated and service_role. It is gated like get_sales_comparisons. Allowed callers: the service role; has_location_access(auth.uid(), loc), or brand access via that location; or a punch device at its own location. Anyone else gets 42501.
 - `get_sales_comparisons(_location_id, _date)`: shift manager and up with access, or a punch device at its own store.
 - ALTER sales_cache ADD pace_week_projection and pace_month_projection.
 - Rebuild send_hourly_sales_pulse (drop the Pace line and emoji when pace_calculated_at is null or older than 15 minutes; goal from resolve_goal) and send_day_part_pulse (goal from resolve_goal).
@@ -144,6 +151,7 @@ Checks:
 - The projected hours add up to resolve_goal ± $1, pace_calculated_at is under 2 minutes old, and pace ≥ net.
 - A diff of the fetch-qubeyond-sales response shows the same keys.
 - A sample push has no "Ahead" without fresh pace.
+- resolve_goal called by a user with no access to that store returns 42501.
 - The checksum holds.
 
 Rollback: redeploy every touched edge function from the Stage 0 commit, restore the two pulse functions, and drop resolve_goal and get_sales_comparisons. The new columns can stay.
@@ -188,7 +196,7 @@ Rollback: restore those columns from pkgc_backup_sales_cache.
 **Build check:** `git diff --stat <Stage 0 commit>..HEAD` must list none of the do-not-touch files, or the build stops.
 
 ## Final checks (after publish)
-1. **Parity:** for Hemet, Palm Desert and Palm Springs on 9/26 and 9/27, every screen = get_store_labor = the Time Tracking store-day sum (including OT), to the cent.
+1. **Parity:** for Hemet, Palm Desert and Palm Springs on 9/26 and 9/27, every screen = get_store_labor = the Time Tracking store-day sum, Σ(shift cost + shift premium), to the cent.
 2. **Live:** today's labor on the dashboard and Schedule moves within 60 s of an open shift without a reload. Time Tracking does not move until reopened.
 3. **Jaysen, Hemet 9/25:** shows "old rule" hours, and the 18:01 shift shows Auto Out.
 4. **Roles:**
