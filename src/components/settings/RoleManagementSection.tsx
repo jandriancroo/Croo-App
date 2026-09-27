@@ -40,19 +40,27 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [organizationId]);
 
   const fetchData = async () => {
+    if (!organizationId) {
+      setPermissions([]);
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
     try {
       const [permRes, notifRes] = await Promise.all([
         supabase
           .from('role_permissions')
           .select('*')
+          .eq('organization_id', organizationId)
           .order('role', { ascending: true })
           .order('permission_label', { ascending: true }),
         supabase
           .from('role_notification_settings')
           .select('*')
+          .eq('organization_id', organizationId)
           .order('role')
           .order('notification_type')
       ]);
@@ -60,7 +68,7 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
       if (permRes.error) throw permRes.error;
       if (notifRes.error) throw notifRes.error;
 
-      setPermissions(permRes.data || []);
+      setPermissions((permRes.data || []) as RolePermission[]);
       setNotifications((notifRes.data || []) as NotificationSetting[]);
     } catch (error: any) {
       console.error('Error fetching data:', error);
@@ -71,12 +79,14 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
   };
 
   const handlePermissionToggle = async (permissionId: string, currentEnabled: boolean) => {
+    if (!organizationId) return;
     setSavingId(permissionId);
     try {
       const { error } = await supabase
         .from('role_permissions')
         .update({ enabled: !currentEnabled })
-        .eq('id', permissionId);
+        .eq('id', permissionId)
+        .eq('organization_id', organizationId);
 
       if (error) throw error;
 
@@ -93,12 +103,14 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
   };
 
   const handleNotificationToggle = async (settingId: string, currentEnabled: boolean) => {
+    if (!organizationId) return;
     setSavingId(settingId);
     try {
       const { error } = await supabase
         .from('role_notification_settings')
         .update({ enabled: !currentEnabled })
-        .eq('id', settingId);
+        .eq('id', settingId)
+        .eq('organization_id', organizationId);
 
       if (error) throw error;
 

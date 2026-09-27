@@ -17,3 +17,10 @@
 - [x] Profile Cancel (stays Interviewing) + Reschedule (prefilled)
 - [x] Accept / decline / ask-for-new-time → staff email + push
 - [x] Staff chat messages no longer email applicants
+
+## Pack 2B Step 1 (approved Sep 26 4:51 PM PT)
+- [x] Server: pairing refactor, labor_shifts, resolutions, open issues + close guard, get_store_labor gates
+- [x] D3 per-org role settings (schema, templates, seed, RLS, pulses)
+- [x] Andy vendor-invoices storage policies
+- [x] send-push-notification org-aware redeploy
+- [x] D3 client filters (5 files)

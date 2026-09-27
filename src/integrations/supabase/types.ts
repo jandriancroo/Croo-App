@@ -6400,6 +6400,54 @@ export type Database = {
           },
         ]
       }
+      labor_shift_resolutions: {
+        Row: {
+          clock_in_punch_id: string
+          created_at: string
+          id: string
+          location_id: string
+          note: string | null
+          resolved_at: string
+          resolved_by: string
+          user_id: string
+        }
+        Insert: {
+          clock_in_punch_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          note?: string | null
+          resolved_at?: string
+          resolved_by?: string
+          user_id: string
+        }
+        Update: {
+          clock_in_punch_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          note?: string | null
+          resolved_at?: string
+          resolved_by?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_shift_resolutions_clock_in_punch_id_fkey"
+            columns: ["clock_in_punch_id"]
+            isOneToOne: true
+            referencedRelation: "time_punches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_shift_resolutions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_document_versions: {
         Row: {
           created_at: string
@@ -10632,6 +10680,47 @@ export type Database = {
           id: string
           notification_label: string
           notification_type: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notification_label: string
+          notification_type: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notification_label?: string
+          notification_type?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_notification_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_notification_settings_template: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          notification_label: string
+          notification_type: string
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
@@ -10656,6 +10745,47 @@ export type Database = {
         Relationships: []
       }
       role_permissions: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          organization_id: string
+          permission_key: string
+          permission_label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          organization_id: string
+          permission_key: string
+          permission_label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          organization_id?: string
+          permission_key?: string
+          permission_label?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_permissions_template: {
         Row: {
           created_at: string
           enabled: boolean
@@ -13354,6 +13484,27 @@ export type Database = {
       }
     }
     Functions: {
+      _labor_pair_shifts: {
+        Args: {
+          _date: string
+          _live: boolean
+          _location_id: string
+          _new_rule?: boolean
+        }
+        Returns: {
+          business_date: string
+          clock_in: string
+          clock_in_punch_id: string
+          clock_out: string
+          missing_clock_out: boolean
+          open_shift_live: boolean
+          paid_break_sec: number
+          unclosed_break_count: number
+          unpaid_sec: number
+          user_id: string
+          worked_sec: number
+        }[]
+      }
       _labor_totals_authorized: {
         Args: { _location_id: string }
         Returns: boolean
@@ -13397,6 +13548,30 @@ export type Database = {
       _location_business_date: {
         Args: { _location_id: string }
         Returns: string
+      }
+      _org_role_notification_settings: {
+        Args: { _location_id: string }
+        Returns: {
+          enabled: boolean
+          notification_type: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      _org_role_permission_enabled: {
+        Args: { _key: string; _location_id: string; _role: string }
+        Returns: boolean
+      }
+      _pay_period_open_issues: {
+        Args: { _end: string; _start: string }
+        Returns: {
+          business_date: string
+          clock_in: string
+          clock_in_punch_id: string
+          location_id: string
+          location_name: string
+          user_id: string
+          user_name: string
+        }[]
       }
       _store_labor: {
         Args: { _date: string; _live: boolean; _location_id: string }
@@ -13797,6 +13972,28 @@ export type Database = {
         }[]
       }
       labor_new_rule_start: { Args: never; Returns: string }
+      labor_shifts: {
+        Args: { _end: string; _location_id: string; _start: string }
+        Returns: {
+          business_date: string
+          clock_in: string
+          clock_in_punch_id: string
+          clock_out: string
+          cost: number
+          ignored_duplicates: number
+          missing_clock_out: boolean
+          open_shift_live: boolean
+          paid_break_min: number
+          paid_hours: number
+          resolved_at: string
+          resolved_by: string
+          resolved_zero: boolean
+          unclosed_break: boolean
+          unpaid_break_min: number
+          user_id: string
+          wage: number
+        }[]
+      }
       labor_source_for: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
@@ -13824,6 +14021,18 @@ export type Database = {
       }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
       oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
+      pay_period_open_issues: {
+        Args: { _period_id: string }
+        Returns: {
+          business_date: string
+          clock_in: string
+          clock_in_punch_id: string
+          location_id: string
+          location_name: string
+          user_id: string
+          user_name: string
+        }[]
+      }
       perform_checklist_swap: { Args: { _draft_id: string }; Returns: boolean }
       pfg_swap_credentials: {
         Args: {
@@ -13906,6 +14115,7 @@ export type Database = {
           topic: string
         }[]
       }
+      seed_org_role_settings: { Args: { _org: string }; Returns: undefined }
       send_day_part_pulse: { Args: never; Returns: undefined }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       send_shift_overstay_alerts: { Args: never; Returns: undefined }
