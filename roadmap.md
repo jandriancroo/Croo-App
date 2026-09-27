@@ -29,6 +29,6 @@
 - [x] 0 snapshots · 1 schema · 2 data fixes · 3 logic · 4 triggers · 5 labor deploys · 6 V0 · 7 recompute · 8 V1–V7 · 9 A-SEC
 
 ## Package B-1 (approved Sep 26 10:16 PM PT) — log-only auto clock-out
-- [ ] Backups, settings, log, detail + wrapper (V2), run_auto_clock_out, B7, cron
-- [ ] V1, V3, V4, V6 (R4 safety), V7; first cron run counts; 0 'auto_clock_out:' punches
+- [x] Backups, settings, log, detail + wrapper (V2), run_auto_clock_out, B7, cron
+- [x] V1, V3, V4, V6 (R4 safety), V7; first cron run counts; 0 'auto_clock_out:' punches
 - [ ] B-2 (live + unschedule job 240) — waits on Jordan after the log-only night
