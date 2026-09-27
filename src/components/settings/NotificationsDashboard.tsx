@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from '@/hooks/useLocation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -27,19 +28,27 @@ const roleConfig: { role: AppRole; label: string; icon: React.ReactNode; descrip
 ];
 
 export function NotificationsDashboard() {
+  const { currentLocation } = useLocation();
+  const orgId = currentLocation?.organization_id;
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [orgId]);
 
   const fetchSettings = async () => {
+    if (!orgId) {
+      setSettings([]);
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('role_notification_settings')
         .select('*')
+        .eq('organization_id', orgId)
         .order('role')
         .order('notification_type');
 
@@ -54,12 +63,14 @@ export function NotificationsDashboard() {
   };
 
   const toggleSetting = async (settingId: string, currentValue: boolean) => {
+    if (!orgId) return;
     setUpdating(settingId);
     try {
       const { error } = await supabase
         .from('role_notification_settings')
         .update({ enabled: !currentValue })
-        .eq('id', settingId);
+        .eq('id', settingId)
+        .eq('organization_id', orgId);
 
       if (error) throw error;
 

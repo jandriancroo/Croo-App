@@ -523,13 +523,51 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Error fetching user roles:', rolesError);
     }
 
-    // Get role notification settings
-    const { data: roleSettings, error: roleSettingsError } = await supabaseClient
-      .from('role_notification_settings')
-      .select('role, notification_type, enabled');
+    // Role notification settings are per organization (D3). Resolve the org from the
+    // request's location, else from each recipient; fall back to the default template
+    // so a missing org row never silences a notification.
+    let requestOrgId: string | null = null;
+    if (location_id) {
+      const { data: locRow } = await supabaseClient
+        .from('locations').select('organization_id').eq('id', location_id).maybeSingle();
+      requestOrgId = (locRow as any)?.organization_id ?? null;
+    }
 
-    if (roleSettingsError) {
-      console.error('Error fetching role notification settings:', roleSettingsError);
+    const recipientOrg = new Map<string, string>();
+    if (!requestOrgId) {
+      const { data: memberRows } = await supabaseClient
+        .from('organization_members').select('user_id, organization_id').in('user_id', user_ids);
+      (memberRows || []).forEach((m: any) => { if (!recipientOrg.has(m.user_id)) recipientOrg.set(m.user_id, m.organization_id); });
+      const missing = user_ids.filter(id => !recipientOrg.has(id));
+      if (missing.length > 0) {
+        const { data: ulRows } = await supabaseClient
+          .from('user_locations').select('user_id, locations(organization_id)').in('user_id', missing);
+        (ulRows || []).forEach((u: any) => {
+          const org = u.locations?.organization_id;
+          if (org && !recipientOrg.has(u.user_id)) recipientOrg.set(u.user_id, org);
+        });
+      }
+    }
+
+    const orgIds = Array.from(new Set([requestOrgId, ...recipientOrg.values()].filter(Boolean))) as string[];
+    let orgSettings: any[] = [];
+    if (notification_type && orgIds.length > 0) {
+      const { data, error: roleSettingsError } = await supabaseClient
+        .from('role_notification_settings')
+        .select('organization_id, role, notification_type, enabled')
+        .eq('notification_type', notification_type)
+        .in('organization_id', orgIds);
+      if (roleSettingsError) console.error('Error fetching role notification settings:', roleSettingsError);
+      orgSettings = data || [];
+    }
+    let templateSettings: any[] = [];
+    if (notification_type) {
+      const { data, error: tplErr } = await supabaseClient
+        .from('role_notification_settings_template')
+        .select('role, notification_type, enabled')
+        .eq('notification_type', notification_type);
+      if (tplErr) console.error('Error fetching role notification defaults:', tplErr);
+      templateSettings = data || [];
     }
 
     // Filter users based on their role's notification permissions
@@ -537,11 +575,11 @@ const handler = async (req: Request): Promise<Response> => {
       const userRole = userRoles?.find(r => r.user_id === userId);
       if (!userRole) return true; // Default to enabled if no role found
       
-      // Check if this notification type is enabled for this role
-      if (notification_type && roleSettings) {
-        const roleSetting = roleSettings.find(
-          rs => rs.role === userRole.role && rs.notification_type === notification_type
-        );
+      if (notification_type) {
+        const org = requestOrgId ?? recipientOrg.get(userId) ?? null;
+        const roleSetting =
+          (org ? orgSettings.find(rs => rs.organization_id === org && rs.role === userRole.role) : undefined)
+          ?? templateSettings.find(rs => rs.role === userRole.role);
         if (roleSetting && !roleSetting.enabled) {
           console.log(`Filtering out user ${userId} - ${notification_type} disabled for ${userRole.role}`);
           return false;

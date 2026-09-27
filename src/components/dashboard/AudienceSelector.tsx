@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from '@/hooks/useLocation';
 
 export type AudienceRole = string;
 
@@ -37,16 +38,20 @@ interface AudienceSelectorProps {
  * Empty selection → null (visible to everyone in scope).
  */
 export function AudienceSelector({ value, onChange }: AudienceSelectorProps) {
+  const { currentLocation } = useLocation();
+  const orgId = currentLocation?.organization_id;
   const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([]);
   const selected = value ?? [];
   const allSelected = selected.length === 0;
 
   useEffect(() => {
     let cancelled = false;
+    if (!orgId) return;
     (async () => {
       const { data, error } = await supabase
         .from('role_permissions')
-        .select('role');
+        .select('role')
+        .eq('organization_id', orgId);
       if (error || cancelled) return;
       const distinct = Array.from(new Set((data ?? []).map((r: any) => r.role as string)))
         .filter((r) => !HIDDEN_ROLES.has(r))
@@ -54,7 +59,7 @@ export function AudienceSelector({ value, onChange }: AudienceSelectorProps) {
       setRoleOptions(distinct.map((r) => ({ value: r, label: humanize(r) })));
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [orgId]);
 
   const toggle = (role: AudienceRole) => {
     const next = selected.includes(role)

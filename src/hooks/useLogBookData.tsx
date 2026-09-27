@@ -557,10 +557,13 @@ export function useLogBookData() {
       if (currentCategory?.push_notification_enabled && currentLocation) {
         try {
           // Per-role opt-in for this LogBook category (Settings → Role notifications)
-          const { data: settings } = await supabase
-            .from('role_notification_settings')
-            .select('role, enabled')
-            .eq('notification_type', logbookNotificationType(currentCategory.name));
+          const { data: settings } = currentLocation.organization_id
+            ? await supabase
+                .from('role_notification_settings')
+                .select('role, enabled')
+                .eq('organization_id', currentLocation.organization_id)
+                .eq('notification_type', logbookNotificationType(currentCategory.name))
+            : { data: [] as any[] };
 
           const known = (settings || []).filter((s: any) =>
             (LOGBOOK_NOTIFICATION_ROLES as readonly string[]).includes(s.role)
