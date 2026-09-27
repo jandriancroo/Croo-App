@@ -644,6 +644,84 @@ export type Database = {
           },
         ]
       }
+      auto_clock_out_log: {
+        Row: {
+          business_date: string
+          clock_in_punch_id: string
+          close_at: string | null
+          detail: Json | null
+          due_at: string | null
+          first_seen: string
+          id: string
+          last_seen: string
+          location_id: string
+          mode: string
+          planned_clock_out: string | null
+          reason: string | null
+          scheduled_end: string | null
+          status: string
+          time_punch_id: string | null
+          user_id: string
+        }
+        Insert: {
+          business_date: string
+          clock_in_punch_id: string
+          close_at?: string | null
+          detail?: Json | null
+          due_at?: string | null
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          location_id: string
+          mode: string
+          planned_clock_out?: string | null
+          reason?: string | null
+          scheduled_end?: string | null
+          status: string
+          time_punch_id?: string | null
+          user_id: string
+        }
+        Update: {
+          business_date?: string
+          clock_in_punch_id?: string
+          close_at?: string | null
+          detail?: Json | null
+          due_at?: string | null
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          location_id?: string
+          mode?: string
+          planned_clock_out?: string | null
+          reason?: string | null
+          scheduled_end?: string | null
+          status?: string
+          time_punch_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      auto_clock_out_settings: {
+        Row: {
+          id: boolean
+          mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       auto_punch_events: {
         Row: {
           clock_in_punch_id: string | null
@@ -9624,6 +9702,111 @@ export type Database = {
         }
         Relationships: []
       }
+      pkgb_backup_cron: {
+        Row: {
+          command: string | null
+          jobid: number | null
+          jobname: string | null
+          schedule: string | null
+        }
+        Insert: {
+          command?: string | null
+          jobid?: number | null
+          jobname?: string | null
+          schedule?: string | null
+        }
+        Update: {
+          command?: string | null
+          jobid?: number | null
+          jobname?: string | null
+          schedule?: string | null
+        }
+        Relationships: []
+      }
+      pkgb_backup_functions: {
+        Row: {
+          def: string | null
+          exec_roles: string[] | null
+          fn: string | null
+        }
+        Insert: {
+          def?: string | null
+          exec_roles?: string[] | null
+          fn?: string | null
+        }
+        Update: {
+          def?: string | null
+          exec_roles?: string[] | null
+          fn?: string | null
+        }
+        Relationships: []
+      }
+      pkgb_backup_grants: {
+        Row: {
+          p: string | null
+          r: string | null
+          t: string | null
+        }
+        Insert: {
+          p?: string | null
+          r?: string | null
+          t?: string | null
+        }
+        Update: {
+          p?: string | null
+          r?: string | null
+          t?: string | null
+        }
+        Relationships: []
+      }
+      pkgb_backup_policies: {
+        Row: {
+          cmd: string | null
+          permissive: string | null
+          policyname: unknown
+          qual: string | null
+          roles: string[] | null
+          schemaname: unknown
+          tablename: unknown
+          with_check: string | null
+        }
+        Insert: {
+          cmd?: string | null
+          permissive?: string | null
+          policyname?: unknown
+          qual?: string | null
+          roles?: string[] | null
+          schemaname?: unknown
+          tablename?: unknown
+          with_check?: string | null
+        }
+        Update: {
+          cmd?: string | null
+          permissive?: string | null
+          policyname?: unknown
+          qual?: string | null
+          roles?: string[] | null
+          schemaname?: unknown
+          tablename?: unknown
+          with_check?: string | null
+        }
+        Relationships: []
+      }
+      pkgb_est_before: {
+        Row: {
+          est: string | null
+          id: string | null
+        }
+        Insert: {
+          est?: string | null
+          id?: string | null
+        }
+        Update: {
+          est?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
       plan_capabilities_lookup: {
         Row: {
           created_at: string
@@ -13667,6 +13850,22 @@ export type Database = {
         Args: { _from: string; _location_id: string }
         Returns: undefined
       }
+      _labor_estimate_detail: {
+        Args: { _clock_in_punch_id: string }
+        Returns: {
+          close_at: string
+          close_min: number
+          floored_end: string
+          last_punch: string
+          last_punch_type: string
+          max_open_hours: number
+          next_clock_in: string
+          reason: string
+          scheduled_end: string
+          tz: string
+          uncapped_end: string
+        }[]
+      }
       _labor_pair_shifts: {
         Args: {
           _date: string
@@ -14317,6 +14516,7 @@ export type Database = {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
       }
+      run_auto_clock_out: { Args: never; Returns: Json }
       run_due_checklist_swaps: { Args: never; Returns: number }
       save_count_item_with_legs: {
         Args: {
