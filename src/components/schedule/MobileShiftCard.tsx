@@ -40,6 +40,9 @@ interface MobileShiftCardProps {
   
   // Show break indicator
   showBreakIndicator?: boolean;
+
+  // POS marker badge (e.g. 'toast' = punches read from Toast, read-only)
+  posIcon?: 'toast' | null;
   
   // Action button (for team members)
   actionButton?: React.ReactNode;
