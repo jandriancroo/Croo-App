@@ -992,6 +992,8 @@ export function usePayrollData() {
       });
 
     setTimeCards(cards);
+    // Punches reloaded (edit/add/delete) — re-read server payroll hours too.
+    refetchPayrollHours();
     // Stamp cache so navigating away/back skips refetch for 5 min
     if (selectedPeriod && currentLocation) {
       lastFetchRef.current = {

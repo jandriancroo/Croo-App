@@ -346,6 +346,7 @@ export default function PayrollReview() {
                         <TableHead className="text-right">Rate</TableHead>
                         <TableHead className="text-right">Reg</TableHead>
                         <TableHead className="text-right">OT</TableHead>
+                        <TableHead className="text-right">DT</TableHead>
                         <TableHead className="text-right">PTO</TableHead>
                         <TableHead className="text-right">Tips</TableHead>
                         <TableHead className="text-right">Gross</TableHead>
@@ -355,12 +356,15 @@ export default function PayrollReview() {
                       {calculatePayrollSummary().employees.map((emp, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{emp.name}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">${emp.wage.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {emp.wageMissing ? <span className="text-destructive">wage missing</span> : `$${emp.wage.toFixed(2)}`}
+                          </TableCell>
                           <TableCell className="text-right">{emp.regularHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{emp.overtimeHours.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{emp.doubleOvertimeHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{emp.ptoHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right text-green-600">{emp.tips > 0 ? `$${emp.tips.toFixed(2)}` : '-'}</TableCell>
-                          <TableCell className="text-right font-semibold">${emp.grossWages.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-semibold">{emp.wageMissing ? '—' : `$${emp.grossWages.toFixed(2)}`}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold bg-muted/50">
@@ -368,6 +372,7 @@ export default function PayrollReview() {
                         <TableCell></TableCell>
                         <TableCell className="text-right">{calculatePayrollSummary().totals.regularHours.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{calculatePayrollSummary().totals.overtimeHours.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.doubleOvertimeHours.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{calculatePayrollSummary().totals.ptoHours.toFixed(2)}</TableCell>
                         <TableCell className="text-right text-green-600">{calculatePayrollSummary().totals.tips > 0 ? `$${calculatePayrollSummary().totals.tips.toFixed(2)}` : '-'}</TableCell>
                         <TableCell className="text-right text-lg">${calculatePayrollSummary().totals.grossWages.toFixed(2)}</TableCell>
