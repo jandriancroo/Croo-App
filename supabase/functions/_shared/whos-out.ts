@@ -671,3 +671,57 @@ export function whosOutSubject(data: WhosOutData, isSample = false): string {
   }
   return `${data.locationName}: ${data.peopleOut} out next week (${prettyDate(data.weekStart)}–${prettyDate(data.weekEnd)})`;
 }
+
+// ── One-day nightly digest ("Who's out tomorrow") ─────────────────────────
+// Same look as the weekly digest, but one day only. Used by run_nightly.
+
+export function whosOutDaySubject(data: WhosOutData, date: string): string {
+  const dow = DOW_LONG[dowOf(date)].slice(0, 3);
+  const [, m, d] = date.split("-").map(Number);
+  return `Who's out tomorrow, ${dow} ${m}/${d} – ${data.locationName}`;
+}
+
+export function buildWhosOutDayHtml(data: WhosOutData, date: string): string {
+  const day = data.days.find((x) => x.date === date);
+  const entries = day?.entries ?? [];
+  const dayLabel = `${DOW_LONG[dowOf(date)]} ${prettyDate(date)}`;
+  const goalLabel = day?.goal ? ` &middot; goal ${money(day.goal)}` : "";
+  const rows = entries
+    .map((e) => {
+      let detail = "full day";
+      if (e.timeScope === "partial_day" && e.startTime) {
+        detail = `${fmtTime(e.startTime)}–${fmtTime(e.endTime)}`;
+      } else if (e.startDate < date && e.endDate > date) {
+        detail = `continues through ${prettyDate(e.endDate)}`;
+      } else if (e.startDate < date) {
+        detail = `last day of ${prettyDate(e.startDate)}–${prettyDate(e.endDate)}`;
+      } else if (e.endDate > date) {
+        detail = `through ${prettyDate(e.endDate)}`;
+      }
+      return `<tr><td style="padding:12px 16px;border-top:1px solid #efece4;"><strong style="color:${INK};font-size:14px;">${escapeHtml(e.name)}</strong> <span style="color:${MUTED};font-size:13px;">&middot; ${escapeHtml(detail)}</span></td></tr>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:${CREAM};font-family:${FONT};">
+<table width="100%" style="border-collapse:collapse;background:${CREAM};"><tr><td style="padding:26px 14px;">
+<table width="100%" style="max-width:640px;margin:0 auto;border-collapse:collapse;background:#ffffff;border-radius:22px;overflow:hidden;">
+<tr><td style="background:${TEAL};padding:26px 28px;">
+<div style="color:rgba(255,255,255,0.82);font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">${escapeHtml(data.orgName)} &middot; ${escapeHtml(data.locationName)} &middot; nightly</div>
+<div style="color:#ffffff;font-size:26px;font-weight:800;letter-spacing:-0.5px;margin:8px 0 4px;">Who&rsquo;s out tomorrow</div>
+<div style="color:rgba(255,255,255,0.88);font-size:13px;font-weight:500;">${escapeHtml(dayLabel)} &middot; ${entries.length} ${entries.length === 1 ? "person" : "people"}${goalLabel}</div>
+</td></tr>
+<tr><td style="padding:24px 22px 8px;">
+<table width="100%" style="border-collapse:collapse;border:1px solid #e4e1d8;border-radius:12px;overflow:hidden;margin-bottom:14px;">
+${rows}
+</table>
+<div style="text-align:center;margin:26px 0 8px;">
+<a href="https://croohq.com/availability" style="display:inline-block;background:${ORANGE};color:#ffffff;text-decoration:none;padding:14px 34px;border-radius:12px;font-weight:800;font-size:15px;">Review time-off in CrooHQ</a>
+</div>
+<p style="color:${MUTED};font-size:11px;text-align:center;margin:0 0 10px;">Approved requests only. Sent nightly for the next day.</p>
+</td></tr>
+<tr><td style="background:${CREAM};padding:20px;text-align:center;border-top:1px solid #e4e1d8;">
+<span style="color:#3a5f7d;font-size:14px;">Powered by</span> <strong style="color:#1a1a1a;font-size:16px;letter-spacing:-0.5px;">croo</strong>
+</td></tr>
+</table></td></tr></table></body></html>`;
+}
