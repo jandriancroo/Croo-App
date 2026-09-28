@@ -33,4 +33,6 @@
 - [x] V1, V3, V4, V6 (R4 safety), V7; first cron run counts; 0 'auto_clock_out:' punches
 - [ ] B-2 (live + unschedule job 240) — waits on Jordan after the log-only night
 
-- [ ] Next bundle (Stages 0–7): GO from Jordan 9/27 8:42 PM PT — build tonight; cube unlocked for Last Year fix, re-lock after
+- [x] Bundle Stages 0–4 done 9/27 night (backups, Andy fix, Aloha business day, Who's Out nightly, OT premium)
+- [ ] Bundle Stage 5 (sales/pace server) — keep fetch-qubeyond-sales tips + today upserts (sync-live does not write tips)
+- [ ] Bundle Stage 6 (backfills) · Stage 7 (one frontend publish; cube unlocked for Last Year value/label, re-lock after)
