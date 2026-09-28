@@ -96,7 +96,7 @@ function inWindow(store) {
 
 async function signInOnce(browser) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 1800 } });
-  await ctx.add_init_script(`
+  await ctx.addInitScript(`
     Object.defineProperty(navigator,'webdriver',{get:()=>undefined});
     Object.defineProperty(navigator,'languages',{get:()=>['en-US','en']});
     Object.defineProperty(navigator,'plugins',{get:()=>[1,2,3,4,5]});
