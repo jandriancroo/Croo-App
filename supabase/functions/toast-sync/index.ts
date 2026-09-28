@@ -63,9 +63,35 @@ const DaySchema = z.object({
   raw: z.unknown().optional(),
 });
 
-const BodySchema = z.object({
-  action: z.literal("ingest"),
-  days: z.array(DaySchema).min(1).max(400),
+// ── Labor (read-only Toast punches → labor_cache source='toast') ───────────
+const ShiftSchema = z.object({
+  id: z.string().min(1),
+  employeeName: z.string().max(160),
+  toastUserId: z.string().max(80),
+  restaurantUserId: z.string().max(80).nullable().optional(),
+  externalEmployeeId: z.string().max(120).nullable().optional(),
+  status: z.string().max(40), // IN_PROGRESS | FINISHED_BY_USER | ...
+  inTime: z.string().min(1), // ISO-8601 UTC
+  outTime: z.string().nullable().optional(),
+  jobTitle: z.string().max(120).nullable().optional(),
+  isTipped: z.boolean().default(false),
+  tips: z.number().finite().default(0),
+  payableSeconds: z.number().finite().min(0).default(0),
+  overtimeSeconds: z.number().finite().min(0).default(0),
+  unpaidBreakSeconds: z.number().finite().min(0).default(0),
+  takenBreaks: z.array(z.object({
+    start: z.string().nullable().optional(),
+    end: z.string().nullable().optional(),
+  })).default([]),
+  missedBreaks: z.array(z.unknown()).default([]),
+  anomalyCount: z.number().int().min(0).default(0),
+});
+
+const LaborBodySchema = z.object({
+  action: z.literal("ingest-labor"),
+  locationId: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  shifts: z.array(ShiftSchema).max(400),
 });
 
 const json = (body: unknown, status = 200) =>
