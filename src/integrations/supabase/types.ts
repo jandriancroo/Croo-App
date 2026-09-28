@@ -12904,6 +12904,41 @@ export type Database = {
           },
         ]
       }
+      toast_employee_wages: {
+        Row: {
+          captured_at: string
+          hourly_wage: number
+          id: string
+          location_id: string
+          toast_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          captured_at?: string
+          hourly_wage: number
+          id?: string
+          location_id: string
+          toast_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          captured_at?: string
+          hourly_wage?: number
+          id?: string
+          location_id?: string
+          toast_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_employee_wages_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       toast_sales_cache: {
         Row: {
           avg_ticket: number
@@ -14960,6 +14995,10 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
       soft_delete_announcement_post: {
         Args: { _post_id: string }
+        Returns: undefined
+      }
+      toast_push_wage_to_profile: {
+        Args: { _location_id: string; _toast_user_id: string }
         Returns: undefined
       }
       toggle_widget_hidden_for_self: {
