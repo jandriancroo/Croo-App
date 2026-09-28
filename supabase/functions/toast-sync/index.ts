@@ -472,6 +472,32 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
       overtime_hours: Math.round((shift.overtimeSeconds / 3600) * 100) / 100,
     });
 
+    // Persist the read-only shift row for the mobile schedule / pairing UI.
+    await supabase.from("toast_shifts").upsert({
+      location_id: locationId,
+      toast_shift_id: shift.id,
+      shift_date: date,
+      employee_name: shift.employeeName,
+      toast_user_id: shift.toastUserId,
+      restaurant_user_id: shift.restaurantUserId ?? null,
+      external_employee_id: shift.externalEmployeeId ?? null,
+      status: shift.status,
+      in_time: shift.inTime,
+      out_time: outIso,
+      breaks: takenBreaks,
+      missed_breaks: shift.missedBreaks ?? [],
+      job_title: shift.jobTitle ?? null,
+      is_tipped: shift.isTipped,
+      tips: shift.tips,
+      payable_seconds: Math.round(shift.payableSeconds),
+      overtime_seconds: Math.round(shift.overtimeSeconds),
+      unpaid_break_seconds: Math.round(shift.unpaidBreakSeconds),
+      anomaly_count: shift.anomalyCount,
+      croo_user_id: crooId,
+      croo_scheduled_shift_id: pairedScheduled?.id ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "location_id,toast_shift_id" });
+
     const byHour = distributeHours(shift.inTime, outIso, tz, hours);
     for (const [h, v] of Object.entries(byHour)) hourlyByHour[Number(h)] = (hourlyByHour[Number(h)] ?? 0) + v;
 
