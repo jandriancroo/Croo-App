@@ -20,6 +20,7 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("save"), locationId: z.string().uuid(), restaurantGuid: z.string().trim().max(64).optional().default(""), isActive: z.boolean() }),
   z.object({ action: z.literal("status"), locationId: z.string().uuid() }),
   z.object({ action: z.literal("list_active") }),
+  z.object({ action: z.literal("schedule_list") }),
 ]);
 
 Deno.serve(async (req) => {
@@ -45,6 +46,34 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
     return json({
       stores: (data ?? []).map((r: any) => ({ locationId: r.location_id, restaurantGuid: r.credentials?.restaurant_guid ?? null })),
+    });
+  }
+
+  if (body.action === "schedule_list") {
+    if (auth.caller.kind !== "service") return json({ error: "Forbidden" }, 403);
+    const { data: active, error: e1 } = await supabase
+      .from("location_integrations")
+      .select("location_id, credentials")
+      .eq("integration_type", "toast")
+      .eq("is_active", true);
+    if (e1) return json({ error: e1.message }, 500);
+    const ids = (active ?? []).map((r: any) => r.location_id);
+    if (ids.length === 0) return json({ stores: [] });
+    const { data: locs, error: e2 } = await supabase
+      .from("location_settings").select("location_id, timezone").in("location_id", ids);
+    if (e2) return json({ error: e2.message }, 500);
+    const { data: hours, error: e3 } = await supabase
+      .from("location_hours").select("location_id, day_of_week, open_time, close_time, is_closed").in("location_id", ids);
+    if (e3) return json({ error: e3.message }, 500);
+    return json({
+      stores: (locs ?? []).map((l: any) => ({
+        locationId: l.location_id,
+        restaurantGuid: (active ?? []).find((a: any) => a.location_id === l.location_id)?.credentials?.restaurant_guid ?? null,
+        timezone: l.timezone ?? "America/Los_Angeles",
+        hours: (hours ?? [])
+          .filter((h: any) => h.location_id === l.location_id)
+          .map((h: any) => ({ dow: h.day_of_week, open: String(h.open_time).slice(0, 5), close: String(h.close_time).slice(0, 5), closed: !!h.is_closed })),
+      })),
     });
   }
 
