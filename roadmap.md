@@ -49,7 +49,7 @@
 - [x] One-time sign-in test passed (robot signs in end-to-end, no lockout). Findings: docs/toast-recon-2026-09-28.md
 - [x] Capture punch-row payload — done: GraphQL GetShiftsV2, full in/out/breaks/job/tips/anomalies/employee IDs (docs/toast-recon-2026-09-28.md)
 - [ ] Build live fetcher: reuse session, call report-generator sales/TimeEntry reports every 1–2 min during store hours, POST normalized payload to toast-sync
-- [ ] Toast labor (read-only 'toast' source in labor_cache + schedule pairing) — NEEDS user sign-off before touching protected labor tables
+- [ ] Toast labor pairing (APPROVED Sep 28 1:27 PM PT; "toast" tag added to labor records) — next: pull punches, match to schedule, late alerts, labor %
 - [x] Answer: are 3D Data Cubes POS-agnostic and buildable from any POS sync? (audit cube data sources — yes, cubes read shared sales/labor caches, zero cube changes needed)
 - [x] TOTP secret rotated (new authenticator key saved; sign-in verified end-to-end)
 - [x] GitHub Actions secrets added by user (TOAST_LOGIN_EMAIL/PASSWORD/TOTP_SECRET)
