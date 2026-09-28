@@ -78,3 +78,5 @@
 ## Freshness clarification (Sep 28)
 - get_live_labor_totals migration: when labor source is 'toast', returns labor_cache toast rows via _store_labor instead of punch math. Dashboard labor% card then works as soon as the robot ingests punches.
 - Explained to user: 90s = poll interval while robot runs; between scheduled runs numbers freeze. Queue now wakes the poller after backfill through close; next step is covering all store hours (cron window review).
+- [ ] Toast live sales alongside history — blocked on Toast sign-in code rejections
+- [ ] Toast punches for On the Clock — after live sign-in works
