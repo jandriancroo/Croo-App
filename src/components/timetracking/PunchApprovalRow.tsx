@@ -34,14 +34,20 @@ export function PunchGroupCard({ children }: { children: ReactNode }) {
 
 export function PunchGroupHeader({
   title,
+  shortTitle,
   subtitle,
+  shortSubtitle,
   approvedCount,
   totalCount,
   totalHours,
   scheduledHours,
 }: {
   title: string;
+  /** Mobile-only abbreviated label, e.g. "Wed" for "Wednesday". */
+  shortTitle?: string;
   subtitle?: string;
+  /** Mobile-only abbreviated subtitle, e.g. "Sep 23" for "Sep 23, 2026". */
+  shortSubtitle?: string;
   approvedCount: number;
   totalCount: number;
   totalHours: number;
@@ -52,8 +58,24 @@ export function PunchGroupHeader({
   return (
     <div className="punch-group-header">
       <div className="flex min-w-0 items-baseline gap-2">
-        <span className="truncate text-[16px] font-extrabold leading-tight text-foreground">{title}</span>
-        {subtitle && <span className="truncate text-[13px] font-semibold text-muted-foreground">{subtitle}</span>}
+        {shortTitle ? (
+          <>
+            <span className="truncate text-[16px] font-extrabold leading-tight text-foreground sm:hidden">{shortTitle}</span>
+            <span className="hidden truncate text-[16px] font-extrabold leading-tight text-foreground sm:inline">{title}</span>
+          </>
+        ) : (
+          <span className="truncate text-[16px] font-extrabold leading-tight text-foreground">{title}</span>
+        )}
+        {subtitle && (
+          shortSubtitle ? (
+            <>
+              <span className="truncate text-[13px] font-semibold text-muted-foreground sm:hidden">{shortSubtitle}</span>
+              <span className="hidden truncate text-[13px] font-semibold text-muted-foreground sm:inline">{subtitle}</span>
+            </>
+          ) : (
+            <span className="truncate text-[13px] font-semibold text-muted-foreground">{subtitle}</span>
+          )
+        )}
       </div>
       <span className={`punch-num text-[13px] font-bold ${fullyApproved ? 'text-[hsl(var(--success))]' : 'text-muted-foreground'}`}>
         {approvedCount}/{totalCount}
