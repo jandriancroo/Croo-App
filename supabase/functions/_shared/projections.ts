@@ -651,40 +651,37 @@ function goalOf(r: any): number {
 }
 
 export function normalizeHourlyCurve(
-  hourly: { hour: string; sales: number; projected?: number }[],
+  hourly: any[],
   openHour: number,
   closeHour: number,
   goal: number,
-): { hour: string; sales: number; projected: number }[] {
-  const byHour = new Map<number, { sales: number; projected: number }>();
-  for (const h of hourly || []) {
-    const hh = parseInt(String(h?.hour), 10);
-    if (Number.isNaN(hh)) continue;
-    byHour.set(hh, { sales: Number(h.sales) || 0, projected: Number(h.projected) || 0 });
+): any[] {
+  // Keep every existing entry and field (sales, checksCount, labor…); only `projected` changes.
+  const entries: any[] = (hourly || []).map((h: any) => ({ ...h }));
+  const hourOf = (h: any) => parseInt(String(h?.hour), 10);
+  for (let h = openHour; h < closeHour; h++) {
+    if (!entries.some(e => hourOf(e) === h)) {
+      entries.push({ hour: `${String(h).padStart(2, '0')}:00`, sales: 0 });
+    }
   }
-  const hours: number[] = [];
-  for (let h = openHour; h < closeHour; h++) hours.push(h);
-  // keep actual sales that fall outside open hours too (post-close rings)
-  for (const hh of byHour.keys()) if (!hours.includes(hh)) hours.push(hh);
-  hours.sort((a, b) => a - b);
+  entries.sort((a, b) => hourOf(a) - hourOf(b));
   const inOpen = (h: number) => h >= openHour && h < closeHour;
-  const weights = hours.map(h => {
+  const weights = entries.map(e => {
+    const h = hourOf(e);
     if (!inOpen(h)) return 0;
-    const p = byHour.get(h)?.projected || 0;
+    const p = Number(e.projected) || 0;
     return p > 0 ? p : (PACE_DEFAULT_PATTERN[h] || 0.05);
   });
   const wSum = weights.reduce((a, b) => a + b, 0);
-  const out = hours.map((h, i) => ({
-    hour: `${String(h).padStart(2, '0')}:00`,
-    sales: byHour.get(h)?.sales || 0,
-    projected: wSum > 0 ? Math.round((goal * weights[i] / wSum) * 100) / 100 : 0,
-  }));
-  // put rounding remainder on the last open hour so Σprojected = goal exactly
-  const diff = Math.round((goal - out.reduce((a, b) => a + b.projected, 0)) * 100) / 100;
-  for (let i = out.length - 1; i >= 0; i--) {
-    if (weights[i] > 0) { out[i].projected = Math.round((out[i].projected + diff) * 100) / 100; break; }
+  entries.forEach((e, i) => {
+    e.sales = Number(e.sales) || 0;
+    e.projected = wSum > 0 && weights[i] > 0 ? Math.round((goal * weights[i] / wSum) * 100) / 100 : 0;
+  });
+  const diff = Math.round((goal - entries.reduce((a, b) => a + b.projected, 0)) * 100) / 100;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (weights[i] > 0) { entries[i].projected = Math.round((entries[i].projected + diff) * 100) / 100; break; }
   }
-  return out;
+  return entries;
 }
 
 export async function computeAndSavePace(
@@ -707,6 +704,11 @@ export async function computeAndSavePace(
 
   const net = Number(row.net_sales) || 0;
   const curve = normalizeHourlyCurve(Array.isArray(row.hourly_data) ? row.hourly_data : [], openHour, closeHour, goal);
+  const paceCurve = curve.map((e: any) => ({
+    hour: `${String(parseInt(String(e.hour), 10)).padStart(2, '0')}:00`,
+    sales: Number(e.sales) || 0,
+    projected: Number(e.projected) || 0,
+  }));
 
   const curH = getCurrentHourInTimezone(timezone);
   const curM = getCurrentMinutesInTimezone(timezone);
@@ -714,7 +716,7 @@ export async function computeAndSavePace(
   let day: number;
   if (date < localToday && curH >= openHour) day = net; // a past business date
   else if (curH < openHour && date >= localToday) day = Math.max(goal, net); // before open
-  else day = calculatePaceAdjustedProjection(net, curH, curM, openHour, closeHour, curve);
+  else day = calculatePaceAdjustedProjection(net, curH, curM, openHour, closeHour, paceCurve);
   if (curH >= closeHour) day = net;
   day = Math.max(day, net);
 
