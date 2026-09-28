@@ -64,6 +64,9 @@ export async function refreshLiveSalesForToday(
     if (!error && data && typeof data.daily === "number" && data.daily > 0) {
       return data.daily;
     }
+  } else if (posType === "toast") {
+    // Toast is fed by the background robot (toast-sync is internal-only);
+    // just read the latest cached numbers below.
   } else {
     const { error } = await supabase.functions.invoke(fnName, {
       body: { action: "sync_today", locationId },
