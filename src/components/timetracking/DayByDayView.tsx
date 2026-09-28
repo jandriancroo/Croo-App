@@ -181,6 +181,15 @@ export function DayByDayView({
         });
 
         const approvedCount = sortedEntries.filter((e) => e.isApproved).length;
+        const scheduledHours = sortedEntries.reduce((sum, e) => {
+          const s = e.scheduledShift;
+          if (!s || s.is_time_off || s.is_phantom || !s.start_time || !s.end_time) return sum;
+          const [sh, sm] = String(s.start_time).split(':').map(Number);
+          const [eh, em] = String(s.end_time).split(':').map(Number);
+          let mins = eh * 60 + em - (sh * 60 + sm);
+          if (mins < 0) mins += 24 * 60;
+          return sum + mins / 60;
+        }, 0);
 
         return (
           <PunchGroupCard key={day}>
@@ -190,6 +199,7 @@ export function DayByDayView({
               approvedCount={approvedCount}
               totalCount={sortedEntries.length}
               totalHours={dayTotal}
+              scheduledHours={scheduledHours}
             />
             {sortedEntries.map((entry) => {
               const isApproving = entry.dayPunches.some((p: any) => approvingPunchIds.has(p.id));
@@ -197,6 +207,8 @@ export function DayByDayView({
               if (entry.hasBreakViolation) flags.push({ label: 'No Break', tone: 'warning' });
               if (entry.hasAutoClockOut) flags.push({ label: 'Auto Out', tone: 'warning' });
               if (entry.hasOpenShift) flags.push({ label: 'Open', tone: 'danger' });
+              if ((entry.dayHours || 0) > 10) flags.push({ label: `Long Shift ${(entry.dayHours || 0).toFixed(1)}h`, tone: 'warning' });
+              if (buildBreaks(entry.dayPunches).some((b) => b.isLong)) flags.push({ label: 'Long Break', tone: 'warning' });
               if (entry.hasManualEdit) flags.push({ label: `Edited${entry.editedByName ? ` by ${entry.editedByName}` : ''}`, tone: 'info' });
 
               return (

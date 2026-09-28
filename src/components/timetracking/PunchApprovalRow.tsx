@@ -38,12 +38,15 @@ export function PunchGroupHeader({
   approvedCount,
   totalCount,
   totalHours,
+  scheduledHours,
 }: {
   title: string;
   subtitle?: string;
   approvedCount: number;
   totalCount: number;
   totalHours: number;
+  /** When set, shows "Sched X · Worked Y" instead of just the worked total. */
+  scheduledHours?: number;
 }) {
   const fullyApproved = totalCount > 0 && approvedCount === totalCount;
   return (
@@ -55,7 +58,13 @@ export function PunchGroupHeader({
       <span className={`punch-num text-[13px] font-bold ${fullyApproved ? 'text-[hsl(var(--success))]' : 'text-muted-foreground'}`}>
         {approvedCount}/{totalCount}
       </span>
-      <span className="punch-num text-[17px] font-extrabold leading-tight text-foreground">
+      <span className="punch-num text-[17px] font-extrabold leading-tight text-foreground whitespace-nowrap">
+        {scheduledHours != null && (
+          <span className="mr-2 text-[13px] font-semibold text-muted-foreground">
+            Sched {scheduledHours.toFixed(1)} ·{' '}
+            <span className={totalHours > scheduledHours + 0.25 ? 'text-destructive' : ''}>Worked</span>
+          </span>
+        )}
         {totalHours.toFixed(1)}
         <span className="ml-1 text-[12px] font-semibold text-muted-foreground">hrs</span>
       </span>

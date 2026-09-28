@@ -124,7 +124,7 @@ export function ClosePeriodDialog({
           {mustFix.length > 0 && (
             <section className="space-y-2">
               <h3 className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
-                <AlertCircle className="h-4 w-4" /> Must fix · missing clock-out ({mustFix.length})
+                <AlertCircle className="h-4 w-4" /> Must fix · Open (no clock-out) ({mustFix.length})
               </h3>
               {mustFix.map((r) => (
                 <div key={r.clock_in_punch_id} className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-2">
@@ -192,7 +192,7 @@ export function ClosePeriodDialog({
                   <div className="text-sm">
                     <span className="font-medium">{nm(r.user_id)}</span>{' '}
                     <span className="text-muted-foreground">
-                      {day(r.business_date)} · {r.auto_clock_out && !r.auto_reviewed ? 'Auto clock-out' : 'No break'}
+                      {day(r.business_date)} · {r.auto_clock_out && !r.auto_reviewed ? 'Auto Out' : 'No Break'}
                     </span>
                   </div>
                   {r.auto_clock_out && !r.auto_reviewed && (
