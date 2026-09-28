@@ -46,7 +46,7 @@ export function usePayrollData() {
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [filterFlag, setFilterFlag] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'employee' | 'day'>('employee');
+  const [viewMode, setViewMode] = useState<'employee' | 'day'>('day');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
   const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, hasOvertime?: boolean, hasExtendedBreak?: boolean, flaggedShifts?: { employeeName: string, date: string, flags: string[] }[], cleanPunchIds?: string[], shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);

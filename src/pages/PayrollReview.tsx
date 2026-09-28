@@ -103,11 +103,11 @@ export default function PayrollReview() {
       const lastOut = [...sorted].reverse().find((p: any) => p.punch_type === 'clock_out');
       const t = (p: any) => p ? formatDateTimeInTimezone(new Date(p.punch_time), timezone, { hour: 'numeric', minute: '2-digit' }) : '—';
       const issues: string[] = [];
-      if (f.hasAutoClockOut) issues.push('Auto clock-out');
-      if (f.hasBreakViolation) issues.push('No meal break');
-      if (hours > 10) issues.push(`Long shift (${hours.toFixed(1)}h)`);
-      if (dayPunches.some((p: any) => p.has_extended_break)) issues.push('Long break');
-      if (dayPunches.some((p: any) => p.notes === 'Manual entry by manager')) issues.push('Manually edited');
+      if (f.hasAutoClockOut) issues.push('Auto Out');
+      if (f.hasBreakViolation) issues.push('No Break');
+      if (hours > 10) issues.push(`Long Shift ${hours.toFixed(1)}h`);
+      if (dayPunches.some((p: any) => p.has_extended_break)) issues.push('Long Break');
+      if (dayPunches.some((p: any) => p.edited_by || p.notes === 'Manual entry by manager')) issues.push('Edited');
       unapprovedShifts.push({
         key: `${c.profile?.id}_${d}`,
         name: reviewNames[c.profile?.id] || 'Team member',
@@ -209,17 +209,6 @@ export default function PayrollReview() {
               <div className="flex rounded-lg border-2 border-border bg-muted/50 p-1 shrink-0 w-fit">
                 <button
                   className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-sm font-semibold transition-all ${
-                    viewMode === 'employee' 
-                      ? 'bg-primary text-primary-foreground shadow-md' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                  onClick={() => setViewMode('employee')}
-                >
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">By Employee</span>
-                </button>
-                <button
-                  className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-sm font-semibold transition-all ${
                     viewMode === 'day' 
                       ? 'bg-primary text-primary-foreground shadow-md' 
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -228,6 +217,17 @@ export default function PayrollReview() {
                 >
                   <CalendarDays className="h-4 w-4" />
                   <span className="hidden sm:inline">By Day</span>
+                </button>
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-sm font-semibold transition-all ${
+                    viewMode === 'employee' 
+                      ? 'bg-primary text-primary-foreground shadow-md' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                  onClick={() => setViewMode('employee')}
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">By Employee</span>
                 </button>
               </div>
 

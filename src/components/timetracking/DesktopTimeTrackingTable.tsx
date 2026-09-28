@@ -188,6 +188,7 @@ export function DesktopTimeTrackingTable({
                   if (dayFlags.hasBreakViolation) flags.push({ label: 'No Break', tone: 'warning' });
                   if (dayFlags.hasAutoClockOut) flags.push({ label: 'Auto Out', tone: 'warning' });
                   if (dayFlags.hasOpenShift) flags.push({ label: 'Open', tone: 'danger' });
+                  if (dayHours > 10) flags.push({ label: `Long Shift ${dayHours.toFixed(1)}h`, tone: 'warning' });
 
                   return (
                     <PunchRow
