@@ -185,10 +185,8 @@ export async function fetchHistoricalDataFromCache(
   }
 
   const lastYearDate = new Date(today);
-  lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
-  const lastYearDayOfWeek = lastYearDate.getDay();
-  const dayDiff = dayOfWeek - lastYearDayOfWeek;
-  lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
+  // Same weekday last year: date − 364 days.
+  lastYearDate.setDate(lastYearDate.getDate() - 364);
   const lastYearTodayStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, '0')}-${String(lastYearDate.getDate()).padStart(2, '0')}`;
 
   const lastYearWeekStart = new Date(lastYearDate);

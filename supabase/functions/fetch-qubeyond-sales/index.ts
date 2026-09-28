@@ -1452,10 +1452,8 @@ async function fetchHistoricalDataFromCache(
   
   // Last year same day of week
   const lastYearDate = new Date(today);
-  lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
-  const lastYearDayOfWeek = lastYearDate.getDay();
-  const dayDiff = dayOfWeek - lastYearDayOfWeek;
-  lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
+  // Same weekday last year: date − 364 days.
+  lastYearDate.setDate(lastYearDate.getDate() - 364);
   const lastYearTodayStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, '0')}-${String(lastYearDate.getDate()).padStart(2, '0')}`;
   
   // Last year same week (Mon-Sun)
@@ -2422,12 +2420,8 @@ serve(async (req) => {
 
     // LAST YEAR dates for better projections
     const lastYearTodayDate = new Date(todayStr + 'T12:00:00');
-    lastYearTodayDate.setFullYear(lastYearTodayDate.getFullYear() - 1);
-    // Adjust to same day of week
-    const targetDayOfWeek = new Date(todayStr + 'T12:00:00').getDay();
-    const lastYearDayOfWeek = lastYearTodayDate.getDay();
-    const dayDiff = targetDayOfWeek - lastYearDayOfWeek;
-    lastYearTodayDate.setDate(lastYearTodayDate.getDate() + dayDiff);
+    // Same weekday last year: date − 364 days.
+    lastYearTodayDate.setDate(lastYearTodayDate.getDate() - 364);
     const lastYearTodayStr = getDateStringForTimezone(lastYearTodayDate, timezone);
     
     // Last year same week (full week)
