@@ -36,3 +36,6 @@
 - [x] Bundle Stages 0–4 done 9/27 night (backups, Andy fix, Aloha business day, Who's Out nightly, OT premium)
 - [ ] Bundle Stage 5 (sales/pace server) — keep fetch-qubeyond-sales tips + today upserts (sync-live does not write tips)
 - [ ] Bundle Stage 6 (backfills) · Stage 7 (one frontend publish; cube unlocked for Last Year value/label, re-lock after)
+
+- [ ] Time Tracking mobile day bar: "📅39.5/36.4" compact hours, fix cramped header; Theo note collapses to 2 lines with tap to expand
+- [ ] Toast (homemade) for Coops: step 1 table/functions/settings card (in progress); step 2 nightly export robot; step 3 live robot
