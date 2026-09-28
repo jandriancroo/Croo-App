@@ -219,8 +219,41 @@ async function pollOnce(page, store, date) {
   return { error: 'report did not complete' };
 }
 
+async function backfill(days) {
+  const { stores } = await callService('schedule_list');
+  const browser = await chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
+  let session;
+  try {
+    session = await signInOnce(browser);
+    for (const store of stores.filter((s) => s.restaurantGuid)) {
+      const { date: today } = localParts(store.timezone);
+      let batch = [];
+      for (let i = 1; i <= days; i++) {
+        const d = new Date(today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - i);
+        const date = d.toISOString().slice(0, 10);
+        let out = await pollOnce(session.page, store, date).catch((e) => ({ error: e.message }));
+        if (out?.error) {
+          console.warn(`⚠️ ${date}: ${out.error} — re-signing in`);
+          try { await session.ctx.close(); session = await signInOnce(browser); out = await pollOnce(session.page, store, date); }
+          catch (e) { out = { error: e.message }; }
+          if (out?.error) { console.warn(`⚠️ skip ${date}`); continue; }
+        }
+        if (i > 7) out.hourly = []; // hourly detail only for the last week
+        batch.push({ locationId: store.locationId, date, source: 'api', ...out });
+        console.log(`📅 ${date}: $${out.netSales} (${out.checkCount} checks)`);
+        if (batch.length >= 7 || i === days) {
+          const r = await postToSync(batch); console.log(`→ ingest ${batch.length} days: ${r.status}`); batch = [];
+        }
+        await new Promise((r) => setTimeout(r, 1200 + Math.floor(Math.random() * 1500)));
+      }
+      if (batch.length) await postToSync(batch);
+    }
+  } finally { await browser.close(); }
+}
+
 async function main() {
   TOTP_TOTP_SECRET_V = TOAST_TOTP_SECRET;
+  if (process.env.BACKFILL_DAYS) return backfill(parseInt(process.env.BACKFILL_DAYS, 10));
   const { stores } = await callService('schedule_list');
   const active = stores.filter((s) => s.restaurantGuid && inWindow(s));
   console.log(`Active Toast stores in polling window: ${active.map((s) => s.locationId).join(', ') || 'none'}`);
