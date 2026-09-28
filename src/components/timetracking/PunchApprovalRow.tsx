@@ -190,6 +190,8 @@ export interface PunchRowProps {
   secondary?: string;
   scheduledStart: string | null;
   scheduledEnd: string | null;
+  /** Additional scheduled shifts the same day (split shifts), stacked under the first. */
+  scheduledExtra?: { start: string | null; end: string | null }[];
   scheduledIsTimeOff?: boolean;
   scheduledIsUnscheduled?: boolean;
   shifts: PunchShiftTimes[];
@@ -209,6 +211,7 @@ export function PunchRow({
   secondary,
   scheduledStart,
   scheduledEnd,
+  scheduledExtra = [],
   scheduledIsTimeOff,
   scheduledIsUnscheduled,
   shifts,
@@ -255,7 +258,10 @@ export function PunchRow({
           <span className="punch-num punch-m-hours shrink-0 text-[16px] font-bold text-foreground">{hours.toFixed(1)}</span>
         </div>
         <div className="mt-1 punch-mobile-badge">
-          <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} isUnscheduled={scheduledIsUnscheduled} showIcon />
+          <div className="flex flex-col items-start gap-1">
+            <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} isUnscheduled={scheduledIsUnscheduled} showIcon />
+            {scheduledExtra.map((x, i) => <ScheduledBadge key={i} start={x.start} end={x.end} showIcon />)}
+          </div>
         </div>
         <div className="mt-1 punch-mobile-indent">
           <ActualTimes shifts={shifts} />
@@ -278,7 +284,10 @@ export function PunchRow({
 
       {/* Scheduled */}
       <div className="punch-cell punch-from-md">
-        <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} isUnscheduled={scheduledIsUnscheduled} />
+        <div className="flex flex-col items-start gap-1">
+          <ScheduledBadge start={scheduledStart} end={scheduledEnd} isTimeOff={scheduledIsTimeOff} isUnscheduled={scheduledIsUnscheduled} />
+          {scheduledExtra.map((x, i) => <ScheduledBadge key={i} start={x.start} end={x.end} />)}
+        </div>
       </div>
 
       {/* Actual */}

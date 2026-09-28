@@ -841,15 +841,30 @@ export function usePayrollData() {
         const scheduledShifts = shiftsByUser.get(profile.id) || [];
         const currentWage = wageByUserId.get(profile.id) ?? null;
         
-        const shiftsByDate = new Map<string, { start_time: string; end_time: string; is_time_off: boolean; is_phantom: boolean }>();
-        scheduledShifts.forEach((shift: any) => {
-          shiftsByDate.set(shift.shift_date, {
-            start_time: shift.start_time,
-            end_time: shift.end_time,
-            is_time_off: shift.is_time_off,
-            is_phantom: !!shift.is_phantom
+        // First (earliest) shift of the day is the headline; `all` keeps every real shift so split shifts stack.
+        const shiftsByDate = new Map<string, { start_time: string; end_time: string; is_time_off: boolean; is_phantom: boolean; all: { start_time: string; end_time: string }[] }>();
+        [...scheduledShifts]
+          .sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)))
+          .forEach((shift: any) => {
+            const existing = shiftsByDate.get(shift.shift_date);
+            const real = !shift.is_time_off && !shift.is_phantom;
+            if (existing) {
+              if (real) {
+                if (existing.is_phantom || existing.is_time_off) {
+                  Object.assign(existing, { start_time: shift.start_time, end_time: shift.end_time, is_time_off: false, is_phantom: false });
+                }
+                existing.all.push({ start_time: shift.start_time, end_time: shift.end_time });
+              }
+              return;
+            }
+            shiftsByDate.set(shift.shift_date, {
+              start_time: shift.start_time,
+              end_time: shift.end_time,
+              is_time_off: shift.is_time_off,
+              is_phantom: !!shift.is_phantom,
+              all: real ? [{ start_time: shift.start_time, end_time: shift.end_time }] : [],
+            });
           });
-        });
 
         const creatorMap = globalCreatorMap;
 

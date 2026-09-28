@@ -185,12 +185,16 @@ export function DayByDayView({
         const approvedCount = sortedEntries.filter((e) => e.isApproved).length;
         const scheduledHours = sortedEntries.reduce((sum, e) => {
           const s = e.scheduledShift;
-          if (!s || s.is_time_off || s.is_phantom || !s.start_time || !s.end_time) return sum;
-          const [sh, sm] = String(s.start_time).split(':').map(Number);
-          const [eh, em] = String(s.end_time).split(':').map(Number);
-          let mins = eh * 60 + em - (sh * 60 + sm);
-          if (mins < 0) mins += 24 * 60;
-          return sum + mins / 60;
+          if (!s) return sum;
+          const list = s.all ?? (s.is_time_off || s.is_phantom ? [] : [s]);
+          return sum + list.reduce((acc: number, x: any) => {
+            if (!x.start_time || !x.end_time) return acc;
+            const [sh, sm] = String(x.start_time).split(':').map(Number);
+            const [eh, em] = String(x.end_time).split(':').map(Number);
+            let mins = eh * 60 + em - (sh * 60 + sm);
+            if (mins < 0) mins += 24 * 60;
+            return acc + mins / 60;
+          }, 0);
         }, 0);
 
         return (
@@ -220,6 +224,7 @@ export function DayByDayView({
                   primary={getDisplayName(entry.profile.full_name, entry.profile.nickname)}
                   scheduledStart={entry.scheduledShift && !entry.scheduledShift.is_time_off && !entry.scheduledShift.is_phantom ? formatScheduledTime(entry.scheduledShift.start_time) : null}
                   scheduledEnd={entry.scheduledShift && !entry.scheduledShift.is_time_off && !entry.scheduledShift.is_phantom ? formatScheduledTime(entry.scheduledShift.end_time) : null}
+                  scheduledExtra={(entry.scheduledShift?.all ?? []).slice(1).map((x: any) => ({ start: formatScheduledTime(x.start_time), end: formatScheduledTime(x.end_time) }))}
                   scheduledIsTimeOff={!!entry.scheduledShift?.is_time_off}
                   scheduledIsUnscheduled={!entry.scheduledShift || !!entry.scheduledShift?.is_phantom}
                   shifts={entry.shifts.map((s) => ({
