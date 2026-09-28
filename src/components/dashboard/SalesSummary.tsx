@@ -1310,7 +1310,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       if (lastSalesDataSentKey.current !== 'null') {
         lastSalesDataSentKey.current = 'null';
         // Write null to shared cache + legacy callback
-        queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id, targetDateStr], null);
+        queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id, todayTzStr], null);
         onSalesDataChange?.(null);
       }
       return;
@@ -1372,7 +1372,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // PRIMARY: Write enriched data to shared React Query cache.
     // Dashboard and widgets read from this key — no callback prop needed.
     // SalesSummary is the MASTER WRITER for this cache key.
-    queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id, targetDateStr], enhancedData);
+    queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id, todayTzStr], enhancedData);
 
     // LEGACY: Keep callback for any remaining consumers during migration
     onSalesDataChange?.(enhancedData);

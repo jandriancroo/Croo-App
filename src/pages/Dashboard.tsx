@@ -20,7 +20,7 @@ import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 // useShouldUseRoleCubes removed — unified dashboard_widgets handles role visibility via RLS
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
-import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+import { getDayOfWeekInTimezone, getBusinessDateInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
@@ -98,8 +98,8 @@ export default function Dashboard() {
   // Using useQuery subscribes to cache updates so Dashboard re-renders when data arrives.
   // No queryFn needed — SalesSummary populates the cache; we just read it.
   const { data: salesOverviewData = null } = useQuery<SalesDataForWidgets | null>({
-    queryKey: ['dashboard-sales-enriched', currentLocation?.id],
-    queryFn: () => queryClient.getQueryData(['dashboard-sales-enriched', currentLocation?.id]) ?? null,
+    queryKey: ['dashboard-sales-enriched', currentLocation?.id, getBusinessDateInTimezone()],
+    queryFn: () => queryClient.getQueryData(['dashboard-sales-enriched', currentLocation?.id, getBusinessDateInTimezone()]) ?? null,
     enabled: !!currentLocation?.id,
     staleTime: Infinity, // Never refetch — SalesSummary manages updates via setQueryData
     refetchOnMount: false,

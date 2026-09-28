@@ -31,7 +31,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { getTimezoneOffset } from '@/utils/timezoneUtils';
-import { fetchLiveLaborForToday } from '@/utils/liveLabor';
+import { fetchStoreLabor } from '@/hooks/useStoreLabor';
+import { getBusinessDateInTimezone } from '@/utils/timezoneUtils';
 import { useAuth } from '@/lib/auth';
 import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
 import { summarizeCuts } from '@/utils/cutSavingsSummary';
@@ -193,50 +194,27 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   });
 
   const { data: dashboardSalesData = null } = useQuery<any | null>({
-    queryKey: ['dashboard-sales-enriched', locationId],
-    queryFn: () => queryClient.getQueryData(['dashboard-sales-enriched', locationId]) ?? null,
+    queryKey: ['dashboard-sales-enriched', locationId, getBusinessDateInTimezone()],
+    queryFn: () => queryClient.getQueryData(['dashboard-sales-enriched', locationId, getBusinessDateInTimezone()]) ?? null,
     enabled: !!locationId && isExpanded,
     staleTime: Infinity,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
-  const { data: laborCacheFallback } = useQuery({
-    queryKey: ['labor-cache-today', locationId, todayStr],
+  // Server labor (get_store_labor): one number, business today live. On error → "—".
+  const { data: laborCacheFallback, isError: laborError } = useQuery({
+    queryKey: ['store-labor-dock', locationId, todayStr],
     queryFn: async () => {
       if (!locationId) return null;
-      const { data, error } = await supabase
-        .from('labor_cache')
-        .select('labor_hours, labor_cost, source')
-        .eq('location_id', locationId)
-        .eq('labor_date', todayStr);
-
+      const { data, error } = await fetchStoreLabor([locationId], todayStr, todayStr);
       if (error) throw error;
-      if (!data || data.length === 0) {
-        // labor_cache only holds CLOSED days — use the shared live-punch helper
-        // so the dock agrees with the dashboard for today.
-        const live = await fetchLiveLaborForToday(locationId, timezone);
-        return live.hours > 0 ? { labor_cost: live.cost, labor_hours: live.hours } : null;
-      }
-
-      const punchClockRow = data.find(
-        (r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0)
-      );
-      const externalRow = data.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-      const preferred = punchClockRow || externalRow || data[0];
-
-      if (!(Number(preferred.labor_hours) > 0)) {
-        const live = await fetchLiveLaborForToday(locationId, timezone);
-        if (live.hours > 0) return { labor_cost: live.cost, labor_hours: live.hours };
-      }
-
-      return {
-        labor_cost: Number(preferred.labor_cost) || 0,
-        labor_hours: Number(preferred.labor_hours) || 0,
-      };
+      const row = data?.[0];
+      return row ? { labor_cost: row.labor_cost, labor_hours: row.labor_hours } : null;
     },
     enabled: !!locationId && isExpanded,
-    refetchInterval: isExpanded ? 60000 : false,
+    refetchInterval: isExpanded && document.visibilityState === 'visible' ? 60000 : false,
+    refetchOnWindowFocus: false,
   });
 
   // Use the exact labor payload produced by Dashboard SalesSummary when available.
