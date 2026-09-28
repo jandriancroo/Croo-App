@@ -554,12 +554,28 @@ export function MobileScheduleView({
     refetchMs: punchDateStr === todayStr ? 60 * 1000 : undefined,
   });
 
+  // Tick every minute so open Toast shifts count up live on the cards.
+  const [toastNow, setToastNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setToastNow(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
   // Map Toast rows into the same DayPunch shape the punch pipeline renders.
   const toastPunches: DayPunch[] = useMemo(() => (toastShifts as ToastShiftRow[]).map((s) => {
     const breaks = Array.isArray(s.breaks) ? s.breaks : [];
     const openBreak = s.status === 'IN_PROGRESS'
       ? (breaks.find((b) => b.start && !b.end) ?? null)
       : null;
+    // Toast reports 0 payable hours until clock-out, so open shifts count live:
+    // elapsed since clock-in minus finished unpaid breaks and any break in progress.
+    let hoursWorked = (s.payable_seconds || 0) / 3600;
+    if (!s.out_time && s.in_time) {
+      const inMs = new Date(s.in_time).getTime();
+      const openBreakMs = openBreak?.start ? Math.max(0, toastNow - new Date(openBreak.start).getTime()) : 0;
+      const liveMs = toastNow - inMs - (s.unpaid_break_seconds || 0) * 1000 - openBreakMs;
+      hoursWorked = Math.max(hoursWorked, liveMs / 3600000);
+    }
     return {
       id: `toast-${s.id}`,
       user_id: s.croo_user_id || s.toast_user_id || s.id,
@@ -571,12 +587,12 @@ export function MobileScheduleView({
       isActive: s.status === 'IN_PROGRESS',
       isOnBreak: !!openBreak,
       profile: { id: s.toast_user_id || s.id, full_name: s.employee_name, nickname: null, profile_photo_url: null },
-      hoursWorked: s.payable_seconds / 3600,
+      hoursWorked,
       createdByName: null,
       scheduledShift: null,
       isToast: true,
     };
-  }), [toastShifts]);
+  }), [toastShifts, toastNow]);
 
   const allDayPunches = useMemo(() => [...dayPunches, ...toastPunches], [dayPunches, toastPunches]);
 
