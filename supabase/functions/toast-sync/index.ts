@@ -437,6 +437,7 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
       ? (takenBreaks.find((b) => b.start && !b.end) ?? null)
       : null;
 
+    const scheduledList = crooId ? scheduledByUser.get(crooId) || [] : [];
     const pairedScheduled = scheduledList.find((s) => !s.is_time_off) ?? scheduledList[0] ?? null;
     let lateMinutes: number | null = null;
     if (pairedScheduled) {
