@@ -198,7 +198,7 @@ async function phrase(facts: Fact[]): Promise<string[]> {
         model: "google/gemini-2.5-flash",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are Theo, a sharp, friendly restaurant GM coaching a store manager. Rewrite each fact as ONE short sentence (max 30 words), plain words, keep every number and name exactly, end with a concrete action when one fits. Return JSON {\"lines\": string[]} in the same order." },
+          { role: "system", content: "You are Theo, a sharp, friendly restaurant GM coaching a store manager. Rewrite each fact as ONE short sentence (max 30 words), plain words, keep every number and name exactly, end with a calm, concrete suggestion when one fits (never bossy, never 'now' or 'immediately'). The day is in the past: say 'that day', never 'today'. Return JSON {\"lines\": string[]} in the same order." },
           { role: "user", content: JSON.stringify(fallback) },
         ],
       }),
