@@ -12853,6 +12853,57 @@ export type Database = {
           },
         ]
       }
+      toast_employee_mappings: {
+        Row: {
+          created_at: string
+          croo_user_id: string | null
+          id: string
+          location_id: string
+          match_method: string
+          toast_name: string | null
+          toast_restaurant_user_id: string | null
+          toast_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          croo_user_id?: string | null
+          id?: string
+          location_id: string
+          match_method?: string
+          toast_name?: string | null
+          toast_restaurant_user_id?: string | null
+          toast_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          croo_user_id?: string | null
+          id?: string
+          location_id?: string
+          match_method?: string
+          toast_name?: string | null
+          toast_restaurant_user_id?: string | null
+          toast_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_employee_mappings_croo_user_id_fkey"
+            columns: ["croo_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "toast_employee_mappings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       toast_sales_cache: {
         Row: {
           avg_ticket: number
