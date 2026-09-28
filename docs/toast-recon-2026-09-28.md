@@ -45,4 +45,4 @@ Per-shift node:
 - restaurant: timeZone "America/Chicago" (!), firstDayOfWeek 2, name "Coop’s Pizza"
 Employees endpoint (same GraphQL, GetShiftsV2Employees): displayFullName, user.id, restaurantUsers[].id — the mapping for Toast↔CrooHQ employee matching.
 Notes: `schedule` is null (pairing against CrooHQ schedule happens on our side, as planned). Data is exactly enough for read-only labor pairing: who's clocked in, in/out times, breaks, job, tips, anomalies.
-TIMEZONE FLAG: Toast store config says America/Chicago. CrooHQ business-date math for Coop's must use the store's own timezone setting (and we should confirm with Sam whether Hayward is Pacific — if so Toast config may be wrong on their side, or the store is actually Central).
+TIMEZONE RESOLVED: Coop's Hayward is Hayward, WISCONSIN (user confirmed 2026-09-28) → Toast's America/Chicago config is CORRECT. Coop's business dates/shifts are Central time, unlike Blaze locations (America/Los_Angeles). Use the store's own timezone for Coop's.
