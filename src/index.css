@@ -2488,6 +2488,7 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
 .punch-breaks-cell {
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
   gap: 0.25rem;
 }
 .punch-approve-label {

@@ -12557,6 +12557,35 @@ export type Database = {
           },
         ]
       }
+      theo_day_insights: {
+        Row: {
+          business_date: string
+          generated_at: string
+          insights: Json
+          location_id: string
+        }
+        Insert: {
+          business_date: string
+          generated_at?: string
+          insights?: Json
+          location_id: string
+        }
+        Update: {
+          business_date?: string
+          generated_at?: string
+          insights?: Json
+          location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_day_insights_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       theo_helpful_feedback: {
         Row: {
           answer: string

@@ -11,6 +11,7 @@ import {
   type PunchBreakInfo,
   type PunchFlag,
 } from './PunchApprovalRow';
+import { TheoDayLine, useTheoDayInsights } from './TheoDayLine';
 
 interface DayByDayViewProps {
   filteredCards: any[];
@@ -116,6 +117,7 @@ export function DayByDayView({
 
   // Sort days chronologically
   const sortedDays = Array.from(shiftsByDay.entries()).sort(([a], [b]) => a.localeCompare(b));
+  const { data: theo } = useTheoDayInsights(currentLocationId, sortedDays.map(([d]) => d));
 
   if (sortedDays.length === 0) {
     return (
@@ -201,6 +203,7 @@ export function DayByDayView({
               totalHours={dayTotal}
               scheduledHours={scheduledHours}
             />
+            <TheoDayLine lines={theo?.[day]} />
             {sortedEntries.map((entry) => {
               const isApproving = entry.dayPunches.some((p: any) => approvingPunchIds.has(p.id));
               const flags: PunchFlag[] = [];
