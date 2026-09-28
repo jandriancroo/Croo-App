@@ -226,7 +226,7 @@ async function main() {
   console.log(`Active Toast stores in polling window: ${active.map((s) => s.locationId).join(', ') || 'none'}`);
   if (active.length === 0) return;
 
-  const browser = await chromium.launch({ headless: process.env.HEADFUL === '0' });
+  const browser = await chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
   let session;
   try {
     session = await signInOnce(browser);
