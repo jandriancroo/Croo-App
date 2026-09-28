@@ -81,4 +81,5 @@
 - [ ] Toast live sales alongside history — blocked on Toast sign-in code rejections
 - [ ] Toast punches for On the Clock — after live sign-in works
 
-- [ ] Toast pay rates: verify Toast punch screen shows a Wage column for robot account (after Toast 429 limit clears); pay rates flow to toast_employee_wages → paired profiles (Toast wins)
+- [x] Toast pay rates: pulled from Toast employee list (58 people, 13 on today's punches); salaries skipped
+- [ ] Toast robot permanent all-day schedule (still runs from workspace only)
