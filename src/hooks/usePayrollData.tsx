@@ -1540,91 +1540,42 @@ export function usePayrollData() {
     return getDateInTimezone(weekStart, timezone);
   };
 
-  const calculatePayrollSummary = () => {
-    // A 0/null daily threshold means no daily OT/DT rule for that state — treat as disabled
-    // so hours land in Regular instead of collapsing into double time.
-    const rawDailyOT = laborRules?.daily_overtime_threshold;
-    const rawDailyDT = laborRules?.daily_double_time_threshold;
-    const dailyOTThreshold = rawDailyOT && rawDailyOT > 0 ? rawDailyOT : Infinity;
-    const dailyDTThreshold = rawDailyDT && rawDailyDT > 0 ? rawDailyDT : Infinity;
-    const weeklyOTThreshold = laborRules?.weekly_overtime_threshold ?? 40;
+  // Hours classification (Reg / OT / DT) comes ONLY from the server payroll_hours
+  // function — state rules (daily, CA 7th day, weekly, NV cutoff/24h window) live there.
+  // No wage fallback: a missing wage is flagged and blocks export.
+  const payrollSummaryMemo = useMemo(() => {
     const otMultiplier = laborRules?.overtime_multiplier ?? 1.5;
     const dtMultiplier = laborRules?.double_time_multiplier ?? 2.0;
+    const rows = payrollHoursQuery.data || [];
+    const nameById: Record<string, string> = {};
+    (timeCards || []).forEach((c: any) => {
+      if (c?.profile?.id) nameById[c.profile.id] = c.profile.full_name;
+    });
 
-    const summary = timeCards.map(card => {
-      const ptoHours = ptoData[card.profile.id] || 0;
-      const wage = card.profile.hourly_wage || 15;
-      
-      const hoursByWeek: { [weekStart: string]: { dailyHours: { [day: string]: number } } } = {};
-      
-      Object.entries(card.punchesByDay).forEach(([day, punches]) => {
-        const weekStart = getWeekStartForDate(day);
-        if (!hoursByWeek[weekStart]) {
-          hoursByWeek[weekStart] = { dailyHours: {} };
-        }
-        hoursByWeek[weekStart].dailyHours[day] = calculateDayHours(punches as any[], false);
-      });
-      
-      let totalRegular = 0;
-      let totalOT = 0;
-      let totalDT = 0;
-      
-      Object.values(hoursByWeek).forEach(week => {
-        const dailyHoursList = Object.values(week.dailyHours);
-        
-        let weeklyDailyOT = 0;
-        let weeklyDailyDT = 0;
-        let weeklyDailyRegular = 0;
-        let weeklyTotalHours = 0;
-        
-        dailyHoursList.forEach(hours => {
-          weeklyTotalHours += hours;
-          
-          if (hours <= dailyOTThreshold) {
-            weeklyDailyRegular += hours;
-          } else if (hours <= dailyDTThreshold) {
-            weeklyDailyRegular += dailyOTThreshold;
-            weeklyDailyOT += hours - dailyOTThreshold;
-          } else {
-            weeklyDailyRegular += dailyOTThreshold;
-            weeklyDailyOT += dailyDTThreshold - dailyOTThreshold;
-            weeklyDailyDT += hours - dailyDTThreshold;
-          }
-        });
-        
-        const weeklyOT = Math.max(0, weeklyTotalHours - weeklyOTThreshold);
-        
-        const actualOT = Math.max(weeklyDailyOT, weeklyOT);
-        
-        const actualRegular = weeklyTotalHours - actualOT - weeklyDailyDT;
-        
-        totalRegular += Math.max(0, actualRegular);
-        totalOT += actualOT;
-        totalDT += weeklyDailyDT;
-      });
-      
-      const grossWages = (totalRegular * wage) + (totalOT * wage * otMultiplier) + (totalDT * wage * dtMultiplier) + (ptoHours * wage);
-      
-      const tipShare = employeeTipShares.find(t => t.userId === card.profile.id);
-      const tips = tipShare?.totalTips || 0;
-      
+    const summary = rows.map(r => {
+      const wageMissing = r.wage_missing || r.wage == null || r.wage <= 0;
+      const wage = wageMissing ? 0 : (r.wage as number);
+      const grossWages = (r.regular_hours * wage) + (r.ot_hours * wage * otMultiplier) + (r.dt_hours * wage * dtMultiplier) + (r.pto_hours * wage);
+      const tips = employeeTipShares.find(t => t.userId === r.user_id)?.totalTips || 0;
       return {
-        name: card.profile.full_name,
-        odId: card.profile.id,
+        name: r.full_name || nameById[r.user_id] || 'Team member',
+        odId: r.user_id,
         wage,
-        regularHours: totalRegular,
-        overtimeHours: totalOT,
-        ptoHours,
-        doubleOvertimeHours: totalDT,
+        wageMissing,
+        regularHours: r.regular_hours,
+        overtimeHours: r.ot_hours,
+        ptoHours: r.pto_hours,
+        doubleOvertimeHours: r.dt_hours,
+        openShiftCount: r.open_shift_count,
         tips,
         grossWages,
-        totalCompensation: grossWages + tips
+        totalCompensation: grossWages + tips,
       };
     });
 
-    const filteredSummary = summary.filter(emp => 
-      emp.regularHours > 0 || emp.overtimeHours > 0 || emp.doubleOvertimeHours > 0 || emp.ptoHours > 0 || emp.tips > 0
-    );
+    const filteredSummary = summary
+      .filter(emp => emp.regularHours > 0 || emp.overtimeHours > 0 || emp.doubleOvertimeHours > 0 || emp.ptoHours > 0 || emp.tips > 0)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     const totals = filteredSummary.reduce((acc, emp) => ({
       regularHours: acc.regularHours + emp.regularHours,
@@ -1636,8 +1587,11 @@ export function usePayrollData() {
       totalCompensation: acc.totalCompensation + emp.totalCompensation
     }), { regularHours: 0, overtimeHours: 0, doubleOvertimeHours: 0, ptoHours: 0, tips: 0, grossWages: 0, totalCompensation: 0 });
 
-    return { employees: filteredSummary, totals };
-  };
+    const openShiftCount = filteredSummary.reduce((n, e) => n + e.openShiftCount, 0);
+    return { employees: filteredSummary, totals, openShiftCount };
+  }, [payrollHoursQuery.data, laborRules, employeeTipShares, timeCards]);
+
+  const calculatePayrollSummary = () => payrollSummaryMemo;
 
   const groupPunchesByWeek = (punchesByDay: { [key: string]: any[] }) => {
     const weeks: {
@@ -1676,21 +1630,35 @@ export function usePayrollData() {
     return Object.entries(weeks).sort(([a], [b]) => a.localeCompare(b));
   };
 
+  // Blocks export when hours aren't final or a wage is missing. Returns true if export may proceed.
+  const checkExportReady = (summary: ReturnType<typeof calculatePayrollSummary>): boolean => {
+    if (payrollHoursQuery.isLoading) { toast.error('Payroll hours are still loading'); return false; }
+    if (payrollHoursQuery.isError) { toast.error("Can't export: payroll hours failed to load. Try again."); return false; }
+    const noWage = summary.employees.filter(e => e.wageMissing).map(e => e.name);
+    if (noWage.length) { toast.error(`Can't export: add a wage for ${noWage.join(', ')}`); return false; }
+    if (summary.openShiftCount > 0) { toast.error(`Can't export: ${summary.openShiftCount} shift(s) need a clock-out`); return false; }
+    return true;
+  };
+
   const exportToCSV = () => {
     const summary = calculatePayrollSummary();
-    const headers = ['Employee', 'Hourly Wage', 'Regular Hours', 'Overtime Hours', 'PTO Hours', 'Tips', 'Gross Wages', 'Total Compensation'];
+    if (!checkExportReady(summary)) return;
+    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const headers = ['Employee', 'Hourly Wage', 'Regular Hours', 'Overtime Hours', 'Double Time Hours', 'PTO Hours', 'Tips', 'Gross Wages', 'Total Compensation'];
     const rows = summary.employees.map(emp => [
-      emp.name,
+      esc(emp.name || ''),
       emp.wage.toFixed(2),
       emp.regularHours.toFixed(2),
       emp.overtimeHours.toFixed(2),
+      emp.doubleOvertimeHours.toFixed(2),
       emp.ptoHours.toFixed(2),
       emp.tips.toFixed(2),
       emp.grossWages.toFixed(2),
       emp.totalCompensation.toFixed(2)
     ]);
-    rows.push(['TOTALS', '', summary.totals.regularHours.toFixed(2), summary.totals.overtimeHours.toFixed(2), summary.totals.ptoHours.toFixed(2), summary.totals.tips.toFixed(2), summary.totals.grossWages.toFixed(2), summary.totals.totalCompensation.toFixed(2)]);
-    
+    const t = summary.totals;
+    rows.push(['TOTALS', '', t.regularHours.toFixed(2), t.overtimeHours.toFixed(2), t.doubleOvertimeHours.toFixed(2), t.ptoHours.toFixed(2), t.tips.toFixed(2), t.grossWages.toFixed(2), t.totalCompensation.toFixed(2)]);
+
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -1704,12 +1672,15 @@ export function usePayrollData() {
 
   const exportToPDF = () => {
     const summary = calculatePayrollSummary();
+    if (!checkExportReady(summary)) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error('Please allow popups to export PDF');
       return;
     }
-    
+    const t = summary.totals;
+    const escHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+
     printWindow.document.write(`
       <html>
         <head>
@@ -1718,8 +1689,8 @@ export function usePayrollData() {
             body { font-family: system-ui, sans-serif; padding: 40px; }
             h1 { font-size: 24px; margin-bottom: 8px; }
             h2 { font-size: 14px; color: #666; margin-bottom: 24px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
             th { background: #f5f5f5; font-weight: 600; }
             .right { text-align: right; }
             .total { font-weight: bold; background: #f0f0f0; }
@@ -1737,37 +1708,47 @@ export function usePayrollData() {
                 <th>Employee</th>
                 <th class="right">Hourly Wage</th>
                 <th class="right">Regular Hours</th>
-                <th class="right">Overtime</th>
-                <th class="right">PTO</th>
+                <th class="right">Overtime Hours</th>
+                <th class="right">Double Time Hours</th>
+                <th class="right">PTO Hours</th>
+                <th class="right">Tips</th>
                 <th class="right">Gross Wages</th>
+                <th class="right">Total Compensation</th>
               </tr>
             </thead>
             <tbody>
               ${summary.employees.map(emp => `
                 <tr>
-                  <td>${emp.name}</td>
+                  <td>${escHtml(emp.name || '')}</td>
                   <td class="right">$${emp.wage.toFixed(2)}</td>
                   <td class="right">${emp.regularHours.toFixed(2)}</td>
                   <td class="right">${emp.overtimeHours.toFixed(2)}</td>
+                  <td class="right">${emp.doubleOvertimeHours.toFixed(2)}</td>
                   <td class="right">${emp.ptoHours.toFixed(2)}</td>
+                  <td class="right">$${emp.tips.toFixed(2)}</td>
                   <td class="right">$${emp.grossWages.toFixed(2)}</td>
+                  <td class="right">$${emp.totalCompensation.toFixed(2)}</td>
                 </tr>
               `).join('')}
               <tr class="total">
                 <td>TOTALS</td>
                 <td></td>
-                <td class="right">${summary.totals.regularHours.toFixed(2)}</td>
-                <td class="right">${summary.totals.overtimeHours.toFixed(2)}</td>
-                <td class="right">${summary.totals.ptoHours.toFixed(2)}</td>
-                <td class="right">$${summary.totals.grossWages.toFixed(2)}</td>
+                <td class="right">${t.regularHours.toFixed(2)}</td>
+                <td class="right">${t.overtimeHours.toFixed(2)}</td>
+                <td class="right">${t.doubleOvertimeHours.toFixed(2)}</td>
+                <td class="right">${t.ptoHours.toFixed(2)}</td>
+                <td class="right">$${t.tips.toFixed(2)}</td>
+                <td class="right">$${t.grossWages.toFixed(2)}</td>
+                <td class="right">$${t.totalCompensation.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
           <div class="summary">
-            <div class="summary-row"><span>Total Regular Hours:</span><span>${summary.totals.regularHours.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Total Overtime Hours:</span><span>${summary.totals.overtimeHours.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Approved PTO Hours:</span><span>${summary.totals.ptoHours.toFixed(2)}</span></div>
-            <div class="summary-row summary-total"><span>Total Gross Wages:</span><span>$${summary.totals.grossWages.toFixed(2)}</span></div>
+            <div class="summary-row"><span>Total Regular Hours:</span><span>${t.regularHours.toFixed(2)}</span></div>
+            <div class="summary-row"><span>Total Overtime Hours:</span><span>${t.overtimeHours.toFixed(2)}</span></div>
+            <div class="summary-row"><span>Total Double Time Hours:</span><span>${t.doubleOvertimeHours.toFixed(2)}</span></div>
+            <div class="summary-row"><span>Approved PTO Hours:</span><span>${t.ptoHours.toFixed(2)}</span></div>
+            <div class="summary-row summary-total"><span>Total Gross Wages:</span><span>$${t.grossWages.toFixed(2)}</span></div>
           </div>
         </body>
       </html>
