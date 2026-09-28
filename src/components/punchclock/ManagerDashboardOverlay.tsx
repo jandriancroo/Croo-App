@@ -1330,6 +1330,15 @@ export function ManagerDashboardOverlay({
                                             : `−${cut.minutesCut}m`}
                                         </span>
                                       )}
+                                      {shift.isToast && (
+                                        <span
+                                          className="shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white"
+                                          style={{ backgroundColor: '#FC6130' }}
+                                          title="Punches come from Toast"
+                                        >
+                                          Toast
+                                        </span>
+                                      )}
                                     </div>
                                     <p className={`mt-0.5 truncate text-[10px] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                       {shift.scheduledStartTime && shift.scheduledEndTime
