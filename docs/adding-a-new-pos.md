@@ -112,3 +112,7 @@ When the Clover webhook stream comes online, confirm per event type which carry 
 | Void | TBD | |
 
 Fill this in during the Clover webhook build. Anything marked "no" gets the best-effort treatment.
+
+## Toast (homemade, Coop's Pizza / Hayward) — Sep 28 2026
+
+No paid Toast API. `toast-sync` (robot-only, `x-cron-secret`) accepts normalized day payloads with `source` = `export` (nightly Toast Data Export SFTP CSVs), `live` (headless Toast Web scrape) or `api` (future official API). Export/api rows are never overwritten by live rows. Writes `toast_sales_cache` + `sales_cache` (`pos_source='toast'`). No labor. `toast-service` handles save/status (admins) and `list_active` (robots). Swapping to the paid API = one new fetcher posting `source:'api'`.
