@@ -27,3 +27,22 @@ Contains everything sales_cache needs (net, gross, discounts, tax, orders, items
 - Which restaurant GUID is Hayward: default restaurant on login is c93b197b-bbc8-4d94-a8b3-cc24cddc8c06 ("Coop's Pizza") — the saved TOAST_HAYWARD_RESTAURANT_ID does NOT match it. Verify location switcher / restaurant sets (GetAccessibleRestaurantSets captured) and confirm Hayward's GUID before pointing the fetcher.
 - Capture exact punch-row payload for the labor pairing features (read-only; user sign-off required before writing any labor_cache 'toast' source).
 - Cookie consent + setup checklist popups must be dismissed per run.
+
+## Resolved (2026-09-28 12:42 PT)
+- User confirmed Coop's has only ONE Toast location. Working restaurant GUID for all Toast calls: c93b197b-bbc8-4d94-a8b3-cc24cddc8c06 (label "Coop's Pizza"). The saved TOAST_HAYWARD_RESTAURANT_ID value is a different string — treat c93b197b as authoritative; keep the saved secret untouched.
+
+## Punch data shape (captured 2026-09-28, /tmp/browser/toast-punch/captured.json)
+Endpoint: POST /api/service/restaurant-admin-graphql/v1/graphql (operationName=GetShiftsV2, restaurantIDs=[c93b197b-bbc8-4d94-a8b3-cc24cddc8c06], orderBy BUSINESS_DATE ASC, page size 25 + cursor).
+Per-shift node:
+- id, status: IN_PROGRESS | FINISHED_BY_USER
+- timeClock.inTime / outTime (ISO-8601 UTC; outTime only when finished)
+- timeClock.takenBreaks[], missedBreaks[], waivedBreaks[] — break data present
+- timeClock.estimatedDurationBreakdown: payableTime/regularDuration/overtimeDuration/unpaidBreakTime (seconds)
+- job.title + job.id (per-shift job, e.g. "Assistant Kitchen Manager"), isTipped
+- tips: cashGratuity, nonCashGratuity, totalTips (Money strings)
+- shiftAnomalies[] (empty on clean shifts — source of the UI "anomalies" column)
+- employee: restaurantUser id + user id + externalEmployeeId ("424", "396" — Toast employee number)
+- restaurant: timeZone "America/Chicago" (!), firstDayOfWeek 2, name "Coop’s Pizza"
+Employees endpoint (same GraphQL, GetShiftsV2Employees): displayFullName, user.id, restaurantUsers[].id — the mapping for Toast↔CrooHQ employee matching.
+Notes: `schedule` is null (pairing against CrooHQ schedule happens on our side, as planned). Data is exactly enough for read-only labor pairing: who's clocked in, in/out times, breaks, job, tips, anomalies.
+TIMEZONE FLAG: Toast store config says America/Chicago. CrooHQ business-date math for Coop's must use the store's own timezone setting (and we should confirm with Sam whether Hayward is Pacific — if so Toast config may be wrong on their side, or the store is actually Central).
