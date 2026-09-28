@@ -413,6 +413,9 @@ async function main() {
 
   const browser = await chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
   let session;
+  SHIFTS_TPL = loadTemplate('toast-shifts-request.json');
+  EMPLOYEES_TPL = loadTemplate('toast-employees-request.json');
+  if (SHIFTS_TPL) console.log('🧾 punch template loaded — labor polling active');
   try {
     session = await signInOnce(browser);
     const start = Date.now();
@@ -437,6 +440,18 @@ async function main() {
         const r = await postToSync([day]);
         const j = await r.json().catch(() => ({}));
         console.log(`📊 ${date} ${store.locationId}: net $${out.netSales} (${out.checkCount} checks) → ${r.ok ? 'ingested' : `ERROR ${r.status}`}`);
+        // Read-only punch pull for the same day (Toast owns punches).
+        if (SHIFTS_TPL) {
+          try {
+            const shifts = await fetchShifts(session.page, store.restaurantGuid, date);
+            if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
+            else if (Array.isArray(shifts)) {
+              const lr = await postLabor(store.locationId, date, shifts);
+              const lj = await lr.json().catch(() => ({}));
+              console.log(`🧾 ${date}: ${shifts.length} shifts → ${lr.ok ? `ingested (${lj.updated ?? lj.shifts ?? ''})` : `ERROR ${lr.status}`}`);
+            }
+          } catch (e) { console.warn(`🧾 ${date}: ${e.message}`); }
+        }
       }
       if (ONESHOT) { console.log('ONESHOT — exiting after one poll'); break; }
       const stillOpen = active.some((s) => inWindow(s));
