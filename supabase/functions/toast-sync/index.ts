@@ -437,15 +437,14 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
       ? (takenBreaks.find((b) => b.start && !b.end) ?? null)
       : null;
 
+    const pairedScheduled = scheduledList.find((s) => !s.is_time_off) ?? scheduledList[0] ?? null;
     let lateMinutes: number | null = null;
-    const scheduledList = crooId ? scheduledByUser.get(crooId) || [] : [];
-    if (scheduledList.length > 0) {
-      const sched = scheduledList.find((s) => !s.is_time_off) ?? scheduledList[0];
+    if (pairedScheduled) {
       // Compare in store-local wall clock (both sides are HH:mm strings of the same date).
       const inLocal = localHour(shift.inTime, tz, false);
       if (inLocal != null) {
-        const schedHour = parseInt(String(sched.start_time).slice(0, 2), 10);
-        const schedMin = parseInt(String(sched.start_time).slice(3, 5), 10);
+        const schedHour = parseInt(String(pairedScheduled.start_time).slice(0, 2), 10);
+        const schedMin = parseInt(String(pairedScheduled.start_time).slice(3, 5), 10);
         const late = (inLocal * 60) - (schedHour * 60 + schedMin);
         if (late > 5) lateMinutes = late;
       }
