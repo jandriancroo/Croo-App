@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { computeAndSavePace } from "../_shared/projections.ts";
 import {
   fetchHistoricalDataFromCache,
   generateHourlyProjections,
@@ -748,10 +749,8 @@ async function syncOneDay(
 
       // Persist: living_projection = today's target (refresh each sync),
       // initial_projection = seed if empty, pace_adjusted_projection = live pace.
-      const paceUpdate: Record<string, any> = {
-        pace_adjusted_projection: projections.todayPaceAdjusted,
-        pace_calculated_at: new Date().toISOString(),
-      };
+      // Pace itself is written only by the shared computeAndSavePace below.
+      const paceUpdate: Record<string, any> = {};
       if (projections.todayProjected > 0) {
         paceUpdate.living_projection = projections.todayProjected;
         // Only seed initial if missing (respect the "first projection wins" rule).
@@ -765,11 +764,14 @@ async function syncOneDay(
           paceUpdate.initial_projection = projections.todayProjected;
         }
       }
-      await supabase
-        .from("sales_cache")
-        .update(paceUpdate)
-        .eq("location_id", locationId)
-        .eq("sale_date", date);
+      if (Object.keys(paceUpdate).length) {
+        await supabase
+          .from("sales_cache")
+          .update(paceUpdate)
+          .eq("location_id", locationId)
+          .eq("sale_date", date);
+      }
+      await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: hoursOpen, closeHour: hoursClose });
 
       console.log(
         `[clover-sync] pace for ${locationId} ${date}: ` +
