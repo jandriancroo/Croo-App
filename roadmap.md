@@ -67,3 +67,7 @@
 - [ ] Mobile schedule: Toast punch cards (read-only, Toast icon)
 - [ ] Manager dash overlay: who's on the clock from Toast
 - [ ] Nightly Toast export pull (SFTP) — deferred
+
+## Toast hourly history (queued Sep 28)
+- Current daily backfill strips hourly detail for days > 7 old — projections (4-week hourly pattern + last-year hourly) need hourly for the full year.
+- Plan: chained background job — wait for daily backfill to exit → re-run 371-day pass with hourly kept for every day (same 'api' source, overwrites hourly_data) → then capture GetShiftsV2 punch request for the labor robot.
