@@ -364,7 +364,7 @@ export default function PayrollReview() {
                           <TableCell className="text-right">{emp.doubleOvertimeHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{emp.ptoHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right text-green-600">{emp.tips > 0 ? `$${emp.tips.toFixed(2)}` : '-'}</TableCell>
-                          <TableCell className="text-right font-semibold">{emp.wageMissing ? '—' : `$${emp.grossWages.toFixed(2)}`}</TableCell>
+                          <TableCell className="text-right font-semibold">${emp.grossWages.toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold bg-muted/50">

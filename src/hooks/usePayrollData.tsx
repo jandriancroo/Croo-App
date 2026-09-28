@@ -1593,7 +1593,8 @@ export function usePayrollData() {
     }), { regularHours: 0, overtimeHours: 0, doubleOvertimeHours: 0, ptoHours: 0, tips: 0, grossWages: 0, totalCompensation: 0 });
 
     const openShiftCount = filteredSummary.reduce((n, e) => n + e.openShiftCount, 0);
-    return { employees: filteredSummary, totals, openShiftCount };
+    const wageMissingNames = filteredSummary.filter(e => e.wageMissing).map(e => e.name);
+    return { employees: filteredSummary, totals, openShiftCount, wageMissingNames };
   }, [payrollHoursQuery.data, laborRules, employeeTipShares, timeCards]);
 
   const calculatePayrollSummary = () => payrollSummaryMemo;
@@ -1639,8 +1640,7 @@ export function usePayrollData() {
   const checkExportReady = (summary: ReturnType<typeof calculatePayrollSummary>): boolean => {
     if (payrollHoursQuery.isLoading) { toast.error('Payroll hours are still loading'); return false; }
     if (payrollHoursQuery.isError) { toast.error("Can't export: payroll hours failed to load. Try again."); return false; }
-    const noWage = summary.employees.filter(e => e.wageMissing).map(e => e.name);
-    if (noWage.length) { toast.error(`Can't export: add a wage for ${noWage.join(', ')}`); return false; }
+    // Missing wage never blocks: gross shows 0 and a note lists the names.
     if (summary.openShiftCount > 0) { toast.error(`Can't export: ${summary.openShiftCount} shift(s) need a clock-out`); return false; }
     return true;
   };
@@ -1652,7 +1652,7 @@ export function usePayrollData() {
     const headers = ['Employee', 'Hourly Wage', 'Regular Hours', 'Overtime Hours', 'Double Time Hours', 'PTO Hours', 'Tips', 'Gross Wages', 'Total Compensation'];
     const rows = summary.employees.map(emp => [
       esc(emp.name || ''),
-      emp.wage.toFixed(2),
+      emp.wageMissing ? 'wage missing' : emp.wage.toFixed(2),
       emp.regularHours.toFixed(2),
       emp.overtimeHours.toFixed(2),
       emp.doubleOvertimeHours.toFixed(2),
@@ -1663,6 +1663,9 @@ export function usePayrollData() {
     ]);
     const t = summary.totals;
     rows.push(['TOTALS', '', t.regularHours.toFixed(2), t.overtimeHours.toFixed(2), t.doubleOvertimeHours.toFixed(2), t.ptoHours.toFixed(2), t.tips.toFixed(2), t.grossWages.toFixed(2), t.totalCompensation.toFixed(2)]);
+    if (summary.wageMissingNames.length) {
+      rows.push([esc(`Note: wage missing for ${summary.wageMissingNames.join(', ')} (gross wages shown as 0)`)]);
+    }
 
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -1725,7 +1728,7 @@ export function usePayrollData() {
               ${summary.employees.map(emp => `
                 <tr>
                   <td>${escHtml(emp.name || '')}</td>
-                  <td class="right">$${emp.wage.toFixed(2)}</td>
+                  <td class="right">${emp.wageMissing ? 'wage missing' : `$${emp.wage.toFixed(2)}`}</td>
                   <td class="right">${emp.regularHours.toFixed(2)}</td>
                   <td class="right">${emp.overtimeHours.toFixed(2)}</td>
                   <td class="right">${emp.doubleOvertimeHours.toFixed(2)}</td>
@@ -1748,6 +1751,7 @@ export function usePayrollData() {
               </tr>
             </tbody>
           </table>
+          ${summary.wageMissingNames.length ? `<p style="margin-top:12px;color:#b45309;"><strong>Note:</strong> wage missing for ${escHtml(summary.wageMissingNames.join(', '))} (gross wages shown as 0)</p>` : ''}
           <div class="summary">
             <div class="summary-row"><span>Total Regular Hours:</span><span>${t.regularHours.toFixed(2)}</span></div>
             <div class="summary-row"><span>Total Overtime Hours:</span><span>${t.overtimeHours.toFixed(2)}</span></div>
