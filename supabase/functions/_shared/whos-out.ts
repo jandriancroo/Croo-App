@@ -275,7 +275,7 @@ async function loadDailyGoals(
   for (const row of cacheRows || []) {
     if (goals.has(row.sale_date)) continue;
     const amount = Number(
-      row.override_projection || row.living_projection || row.projected_sales || row.initial_projection || 0,
+      (Number(row.override_projection) || Number(row.living_projection) || Number(row.initial_projection) || Number(row.projected_sales) || 0),
     );
     if (amount > 0) goals.set(row.sale_date, amount);
   }

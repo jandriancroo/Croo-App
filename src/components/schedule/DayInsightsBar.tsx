@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
-import { fetchActualLaborForDates, fetchLiveLaborForToday } from '@/utils/liveLabor';
+import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
 
 type SalesSource = 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
@@ -116,33 +116,12 @@ export function DayInsightsBar({
     queryFn: async () => {
       if (!locationId) return { hours: 0, cost: 0 };
 
-      if (phase === 'today') {
-        const live = await fetchLiveLaborForToday(locationId, timezone);
-        return { hours: live.hours, cost: live.cost };
-      }
-
-      if (phase === 'completed') {
-        const { data } = await supabase
-          .from('labor_cache')
-          .select('labor_hours, labor_cost, source')
-          .eq('location_id', locationId)
-          .eq('labor_date', dateStr);
-        const rows = data || [];
-        const punchRow = rows.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-        const externalRow = rows.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-        const preferred = punchRow || externalRow;
-        if (Number(preferred?.labor_hours) > 0) {
-          return { hours: Number(preferred?.labor_hours) || 0, cost: Number(preferred?.labor_cost) || 0 };
-        }
-        // Gap-fill straight from punches (read-only, no cache writes)
-        try {
-          const fromPunches = await fetchActualLaborForDates(locationId, timezone || 'America/Los_Angeles', [dateStr]);
-          const value = fromPunches[dateStr];
-          if (value?.hours > 0) return value;
-        } catch (e) {
-          console.error('[DayInsightsBar] punch labor fallback failed:', e);
-        }
-        return { hours: 0, cost: 0 };
+      if (phase === 'today' || phase === 'completed') {
+        // One server number (get_store_labor); today is live.
+        const { data, error } = await fetchStoreLabor([locationId], dateStr, dateStr);
+        if (error) throw error;
+        const row = data?.[0];
+        return { hours: row?.labor_hours ?? 0, cost: row?.labor_cost ?? 0 };
       }
 
       return null; // future days computed from schedule below

@@ -66,7 +66,8 @@ function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string 
   switch (metricType) {
     case 'sales_last_year_day':
       // SDLY + numerical date with slash (e.g., "SDLY 1/10")
-      baseLabel = `SDLY ${format(lastYear, 'M/d')}`;
+      // Same day last year = business date − 364 (same weekday)
+      baseLabel = `SDLY ${format(new Date(now.getTime() - 364 * 86400000), 'M/d')}`;
       break;
     case 'sales_last_year_week':
       // SWLY + Wk# (e.g., "SWLY Wk2")

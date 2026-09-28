@@ -11343,6 +11343,8 @@ export type Database = {
           override_projection: number | null
           pace_adjusted_projection: number | null
           pace_calculated_at: string | null
+          pace_month_projection: number | null
+          pace_week_projection: number | null
           payments_data: Json | null
           pizza_count: number
           pos_source: string
@@ -11374,6 +11376,8 @@ export type Database = {
           override_projection?: number | null
           pace_adjusted_projection?: number | null
           pace_calculated_at?: string | null
+          pace_month_projection?: number | null
+          pace_week_projection?: number | null
           payments_data?: Json | null
           pizza_count?: number
           pos_source?: string
@@ -11405,6 +11409,8 @@ export type Database = {
           override_projection?: number | null
           pace_adjusted_projection?: number | null
           pace_calculated_at?: string | null
+          pace_month_projection?: number | null
+          pace_week_projection?: number | null
           payments_data?: Json | null
           pizza_count?: number
           pos_source?: string
@@ -14071,6 +14077,14 @@ export type Database = {
           user_name: string
         }[]
       }
+      _resolve_goal: {
+        Args: { _date: string; _location_id: string }
+        Returns: number
+      }
+      _sales_caller_ok: {
+        Args: { _location_id: string; _min_role: string }
+        Returns: boolean
+      }
       _store_labor: {
         Args: { _date: string; _live: boolean; _location_id: string }
         Returns: {
@@ -14344,6 +14358,26 @@ export type Database = {
           pin_pending: string
           pin_pending_plaintext: string
           pin_pending_set_at: string
+        }[]
+      }
+      get_sales_comparisons: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          goal: number
+          lw_net_sales: number
+          ly_date: string
+          ly_hourly_data: Json
+          ly_mtd_net: number
+          ly_net_sales: number
+          ly_wtd_net: number
+          mtd_net: number
+          net_sales: number
+          pace_adjusted_projection: number
+          pace_calculated_at: string
+          pace_month_projection: number
+          pace_week_projection: number
+          sale_date: string
+          wtd_net: number
         }[]
       }
       get_store_labor: {
@@ -14628,6 +14662,10 @@ export type Database = {
       }
       reconcile_brand_deploy_log: { Args: never; Returns: number }
       refresh_all_pfg_tokens: { Args: never; Returns: undefined }
+      resolve_goal: {
+        Args: { _date: string; _location_id: string }
+        Returns: number
+      }
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined

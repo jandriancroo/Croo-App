@@ -458,11 +458,11 @@ async function recommendOrder(supabase: any, itemId: string, asOfDate: string) {
   const dailySalesOverride = new Map<string, number>();
   const { data: projRows } = await supabase
     .from("sales_cache")
-    .select("sale_date, override_projection, living_projection, initial_projection")
+    .select("sale_date, override_projection, living_projection, initial_projection, projected_sales")
     .eq("location_id", item.location_id)
     .in("sale_date", coverageDates);
   (projRows || []).forEach((r: any) => {
-    const v = r.override_projection ?? r.living_projection ?? r.initial_projection;
+    const v = (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || null);
     if (r.sale_date && v != null) {
       dailySalesOverride.set(r.sale_date, Number(v));
     }
@@ -771,11 +771,11 @@ async function recommendBatchOptimized(
       if (dateList.length === 0) return;
       const { data: rows } = await supabase
         .from("sales_cache")
-        .select("sale_date, override_projection, living_projection, initial_projection")
+        .select("sale_date, override_projection, living_projection, initial_projection, projected_sales")
         .eq("location_id", locationId)
         .in("sale_date", dateList);
       ((rows as any[]) || []).forEach((row) => {
-        const value = row.override_projection ?? row.living_projection ?? row.initial_projection;
+        const value = (Number(row.override_projection) || Number(row.living_projection) || Number(row.initial_projection) || Number(row.projected_sales) || null);
         if (row.sale_date && value != null) {
           projectionByLocationDate.set(`${locationId}:${row.sale_date}`, Number(value));
         }

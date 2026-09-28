@@ -185,10 +185,8 @@ export async function fetchHistoricalDataFromCache(
   }
 
   const lastYearDate = new Date(today);
-  lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
-  const lastYearDayOfWeek = lastYearDate.getDay();
-  const dayDiff = dayOfWeek - lastYearDayOfWeek;
-  lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
+  // Same weekday last year: date − 364 days.
+  lastYearDate.setDate(lastYearDate.getDate() - 364);
   const lastYearTodayStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, '0')}-${String(lastYearDate.getDate()).padStart(2, '0')}`;
 
   const lastYearWeekStart = new Date(lastYearDate);
@@ -627,4 +625,131 @@ export function generateProjections(
   monthProjected = Math.max(monthProjected, monthlySales);
 
   return { todayProjected, todayPaceAdjusted, weekProjected, monthProjected };
+}
+
+// ── Shared pace writer (Stage 5, Pack 3) ────────────────────────────────────
+// Every POS adapter calls this after saving today's sales. It:
+//   1. reads the one goal (resolve_goal: override > living > initial > projected),
+//   2. normalizes the hourly curve so the projected hours add up to the goal,
+//   3. computes day, week and month pace with the shared shift-aware math,
+//   4. saves hourly projected values + pace_* columns + pace_calculated_at.
+// Last year is always sale_date − 364 (same weekday).
+const PACE_DEFAULT_PATTERN: Record<number, number> = {
+  10: 0.02, 11: 0.07, 12: 0.14, 13: 0.11, 14: 0.05, 15: 0.04,
+  16: 0.06, 17: 0.11, 18: 0.13, 19: 0.10, 20: 0.07, 21: 0.05,
+  22: 0.03, 23: 0.02,
+};
+
+function goalOf(r: any): number {
+  for (const k of ['override_projection', 'living_projection', 'initial_projection', 'projected_sales']) {
+    const v = Number(r?.[k]);
+    if (v && v !== 0) return v;
+  }
+  return 0;
+}
+
+export function normalizeHourlyCurve(
+  hourly: any[],
+  openHour: number,
+  closeHour: number,
+  goal: number,
+): any[] {
+  // Keep every existing entry and field (sales, checksCount, labor…); only `projected` changes.
+  const entries: any[] = (hourly || []).map((h: any) => ({ ...h }));
+  const hourOf = (h: any) => parseInt(String(h?.hour), 10);
+  for (let h = openHour; h < closeHour; h++) {
+    if (!entries.some(e => hourOf(e) === h)) {
+      entries.push({ hour: `${String(h).padStart(2, '0')}:00`, sales: 0 });
+    }
+  }
+  entries.sort((a, b) => hourOf(a) - hourOf(b));
+  const inOpen = (h: number) => h >= openHour && h < closeHour;
+  const weights = entries.map(e => {
+    const h = hourOf(e);
+    if (!inOpen(h)) return 0;
+    const p = Number(e.projected) || 0;
+    return p > 0 ? p : (PACE_DEFAULT_PATTERN[h] || 0.05);
+  });
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  entries.forEach((e, i) => {
+    e.sales = Number(e.sales) || 0;
+    e.projected = wSum > 0 && weights[i] > 0 ? Math.round((goal * weights[i] / wSum) * 100) / 100 : 0;
+  });
+  const diff = Math.round((goal - entries.reduce((a, b) => a + b.projected, 0)) * 100) / 100;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (weights[i] > 0) { entries[i].projected = Math.round((entries[i].projected + diff) * 100) / 100; break; }
+  }
+  return entries;
+}
+
+export async function computeAndSavePace(
+  supabase: any,
+  opts: { locationId: string; date: string; timezone: string; openHour: number; closeHour: number },
+): Promise<{ goal: number; day: number; week: number; month: number } | null> {
+  const { locationId, date, timezone } = opts;
+  const openHour = opts.openHour;
+  const closeHour = opts.closeHour <= openHour ? 24 : Math.min(opts.closeHour, 24);
+
+  const { data: row } = await supabase
+    .from('sales_cache')
+    .select('net_sales, hourly_data, override_projection, living_projection, initial_projection, projected_sales')
+    .eq('location_id', locationId).eq('sale_date', date).maybeSingle();
+  if (!row) return null;
+
+  const { data: goalRpc } = await supabase.rpc('resolve_goal', { _location_id: locationId, _date: date });
+  const goal = Number(goalRpc) || goalOf(row);
+  if (!goal) return null;
+
+  const net = Number(row.net_sales) || 0;
+  const curve = normalizeHourlyCurve(Array.isArray(row.hourly_data) ? row.hourly_data : [], openHour, closeHour, goal);
+  const paceCurve = curve.map((e: any) => ({
+    hour: `${String(parseInt(String(e.hour), 10)).padStart(2, '0')}:00`,
+    sales: Number(e.sales) || 0,
+    projected: Number(e.projected) || 0,
+  }));
+
+  const curH = getCurrentHourInTimezone(timezone);
+  const curM = getCurrentMinutesInTimezone(timezone);
+  const localToday = getDateStringForTimezone(new Date(), timezone);
+  let day: number;
+  if (date < localToday && curH >= openHour) day = net; // a past business date
+  else if (curH < openHour && date >= localToday) day = Math.max(goal, net); // before open
+  else day = calculatePaceAdjustedProjection(net, curH, curM, openHour, closeHour, paceCurve);
+  if (curH >= closeHour) day = net;
+  day = Math.max(day, net);
+
+  // week (Mon–Sun) and month: actual for past days, today's pace, goal for days ahead
+  const ws = getWeekStartDate(date);
+  const we = adjustDate(ws, 6);
+  const ms = getMonthStartDate(date);
+  const [y, m] = date.split('-').map(Number);
+  const me = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+  const from = ws < ms ? ws : ms;
+  const to = we > me ? we : me;
+  const { data: rows } = await supabase
+    .from('sales_cache')
+    .select('sale_date, net_sales, override_projection, living_projection, initial_projection, projected_sales')
+    .eq('location_id', locationId).gte('sale_date', from).lte('sale_date', to);
+  const map = new Map<string, any>((rows || []).map((r: any) => [r.sale_date, r]));
+  const sumRange = (a: string, b: string) => {
+    let s = 0;
+    for (let d = a; d <= b; d = adjustDate(d, 1)) {
+      if (d < date) s += Number(map.get(d)?.net_sales) || 0;
+      else if (d === date) s += day;
+      else s += goalOf(map.get(d));
+    }
+    return s;
+  };
+  const week = Math.round(sumRange(ws, we) * 100) / 100;
+  const month = Math.round(sumRange(ms, me) * 100) / 100;
+
+  await supabase.from('sales_cache').update({
+    hourly_data: curve,
+    pace_adjusted_projection: Math.round(day * 100) / 100,
+    pace_week_projection: week,
+    pace_month_projection: month,
+    pace_calculated_at: new Date().toISOString(),
+  }).eq('location_id', locationId).eq('sale_date', date);
+
+  return { goal, day, week, month };
 }
