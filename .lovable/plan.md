@@ -222,3 +222,25 @@ Rollback: restore those columns from pkgc_backup_sales_cache.
 - **Stage 4:** flip the setting off and recompute 9/26 to today; restore the functions and redeploy labor-service if needed.
 - **Stage 6:** restore from pkgc_backup_sales_cache.
 - **Stage 7:** redeploy the Stage 0 published version, then revert the commit.
+
+## Amendments (9/27, 8:35 PM PT): these override anything above
+- **Stage 2:** every business_date call passes the store: `rpc('business_date', { _location_id: <store id> })`. There is no calendar-date fallback.
+- **Stage 3:**
+  - The queue_nightly_emails block uses `headers := public.cron_edge_headers()`.
+  - run_nightly accepts that same rotating internal key, validated the same way the other cron-called functions validate it.
+  - Added check: a dry run sent through the exact header path the host function uses returns 200 and lists tomorrow's stores (not 401).
+- **Stage 4, OT/DT math** (per person, store and business day):
+  - `ot_hours = greatest(0, least(paid, CASE WHEN dt_thr > 0 THEN dt_thr ELSE paid END) - ot_thr)`, only when ot_thr > 0
+  - `dt_hours = greatest(0, paid - dt_thr)`, only when dt_thr > 0
+  - `premium = ot_hours*(ot_mult-1)*wage + dt_hours*(dt_mult-1)*wage`
+  - Hours past the DT threshold never also earn the OT premium.
+  - Added check: a synthetic 13-hour CA shift in a rolled-back DO block adds exactly 4h × 0.5 × wage + 1h × 1.0 × wage.
+- **Stage 4, grants:**
+  - After each DROP + CREATE: `REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon, authenticated`, then re-grant exactly the Stage 0 grant list, including sandbox_exec_lmodeiyrpwvgyqcvjkjr.
+  - The check compares proacl::text to Stage 0 exactly, in addition to the has_function_privilege matrix.
+  - labor_day_user_totals is created before labor_day_totals.
+- **Stage 5 / Stage 0:**
+  - Stage 0 confirms that sales-service sync-live (cron job 33, every minute) writes today's sales_cache and daily_tips rows for every QU store. If it does not, stop before removing those upserts from fetch-qubeyond-sales.
+  - get_sales_comparisons: REVOKE from PUBLIC and anon; GRANT to authenticated and service_role.
+- **Stage 6:** the last-year UPDATE is limited to `sale_date >= current_date - 400`, the same window as pkgc_backup_sales_cache. Older rows are not touched.
+- **Stage 7, C2:** "delete the liveLabor overwrite" means removing the call sites in the dashboard files only. src/utils/liveLabor.ts itself is not edited or deleted.

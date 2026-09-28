@@ -32,3 +32,5 @@
 - [x] Backups, settings, log, detail + wrapper (V2), run_auto_clock_out, B7, cron
 - [x] V1, V3, V4, V6 (R4 safety), V7; first cron run counts; 0 'auto_clock_out:' punches
 - [ ] B-2 (live + unschedule job 240) — waits on Jordan after the log-only night
+
+- [ ] Next bundle (Stages 0–7): plan final with 9/27 amendments; waiting on Jordan "GO bundle" (build Mon 9/28 after close)
