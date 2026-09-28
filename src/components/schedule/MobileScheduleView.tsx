@@ -1355,12 +1355,12 @@ export function MobileScheduleView({
                 /* Past days with punch data — show completed-style cards */
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    {`Completed (${dayPunches.length})`}
+                    {`Completed (${allDayPunches.length})`}
                     <div className="flex items-center gap-1 ml-auto">
                     </div>
                   </h4>
                   {renderMaybeStationGrouped(
-                    dayPunches,
+                    allDayPunches,
                     (punch) => punch.user_id,
                     (punch) => (
                       <MobileShiftCard
@@ -1381,7 +1381,9 @@ export function MobileScheduleView({
                         timezone={timezone}
                         formatTimeDisplay={formatTimeDisplay}
                         showBreakIndicator={false}
+                        posIcon={punch.isToast ? 'toast' : null}
                         onClick={() => {
+                          if (punch.isToast) return; // Toast punches are read-only
                           setSelectedPunch({
                             userId: punch.user_id,
                             userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
