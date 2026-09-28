@@ -71,3 +71,6 @@
 ## Toast hourly history (queued Sep 28)
 - Current daily backfill strips hourly detail for days > 7 old — projections (4-week hourly pattern + last-year hourly) need hourly for the full year.
 - Plan: chained background job — wait for daily backfill to exit → re-run 371-day pass with hourly kept for every day (same 'api' source, overwrites hourly_data) → then capture GetShiftsV2 punch request for the labor robot.
+
+## Live freshness fix (Sep 28)
+- User saw stale sales ($1,527 @ 2:02 vs Toast $1,725): the 6-hour GitHub cron leaves afternoon gaps. Reordered the chained queue: after daily backfill → LIVE poller (90s, through close, MAX 420 min) → hourly-history pass (371d, HOURLY_ALL=1) → punch capture. Also plan: tighten GitHub cron for overlapping day coverage.
