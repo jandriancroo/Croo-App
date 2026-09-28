@@ -15,6 +15,7 @@ const MobileShiftDialog = lazyWithRetry(() => import('./MobileShiftDialog').then
 const MobileAddScheduleSheet = lazyWithRetry(() => import('./MobileAddScheduleSheet').then(m => ({ default: m.MobileAddScheduleSheet })));
 const MobileBuildScheduleWizard = lazyWithRetry(() => import('./MobileBuildScheduleWizard').then(m => ({ default: m.MobileBuildScheduleWizard })));
 import { MobileShiftCard } from './MobileShiftCard';
+import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
@@ -115,6 +116,7 @@ interface DayPunch {
   profile: Profile;
   hoursWorked: number;
   createdByName: string | null; // Name of manager who created punch if different from employee
+  isToast?: boolean; // Read-only punch sourced from Toast (Coop's)
   scheduledShift?: {
     id: string;
     start_time: string;
