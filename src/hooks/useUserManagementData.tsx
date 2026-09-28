@@ -84,6 +84,7 @@ export const useUserManagementData = () => {
   const [inviteFullName, setInviteFullName] = useState('');
   const [inviteRole, setInviteRole] = useState<AppRole>('team_member');
   const [inviteProfilePhoto, setInviteProfilePhoto] = useState<string | null>(null);
+  const [inviteWage, setInviteWage] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = React.useRef<HTMLInputElement>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
@@ -633,10 +634,16 @@ export const useUserManagementData = () => {
       toast({ title: 'Validation Error', description: 'Please provide both email and full name.', variant: 'destructive' });
       return;
     }
+    const wageTrim = inviteWage.trim();
+    const wageNum = wageTrim === '' ? undefined : Number(wageTrim);
+    if (wageNum !== undefined && (isNaN(wageNum) || wageNum < 0)) {
+      toast({ title: 'Validation Error', description: 'Please enter a valid wage, or leave it blank.', variant: 'destructive' });
+      return;
+    }
     try {
       setInviting(true);
       const { data, error } = await supabase.functions.invoke('user-service', {
-        body: { action: 'invite', email: inviteEmail.trim(), fullName: inviteFullName.trim(), role: inviteRole, profilePhotoUrl: inviteProfilePhoto, locationId: currentLocation?.id },
+        body: { action: 'invite', email: inviteEmail.trim(), fullName: inviteFullName.trim(), role: inviteRole, profilePhotoUrl: inviteProfilePhoto, locationId: currentLocation?.id, hourlyWage: wageNum },
       });
       if (error) throw error;
       const response = data as { resetLink?: string | null } | null;
@@ -645,6 +652,7 @@ export const useUserManagementData = () => {
       setInviteEmail('');
       setInviteRole('team_member');
       setInviteProfilePhoto(null);
+      setInviteWage('');
       fetchUsers();
       if (resetLink) {
         setInviteResetLink(resetLink);
