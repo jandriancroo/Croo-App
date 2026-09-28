@@ -1,4 +1,4 @@
-// Toast → toast_sales_cache + sales_cache (pos_source='toast').
+// Toast → toast_sales_cache + sales_cache (pos_source='toast') + labor_cache (source='toast').
 //
 // Homemade Toast integration (no paid Toast API). Data arrives from two
 // GitHub robots, both posting the SAME normalized day payload here:
@@ -9,7 +9,14 @@
 //
 // Rules: export/api rows are never overwritten by live rows for the same day.
 // Conditional-spread merge protects projections/overrides in sales_cache.
-// No labor — labor_cache is never touched by Toast.
+//
+// Labor: Toast owns the punches (corrections happen in Toast — read-only).
+// The live robot posts its GetShiftsV2 punches here as `ingest-labor`; we
+// write labor_cache with source='toast' (protected source tag, unique on
+// location_id + labor_date + source). CrooHQ stays the schedule of record:
+// punches are paired to scheduled_shifts for late clock-in / missed
+// clock-out alerts. Toast hours only become labor_cost where a Toast
+// employee is matched to a CrooHQ profile (wage_history / profiles wage).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "npm:zod@3.23.8";
