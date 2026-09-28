@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
-import { fetchLiveLaborForToday } from '@/utils/liveLabor';
+import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 
 interface SalesData {
   daily: number;
@@ -186,25 +186,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         .order('sale_date'),
 
       // Fetch labor from dedicated labor_cache table for selected day
-      supabase
-        .from('labor_cache')
-        .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
-        .eq('location_id', currentLocation.id)
-        .eq('labor_date', dateStr),
+      fetchStoreLabor([currentLocation.id], dateStr, dateStr),
       // Fetch labor for entire week range for weekly chart
-      supabase
-        .from('labor_cache')
-        .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
-        .eq('location_id', currentLocation.id)
-        .gte('labor_date', weekStartStr)
-        .lte('labor_date', weekEndStr),
+      fetchStoreLabor([currentLocation.id], weekStartStr, weekEndStr),
       // Fetch labor for entire month range for monthly chart
-      supabase
-        .from('labor_cache')
-        .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
-        .eq('location_id', currentLocation.id)
-        .gte('labor_date', monthStartStr)
-        .lte('labor_date', monthEndStr)
+      fetchStoreLabor([currentLocation.id], monthStartStr, monthEndStr)
     ]);
 
     const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error || weeklyLaborResult.error || monthlyLaborResult.error;
@@ -234,7 +220,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     
     // labor_cache only holds CLOSED days, so today's hours/cost come from live
     // punches — otherwise weekly/monthly hours read low while cost keeps moving.
-    const liveToday = await fetchLiveLaborForToday(currentLocation.id, locationZone);
+    // Server labor (get_store_labor) already includes business today live.
+    const liveToday = { date: '', hours: 0, cost: 0 };
 
     // Build a map of daily labor data for the week (prefer punch_clock over qubeyond)
     const weeklyLaborData = weeklyLaborResult.data || [];
@@ -683,12 +670,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             .eq('location_id', currentLocation.id)
             .gte('sale_date', weekStartStr)
             .lte('sale_date', weekEndStr),
-          supabase
-            .from('labor_cache')
-            .select('labor_date, labor_cost, labor_hours, source')
-            .eq('location_id', currentLocation.id)
-            .gte('labor_date', weekStartStr)
-            .lte('labor_date', weekEndStr),
+          fetchStoreLabor([currentLocation.id], weekStartStr, weekEndStr),
         ]);
 
         if (!weekSalesRes.error && !weekLaborRes.error) {
@@ -717,10 +699,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
           // Today has no labor_cache row yet — use live punch math so hours and
           // cost move together (same helper the pay period cards use).
-          const liveTodayLabor = await fetchLiveLaborForToday(currentLocation.id, locationZone);
-          if (liveTodayLabor.hours > 0) {
-            laborMap.set(liveTodayLabor.date, { cost: liveTodayLabor.cost, hours: liveTodayLabor.hours });
-          }
 
 
           const repairedWeeklyBreakdown = salesData.weeklyBreakdown.map((d) => {
@@ -783,7 +761,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // POS integration can never gate whether labor shows. One shared helper.
     if (isTodayCheck && currentLocation?.id && salesData) {
       try {
-        const liveLabor = await fetchLiveLaborForToday(currentLocation.id, locationZone);
+        const { data: srv, error: srvErr } = await fetchStoreLabor([currentLocation.id], targetDateStr, targetDateStr);
+        if (srvErr) throw srvErr;
+        const liveLabor = { hours: srv?.[0]?.labor_hours ?? 0, cost: srv?.[0]?.labor_cost ?? 0 };
         const todaySales = Number(salesData.daily) || 0;
         salesData.labor = (liveLabor.hours > 0 || liveLabor.cost > 0)
           ? {
@@ -1330,7 +1310,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       if (lastSalesDataSentKey.current !== 'null') {
         lastSalesDataSentKey.current = 'null';
         // Write null to shared cache + legacy callback
-        queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id], null);
+        queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id, targetDateStr], null);
         onSalesDataChange?.(null);
       }
       return;
@@ -1392,7 +1372,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // PRIMARY: Write enriched data to shared React Query cache.
     // Dashboard and widgets read from this key — no callback prop needed.
     // SalesSummary is the MASTER WRITER for this cache key.
-    queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id], enhancedData);
+    queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id, targetDateStr], enhancedData);
 
     // LEGACY: Keep callback for any remaining consumers during migration
     onSalesDataChange?.(enhancedData);
