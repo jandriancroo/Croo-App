@@ -58,14 +58,19 @@ export function PunchGroupHeader({
       <span className={`punch-num text-[13px] font-bold ${fullyApproved ? 'text-[hsl(var(--success))]' : 'text-muted-foreground'}`}>
         {approvedCount}/{totalCount}
       </span>
-      <span className="punch-num text-[17px] font-extrabold leading-tight text-foreground whitespace-nowrap">
+      <span
+        className="punch-num inline-flex items-baseline text-[17px] font-extrabold leading-tight text-foreground whitespace-nowrap"
+        title={scheduledHours != null ? `Scheduled ${scheduledHours.toFixed(1)} hrs · Worked ${totalHours.toFixed(1)} hrs` : undefined}
+      >
         {scheduledHours != null && (
-          <span className="mr-2 text-[13px] font-semibold text-muted-foreground">
-            Sched {scheduledHours.toFixed(1)} ·{' '}
-            <span className={totalHours > scheduledHours + 0.25 ? 'text-destructive' : ''}>Worked</span>
+          <span className="mr-0.5 inline-flex items-center gap-1 text-[13px] font-semibold text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 self-center" aria-label="Scheduled" />
+            {scheduledHours.toFixed(1)}/
           </span>
         )}
-        {totalHours.toFixed(1)}
+        <span className={scheduledHours != null && totalHours > scheduledHours + 0.25 ? 'text-destructive' : ''}>
+          {totalHours.toFixed(1)}
+        </span>
         <span className="ml-1 text-[12px] font-semibold text-muted-foreground">hrs</span>
       </span>
     </div>

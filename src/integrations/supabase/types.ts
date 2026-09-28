@@ -12853,6 +12853,65 @@ export type Database = {
           },
         ]
       }
+      toast_sales_cache: {
+        Row: {
+          avg_ticket: number
+          check_count: number
+          created_at: string
+          data_source: string
+          fetched_at: string
+          flagged_no_sales: boolean
+          guest_count: number
+          hourly_data: Json
+          id: string
+          location_id: string
+          net_sales: number
+          payments_data: Json | null
+          raw_payload: Json | null
+          sale_date: string
+        }
+        Insert: {
+          avg_ticket?: number
+          check_count?: number
+          created_at?: string
+          data_source: string
+          fetched_at?: string
+          flagged_no_sales?: boolean
+          guest_count?: number
+          hourly_data?: Json
+          id?: string
+          location_id: string
+          net_sales?: number
+          payments_data?: Json | null
+          raw_payload?: Json | null
+          sale_date: string
+        }
+        Update: {
+          avg_ticket?: number
+          check_count?: number
+          created_at?: string
+          data_source?: string
+          fetched_at?: string
+          flagged_no_sales?: boolean
+          guest_count?: number
+          hourly_data?: Json
+          id?: string
+          location_id?: string
+          net_sales?: number
+          payments_data?: Json | null
+          raw_payload?: Json | null
+          sale_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_sales_cache_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_dashboard_sections: {
         Row: {
           created_at: string

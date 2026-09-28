@@ -13,6 +13,7 @@ export const POS_OPTIONS = [
   { key: 'qubeyond', label: 'QuBeyond' },
   { key: 'clover', label: 'Clover' },
   { key: 'aloha', label: 'Aloha' },
+  { key: 'toast', label: 'Toast' },
 ] as const;
 
 export const SUPPORTING_INTEGRATIONS = [

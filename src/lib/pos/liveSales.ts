@@ -11,6 +11,7 @@ const POS_FUNCTIONS: Record<string, string> = {
   qubeyond: "fetch-qubeyond-sales",
   clover: "clover-sync",
   aloha: "aloha-sync",
+  toast: "toast-sync",
 };
 
 export async function getActivePosType(locationId: string): Promise<string | null> {
@@ -23,7 +24,7 @@ export async function getActivePosType(locationId: string): Promise<string | nul
 
   const found = (data || []).map((r: { integration_type: string }) => r.integration_type);
   // Deterministic preference order when a store has more than one active.
-  for (const key of ["qubeyond", "clover", "aloha"]) {
+  for (const key of ["qubeyond", "clover", "aloha", "toast"]) {
     if (found.includes(key)) return key;
   }
   return null;

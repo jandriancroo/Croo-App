@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type BrandIntegrationKey = 'qubeyond' | 'clover' | 'aloha' | 'pfg' | 'produce_alliance' | 'ovation';
+export type BrandIntegrationKey = 'qubeyond' | 'clover' | 'aloha' | 'toast' | 'pfg' | 'produce_alliance' | 'ovation';
 
 export function useBrandIntegrationPolicies(locationId?: string) {
   return useQuery({
