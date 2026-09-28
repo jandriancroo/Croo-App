@@ -463,7 +463,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }
     
     return projectedSales;
-  }, [locationId, salesData?.hourly_data, totalSales, projectedSales, timezone]);
+  }, [locationId, salesData, totalSales, projectedSales, timezone]);
   
   
   // Labor calculations
