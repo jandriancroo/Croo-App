@@ -80,6 +80,7 @@ interface ActiveShift {
   breakStartTime: string | null;
   breakType: string | null;
   position?: string;
+  isToast?: boolean; // Shift comes from Toast (read-only punches)
   /* No per-person wage ever reaches this device — savings are an exact
      aggregate computed on the server (get_cut_savings_total). */
   scheduledStartTime?: string; // HH:mm format from shift template
