@@ -412,39 +412,89 @@ export function ManagerDashboardOverlay({
       // Fetch profiles for active users
       if (activeUsers.length === 0) return [];
 
-      const userIds = activeUsers.map(u => u.userId);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, profile_photo_url')
-        .in('id', userIds);
-
       // No wage lookup on this screen. Individual pay rates never reach a paired
       // device; dollar estimates come from the store-total blended rate instead.
 
+      // ── Read-only Toast shifts (Coop's: Toast owns the punches) ──
+      // Mapped employees use their CrooHQ user id (cuts + scheduled times work);
+      // unmapped ones get a synthetic `toast:<shiftId>` id.
+      const toastEmployeeNames = new Map<string, string>();
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = (id: string) => uuidRe.test(id);
 
-
-
-      // Get today's shifts for positions and start/end times
-      const { data: shifts } = await supabase
-        .from('scheduled_shifts')
-        .select('user_id, template:shift_templates(position, start_time, end_time)')
+      const { data: toastRows } = await supabase
+        .from('toast_shifts')
+        .select('id, employee_name, toast_user_id, croo_user_id, croo_scheduled_shift_id, status, in_time, breaks, job_title, payable_seconds')
+        .eq('location_id', locationId)
         .eq('shift_date', todayStr)
-        .in('user_id', userIds);
+        .eq('status', 'IN_PROGRESS');
+
+      (toastRows || []).forEach((s: any) => {
+        const breaks = Array.isArray(s.breaks) ? s.breaks : [];
+        const openBreak = breaks.find((b: any) => b.start && !b.end) || null;
+        const userId = (s.croo_user_id && isUuid(s.croo_user_id))
+          ? s.croo_user_id
+          : `toast:${s.id}`;
+        toastEmployeeNames.set(userId, s.employee_name || 'Unknown');
+        activeUsers.push({
+          userId,
+          clockInTime: s.in_time,
+          isOnBreak: !!openBreak,
+          breakStartTime: openBreak?.start || null,
+          breakType: 'Break',
+        });
+      });
+
+      if (activeUsers.length === 0) return [];
+
+      const uuidUserIds = activeUsers.map(u => u.userId).filter(isUuid);
+
+      const { data: profiles } = uuidUserIds.length
+        ? await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .in('id', uuidUserIds)
+        : { data: null };
+
+      // Get today's shifts for positions and start/end times (uuid users only)
+      const { data: shifts } = uuidUserIds.length
+        ? await supabase
+          .from('scheduled_shifts')
+          .select('user_id, template:shift_templates(position, start_time, end_time)')
+          .eq('shift_date', todayStr)
+          .in('user_id', uuidUserIds)
+        : { data: null };
+
+      // Scheduled end times for Toast shifts paired with a CrooHQ shift
+      const toastSchedIds = [...new Set((toastRows || [])
+        .map((s: any) => s.croo_scheduled_shift_id)
+        .filter(Boolean))] as string[];
+      const toastSchedMap = new Map<string, { start_time: string; end_time: string }>();
+      if (toastSchedIds.length) {
+        const { data: toastSchedRows } = await supabase
+          .from('scheduled_shifts')
+          .select('id, start_time, end_time')
+          .in('id', toastSchedIds);
+        (toastSchedRows || []).forEach(r => {
+          toastSchedMap.set(r.id, { start_time: r.start_time, end_time: r.end_time });
+        });
+      }
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
-      const shiftMap = new Map((shifts || []).map(s => [s.user_id, { 
-        position: s.template?.position, 
+      const shiftMap = new Map((shifts || []).map(s => [s.user_id, {
+        position: s.template?.position,
         startTime: s.template?.start_time,
-        endTime: s.template?.end_time 
+        endTime: s.template?.end_time
       }]));
 
       return activeUsers.map(u => {
         const profile = profileMap.get(u.userId);
         const shiftInfo = shiftMap.get(u.userId);
+        const isToast = !isUuid(u.userId) || toastEmployeeNames.has(u.userId);
         return {
           userId: u.userId,
-          fullName: profile?.full_name || 'Unknown',
+          fullName: toastEmployeeNames.get(u.userId) || profile?.full_name || 'Unknown',
           profilePhoto: profile?.profile_photo_url || null,
           clockInTime: u.clockInTime,
           isOnBreak: u.isOnBreak,
@@ -453,6 +503,7 @@ export function ManagerDashboardOverlay({
           position: shiftInfo?.position || undefined,
           scheduledStartTime: shiftInfo?.startTime || undefined,
           scheduledEndTime: shiftInfo?.endTime || undefined,
+          isToast,
         } as ActiveShift;
       }).sort((a, b) => a.fullName.localeCompare(b.fullName));
     },
