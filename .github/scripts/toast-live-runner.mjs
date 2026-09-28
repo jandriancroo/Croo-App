@@ -238,24 +238,24 @@ let SHIFTS_TPL = null;
 let EMPLOYEES_TPL = null;
 
 function replay(tpl, target /* yyyy-MM-dd */) {
-  const compact = target.replaceAll('-', '');
   let url = tpl.url;
   let body = tpl.body ?? null;
-  const dates = tpl.dates || [];
-  // Replace every captured date occurrence with the matching offset target.
+  const dates = (tpl.dates || []).map((d) => ({
+    raw: d,
+    compact: /^\d{8}$/.test(d),
+    iso: /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d,
+  }));
+  // The last captured date is the reference; earlier dates keep their offset
+  // so a captured date-range replays as the same span around the target day.
+  const end = dates.length ? dates[dates.length - 1].iso : null;
   const offsets = dates.map((d) => {
-    if (/^\d{8}$/.test(d)) return { from: d, delta: daysBetween(compactTarget(compact), d) };
-    return { from: d, delta: 0 };
+    const delta = end ? daysBetweenIso(d.iso, end) : 0;
+    const to = shiftDate(target, delta);
+    return { from: d.raw, to: d.compact ? to.replaceAll('-', '') : to };
   });
-  // Simple case: all captured dates map to the target (single day capture).
   const sub = (s) => {
     let out = s;
-    for (const o of offsets) {
-      const to = o.from.startsWith('2') && o.from.length === 8
-        ? shiftDate(target, o.delta).replaceAll('-', '')
-        : shiftDate(target, o.delta);
-      out = out.split(o.from).join(to);
-    }
+    for (const o of offsets) out = out.split(o.from).join(o.to);
     return out;
   };
   url = sub(url);
@@ -263,11 +263,10 @@ function replay(tpl, target /* yyyy-MM-dd */) {
   return { url, body };
 }
 
-function daysBetween(aComp /* 20260928 */, bComp) {
-  return Math.round((Date.UTC(+aComp.slice(0,4), +aComp.slice(4,6)-1, +aComp.slice(6,8)) -
-    Date.UTC(+bComp.slice(0,4), +bComp.slice(4,6)-1, +bComp.slice(6,8))) / 86400000);
+function daysBetweenIso(a, b) {
+  return Math.round((Date.UTC(+a.slice(0, 4), +a.slice(4, 6) - 1, +a.slice(6, 8)) -
+    Date.UTC(+b.slice(0, 4), +b.slice(4, 6) - 1, +b.slice(6, 8))) / 86400000);
 }
-function compactTarget() { return ''; } // unused — kept simple
 function shiftDate(date, delta) {
   const d = new Date(date + 'T12:00:00Z');
   d.setUTCDate(d.getUTCDate() + delta);
