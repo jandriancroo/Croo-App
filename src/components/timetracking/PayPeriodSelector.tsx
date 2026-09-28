@@ -29,6 +29,8 @@ interface Props {
   getPeriodStatus: (period: any) => any;
   timezone: string;
   onSelect: (period: any) => void;
+  /** Rows to display; extra periods passed in are used only for comparisons. */
+  visibleCount?: number;
 }
 
 const usd0 = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -139,7 +141,7 @@ const VsLast = () => (
   </span>
 );
 
-export function PayPeriodSelector({ payPeriods, periodSummaries, getPeriodStatus, timezone, onSelect }: Props) {
+export function PayPeriodSelector({ payPeriods, periodSummaries, getPeriodStatus, timezone, onSelect, visibleCount }: Props) {
   const rows: Row[] = useMemo(() => {
     const base = payPeriods.map((period, index) => {
       const key = `${period.startDate}_${period.endDate}`;
@@ -196,7 +198,7 @@ export function PayPeriodSelector({ payPeriods, periodSummaries, getPeriodStatus
   }, [payPeriods, periodSummaries, getPeriodStatus]);
 
   const current = rows[0];
-  const earlier = rows.slice(1);
+  const earlier = rows.slice(1, visibleCount ?? rows.length);
 
   // Sparkline series: closed periods only, oldest → newest.
   const closedSeries = useMemo(() => {

@@ -125,7 +125,8 @@ export default function PayrollReview() {
         {!selectedPeriod ? (
           <>
           <PayPeriodSelector
-            payPeriods={payPeriods.slice(0, visiblePeriodCount)}
+            payPeriods={payPeriods.slice(0, visiblePeriodCount + 1)}
+            visibleCount={visiblePeriodCount}
             periodSummaries={periodSummaries}
             getPeriodStatus={getPeriodStatus}
             timezone={timezone}
