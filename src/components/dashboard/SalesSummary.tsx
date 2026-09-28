@@ -1682,7 +1682,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </div>
                 </div>
                 {lastFetchTimestamp && isToday && (() => {
-                  const pos = currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined;
+                  const pos = (currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined) as string | undefined;
                   const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : pos === 'toast' ? 'Toast' : pos === 'aloha' ? 'Aloha' : 'POS';
                   return (
                     <p className="text-[8px] text-white/50 mt-1 font-medium">
