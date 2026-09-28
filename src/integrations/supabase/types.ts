@@ -6323,6 +6323,21 @@ export type Database = {
           },
         ]
       }
+      labor_ot_premium: {
+        Row: {
+          enabled: boolean
+          id: boolean
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+        }
+        Relationships: []
+      }
       labor_rule_presets: {
         Row: {
           created_at: string
@@ -9804,6 +9819,84 @@ export type Database = {
         Update: {
           est?: string | null
           id?: string | null
+        }
+        Relationships: []
+      }
+      pkgc_backup_functions: {
+        Row: {
+          captured_at: string | null
+          definition: string | null
+          md5: string | null
+          proacl: string | null
+          signature: string | null
+        }
+        Insert: {
+          captured_at?: string | null
+          definition?: string | null
+          md5?: string | null
+          proacl?: string | null
+          signature?: string | null
+        }
+        Update: {
+          captured_at?: string | null
+          definition?: string | null
+          md5?: string | null
+          proacl?: string | null
+          signature?: string | null
+        }
+        Relationships: []
+      }
+      pkgc_backup_labor_samples: {
+        Row: {
+          d: string | null
+          location_id: string | null
+          store_labor: Json | null
+          user_totals: Json | null
+        }
+        Insert: {
+          d?: string | null
+          location_id?: string | null
+          store_labor?: Json | null
+          user_totals?: Json | null
+        }
+        Update: {
+          d?: string | null
+          location_id?: string | null
+          store_labor?: Json | null
+          user_totals?: Json | null
+        }
+        Relationships: []
+      }
+      pkgc_backup_sales_cache: {
+        Row: {
+          hourly_data: Json | null
+          location_id: string | null
+          net_sales: number | null
+          pace_adjusted_projection: number | null
+          sale_date: string | null
+          yoy_hourly_data: Json | null
+          yoy_net_sales: number | null
+          yoy_sale_date: string | null
+        }
+        Insert: {
+          hourly_data?: Json | null
+          location_id?: string | null
+          net_sales?: number | null
+          pace_adjusted_projection?: number | null
+          sale_date?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
+        }
+        Update: {
+          hourly_data?: Json | null
+          location_id?: string | null
+          net_sales?: number | null
+          pace_adjusted_projection?: number | null
+          sale_date?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
         }
         Relationships: []
       }
@@ -13866,6 +13959,23 @@ export type Database = {
           uncapped_end: string
         }[]
       }
+      _labor_ot_rule: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          active: boolean
+          dt_mult: number
+          dt_thr: number
+          ot_mult: number
+          ot_thr: number
+        }[]
+      }
+      _labor_ot_span: {
+        Args: { a: number; b: number; dt_thr: number; ot_thr: number }
+        Returns: {
+          dt: number
+          ot: number
+        }[]
+      }
       _labor_pair_shifts: {
         Args: {
           _date: string
@@ -14369,8 +14479,11 @@ export type Database = {
         Args: { _date: string; _live: boolean; _location_id: string }
         Returns: {
           cost: number
+          dt_hours: number
           open_shift: boolean
+          ot_hours: number
           paid_hours: number
+          premium_cost: number
           unclosed_break_count: number
           unpaid_break_hours: number
           user_id: string
@@ -14394,14 +14507,17 @@ export type Database = {
           clock_out: string
           clock_out_punch_id: string
           cost: number
+          dt_hours: number
           estimated: boolean
           estimated_end: string
           ignored_duplicates: number
           meal_break_missing: boolean
           missing_clock_out: boolean
           open_shift_live: boolean
+          ot_hours: number
           paid_break_min: number
           paid_hours: number
+          premium_cost: number
           resolved_at: string
           resolved_by: string
           resolved_zero: boolean

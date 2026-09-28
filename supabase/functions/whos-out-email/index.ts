@@ -14,16 +14,25 @@
 //        real manager/admin recipient list (shift managers excluded). Used for
 //        one-off demos to a store's leadership.
 //
+//   POST { action: "run_nightly", dry_run? }
+//        Internal only (service role key or CRON_SECRET). Called by
+//        queue_nightly_emails() (job 26, 4:05 AM PT). One email per active,
+//        non-[TEST] store for tomorrow; skips stores with nobody out or no
+//        recipients. dedup_key whos_out_day_v1_<location_id>_<date>.
+//
 // Delivery is left to the existing email-queue-sender.
 // ---------------------------------------------------------------------------
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { authenticateCaller } from "../_shared/callerAuth.ts";
+import { authenticateCaller, requireInternalCaller } from "../_shared/callerAuth.ts";
 import {
+  addDays,
+  buildWhosOutDayHtml,
   buildWhosOutHtml,
   loadWhosOut,
   localDateInTimezone,
   nextWeekRange,
   resolveWhosOutRecipients,
+  whosOutDaySubject,
   whosOutSubject,
 } from "../_shared/whos-out.ts";
 
@@ -52,6 +61,12 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = body?.action || "send_sample";
+
+    if (action === "run_nightly") {
+      const deny = requireInternalCaller(req, corsHeaders);
+      if (deny) return deny;
+      return json(await runNightly(supabase, body?.dry_run === true));
+    }
     const locationId: string | undefined = body?.location_id;
     if (!locationId) return json({ error: "location_id required" }, 400);
 
@@ -162,3 +177,59 @@ Deno.serve(async (req) => {
     return json({ error: String((error as any)?.message || error) }, 500);
   }
 });
+
+// ── Nightly one-day digest ────────────────────────────────────────────────
+async function runNightly(supabase: any, dryRun: boolean) {
+  const { data: locs, error } = await supabase
+    .from("locations")
+    .select("id, name")
+    .eq("is_active", true);
+  if (error) throw new Error(`locations read failed: ${error.message}`);
+
+  const results: any[] = [];
+  for (const loc of (locs || []).filter((l: any) => !String(l.name || "").startsWith("[TEST]"))) {
+    try {
+      const { data: bd, error: bdErr } = await supabase.rpc("business_date", { _location_id: loc.id });
+      if (bdErr || !bd) throw new Error(`business_date failed: ${bdErr?.message ?? "no data"}`);
+      const { data: st } = await supabase
+        .from("location_settings")
+        .select("timezone")
+        .eq("location_id", loc.id)
+        .maybeSingle();
+      const localDate = localDateInTimezone(st?.timezone || "America/Los_Angeles");
+      const businessDate = String(bd).slice(0, 10);
+      const target = addDays(businessDate > localDate ? businessDate : localDate, 1);
+
+      const data = await loadWhosOut(supabase, loc.id, target, target);
+      const day = data.days.find((d: any) => d.date === target);
+      const people = day?.entries?.length ?? 0;
+      if (people === 0) { results.push({ store: loc.name, target, status: "nobody_out" }); continue; }
+
+      const recipients = await resolveWhosOutRecipients(supabase, loc.id);
+      if (recipients.length === 0) { results.push({ store: loc.name, target, people, status: "no_recipients" }); continue; }
+
+      if (dryRun) {
+        results.push({ store: loc.name, target, people, names: day.entries.map((e: any) => e.name), recipients: recipients.length, status: "dry_run" });
+        continue;
+      }
+
+      const { error: qErr } = await supabase.from("email_queue").insert({
+        from_address: "CrooHQ <hello@croohq.email>",
+        to_addresses: recipients.map((r) => r.email),
+        subject: whosOutDaySubject(data, target),
+        html: buildWhosOutDayHtml(data, target),
+        source: "whos_out_digest",
+        dedup_key: `whos_out_day_v1_${loc.id}_${target}`,
+        metadata: { notification_type: "whos_out_day", location_id: loc.id, target_date: target },
+      });
+      if (qErr && qErr.code === "23505") results.push({ store: loc.name, target, status: "already_queued" });
+      else if (qErr) throw new Error(qErr.message);
+      else results.push({ store: loc.name, target, people, recipients: recipients.length, status: "queued" });
+    } catch (e) {
+      console.error(`[whos-out-email] run_nightly ${loc.name} failed:`, e);
+      results.push({ store: loc.name, status: "error", error: String((e as any)?.message || e) });
+    }
+  }
+  console.log("[whos-out-email] run_nightly", JSON.stringify({ dryRun, results }));
+  return { success: true, dry_run: dryRun, count: results.length, results };
+}
