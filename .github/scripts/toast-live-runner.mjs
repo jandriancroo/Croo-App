@@ -26,10 +26,10 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !CRON_SECRET) {
   console.error('❌ Missing SUPABASE_URL / SUPABASE_ANON_KEY / CRON_SECRET');
   process.exit(1);
 }
-for (const k of ['TOAST_LOGIN_EMAIL', 'TOAST_LOGIN_PASSWORD', 'TOTP_SECRET']) {
+for (const k of ['TOAST_LOGIN_EMAIL', 'TOAST_LOGIN_PASSWORD', 'TOAST_TOTP_SECRET']) {
   if (!process.env[k]) { console.error(`❌ Missing ${k}`); process.exit(1); }
 }
-const TOAST_TOTP_SECRET = process.env.TOTP_SECRET;
+const TOAST_TOTP_SECRET = process.env.TOAST_TOTP_SECRET;
 
 // ── TOTP (RFC 6238, 6 digits / 30 s — same as Google Authenticator) ──
 function totp(secret, at = Date.now()) {
@@ -133,7 +133,7 @@ async function signInOnce(browser) {
   for (let a = 0; a < 3; a++) {
     try {
       await page.waitForSelector('input[inputmode=numeric]', { timeout: 15000 });
-      await page.fill('input[inputmode=numeric]', totp(TOTP_TOTP()));
+      await page.fill('input[inputmode=numeric]', totp(TOTP_TOTP_SECRET_V));
       const btns = page.locator("button:has-text('Verify'), button:has-text('Continue'), button[type=submit]");
       if (await btns.count() > 0) await btns.first().click();
     } catch { break; }
@@ -146,7 +146,6 @@ async function signInOnce(browser) {
   console.log('✅ Toast sign-in OK');
   return { ctx, page };
 }
-function TOTP_TOTP() { return totp(TOTP_TOTP_SECRET_V); }
 let TOTP_TOTP_SECRET_V;
 
 // Fetch inside the signed-in browser session (cookies + bot checks apply).
