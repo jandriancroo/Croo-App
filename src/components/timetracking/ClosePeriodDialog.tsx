@@ -15,6 +15,9 @@ export interface UnapprovedShift {
   date: string; // yyyy-MM-dd
   hours: number;
   punchIds: string[];
+  timeRange: string;
+  /** Plain-language problems on this shift; empty = clean. */
+  issues: string[];
 }
 
 interface Props {
@@ -103,7 +106,9 @@ export function ClosePeriodDialog({
     refresh();
   };
 
-  const allUnapprovedIds = unapproved.flatMap((u) => u.punchIds);
+  const flagged = unapproved.filter((u) => u.issues.length > 0);
+  const clean = unapproved.filter((u) => u.issues.length === 0);
+  const cleanIds = clean.flatMap((u) => u.punchIds);
 
   return (
     <>
@@ -133,22 +138,47 @@ export function ClosePeriodDialog({
             </section>
           )}
 
-          {unapproved.length > 0 && (
+          {flagged.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                <AlertCircle className="h-4 w-4 text-destructive" /> Check before approving ({flagged.length})
+              </h3>
+              {flagged.map((u) => (
+                <div key={u.key} className="rounded-md border border-destructive/30 p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm">
+                      <div><span className="font-medium">{u.name}</span> <span className="text-muted-foreground">{day(u.date)}</span></div>
+                      <div className="text-xs text-muted-foreground">{u.timeRange} · {u.hours.toFixed(2)} h</div>
+                    </div>
+                    <Button size="sm" variant="outline" disabled={u.punchIds.some((id) => approvingIds.has(id))} onClick={() => onApprove(u.punchIds)}>Approve</Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {u.issues.map((i) => (
+                      <span key={i} className="rounded-full bg-destructive/10 text-destructive text-xs font-medium px-2 py-0.5">{i}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {clean.length > 0 && (
             <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-                  <Clock className="h-4 w-4" /> Needs approval ({unapproved.length})
+                  <Clock className="h-4 w-4" /> No issues, needs approval ({clean.length})
                 </h3>
-                <Button size="sm" variant="outline" disabled={busy || allUnapprovedIds.some((id) => approvingIds.has(id))} onClick={() => onApprove(allUnapprovedIds)}>
-                  Approve remaining
+                <Button size="sm" variant="outline" disabled={busy || cleanIds.some((id) => approvingIds.has(id))} onClick={() => onApprove(cleanIds)}>
+                  Approve all {clean.length}
                 </Button>
               </div>
-              {unapproved.map((u) => (
-                <div key={u.key} className="flex items-center justify-between rounded-md border p-2.5">
-                  <div className="text-sm"><span className="font-medium">{u.name}</span> <span className="text-muted-foreground">{day(u.date)} · {u.hours.toFixed(2)} h</span></div>
-                  <Button size="sm" variant="ghost" disabled={u.punchIds.some((id) => approvingIds.has(id))} onClick={() => onApprove(u.punchIds)}>Approve</Button>
-                </div>
-              ))}
+              <div className="rounded-md border divide-y">
+                {clean.map((u) => (
+                  <div key={u.key} className="flex items-center justify-between px-2.5 py-1.5 text-sm">
+                    <span><span className="font-medium">{u.name}</span> <span className="text-muted-foreground">{day(u.date)} · {u.timeRange} · {u.hours.toFixed(2)} h</span></span>
+                  </div>
+                ))}
+              </div>
             </section>
           )}
 
