@@ -14695,6 +14695,10 @@ export type Database = {
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       send_shift_overstay_alerts: { Args: never; Returns: undefined }
       set_pending_punch_pin: { Args: { p_pin: string }; Returns: Json }
+      set_register_labor: {
+        Args: { _integration_type: string; _location_id: string; _on: boolean }
+        Returns: boolean
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       soft_delete_announcement_post: {
