@@ -383,7 +383,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const laborData = laborResult.data || [];
     // Pick the best source: punch_clock > qubeyond (punch_clock is our internal source of truth)
     const punchClockRow = laborData.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-    const externalRow = laborData.find((r: any) => ['qubeyond', 'aloha', 'clover'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
+    const externalRow = laborData.find((r: any) => ['qubeyond', 'aloha', 'clover', 'toast'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
     const preferredRow = punchClockRow || externalRow;
     
     const aggregatedLabor = (dateStr === liveToday.date && liveToday.hours > 0) ? {
@@ -1682,8 +1682,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </div>
                 </div>
                 {lastFetchTimestamp && isToday && (() => {
-                  const pos = currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined;
-                  const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : 'POS';
+                  const pos = (currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined) as string | undefined;
+                  const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : pos === 'toast' ? 'Toast' : pos === 'aloha' ? 'Aloha' : 'POS';
                   return (
                     <p className="text-[8px] text-white/50 mt-1 font-medium">
                       Updated from {label} at {format(lastFetchTimestamp, 'h:mm a')}
