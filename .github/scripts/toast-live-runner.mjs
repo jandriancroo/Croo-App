@@ -393,7 +393,7 @@ async function fetchWageMap(page) {
     const res = await page.evaluate(async (rid) => {
       const r = await fetch('/api/restaurants/employees/users', { credentials: 'include', headers: { Accept: '*/*', 'x-requested-with': 'XMLHttpRequest', 'toast-restaurant-external-id': rid, 'toast-management-set-guid': '16c17ca1-699a-43da-852a-3004d18fa63d', 'toast-restaurant-set-guid': '5ca95934-2724-44aa-a474-4a0bd7a5b9e1' } });
       return { status: r.status, body: r.ok ? await r.json() : null, err: r.ok ? '' : (await r.text()).slice(0, 300) };
-    }, process.env.TOAST_HAYWARD_RESTAURANT_ID || 'c93b197b-bbc8-4d94-a8b3-cc24cddc8c06');
+    }, 'c93b197b-bbc8-4d94-a8b3-cc24cddc8c06');
     if (!res.body) { console.log('💵 wages status', res.status, res.err); return __wageCache.map; }
     const map = new Map();
     for (const u of res.body.users || []) {
