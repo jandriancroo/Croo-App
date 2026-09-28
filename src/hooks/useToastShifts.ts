@@ -16,8 +16,8 @@ export interface ToastShiftRow {
   status: string;
   in_time: string;
   out_time: string | null;
-  breaks: Array<{ start: string | null; end: string | null }>;
-  missed_breaks: unknown[];
+  breaks: unknown; // jsonb; shape { start, end }[] at runtime
+  missed_breaks: unknown;
   job_title: string | null;
   is_tipped: boolean;
   tips: number;
