@@ -12963,6 +12963,92 @@ export type Database = {
           },
         ]
       }
+      toast_shifts: {
+        Row: {
+          anomaly_count: number
+          breaks: Json
+          croo_scheduled_shift_id: string | null
+          croo_user_id: string | null
+          employee_name: string
+          external_employee_id: string | null
+          id: string
+          in_time: string
+          is_tipped: boolean
+          job_title: string | null
+          location_id: string
+          missed_breaks: Json
+          out_time: string | null
+          overtime_seconds: number
+          payable_seconds: number
+          restaurant_user_id: string | null
+          shift_date: string
+          status: string
+          tips: number
+          toast_shift_id: string
+          toast_user_id: string | null
+          unpaid_break_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          anomaly_count?: number
+          breaks?: Json
+          croo_scheduled_shift_id?: string | null
+          croo_user_id?: string | null
+          employee_name: string
+          external_employee_id?: string | null
+          id?: string
+          in_time: string
+          is_tipped?: boolean
+          job_title?: string | null
+          location_id: string
+          missed_breaks?: Json
+          out_time?: string | null
+          overtime_seconds?: number
+          payable_seconds?: number
+          restaurant_user_id?: string | null
+          shift_date: string
+          status?: string
+          tips?: number
+          toast_shift_id: string
+          toast_user_id?: string | null
+          unpaid_break_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          anomaly_count?: number
+          breaks?: Json
+          croo_scheduled_shift_id?: string | null
+          croo_user_id?: string | null
+          employee_name?: string
+          external_employee_id?: string | null
+          id?: string
+          in_time?: string
+          is_tipped?: boolean
+          job_title?: string | null
+          location_id?: string
+          missed_breaks?: Json
+          out_time?: string | null
+          overtime_seconds?: number
+          payable_seconds?: number
+          restaurant_user_id?: string | null
+          shift_date?: string
+          status?: string
+          tips?: number
+          toast_shift_id?: string
+          toast_user_id?: string | null
+          unpaid_break_seconds?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_shifts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_dashboard_sections: {
         Row: {
           created_at: string
