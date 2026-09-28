@@ -157,7 +157,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setRules(data || []);
+      setRules((data || []) as LaborRule[]);
     } catch (error: any) {
       console.error('Error fetching labor rules:', error);
       toast.error('Failed to load labor rules');
