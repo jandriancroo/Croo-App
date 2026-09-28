@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, X } from 'lucide-react';
 import { DayManagersWorked } from './DayManagersWorked';
+import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 
 interface Props {
   anchorDate: Date;
