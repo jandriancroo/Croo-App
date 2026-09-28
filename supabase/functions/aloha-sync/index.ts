@@ -112,6 +112,15 @@ interface AlohaDayPayload {
 }
 
 // ── Date helpers (store-local, yyyy-MM-dd strings) ─────────────────────────
+type SyncMode = "live" | "yesterday" | "date";
+
+// Store business date (10 AM-cutoff aware) from the database. No calendar fallback.
+async function getBusinessDate(supabase: any, locationId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("business_date", { _location_id: locationId });
+  if (error || !data) throw new Error(`business_date failed for ${locationId}: ${error?.message ?? "no data"}`);
+  return String(data).slice(0, 10);
+}
+
 function todayInTz(tz: string): string {
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: tz,
@@ -354,6 +363,7 @@ async function fetchAlohaDay(
   date: string,
   tz: string,
   locationName: string,
+  mode: SyncMode,
 ): Promise<AlohaDayPayload> {
   const session = await alohaLogin({
     portalUrl: creds.portal_url,
@@ -361,8 +371,6 @@ async function fetchAlohaDay(
     loginName: creds.username,
     password: creds.password,
   });
-
-  const yesterday = addDays(todayInTz(tz), -1);
 
   // Always resolve storeID + canonical storeName via getTickers first so we
   // can drive drill-down endpoints on ANY base path (ticker, yesterday, CSV).
@@ -396,7 +404,7 @@ async function fetchAlohaDay(
   // For yesterday, ticker data is stale (ticker reflects live/current-day
   // polling). Skip the ticker fast path so the InsightDashboard yesterday
   // report becomes the base — that's the authoritative EOD summary.
-  const isYesterday = date === yesterday;
+  const isYesterday = mode === "yesterday";
 
   // ── Base path 1: ticker fast path (current day polling has data). ──
   if (!isYesterday && matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
@@ -404,7 +412,7 @@ async function fetchAlohaDay(
   }
 
   // ── Base path 2: yesterday → InsightDashboard AllStores summary tiles. ──
-  if (!payload && date === yesterday) {
+  if (!payload && isYesterday) {
     const rpt = await fetchAlohaYesterdayReport(session, creds.portal_url);
     const target = normalizeName(creds.store_id || locationName);
     const m = rpt.stores.find((s) => normalizeName(s.storeName).includes(target)) ??
@@ -542,8 +550,9 @@ async function syncOneDay(
   date: string,
   tz: string,
   locationName: string,
+  mode: SyncMode,
 ) {
-  const payload = await fetchAlohaDay(creds, date, tz, locationName);
+  const payload = await fetchAlohaDay(creds, date, tz, locationName, mode);
 
   // Pack Aloha-only extras into payments_data (JSONB already accepts arbitrary
   // fields, keeps the base tender contract intact, and avoids a schema change).
@@ -698,8 +707,7 @@ async function syncOneDay(
 
   // ── Shared projection + pace engine (POS-agnostic) — today only ────────
   try {
-    const todayLocal = todayInTz(tz);
-    if (date === todayLocal) {
+    if (mode === "live") {
       let hoursOpen = 10;
       let hoursClose = 22;
       try {
@@ -873,10 +881,17 @@ Deno.serve(async (req) => {
         const lname = i.locations?.name as string;
         try {
           const tz = await getLocationTimezone(supabase, lid);
-          const todayLocal = todayInTz(tz);
-          const target = action === "sync_all_today" ? todayLocal : addDays(todayLocal, -1);
           const creds = await getAlohaCreds(supabase, lid);
-          const r = await syncOneDay(supabase, lid, creds, target, tz, lname);
+          let target: string;
+          let mode: SyncMode;
+          if (action === "sync_all_today") {
+            target = await getBusinessDate(supabase, lid);
+            mode = "live";
+          } else {
+            target = addDays(todayInTz(tz), -1);
+            mode = "yesterday";
+          }
+          const r = await syncOneDay(supabase, lid, creds, target, tz, lname, mode);
           results.push({ location: lname, tz, ...r });
         } catch (e) {
           console.error(`[aloha-sync] fan-out ${lid} failed:`, e);
@@ -898,8 +913,9 @@ Deno.serve(async (req) => {
     const today = todayInTz(tz);
 
     let dates: string[] = [];
-    if (action === "sync_today") dates = [today];
-    else if (action === "sync_yesterday") dates = [addDays(today, -1)];
+    let mode: SyncMode = "date";
+    if (action === "sync_today") { dates = [await getBusinessDate(supabase, locationId)]; mode = "live"; }
+    else if (action === "sync_yesterday") { dates = [addDays(today, -1)]; mode = "yesterday"; }
     else if (action === "sync_date") {
       if (!body.date) throw new Error("date required for sync_date");
       dates = [body.date];
@@ -921,7 +937,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const d of dates) {
       try {
-        results.push(await syncOneDay(supabase, locationId, creds, d, tz, name));
+        results.push(await syncOneDay(supabase, locationId, creds, d, tz, name, mode));
       } catch (e) {
         console.error(`[aloha-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });
