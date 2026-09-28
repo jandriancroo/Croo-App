@@ -271,6 +271,290 @@ async function runPace(supabase: any, locationId: string, date: string, netSales
   await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: open, closeHour: close });
 }
 
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+function localHour(iso: string | null | undefined, tz: string, fallbackNow = true): number | null {
+  if (!iso && !fallbackNow) return null;
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) return null;
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", hour12: false })
+      .formatToParts(d);
+    const h = parseInt(parts.find((p) => p.type === "hour")?.value ?? "", 10);
+    return Number.isFinite(h) ? (h === 24 ? 0 : h) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Distribute a shift's payable seconds across the store-local hours it spans
+// (proportional, so hourly buckets always sum to the shift total).
+function distributeHours(inIso: string, outIso: string | null, tz: string, totalHours: number) {
+  const byHour: Record<number, number> = {};
+  const startMs = new Date(inIso).getTime();
+  if (Number.isNaN(startMs)) return byHour;
+  const endMs = outIso ? new Date(outIso).getTime() : Date.now();
+  if (Number.isNaN(endMs) || endMs <= startMs || !(totalHours > 0)) {
+    const h0 = localHour(inIso, tz, false);
+    if (h0 != null) byHour[h0] = (byHour[h0] ?? 0) + totalHours;
+    return byHour;
+  }
+  // Walk the shift in 5-minute slices and bucket each slice by its local hour.
+  const stepMs = 5 * 60_000;
+  const share = totalHours / Math.ceil((endMs - startMs) / stepMs);
+  for (let t = startMs; t < endMs; t += stepMs) {
+    const h = localHour(new Date(t).toISOString(), tz, false);
+    if (h != null) byHour[h] = (byHour[h] ?? 0) + share;
+  }
+  return byHour;
+}
+
+function minutesBetween(isoA: string, isoB: string): number {
+  return Math.round((new Date(isoA).getTime() - new Date(isoB).getTime()) / 60000);
+}
+
+async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>) {
+  const { locationId, date, shifts } = body;
+  await assertToastLocation(supabase, locationId);
+
+  const { data: settings } = await supabase
+    .from("location_settings").select("timezone")
+    .eq("location_id", locationId).maybeSingle();
+  const tz = settings?.timezone || DEFAULT_TZ;
+
+  // ── Employee matching: saved mappings first, then auto-match by exact name ──
+  const { data: mappings } = await supabase
+    .from("toast_employee_mappings").select("*")
+    .eq("location_id", locationId);
+  const byToastUser = new Map<string, any>((mappings || []).map((m: any) => [m.toast_user_id, m]));
+
+  const unmatchedNames = [...new Set(shifts.map((s) => s.employeeName).filter(Boolean))]
+    .filter((n) => ![...byToastUser.values()].some((m: any) => m.toast_name && norm(m.toast_name) === norm(n)));
+  if (unmatchedNames.length > 0) {
+    const { data: roster } = await supabase
+      .from("user_locations")
+      .select("user_id, profiles(full_name)")
+      .eq("location_id", locationId);
+    const byName = new Map<string, string>();
+    for (const r of roster || []) {
+      const full = String((r as any)?.profiles?.full_name ?? "").trim();
+      if (full) byName.set(norm(full), (r as any).user_id);
+    }
+    for (const shift of shifts) {
+      if (byToastUser.has(shift.toastUserId)) continue;
+      const crooId = byName.get(norm(shift.employeeName)) ?? null;
+      const { data: inserted, error: insErr } = await supabase
+        .from("toast_employee_mappings")
+        .upsert({
+          location_id: locationId,
+          toast_user_id: shift.toastUserId,
+          toast_restaurant_user_id: shift.restaurantUserId ?? null,
+          toast_name: shift.employeeName,
+          croo_user_id: crooId,
+          match_method: crooId ? "auto" : "auto",
+        }, { onConflict: "location_id,toast_user_id" })
+        .select("id, croo_user_id")
+        .maybeSingle();
+      if (!insErr) byToastUser.set(shift.toastUserId, { toast_name: shift.employeeName, croo_user_id: inserted?.croo_user_id ?? crooId });
+    }
+  }
+
+  const crooIds = [...new Set(shifts.map((s) => byToastUser.get(s.toastUserId)?.croo_user_id).filter(Boolean))];
+  const wageByUser = new Map<string, number | null>();
+  if (crooIds.length > 0) {
+    const [{ data: wages }, { data: profs }] = await Promise.all([
+      supabase.from("wage_history")
+        .select("user_id, hourly_wage, effective_date")
+        .in("user_id", crooIds).lte("effective_date", date)
+        .order("effective_date", { ascending: false }),
+      supabase.from("profiles").select("id, hourly_wage").in("id", crooIds),
+    ]);
+    const best = new Map<string, number>();
+    for (const w of wages || []) {
+      if (!best.has(w.user_id)) best.set(w.user_id, Number(w.hourly_wage));
+    }
+    for (const p of profs || []) {
+      if (!best.has(p.id)) best.set(p.id, Number(p.hourly_wage));
+    }
+    for (const id of crooIds) wageByUser.set(id, best.has(id) ? best.get(id)! : null);
+  }
+
+  // ── Pair punches against the CrooHQ schedule for alerts ──
+  const { data: scheduled } = await supabase
+    .from("scheduled_shifts")
+    .select("id, user_id, start_time, end_time, is_time_off")
+    .eq("shift_date", date)
+    .in("user_id", crooIds.length > 0 ? crooIds : ["00000000-0000-0000-0000-000000000000"]);
+  const scheduledByUser = new Map<string, any[]>();
+  for (const s of scheduled || []) {
+    const list = scheduledByUser.get(s.user_id) || [];
+    list.push(s);
+    scheduledByUser.set(s.user_id, list);
+  }
+
+  const isToday = await (async () => {
+    try {
+      const { data: bd } = await supabase.rpc("business_date", { _location_id: locationId });
+      return bd && String(bd).slice(0, 10) === date;
+    } catch { return false; }
+  })();
+
+  // Store managers receive the punch alerts.
+  let managerIds: string[] = [];
+  if (isToday) {
+    const { data: loc } = await supabase
+      .from("locations").select("organization_id").eq("id", locationId).maybeSingle();
+    if (loc?.organization_id) {
+      const { data: members } = await supabase
+        .from("organization_members")
+        .select("user_id, org_role")
+        .eq("organization_id", loc.organization_id)
+        .in("org_role", ["admin", "super_admin", "org_admin", "general_manager", "manager"]);
+      managerIds = (members || []).map((m: any) => m.user_id);
+    }
+  }
+
+  const employeeBreakdown: unknown[] = [];
+  const hourlyByHour: Record<number, number> = {};
+  let totalHours = 0;
+  let totalCost: number | null = 0;
+
+  for (const shift of shifts) {
+    const mapping = byToastUser.get(shift.toastUserId) ?? null;
+    const crooId: string | null = mapping?.croo_user_id ?? null;
+    const outIso = shift.outTime ?? null;
+    const hours = Math.round((shift.payableSeconds / 3600) * 100) / 100;
+    totalHours += hours;
+
+    // Breaks: taken breaks, plus "currently on break" for active shifts.
+    const takenBreaks = (shift.takenBreaks || []).map((b) => ({ start: b.start ?? null, end: b.end ?? null }));
+    const openBreak = shift.status === "IN_PROGRESS"
+      ? (takenBreaks.find((b) => b.start && !b.end) ?? null)
+      : null;
+
+    let lateMinutes: number | null = null;
+    const scheduledList = crooId ? scheduledByUser.get(crooId) || [] : [];
+    if (scheduledList.length > 0) {
+      const sched = scheduledList.find((s) => !s.is_time_off) ?? scheduledList[0];
+      // Compare in store-local wall clock (both sides are HH:mm strings of the same date).
+      const inLocal = localHour(shift.inTime, tz, false);
+      if (inLocal != null) {
+        const schedHour = parseInt(String(sched.start_time).slice(0, 2), 10);
+        const schedMin = parseInt(String(sched.start_time).slice(3, 5), 10);
+        const late = (inLocal * 60) - (schedHour * 60 + schedMin);
+        if (late > 5) lateMinutes = late;
+      }
+    }
+
+    employeeBreakdown.push({
+      id: shift.id,
+      employeeName: shift.employeeName,
+      toast_user_id: shift.toastUserId,
+      croo_user_id: crooId,
+      status: shift.status,
+      in_time: shift.inTime,
+      out_time: outIso,
+      hours,
+      job_title: shift.jobTitle ?? null,
+      is_tipped: shift.isTipped,
+      tips: shift.tips,
+      on_break: !!openBreak,
+      current_break_start: openBreak?.start ?? null,
+      breaks: takenBreaks,
+      missed_breaks: shift.missedBreaks?.length ?? 0,
+      anomalies: shift.anomalyCount,
+      late_minutes: lateMinutes,
+      overtime_hours: Math.round((shift.overtimeSeconds / 3600) * 100) / 100,
+    });
+
+    const byHour = distributeHours(shift.inTime, outIso, tz, hours);
+    for (const [h, v] of Object.entries(byHour)) hourlyByHour[Number(h)] = (hourlyByHour[Number(h)] ?? 0) + v;
+
+    if (crooId && wageByUser.get(crooId) != null) {
+      totalCost = (totalCost ?? 0) + hours * wageByUser.get(crooId)!;
+    }
+  }
+  totalCost = totalCost == null || totalCost === 0 ? null : Math.round(totalCost * 100) / 100;
+
+  const hourlyBreakdown = Object.entries(hourlyByHour)
+    .map(([h, v]) => ({ hour: `${String(Number(h)).padStart(2, "0")}:00`, hours: Math.round(v * 100) / 100 }))
+    .sort((a, b) => a.hour.localeCompare(b.hour));
+
+  const now = new Date().toISOString();
+  const { error: labErr } = await supabase.from("labor_cache").upsert({
+    location_id: locationId,
+    labor_date: date,
+    source: "toast",
+    labor_hours: Math.round(totalHours * 100) / 100,
+    labor_cost: totalCost,
+    overtime_hours: Math.round(employeeBreakdown.reduce((s: number, e: any) => s + (e.overtime_hours || 0), 0) * 100) / 100,
+    hourly_breakdown: hourlyBreakdown,
+    employee_breakdown: employeeBreakdown,
+    is_stale: false,
+    fetched_at: now,
+    updated_at: now,
+  }, { onConflict: "location_id,labor_date,source" });
+  if (labErr) throw new Error(`labor_cache upsert failed for ${date}: ${labErr.message}`);
+
+  // ── Punch alerts (today only, paired against the CrooHQ schedule) ──
+  if (isToday) {
+    const queueRows: any[] = [];
+    for (const e of employeeBreakdown as any[]) {
+      if (e.croo_user_id && e.late_minutes != null) {
+        queueRows.push({
+          alert_type: "toast_late_clock_in",
+          dedup_key: `toast-late-in:${e.id}`,
+          location_id: locationId,
+          payload: {
+            title: "Late clock-in",
+            body: `${e.employeeName} clocked in ${e.late_minutes} min late (from Toast).`,
+            user_ids: managerIds,
+            notification_type: "toast_late_clock_in",
+            data: { location_id: locationId, shift_id: e.id, late_minutes: e.late_minutes },
+          },
+        });
+      }
+      // Active shift still on the clock well past its scheduled end.
+      if (e.croo_user_id && e.status === "IN_PROGRESS" && scheduledByUser.get(e.croo_user_id)?.length) {
+        const sched = scheduledByUser.get(e.croo_user_id).find((s: any) => !s.is_time_off);
+        if (sched) {
+          const endH = parseInt(String(sched.end_time).slice(0, 2), 10);
+          const endM = parseInt(String(sched.end_time).slice(3, 5), 10);
+          const nowLocal = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+          const [nh, nm] = nowLocal.split(":").map(Number);
+          const over = (nh * 60 + nm) - (endH * 60 + endM);
+          if (over > 15) {
+            queueRows.push({
+              alert_type: "toast_no_clock_out",
+              dedup_key: `toast-no-out:${e.id}:${date}`,
+              location_id: locationId,
+              payload: {
+                title: "Missing clock-out",
+                body: `${e.employeeName} is still on the clock ${over} min past their scheduled end (from Toast).`,
+                user_ids: managerIds,
+                notification_type: "toast_no_clock_out",
+                data: { location_id: locationId, shift_id: e.id, minutes_over: over },
+              },
+            });
+          }
+        }
+      }
+    }
+    if (queueRows.length > 0 && managerIds.length > 0) {
+      await supabase.from("alert_queue").upsert(queueRows, { onConflict: "dedup_key" });
+    }
+  }
+
+  return {
+    location_id: locationId,
+    date,
+    hours: Math.round(totalHours * 100) / 100,
+    employees: employeeBreakdown.length,
+    matched: employeeBreakdown.filter((e: any) => (e as any).croo_user_id).length,
+    alerts: (employeeBreakdown.filter((e: any) => e.late_minutes != null) as any[]).length,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const denied = requireInternalCaller(req, corsHeaders);
