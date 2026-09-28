@@ -73,6 +73,7 @@ export function MobileShiftCard({
   positionLabel,
   positionColor,
   showBreakIndicator = true,
+  posIcon,
   actionButton,
   timezone,
   formatTimeDisplay: formatTimeFn,
