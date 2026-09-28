@@ -80,3 +80,5 @@
 - Explained to user: 90s = poll interval while robot runs; between scheduled runs numbers freeze. Queue now wakes the poller after backfill through close; next step is covering all store hours (cron window review).
 - [ ] Toast live sales alongside history — blocked on Toast sign-in code rejections
 - [ ] Toast punches for On the Clock — after live sign-in works
+
+- [ ] Toast pay rates: verify Toast punch screen shows a Wage column for robot account (after Toast 429 limit clears); pay rates flow to toast_employee_wages → paired profiles (Toast wins)
