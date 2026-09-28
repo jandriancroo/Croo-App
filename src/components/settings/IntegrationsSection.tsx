@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
 import { InventoryAccessCard } from "./InventoryAccessCard";
 import AlohaIntegrationCard from "@/components/location/AlohaIntegrationCard";
+import { RegisterLaborSwitch } from "@/components/settings/RegisterLaborSwitch";
 import { useBrandIntegrationPolicies } from "@/hooks/useBrandIntegrationPolicies";
 
 interface QuBeyondCredentials {
@@ -926,6 +927,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Sierra Food Group Aloha Insight portal credentials</DialogDescription>
           </DialogHeader>
           {locationId && <AlohaIntegrationCard locationId={locationId} />}
+          {locationId && alohaIntegration && (
+            <div className="pt-3"><RegisterLaborSwitch locationId={locationId} integrationType="aloha" credentials={alohaIntegration.credentials} /></div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -986,13 +990,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
               <Label htmlFor="qb-location" className="text-sm">Store ID (optional)</Label>
               <Input id="qb-location" value={credentials.location_id || ""} onChange={(e) => setCredentials(prev => ({ ...prev, location_id: e.target.value }))} placeholder="Auto-detected if empty" className="h-9" />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm">Pull Qu Labor %</Label>
-                <p className="text-xs text-muted-foreground">Fetch labor data from Real Time Summary</p>
-              </div>
-              <Switch checked={credentials.pull_labor || false} onCheckedChange={(checked) => setCredentials(prev => ({ ...prev, pull_labor: checked }))} />
-            </div>
+            {locationId && integration && (
+              <RegisterLaborSwitch locationId={locationId} integrationType="qubeyond" credentials={integration.credentials} />
+            )}
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={testConnection} disabled={isTesting || !(credentials.location_id || (integration?.credentials as any)?.location_id)}>
                 {isTesting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : testResult === 'success' ? <Check className="h-4 w-4 mr-1.5 text-green-500" /> : testResult === 'error' ? <X className="h-4 w-4 mr-1.5 text-red-500" /> : <TestTube className="h-4 w-4 mr-1.5" />}
@@ -2142,6 +2142,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
               </Button>
             </div>
 
+            {locationId && cloverIntegration && (
+              <RegisterLaborSwitch locationId={locationId} integrationType="clover" credentials={cloverIntegration.credentials} />
+            )}
             {cloverIntegration && (
               <div className="space-y-2 pt-3 border-t">
                 <div className="text-xs font-medium text-muted-foreground">Sync sales from Clover</div>
