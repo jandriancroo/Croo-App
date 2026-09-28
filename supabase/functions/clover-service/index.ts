@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       // upsert by (location_id, integration_type)
       const { data: existing } = await supabase
         .from("location_integrations")
-        .select("id")
+        .select("id, credentials")
         .eq("location_id", locationId)
         .eq("integration_type", "clover")
         .maybeSingle();
@@ -80,7 +80,11 @@ Deno.serve(async (req) => {
       const payload = {
         location_id: locationId,
         integration_type: "clover",
-        credentials: { api_token: apiToken, merchant_id: merchantId, environment },
+        // Keep the register-labor switch; it is only changed via set_register_labor.
+        credentials: {
+          api_token: apiToken, merchant_id: merchantId, environment,
+          ...((existing?.credentials as any)?.pull_labor !== undefined ? { pull_labor: (existing!.credentials as any).pull_labor } : {}),
+        },
         is_active: true,
       };
 

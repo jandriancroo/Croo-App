@@ -19,6 +19,8 @@ import { Users, CalendarDays, Flag } from 'lucide-react';
 import { usePayrollData } from '@/hooks/usePayrollData';
 import { DailyTipsStrip } from '@/components/payroll/DailyTipsStrip';
 import { PayPeriodSelector } from '@/components/timetracking/PayPeriodSelector';
+import { ShiftReviewPanel, useLaborShifts, unreviewedAutoOuts } from '@/components/timetracking/ShiftReviewPanel';
+import { useState } from 'react';
 
 import {
   formatDateTimeInTimezone,
@@ -81,6 +83,18 @@ export default function PayrollReview() {
     totalTipPool,
     dailyTips,
   } = usePayrollData();
+  const [autoOutWarnOpen, setAutoOutWarnOpen] = useState(false);
+  const { data: reviewShifts } = useLaborShifts(currentLocation?.id, selectedPeriod?.startDate, selectedPeriod?.endDate);
+  const pendingAutoOuts = unreviewedAutoOuts(reviewShifts);
+  const reviewNames: Record<string, string> = {};
+  (timeCards || []).forEach((c: any) => {
+    if (c?.profile?.id) reviewNames[c.profile.id] = c.profile.full_name || c.profile.nickname || c.profile.email || 'Team member';
+  });
+  const onCloseClick = () => {
+    // Non-blocking: unreviewed auto clock-outs get a warning, not a block.
+    if (pendingAutoOuts.length > 0) setAutoOutWarnOpen(true);
+    else handleClosePeriod();
+  };
 
 
   if (!isAdmin && !isManager) {
@@ -125,7 +139,7 @@ export default function PayrollReview() {
                       Re-Open Pay Period
                     </Button>
                   ) : (
-                    <Button variant="outline" onClick={() => handleClosePeriod()}>
+                    <Button variant="outline" onClick={onCloseClick}>
                       Close Pay Period
                     </Button>
                   )}
@@ -138,6 +152,33 @@ export default function PayrollReview() {
                 </div>
               </div>
             </div>
+
+            {currentLocation?.id && selectedPeriod && (
+              <ShiftReviewPanel
+                locationId={currentLocation.id}
+                start={selectedPeriod.startDate}
+                end={selectedPeriod.endDate}
+                timezone={timezone}
+                names={reviewNames}
+                canSeeDollars={isAdmin || isManager}
+                readOnly={isPeriodClosed}
+              />
+            )}
+
+            <Dialog open={autoOutWarnOpen} onOpenChange={setAutoOutWarnOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Unreviewed auto clock-outs</DialogTitle>
+                  <DialogDescription>
+                    {pendingAutoOuts.length} shift{pendingAutoOuts.length === 1 ? ' was' : 's were'} clocked out automatically and not reviewed yet. You can still close the period.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setAutoOutWarnOpen(false)}>Review first</Button>
+                  <Button onClick={() => { setAutoOutWarnOpen(false); handleClosePeriod(); }}>Close anyway</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* View Toggle + Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 overflow-x-hidden">

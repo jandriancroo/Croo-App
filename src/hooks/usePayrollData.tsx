@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { supabase } from '@/integrations/supabase/client';
 import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { format, addDays, addWeeks } from 'date-fns';
@@ -221,12 +222,7 @@ export function usePayrollData() {
         .eq('location_id', currentLocation.id)
         .gte('sale_date', oldestPeriod.startDate)
         .lte('sale_date', newestPeriod.endDate),
-      supabase
-        .from('labor_cache')
-        .select('labor_date, labor_hours, labor_cost, source')
-        .eq('location_id', currentLocation.id)
-        .gte('labor_date', oldestPeriod.startDate)
-        .lte('labor_date', newestPeriod.endDate),
+      fetchStoreLabor([currentLocation.id], oldestPeriod.startDate, newestPeriod.endDate),
       fetchAllPunches(),
       supabase
         .from('location_hours')
@@ -326,36 +322,12 @@ export function usePayrollData() {
         approvedShifts += tally.approved;
       });
 
-      // Walk each day in the period. Closed days: labor_cache wins (same source
-      // as the dashboard). Today (still in progress): live punch math wins, since
-      // the cache row is only a partial snapshot from earlier in the day.
-      const dayCursor = new Set<string>([
-        ...Array.from(laborByDate.keys()),
-        ...Array.from(punchByDate.keys()),
-      ]);
-      dayCursor.forEach((date) => {
+      // C7: hours/cost = server labor (get_store_labor), same number as every screen.
+      laborByDate.forEach((v, date) => {
         if (date < period.startDate || date > period.endDate) return;
-        const fromCache = laborByDate.get(date);
-        const fromPunches = punchByDate.get(date);
-        const isInProgress = date >= todayBusinessDate;
-
-        if (isInProgress && fromPunches) {
-          hours += fromPunches.hours;
-          cost += fromPunches.cost;
-          return;
-        }
-        if (fromCache && (fromCache.hours > 0 || fromCache.cost > 0)) {
-          hours += fromCache.hours;
-          cost += fromCache.cost;
-          return;
-        }
-        if (fromPunches) {
-          hours += fromPunches.hours;
-          cost += fromPunches.cost;
-        }
+        hours += v.hours;
+        cost += v.cost;
       });
-
-
 
       acc[getPeriodKey(period)] = {
         hours,

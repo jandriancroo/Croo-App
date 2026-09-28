@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -604,18 +605,13 @@ export default function WeekTemplateBuilder() {
 
       // Get last year same weekday with sales (skip if closed)
       // Use a stable mid-day timestamp to avoid UTC date shifting when calling toISOString()
-      const today = new Date();
-      today.setHours(12, 0, 0, 0);
-
-      const lastYearDate = new Date(today);
-      lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
-      // Adjust to same day of week
-      const lyDow = lastYearDate.getDay();
-      const dayDiff = postgresDow - lyDow;
-      lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
-      lastYearDate.setHours(12, 0, 0, 0);
-
-      const lastYearDateStr = lastYearDate.toISOString().split('T')[0];
+      // Last year = date − 364 (same weekday), anchored in store time.
+      const todayLA = DateTime.now().setZone('America/Los_Angeles').startOf('day');
+      const todayDow = todayLA.weekday % 7; // 0 = Sunday, like postgres
+      const lastYearDateStr = todayLA
+        .plus({ days: postgresDow - todayDow })
+        .minus({ days: 364 })
+        .toFormat('yyyy-MM-dd');
       
       const { data: lastYearData } = await supabase
         .from("sales_cache")

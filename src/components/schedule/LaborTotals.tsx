@@ -640,7 +640,7 @@ export function LaborTotals({
         }
         totalHours += shiftHours;
 
-        const wage = shiftWages[shift.id] ?? profile?.hourly_wage ?? 15;
+        const wage = shiftWages[shift.id] ?? profile?.hourly_wage ?? 0;
 
         if (!hoursByEmployee[shift.user_id]) {
           hoursByEmployee[shift.user_id] = { hours: 0, wage };

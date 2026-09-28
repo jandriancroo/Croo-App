@@ -159,7 +159,7 @@ function EmployeeRowComponent({
   };
   const calculateTotalWages = () => {
     const hours = parseFloat(calculateTotalHours());
-    const wage = profile.hourly_wage ?? 15.00;
+    const wage = profile.hourly_wage ?? 0; // no invented wage — shows "wage missing"
     return (hours * wage).toFixed(2);
   };
 
@@ -218,7 +218,7 @@ function EmployeeRowComponent({
                     </span>
                   )}
                   <p className="text-[10px] md:text-xs text-muted-foreground leading-tight truncate">
-                    {calculateTotalHours()} hrs{canViewAllWages && <> · ${calculateTotalWages()}</>}
+                    {calculateTotalHours()} hrs{canViewAllWages && (profile.hourly_wage == null ? <> · wage missing</> : <> · ${calculateTotalWages()}</>)}
                   </p>
                 </div>
               </div>
