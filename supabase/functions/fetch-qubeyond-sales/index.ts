@@ -2865,6 +2865,26 @@ serve(async (req) => {
           }
         }
       }
+      // === STORED PACE (single source) ===
+      // The shared pace writer (computeAndSavePace, run by the every-minute sync)
+      // saves pace on sales_cache. Read it so the tablet matches every other screen.
+      // Response keys and shape are unchanged.
+      if (locationId) {
+        const { data: paceRow } = await cacheSupabase
+          .from('sales_cache')
+          .select('pace_adjusted_projection, pace_week_projection, pace_month_projection, pace_calculated_at')
+          .eq('location_id', locationId)
+          .eq('sale_date', todayStr)
+          .maybeSingle();
+        const fresh = paceRow?.pace_calculated_at &&
+          (Date.now() - new Date(paceRow.pace_calculated_at).getTime()) < 15 * 60 * 1000;
+        if (fresh && Number(paceRow.pace_adjusted_projection) > 0) {
+          projections.todayPaceAdjusted = Math.max(Number(paceRow.pace_adjusted_projection), dailySales);
+          if (Number(paceRow.pace_week_projection) > 0) projections.weekProjected = Number(paceRow.pace_week_projection);
+          if (Number(paceRow.pace_month_projection) > 0) projections.monthProjected = Number(paceRow.pace_month_projection);
+          console.log(`[PROJECTION] Using stored pace: $${projections.todayPaceAdjusted.toFixed(0)}`);
+        }
+      }
     } else {
       console.log('Skipping projection totals - client has cached values');
       // projections will remain 0, client will use cached values
