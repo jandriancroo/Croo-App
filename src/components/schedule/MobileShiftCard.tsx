@@ -40,6 +40,9 @@ interface MobileShiftCardProps {
   
   // Show break indicator
   showBreakIndicator?: boolean;
+
+  // POS marker badge (e.g. 'toast' = punches read from Toast, read-only)
+  posIcon?: 'toast' | null;
   
   // Action button (for team members)
   actionButton?: React.ReactNode;
@@ -70,6 +73,7 @@ export function MobileShiftCard({
   positionLabel,
   positionColor,
   showBreakIndicator = true,
+  posIcon,
   actionButton,
   timezone,
   formatTimeDisplay: formatTimeFn,
@@ -141,6 +145,15 @@ export function MobileShiftCard({
             {/* Name row */}
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm font-semibold truncate">{name}</span>
+              {posIcon === 'toast' && (
+                <span
+                  className="shrink-0 inline-flex items-center rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: '#FC6130' }}
+                  title="Punches come from Toast"
+                >
+                  Toast
+                </span>
+              )}
             </div>
             
             {/* Scheduled time with inline position (for Today view) */}

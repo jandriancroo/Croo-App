@@ -15,6 +15,7 @@ const MobileShiftDialog = lazyWithRetry(() => import('./MobileShiftDialog').then
 const MobileAddScheduleSheet = lazyWithRetry(() => import('./MobileAddScheduleSheet').then(m => ({ default: m.MobileAddScheduleSheet })));
 const MobileBuildScheduleWizard = lazyWithRetry(() => import('./MobileBuildScheduleWizard').then(m => ({ default: m.MobileBuildScheduleWizard })));
 import { MobileShiftCard } from './MobileShiftCard';
+import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
@@ -115,6 +116,7 @@ interface DayPunch {
   profile: Profile;
   hoursWorked: number;
   createdByName: string | null; // Name of manager who created punch if different from employee
+  isToast?: boolean; // Read-only punch sourced from Toast (Coop's)
   scheduledShift?: {
     id: string;
     start_time: string;
@@ -546,6 +548,38 @@ export function MobileScheduleView({
     // Only auto-refetch for today
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
+
+  // ── Read-only Toast punches (Coop's: Toast owns the punches) ──
+  const { data: toastShifts = [] } = useToastShifts(currentLocation?.id, punchDateStr, {
+    refetchMs: punchDateStr === todayStr ? 60 * 1000 : undefined,
+  });
+
+  // Map Toast rows into the same DayPunch shape the punch pipeline renders.
+  const toastPunches: DayPunch[] = useMemo(() => (toastShifts as ToastShiftRow[]).map((s) => {
+    const breaks = Array.isArray(s.breaks) ? s.breaks : [];
+    const openBreak = s.status === 'IN_PROGRESS'
+      ? (breaks.find((b) => b.start && !b.end) ?? null)
+      : null;
+    return {
+      id: `toast-${s.id}`,
+      user_id: s.croo_user_id || s.toast_user_id || s.id,
+      clockInTime: s.in_time,
+      clockOutTime: s.out_time,
+      breakStartTime: openBreak?.start ?? null,
+      breakEndTime: openBreak?.end ?? null,
+      breakType: null,
+      isActive: s.status === 'IN_PROGRESS',
+      isOnBreak: !!openBreak,
+      profile: { id: s.toast_user_id || s.id, full_name: s.employee_name, nickname: null, profile_photo_url: null },
+      hoursWorked: s.payable_seconds / 3600,
+      createdByName: null,
+      scheduledShift: null,
+      isToast: true,
+    };
+  }), [toastShifts]);
+
+  const allDayPunches = useMemo(() => [...dayPunches, ...toastPunches], [dayPunches, toastPunches]);
+
 
   // Day Insights data now lives in DayInsightsBar, which mirrors the desktop
   // Week Insights resolution exactly (sales + labor per phase of the day).
@@ -1112,10 +1146,10 @@ export function MobileScheduleView({
 
               {/* 5. TODAY: NOW + LATER sections with punch tracking */}
               {isSelectedDateToday ? ((() => {
-                const activePunches = dayPunches.filter(p => p.isActive && !p.isOnBreak);
-                const onBreakPunches = dayPunches.filter(p => p.isOnBreak);
-                const completedPunches = dayPunches.filter(p => !p.isActive);
-                const totalScheduled = dayPunches.length;
+                const activePunches = allDayPunches.filter(p => p.isActive && !p.isOnBreak);
+                const onBreakPunches = allDayPunches.filter(p => p.isOnBreak);
+                const completedPunches = allDayPunches.filter(p => !p.isActive);
+                const totalScheduled = allDayPunches.length;
 
                 return (
                   <>
@@ -1192,7 +1226,9 @@ export function MobileScheduleView({
                           timezone={timezone}
                           formatTimeDisplay={formatTimeDisplay}
                           showBreakIndicator={false}
+                          posIcon={punch.isToast ? 'toast' : null}
                           onClick={() => {
+                            if (punch.isToast) return; // Toast punches are read-only
                             const today = getTodayInTimezone(timezone);
                             setSelectedPunch({
                               userId: punch.user_id,
@@ -1213,7 +1249,7 @@ export function MobileScheduleView({
                         .filter(shift => {
                           const profile = getProfileForShift(shift);
                           if (!profile) return false;
-                          return !dayPunches.some(p => p.user_id === shift.user_id);
+                          return !allDayPunches.some(p => p.user_id === shift.user_id);
                         })
                         .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
@@ -1291,7 +1327,9 @@ export function MobileScheduleView({
                               timezone={timezone}
                               formatTimeDisplay={formatTimeDisplay}
                               showBreakIndicator={false}
+                              posIcon={punch.isToast ? 'toast' : null}
                               onClick={() => {
+                                if (punch.isToast) return; // Toast punches are read-only
                                 const today = getTodayInTimezone(timezone);
                                 setSelectedPunch({
                                   userId: punch.user_id,
@@ -1313,16 +1351,16 @@ export function MobileScheduleView({
                     {/* Day Insights now renders once for every day below */}
                   </>
                 );
-              })()) : isPastDate && dayPunches.length > 0 ? (
+              })()) : isPastDate && allDayPunches.length > 0 ? (
                 /* Past days with punch data — show completed-style cards */
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    {`Completed (${dayPunches.length})`}
+                    {`Completed (${allDayPunches.length})`}
                     <div className="flex items-center gap-1 ml-auto">
                     </div>
                   </h4>
                   {renderMaybeStationGrouped(
-                    dayPunches,
+                    allDayPunches,
                     (punch) => punch.user_id,
                     (punch) => (
                       <MobileShiftCard
@@ -1343,7 +1381,9 @@ export function MobileScheduleView({
                         timezone={timezone}
                         formatTimeDisplay={formatTimeDisplay}
                         showBreakIndicator={false}
+                        posIcon={punch.isToast ? 'toast' : null}
                         onClick={() => {
+                          if (punch.isToast) return; // Toast punches are read-only
                           setSelectedPunch({
                             userId: punch.user_id,
                             userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),

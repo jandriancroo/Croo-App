@@ -219,6 +219,158 @@ async function pollOnce(page, store, date) {
   return { error: 'report did not complete' };
 }
 
+// ── Punches (read-only) ─────────────────────────────────────────────────────
+// Replay the GetShiftsV2 GraphQL request captured from the Time Entry page
+// (toast-shifts-request.json, written from the one-time capture). Dates in the
+// template are rewritten to the target business date, so the same template
+// works for any day. No template on disk → punch polling is skipped silently
+// (sales keep flowing; labor pairing just idles).
+
+import fs from 'node:fs';
+
+function loadTemplate(name) {
+  try {
+    const p = new URL(`./${name}`, import.meta.url);
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch { return null; }
+}
+let SHIFTS_TPL = null;
+let EMPLOYEES_TPL = null;
+
+function replay(tpl, target /* yyyy-MM-dd */) {
+  let url = tpl.url;
+  let body = tpl.body ?? null;
+  const dates = (tpl.dates || []).map((d) => ({
+    raw: d,
+    compact: /^\d{8}$/.test(d),
+    iso: /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d,
+  }));
+  // The last captured date is the reference; earlier dates keep their offset
+  // so a captured date-range replays as the same span around the target day.
+  const end = dates.length ? dates[dates.length - 1].iso : null;
+  const offsets = dates.map((d) => {
+    const delta = end ? daysBetweenIso(d.iso, end) : 0;
+    const to = shiftDate(target, delta);
+    return { from: d.raw, to: d.compact ? to.replaceAll('-', '') : to };
+  });
+  const sub = (s) => {
+    let out = s;
+    for (const o of offsets) out = out.split(o.from).join(o.to);
+    return out;
+  };
+  url = sub(url);
+  if (body) body = sub(body);
+  return { url, body };
+}
+
+function daysBetweenIso(a, b) {
+  return Math.round((Date.UTC(+a.slice(0, 4), +a.slice(4, 6) - 1, +a.slice(6, 8)) -
+    Date.UTC(+b.slice(0, 4), +b.slice(4, 6) - 1, +b.slice(6, 8))) / 86400000);
+}
+function shiftDate(date, delta) {
+  const d = new Date(date + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function findShiftArrays(node, out = []) {
+  if (Array.isArray(node)) {
+    if (node.length && node.every((x) => x && typeof x === 'object' && ('timeClock' in x || ('inTime' in x && 'id' in x)))) out.push(node);
+    else node.forEach((n) => findShiftArrays(n, out));
+    return out;
+  }
+  if (node && typeof node === 'object') {
+    Object.values(node).forEach((n) => findShiftArrays(n, out));
+  }
+  return out;
+}
+
+function findEmployeeRows(node, out = []) {
+  if (Array.isArray(node)) {
+    if (node.length && node.every((x) => x && typeof x === 'object' && ('displayFullName' in x || 'fullName' in x))) out.push(node);
+    else node.forEach((n) => findEmployeeRows(n, out));
+    return out;
+  }
+  if (node && typeof node === 'object') {
+    Object.values(node).forEach((n) => findEmployeeRows(n, out));
+  }
+  return out;
+}
+
+function normalizeShift(shift, employees /* Map<string, name> */) {
+  const tc = shift.timeClock || {};
+  const dur = shift.estimatedDurationBreakdown || {};
+  const emp = shift.employee || {};
+  const keys = [
+    emp.user ?? emp.userId, emp.restaurantUser ?? emp.restaurantUserId,
+    emp.externalEmployeeId, shift.restaurantUserId,
+  ].filter((k) => k != null).map(String);
+  const name = keys.map((k) => employees.get(k)).find(Boolean)
+    || emp.displayName || emp.name
+    || (keys[0] ? `Employee ${keys[0]}` : 'Unknown');
+  const tipsObj = shift.tips || {};
+  const breaks = (shift.takenBreaks || []).map((b) => ({
+    start: b.startDateTime || b.startTime || b.start || null,
+    end: b.endDateTime || b.endTime || b.end || null,
+  }));
+  return {
+    id: String(shift.id ?? shift.shiftId ?? crypto.randomUUID()),
+    employeeName: String(name).slice(0, 160),
+    toastUserId: String(emp.user ?? emp.userId ?? shift.restaurantUserId ?? keys[0] ?? ''),
+    restaurantUserId: emp.restaurantUser != null ? String(emp.restaurantUser) : null,
+    externalEmployeeId: emp.externalEmployeeId != null ? String(emp.externalEmployeeId) : null,
+    status: String(shift.status ?? 'UNKNOWN').slice(0, 40),
+    inTime: String(tc.inTime ?? shift.inTime ?? ''),
+    outTime: tc.outTime ?? shift.outTime ?? null,
+    jobTitle: shift.job?.title ?? shift.jobTitle ?? null,
+    isTipped: Boolean(shift.isTipped),
+    tips: Math.round(Number(tipsObj.totalTips ?? (Number(tipsObj.cashGratuity ?? 0) + Number(tipsObj.nonCashGratuity ?? 0))) * 100) / 100,
+    payableSeconds: Number(dur.payableTime ?? 0),
+    overtimeSeconds: Number(dur.overtimeDuration ?? 0),
+    unpaidBreakSeconds: Number(dur.unpaidBreakTime ?? 0),
+    takenBreaks: breaks,
+    missedBreaks: Array.isArray(shift.missedBreaks) ? shift.missedBreaks : [],
+    anomalyCount: Array.isArray(shift.shiftAnomalies) ? shift.shiftAnomalies.length : 0,
+  };
+}
+
+async function fetchShifts(page, restaurantGuid, date) {
+  if (!SHIFTS_TPL) return null;
+  const req = replay(SHIFTS_TPL, date);
+  const { status, json } = await pageFetch(page, req.url, req.body);
+  if (status !== 200) return { error: `GetShiftsV2 status ${status}` };
+  const arrays = findShiftArrays(json);
+  if (!arrays.length) return { error: 'no shift arrays in response' };
+  const shifts = arrays.flatMap((a) => a);
+
+  const employees = new Map();
+  if (EMPLOYEES_TPL) {
+    const er = replay(EMPLOYEES_TPL, date);
+    const er2 = await pageFetch(page, er.url, er.body).catch(() => null);
+    if (er2?.status === 200 && er2.json) {
+      findEmployeeRows(er2.json).flat().forEach((e) => {
+        const uid = e.user?.id ?? e.userId;
+        const ruid = e.restaurantUsers?.[0]?.id ?? e.restaurantUserId ?? e.restaurantUser;
+        if (uid != null) employees.set(String(uid), e.displayFullName || e.fullName || '');
+        if (ruid != null) employees.set(String(ruid), e.displayFullName || e.fullName || '');
+      });
+    }
+  }
+  return shifts.map((s) => normalizeShift(s, employees));
+}
+
+function postLabor(locationId, date, shifts) {
+  return fetch(`${SUPABASE_URL}/functions/v1/toast-sync`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'x-cron-secret': CRON_SECRET,
+    },
+    body: JSON.stringify({ action: 'ingest-labor', locationId, date, shifts }),
+  });
+}
+
 async function backfill(days) {
   const { stores } = await callService('schedule_list');
   const browser = await chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
@@ -238,7 +390,7 @@ async function backfill(days) {
           catch (e) { out = { error: e.message }; }
           if (out?.error) { console.warn(`⚠️ skip ${date}`); continue; }
         }
-        if (i > 7) out.hourly = []; // hourly detail only for the last week
+        if (i > 7 && process.env.HOURLY_ALL !== '1') out.hourly = []; // hourly detail only for the last week (HOURLY_ALL=1 keeps every day)
         batch.push({ locationId: store.locationId, date, source: 'api', ...out });
         console.log(`📅 ${date}: $${out.netSales} (${out.checkCount} checks)`);
         if (batch.length >= 7 || i === days) {
@@ -261,6 +413,9 @@ async function main() {
 
   const browser = await chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
   let session;
+  SHIFTS_TPL = loadTemplate('toast-shifts-request.json');
+  EMPLOYEES_TPL = loadTemplate('toast-employees-request.json');
+  if (SHIFTS_TPL) console.log('🧾 punch template loaded — labor polling active');
   try {
     session = await signInOnce(browser);
     const start = Date.now();
@@ -285,6 +440,18 @@ async function main() {
         const r = await postToSync([day]);
         const j = await r.json().catch(() => ({}));
         console.log(`📊 ${date} ${store.locationId}: net $${out.netSales} (${out.checkCount} checks) → ${r.ok ? 'ingested' : `ERROR ${r.status}`}`);
+        // Read-only punch pull for the same day (Toast owns punches).
+        if (SHIFTS_TPL) {
+          try {
+            const shifts = await fetchShifts(session.page, store.restaurantGuid, date);
+            if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
+            else if (Array.isArray(shifts)) {
+              const lr = await postLabor(store.locationId, date, shifts);
+              const lj = await lr.json().catch(() => ({}));
+              console.log(`🧾 ${date}: ${shifts.length} shifts → ${lr.ok ? `ingested (${lj.updated ?? lj.shifts ?? ''})` : `ERROR ${lr.status}`}`);
+            }
+          } catch (e) { console.warn(`🧾 ${date}: ${e.message}`); }
+        }
       }
       if (ONESHOT) { console.log('ONESHOT — exiting after one poll'); break; }
       const stillOpen = active.some((s) => inWindow(s));
