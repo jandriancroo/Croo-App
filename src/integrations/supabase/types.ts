@@ -6409,6 +6409,8 @@ export type Database = {
           auto_punch_out_time: string | null
           created_at: string | null
           daily_double_time_threshold: number | null
+          daily_ot_max_wage: number | null
+          daily_ot_window: string
           daily_overtime_threshold: number | null
           double_time_multiplier: number | null
           duplicate_tap_minutes: number
@@ -6427,10 +6429,12 @@ export type Database = {
           rest_break_duration: number | null
           rest_break_hours: number | null
           rule_name: string
+          seventh_day_rule: boolean
           state_code: string | null
           unpaid_break_min_minutes: number
           updated_at: string | null
           weekly_overtime_threshold: number | null
+          workweek_start_dow: number
         }
         Insert: {
           allow_early_clock_in?: boolean
@@ -6439,6 +6443,8 @@ export type Database = {
           auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
+          daily_ot_max_wage?: number | null
+          daily_ot_window?: string
           daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
           duplicate_tap_minutes?: number
@@ -6457,10 +6463,12 @@ export type Database = {
           rest_break_duration?: number | null
           rest_break_hours?: number | null
           rule_name: string
+          seventh_day_rule?: boolean
           state_code?: string | null
           unpaid_break_min_minutes?: number
           updated_at?: string | null
           weekly_overtime_threshold?: number | null
+          workweek_start_dow?: number
         }
         Update: {
           allow_early_clock_in?: boolean
@@ -6469,6 +6477,8 @@ export type Database = {
           auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
+          daily_ot_max_wage?: number | null
+          daily_ot_window?: string
           daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
           duplicate_tap_minutes?: number
@@ -6487,10 +6497,12 @@ export type Database = {
           rest_break_duration?: number | null
           rest_break_hours?: number | null
           rule_name?: string
+          seventh_day_rule?: boolean
           state_code?: string | null
           unpaid_break_min_minutes?: number
           updated_at?: string | null
           weekly_overtime_threshold?: number | null
+          workweek_start_dow?: number
         }
         Relationships: [
           {
@@ -14077,6 +14089,10 @@ export type Database = {
           user_name: string
         }[]
       }
+      _payroll_classify: {
+        Args: { _rules: Json; _shifts: Json; _wage: number }
+        Returns: Json
+      }
       _resolve_goal: {
         Args: { _date: string; _location_id: string }
         Returns: number
@@ -14601,6 +14617,22 @@ export type Database = {
           location_name: string
           user_id: string
           user_name: string
+        }[]
+      }
+      payroll_hours: {
+        Args: { _end: string; _location_id: string; _start: string }
+        Returns: {
+          dt_hours: number
+          full_name: string
+          open_shift_count: number
+          ot_hours: number
+          pto_hours: number
+          regular_hours: number
+          total_paid_hours: number
+          user_id: string
+          wage: number
+          wage_missing: boolean
+          weeks: Json
         }[]
       }
       perform_checklist_swap: { Args: { _draft_id: string }; Returns: boolean }

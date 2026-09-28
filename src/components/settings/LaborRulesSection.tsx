@@ -39,6 +39,10 @@ interface LaborRule {
   reporting_time_enabled: boolean;
   reporting_time_min_hours: number | null;
   reporting_time_max_hours: number | null;
+  seventh_day_rule?: boolean;
+  daily_ot_max_wage?: number | null;
+  workweek_start_dow?: number;
+  daily_ot_window?: 'business_day' | 'rolling_24h';
 }
 
 const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
@@ -114,6 +118,10 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     reporting_time_enabled: false,
     reporting_time_min_hours: null,
     reporting_time_max_hours: null,
+    seventh_day_rule: false,
+    daily_ot_max_wage: null,
+    workweek_start_dow: 1,
+    daily_ot_window: 'business_day',
   };
 
   const [formData, setFormData] = useState<LaborRule>(emptyRule);
@@ -149,7 +157,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setRules(data || []);
+      setRules((data || []) as LaborRule[]);
     } catch (error: any) {
       console.error('Error fetching labor rules:', error);
       toast.error('Failed to load labor rules');
@@ -223,6 +231,10 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             reporting_time_enabled: formData.reporting_time_enabled,
             reporting_time_min_hours: formData.reporting_time_min_hours,
             reporting_time_max_hours: formData.reporting_time_max_hours,
+            seventh_day_rule: formData.seventh_day_rule ?? false,
+            daily_ot_max_wage: formData.daily_ot_max_wage ?? null,
+            workweek_start_dow: formData.workweek_start_dow ?? 1,
+            daily_ot_window: formData.daily_ot_window ?? 'business_day',
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRule.id);
@@ -254,6 +266,10 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             reporting_time_enabled: formData.reporting_time_enabled,
             reporting_time_min_hours: formData.reporting_time_min_hours,
             reporting_time_max_hours: formData.reporting_time_max_hours,
+            seventh_day_rule: formData.seventh_day_rule ?? false,
+            daily_ot_max_wage: formData.daily_ot_max_wage ?? null,
+            workweek_start_dow: formData.workweek_start_dow ?? 1,
+            daily_ot_window: formData.daily_ot_window ?? 'business_day',
           });
 
         if (error) throw error;
@@ -745,6 +761,59 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                       </div>
                     </div>
                   </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Payroll Export Rules</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="workweek-start">Workweek starts on</Label>
+                        <select
+                          id="workweek-start"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={formData.workweek_start_dow ?? 1}
+                          onChange={(e) => setFormData({ ...formData, workweek_start_dow: parseInt(e.target.value, 10) })}
+                        >
+                          {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d, i) => (
+                            <option key={d} value={i}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ot-window">Daily overtime counted per</Label>
+                        <select
+                          id="ot-window"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={formData.daily_ot_window ?? 'business_day'}
+                          onChange={(e) => setFormData({ ...formData, daily_ot_window: e.target.value as 'business_day' | 'rolling_24h' })}
+                        >
+                          <option value="business_day">Business day</option>
+                          <option value="rolling_24h">24 hours from first clock-in (Nevada)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ot-max-wage">No daily overtime at or above wage ($/hr)</Label>
+                        <Input
+                          id="ot-max-wage"
+                          type="number"
+                          step="0.01"
+                          placeholder="Leave blank for no cutoff"
+                          value={formData.daily_ot_max_wage ?? ''}
+                          onChange={(e) => setFormData({ ...formData, daily_ot_max_wage: e.target.value ? parseFloat(e.target.value) : null })}
+                        />
+                        <p className="text-xs text-muted-foreground">Nevada: 1.5 × state minimum wage. Update when the minimum wage changes.</p>
+                      </div>
+                      <div className="space-y-2 flex items-center gap-2 pt-6">
+                        <input
+                          id="seventh-day"
+                          type="checkbox"
+                          checked={!!formData.seventh_day_rule}
+                          onChange={(e) => setFormData({ ...formData, seventh_day_rule: e.target.checked })}
+                        />
+                        <Label htmlFor="seventh-day">California 7th-day rule</Label>
+                      </div>
+                    </div>
+                  </div>
+
 
                   <div className="border-t pt-4">
                     <h4 className="font-semibold mb-3">Meal Break Requirements (Optional)</h4>
