@@ -1,13 +1,17 @@
 # Toast live scrape (homemade integration)
 #
-# Signs into Toast Web once, then polls Sales Summary during store hours every
-# ~90 s and posts to toast-sync (source 'live'). Runs 6x/day; each run self-terminates
-# once all Toast stores are outside their open window.
+# Signs into Toast Web once per run, then polls Sales Summary + punches + wages
+# every ~90 s. Three back-to-back runs (≤5h20m each) cover Coop's full day
+# (11 AM–10 PM America/Chicago, both CDT and CST). Concurrency queues the next
+# run until the previous one exits, so there is only ever ONE Toast sign-in.
+# Each run self-terminates once all Toast stores are outside their open window.
 name: Toast live scrape
 
 on:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "45 15 * * *"   # 10:45 AM CDT / 9:45 AM CST
+    - cron: "55 20 * * *"   # handoff ~4 PM Chicago
+    - cron: "5 2 * * *"     # handoff ~9 PM Chicago, runs through close
   workflow_dispatch:
     inputs:
       oneshot:
