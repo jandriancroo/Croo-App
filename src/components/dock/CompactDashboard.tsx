@@ -181,7 +181,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       if (!locationId) return null;
       const { data, error } = await supabase
         .from('sales_cache')
-        .select('net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection, hourly_data')
+        .select('net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at')
         .eq('location_id', locationId)
         .eq('sale_date', todayStr)
         .maybeSingle();
@@ -346,6 +346,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   // Calculate pace-adjusted (same logic as ManagerDashboardOverlay)
   // Pace = actual sales so far + projected remaining hours
   const paceAdjusted = useMemo(() => {
+    // Stored pace (shared server math) wins when it is fresh (< 15 min).
+    const storedPace = Number((salesData as any)?.pace_adjusted_projection) || 0;
+    const paceAt = (salesData as any)?.pace_calculated_at;
+    if (storedPace > 0 && paceAt && Date.now() - new Date(paceAt).getTime() < 15 * 60 * 1000) {
+      return Math.max(storedPace, Number((salesData as any)?.net_sales) || 0);
+    }
     // First check localStorage cache (same key pattern as Dashboard)
     try {
       const cacheKey = `qu_projections_cache_${locationId}`;
