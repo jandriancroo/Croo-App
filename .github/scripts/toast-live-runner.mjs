@@ -383,6 +383,34 @@ function localToIso(txt, tz) {
   const asLocal = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
   return new Date(guess - (asLocal - guess)).toISOString();
 }
+// Toast pay rates: one request to /api/restaurants/employees/users, cached 1h.
+// Rate = checked job's wageOverride, else job default wage (cents). Salaries (>$500) skipped.
+const normName = (n) => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+let __wageCache = { at: 0, map: null };
+async function fetchWageMap(page) {
+  if (__wageCache.map && Date.now() - __wageCache.at < 3600e3) return __wageCache.map;
+  try {
+    const res = await page.evaluate(async (rid) => {
+      const r = await fetch('/api/restaurants/employees/users', { credentials: 'include', headers: { Accept: '*/*', 'x-requested-with': 'XMLHttpRequest', 'toast-restaurant-external-id': rid, 'toast-management-set-guid': '16c17ca1-699a-43da-852a-3004d18fa63d', 'toast-restaurant-set-guid': '5ca95934-2724-44aa-a474-4a0bd7a5b9e1' } });
+      return { status: r.status, body: r.ok ? await r.json() : null };
+    }, process.env.TOAST_HAYWARD_RESTAURANT_ID || 'c93b197b-bbc8-4d94-a8b3-cc24cddc8c06');
+    if (!res.body) { console.log('💵 wages status', res.status); return __wageCache.map; }
+    const map = new Map();
+    for (const u of res.body.users || []) {
+      const byJob = new Map();
+      for (const j of u.jobs || []) {
+        const c = j.wageOverride?.fAmount ?? j.wage?.fAmount;
+        if (c != null && c > 0 && c / 100 <= 500) byJob.set(String(j.name || '').toLowerCase().trim(), c / 100);
+      }
+      const e = { byJob };
+      map.set(normName(`${u.firstName} ${u.lastName}`), e);
+      if (u.chosenName) map.set(normName(`${u.chosenName} ${u.lastName}`), e);
+    }
+    console.log(`💵 wages loaded for ${map.size} names`);
+    __wageCache = { at: Date.now(), map };
+    return map;
+  } catch (e) { console.log('💵 wages error', e.message); return __wageCache.map; }
+}
 // Read-only punches from Toast's Time Entries report table (no GraphQL template needed).
 async function fetchShiftsTable(ctx, tz) {
   const p = await ctx.newPage();
@@ -400,12 +428,14 @@ async function fetchShiftsTable(ctx, tz) {
       });
     });
     if (!globalThis.__loggedHeads && rows[0]) { console.log('🧾 columns:', Object.keys(rows[0]).join(' | ')); globalThis.__loggedHeads = true; }
+    const wages = await fetchWageMap(p);
     const money = (v) => { const n = parseFloat(String(v || '').replace(/[$,]/g, '')); return Number.isFinite(n) ? n : null; };
     return rows.filter((r) => r['employee'] && r['in date']).map((r) => {
       const wKey = Object.keys(r).find((k) => /^(wage|hourly wage|wage rate|pay rate|rate)$/.test(k));
       let hourlyWage = wKey ? money(r[wKey]) : null;
       if (!hourlyWage) { const rp = money(r['regular pay']); const rh = parseFloat(r['regular hours'] || '0'); if (rp && rh > 0) hourlyWage = Math.round((rp / rh) * 100) / 100; }
       const name = r['employee'].split(',').map((x) => x.trim()).reverse().join(' ');
+      if (!hourlyWage && wages) { const e = wages.get(normName(name)); if (e) { const j = (r['job title'] || '').toLowerCase().trim(); hourlyWage = e.byJob.get(j) ?? (e.byJob.size === 1 ? [...e.byJob.values()][0] : null); } }
       const inTime = localToIso(r['in date'], tz);
       const outTime = localToIso(r['out date'], tz);
       const payH = parseFloat(r['payable hours'] || '0') || 0;
