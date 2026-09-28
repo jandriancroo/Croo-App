@@ -209,11 +209,11 @@ function normalize(results) {
 async function pollOnce(page, store, date) {
   const { status: s1, json: j1 } = await pageFetch(page, 'https://www.toasttab.com/api/service/report-generator/v1/reportRequest', reportBody(store.restaurantGuid, date));
   if (s1 !== 200 || !j1?.reportRequestGuid) return { error: `reportRequest status ${s1}` };
-  for (let t = 0; t < 10; t++) {
+  for (let t = 0; t < 20; t++) {
     const { status: s2, json: j2 } = await pageFetch(page, `https://www.toasttab.com/api/service/report-generator/v1/reportRequest/${j1.reportRequestGuid}/results`);
-    if (s2 !== 200) return { error: `results status ${s2}` };
-    if (j2?.status === 'COMPLETED') return normalize(j2);
-    if (j2?.status === 'FAILED') return { error: 'report FAILED' };
+    if (s2 === 200 && j2 && !('status' in j2)) return normalize(j2);
+    if (s2 !== 200 && s2 !== 404) return { error: `results status ${s2}` };
+    if (j2?.status === 'FAILED') return { error: `report FAILED: ${j2?.errorMessage ?? ''}` };
     await new Promise((r) => setTimeout(r, 1500));
   }
   return { error: 'report did not complete' };
