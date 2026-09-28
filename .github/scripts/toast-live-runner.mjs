@@ -113,13 +113,13 @@ async function signInOnce(browser) {
 
   await page.goto('https://www.toasttab.com/login', { waitUntil: 'domcontentloaded' });
   for (let i = 0; i < 120; i++) {
-    const c = (await page.content()).toLowerCase();
+    const c = (await page.content().catch(() => "just a moment")).toLowerCase();
     if (!c.includes('just a moment')) break;
     await page.waitForTimeout(1000);
   }
   // Interactive Turnstile (click inside the challenge iframe if present)
   for (let a = 0; a < 8; a++) {
-    const c = (await page.content()).toLowerCase();
+    const c = (await page.content().catch(() => "just a moment")).toLowerCase();
     if (!c.includes('verify you are human') && !c.includes('turnstile')) break;
     try {
       for (const f of page.frames()) {
