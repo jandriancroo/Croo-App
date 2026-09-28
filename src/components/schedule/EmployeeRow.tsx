@@ -159,7 +159,7 @@ function EmployeeRowComponent({
   };
   const calculateTotalWages = () => {
     const hours = parseFloat(calculateTotalHours());
-    const wage = profile.hourly_wage ?? 15.00;
+    const wage = profile.hourly_wage ?? 0; // no invented wage — shows "wage missing"
     return (hours * wage).toFixed(2);
   };
 

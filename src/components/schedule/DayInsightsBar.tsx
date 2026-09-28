@@ -158,7 +158,7 @@ export function DayInsightsBar({
 
       const wage = (shiftWages as Record<string, number>)[shift.id]
         ?? profiles.find(p => p.id === shift.user_id)?.hourly_wage
-        ?? 15;
+        ?? 0;
       if (!byEmployee[shift.user_id]) byEmployee[shift.user_id] = { hours: 0, wage };
       byEmployee[shift.user_id].hours += shiftHours;
       byEmployee[shift.user_id].wage = wage;

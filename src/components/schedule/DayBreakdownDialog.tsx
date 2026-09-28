@@ -263,7 +263,7 @@ export function DayBreakdownDialog({
       const workedHours = hasBreak ? totalHours - 0.5 : totalHours;
 
       const profile = getProfileForShift(shift);
-      const wage = profile?.hourly_wage ?? 15;
+      const wage = profile?.hourly_wage ?? 0;
 
       // Fill in each hour this shift covers
       for (let hour = Math.floor(startTime); hour < Math.ceil(endTime); hour++) {
@@ -307,7 +307,7 @@ export function DayBreakdownDialog({
     if (hours < 0) hours += 24;
     const workedHours = hours > 5 ? hours - 0.5 : hours;
     const profile = getProfileForShift(shift);
-    const wage = profile?.hourly_wage ?? 15;
+    const wage = profile?.hourly_wage ?? 0;
     return sum + workedHours * wage;
   }, 0);
 
@@ -750,7 +750,7 @@ export function DayBreakdownDialog({
                   const hours = endTime - startTime;
                   const workedHours = hours > 5 ? hours - 0.5 : hours;
                   const profile = getProfileForShift(shift);
-                  const wage = profile?.hourly_wage ?? 15;
+                  const wage = profile?.hourly_wage ?? 0;
                   const cost = workedHours * wage;
 
                   return (

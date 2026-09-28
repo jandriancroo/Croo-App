@@ -165,13 +165,13 @@ export function MobileDayPreviewSheet({
 
   // Pending draft hours/cost
   const pendingHours = pendingDraft ? calcWorkedHours(pendingDraft.start, pendingDraft.end) : 0;
-  const pendingWage = pendingDraft ? (profileFor(pendingDraft.employeeId)?.hourly_wage ?? 15) : 15;
+  const pendingWage = pendingDraft ? (profileFor(pendingDraft.employeeId)?.hourly_wage ?? 0) : 0;
   const pendingCost = pendingHours * pendingWage;
 
   const totalHours = dayShifts.reduce((s, sh) => s + calcWorkedHours(sh.start_time, sh.end_time), 0) + pendingHours;
   const totalCost = dayShifts.reduce((s, sh) => {
     const p = profileFor(sh.user_id);
-    return s + calcWorkedHours(sh.start_time, sh.end_time) * (p?.hourly_wage ?? 15);
+    return s + calcWorkedHours(sh.start_time, sh.end_time) * (p?.hourly_wage ?? 0);
   }, 0) + pendingCost;
   const laborPct = salesData?.daily ? (totalCost / salesData.daily) * 100 : 0;
 
@@ -206,7 +206,7 @@ export function MobileDayPreviewSheet({
     }
   };
   dayShifts.forEach((shift) => {
-    accumulateHourly(shift.start_time, shift.end_time, profileFor(shift.user_id)?.hourly_wage ?? 15);
+    accumulateHourly(shift.start_time, shift.end_time, profileFor(shift.user_id)?.hourly_wage ?? 0);
   });
   if (pendingDraft) accumulateHourly(pendingDraft.start, pendingDraft.end, pendingWage);
 
@@ -309,7 +309,7 @@ export function MobileDayPreviewSheet({
                     const p = profileFor(shift.user_id);
                     const name = p ? (p.nickname || p.full_name || "Hidden") : (shift.user_id ? "Hidden" : "Unassigned");
                     const wh = calcWorkedHours(shift.start_time, shift.end_time);
-                    const wage = p?.hourly_wage ?? 15;
+                    const wage = p?.hourly_wage ?? 0;
                     const cost = wh * wage;
                     const color = shift.template?.color || shift.color || "hsl(var(--primary))";
                     return (
