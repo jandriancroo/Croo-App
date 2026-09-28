@@ -397,12 +397,18 @@ export function DayInsightsBar({
             <div className="rounded-lg bg-white/[0.04] px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">Hours</p>
               <p className="text-lg font-bold text-slate-100">{labor.hours.toFixed(1)}h</p>
+              {phase !== 'future' && (
+                <p className="text-[10px] text-slate-400">Sched {scheduledLabor.hours.toFixed(1)}h</p>
+              )}
             </div>
             <div className="rounded-lg bg-white/[0.04] px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">Labor</p>
               <p className="text-lg font-bold text-slate-100">
                 ${labor.cost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </p>
+              {phase !== 'future' && (
+                <p className="text-[10px] text-slate-400">Sched ${scheduledLabor.cost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+              )}
             </div>
             <div className="rounded-lg bg-white/[0.04] px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">Labor %</p>
