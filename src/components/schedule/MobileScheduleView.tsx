@@ -547,6 +547,38 @@ export function MobileScheduleView({
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
+  // ── Read-only Toast punches (Coop's: Toast owns the punches) ──
+  const { data: toastShifts = [] } = useToastShifts(currentLocation?.id, punchDateStr, {
+    refetchMs: punchDateStr === todayStr ? 60 * 1000 : undefined,
+  });
+
+  // Map Toast rows into the same DayPunch shape the punch pipeline renders.
+  const toastPunches: DayPunch[] = useMemo(() => (toastShifts as ToastShiftRow[]).map((s) => {
+    const breaks = Array.isArray(s.breaks) ? s.breaks : [];
+    const openBreak = s.status === 'IN_PROGRESS'
+      ? (breaks.find((b) => b.start && !b.end) ?? null)
+      : null;
+    return {
+      id: `toast-${s.id}`,
+      user_id: s.croo_user_id || s.toast_user_id || s.id,
+      clockInTime: s.in_time,
+      clockOutTime: s.out_time,
+      breakStartTime: openBreak?.start ?? null,
+      breakEndTime: openBreak?.end ?? null,
+      breakType: null,
+      isActive: s.status === 'IN_PROGRESS',
+      isOnBreak: !!openBreak,
+      profile: { id: s.toast_user_id || s.id, full_name: s.employee_name, nickname: null, profile_photo_url: null },
+      hoursWorked: s.payable_seconds / 3600,
+      createdByName: null,
+      scheduledShift: null,
+      isToast: true,
+    };
+  }), [toastShifts]);
+
+  const allDayPunches = useMemo(() => [...dayPunches, ...toastPunches], [dayPunches, toastPunches]);
+
+
   // Day Insights data now lives in DayInsightsBar, which mirrors the desktop
   // Week Insights resolution exactly (sales + labor per phase of the day).
 
