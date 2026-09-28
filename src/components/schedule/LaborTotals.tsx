@@ -15,7 +15,7 @@ import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
-import { fetchActualLaborForDates } from '@/utils/liveLabor';
+import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
 
 // Get current date in the given timezone (YYYY-MM-DD format)
@@ -378,42 +378,19 @@ export function LaborTotals({
         return;
       }
       
-      const { data, error } = await supabase
-        .from('labor_cache')
-        .select('labor_date, labor_hours, labor_cost')
-        .eq('location_id', currentLocation.id)
-        .in('labor_date', pastDates);
-      
+      // Actual labor = server number (get_store_labor), same as every screen.
+      const sorted = [...pastDates].sort();
+      const { data, error } = await fetchStoreLabor([currentLocation.id], sorted[0], sorted[sorted.length - 1]);
       if (error) {
         console.error('Error fetching actual labor:', error);
         return;
       }
-      
       const laborMap: Record<string, { hours: number; cost: number }> = {};
       data?.forEach(row => {
-        laborMap[row.labor_date] = {
-          hours: row.labor_hours || 0,
-          cost: row.labor_cost || 0
-        };
-      });
-
-      // Gap-fill only: a missed nightly labor run leaves a 0-hour row behind.
-      // Recompute those days straight from punches (read-only, no cache writes).
-      const missingDates = pastDates.filter(d => !(laborMap[d]?.hours > 0));
-      if (missingDates.length > 0) {
-        try {
-          const fromPunches = await fetchActualLaborForDates(
-            currentLocation.id,
-            timezone || 'America/Los_Angeles',
-            missingDates
-          );
-          Object.entries(fromPunches).forEach(([dateStr, value]) => {
-            if (value.hours > 0) laborMap[dateStr] = value;
-          });
-        } catch (e) {
-          console.error('Punch-derived labor fallback failed:', e);
+        if (pastDates.includes(row.labor_date)) {
+          laborMap[row.labor_date] = { hours: row.labor_hours || 0, cost: row.labor_cost || 0 };
         }
-      }
+      });
 
       setActualLabor(laborMap);
     };
