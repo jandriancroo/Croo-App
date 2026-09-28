@@ -119,8 +119,11 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
         user_id: u.user_id,
         hours: Number(u.paid_hours),
         wage: Number(u.wage),
-        cost: Number(u.cost),
+        // Straight cost + daily OT/DT premium (premium is 0 before 9/26 by rule).
+        cost: Math.round((Number(u.cost) + Number(u.premium_cost || 0)) * 100) / 100,
       }));
+    const otHours = Math.round((users || []).reduce((a: number, u: any) => a + Number(u.ot_hours || 0), 0) * 10000) / 10000;
+    const dtHours = Math.round((users || []).reduce((a: number, u: any) => a + Number(u.dt_hours || 0), 0) * 10000) / 10000;
     const hours = Number(t.hours) || 0;
     const cost = Number(t.cost) || 0;
     const now = new Date().toISOString();
@@ -132,9 +135,9 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
       source: 'punch_clock',
       labor_cost: cost,
       labor_hours: hours,
-      regular_hours: hours,
-      overtime_hours: 0,
-      double_time_hours: 0,
+      regular_hours: Math.max(0, Math.round((hours - otHours - dtHours) * 10000) / 10000),
+      overtime_hours: otHours,
+      double_time_hours: dtHours,
       employee_breakdown: breakdown,
       fetched_at: now,
       is_stale: false,
