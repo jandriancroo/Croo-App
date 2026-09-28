@@ -1,0 +1,53 @@
+# Toast live scrape (homemade integration)
+#
+# Signs into Toast Web once, then polls Sales Summary during store hours every
+# ~90 s and posts to toast-sync (source 'live'). Runs 6x/day; each run self-terminates
+# once all Toast stores are outside their open window.
+name: Toast live scrape
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      oneshot:
+        description: "Single poll then exit (test)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toast-live-scrape
+  cancel-in-progress: false
+
+jobs:
+  toast-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install browser + runner
+        run: |
+          npm install playwright@1.49.1
+          npx playwright install --with-deps chromium
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Run Toast live robot
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TOAST_LOGIN_EMAIL: ${{ secrets.TOAST_LOGIN_EMAIL }}
+          TOAST_LOGIN_PASSWORD: ${{ secrets.TOAST_LOGIN_PASSWORD }}
+          TOAST_TOTP_SECRET: ${{ secrets.TOAST_TOTP_SECRET }}
+          POLL_SECONDS: "90"
+          MAX_RUN_MINUTES: "320"
+          ONESHOT: ${{ github.event.inputs.oneshot == 'true' && '1' || '' }}
+        run: xvfb-run -a node .github/scripts/toast-live-runner.mjs
