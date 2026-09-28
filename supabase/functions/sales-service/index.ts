@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
-import { calculatePaceAdjustedProjection } from '../_shared/projections.ts';
+import { computeAndSavePace } from '../_shared/projections.ts';
 import { fetchQuLabor, saveQuLabor } from '../_shared/quLabor.ts';
 
 const corsHeaders = {
@@ -395,8 +395,11 @@ async function fetchPaymentsData(
 
 // Get the same date from last year (for YOY comparison)
 function getYOYDate(dateStr: string): string {
+  // Same weekday last year: sale_date − 364 days.
   const [year, month, day] = dateStr.split('-').map(Number);
-  return `${year - 1}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  d.setUTCDate(d.getUTCDate() - 364);
+  return d.toISOString().slice(0, 10);
 }
 
 // Fetch YOY data from sales_cache (already backfilled) instead of hitting API
@@ -706,33 +709,10 @@ async function handleSyncLive(supabase: any): Promise<Response> {
         // Save today's pace (same shared math, store's own clock) so the watch and
         // company screens read one pace instead of recalculating their own.
         try {
-          const { data: row } = await supabase
-            .from('sales_cache')
-            .select('hourly_data')
-            .eq('location_id', locationId)
-            .eq('sale_date', todayStr)
-            .maybeSingle();
-          const hourly = Array.isArray(row?.hourly_data) ? (row!.hourly_data as any[]) : [];
-          const hasProjected = hourly.some(h => Number(h?.projected) > 0);
-          if (hasProjected) {
-            const norm = hourly.map(h => {
-              const hh = parseInt(String(h.hour), 10);
-              return { hour: `${String(hh).padStart(2, '0')}:00`, sales: Number(h.sales) || 0, projected: Number(h.projected) || 0 };
-            });
-            const openH = parseInt(openTime.split(':')[0] || '10', 10);
-            const closeRaw = parseInt(closeTime.split(':')[0] || '22', 10);
-            const closeH = closeRaw === 0 ? 24 : closeRaw;
-            const pace = calculatePaceAdjustedProjection(
-              salesData.netSales, currentTime.hours, currentTime.minutes, openH, closeH, norm,
-            );
-            if (pace > 0) {
-              await supabase
-                .from('sales_cache')
-                .update({ pace_adjusted_projection: pace })
-                .eq('location_id', locationId)
-                .eq('sale_date', todayStr);
-            }
-          }
+          const openH = parseInt(openTime.split(':')[0] || '10', 10);
+          const closeRaw = parseInt(closeTime.split(':')[0] || '22', 10);
+          const closeH = closeRaw === 0 ? 24 : closeRaw;
+          await computeAndSavePace(supabase, { locationId, date: todayStr, timezone, openHour: openH, closeHour: closeH });
         } catch (e) {
           console.error(`${locationName}: pace save skipped`, e);
         }
