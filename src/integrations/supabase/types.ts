@@ -9807,6 +9807,84 @@ export type Database = {
         }
         Relationships: []
       }
+      pkgc_backup_functions: {
+        Row: {
+          captured_at: string | null
+          definition: string | null
+          md5: string | null
+          proacl: string | null
+          signature: string | null
+        }
+        Insert: {
+          captured_at?: string | null
+          definition?: string | null
+          md5?: string | null
+          proacl?: string | null
+          signature?: string | null
+        }
+        Update: {
+          captured_at?: string | null
+          definition?: string | null
+          md5?: string | null
+          proacl?: string | null
+          signature?: string | null
+        }
+        Relationships: []
+      }
+      pkgc_backup_labor_samples: {
+        Row: {
+          d: string | null
+          location_id: string | null
+          store_labor: Json | null
+          user_totals: Json | null
+        }
+        Insert: {
+          d?: string | null
+          location_id?: string | null
+          store_labor?: Json | null
+          user_totals?: Json | null
+        }
+        Update: {
+          d?: string | null
+          location_id?: string | null
+          store_labor?: Json | null
+          user_totals?: Json | null
+        }
+        Relationships: []
+      }
+      pkgc_backup_sales_cache: {
+        Row: {
+          hourly_data: Json | null
+          location_id: string | null
+          net_sales: number | null
+          pace_adjusted_projection: number | null
+          sale_date: string | null
+          yoy_hourly_data: Json | null
+          yoy_net_sales: number | null
+          yoy_sale_date: string | null
+        }
+        Insert: {
+          hourly_data?: Json | null
+          location_id?: string | null
+          net_sales?: number | null
+          pace_adjusted_projection?: number | null
+          sale_date?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
+        }
+        Update: {
+          hourly_data?: Json | null
+          location_id?: string | null
+          net_sales?: number | null
+          pace_adjusted_projection?: number | null
+          sale_date?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
+        }
+        Relationships: []
+      }
       plan_capabilities_lookup: {
         Row: {
           created_at: string
