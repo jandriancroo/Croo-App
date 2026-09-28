@@ -58,3 +58,12 @@
 - [x] Toast live robot (toast-live-runner.mjs + workflow) — sign-in OK, report poll fixed
 - [ ] Verify first full live run post-rotation: sign-in → sales poll → toast-sync ingest
 - [ ] Plan remaining sales sync + labor (backfill daily -364d, hourly -7d; labor pairing read-only 'toast' source — needs user sign-off)
+
+## Toast labor pairing (in progress, Sep 28)
+- Coop's org has almost no CrooHQ users yet (only Sam & Debbie) — Toast↔CrooHQ matching runs on names; unmatched punches show with Toast names, alerts/wages unlock as profiles are added. Do not block on this.
+- [x] Migration: toast_employee_mappings table + pull_labor=true for Coop's Toast integration
+- [ ] toast-sync ingest-labor action (write in progress)
+- [ ] Robot: pull GetShiftsV2 punches each poll (capture request after backfill finishes to avoid a second concurrent Toast session)
+- [ ] Mobile schedule: Toast punch cards (read-only, Toast icon)
+- [ ] Manager dash overlay: who's on the clock from Toast
+- [ ] Nightly Toast export pull (SFTP) — deferred
