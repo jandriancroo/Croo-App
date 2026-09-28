@@ -238,7 +238,7 @@ async function backfill(days) {
           catch (e) { out = { error: e.message }; }
           if (out?.error) { console.warn(`⚠️ skip ${date}`); continue; }
         }
-        if (i > 7) out.hourly = []; // hourly detail only for the last week
+        if (i > 7 && process.env.HOURLY_ALL !== '1') out.hourly = []; // hourly detail only for the last week (HOURLY_ALL=1 keeps every day)
         batch.push({ locationId: store.locationId, date, source: 'api', ...out });
         console.log(`📅 ${date}: $${out.netSales} (${out.checkCount} checks)`);
         if (batch.length >= 7 || i === days) {
