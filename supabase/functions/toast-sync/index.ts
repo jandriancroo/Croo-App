@@ -87,6 +87,11 @@ const ShiftSchema = z.object({
   anomalyCount: z.number().int().min(0).default(0),
 });
 
+const BodySchema = z.object({
+  action: z.literal("ingest"),
+  days: z.array(DaySchema).min(1).max(400),
+});
+
 const LaborBodySchema = z.object({
   action: z.literal("ingest-labor"),
   locationId: z.string().uuid(),
