@@ -218,7 +218,7 @@ function EmployeeRowComponent({
                     </span>
                   )}
                   <p className="text-[10px] md:text-xs text-muted-foreground leading-tight truncate">
-                    {calculateTotalHours()} hrs{canViewAllWages && <> · ${calculateTotalWages()}</>}
+                    {calculateTotalHours()} hrs{canViewAllWages && (profile.hourly_wage == null ? <> · wage missing</> : <> · ${calculateTotalWages()}</>)}
                   </p>
                 </div>
               </div>
