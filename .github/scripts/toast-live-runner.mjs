@@ -32,9 +32,16 @@ for (const k of ['TOAST_LOGIN_EMAIL', 'TOAST_LOGIN_PASSWORD', 'TOAST_TOTP_SECRET
 const TOAST_TOTP_SECRET = process.env.TOAST_TOTP_SECRET;
 
 // ── TOTP (RFC 6238, 6 digits / 30 s — same as Google Authenticator) ──
+function b32decode(s) {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const ch of s.replace(/=+$/, '')) { const v = A.indexOf(ch.toUpperCase()); if (v >= 0) bits += v.toString(2).padStart(5, '0'); }
+  const out = []; for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2));
+  return Buffer.from(out);
+}
 function totp(secret, at = Date.now()) {
   const s = secret.replace(/\s+/g, '').toUpperCase();
-  const key = Buffer.from(s + '='.repeat((8 - (s.length % 8)) % 8), 'base32');
+  const key = b32decode(s);
   const counter = Math.floor(at / 30000);
   const buf = Buffer.alloc(8);
   buf.writeUInt32BE(Math.floor(counter / 2 ** 32), 0);
