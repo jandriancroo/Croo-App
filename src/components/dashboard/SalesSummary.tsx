@@ -37,7 +37,7 @@ interface SalesData {
     monthly: Array<{ paymentType: string; amount: number }>;
   } | null;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
-  lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number };
+  lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number; date?: string };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number; todaySource?: ProjectionSource };
   currentHour?: number;
   productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;
@@ -782,9 +782,15 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Last year (date − 364) from the server so every screen agrees.
     if (currentLocation?.id && salesData) {
       try {
+        // Today = the store's BUSINESS date from the server (not the device clock).
+        let cmpDate = targetDateStr;
+        if (isTodayCheck) {
+          const { data: bd } = await supabase.rpc('business_date' as any, { _location_id: currentLocation.id });
+          if (typeof bd === 'string') cmpDate = bd;
+        }
         const { data: cmp } = await supabase.rpc('get_sales_comparisons' as any, {
           _location_id: currentLocation.id,
-          _date: targetDateStr,
+          _date: cmpDate,
         });
         const c = Array.isArray(cmp) ? cmp[0] : cmp;
         if (c) {
@@ -792,6 +798,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             sameDay: c.ly_net_sales != null ? Number(c.ly_net_sales) : undefined,
             sameWeek: c.ly_wtd_net != null ? Number(c.ly_wtd_net) : salesData.lastYear?.sameWeek,
             sameMonth: c.ly_mtd_net != null ? Number(c.ly_mtd_net) : salesData.lastYear?.sameMonth,
+            date: c.ly_date ?? undefined,
           };
         }
       } catch (e) {

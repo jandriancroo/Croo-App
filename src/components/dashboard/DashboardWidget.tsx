@@ -333,7 +333,7 @@ export interface SalesDataForWidgets {
   pizzaCount?: number | { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevWeekFullWeek?: number; prevMonth: number; prevMonthFullMonth?: number };
-  lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number };
+  lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number; date?: string };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; weekPaceAdjusted?: number; monthProjected: number; monthPaceAdjusted?: number };
   labor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours?: number; overtimeHours?: number } | null;
   weeklyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours?: number; overtimeHours?: number } | null;

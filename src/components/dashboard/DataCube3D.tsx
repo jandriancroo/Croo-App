@@ -55,7 +55,7 @@ function formatValue(value: number | undefined, format: 'currency' | 'currency_s
 
 // Generate dynamic labels for metrics with actual date references
 // Handles: SDLY + date, SWLY + Wk#, Month + Pace
-function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string {
+function getDynamicLabel(metricType: MetricType, manualPrefix?: string, lyDate?: string): string {
   const config = METRIC_CONFIGS[metricType];
   if (!config) return '';
   
@@ -67,7 +67,13 @@ function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string 
     case 'sales_last_year_day':
       // SDLY + numerical date with slash (e.g., "SDLY 1/10")
       // Same day last year = business date − 364 (same weekday)
-      baseLabel = `SDLY ${format(new Date(now.getTime() - 364 * 86400000), 'M/d')}`;
+      // Store BUSINESS date − 364 (from the server, same weekday). Label only.
+      if (lyDate && /^\d{4}-\d{2}-\d{2}$/.test(lyDate)) {
+        const [, m, d] = lyDate.split('-').map(Number);
+        baseLabel = `SDLY ${m}/${d}`;
+      } else {
+        baseLabel = 'SDLY';
+      }
       break;
     case 'sales_last_year_week':
       // SWLY + Wk# (e.g., "SWLY Wk2")
@@ -716,7 +722,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType)}
+                        {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -762,7 +768,7 @@ function CubeFaceComponent({
                         isLightBg ? "text-muted-foreground" : "text-white/70"
                       )}
                     >
-                      {getDynamicLabel(centerMetric)}
+                      {getDynamicLabel(centerMetric, undefined, salesData?.lastYear?.date)}
                       {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(centerMetric) && (
                         <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                       )}
@@ -826,7 +832,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType)}
+                        {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -866,7 +872,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType)}
+                        {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -921,7 +927,7 @@ function CubeFaceComponent({
                         isLightBg ? "text-muted-foreground" : "text-white/70"
                       )}
                     >
-                      {getDynamicLabel(metricType)}
+                      {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
                       {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                         <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                       )}
@@ -963,7 +969,7 @@ function CubeFaceComponent({
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
-                    {getDynamicLabel(metricType)}
+                    {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
                     {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                       <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                     )}
