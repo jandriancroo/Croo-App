@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
 import { InventoryAccessCard } from "./InventoryAccessCard";
 import AlohaIntegrationCard from "@/components/location/AlohaIntegrationCard";
+import ToastIntegrationCard from "@/components/location/ToastIntegrationCard";
 import { RegisterLaborSwitch } from "@/components/settings/RegisterLaborSwitch";
 import { useBrandIntegrationPolicies } from "@/hooks/useBrandIntegrationPolicies";
 
@@ -93,11 +94,11 @@ function IntegrationCard({
 export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
   const { data: enabledBrandIntegrations, isLoading: brandPoliciesLoading } = useBrandIntegrationPolicies(locationId);
-  const integrationEnabled = (key: 'qubeyond' | 'clover' | 'aloha' | 'pfg' | 'produce_alliance' | 'ovation') =>
+  const integrationEnabled = (key: 'qubeyond' | 'clover' | 'aloha' | 'toast' | 'pfg' | 'produce_alliance' | 'ovation') =>
     brandPoliciesLoading || enabledBrandIntegrations?.has(key);
 
   // Dialog state
-  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | 'aloha' | null>(null);
+  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | 'aloha' | 'toast' | null>(null);
 
   // Clover state
   const [cloverApiToken, setCloverApiToken] = useState('');
@@ -244,6 +245,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'aloha').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
+  const { data: toastIntegration, isLoading: toastIsLoading } = useQuery({
+    queryKey: ['location-integration', locationId, 'toast'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'toast').maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -915,7 +927,27 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           isLoading={alohaIsLoading}
           onEdit={() => setEditingIntegration('aloha')}
         />}
+        {integrationEnabled('toast') && <IntegrationCard
+          title="Toast POS"
+          description="Sales, hourly & payments (Coop's)"
+          connected={!!toastIntegration?.is_active}
+          isLoading={toastIsLoading}
+          onEdit={() => setEditingIntegration('toast')}
+        />}
       </div>
+
+      {/* ── Toast Dialog ── */}
+      <Dialog open={editingIntegration === 'toast'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plug className="h-5 w-5" /> Toast POS
+            </DialogTitle>
+            <DialogDescription>Homemade Toast connection (no paid Toast API)</DialogDescription>
+          </DialogHeader>
+          {locationId && <ToastIntegrationCard locationId={locationId} integration={toastIntegration} />}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Aloha Dialog ── */}
       <Dialog open={editingIntegration === 'aloha'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
