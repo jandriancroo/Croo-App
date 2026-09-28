@@ -696,7 +696,7 @@ export const useUserManagementData = () => {
     bulkUpdating, updatingOutdated,
     // Invite
     inviting, inviteDialogOpen, setInviteDialogOpen, inviteEmail, setInviteEmail,
-    inviteFullName, setInviteFullName, inviteRole, setInviteRole,
+    inviteFullName, setInviteFullName, inviteRole, setInviteRole, inviteWage, setInviteWage,
     inviteProfilePhoto, uploadingPhoto, photoInputRef, handlePhotoUpload,
     handleInviteUser,
     // Crop
