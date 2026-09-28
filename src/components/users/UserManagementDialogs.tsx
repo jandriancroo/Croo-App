@@ -66,6 +66,11 @@ export const UserManagementDialogs = ({ data }: UserManagementDialogsProps) => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-wage">Hourly Wage ($) <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input id="invite-wage" type="number" inputMode="decimal" min="0" step="0.01" value={data.inviteWage} onChange={(e) => data.setInviteWage(e.target.value)} placeholder="e.g. 16.50" />
+              <p className="text-xs text-muted-foreground">Leave blank if you don't know yet. It will show as "wage missing" until someone sets it.</p>
+            </div>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => data.setInviteDialogOpen(false)}>Cancel</Button>
