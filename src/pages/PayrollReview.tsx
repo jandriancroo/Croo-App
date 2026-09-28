@@ -317,6 +317,14 @@ export default function PayrollReview() {
             {isPeriodClosed ? (
               /* Payroll Summary */
               <Card>
+                {calculatePayrollSummary().wageMissingNames.length > 0 && (
+                  <div role="alert" className="m-4 mb-0 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Wage missing for: {calculatePayrollSummary().wageMissingNames.join(', ')}. Their gross wages show $0 — your payroll provider has the real rates.
+                    </span>
+                  </div>
+                )}
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Payroll Summary</CardTitle>
                   <DropdownMenu>
@@ -364,7 +372,7 @@ export default function PayrollReview() {
                           <TableCell className="text-right">{emp.doubleOvertimeHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{emp.ptoHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right text-green-600">{emp.tips > 0 ? `$${emp.tips.toFixed(2)}` : '-'}</TableCell>
-                          <TableCell className="text-right font-semibold">{emp.wageMissing ? '—' : `$${emp.grossWages.toFixed(2)}`}</TableCell>
+                          <TableCell className="text-right font-semibold">${emp.grossWages.toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold bg-muted/50">
