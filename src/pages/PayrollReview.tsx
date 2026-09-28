@@ -96,16 +96,30 @@ export default function PayrollReview() {
     Object.entries(c.punchesByDay || {}).forEach(([d, dayPunches]: [string, any]) => {
       const ids = dayPunches.filter((p: any) => !p.approved_at).map((p: any) => p.id);
       if (ids.length === 0 || getDayFlags(dayPunches).hasOpenShift) return;
+      const f = getDayFlags(dayPunches);
+      const hours = calculateDayHours(dayPunches);
+      const sorted = sortPunches(dayPunches);
+      const firstIn = sorted.find((p: any) => p.punch_type === 'clock_in');
+      const lastOut = [...sorted].reverse().find((p: any) => p.punch_type === 'clock_out');
+      const t = (p: any) => p ? formatDateTimeInTimezone(new Date(p.punch_time), timezone, { hour: 'numeric', minute: '2-digit' }) : '—';
+      const issues: string[] = [];
+      if (f.hasAutoClockOut) issues.push('Auto clock-out');
+      if (f.hasBreakViolation) issues.push('No meal break');
+      if (hours > 10) issues.push(`Long shift (${hours.toFixed(1)}h)`);
+      if (dayPunches.some((p: any) => p.has_extended_break)) issues.push('Long break');
+      if (dayPunches.some((p: any) => p.notes === 'Manual entry by manager')) issues.push('Manually edited');
       unapprovedShifts.push({
         key: `${c.profile?.id}_${d}`,
         name: reviewNames[c.profile?.id] || 'Team member',
         date: d,
-        hours: calculateDayHours(dayPunches),
+        hours,
         punchIds: ids,
+        timeRange: `${t(firstIn)} – ${t(lastOut)}`,
+        issues,
       });
     });
   });
-  unapprovedShifts.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+  unapprovedShifts.sort((a, b) => (b.issues.length > 0 ? 1 : 0) - (a.issues.length > 0 ? 1 : 0) || a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
 
   if (!isAdmin && !isManager) {
     return (
