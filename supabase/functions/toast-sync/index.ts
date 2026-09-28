@@ -562,6 +562,18 @@ Deno.serve(async (req) => {
 
   let body: unknown;
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+  if ((body as any)?.action === "ingest-labor") {
+    const labor = LaborBodySchema.safeParse(body);
+    if (!labor.success) return json({ error: labor.error.flatten() }, 400);
+    const supabaseLabor = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    try {
+      const result = await ingestLabor(supabaseLabor, labor.data);
+      return json({ success: true, result });
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : String(e) }, 500);
+    }
+  }
+
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
 
