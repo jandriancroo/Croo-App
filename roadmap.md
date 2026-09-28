@@ -44,3 +44,9 @@
 - [ ] One-time Toast sign-in test (sales + punches for Hayward) — robot signs in via auth.toasttab.com, TOTP from saved secret. Careful: few spaced attempts, avoid account lockout (user explicitly worried).
 - [ ] Map Toast Web data feeds (sales summary + labor/time entries) from captured responses.
 - [ ] Build 15-minute live fetcher posting to toast-sync (labor scope: read-only Toast punches matched to CrooHQ schedule).
+
+## Toast integration (in progress)
+- [x] One-time sign-in test passed (robot signs in end-to-end, no lockout). Findings: docs/toast-recon-2026-09-28.md
+- [ ] Capture punch-row payload (time entry report via report-generator) — one more browser pass
+- [ ] Build live fetcher: reuse session, call report-generator sales/TimeEntry reports every 1–2 min during store hours, POST normalized payload to toast-sync
+- [ ] Toast labor (read-only 'toast' source in labor_cache + schedule pairing) — NEEDS user sign-off before touching protected labor tables
