@@ -50,6 +50,9 @@
 - [x] Capture punch-row payload — done: GraphQL GetShiftsV2, full in/out/breaks/job/tips/anomalies/employee IDs (docs/toast-recon-2026-09-28.md)
 - [ ] Build live fetcher: reuse session, call report-generator sales/TimeEntry reports every 1–2 min during store hours, POST normalized payload to toast-sync
 - [ ] Toast labor (read-only 'toast' source in labor_cache + schedule pairing) — NEEDS user sign-off before touching protected labor tables
-- [ ] Answer: are 3D Data Cubes POS-agnostic and buildable from any POS sync? (audit cube data sources)
+- [x] Answer: are 3D Data Cubes POS-agnostic and buildable from any POS sync? (audit cube data sources — yes, cubes read shared sales/labor caches, zero cube changes needed)
+- [x] TOTP secret rotated (new authenticator key saved; sign-in verified end-to-end)
+- [x] GitHub Actions secrets added by user (TOAST_LOGIN_EMAIL/PASSWORD/TOTP_SECRET)
 - [x] Toast live robot (toast-live-runner.mjs + workflow) — sign-in OK, report poll fixed
-- [ ] Toast backfill: daily to SDLY standard (-364d), hourly one week back
+- [ ] Verify first full live run post-rotation: sign-in → sales poll → toast-sync ingest
+- [ ] Plan remaining sales sync + labor (backfill daily -364d, hourly -7d; labor pairing read-only 'toast' source — needs user sign-off)
