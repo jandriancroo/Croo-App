@@ -106,13 +106,12 @@ export function useSubscription() {
     (window.navigator as any).standalone === true
   );
 
+  // Always same-tab redirect: window.open after an await is silently blocked
+  // by Safari/iOS popup blockers, which left checkout stuck on "Opening…".
+  void isStandalone;
   const openUrl = useCallback((url: string) => {
-    if (isStandalone) {
-      window.location.href = url;
-    } else {
-      window.open(url, '_blank');
-    }
-  }, [isStandalone]);
+    window.location.assign(url);
+  }, []);
 
   const startCheckout = useCallback(async (priceId: string, _skipTrialUnused?: boolean, locationId?: string) => {
     if (!locationId) throw new Error('Please select a location to subscribe');
