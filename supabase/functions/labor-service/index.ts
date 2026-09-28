@@ -120,7 +120,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
         hours: Number(u.paid_hours),
         wage: Number(u.wage),
         // Straight cost + daily OT/DT premium (premium is 0 before 9/26 by rule).
-        cost: Math.round((Number(u.cost) + Number(u.premium_cost || 0)) * 100) / 100,
+        cost: Number(u.cost) + Number(u.premium_cost || 0),
       }));
     const otHours = Math.round((users || []).reduce((a: number, u: any) => a + Number(u.ot_hours || 0), 0) * 10000) / 10000;
     const dtHours = Math.round((users || []).reduce((a: number, u: any) => a + Number(u.dt_hours || 0), 0) * 10000) / 10000;
