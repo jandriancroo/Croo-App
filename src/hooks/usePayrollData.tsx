@@ -275,7 +275,7 @@ export function usePayrollData() {
     if (allPunches.length > 0) {
       const bucketed = bucketPunchesByUserAndDay(allPunches, timezone, cutoffByDayOfWeek, 5);
       bucketed.forEach((daysForUser, userId) => {
-        const wage = wageByUserId.get(userId) ?? 15;
+        const wage = wageByUserId.get(userId) ?? 0; // no default wage
         Object.entries(daysForUser).forEach(([day, dayPunches]) => {
           // Locked: Time Tracking / payroll must never live-extend open punches.
           const hours = calculateDayHours(dayPunches as any[], false);
@@ -970,7 +970,7 @@ export function usePayrollData() {
         return {
           profile: {
             ...profile,
-            hourly_wage: currentWage || 15
+            hourly_wage: currentWage || 0 // no default wage — 0 means "wage missing"
           },
           punches: punches || [],
           punchesByDay,
