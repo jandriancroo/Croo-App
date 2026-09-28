@@ -245,12 +245,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           .eq('location_id', currentLocation!.id)
           .gte('sale_date', startStr)
           .lte('sale_date', endStr),
-        supabase
-          .from('labor_cache')
-          .select('labor_date, labor_hours, source')
-          .eq('location_id', currentLocation!.id)
-          .gte('labor_date', startStr)
-          .lte('labor_date', endStr),
+        fetchStoreLabor([currentLocation!.id], startStr, endStr),
       ]);
 
       const out: Record<string, DaySalesLabor> = {};

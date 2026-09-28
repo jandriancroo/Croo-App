@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { calculateCountItemValue } from '@/utils/countItemValue';
 import { fetchRecipeCosts } from '@/utils/recipeCostCalculation';
-import { fetchLiveLaborForToday } from '@/utils/liveLabor';
+import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 
 export interface CogsCategoryRow {
   category: string;
@@ -66,12 +66,8 @@ async function fetchLocationData(
     .lte('sale_date', toISO);
 
   // Labor (labor_cache) - prefer punch_clock then qubeyond fallback
-  const laborP = supabase
-    .from('labor_cache')
-    .select('labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours, double_time_hours')
-    .eq('location_id', locationId)
-    .gte('labor_date', fromISO)
-    .lte('labor_date', toISO);
+  // Labor: one server number per day (get_store_labor; today is live).
+  const laborP = fetchStoreLabor([locationId], fromISO, toISO);
 
   // Inventory counts — read straight from the inventory period panel source of truth.
   // Pick the most recent COMPLETED count whose period_end_date falls inside the window.
@@ -120,22 +116,6 @@ async function fetchLocationData(
       byDay.set(key, r);
     }
   }
-  // labor_cache only holds CLOSED days. If the window includes today, patch it
-  // with the shared live-punch helper so reports agree with the dashboard.
-  const liveToday = await fetchLiveLaborForToday(locationId);
-  if (liveToday.hours > 0 && liveToday.date >= fromISO && liveToday.date <= toISO) {
-    const existingToday = byDay.get(liveToday.date);
-    if (!existingToday || !(Number(existingToday.labor_hours || 0) > 0)) {
-      byDay.set(liveToday.date, {
-        ...(existingToday || {}),
-        labor_date: liveToday.date,
-        source: 'punch_clock',
-        labor_hours: liveToday.hours,
-        labor_cost: liveToday.cost,
-      });
-    }
-  }
-
   const dayRows = Array.from(byDay.entries()).map(([date, r]) => ({
     date,
     totalHours: Number(r.labor_hours || 0),
