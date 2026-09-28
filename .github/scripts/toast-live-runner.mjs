@@ -140,14 +140,20 @@ async function signInOnce(browser) {
   for (let a = 0; a < 3; a++) {
     try {
       await page.waitForSelector('input[inputmode=numeric]', { timeout: 15000 });
+      { const r = Math.floor(Date.now()/1000) % 30; await page.waitForTimeout(((a === 0 && r < 22) ? 0 : (31 - r)) * 1000); }
       await page.fill('input[inputmode=numeric]', totp(TOTP_TOTP_SECRET_V));
       const btns = page.locator("button:has-text('Verify'), button:has-text('Continue'), button[type=submit]");
       if (await btns.count() > 0) await btns.first().click();
     } catch { break; }
-    await page.waitForTimeout(4000);
+    try { await page.waitForURL(/toasttab\.com\/restaurants/, { timeout: 20000 }); } catch {}
     if (page.url().includes('toasttab.com/restaurants')) break;
   }
-  if (!page.url().includes('toasttab.com/restaurants')) throw new Error(`Sign-in did not land on Toast admin (at ${page.url()})`);
+  if (!page.url().includes('toasttab.com/restaurants')) {
+    try { await page.goto('https://www.toasttab.com/restaurants/admin/home', { waitUntil: 'domcontentloaded', timeout: 30000 }); } catch {}
+  }
+  if (!page.url().includes('toasttab.com/restaurants')) { await page.screenshot({path:'shots/live_fail.png'}); console.log((await page.innerText('body')).slice(0,400)); }
+  const stillOtp = await page.locator('input[inputmode=numeric]').count().catch(() => 0);
+  if (stillOtp && !page.url().includes('toasttab.com/restaurants')) throw new Error(`Sign-in did not land on Toast admin (at ${page.url()})`);
   try { await page.locator("[aria-label='Close']").first().click({ timeout: 3000 }); } catch {}
   try { await page.locator("button:has-text('Reject Non-Necessary')").click({ timeout: 4000 }); } catch {}
   console.log('✅ Toast sign-in OK');
@@ -366,6 +372,55 @@ async function fetchShifts(page, restaurantGuid, date) {
   return shifts.map((s) => normalizeShift(s, employees));
 }
 
+
+// Local "9/28/26 8:21 AM" in store tz → UTC ISO.
+function localToIso(txt, tz) {
+  const m = String(txt || '').trim().match(/^(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)\s*(AM|PM)$/i);
+  if (!m) return null;
+  let [, mo, d, y, h, mi, ap] = m; y = +y < 100 ? 2000 + +y : +y; h = +h % 12 + (ap.toUpperCase() === 'PM' ? 12 : 0);
+  const guess = Date.UTC(y, +mo - 1, +d, h, +mi);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+  const asLocal = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
+  return new Date(guess - (asLocal - guess)).toISOString();
+}
+// Read-only punches from Toast's Time Entries report table (no GraphQL template needed).
+async function fetchShiftsTable(ctx, tz) {
+  const p = await ctx.newPage();
+  try {
+    await p.goto('https://www.toasttab.com/restaurants/admin/legacyReports/labor#labor-time-entries', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await p.waitForFunction(() => [...document.querySelectorAll('table')].some((t) => /In Date/i.test(t.innerText) && /Employee/i.test(t.innerText)), null, { timeout: 45000 });
+    await p.waitForTimeout(1500);
+    const rows = await p.evaluate(() => {
+      const t = [...document.querySelectorAll('table')].find((x) => /In Date/i.test(x.innerText) && /Employee/i.test(x.innerText));
+      const heads = [...t.querySelectorAll('thead th')].map((h) => h.innerText.replace(/\s+/g, ' ').trim().toLowerCase());
+      window.__heads = heads;
+      return [...t.querySelectorAll('tbody tr')].map((tr) => {
+        const c = [...tr.querySelectorAll('td')].map((td) => td.innerText.replace(/\s+/g, ' ').trim());
+        const o = {}; heads.forEach((h, i) => { o[h] = c[i] ?? ''; }); return o;
+      });
+    });
+    if (!globalThis.__loggedHeads && rows[0]) { console.log('🧾 columns:', Object.keys(rows[0]).join(' | ')); globalThis.__loggedHeads = true; }
+    const money = (v) => { const n = parseFloat(String(v || '').replace(/[$,]/g, '')); return Number.isFinite(n) ? n : null; };
+    return rows.filter((r) => r['employee'] && r['in date']).map((r) => {
+      const wKey = Object.keys(r).find((k) => /^(wage|hourly wage|wage rate|pay rate|rate)$/.test(k));
+      let hourlyWage = wKey ? money(r[wKey]) : null;
+      if (!hourlyWage) { const rp = money(r['regular pay']); const rh = parseFloat(r['regular hours'] || '0'); if (rp && rh > 0) hourlyWage = Math.round((rp / rh) * 100) / 100; }
+      const name = r['employee'].split(',').map((x) => x.trim()).reverse().join(' ');
+      const inTime = localToIso(r['in date'], tz);
+      const outTime = localToIso(r['out date'], tz);
+      const payH = parseFloat(r['payable hours'] || '0') || 0;
+      const unpaidH = parseFloat(r['unpaid break time'] || '0') || 0;
+      const id = crypto.createHash('sha1').update(`${r['employee']}|${r['in date']}`).digest('hex').slice(0, 24);
+      return {
+        id, employeeName: name.slice(0, 160), toastUserId: `name:${r['employee']}`.slice(0, 80),
+        status: outTime ? 'FINISHED' : 'IN_PROGRESS', inTime, outTime,
+        jobTitle: r['job title'] || null, payableSeconds: Math.round(payH * 3600), unpaidBreakSeconds: Math.round(unpaidH * 3600),
+        hourlyWage: hourlyWage && hourlyWage > 0 ? hourlyWage : null,
+      };
+    }).filter((x) => x.inTime);
+  } finally { await p.close().catch(() => {}); }
+}
+
 function postLabor(locationId, date, shifts) {
   return fetch(`${SUPABASE_URL}/functions/v1/toast-sync`, {
     method: 'POST',
@@ -426,7 +481,9 @@ async function main() {
   try {
     session = await signInOnce(browser);
     const start = Date.now();
+    let loopN = -1;
     while (true) {
+      loopN++;
       if ((Date.now() - start) / 60000 > MAX_RUN_MINUTES) { console.log('⏱ run budget reached'); break; }
       for (const store of active) {
         const { date } = localParts(store.timezone);
@@ -448,9 +505,9 @@ async function main() {
         const j = await r.json().catch(() => ({}));
         console.log(`📊 ${date} ${store.locationId}: net $${out.netSales} (${out.checkCount} checks) → ${r.ok ? 'ingested' : `ERROR ${r.status}`}`);
         // Read-only punch pull for the same day (Toast owns punches).
-        if (SHIFTS_TPL) {
+        if (SHIFTS_TPL || (loopN % 2 === 0)) {
           try {
-            const shifts = await fetchShifts(session.page, store.restaurantGuid, date);
+            const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone);
             if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
             else if (Array.isArray(shifts)) {
               const lr = await postLabor(store.locationId, date, shifts);
