@@ -1327,7 +1327,9 @@ export function MobileScheduleView({
                               timezone={timezone}
                               formatTimeDisplay={formatTimeDisplay}
                               showBreakIndicator={false}
+                              posIcon={punch.isToast ? 'toast' : null}
                               onClick={() => {
+                                if (punch.isToast) return; // Toast punches are read-only
                                 const today = getTodayInTimezone(timezone);
                                 setSelectedPunch({
                                   userId: punch.user_id,
