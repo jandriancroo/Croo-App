@@ -133,10 +133,14 @@ async function buildFacts(db: any, locationId: string, day: string, tz: string):
       }
       return { hr, sales: Number(h.sales) || 0, people };
     }).filter((r) => r.people > 0);
+    // Ignore opening prep and closing clean-up: only hours between the first and last sale.
+    const sold = rows.filter((r) => r.sales > 0);
+    const firstSale = sold[0]?.hr, lastSale = sold[sold.length - 1]?.hr;
+    const open_ = (hr: number) => firstSale != null && lastSale != null && hr >= firstSale && hr <= lastSale;
     const daySplh = net / workedTotal;
     let best: { hr: number; sales: number; people: number } | null = null;
     for (let i = 0; i + 1 < rows.length; i++) {
-      const a = rows[i], b = rows[i + 1]; if (b.hr !== (a.hr + 1) % 24) continue;
+      const a = rows[i], b = rows[i + 1]; if (b.hr !== (a.hr + 1) % 24 || !open_(a.hr) || !open_(b.hr)) continue;
       const people = a.people + b.people, s = a.sales + b.sales;
       if (people / 2 < 2.5) continue;
       const splh = s / people;
