@@ -85,6 +85,7 @@ const ShiftSchema = z.object({
   })).default([]),
   missedBreaks: z.array(z.unknown()).default([]),
   anomalyCount: z.number().int().min(0).default(0),
+  hourlyWage: z.number().finite().min(0).max(500).nullable().optional(),
 });
 
 const BodySchema = z.object({
@@ -364,6 +365,23 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     }
   }
 
+  // Toast pay rates (Toast always wins). Private table; trigger pushes to paired profiles.
+  const toastWage = new Map<string, number>();
+  for (const sh of shifts) if (sh.hourlyWage && sh.hourlyWage > 0) toastWage.set(sh.toastUserId, sh.hourlyWage);
+  if (toastWage.size > 0) {
+    await supabase.from("toast_employee_wages").upsert(
+      [...toastWage].map(([k, w]) => ({ location_id: locationId, toast_user_id: k, hourly_wage: w, updated_at: new Date().toISOString() })),
+      { onConflict: "location_id,toast_user_id" });
+  }
+  {
+    const missing = [...new Set(shifts.map((s) => s.toastUserId))].filter((k) => !toastWage.has(k));
+    if (missing.length) {
+      const { data: saved } = await supabase.from("toast_employee_wages")
+        .select("toast_user_id, hourly_wage").eq("location_id", locationId).in("toast_user_id", missing);
+      for (const r of saved || []) toastWage.set(r.toast_user_id, Number(r.hourly_wage));
+    }
+  }
+
   const crooIds = [...new Set(shifts.map((s) => byToastUser.get(s.toastUserId)?.croo_user_id).filter(Boolean))];
   const wageByUser = new Map<string, number | null>();
   if (crooIds.length > 0) {
@@ -428,7 +446,12 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     const mapping = byToastUser.get(shift.toastUserId) ?? null;
     const crooId: string | null = mapping?.croo_user_id ?? null;
     const outIso = shift.outTime ?? null;
-    const hours = Math.round((shift.payableSeconds / 3600) * 100) / 100;
+    // Toast reports 0 payable hours until clock-out; count open shifts live.
+    let paySec = shift.payableSeconds;
+    if (!shift.outTime && paySec === 0) {
+      paySec = Math.max(0, (Date.now() - new Date(shift.inTime).getTime()) / 1000 - shift.unpaidBreakSeconds);
+    }
+    const hours = Math.round((paySec / 3600) * 100) / 100;
     totalHours += hours;
 
     // Breaks: taken breaks, plus "currently on break" for active shifts.
@@ -501,9 +524,8 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     const byHour = distributeHours(shift.inTime, outIso, tz, hours);
     for (const [h, v] of Object.entries(byHour)) hourlyByHour[Number(h)] = (hourlyByHour[Number(h)] ?? 0) + v;
 
-    if (crooId && wageByUser.get(crooId) != null) {
-      totalCost = (totalCost ?? 0) + hours * wageByUser.get(crooId)!;
-    }
+    const rate = toastWage.get(shift.toastUserId) ?? (crooId ? wageByUser.get(crooId) ?? null : null);
+    if (rate != null) totalCost = (totalCost ?? 0) + hours * rate;
   }
   totalCost = totalCost == null || totalCost === 0 ? null : Math.round(totalCost * 100) / 100;
 
