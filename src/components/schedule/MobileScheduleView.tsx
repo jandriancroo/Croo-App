@@ -1146,10 +1146,10 @@ export function MobileScheduleView({
 
               {/* 5. TODAY: NOW + LATER sections with punch tracking */}
               {isSelectedDateToday ? ((() => {
-                const activePunches = dayPunches.filter(p => p.isActive && !p.isOnBreak);
-                const onBreakPunches = dayPunches.filter(p => p.isOnBreak);
-                const completedPunches = dayPunches.filter(p => !p.isActive);
-                const totalScheduled = dayPunches.length;
+                const activePunches = allDayPunches.filter(p => p.isActive && !p.isOnBreak);
+                const onBreakPunches = allDayPunches.filter(p => p.isOnBreak);
+                const completedPunches = allDayPunches.filter(p => !p.isActive);
+                const totalScheduled = allDayPunches.length;
 
                 return (
                   <>
@@ -1247,7 +1247,7 @@ export function MobileScheduleView({
                         .filter(shift => {
                           const profile = getProfileForShift(shift);
                           if (!profile) return false;
-                          return !dayPunches.some(p => p.user_id === shift.user_id);
+                          return !allDayPunches.some(p => p.user_id === shift.user_id);
                         })
                         .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
