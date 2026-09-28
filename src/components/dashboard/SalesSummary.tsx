@@ -779,6 +779,26 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       }
     }
 
+    // Last year (date − 364) from the server so every screen agrees.
+    if (currentLocation?.id && salesData) {
+      try {
+        const { data: cmp } = await supabase.rpc('get_sales_comparisons' as any, {
+          _location_id: currentLocation.id,
+          _date: targetDateStr,
+        });
+        const c = Array.isArray(cmp) ? cmp[0] : cmp;
+        if (c) {
+          salesData.lastYear = {
+            sameDay: c.ly_net_sales != null ? Number(c.ly_net_sales) : undefined,
+            sameWeek: c.ly_wtd_net != null ? Number(c.ly_wtd_net) : salesData.lastYear?.sameWeek,
+            sameMonth: c.ly_mtd_net != null ? Number(c.ly_mtd_net) : salesData.lastYear?.sameMonth,
+          };
+        }
+      } catch (e) {
+        console.warn('[SalesOverview] comparisons failed:', e);
+      }
+    }
+
 
 
     // If we skipped projections but have cached ones, merge them in
