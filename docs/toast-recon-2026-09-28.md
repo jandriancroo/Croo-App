@@ -27,3 +27,6 @@ Contains everything sales_cache needs (net, gross, discounts, tax, orders, items
 - Which restaurant GUID is Hayward: default restaurant on login is c93b197b-bbc8-4d94-a8b3-cc24cddc8c06 ("Coop's Pizza") — the saved TOAST_HAYWARD_RESTAURANT_ID does NOT match it. Verify location switcher / restaurant sets (GetAccessibleRestaurantSets captured) and confirm Hayward's GUID before pointing the fetcher.
 - Capture exact punch-row payload for the labor pairing features (read-only; user sign-off required before writing any labor_cache 'toast' source).
 - Cookie consent + setup checklist popups must be dismissed per run.
+
+## Resolved (2026-09-28 12:42 PT)
+- User confirmed Coop's has only ONE Toast location. Working restaurant GUID for all Toast calls: c93b197b-bbc8-4d94-a8b3-cc24cddc8c06 (label "Coop's Pizza"). The saved TOAST_HAYWARD_RESTAURANT_ID value is a different string — treat c93b197b as authoritative; keep the saved secret untouched.
