@@ -62,10 +62,10 @@
 ## Toast labor pairing (in progress, Sep 28)
 - Coop's org has almost no CrooHQ users yet (only Sam & Debbie) — Toast↔CrooHQ matching runs on names; unmatched punches show with Toast names, alerts/wages unlock as profiles are added. Do not block on this.
 - [x] Migration: toast_employee_mappings table + pull_labor=true for Coop's Toast integration
-- [ ] toast-sync ingest-labor action (write in progress)
-- [ ] Robot: pull GetShiftsV2 punches each poll (capture request after backfill finishes to avoid a second concurrent Toast session)
-- [ ] Mobile schedule: Toast punch cards (read-only, Toast icon)
-- [ ] Manager dash overlay: who's on the clock from Toast
+- [x] toast-sync ingest-labor action (deployed)
+- [x] Robot: punch-pull code added (template replay via toast-shifts-request.json; capture reordered before live poller — pending capture run + first ingest test)
+- [x] Mobile schedule: Toast punch cards (read-only, Toast icon; build OK)
+- [x] Manager dash overlay: who's on the clock from Toast (toast_shifts IN_PROGRESS, Toast badge, mapped users get scheduled times)
 - [ ] Nightly Toast export pull (SFTP) — deferred
 
 ## Toast hourly history (queued Sep 28)
@@ -74,3 +74,7 @@
 
 ## Live freshness fix (Sep 28)
 - User saw stale sales ($1,527 @ 2:02 vs Toast $1,725): the 6-hour GitHub cron leaves afternoon gaps. Reordered the chained queue: after daily backfill → LIVE poller (90s, through close, MAX 420 min) → hourly-history pass (371d, HOURLY_ALL=1) → punch capture. Also plan: tighten GitHub cron for overlapping day coverage.
+
+## Freshness clarification (Sep 28)
+- get_live_labor_totals migration: when labor source is 'toast', returns labor_cache toast rows via _store_labor instead of punch math. Dashboard labor% card then works as soon as the robot ingests punches.
+- Explained to user: 90s = poll interval while robot runs; between scheduled runs numbers freeze. Queue now wakes the poller after backfill through close; next step is covering all store hours (cron window review).
