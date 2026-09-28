@@ -183,7 +183,7 @@ async function generateInsight(
   // 1. Get yesterday's hourly sales
   const { data: salesData } = await supabase
     .from("sales_cache")
-    .select("net_sales, hourly_data, projected_sales, override_projection, initial_projection")
+    .select("net_sales, hourly_data, projected_sales, override_projection, living_projection, initial_projection")
     .eq("location_id", locationId)
     .eq("sale_date", yesterday)
     .maybeSingle();
@@ -307,7 +307,7 @@ async function generateInsight(
 
   // 8. Build structured data for AI
   const hourlyData = (salesData.hourly_data as any[]) || [];
-  const goal = salesData.override_projection || salesData.initial_projection || salesData.projected_sales || 0;
+  const goal = (Number(salesData.override_projection) || Number(salesData.living_projection) || Number(salesData.initial_projection) || Number(salesData.projected_sales) || 0);
 
   const analysisData = {
     location: locationName,

@@ -263,7 +263,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     const yd = (salesRows || []).find((r: any) => r.sale_date === yesterday);
     const ydLabor = (laborRows || []).find((r: any) => r.labor_date === yesterday);
     if (yd) {
-      const goal = yd.override_projection || yd.initial_projection || yd.projected_sales || 0;
+      const goal = (Number(yd.override_projection) || Number(yd.living_projection) || Number(yd.initial_projection) || Number(yd.projected_sales) || 0);
       const vs = goal > 0 ? ((yd.net_sales / goal - 1) * 100).toFixed(1) : "N/A";
       lines.push(`Yesterday (${yesterday}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}${ydLabor ? ` | Labor: $${ydLabor.labor_cost?.toLocaleString() || 0} (${yd.net_sales > 0 ? ((ydLabor.labor_cost / yd.net_sales) * 100).toFixed(1) : '0'}%) | Hours: ${ydLabor.labor_hours?.toFixed(1) || 0}` : ''}`);
     }
@@ -272,7 +272,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     const td = (salesRows || []).find((r: any) => r.sale_date === today);
     const tdLabor = (laborRows || []).find((r: any) => r.labor_date === today);
     if (td) {
-      const goal = td.override_projection || td.initial_projection || td.projected_sales || 0;
+      const goal = (Number(td.override_projection) || Number(td.living_projection) || Number(td.initial_projection) || Number(td.projected_sales) || 0);
       const pace = td.living_projection || goal;
       lines.push(`Today (${today}): Net Sales So Far $${(td.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} | Pace $${pace.toLocaleString()} | Guests: ${td.guest_count || 0}${tdLabor ? ` | Labor So Far: $${tdLabor.labor_cost?.toLocaleString() || 0} | Hours: ${tdLabor.labor_hours?.toFixed(1) || 0}` : ''}`);
     }
@@ -280,7 +280,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     // Tomorrow
     const tm = (salesRows || []).find((r: any) => r.sale_date === tomorrow);
     if (tm) {
-      const goal = tm.override_projection || tm.initial_projection || tm.projected_sales || 0;
+      const goal = (Number(tm.override_projection) || Number(tm.living_projection) || Number(tm.initial_projection) || Number(tm.projected_sales) || 0);
       // SANITY CHECK: flag if projection seems absurdly low
       const flagged = goal > 0 && goal < 500 ? " ⚠️ THIS PROJECTION LOOKS SUSPICIOUSLY LOW — it may be a stale override or data error. Tell the user the number seems off and suggest they check/update the projection." : "";
       lines.push(`Tomorrow (${tomorrow}): Projected $${goal.toLocaleString()}${flagged}`);
@@ -289,7 +289,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     // Week-to-date
     if (weekRows && weekRows.length > 0) {
       const wtdSales = weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0);
-      const wtdGoal = weekRows.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0);
+      const wtdGoal = weekRows.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0);
       lines.push(`Week-to-date (${weekStart} → ${today}): Sales $${wtdSales.toLocaleString()} | Goal $${wtdGoal.toLocaleString()} (${wtdGoal > 0 ? ((wtdSales / wtdGoal - 1) * 100).toFixed(1) : 'N/A'}%)`);
     }
 
@@ -300,13 +300,13 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       const futureLines = futureDays.map((r: any) => {
         const d = new Date(r.sale_date + "T12:00:00");
         const dayName = dayNames[d.getDay()];
-        const proj = r.override_projection || r.initial_projection || r.projected_sales || 0;
+        const proj = (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0);
         return `${dayName} ${r.sale_date}: $${proj.toLocaleString()}`;
       });
       lines.push(`Remaining Week Projections: ${futureLines.join(" | ")}`);
-      const totalRemaining = futureDays.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0);
+      const totalRemaining = futureDays.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0);
       const wtdSales = weekRows ? weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0) : 0;
-      const fullWeekProj = (weekRows ? weekRows.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0) : 0) + totalRemaining;
+      const fullWeekProj = (weekRows ? weekRows.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0) : 0) + totalRemaining;
       lines.push(`Full Week Projection: $${fullWeekProj.toLocaleString()} (Remaining: $${totalRemaining.toLocaleString()})`);
     }
 
