@@ -60,18 +60,18 @@ Deno.serve(async (req) => {
     const ids = (active ?? []).map((r: any) => r.location_id);
     if (ids.length === 0) return json({ stores: [] });
     const { data: locs, error: e2 } = await supabase
-      .from("locations").select("id, timezone").in("id", ids);
+      .from("location_settings").select("location_id, timezone").in("location_id", ids);
     if (e2) return json({ error: e2.message }, 500);
     const { data: hours, error: e3 } = await supabase
       .from("location_hours").select("location_id, day_of_week, open_time, close_time, is_closed").in("location_id", ids);
     if (e3) return json({ error: e3.message }, 500);
     return json({
       stores: (locs ?? []).map((l: any) => ({
-        locationId: l.id,
-        restaurantGuid: (active ?? []).find((a: any) => a.location_id === l.id)?.credentials?.restaurant_guid ?? null,
+        locationId: l.location_id,
+        restaurantGuid: (active ?? []).find((a: any) => a.location_id === l.location_id)?.credentials?.restaurant_guid ?? null,
         timezone: l.timezone ?? "America/Los_Angeles",
         hours: (hours ?? [])
-          .filter((h: any) => h.location_id === l.id)
+          .filter((h: any) => h.location_id === l.location_id)
           .map((h: any) => ({ dow: h.day_of_week, open: String(h.open_time).slice(0, 5), close: String(h.close_time).slice(0, 5), closed: !!h.is_closed })),
       })),
     });
