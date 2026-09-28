@@ -503,18 +503,50 @@ async function main() {
   console.log(`Active Toast stores in polling window: ${active.map((s) => s.locationId).join(', ') || 'none'}`);
   if (active.length === 0) return;
 
-  const browser = await chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
+  // Stay-signed-in strategy:
+  //  1. Saved sign-in (cookies) on disk → reused on every restart/re-login, so no
+  //     password + 2FA code unless Toast truly expired it.
+  //  2. If Chrome itself crashes, relaunch Chrome (old code reused a dead browser
+  //     forever, which looked like "logged out").
+  //  3. Backoff between full sign-ins so we never hammer Toast's login.
+  const STATE_FILE = process.env.TOAST_STATE_FILE || new URL('./.toast-session.json', import.meta.url).pathname;
+  const launch = () => chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
+  let browser = await launch();
+  let lastFullLogin = 0;
+  const saveState = async (ctx) => { try { await ctx.storageState({ path: STATE_FILE }); } catch {} };
+  const trySaved = async () => {
+    if (!fs.existsSync(STATE_FILE)) return null;
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 1800 }, storageState: STATE_FILE });
+    const page = await ctx.newPage();
+    await page.goto('https://www.toasttab.com/restaurants/admin/home', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(4000);
+    if (/login|auth\.toasttab/.test(page.url())) { await ctx.close(); return null; }
+    console.log('🔑 reused saved Toast sign-in');
+    return { ctx, page };
+  };
+  const getSession = async () => {
+    if (!browser.isConnected()) { console.warn('🔁 Chrome died — relaunching'); browser = await launch(); }
+    const saved = await trySaved().catch(() => null);
+    if (saved) return saved;
+    const wait = 120000 - (Date.now() - lastFullLogin);
+    if (lastFullLogin && wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastFullLogin = Date.now();
+    const s = await signInOnce(browser);
+    await saveState(s.ctx);
+    return s;
+  };
   let session;
   SHIFTS_TPL = loadTemplate('toast-shifts-request.json');
   EMPLOYEES_TPL = loadTemplate('toast-employees-request.json');
   if (SHIFTS_TPL) console.log('🧾 punch template loaded — labor polling active');
   try {
-    session = await signInOnce(browser);
+    session = await getSession();
     const start = Date.now();
     let loopN = -1;
     while (true) {
       loopN++;
       if ((Date.now() - start) / 60000 > MAX_RUN_MINUTES) { console.log('⏱ run budget reached'); break; }
+      if (!browser.isConnected()) { try { session = await getSession(); } catch (e) { console.warn(`⚠️ relaunch failed: ${e.message}`); } }
       for (const store of active) {
         const { date } = localParts(store.timezone);
         if (!inWindow(store)) continue;
@@ -522,13 +554,13 @@ async function main() {
         try { out = await pollOnce(session.page, store, date); }
         catch (e) {
           console.warn(`⚠️ ${store.locationId} poll failed: ${e.message}`);
-          // Re-sign-in once on session loss.
           try {
-            await session.ctx.close();
-            session = await signInOnce(browser);
+            await session.ctx.close().catch(() => {});
+            session = await getSession();
             out = await pollOnce(session.page, store, date);
           } catch (e2) { console.warn(`⚠️ re-sign-in failed: ${e2.message}`); out = { error: e2.message }; }
         }
+        if (!out?.error && loopN % 10 === 0) await saveState(session.ctx);
         if (out?.error) { console.warn(`⚠️ ${store.locationId}: ${out.error}`); continue; }
         const day = { locationId: store.locationId, date, source: 'live', ...out };
         const r = await postToSync([day]);
