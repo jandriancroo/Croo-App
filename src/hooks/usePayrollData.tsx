@@ -1558,8 +1558,9 @@ export function usePayrollData() {
     });
 
     const summary = rows.map(r => {
-      const wageMissing = r.wage_missing || r.wage == null || r.wage <= 0;
-      const wage = wageMissing ? 0 : (r.wage as number);
+      // Blank wage = missing (flagged). $0 = intentional (e.g. owner/salaried), not flagged.
+      const wageMissing = r.wage == null;
+      const wage = wageMissing ? 0 : Number(r.wage) || 0;
       const grossWages = (r.regular_hours * wage) + (r.ot_hours * wage * otMultiplier) + (r.dt_hours * wage * dtMultiplier) + (r.pto_hours * wage);
       const tips = employeeTipShares.find(t => t.userId === r.user_id)?.totalTips || 0;
       return {
