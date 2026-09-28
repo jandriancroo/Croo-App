@@ -39,3 +39,8 @@
 
 - [x] Time Tracking mobile day bar: "📅39.5/36.4" compact hours, fix cramped header; Theo note collapses to 2 lines with tap to expand
 - [ ] Toast (homemade) for Coops: step 1 done; step 2 nightly export robot (waiting on Coops SFTP access + sample files); step 3 live robot (waiting on Toast Web login)
+
+## Toast live sync (Coops) — in progress
+- [ ] One-time Toast sign-in test (sales + punches for Hayward) — robot signs in via auth.toasttab.com, TOTP from saved secret. Careful: few spaced attempts, avoid account lockout (user explicitly worried).
+- [ ] Map Toast Web data feeds (sales summary + labor/time entries) from captured responses.
+- [ ] Build 15-minute live fetcher posting to toast-sync (labor scope: read-only Toast punches matched to CrooHQ schedule).
