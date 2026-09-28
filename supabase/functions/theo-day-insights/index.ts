@@ -134,9 +134,18 @@ async function buildFacts(db: any, locationId: string, day: string, tz: string):
       return { hr, sales: Number(h.sales) || 0, people };
     }).filter((r) => r.people > 0);
     // Ignore opening prep and closing clean-up: only hours between the first and last sale.
+    // Only judge hours the store is open to customers (location_hours), else first..last sale.
+    const dow0 = DateTime.fromFormat(day, "yyyy-MM-dd", { zone: tz }).weekday % 7; // 0 = Sunday
+    const { data: lh } = await db.from("location_hours").select("open_time, close_time, is_closed")
+      .eq("location_id", locationId).eq("day_of_week", dow0).maybeSingle();
     const sold = rows.filter((r) => r.sales > 0);
-    const firstSale = sold[0]?.hr, lastSale = sold[sold.length - 1]?.hr;
-    const open_ = (hr: number) => firstSale != null && lastSale != null && hr >= firstSale && hr <= lastSale;
+    let openMin = sold.length ? sold[0].hr * 60 : 0;
+    let closeMin = sold.length ? (sold[sold.length - 1].hr + 1) * 60 : 0;
+    if (lh && !lh.is_closed && lh.open_time && lh.close_time) {
+      openMin = toMin(lh.open_time); closeMin = toMin(lh.close_time); if (closeMin <= openMin) closeMin += 1440;
+    }
+    const norm = (hr: number) => (hr < 4 ? hr + 24 : hr) * 60;
+    const open_ = (hr: number) => norm(hr) >= openMin && norm(hr) + 60 <= closeMin;
     const daySplh = net / workedTotal;
     let best: { hr: number; sales: number; people: number } | null = null;
     for (let i = 0; i + 1 < rows.length; i++) {

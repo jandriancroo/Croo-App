@@ -197,7 +197,8 @@ export function DesktopTimeTrackingTable({
                       secondary={formatInTimeZone(dayDate, timezone, 'M/d')}
                       scheduledStart={scheduledShift && !scheduledShift.is_time_off && !scheduledShift.is_phantom ? formatScheduledTime(scheduledShift.start_time) : null}
                       scheduledEnd={scheduledShift && !scheduledShift.is_time_off && !scheduledShift.is_phantom ? formatScheduledTime(scheduledShift.end_time) : null}
-                      scheduledIsTimeOff={!!scheduledShift?.is_time_off}
+                      scheduledExtra={(scheduledShift?.all ?? []).slice(1).map((x: any) => ({ start: formatScheduledTime(x.start_time), end: formatScheduledTime(x.end_time) }))}
+                  scheduledIsTimeOff={!!scheduledShift?.is_time_off}
                       scheduledIsUnscheduled={!scheduledShift || !!scheduledShift?.is_phantom}
                       shifts={shifts.map((s) => ({
                         clockIn: s.clockIn ? formatTimeDisplay(s.clockIn.punch_time, timezone) : null,
