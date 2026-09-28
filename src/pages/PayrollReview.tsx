@@ -19,7 +19,7 @@ import { Users, CalendarDays, Flag } from 'lucide-react';
 import { usePayrollData } from '@/hooks/usePayrollData';
 import { DailyTipsStrip } from '@/components/payroll/DailyTipsStrip';
 import { PayPeriodSelector } from '@/components/timetracking/PayPeriodSelector';
-import { ShiftReviewPanel, useLaborShifts, unreviewedAutoOuts } from '@/components/timetracking/ShiftReviewPanel';
+import { ClosePeriodDialog, type UnapprovedShift } from '@/components/timetracking/ClosePeriodDialog';
 import { useState } from 'react';
 
 import {
@@ -34,6 +34,9 @@ export default function PayrollReview() {
     currentLocation,
     timezone,
     payPeriods,
+    visiblePeriodCount,
+    showMorePeriods,
+    closingPeriod,
     periodSummaries,
     selectedPeriod,
     setSelectedPeriod,
@@ -83,19 +86,26 @@ export default function PayrollReview() {
     totalTipPool,
     dailyTips,
   } = usePayrollData();
-  const [autoOutWarnOpen, setAutoOutWarnOpen] = useState(false);
-  const { data: reviewShifts } = useLaborShifts(currentLocation?.id, selectedPeriod?.startDate, selectedPeriod?.endDate);
-  const pendingAutoOuts = unreviewedAutoOuts(reviewShifts);
+  const [closeOpen, setCloseOpen] = useState(false);
   const reviewNames: Record<string, string> = {};
   (timeCards || []).forEach((c: any) => {
     if (c?.profile?.id) reviewNames[c.profile.id] = c.profile.full_name || c.profile.nickname || c.profile.email || 'Team member';
   });
-  const onCloseClick = () => {
-    // Non-blocking: unreviewed auto clock-outs get a warning, not a block.
-    if (pendingAutoOuts.length > 0) setAutoOutWarnOpen(true);
-    else handleClosePeriod();
-  };
-
+  const unapprovedShifts: UnapprovedShift[] = [];
+  (timeCards || []).forEach((c: any) => {
+    Object.entries(c.punchesByDay || {}).forEach(([d, dayPunches]: [string, any]) => {
+      const ids = dayPunches.filter((p: any) => !p.approved_at).map((p: any) => p.id);
+      if (ids.length === 0 || getDayFlags(dayPunches).hasOpenShift) return;
+      unapprovedShifts.push({
+        key: `${c.profile?.id}_${d}`,
+        name: reviewNames[c.profile?.id] || 'Team member',
+        date: d,
+        hours: calculateDayHours(dayPunches),
+        punchIds: ids,
+      });
+    });
+  });
+  unapprovedShifts.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
 
   if (!isAdmin && !isManager) {
     return (
@@ -113,13 +123,20 @@ export default function PayrollReview() {
     <Layout>
       <div className="space-y-6">
         {!selectedPeriod ? (
+          <>
           <PayPeriodSelector
-            payPeriods={payPeriods}
+            payPeriods={payPeriods.slice(0, visiblePeriodCount)}
             periodSummaries={periodSummaries}
             getPeriodStatus={getPeriodStatus}
             timezone={timezone}
             onSelect={setSelectedPeriod}
           />
+          {payPeriods.length > visiblePeriodCount && (
+            <div className="flex justify-center">
+              <Button variant="outline" onClick={showMorePeriods}>Show 4 more</Button>
+            </div>
+          )}
+          </>
         ) : (
           <div className="space-y-6">
             {/* Header */}
@@ -139,7 +156,7 @@ export default function PayrollReview() {
                       Re-Open Pay Period
                     </Button>
                   ) : (
-                    <Button variant="outline" onClick={onCloseClick}>
+                    <Button variant="outline" onClick={() => setCloseOpen(true)}>
                       Close Pay Period
                     </Button>
                   )}
@@ -154,31 +171,22 @@ export default function PayrollReview() {
             </div>
 
             {currentLocation?.id && selectedPeriod && (
-              <ShiftReviewPanel
+              <ClosePeriodDialog
+                open={closeOpen}
+                onOpenChange={setCloseOpen}
                 locationId={currentLocation.id}
                 start={selectedPeriod.startDate}
                 end={selectedPeriod.endDate}
                 timezone={timezone}
                 names={reviewNames}
-                canSeeDollars={isAdmin || isManager}
-                readOnly={isPeriodClosed}
+                unapproved={unapprovedShifts}
+                approvingIds={approvingPunchIds}
+                onApprove={approvePunches}
+                closing={closingPeriod}
+                onClose={async () => { await handleClosePeriod(); setCloseOpen(false); }}
+                onPunchesChanged={() => fetchTimeCards()}
               />
             )}
-
-            <Dialog open={autoOutWarnOpen} onOpenChange={setAutoOutWarnOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Unreviewed auto clock-outs</DialogTitle>
-                  <DialogDescription>
-                    {pendingAutoOuts.length} shift{pendingAutoOuts.length === 1 ? ' was' : 's were'} clocked out automatically and not reviewed yet. You can still close the period.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setAutoOutWarnOpen(false)}>Review first</Button>
-                  <Button onClick={() => { setAutoOutWarnOpen(false); handleClosePeriod(); }}>Close anyway</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
 
             {/* View Toggle + Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 overflow-x-hidden">
