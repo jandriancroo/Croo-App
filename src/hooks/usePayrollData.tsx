@@ -37,6 +37,8 @@ export function usePayrollData() {
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
   const [periodSummaries, setPeriodSummaries] = useState<Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null; totalShifts: number; approvedShifts: number }>>({});
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
+  // Pay periods list shows the newest N; card numbers load only for those (+1 for deltas).
+  const [visiblePeriodCount, setVisiblePeriodCount] = useState(4);
   const [timeCards, setTimeCards] = useState<any[]>([]);
   const [editingShift, setEditingShift] = useState<{ dayPunches: any[], userId: string, locationId: string, shiftDate: string } | null>(null);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
@@ -347,6 +349,12 @@ export function usePayrollData() {
   };
 
 
+  useEffect(() => {
+    if (visiblePeriodCount === 4 || payPeriods.length === 0) return;
+    fetchPeriodSummaries(payPeriods.slice(0, visiblePeriodCount + 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visiblePeriodCount]);
+
   const generatePayPeriods = async () => {
     const today = getStartOfTodayInTimezone(timezone);
     const periods: any[] = [];
@@ -478,7 +486,7 @@ export function usePayrollData() {
 
     periods.reverse();
     setPayPeriods(periods);
-    await fetchPeriodSummaries(periods);
+    await fetchPeriodSummaries(periods.slice(0, visiblePeriodCount + 1));
 
     const { data: statuses } = await supabase.from('pay_periods').select('*');
 
@@ -1779,6 +1787,8 @@ export function usePayrollData() {
 
     // Pay periods
     payPeriods,
+    visiblePeriodCount,
+    showMorePeriods: () => setVisiblePeriodCount((n) => n + 4),
     periodSummaries,
     selectedPeriod,
     setSelectedPeriod,
