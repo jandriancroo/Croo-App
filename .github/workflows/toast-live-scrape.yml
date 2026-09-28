@@ -43,6 +43,14 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get update && sudo apt-get install -y xvfb
 
+      # Reuse the last saved Toast sign-in so each run skips password + 2FA.
+      - name: Restore saved Toast sign-in
+        uses: actions/cache/restore@v4
+        with:
+          path: .toast-session.json
+          key: toast-session-${{ github.run_id }}
+          restore-keys: toast-session-
+
       - name: Run Toast live robot
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -53,5 +61,13 @@ jobs:
           TOAST_TOTP_SECRET: ${{ secrets.TOAST_TOTP_SECRET }}
           POLL_SECONDS: "90"
           MAX_RUN_MINUTES: "320"
+          TOAST_STATE_FILE: ${{ github.workspace }}/.toast-session.json
           ONESHOT: ${{ github.event.inputs.oneshot == 'true' && '1' || '' }}
         run: xvfb-run -a node .github/scripts/toast-live-runner.mjs
+
+      - name: Save Toast sign-in for the next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .toast-session.json
+          key: toast-session-${{ github.run_id }}
