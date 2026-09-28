@@ -13,6 +13,7 @@
 // never replaces an existing first projection, never touches labor or inventory.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { computeAndSavePace } from "../_shared/projections.ts";
 import { authorizeCaller, requireAuthorizedCaller } from "../_shared/callerAuth.ts";
 import {
   getLocationTimezone,
@@ -112,6 +113,25 @@ Deno.serve(async (req) => {
             seeded: result.days.filter((d) => d.action !== "skipped").length,
             skipped: result.days.filter((d) => d.action === "skipped").length,
           });
+          // Pre-open pace: seed today's stored pace (= goal before open) so every
+          // screen and push has a fresh value from the first minute of the day.
+          if (offset === 0) {
+            try {
+              const { data: hrs } = await supabase
+                .from("location_settings").select("hours_open, hours_close")
+                .eq("location_id", locationId).maybeSingle();
+              const h = (v: unknown, d: number) => {
+                const n = parseInt(String(v ?? "").split(":")[0], 10);
+                return Number.isFinite(n) ? n : d;
+              };
+              await computeAndSavePace(supabase, {
+                locationId, date: todayInTimezone(tz), timezone: tz,
+                openHour: h(hrs?.hours_open, 10), closeHour: h(hrs?.hours_close, 22),
+              });
+            } catch (e) {
+              console.warn(`[sales-week-projections] pre-open pace skipped for ${locationId}:`, e);
+            }
+          }
         } catch (e) {
           console.error(`[sales-week-projections] ${locationId} failed:`, e);
           results.push({ locationId, error: e instanceof Error ? e.message : String(e) });
