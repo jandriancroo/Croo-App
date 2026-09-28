@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
+import { usePayrollHours } from '@/hooks/usePayrollHours';
 import { supabase } from '@/integrations/supabase/client';
 import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { format, addDays, addWeeks } from 'date-fns';
@@ -52,6 +53,8 @@ export function usePayrollData() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [closingPeriod, setClosingPeriod] = useState(false);
   const [ptoData, setPtoData] = useState<Record<string, number>>({});
+  const payrollHoursQuery = usePayrollHours(currentLocation?.id, selectedPeriod?.startDate, selectedPeriod?.endDate);
+  const refetchPayrollHours = payrollHoursQuery.refetch;
 
   // Cache guard: skip refetch if data was loaded within STALE_MS for same period+location
   const STALE_MS = 5 * 60 * 1000; // 5 minutes
