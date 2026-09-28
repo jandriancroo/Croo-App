@@ -51,3 +51,5 @@
 - [ ] Build live fetcher: reuse session, call report-generator sales/TimeEntry reports every 1–2 min during store hours, POST normalized payload to toast-sync
 - [ ] Toast labor (read-only 'toast' source in labor_cache + schedule pairing) — NEEDS user sign-off before touching protected labor tables
 - [ ] Answer: are 3D Data Cubes POS-agnostic and buildable from any POS sync? (audit cube data sources)
+- [x] Toast live robot (toast-live-runner.mjs + workflow) — sign-in OK, report poll fixed
+- [ ] Toast backfill: daily to SDLY standard (-364d), hourly one week back
