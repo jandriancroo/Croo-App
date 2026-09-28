@@ -201,7 +201,9 @@ export function DayByDayView({
           <PunchGroupCard key={day}>
             <PunchGroupHeader
               title={formatInTimeZone(dayDate, timezone, 'EEEE')}
+              shortTitle={formatInTimeZone(dayDate, timezone, 'EEE')}
               subtitle={formatInTimeZone(dayDate, timezone, 'MMM d, yyyy')}
+              shortSubtitle={formatInTimeZone(dayDate, timezone, 'MMM d')}
               approvedCount={approvedCount}
               totalCount={sortedEntries.length}
               totalHours={dayTotal}
