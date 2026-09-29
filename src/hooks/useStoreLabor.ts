@@ -28,12 +28,25 @@ export async function fetchStoreLabor(
 ): Promise<{ data: StoreLaborRow[] | null; error: Error | null }> {
   const ids = Array.from(new Set(locationIds.filter(Boolean)));
   if (ids.length === 0) return { data: [], error: null };
-  const { data, error } = await supabase.rpc('get_store_labor' as any, {
-    _location_ids: ids,
-    _start: start,
-    _end: end,
-  });
-  if (error) return { data: null, error: new Error(error.message) };
+  // Server caps one request at ~92 days; split long ranges (YTD, many pay
+  // periods) into 90-day windows so they never come back empty.
+  const windows: Array<[string, string]> = [];
+  const addDays = (d: string, n: number) => {
+    const [y, m, dd] = d.split('-').map(Number);
+    const t = new Date(Date.UTC(y, m - 1, dd + n));
+    return t.toISOString().slice(0, 10);
+  };
+  let cur = start;
+  while (cur <= end) {
+    const wEnd = addDays(cur, 89) < end ? addDays(cur, 89) : end;
+    windows.push([cur, wEnd]);
+    cur = addDays(wEnd, 1);
+  }
+  const results = await Promise.all(windows.map(([s, e]) =>
+    supabase.rpc('get_store_labor' as any, { _location_ids: ids, _start: s, _end: e })));
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { data: null, error: new Error(failed.error.message) };
+  const data = results.flatMap((r) => ((r.data as any[]) || []));
   const rows: StoreLaborRow[] = ((data as any[]) || []).map((r) => ({
     location_id: r.location_id,
     labor_date: r.date,
