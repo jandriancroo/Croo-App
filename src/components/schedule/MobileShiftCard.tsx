@@ -159,11 +159,12 @@ export function MobileShiftCard({
                 />
               )}
               {isLinked && (
-                <Link2
-                  className="h-3 w-3 shrink-0 text-emerald-500"
-                  aria-label="Linked to CrooHQ profile"
-                  title="Linked to CrooHQ profile"
-                />
+                <span className="shrink-0" title="Linked to CrooHQ profile">
+                  <Link2
+                    className="h-3 w-3 text-emerald-500"
+                    aria-label="Linked to CrooHQ profile"
+                  />
+                </span>
               )}
             </div>
             
