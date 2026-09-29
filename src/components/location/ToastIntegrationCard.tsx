@@ -50,13 +50,20 @@ function PairingSection({ locationId }: { locationId: string }) {
   const { data: staff = [] } = useQuery({
     queryKey: ['toast-staff', locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: uls, error } = await supabase
         .from('user_locations')
-        .select('user_id, profiles(full_name, nickname)')
+        .select('user_id')
         .eq('location_id', locationId);
       if (error) throw error;
-      return (data || [])
-        .map((r: any) => ({ userId: r.user_id, name: r.profiles?.full_name || r.profiles?.nickname || '' }))
+      const ids = (uls || []).map((u: any) => u.user_id);
+      if (ids.length === 0) return [] as StaffRow[];
+      const { data: profs, error: perr } = await supabase
+        .from('profiles')
+        .select('id, full_name, nickname')
+        .in('id', ids);
+      if (perr) throw perr;
+      return (profs || [])
+        .map((p: any) => ({ userId: p.id, name: p.full_name || p.nickname || '' }))
         .filter((r: StaffRow) => r.name) as StaffRow[];
     },
   });
