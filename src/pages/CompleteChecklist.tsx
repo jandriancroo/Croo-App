@@ -884,8 +884,9 @@ export default function CompleteChecklist() {
 
         if (tempError || !tempData || tempData.temperature == null) {
           toast.warning("Couldn't read the temperature", {
-            description: 'Retake the photo with the numbers or needle clearly in view.',
+            description: 'Retake the photo, or tap "Type the temperature instead".',
           });
+          setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
         }
         if (!tempError && tempData) {
           extractedTemp = tempData.temperature;
@@ -1769,6 +1770,36 @@ export default function CompleteChecklist() {
                         )}
 
 
+                        {/* Type the temperature in when the photo can't be read */}
+                        {showManualTemp && !isUploading && (
+                          manualTempOpen[item.id] ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                placeholder="°F"
+                                autoFocus
+                                className="h-10 w-28"
+                                value={manualTempValue[item.id] ?? ''}
+                                onChange={(e) => setManualTempValue(prev => ({ ...prev, [item.id]: e.target.value }))}
+                              />
+                              <Button size="sm" onClick={() => saveManualTemperature(item.id, manualTempValue[item.id] ?? '')}>
+                                Save
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: false }))}>
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground underline underline-offset-2"
+                              onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}
+                            >
+                              {hasManualTemp ? 'Wrong reading? Type the temperature' : 'Type the temperature instead'}
+                            </button>
+                          )
+                        )}
                       </div>
                     );
                   })()}
