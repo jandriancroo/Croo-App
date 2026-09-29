@@ -7,9 +7,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { buildDayIcs, downloadIcs } from '@/lib/hiring/interviewDayIcs';
 
 import { format, parseISO, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
-import { Loader2, CalendarDays, Users } from 'lucide-react';
+import { Loader2, CalendarDays, Users, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface InterviewCalendarDialogProps {
@@ -31,12 +33,19 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from('job_applications')
-        .select('id, full_name, interview_date, interview_time, interview_status, interview_modality, interview_meeting_url, location_id, location:locations(name)')
+        .select('id, full_name, interview_date, interview_time, interview_status, interview_modality, interview_meeting_url, location_id, location:locations(name, address)')
         .eq('organization_id', organizationId)
         .not('interview_date', 'is', null)
         .in('interview_status', ['pending', 'accepted', 'reschedule_requested']);
       
-      return data || [];
+      const rows = data || [];
+      const locIds = [...new Set(rows.map((r: any) => r.location_id).filter(Boolean))];
+      const tz = new Map<string, string>();
+      if (locIds.length) {
+        const { data: ls } = await supabase.from('location_settings').select('location_id, timezone').in('location_id', locIds);
+        for (const r of ls || []) if (r.timezone) tz.set(r.location_id, r.timezone);
+      }
+      return rows.map((r: any) => ({ ...r, timezone: tz.get(r.location_id) || 'America/Los_Angeles' }));
     },
     enabled: open && !!organizationId,
   });
@@ -196,6 +205,27 @@ export function InterviewCalendarDialog({
                   <h3 className="font-semibold text-lg">
                     {format(selectedDate, 'EEEE, MMMM d')}
                   </h3>
+                  {selectedDateInterviews.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 min-h-[36px]"
+                      onClick={() => {
+                        const loc = (x: any) => (Array.isArray(x.location) ? x.location[0] : x.location);
+                        downloadIcs(
+                          buildDayIcs(selectedDateInterviews.map((i: any) => ({
+                            ...i,
+                            locationName: loc(i)?.name,
+                            locationAddress: loc(i)?.address,
+                          }))),
+                          `interviews-${format(selectedDate, 'yyyy-MM-dd')}.ics`,
+                        );
+                        toast.success('Calendar file downloaded');
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-1" /> Download day
+                    </Button>
+                  )}
                 </div>
 
                 {/* Interviews - compact 3-column table */}
