@@ -549,6 +549,19 @@ export function MobileScheduleView({
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
+  // Stores whose labor comes from Toast: Toast owns punches, so hide Quick Punch / punch edits.
+  const { data: laborSource } = useQuery({
+    queryKey: ['labor-source-for', currentLocation?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('labor_source_for', { _location_id: currentLocation!.id });
+      if (error) throw error;
+      return data as string;
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 10 * 60 * 1000,
+  });
+  const isToastLaborStore = laborSource === 'toast';
+
   // ── Read-only Toast punches (Coop's: Toast owns the punches) ──
   const { data: toastShifts = [] } = useToastShifts(currentLocation?.id, punchDateStr, {
     refetchMs: punchDateStr === todayStr ? 60 * 1000 : undefined,
@@ -1104,6 +1117,7 @@ export function MobileScheduleView({
 
               {/* Quick Action Bar — always visible */}
               <div className="mb-2 flex items-stretch gap-1 rounded-lg bg-primary p-0.5 text-primary-foreground shadow-sm">
+                {!isToastLaborStore && (
                 <button
                   type="button"
                   onClick={isSelectedDateToday ? () => setQuickPunchOpen(true) : undefined}
@@ -1114,6 +1128,7 @@ export function MobileScheduleView({
                   <UserPlus className="h-3.5 w-3.5" />
                   <span className="text-[10px] font-semibold uppercase tracking-wide">Quick Punch</span>
                 </button>
+                )}
                 {(isAdmin || isManager) && (
                   <>
                     {scheduleId && (
