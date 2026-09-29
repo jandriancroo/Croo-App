@@ -1771,7 +1771,7 @@ export default function CompleteChecklist() {
 
 
                         {/* Type the temperature in when the photo can't be read */}
-                        {(showManualTemp || item.requires_temperature_validation) && !isUploading && (
+                        {showManualTemp && !isUploading && (
                           manualTempOpen[item.id] ? (
                             <div className="flex items-center gap-2">
                               <Input
