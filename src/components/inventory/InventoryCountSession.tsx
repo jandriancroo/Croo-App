@@ -3100,7 +3100,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const ownUnitCost = item.is_recipe
             ? Number(recipeCosts?.get(item.item_id) ?? item.cost_per_unit ?? 0)
             : Number(item.cost_per_unit ?? 0);
-          const hasNoCost = !(ownUnitCost > 0);
+          // If the row already carries a dollar value (priced via approved pack
+          // settings or a saved past count), it is not "no cost".
+          const hasNoCost = !(ownUnitCost > 0) && !(itemCost > 0);
 
           // Build item header subtitle text (plain string, comma-separated)
           const headerBits: string[] = [];

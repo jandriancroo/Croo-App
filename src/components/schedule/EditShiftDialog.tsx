@@ -7,6 +7,7 @@ import {
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export function EditShiftDialog({
 
   const [breaks, setBreaks] = useState<ShiftBreak[]>(normalizeBreaks((shift as any)?.breaks));
   const breakCoverageEnabled = useBreakCoverageEnabled(currentLocation?.id);
+  const { data: storeWeeklyHours } = useLocationWeeklyHours(currentLocation?.id);
 
   // Build schedule query key for optimistic updates
   const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
@@ -362,7 +364,7 @@ export function EditShiftDialog({
   const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
   const shiftDayOfWeek = shift.day_of_week;
   const dayName = dayNames[shiftDayOfWeek];
-  const weeklyAvailability = normalizeDayAvailability(employee?.weekly_availability?.[dayName]);
+  const weeklyAvailability = normalizeDayAvailability(employee?.weekly_availability?.[dayName], storeWeeklyHours?.[dayName]);
 
   const hasAvailabilityConflict = shiftConflictsWithAvailability(
     weeklyAvailability,
