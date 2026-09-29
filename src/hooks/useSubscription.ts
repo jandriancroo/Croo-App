@@ -40,8 +40,13 @@ export function useSubscription() {
 
   const checkSubscription = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      let { data: { session } } = await supabase.auth.getSession();
+      // A stale sign-in makes the server reject the check; refresh it first.
+      if (session && (!session.expires_at || session.expires_at * 1000 < Date.now() + 60_000)) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        session = refreshed.session;
+      }
+      if (!session?.user?.id) {
         setState(s => ({ ...s, loading: false, subscribed: false, tierKey: null }));
         return;
       }
