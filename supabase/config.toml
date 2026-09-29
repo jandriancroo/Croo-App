@@ -157,3 +157,6 @@ verify_jwt = false
 
 [functions.hiring-interview-response]
 verify_jwt = false
+
+[functions.interview-calendar]
+verify_jwt = false
