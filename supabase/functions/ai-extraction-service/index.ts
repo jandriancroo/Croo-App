@@ -374,8 +374,9 @@ Do NOT return ranges — give your single best estimate.`;
   const itemContext = itemName ? ` The item being measured is: "${itemName}".` : '';
   const userPrompt = `Read the temperature on this thermometer.${itemContext} Even if numbers are partially cut off, use the needle position relative to the color zones (blue=freezer, white=refrigerator safe, red=danger) and count tick marks from zone boundaries. Return only the numeric Fahrenheit value.`;
 
-  // Use pro model for better accuracy on visual temperature reading
-  const data = await callAI([
+  // Pro model for accuracy; if it errors, retry once on flash. Never crash the
+  // checklist — an unreadable photo returns temperature:null with a reason.
+  const msgs = [
     { role: 'system', content: systemPrompt },
     {
       role: 'user',
@@ -384,7 +385,20 @@ Do NOT return ranges — give your single best estimate.`;
         { type: 'image_url', image_url: { url: imageUrl } }
       ]
     }
-  ], undefined, undefined, 'google/gemini-2.5-pro');
+  ];
+  let data: any = null;
+  for (const model of ['google/gemini-2.5-pro', 'google/gemini-2.5-flash']) {
+    try {
+      data = await callAI(msgs, undefined, undefined, model);
+      break;
+    } catch (e: any) {
+      console.error('[extract-temperature] model failed', model, e?.status, e?.message);
+      if (e?.status === 402) break;
+    }
+  }
+  if (!data) {
+    return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true });
+  }
 
   const extractedText = data.choices?.[0]?.message?.content?.trim() || 'NONE';
   let temperature: number | null = null;
