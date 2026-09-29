@@ -76,7 +76,6 @@ const PublicApplication = lazyWithRetry(() => import("./pages/PublicApplication"
 const PublicJobs = lazyWithRetry(() => import("./pages/PublicJobs"));
 const JobDetail = lazyWithRetry(() => import("./pages/JobDetail"));
 const HiringChat = lazyWithRetry(() => import("./pages/HiringChat"));
-const InterviewJoin = lazyWithRetry(() => import("./pages/InterviewJoin"));
 const ApplicantPortal = lazyWithRetry(() => import("./pages/ApplicantPortal"));
 const Changelog = lazyWithRetry(() => import("./pages/Changelog"));
 const PunchClockCustomization = lazyWithRetry(() => import("./pages/PunchClockCustomization"));
@@ -132,7 +131,7 @@ const AppWithSplash = () => {
   // Public/unlisted pages must paint immediately — never gate them behind the splash.
   const skipSplash =
     typeof window !== "undefined" &&
-    (window.location.pathname.startsWith("/r/") || window.location.pathname === "/" || window.location.pathname === "/interview-join");
+    (window.location.pathname.startsWith("/r/") || window.location.pathname === "/");
   const [showSplash, setShowSplash] = useState(!skipSplash);
 
   const [splashComplete, setSplashComplete] = useState(false);
@@ -209,7 +208,6 @@ const AppContent = () => {
         <Route path="/qr/:qrCode" element={<QRQuickTaskReport />} />
         
         <Route path="/hiring-chat/:token" element={<HiringChat />} />
-        <Route path="/interview-join" element={<InterviewJoin />} />
         <Route path="/my-applications" element={<ApplicantPortal />} />
         <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

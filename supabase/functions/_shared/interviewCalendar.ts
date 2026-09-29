@@ -6,7 +6,6 @@
 import { DateTime } from "npm:luxon@3.4.4";
 
 export const CAL_FUNCTION_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/interview-calendar`;
-const PUBLIC_APP_URL = "https://croohq.com";
 
 export async function signApplication(appId: string): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -138,7 +137,7 @@ export async function calendarFileUrl(appId: string, audience: "applicant" | "st
 }
 
 export async function interviewJoinUrl(appId: string): Promise<string> {
-  return `${PUBLIC_APP_URL}/interview-join?a=${appId}&s=${await signApplication(appId)}`;
+  return `${CAL_FUNCTION_URL}?action=join&a=${appId}&s=${await signApplication(appId)}`;
 }
 
 /** Two email buttons: Google Calendar + Apple/Outlook (.ics). Returns "" if no interview found. */
