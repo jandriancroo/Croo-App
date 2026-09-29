@@ -438,7 +438,13 @@ async function fetchShiftsTable(ctx, tz, locationId) {
   try {
     await p.goto('https://www.toasttab.com/restaurants/admin/legacyReports/labor#labor-time-entries', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await p.waitForFunction(() => [...document.querySelectorAll('table')].some((t) => /In Date/i.test(t.innerText) && /Employee/i.test(t.innerText)), null, { timeout: 45000 });
-    await p.waitForTimeout(1500);
+    // The table header paints before the rows arrive — a fixed 1.5s wait caused
+    // "blank" reads (about half of checks). Wait up to 20s for real rows.
+    await p.waitForFunction(() => {
+      const t = [...document.querySelectorAll('table')].find((x) => /In Date/i.test(x.innerText) && /Employee/i.test(x.innerText));
+      return t && [...t.querySelectorAll('tbody tr')].some((tr) => tr.querySelectorAll('td').length > 3);
+    }, null, { timeout: 20000 }).catch(() => {});
+    await p.waitForTimeout(1000);
     const rows = await p.evaluate(() => {
       const t = [...document.querySelectorAll('table')].find((x) => /In Date/i.test(x.innerText) && /Employee/i.test(x.innerText));
       const heads = [...t.querySelectorAll('thead th')].map((h) => h.innerText.replace(/\s+/g, ' ').trim().toLowerCase());
@@ -600,7 +606,8 @@ async function main() {
         const j = await r.json().catch(() => ({}));
         console.log(`📊 ${date} ${store.locationId}: net $${out.netSales} (${out.checkCount} checks) → ${r.ok ? 'ingested' : `ERROR ${r.status}`}`);
         // Read-only punch pull for the same day (Toast owns punches).
-        if (SHIFTS_TPL || (loopN % 2 === 0)) {
+        // Punches every loop (90s) so late clock-outs are never missed.
+        {
           try {
             const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone, store.locationId);
             if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
