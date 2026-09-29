@@ -21,6 +21,14 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("status"), locationId: z.string().uuid() }),
   z.object({ action: z.literal("list_active") }),
   z.object({ action: z.literal("schedule_list") }),
+  z.object({
+    action: z.literal("heartbeat"),
+    locationIds: z.array(z.string().uuid()).min(1).max(20),
+    state: z.enum(["starting", "signing_in", "signed_in", "polling", "human_check", "blank", "error", "login_capped", "handoff", "stopped"]),
+    message: z.string().max(500).optional(),
+    runId: z.string().max(80).optional(),
+    fullLogin: z.boolean().optional(),
+  }),
 ]);
 
 Deno.serve(async (req) => {
@@ -47,6 +55,39 @@ Deno.serve(async (req) => {
     return json({
       stores: (data ?? []).map((r: any) => ({ locationId: r.location_id, restaurantGuid: r.credentials?.restaurant_guid ?? null })),
     });
+  }
+
+  if (body.action === "heartbeat") {
+    if (auth.caller.kind !== "service") return json({ error: "Forbidden" }, 403);
+    const MAX_FULL_LOGINS = 4;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: rows } = await supabase.from("toast_robot_status").select("*").in("location_id", body.locationIds);
+    const byId = new Map((rows ?? []).map((r: any) => [r.location_id, r]));
+    let allowed = true;
+    let used = 0;
+    const now = new Date().toISOString();
+    const upserts = body.locationIds.map((id) => {
+      const prev: any = byId.get(id) ?? {};
+      const count = prev.full_logins_date === today ? (prev.full_logins_count ?? 0) : 0;
+      used = Math.max(used, count);
+      if (body.fullLogin && count >= MAX_FULL_LOGINS) allowed = false;
+      const good = body.state === "polling" || body.state === "signed_in";
+      return {
+        location_id: id,
+        state: body.fullLogin && count >= MAX_FULL_LOGINS ? "login_capped" : body.state,
+        message: body.message ?? null,
+        run_id: body.runId ?? prev.run_id ?? null,
+        heartbeat_at: now,
+        full_logins_date: today,
+        full_logins_count: body.fullLogin && count < MAX_FULL_LOGINS ? count + 1 : count,
+        // A healthy check-in resets the watchdog's alert ladder.
+        ...(good ? { alert_stage: 0 } : {}),
+        updated_at: now,
+      };
+    });
+    const { error } = await supabase.from("toast_robot_status").upsert(upserts, { onConflict: "location_id" });
+    if (error) return json({ error: error.message }, 500);
+    return json({ ok: true, allowed, fullLoginsToday: used + (body.fullLogin && allowed ? 1 : 0), maxFullLogins: MAX_FULL_LOGINS });
   }
 
   if (body.action === "schedule_list") {
