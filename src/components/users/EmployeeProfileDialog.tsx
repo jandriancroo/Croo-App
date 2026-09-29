@@ -158,6 +158,16 @@ export function EmployeeProfileDialog({
   const [birthday, setBirthday] = useState<Date | undefined>();
   const [employeePin, setEmployeePin] = useState('');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  // Stores whose labor comes from Toast: Toast owns pay rates, so the wage is read-only here.
+  const [wageFromToast, setWageFromToast] = useState(false);
+  useEffect(() => {
+    if (!currentLocationId) { setWageFromToast(false); return; }
+    let cancelled = false;
+    supabase.rpc('labor_source_for', { _location_id: currentLocationId }).then(({ data }) => {
+      if (!cancelled) setWageFromToast(data === 'toast');
+    });
+    return () => { cancelled = true; };
+  }, [currentLocationId]);
   const [role, setRole] = useState<AppRole>('team_member');
   const [appearsOnSchedule, setAppearsOnSchedule] = useState(true);
   const [isActive, setIsActive] = useState(true);
@@ -611,10 +621,13 @@ export function EmployeeProfileDialog({
                     <Label className="text-sm font-medium text-foreground">Hourly Wage</Label>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-10 px-3 flex items-center border rounded-md bg-muted/50 text-foreground font-semibold">
-                        ${user.hourly_wage?.toFixed(2) || '15.00'}/hr
+                        {wageFromToast
+                          ? (user.hourly_wage != null ? `$${user.hourly_wage.toFixed(2)}/hr` : 'Not linked to Toast yet')
+                          : `$${user.hourly_wage?.toFixed(2) || '15.00'}/hr`}
                       </div>
                       {isAdmin && (
                         <div className="flex gap-1">
+                          {!wageFromToast && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -622,6 +635,7 @@ export function EmployeeProfileDialog({
                           >
                             Edit
                           </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -632,6 +646,9 @@ export function EmployeeProfileDialog({
                         </div>
                       )}
                     </div>
+                    {wageFromToast && (
+                      <p className="text-xs text-muted-foreground">From Toast — change pay rates in Toast.</p>
+                    )}
                   </div>
                 )}
               </div>
