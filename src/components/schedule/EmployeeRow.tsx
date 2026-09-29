@@ -11,6 +11,8 @@ import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide-react";
 import { getTodayInPST } from "@/utils/dateUtils";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
 import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from "@/components/ui/popover";
 
 import {
@@ -245,6 +247,7 @@ function EmployeeRowComponent({
       </div>
 
       {weekDays.map((day, dayIndex) => {
+      const realDayKey = format(day, "EEEE").toLowerCase() as keyof typeof storeWeeklyHours;
       const cellDateStr = format(day, "yyyy-MM-dd");
       const isToday = cellDateStr === getTodayInPST();
       // Filter by shift_date (source of truth) instead of day_of_week which can be inconsistent
@@ -272,6 +275,7 @@ function EmployeeRowComponent({
          shifts={dayShifts} 
          availabilityRequests={dayAvailability} 
          weeklyAvailability={weeklyAvailabilityForDay}
+         storeDayHours={storeWeeklyHours?.[realDayKey]}
          onUpdate={onUpdate} 
          canTakeShifts={canTakeShifts} 
          currentUserId={currentUserId} 
@@ -301,6 +305,7 @@ function DayCell({
   shifts,
   availabilityRequests,
   weeklyAvailability,
+  storeDayHours,
   onUpdate,
   canTakeShifts,
   currentUserId,
@@ -325,6 +330,7 @@ function DayCell({
   shifts: any[];
   availabilityRequests: any[];
   weeklyAvailability?: DayAvailability;
+  storeDayHours?: { open: string; close: string };
   onUpdate: () => void;
   canTakeShifts?: boolean;
   currentUserId?: string;
@@ -372,8 +378,8 @@ function DayCell({
   
   // Normalize (migrates legacy "can only work" windows into can't-work blocks)
   const dayPref = useMemo(
-    () => (weeklyAvailability ? normalizeDayAvailability(weeklyAvailability) : undefined),
-    [weeklyAvailability]
+    () => (weeklyAvailability ? normalizeDayAvailability(weeklyAvailability, storeDayHours) : undefined),
+    [weeklyAvailability, storeDayHours]
   );
 
   const hasLimitedAvailability = dayHasRestriction(dayPref);
