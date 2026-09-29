@@ -114,7 +114,13 @@ serve(async (req) => {
 
     // ========== EMPLOYEE WRITE-UP ISSUANCE ==========
     if (type === "employee_writeup") {
-      const { reason, issue_description, next_steps, is_final_warning, manager_name, location_name, date } = data;
+      const { reason, issue_description, next_steps, is_final_warning, manager_name, location_name, date, notes_bullets } = data;
+      const bulletList = Array.isArray(notes_bullets) ? notes_bullets.filter((b: any) => b && typeof b.text === 'string' && b.text.trim()) : [];
+      const issueHtml = (typeof issue_description === 'string' && issue_description.trim())
+        ? issue_description
+        : bulletList.length
+          ? `<ul style="margin:0;padding-left:18px;">${bulletList.map((b: any) => `<li style="margin:0 0 4px;">${b.speaker ? `<strong>${b.speaker}:</strong> ` : ''}${b.text}</li>`).join('')}</ul>`
+          : 'Open the Croo app to review the details.';
       subject = `You've received a Corrective Action from management`;
       headerTitle = "Corrective Action";
       source = "writeup_issued";
@@ -130,7 +136,7 @@ serve(async (req) => {
         </div>
         <div style="background:#fafafa;border-radius:10px;padding:16px;margin-bottom:16px;border-left:4px solid ${primaryColor};">
           <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Issue Description</p>
-          <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${issue_description}</p>
+          <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${issueHtml}</p>
         </div>
         <div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:20px;border-left:4px solid ${primaryColor};">
           <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Next Steps</p>

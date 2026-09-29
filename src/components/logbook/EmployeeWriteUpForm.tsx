@@ -282,6 +282,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
             data: {
               reason,
               issue_description: issueDescription.trim(),
+              notes_bullets: recording?.bullets?.length ? recording.bullets : null,
               next_steps: nextSteps.trim(),
               is_final_warning: isFinalWarning,
               manager_name: managerProfile?.full_name || 'Management',

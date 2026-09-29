@@ -90,7 +90,7 @@ export async function compressImage(
       settled = true;
       if (reason) console.warn(`[imageCompression] falling back to original: ${reason}`);
       debugWatchLog('compress_result', {
-        fileName: file.name,
+        fileName: file.name || 'image',
         fileType: file.type || null,
         originalKB: Math.round(fileSize / 1024),
         resultKB: Math.round(result.size / 1024),
@@ -175,7 +175,7 @@ export async function compressImage(
               return;
             }
 
-            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', {
+            const compressedFile = new File([blob], (file.name || 'image').replace(/\.[^.]+$/, '') + '.jpg', {
               type: 'image/jpeg',
               lastModified: Date.now(),
             });
