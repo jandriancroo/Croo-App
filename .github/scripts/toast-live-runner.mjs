@@ -412,7 +412,7 @@ async function fetchWageMap(page) {
   } catch (e) { console.log('💵 wages error', e.message); return __wageCache.map; }
 }
 // Read-only punches from Toast's Time Entries report table (no GraphQL template needed).
-async function fetchShiftsTable(ctx, tz) {
+async function fetchShiftsTable(ctx, tz, locationId) {
   const p = await ctx.newPage();
   try {
     await p.goto('https://www.toasttab.com/restaurants/admin/legacyReports/labor#labor-time-entries', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -428,7 +428,7 @@ async function fetchShiftsTable(ctx, tz) {
       });
     });
     if (!globalThis.__loggedHeads && rows[0]) { console.log('🧾 columns:', Object.keys(rows[0]).join(' | ')); globalThis.__loggedHeads = true; }
-    const wages = await fetchWageMap(p);
+    const wages = await fetchWageMap(p, locationId);
     const money = (v) => { const n = parseFloat(String(v || '').replace(/[$,]/g, '')); return Number.isFinite(n) ? n : null; };
     return rows.filter((r) => r['employee'] && r['in date']).map((r) => {
       const wKey = Object.keys(r).find((k) => /^(wage|hourly wage|wage rate|pay rate|rate)$/.test(k));
@@ -569,7 +569,7 @@ async function main() {
         // Read-only punch pull for the same day (Toast owns punches).
         if (SHIFTS_TPL || (loopN % 2 === 0)) {
           try {
-            const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone);
+            const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone, store.locationId);
             if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
             else if (Array.isArray(shifts) && shifts.length === 0) { console.warn(`🧾 ${date}: blank punch read — keeping last good labor`); }
             else if (Array.isArray(shifts)) {
