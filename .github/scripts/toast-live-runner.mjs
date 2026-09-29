@@ -98,7 +98,8 @@ function inWindow(store) {
   const nowMin = hour * 60 + minute;
   const day = (store.hours || []).find((h) => h.dow === dow);
   if (!day || day.closed) return false;
-  return nowMin >= toMin(day.open) - 30 && nowMin <= toMin(day.close) + 45;
+  // 2h after close so late clock-outs land and the day ends matching Toast.
+  return nowMin >= toMin(day.open) - 30 && nowMin <= toMin(day.close) + 120;
 }
 
 async function signInOnce(browser) {
