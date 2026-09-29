@@ -176,6 +176,10 @@ export function InterviewCalendarDialog({
                 selected={selectedDate}
                 onSelect={(date) => date && setSelectedDate(date)}
                 className="rounded-md border pointer-events-auto"
+                classNames={{
+                  cell: 'h-9 w-9 text-center text-sm p-0 relative',
+                  day_today: 'ring-1 ring-inset ring-primary/60',
+                }}
                 modifiers={{
                   hasInterview: (date) => interviewDates.has(format(date, 'yyyy-MM-dd'))
                 }}
