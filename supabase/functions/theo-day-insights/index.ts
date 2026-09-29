@@ -61,14 +61,18 @@ Deno.serve(async (req) => {
 async function buildFacts(db: any, locationId: string, day: string, tz: string): Promise<Fact[]> {
   const start = DateTime.fromFormat(day, "yyyy-MM-dd", { zone: tz }).set({ hour: 4 });
   const end = start.plus({ days: 1 });
-  const [{ data: punches }, { data: sales }, { data: sched }, { data: profiles }] = await Promise.all([
+  const [{ data: punches }, { data: sales }, { data: sched }, { data: profiles }, { data: rules }] = await Promise.all([
     db.from("time_punches").select("user_id, punch_type, punch_time, notes, break_type")
       .eq("location_id", locationId).gte("punch_time", start.toUTC().toISO()).lt("punch_time", end.toUTC().toISO()).order("punch_time"),
     db.from("sales_cache").select("net_sales, yoy_net_sales, hourly_data").eq("location_id", locationId).eq("sale_date", day).maybeSingle(),
     db.from("scheduled_shifts").select("user_id, start_time, end_time, is_time_off, is_phantom, schedules!inner(location_id)")
       .eq("schedules.location_id", locationId).eq("shift_date", day),
     db.from("profiles").select("id, full_name, nickname"),
+    db.from("labor_rules").select("state_code, meal_break_hours").eq("location_id", locationId).maybeSingle(),
   ]);
+  // No meal-break rule for the store (e.g. Texas) → Theo says nothing about meal breaks.
+  const stateCode: string | null = rules?.state_code ?? null;
+  const mealHours: number | null = rules?.meal_break_hours != null ? Number(rules.meal_break_hours) : null;
   const name = (id: string) => {
     const p = (profiles ?? []).find((x: any) => x.id === id);
     return (p?.nickname || p?.full_name || "Someone").split(" ")[0];
@@ -106,11 +110,17 @@ async function buildFacts(db: any, locationId: string, day: string, tz: string):
         if (diff >= 15 && diff < 240) { early.push(name(uid)); earlyMin += diff; }
       }
     }
-    if (w > 5 && !u.meal) facts.push({ kind: "break", score: 0, text: name(uid) });
+    // Meal-break rules come only from this store's own labor rules (state).
+    if (mealHours != null && w > mealHours && !u.meal) facts.push({ kind: "break", score: 0, text: name(uid) });
   }
   const noBreak = facts.splice(0).map((f) => f.text);
-  if (noBreak.length) facts.push({ kind: "breaks", score: 15 * noBreak.length,
-    text: `${noBreak.length} ${noBreak.length === 1 ? "person" : "people"} (${noBreak.join(", ")}) worked over 5 hours with no meal break. In California that owes each an extra hour of pay.` });
+  if (noBreak.length && mealHours != null) {
+    const who = `${noBreak.length} ${noBreak.length === 1 ? "person" : "people"} (${noBreak.join(", ")})`;
+    const text = stateCode === "CA"
+      ? `${who} worked over ${mealHours} hours with no meal break. In California that owes each an extra hour of pay.`
+      : `${who} worked over ${mealHours} hours with no meal break, which this store's labor rules require.`;
+    facts.push({ kind: "breaks", score: 15 * noBreak.length, text });
+  }
   const overBy = workedTotal - schedTotal;
   if (schedTotal > 0 && overBy > 1.5) {
     over.sort((a, b) => b.h - a.h);
