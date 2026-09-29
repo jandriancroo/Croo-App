@@ -117,6 +117,7 @@ interface DayPunch {
   hoursWorked: number;
   createdByName: string | null; // Name of manager who created punch if different from employee
   isToast?: boolean; // Read-only punch sourced from Toast (Coop's)
+  isLinked?: boolean; // Toast punch paired with a CrooHQ staff profile
   scheduledShift?: {
     id: string;
     start_time: string;
@@ -604,6 +605,7 @@ export function MobileScheduleView({
       createdByName: null,
       scheduledShift: null,
       isToast: true,
+      isLinked: !!s.croo_user_id,
     };
   }), [toastShifts, toastNow]);
 
@@ -1258,6 +1260,7 @@ export function MobileScheduleView({
                           formatTimeDisplay={formatTimeDisplay}
                           showBreakIndicator={false}
                           posIcon={punch.isToast ? 'toast' : null}
+                          isLinked={punch.isLinked}
                           onClick={() => {
                             if (punch.isToast) return; // Toast punches are read-only
                             const today = getTodayInTimezone(timezone);
@@ -1359,6 +1362,7 @@ export function MobileScheduleView({
                               formatTimeDisplay={formatTimeDisplay}
                               showBreakIndicator={false}
                               posIcon={punch.isToast ? 'toast' : null}
+                              isLinked={punch.isLinked}
                               onClick={() => {
                                 if (punch.isToast) return; // Toast punches are read-only
                                 const today = getTodayInTimezone(timezone);
@@ -1413,6 +1417,7 @@ export function MobileScheduleView({
                         formatTimeDisplay={formatTimeDisplay}
                         showBreakIndicator={false}
                         posIcon={punch.isToast ? 'toast' : null}
+                        isLinked={punch.isLinked}
                         onClick={() => {
                           if (punch.isToast) return; // Toast punches are read-only
                           setSelectedPunch({
