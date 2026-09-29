@@ -884,8 +884,9 @@ export default function CompleteChecklist() {
 
         if (tempError || !tempData || tempData.temperature == null) {
           toast.warning("Couldn't read the temperature", {
-            description: 'Retake the photo with the numbers or needle clearly in view.',
+            description: 'Retake the photo, or tap "Type the temperature instead".',
           });
+          setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
         }
         if (!tempError && tempData) {
           extractedTemp = tempData.temperature;
