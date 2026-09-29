@@ -49,6 +49,7 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [alsoEmail, setAlsoEmail] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -190,7 +191,16 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
         .eq('id', user.id)
         .single();
 
-      // Chat is push-only — no per-message email to the applicant (comms policy).
+      // Optional email copy, only when the manager ticks "Also email".
+      if (alsoEmail) {
+        const { error: emailErr } = await supabase.functions.invoke('notify-hiring-message', {
+          body: { conversationId, messageContent, senderName: senderProfile?.full_name || 'Hiring Team' },
+        });
+        if (emailErr) toast.error('Message sent, but the email copy failed');
+        else toast.success('Message sent and emailed');
+        setAlsoEmail(false);
+      }
+
       // Send push notification to applicant (if they have PWA installed)
       supabase.functions.invoke('hiring-email-service', {
         body: {
@@ -444,6 +454,15 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
+        <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={alsoEmail}
+            onChange={(e) => setAlsoEmail(e.target.checked)}
+            className="h-4 w-4 accent-primary"
+          />
+          Also email this message to the applicant
+        </label>
       </div>
 
       <InterviewScheduleDialog

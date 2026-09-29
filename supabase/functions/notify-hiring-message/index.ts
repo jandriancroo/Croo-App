@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { authenticateCaller } from "../_shared/callerAuth.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -106,6 +107,20 @@ serve(async (req) => {
     }
 
     const application = conversation.application as any;
+
+    // Only signed-in staff who belong to this applicant's organization or store may send.
+    const caller = await authenticateCaller(req);
+    if (!caller || caller.kind !== "user") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { data: appRow } = await supabase.from("job_applications").select("organization_id, location_id").eq("id", application?.id).maybeSingle();
+    const [{ data: om }, { data: ul }] = await Promise.all([
+      appRow?.organization_id ? supabase.from("organization_members").select("organization_id").eq("user_id", caller.userId).eq("organization_id", appRow.organization_id).limit(1) : Promise.resolve({ data: [] }),
+      appRow?.location_id ? supabase.from("user_locations").select("location_id").eq("user_id", caller.userId).eq("location_id", appRow.location_id).limit(1) : Promise.resolve({ data: [] }),
+    ]);
+    if (!om?.length && !ul?.length) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const applicantEmail = application?.email;
     const applicantName = application?.full_name || "Applicant";
     const firstName = applicantName.split(" ")[0];
