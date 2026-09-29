@@ -3,6 +3,7 @@ import { CalendarIcon, Pencil, Coffee } from 'lucide-react';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { formatTime12Hour } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import toastLogo from '@/assets/toast-logo.png.asset.json';
 
 interface MobileShiftCardProps {
   // Common props
@@ -146,13 +147,12 @@ export function MobileShiftCard({
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm font-semibold truncate">{name}</span>
               {posIcon === 'toast' && (
-                <span
-                  className="shrink-0 inline-flex items-center rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white"
-                  style={{ backgroundColor: '#FC6130' }}
+                <img
+                  src={toastLogo.url}
+                  alt="Toast"
+                  className="shrink-0 h-3.5 w-3.5"
                   title="Punches come from Toast"
-                >
-                  Toast
-                </span>
+                />
               )}
             </div>
             
