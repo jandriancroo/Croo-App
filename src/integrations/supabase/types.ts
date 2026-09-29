@@ -12983,6 +12983,56 @@ export type Database = {
           },
         ]
       }
+      toast_robot_status: {
+        Row: {
+          alert_stage: number
+          full_logins_count: number
+          full_logins_date: string | null
+          heartbeat_at: string | null
+          last_alert_at: string | null
+          last_dispatch_at: string | null
+          location_id: string
+          message: string | null
+          run_id: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          alert_stage?: number
+          full_logins_count?: number
+          full_logins_date?: string | null
+          heartbeat_at?: string | null
+          last_alert_at?: string | null
+          last_dispatch_at?: string | null
+          location_id: string
+          message?: string | null
+          run_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          alert_stage?: number
+          full_logins_count?: number
+          full_logins_date?: string | null
+          heartbeat_at?: string | null
+          last_alert_at?: string | null
+          last_dispatch_at?: string | null
+          location_id?: string
+          message?: string | null
+          run_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_robot_status_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       toast_sales_cache: {
         Row: {
           avg_ticket: number

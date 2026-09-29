@@ -543,6 +543,17 @@ async function backfill(days) {
   } finally { await browser.close(); }
 }
 
+// Check-ins so CrooHQ's watchdog knows exactly what the robot is doing.
+// Never throws — a failed check-in must not stop the robot.
+const RUN_ID = process.env.GITHUB_RUN_ID ? `gh-${process.env.GITHUB_RUN_ID}` : `local-${process.pid}`;
+let HB_IDS = [];
+async function hb(state, message, fullLogin = false) {
+  if (!HB_IDS.length) return { allowed: true };
+  try {
+    return await callService('heartbeat', { locationIds: HB_IDS, state, message: message ? String(message).slice(0, 480) : undefined, runId: RUN_ID, fullLogin });
+  } catch (e) { console.warn(`💓 check-in failed: ${e.message}`); return { allowed: true }; }
+}
+
 async function main() {
   TOTP_TOTP_SECRET_V = TOAST_TOTP_SECRET;
   if (process.env.BACKFILL_DAYS) return backfill(parseInt(process.env.BACKFILL_DAYS, 10));
@@ -550,13 +561,16 @@ async function main() {
   const active = stores.filter((s) => s.restaurantGuid && (process.env.PROBE_DATES === '1' || inWindow(s)));
   console.log(`Active Toast stores in polling window: ${active.map((s) => s.locationId).join(', ') || 'none'}`);
   if (active.length === 0) return;
+  HB_IDS = active.map((s) => s.locationId);
+  await hb('starting', `run ${RUN_ID}`);
 
   // Stay-signed-in strategy:
   //  1. Saved sign-in (cookies) on disk → reused on every restart/re-login, so no
   //     password + 2FA code unless Toast truly expired it.
   //  2. If Chrome itself crashes, relaunch Chrome (old code reused a dead browser
   //     forever, which looked like "logged out").
-  //  3. Backoff between full sign-ins so we never hammer Toast's login.
+  //  3. Backoff between full sign-ins so we never hammer Toast's login, and a
+  //     hard cap of 4 full sign-ins per day (enforced by CrooHQ, across runs).
   const STATE_FILE = process.env.TOAST_STATE_FILE || new URL('./.toast-session.json', import.meta.url).pathname;
   const launch = () => chromium.launch({ headless: process.env.HEADFUL === '0', executablePath: process.env.CHROME_EXECUTABLE || undefined });
   let browser = await launch();
@@ -575,12 +589,25 @@ async function main() {
   const getSession = async () => {
     if (!browser.isConnected()) { console.warn('🔁 Chrome died — relaunching'); browser = await launch(); }
     const saved = await trySaved().catch(() => null);
-    if (saved) return saved;
+    if (saved) { await hb('signed_in', 'reused saved sign-in'); return saved; }
     const wait = 120000 - (Date.now() - lastFullLogin);
     if (lastFullLogin && wait > 0) await new Promise((r) => setTimeout(r, wait));
+    const gate = await hb('signing_in', 'full Toast sign-in', true);
+    if (gate && gate.allowed === false) {
+      const err = new Error('Daily Toast sign-in limit reached (4) — stopping so the account is not locked');
+      err.code = 'LOGIN_CAPPED';
+      throw err;
+    }
     lastFullLogin = Date.now();
-    const s = await signInOnce(browser);
+    let s;
+    try { s = await signInOnce(browser); }
+    catch (e) {
+      const human = /username|Timeout|just a moment|verify/i.test(e.message);
+      await hb(human ? 'human_check' : 'error', human ? `Stuck at Toast's human check: ${e.message}` : e.message);
+      throw e;
+    }
     await saveState(s.ctx);
+    await hb('signed_in', `full sign-in ok (${gate?.fullLoginsToday ?? '?'} of ${gate?.maxFullLogins ?? 4} today)`);
     return s;
   };
   let session;
@@ -604,10 +631,18 @@ async function main() {
     }
     const start = Date.now();
     let loopN = -1;
+    let handoffSent = false;
+    let capped = false;
     while (true) {
       loopN++;
-      if ((Date.now() - start) / 60000 > MAX_RUN_MINUTES) { console.log('⏱ run budget reached'); break; }
-      if (!browser.isConnected()) { try { session = await getSession(); } catch (e) { console.warn(`⚠️ relaunch failed: ${e.message}`); } }
+      const ranMin = (Date.now() - start) / 60000;
+      if (ranMin > MAX_RUN_MINUTES) { console.log('⏱ run budget reached'); break; }
+      // 15 min before the budget ends, ask the watchdog to queue the next run.
+      // GitHub holds it until this run exits, so there's never two sign-ins.
+      if (!handoffSent && ranMin > MAX_RUN_MINUTES - 15) { handoffSent = true; await hb('handoff', 'run budget almost used — next run please'); }
+      if (!browser.isConnected()) { try { session = await getSession(); } catch (e) { console.warn(`⚠️ relaunch failed: ${e.message}`); if (e.code === 'LOGIN_CAPPED') { capped = true; break; } } }
+      let polledOk = 0;
+      let lastMsg = '';
       for (const store of active) {
         const { date } = localParts(store.timezone);
         if (!inWindow(store)) continue;
@@ -619,32 +654,41 @@ async function main() {
             await session.ctx.close().catch(() => {});
             session = await getSession();
             out = await pollOnce(session.page, store, date);
-          } catch (e2) { console.warn(`⚠️ re-sign-in failed: ${e2.message}`); out = { error: e2.message }; }
+          } catch (e2) {
+            console.warn(`⚠️ re-sign-in failed: ${e2.message}`);
+            if (e2.code === 'LOGIN_CAPPED') capped = true;
+            out = { error: e2.message };
+          }
         }
+        if (capped) break;
         if (!out?.error && loopN % 10 === 0) await saveState(session.ctx);
-        if (out?.error) { console.warn(`⚠️ ${store.locationId}: ${out.error}`); continue; }
+        if (out?.error) { console.warn(`⚠️ ${store.locationId}: ${out.error}`); lastMsg = out.error; continue; }
         const day = { locationId: store.locationId, date, source: 'live', ...out };
         const r = await postToSync([day]);
-        const j = await r.json().catch(() => ({}));
+        await r.json().catch(() => ({}));
         console.log(`📊 ${date} ${store.locationId}: net $${out.netSales} (${out.checkCount} checks) → ${r.ok ? 'ingested' : `ERROR ${r.status}`}`);
+        if (r.ok) { polledOk++; lastMsg = `$${out.netSales} (${out.checkCount} checks)`; }
         // Read-only punch pull for the same day (Toast owns punches).
         // Punches every loop (90s) so late clock-outs are never missed.
         {
           try {
             const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone, store.locationId);
             if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
-            else if (Array.isArray(shifts) && shifts.length === 0) { console.warn(`🧾 ${date}: blank punch read — keeping last good labor`); }
+            else if (Array.isArray(shifts) && shifts.length === 0) { console.warn(`🧾 ${date}: blank punch read — keeping last good labor`); lastMsg += ' · blank punch page'; }
             else if (Array.isArray(shifts)) {
               const lr = await postLabor(store.locationId, date, shifts);
               const lj = await lr.json().catch(() => ({}));
               console.log(`🧾 ${date}: ${shifts.length} shifts → ${lr.ok ? `ingested (${lj.updated ?? lj.shifts ?? ''})` : `ERROR ${lr.status}`}`);
+              lastMsg += ` · ${shifts.length} punches`;
             }
           } catch (e) { console.warn(`🧾 ${date}: ${e.message}`); }
         }
       }
+      if (capped) { await hb('login_capped', 'Daily Toast sign-in limit reached — needs a person'); break; }
+      if (!handoffSent) await hb(polledOk > 0 ? 'polling' : 'error', lastMsg || 'no data this cycle');
       if (ONESHOT) { console.log('ONESHOT — exiting after one poll'); break; }
       const stillOpen = active.some((s) => inWindow(s));
-      if (!stillOpen) { console.log('🌙 all stores closed'); break; }
+      if (!stillOpen) { console.log('🌙 all stores closed'); await hb('stopped', 'store closed for the day'); break; }
       await new Promise((r) => setTimeout(r, POLL_SECONDS * 1000 + Math.floor(Math.random() * 8000)));
     }
   } finally {
@@ -652,4 +696,8 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error('❌', e); process.exit(1); });
+main().catch(async (e) => {
+  console.error('❌', e);
+  await hb(e?.code === 'LOGIN_CAPPED' ? 'login_capped' : 'error', e?.message || String(e));
+  process.exit(1);
+});

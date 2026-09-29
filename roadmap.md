@@ -85,3 +85,9 @@
 - [x] Toast pay rates: pulled from Toast employee list (58 people, 13 on today's punches); salaries skipped
 - [ ] Toast robot permanent all-day schedule (still runs from workspace only)
 - [x] Replace raw virtual interview links in calendar files with signed CrooHQ redirect links and verify downloads.
+
+## Toast robot reliability (Sep 29, approved)
+- [x] Robot check-ins + 4/day sign-in cap + handoff
+- [x] Watchdog every 5 min: restart + alerts (verified: alerts sent 19:10/19:15 UTC)
+- [x] "Toast data delayed" on dashboard + mobile schedule
+- [ ] Auto-restart needs GITHUB_DISPATCH_TOKEN + GITHUB_REPO from Jordan

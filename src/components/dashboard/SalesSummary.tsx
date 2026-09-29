@@ -20,6 +20,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
+import { useToastFreshness } from '@/hooks/useToastFreshness';
 
 interface SalesData {
   daily: number;
@@ -70,6 +71,7 @@ interface DiagnosticInfo {
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
+  const toastFresh = useToastFreshness(currentLocation?.id);
   const { getBusinessDateInTimezone, timezone } = useLocationTimezone();
   const locationZone = timezone || 'America/Los_Angeles';
 
@@ -1681,7 +1683,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     </div>
                   </div>
                 </div>
-                {lastFetchTimestamp && isToday && (() => {
+                {isToday && toastFresh.isDelayed ? (
+                  <p className="text-[9px] text-amber-300 mt-1 font-semibold">
+                    Toast data delayed{toastFresh.lastLabel ? `, last update ${toastFresh.lastLabel}` : ''}
+                  </p>
+                ) : lastFetchTimestamp && isToday && (() => {
                   const pos = (currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined) as string | undefined;
                   const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : pos === 'toast' ? 'Toast' : pos === 'aloha' ? 'Aloha' : 'POS';
                   return (

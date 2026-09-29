@@ -16,6 +16,7 @@ const MobileAddScheduleSheet = lazyWithRetry(() => import('./MobileAddScheduleSh
 const MobileBuildScheduleWizard = lazyWithRetry(() => import('./MobileBuildScheduleWizard').then(m => ({ default: m.MobileBuildScheduleWizard })));
 import { MobileShiftCard } from './MobileShiftCard';
 import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
+import { useToastFreshness } from '@/hooks/useToastFreshness';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
@@ -562,6 +563,7 @@ export function MobileScheduleView({
     staleTime: 10 * 60 * 1000,
   });
   const isToastLaborStore = laborSource === 'toast';
+  const toastFresh = useToastFreshness(isToastLaborStore ? currentLocation?.id : null);
 
   // ── Read-only Toast punches (Coop's: Toast owns the punches) ──
   const { data: toastShifts = [] } = useToastShifts(currentLocation?.id, punchDateStr, {
@@ -1205,6 +1207,8 @@ export function MobileScheduleView({
                             <span className="text-muted-foreground mx-0.5">·</span>
                             <span className="text-muted-foreground">{totalScheduled} Total</span>
                           </>
+                        ) : isToastLaborStore && toastFresh.isDelayed ? (
+                          <span className="text-amber-600 font-normal normal-case tracking-normal">— Toast data delayed{toastFresh.lastLabel ? `, last update ${toastFresh.lastLabel}` : ''}</span>
                         ) : (
                           <span className="text-muted-foreground font-normal normal-case tracking-normal">— no one clocked in</span>
                         )}
