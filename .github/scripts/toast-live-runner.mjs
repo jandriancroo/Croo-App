@@ -94,6 +94,7 @@ const toMin = (t) => parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 
 
 // Is the store open (with pre-open / post-close grace) for polling?
 function inWindow(store) {
+  if (process.env.FORCE_WINDOW === '1') return true;
   const { hour, minute, dow } = localParts(store.timezone);
   const nowMin = hour * 60 + minute;
   const day = (store.hours || []).find((h) => h.dow === dow);
@@ -538,7 +539,7 @@ async function main() {
   TOTP_TOTP_SECRET_V = TOAST_TOTP_SECRET;
   if (process.env.BACKFILL_DAYS) return backfill(parseInt(process.env.BACKFILL_DAYS, 10));
   const { stores } = await callService('schedule_list');
-  const active = stores.filter((s) => s.restaurantGuid && inWindow(s));
+  const active = stores.filter((s) => s.restaurantGuid && (process.env.PROBE_DATES === '1' || inWindow(s)));
   console.log(`Active Toast stores in polling window: ${active.map((s) => s.locationId).join(', ') || 'none'}`);
   if (active.length === 0) return;
 
@@ -580,6 +581,19 @@ async function main() {
   if (SHIFTS_TPL) console.log('🧾 punch template loaded — labor polling active');
   try {
     session = await getSession();
+    if (process.env.PROBE_DATES === '1') {
+      const p = await session.ctx.newPage();
+      const seen = [];
+      p.on('request', (rq) => { if (/report|labor|time/i.test(rq.url()) && rq.resourceType() !== 'image') seen.push(`${rq.method()} ${rq.url().slice(0, 200)} ${String(rq.postData() || '').slice(0, 300)}`); });
+      await p.goto('https://www.toasttab.com/restaurants/admin/legacyReports/labor#labor-time-entries', { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await p.waitForTimeout(12000);
+      const ctl = await p.evaluate(() => [...document.querySelectorAll('input,select,button,a[data-range],[class*=date i],[id*=date i]')].slice(0, 80).map((e) => `${e.tagName}#${e.id}.${String(e.className).slice(0, 60)} name=${e.getAttribute('name')} val=${e.value ?? ''} txt=${(e.innerText || '').slice(0, 40).replace(/\s+/g, ' ')}`));
+      console.log('CONTROLS\n' + ctl.join('\n'));
+      console.log('REQUESTS\n' + seen.join('\n'));
+      await p.screenshot({ path: '/tmp/toast-run/probe.png' });
+      await saveState(session.ctx);
+      return;
+    }
     const start = Date.now();
     let loopN = -1;
     while (true) {
