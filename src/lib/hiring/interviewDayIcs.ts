@@ -7,6 +7,7 @@ export interface DayInterview {
   interview_time: string;
   interview_modality?: string | null;
   interview_meeting_url?: string | null;
+  interviewJoinUrl?: string | null;
   locationName?: string | null;
   locationAddress?: string | null;
   timezone: string;
@@ -36,7 +37,7 @@ export function buildDayIcs(items: DayInterview[]): string {
     let description = `In-person interview with ${name} at ${place || 'the store'}.`;
     if (m === 'virtual' && i.interview_meeting_url) {
       location = 'Virtual (link in notes)';
-      description = `Virtual interview with ${name}.\nJoin the call (same link the applicant has): ${i.interview_meeting_url}`;
+      description = `Virtual interview with ${name}.\nJoin the call (opens the same room as the applicant): ${i.interviewJoinUrl || 'Open CrooHQ for the call link'}`;
     } else if (m === 'phone') {
       location = 'Phone call';
       description = `Phone interview. Call ${name}.`;

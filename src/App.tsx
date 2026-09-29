@@ -76,6 +76,7 @@ const PublicApplication = lazyWithRetry(() => import("./pages/PublicApplication"
 const PublicJobs = lazyWithRetry(() => import("./pages/PublicJobs"));
 const JobDetail = lazyWithRetry(() => import("./pages/JobDetail"));
 const HiringChat = lazyWithRetry(() => import("./pages/HiringChat"));
+const InterviewJoin = lazyWithRetry(() => import("./pages/InterviewJoin"));
 const ApplicantPortal = lazyWithRetry(() => import("./pages/ApplicantPortal"));
 const Changelog = lazyWithRetry(() => import("./pages/Changelog"));
 const PunchClockCustomization = lazyWithRetry(() => import("./pages/PunchClockCustomization"));
@@ -208,6 +209,7 @@ const AppContent = () => {
         <Route path="/qr/:qrCode" element={<QRQuickTaskReport />} />
         
         <Route path="/hiring-chat/:token" element={<HiringChat />} />
+        <Route path="/interview-join" element={<InterviewJoin />} />
         <Route path="/my-applications" element={<ApplicantPortal />} />
         <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
