@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { requireCaller } from "../_shared/callerAuth.ts";
+import { loadInterview, buildIcs, calendarButtonsHtml } from "../_shared/interviewCalendar.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -609,6 +610,9 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const formattedTime = `${hour12}:${mins.toString().padStart(2, '0')} ${ampm}`;
   const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress, modality, meetingUrl);
+  const calInfo = application?.id ? await loadInterview(supabase, application.id) : null;
+  const icsFinal = calInfo ? buildIcs(calInfo, 'applicant') : icsContent;
+  const calButtons = await calendarButtonsHtml(calInfo, 'applicant', primaryColor);
   const modalityBlock = modality === 'virtual'
     ? `<p style="color:#666;font-size:14px;margin:0 0 12px;">Virtual interview</p><a href="${escH(meetingUrl)}" style="display:inline-block;background:${primaryColor};color:#fff;text-decoration:none;padding:10px 22px;border-radius:10px;font-weight:600;font-size:14px;">Join meeting</a><p style="color:#888;font-size:12px;margin:10px 0 0;word-break:break-all;">${escH(meetingUrl)}</p>`
     : modality === 'phone'
@@ -637,6 +641,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
           <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p>
           ${modalityBlock}
         </div>
+        ${calButtons}
         <div style="text-align:center;margin:24px 0;">
           <a href="${chatUrl}?action=accept" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a>
           <div style="margin-top:14px;"><a href="${chatUrl}?action=reschedule" style="color:#999;font-size:13px;text-decoration:underline;">Schedule another time</a></div>
@@ -645,7 +650,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
       ${getEmailFooter()}`),
     source: 'interview_invite',
     dedupKey: `interview_${conversationId}_${interviewDate}_${interviewTime}_${modality}_${meetingUrl || ''}`,
-    metadata: { attachments: [{ filename: "interview.ics", content: btoa(icsContent) }] },
+    metadata: { attachments: [{ filename: "interview.ics", content: btoa(unescape(encodeURIComponent(icsFinal))) }] },
   });
 
   return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });

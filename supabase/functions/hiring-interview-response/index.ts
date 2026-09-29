@@ -17,6 +17,7 @@
 //   - Notification failures never fail the applicant's response.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { loadInterview, calendarButtonsHtml } from "../_shared/interviewCalendar.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -205,11 +206,12 @@ serve(async (req) => {
       }
 
       const link = `https://croohq.com/messages?tab=hiring&applicationId=${app.id}`;
+      const calButtons = response === "accept" ? await calendarButtonsHtml(await loadInterview(supabase, app.id), "staff", primaryColor) : "";
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0ebe1;font-family:${font};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:600px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;">
         <tr><td style="background:${primaryColor};padding:22px 32px;"><h1 style="color:#fff;font-size:20px;margin:0;">${esc(response === "accept" ? "Interview Accepted" : response === "decline" ? "Interview Declined" : "Reschedule Requested")}</h1></td></tr>
         <tr><td style="padding:28px 32px;"><p style="color:${textColor};font-size:16px;margin:0 0 24px;line-height:1.5;"><strong>${esc(headline)}</strong></p>
         ${response === "reschedule" ? `<p style="color:#555;font-size:14px;margin:0 0 24px;">Open the chat to send a new time.</p>` : ""}
-        <div style="text-align:center;"><a href="${link}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:600;">Open hiring chat</a></div></td></tr>
+        <div style="text-align:center;"><a href="${link}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:600;">Open hiring chat</a></div>${calButtons}</td></tr>
         </table></td></tr></table></body></html>`;
 
       for (const p of active) {
