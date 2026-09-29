@@ -13,7 +13,7 @@ interface WriteUpSignatureViewProps {
     reason: string;
     issue_description?: string | null;
     next_steps?: string | null;
-    notes_bullets?: { speaker: string; text: string }[] | null;
+    notes_bullets?: unknown;
     photo_url?: string;
     created_at: string;
     signed_at?: string | null;
@@ -93,6 +93,9 @@ export function WriteUpSignatureView({ writeUp, onComplete, onCancel }: WriteUpS
     }
   };
 
+  const bullets = (Array.isArray(writeUp.notes_bullets) ? writeUp.notes_bullets : [])
+    .filter((b: any) => b && typeof b.text === 'string' && b.text.trim()) as { speaker?: string; text: string }[];
+
   const details = (
     <div className="space-y-3 text-left">
       <div className="flex flex-wrap items-center gap-2">
@@ -113,11 +116,11 @@ export function WriteUpSignatureView({ writeUp, onComplete, onCancel }: WriteUpS
             <p className="text-xs font-medium text-muted-foreground mb-1">Issue Description</p>
             <p className="text-sm whitespace-pre-wrap">{writeUp.issue_description}</p>
           </div>
-        ) : Array.isArray(writeUp.notes_bullets) && writeUp.notes_bullets.length > 0 ? (
+        ) : bullets.length > 0 ? (
           <div className="rounded-lg border p-3">
             <p className="text-xs font-medium text-muted-foreground mb-1">What Was Discussed</p>
             <ul className="list-disc pl-4 space-y-1 text-sm">
-              {writeUp.notes_bullets.map((b, i) => (
+              {bullets.map((b, i) => (
                 <li key={i}>{b.speaker ? <span className="font-medium">{b.speaker}: </span> : null}{b.text}</li>
               ))}
             </ul>
