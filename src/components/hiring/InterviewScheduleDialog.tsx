@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
 import { format, addDays } from 'date-fns';
+import { DateTime } from 'luxon';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Loader2, CalendarCheck, Clock, AlertCircle, CheckCircle2, RefreshCw, Users, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -54,6 +56,7 @@ export function InterviewScheduleDialog({
   const [myShifts, setMyShifts] = useState<any[]>([]);
   const [managerShifts, setManagerShifts] = useState<any[]>([]);
   const [locationId, setLocationId] = useState<string | null>(null);
+  const { timezone } = useLocationTimezone(locationId ?? undefined);
   const [loading, setLoading] = useState(false);
   const [checkingSchedule, setCheckingSchedule] = useState(false);
   const [modality, setModality] = useState<InterviewModality>('in_person');
@@ -91,6 +94,25 @@ export function InterviewScheduleDialog({
       label: `${hour12}:${minute} ${ampm}`
     };
   });
+
+  // "Now" is the store's clock, not the phone's.
+  const storeNow = DateTime.now().setZone(timezone);
+  const storeToday = storeNow.toISODate() as string;
+  const selectedIsToday = !!selectedDate && format(selectedDate, 'yyyy-MM-dd') === storeToday;
+  const nowMinutes = storeNow.hour * 60 + storeNow.minute;
+  const availableSlots = timeSlots.filter((slot) => {
+    if (!selectedIsToday) return true;
+    const [h, m] = slot.value.split(':').map(Number);
+    return h * 60 + m > nowMinutes;
+  });
+  const timeIsAvailable = availableSlots.some((s) => s.value === selectedTime);
+
+  // If the chosen time already passed (e.g. switched to today), jump to the next open one.
+  useEffect(() => {
+    if (!open || timeIsAvailable) return;
+    if (availableSlots.length > 0) setSelectedTime(availableSlots[0].value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, selectedDate, timezone, timeIsAvailable]);
 
   // Fetch the application's location when dialog opens
   useEffect(() => {
@@ -190,6 +212,7 @@ export function InterviewScheduleDialog({
 
   const handleSchedule = async () => {
     if (!selectedDate || !selectedTime || loading) return;
+    if (!timeIsAvailable) return;
     if (!urlValid) { setUrlTouched(true); return; }
     setLoading(true);
     try {
@@ -306,7 +329,7 @@ export function InterviewScheduleDialog({
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
+              disabled={(date) => format(date, 'yyyy-MM-dd') < storeToday}
               className="rounded-md border pointer-events-auto"
             />
           </div>
@@ -395,7 +418,10 @@ export function InterviewScheduleDialog({
                 <SelectValue placeholder="Select time" />
               </SelectTrigger>
               <SelectContent className="max-h-[200px]">
-                {timeSlots.filter(slot => { if (!selectedDate) return true; const n = new Date(); if (selectedDate.toDateString() !== n.toDateString()) return true; const [h,m] = slot.value.split(':').map(Number); return h*60+m > n.getHours()*60+n.getMinutes(); }).map(slot => (
+                {availableSlots.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">No times left today — pick another day</div>
+                )}
+                {availableSlots.map(slot => (
                   <SelectItem key={slot.value} value={slot.value}>
                     {slot.label}
                   </SelectItem>
