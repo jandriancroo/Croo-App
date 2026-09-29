@@ -66,6 +66,7 @@
 - [x] Robot: punch-pull code added (template replay via toast-shifts-request.json; capture reordered before live poller — pending capture run + first ingest test)
 - [x] Mobile schedule: Toast punch cards (read-only, Toast icon; build OK)
 - [x] Manager dash overlay: who's on the clock from Toast (toast_shifts IN_PROGRESS, Toast badge, mapped users get scheduled times)
+- [x] Saved Toast staff links immediately update existing mobile shift cards; current paired shifts backfilled
 - [ ] Nightly Toast export pull (SFTP) — deferred
 
 ## Toast hourly history (queued Sep 28)
