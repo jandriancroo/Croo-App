@@ -24,7 +24,16 @@ export const fetchLiveLaborForToday = async (
     zone = (data as any)?.timezone || 'America/Los_Angeles';
   }
   zone = zone || 'America/Los_Angeles';
-  const today = getDateInTimezone(new Date(), zone);
+  // Ask the store's BUSINESS day (same day the sales card uses), so the
+  // after-midnight closing crew still counts under the shift's business day.
+  let today = getDateInTimezone(new Date(), zone);
+  if (locationId) {
+    const { data: bd } = await supabase.rpc('business_date' as any, {
+      _location_id: locationId,
+      _at: new Date().toISOString(),
+    });
+    if (typeof bd === 'string' && /^\d{4}-\d{2}-\d{2}/.test(bd)) today = bd.slice(0, 10);
+  }
   const empty = { date: today, hours: 0, cost: 0 };
   if (!locationId) return empty;
 
