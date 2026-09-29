@@ -95,7 +95,9 @@ async function fetchLocationData(
     .lte('entry_date', toISO)
     .order('entry_date', { ascending: true });
 
-  const [salesR, laborR, endingCountR, drawerR] = await Promise.all([salesP, laborP, endingCountP, drawerP]);
+  const payrollP = (supabase.rpc as any)('payroll_hours', { _location_id: locationId, _start: fromISO, _end: toISO })
+    .then((r: any) => r, () => ({ data: [] }));
+  const [salesR, laborR, endingCountR, drawerR, payrollR] = await Promise.all([salesP, laborP, endingCountP, drawerP, payrollP]);
 
   // === Sales ===
   const salesRows = salesR.data || [];
@@ -123,10 +125,28 @@ async function fetchLocationData(
     dotHours: Number(r.double_time_hours || 0),
     grossWages: Number(r.labor_cost || 0),
   })).sort((a, b) => a.date.localeCompare(b.date));
+  // Overtime / double time come ONLY from the server payroll_hours (same
+  // numbers as the payroll export, counted by workweek). Each week's OT is
+  // placed on the first report day inside that week so weekly tables add up.
+  const payrollRows: any[] = (payrollR as any)?.data || [];
+  const weekOt = new Map<string, { ot: number; dt: number }>();
+  for (const emp of payrollRows) {
+    for (const w of (emp.weeks || [])) {
+      const k = String(w.week_start);
+      const cur = weekOt.get(k) || { ot: 0, dt: 0 };
+      cur.ot += Number(w.ot || 0);
+      cur.dt += Number(w.dt || 0);
+      weekOt.set(k, cur);
+    }
+  }
+  for (const [ws, v] of weekOt) {
+    const target = dayRows.find((d) => d.date >= ws) || dayRows[dayRows.length - 1];
+    if (target) { target.otHours += v.ot; target.dotHours += v.dt; }
+  }
   const laborAgg = dayRows.reduce(
     (acc, r) => ({
       totalHours: acc.totalHours + r.totalHours,
-      regularHours: acc.regularHours + Number(byDay.get(r.date)?.regular_hours || 0),
+      regularHours: acc.regularHours,
       otHours: acc.otHours + r.otHours,
       dotHours: acc.dotHours + r.dotHours,
       grossWages: acc.grossWages + r.grossWages,
@@ -134,6 +154,7 @@ async function fetchLocationData(
     }),
     { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: dayRows }
   );
+  laborAgg.regularHours = Math.max(0, laborAgg.totalHours - laborAgg.otHours - laborAgg.dotHours);
 
   // === Inventory: SOURCE OF TRUTH = inventory period panel ===
   // Pick the latest completed count whose period_end_date is inside the report window.
