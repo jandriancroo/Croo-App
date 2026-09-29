@@ -12946,6 +12946,7 @@ export type Database = {
           is_active: boolean
           job_title: string | null
           location_id: string
+          toast_guid: string | null
           toast_name: string
           toast_user_id: string
           updated_at: string
@@ -12956,6 +12957,7 @@ export type Database = {
           is_active?: boolean
           job_title?: string | null
           location_id: string
+          toast_guid?: string | null
           toast_name: string
           toast_user_id: string
           updated_at?: string
@@ -12966,6 +12968,7 @@ export type Database = {
           is_active?: boolean
           job_title?: string | null
           location_id?: string
+          toast_guid?: string | null
           toast_name?: string
           toast_user_id?: string
           updated_at?: string
