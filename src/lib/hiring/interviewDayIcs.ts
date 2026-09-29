@@ -35,8 +35,8 @@ export function buildDayIcs(items: DayInterview[]): string {
     let location = place;
     let description = `In-person interview with ${name} at ${place || 'the store'}.`;
     if (m === 'virtual' && i.interview_meeting_url) {
-      location = i.interview_meeting_url;
-      description = `Virtual interview with ${name}.\nJoin the call: ${i.interview_meeting_url}`;
+      location = 'Virtual (link in notes)';
+      description = `Virtual interview with ${name}.\nJoin the call (same link the applicant has): ${i.interview_meeting_url}`;
     } else if (m === 'phone') {
       location = 'Phone call';
       description = `Phone interview. Call ${name}.`;
@@ -52,7 +52,6 @@ export function buildDayIcs(items: DayInterview[]): string {
       `SUMMARY:${esc(summary)}`,
       ...(location ? [`LOCATION:${esc(location)}`] : []),
       `DESCRIPTION:${esc(description)}`,
-      ...(m === 'virtual' && i.interview_meeting_url ? [`URL:${i.interview_meeting_url}`] : []),
       'STATUS:CONFIRMED',
       'END:VEVENT',
     );

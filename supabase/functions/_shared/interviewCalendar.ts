@@ -83,8 +83,9 @@ function details(i: InterviewCal, audience: "applicant" | "staff") {
   let location = place;
   let description = "";
   if (i.modality === "virtual" && i.meetingUrl) {
-    location = i.meetingUrl;
-    description = `Virtual interview${audience === "staff" ? ` with ${i.applicantName}` : ""}.\nJoin the call: ${i.meetingUrl}`;
+    // Link only in the notes: Google swaps Meet links it finds in the location/URL fields.
+    location = "Virtual (link in notes)";
+    description = `Virtual interview${audience === "staff" ? ` with ${i.applicantName}` : ""}.\nJoin the call (${audience === "staff" ? "same link the applicant has" : "use this link"}): ${i.meetingUrl}`;
   } else if (i.modality === "phone") {
     location = "Phone call";
     description = audience === "staff" ? `Phone interview. Call ${i.applicantName}.` : "Phone interview. A manager will call you.";
@@ -110,7 +111,6 @@ export function buildIcs(i: InterviewCal, audience: "applicant" | "staff"): stri
     `SUMMARY:${icsEsc(summary)}`,
     location ? `LOCATION:${icsEsc(location)}` : "",
     `DESCRIPTION:${icsEsc(description)}`,
-    i.modality === "virtual" && i.meetingUrl ? `URL:${i.meetingUrl}` : "",
     `STATUS:${cancelled ? "CANCELLED" : "CONFIRMED"}`,
     "BEGIN:VALARM", "TRIGGER:-PT30M", "ACTION:DISPLAY", `DESCRIPTION:${icsEsc(summary)}`, "END:VALARM",
     "END:VEVENT", "END:VCALENDAR",
