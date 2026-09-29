@@ -116,7 +116,7 @@ async function signInOnce(browser) {
   await page.goto('https://www.toasttab.com/login', { waitUntil: 'domcontentloaded' });
   for (let i = 0; i < 120; i++) {
     const c = (await page.content().catch(() => "just a moment")).toLowerCase();
-    if (!c.includes('just a moment')) break;
+    if (!c.includes('just a moment') && !c.includes('security verification')) break;
     await page.waitForTimeout(1000);
   }
   // Interactive Turnstile (click inside the challenge iframe if present)
@@ -132,10 +132,18 @@ async function signInOnce(browser) {
     } catch {}
     await page.waitForTimeout(5000);
   }
-  await page.waitForSelector('input[name=username]', { timeout: 60000 });
+  await page.waitForSelector('input[name=username]', { timeout: 90000 });
   await page.fill('input[name=username]', process.env.TOAST_LOGIN_EMAIL);
   await page.click('button[type=submit]');
-  await page.waitForSelector('input[type=password]', { timeout: 30000 });
+  // Cloudflare can re-check between the email and password steps, so wait
+  // longer and re-submit once instead of failing the whole run.
+  try {
+    await page.waitForSelector('input[type=password]', { timeout: 60000 });
+  } catch {
+    try { await page.click('button[type=submit]'); } catch {}
+    await page.waitForSelector('input[type=password]', { timeout: 60000 });
+  }
+
   await page.fill('input[type=password]', process.env.TOAST_LOGIN_PASSWORD);
   await page.click('button[type=submit]');
   await page.waitForTimeout(4000);
