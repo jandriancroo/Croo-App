@@ -32,11 +32,17 @@ serve(async (req) => {
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    const token = (authHeader || "").replace("Bearer ", "");
+    const { data: userData, error: userError } = token
+      ? await supabase.auth.getUser(token)
+      : { data: { user: null }, error: new Error("missing") } as any;
+    if (userError || !userData?.user) {
+      // Stale or missing sign-in: tell the app to sign in again, not a crash.
+      return new Response(JSON.stringify({ error: "reauth_required", subscribed: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });

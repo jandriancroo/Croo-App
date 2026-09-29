@@ -107,6 +107,17 @@ export const usePushNotifications = () => {
         const subscriptionData = JSON.stringify(subscription);
         const endpoint = subscription.endpoint;
         console.log('[Push Web] Saving subscription to database...');
+        // Make sure the sign-in is fresh and matches, or the save is refused.
+        {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!authUser || authUser.id !== userId) {
+            const { data: r } = await supabase.auth.refreshSession();
+            if (!r.session || r.session.user.id !== userId) {
+              console.warn('[Push Web] Sign-in stale; skipping token save');
+              return;
+            }
+          }
+        }
 
         // Drop the stored token for a subscription we just replaced
         if (staleEndpoint) {
