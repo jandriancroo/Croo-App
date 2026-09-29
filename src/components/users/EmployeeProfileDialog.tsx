@@ -646,6 +646,9 @@ export function EmployeeProfileDialog({
                         </div>
                       )}
                     </div>
+                    {wageFromToast && (
+                      <p className="text-xs text-muted-foreground">From Toast — change pay rates in Toast.</p>
+                    )}
                   </div>
                 )}
               </div>
