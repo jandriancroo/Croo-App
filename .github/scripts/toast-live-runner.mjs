@@ -538,7 +538,7 @@ async function main() {
   TOTP_TOTP_SECRET_V = TOAST_TOTP_SECRET;
   if (process.env.BACKFILL_DAYS) return backfill(parseInt(process.env.BACKFILL_DAYS, 10));
   const { stores } = await callService('schedule_list');
-  const active = stores.filter((s) => s.restaurantGuid && inWindow(s));
+  const active = stores.filter((s) => s.restaurantGuid && (process.env.PROBE_DATES === '1' || inWindow(s)));
   console.log(`Active Toast stores in polling window: ${active.map((s) => s.locationId).join(', ') || 'none'}`);
   if (active.length === 0) return;
 
