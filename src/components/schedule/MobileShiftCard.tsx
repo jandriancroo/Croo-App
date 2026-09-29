@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Pencil, Coffee } from 'lucide-react';
+import { CalendarIcon, Pencil, Coffee, Link2 } from 'lucide-react';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { formatTime12Hour } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,9 @@ interface MobileShiftCardProps {
 
   // POS marker badge (e.g. 'toast' = punches read from Toast, read-only)
   posIcon?: 'toast' | null;
+
+  // Toast punch is paired with a CrooHQ staff profile (croo_user_id set)
+  isLinked?: boolean;
   
   // Action button (for team members)
   actionButton?: React.ReactNode;
@@ -75,6 +78,7 @@ export function MobileShiftCard({
   positionColor,
   showBreakIndicator = true,
   posIcon,
+  isLinked = false,
   actionButton,
   timezone,
   formatTimeDisplay: formatTimeFn,
@@ -152,6 +156,13 @@ export function MobileShiftCard({
                   alt="Toast"
                   className="shrink-0 h-3.5 w-3.5"
                   title="Punches come from Toast"
+                />
+              )}
+              {isLinked && (
+                <Link2
+                  className="h-3 w-3 shrink-0 text-emerald-500"
+                  aria-label="Linked to CrooHQ profile"
+                  title="Linked to CrooHQ profile"
                 />
               )}
             </div>
