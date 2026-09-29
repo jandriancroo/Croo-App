@@ -277,9 +277,13 @@ serve(async (req) => {
     // NOTE: inventory_items has NO `status` column — it uses the boolean
     // `is_active`, like the rest of the app. The old `.eq("status","active")`
     // filter made this select fail, so no invoice line ever matched a local item.
+    // NOTE: `vendor_item_id` was removed from inventory_items (vendor SKUs now
+    // live in brand_vendor_mappings). Selecting it made this query fail and the
+    // item list came back empty, so no invoice line ever matched a local item.
+    // Local matching keys: item_number, pa_item_id, name, brand_item_id.
     const { data: locationItems, error: locItemsErr } = await admin
       .from("inventory_items")
-      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit, is_active")
+      .select("id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, is_active")
       .eq("location_id", invoice.location_id)
       .eq("is_active", true);
     if (locItemsErr) console.error("Error loading location items:", locItemsErr);
