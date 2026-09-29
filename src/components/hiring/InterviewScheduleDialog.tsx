@@ -451,7 +451,7 @@ export function InterviewScheduleDialog({
           </Button>
           <Button 
             onClick={handleSchedule} 
-            disabled={!selectedDate || !selectedTime || loading || (modality === 'virtual' && !urlValid)}
+            disabled={!selectedDate || !selectedTime || !timeIsAvailable || loading || (modality === 'virtual' && !urlValid)}
           >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isRescheduling ? 'Send New Invitation' : 'Send Invitation'}
