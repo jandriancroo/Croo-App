@@ -116,6 +116,8 @@ function EmployeeRowComponent({
 }: EmployeeRowProps) {
 
   const navigate = useNavigate();
+  const { currentLocation } = useAppLocation();
+  const { data: storeWeeklyHours } = useLocationWeeklyHours(currentLocation?.id);
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));

@@ -75,10 +75,17 @@ export function BrandIntegrationSettings({ brandId }: { brandId: string }) {
         })),
       ];
 
-      const { error } = await supabase
-        .from('brand_integration_policies')
-        .upsert(rows, { onConflict: 'brand_id,integration_key' });
-      if (error) throw error;
+      // Turn things off first, then on — only one sales system may be on at a
+      // time, so enabling the new one before disabling the old one is rejected.
+      const offRows = rows.filter((r) => !r.is_enabled);
+      const onRows = rows.filter((r) => r.is_enabled);
+      for (const batch of [offRows, onRows]) {
+        if (batch.length === 0) continue;
+        const { error } = await supabase
+          .from('brand_integration_policies')
+          .upsert(batch, { onConflict: 'brand_id,integration_key' });
+        if (error) throw error;
+      }
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['brand-integration-policies', brandId] }),
