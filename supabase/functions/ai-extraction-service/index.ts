@@ -399,7 +399,7 @@ Do NOT return ranges — give your single best estimate.`;
       role: 'user',
       content: [
         { type: 'text', text: userPrompt },
-        { type: 'image_url', image_url: { url: imageUrl } }
+        { type: 'image_url', image_url: { url: imagePayload } }
       ]
     }
   ];
