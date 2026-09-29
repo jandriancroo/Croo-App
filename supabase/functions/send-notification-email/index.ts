@@ -119,7 +119,7 @@ serve(async (req) => {
       const issueHtml = (typeof issue_description === 'string' && issue_description.trim())
         ? issue_description
         : bulletList.length
-          ? `<ul style="margin:0;padding-left:18px;">${bulletList.map((b: any) => `<li style="margin:0 0 4px;">${b.speaker ? `<strong>${escapeHtml(b.speaker)}:</strong> ` : ''}${escapeHtml(b.text)}</li>`).join('')}</ul>`
+          ? `<ul style="margin:0;padding-left:18px;">${bulletList.map((b: any) => `<li style="margin:0 0 4px;">${b.speaker ? `<strong>${b.speaker}:</strong> ` : ''}${b.text}</li>`).join('')}</ul>`
           : 'Open the Croo app to review the details.';
       subject = `You've received a Corrective Action from management`;
       headerTitle = "Corrective Action";
