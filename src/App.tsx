@@ -132,7 +132,7 @@ const AppWithSplash = () => {
   // Public/unlisted pages must paint immediately — never gate them behind the splash.
   const skipSplash =
     typeof window !== "undefined" &&
-    (window.location.pathname.startsWith("/r/") || window.location.pathname === "/");
+    (window.location.pathname.startsWith("/r/") || window.location.pathname === "/" || window.location.pathname === "/interview-join");
   const [showSplash, setShowSplash] = useState(!skipSplash);
 
   const [splashComplete, setSplashComplete] = useState(false);
