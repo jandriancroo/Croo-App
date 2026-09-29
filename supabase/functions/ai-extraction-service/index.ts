@@ -376,6 +376,23 @@ Do NOT return ranges — give your single best estimate.`;
 
   // Pro model for accuracy; if it errors, retry once on flash. Never crash the
   // checklist — an unreadable photo returns temperature:null with a reason.
+  // Download the photo ourselves and send it inline: the AI provider often
+  // can't fetch storage links directly ("Cannot fetch content from URL").
+  let imagePayload = imageUrl;
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (imgRes.ok) {
+      const buf = new Uint8Array(await imgRes.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      imagePayload = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${btoa(bin)}`;
+    } else {
+      console.error('[extract-temperature] photo download failed', imgRes.status);
+      return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true });
+    }
+  } catch (e) {
+    console.error('[extract-temperature] photo download error', String(e));
+  }
   const msgs = [
     { role: 'system', content: systemPrompt },
     {
