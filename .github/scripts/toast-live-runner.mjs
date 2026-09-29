@@ -94,6 +94,7 @@ const toMin = (t) => parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 
 
 // Is the store open (with pre-open / post-close grace) for polling?
 function inWindow(store) {
+  if (process.env.FORCE_WINDOW === '1') return true;
   const { hour, minute, dow } = localParts(store.timezone);
   const nowMin = hour * 60 + minute;
   const day = (store.hours || []).find((h) => h.dow === dow);
