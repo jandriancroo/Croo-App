@@ -327,7 +327,7 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
   if (shifts.length === 0) {
     const { count } = await supabase.from("toast_shifts")
       .select("id", { count: "exact", head: true })
-      .eq("location_id", locationId).eq("business_date", date);
+      .eq("location_id", locationId).eq("shift_date", date);
     if ((count ?? 0) > 0) return { ok: true, skipped: "empty_read_kept_existing", shifts: 0 };
   }
 
