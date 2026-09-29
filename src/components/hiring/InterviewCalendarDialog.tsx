@@ -176,14 +176,15 @@ export function InterviewCalendarDialog({
                 selected={selectedDate}
                 onSelect={(date) => date && setSelectedDate(date)}
                 className="rounded-md border pointer-events-auto"
+                classNames={{
+                  cell: 'h-9 w-9 text-center text-sm p-0 relative',
+                  day_today: 'ring-1 ring-inset ring-primary/60',
+                }}
                 modifiers={{
                   hasInterview: (date) => interviewDates.has(format(date, 'yyyy-MM-dd'))
                 }}
-                modifiersStyles={{
-                  hasInterview: { 
-                    backgroundColor: 'hsl(var(--primary) / 0.2)',
-                    fontWeight: 'bold'
-                  }
+                modifiersClassNames={{
+                  hasInterview: 'font-bold underline decoration-primary decoration-2 underline-offset-4'
                 }}
               />
             </div>
@@ -208,56 +209,45 @@ export function InterviewCalendarDialog({
                       No interviews scheduled
                     </p>
                   ) : (
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="text-left px-3 py-1.5 font-medium">Name</th>
-                            <th className="text-left px-3 py-1.5 font-medium">Time</th>
-                            <th className="text-right px-3 py-1.5 font-medium">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {selectedDateInterviews.map(interview => (
-                            <tr key={interview.id} className="hover:bg-muted/30">
-                              <td className="px-3 py-2 font-medium">
-                                <div>{interview.full_name}</div>
-                                <div className="mt-0.5 flex items-center gap-2 text-xs font-normal">
-                                  <InterviewModalityBadge modality={interview.interview_modality} />
-                                  {interview.interview_modality === 'virtual' && interview.interview_meeting_url && (
-                                    <>
-                                      <InterviewJoinLink url={interview.interview_meeting_url} compact />
-                                      <button
-                                        type="button"
-                                        className="text-muted-foreground hover:text-foreground"
-                                        onClick={() => { navigator.clipboard.writeText(interview.interview_meeting_url); toast.success('Meeting link copied'); }}
-                                      >
-                                        Copy
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-muted-foreground">
-                                {formatTime12h(interview.interview_time)}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                <Badge 
-                                  variant="outline"
-                                  className={cn(
-                                    "text-xs",
-                                    interview.interview_status === 'accepted' 
-                                      ? 'bg-green-500/10 text-green-600 border-green-500/30'
-                                      : 'bg-amber-500/10 text-amber-600 border-amber-500/30'
-                                  )}
-                                >
-                                  {interview.interview_status === 'accepted' ? 'Confirmed' : interview.interview_status === 'reschedule_requested' ? 'New time asked' : 'Invite Sent'}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="border rounded-lg divide-y overflow-hidden">
+                      {[...selectedDateInterviews]
+                        .sort((a, b) => String(a.interview_time).localeCompare(String(b.interview_time)))
+                        .map(interview => (
+                        <div key={interview.id} className="flex items-center gap-3 px-3 py-2.5">
+                          <div className="w-16 shrink-0 text-sm font-semibold tabular-nums whitespace-nowrap">
+                            {formatTime12h(interview.interview_time)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">{interview.full_name}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                              <InterviewModalityBadge modality={interview.interview_modality} />
+                              {interview.interview_modality === 'virtual' && interview.interview_meeting_url && (
+                                <>
+                                  <InterviewJoinLink url={interview.interview_meeting_url} compact />
+                                  <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground"
+                                    onClick={() => { navigator.clipboard.writeText(interview.interview_meeting_url); toast.success('Meeting link copied'); }}
+                                  >
+                                    Copy
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "shrink-0 whitespace-nowrap text-xs",
+                              interview.interview_status === 'accepted'
+                                ? 'bg-green-500/10 text-green-600 border-green-500/30'
+                                : 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                            )}
+                          >
+                            {interview.interview_status === 'accepted' ? 'Confirmed' : interview.interview_status === 'reschedule_requested' ? 'New time asked' : 'Invite sent'}
+                          </Badge>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
