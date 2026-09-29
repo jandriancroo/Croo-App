@@ -12939,6 +12939,47 @@ export type Database = {
           },
         ]
       }
+      toast_employees: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          job_title: string | null
+          location_id: string
+          toast_name: string
+          toast_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          job_title?: string | null
+          location_id: string
+          toast_name: string
+          toast_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          job_title?: string | null
+          location_id?: string
+          toast_name?: string
+          toast_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_employees_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       toast_sales_cache: {
         Row: {
           avg_ticket: number
