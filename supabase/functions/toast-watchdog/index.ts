@@ -28,12 +28,14 @@ const fmtTime = (iso: string, tz: string) =>
   new Date(iso).toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" });
 
 async function dispatchRobot(): Promise<string> {
-  const token = Deno.env.get("GITHUB_DISPATCH_TOKEN");
-  const repo = Deno.env.get("GITHUB_REPO"); // owner/name
-  if (!token || !repo) return "no_github_key";
-  const r = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/toast-live-scrape.yml/dispatches`, {
+  // Starts the robot through the Lovable GitHub connection (no manual token).
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const ghKey = Deno.env.get("GITHUB_API_KEY");
+  const repo = Deno.env.get("GITHUB_REPO"); // owner/name, e.g. jandriancroo/Croo-App
+  if (!lovableKey || !ghKey || !repo) return "no_github_key";
+  const r = await fetch(`https://connector-gateway.lovable.dev/github/repos/${repo}/actions/workflows/toast-live-scrape.yml/dispatches`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "croohq-toast-watchdog" },
+    headers: { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": ghKey, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
     body: JSON.stringify({ ref: Deno.env.get("GITHUB_REF") || "main" }),
   });
   if (r.status === 204) return "dispatched";
