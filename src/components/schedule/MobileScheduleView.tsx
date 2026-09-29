@@ -1133,7 +1133,7 @@ export function MobileScheduleView({
                   <>
                     {scheduleId && (
                       <>
-                        <div className="w-px bg-primary-foreground/15 my-1" />
+                        {!isToastLaborStore && <div className="w-px bg-primary-foreground/15 my-1" />}
                         <button
                           type="button"
                           onClick={() => {
