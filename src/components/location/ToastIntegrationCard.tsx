@@ -5,7 +5,16 @@ import { Link2, TriangleAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+type SyncRow = { sale_date: string; net_sales: number; fetched_at: string } | null;
+
+function lastLine(label: string, row: SyncRow) {
+  if (!row) return `${label}: not yet`;
+  const when = new Date(row.fetched_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return `${label}: ${row.sale_date} · $${Number(row.net_sales).toFixed(2)} (updated ${when})`;
+}
 
 type RosterRow = { id: string; toast_user_id: string; toast_name: string; job_title: string | null };
 type MappingRow = { id: string; toast_user_id: string; croo_user_id: string | null };
