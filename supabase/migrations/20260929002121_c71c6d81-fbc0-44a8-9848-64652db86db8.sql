@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.labor_source_for(uuid) TO authenticated, service_role;
