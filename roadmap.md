@@ -84,3 +84,4 @@
 
 - [x] Toast pay rates: pulled from Toast employee list (58 people, 13 on today's punches); salaries skipped
 - [ ] Toast robot permanent all-day schedule (still runs from workspace only)
+- [ ] Replace raw virtual interview links in calendar files with signed CrooHQ redirect links and verify downloads.
