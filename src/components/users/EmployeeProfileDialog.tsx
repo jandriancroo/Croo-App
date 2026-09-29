@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
+import { ToastLinkField } from '@/components/users/ToastLinkField';
 import { EmployeeRecordsSection } from '@/components/users/EmployeeRecordsSection';
 import { EmployeeNewPinField } from '@/components/users/EmployeeNewPinField';
 import { I9DocumentsSection } from '@/components/users/I9DocumentsSection';
@@ -648,6 +649,9 @@ export function EmployeeProfileDialog({
                     </div>
                     {wageFromToast && (
                       <p className="text-xs text-muted-foreground">From Toast — change pay rates in Toast.</p>
+                    )}
+                    {wageFromToast && currentLocationId && isAdmin && (
+                      <ToastLinkField userId={user.id} currentLocationId={currentLocationId} onLinked={onUserUpdated} />
                     )}
                   </div>
                 )}

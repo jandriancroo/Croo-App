@@ -383,11 +383,11 @@ function localToIso(txt, tz) {
   const asLocal = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
   return new Date(guess - (asLocal - guess)).toISOString();
 }
-// Toast pay rates: one request to /api/restaurants/employees/users, cached 1h.
-// Rate = checked job's wageOverride, else job default wage (cents). Salaries (>$500) skipped.
+// Toast pay rates + full roster: one request to /api/restaurants/employees/users, cached 1h.
+// Rate = wage override if set, else that job's default wage (cents → dollars). Salaries (>$500) skipped.
 const normName = (n) => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
 let __wageCache = { at: 0, map: null };
-async function fetchWageMap(page) {
+async function fetchWageMap(page, locationId) {
   if (__wageCache.map && Date.now() - __wageCache.at < 3600e3) return __wageCache.map;
   try {
     const res = await page.evaluate(async (rid) => {
@@ -396,6 +396,7 @@ async function fetchWageMap(page) {
     }, 'c93b197b-bbc8-4d94-a8b3-cc24cddc8c06');
     if (!res.body) { console.log('💵 wages status', res.status, res.err); return __wageCache.map; }
     const map = new Map();
+    const roster = [];
     for (const u of res.body.users || []) {
       const byJob = new Map();
       for (const j of u.jobs || []) {
@@ -405,14 +406,33 @@ async function fetchWageMap(page) {
       const e = { byJob };
       map.set(normName(`${u.firstName} ${u.lastName}`), e);
       if (u.chosenName) map.set(normName(`${u.chosenName} ${u.lastName}`), e);
+      // Roster for the CrooHQ pairing screens. Key must match the punch report's
+      // employee column (`name:Last, First`) so shifts auto-pair later.
+      const ln = String(u.lastName || '').trim();
+      const fn = String(u.firstName || '').trim();
+      const cn = String(u.chosenName || '').trim();
+      if (!ln && !fn && !cn) continue;
+      const lastFirst = ln && (fn || cn) ? `${ln}, ${fn || cn}` : (fn || cn || ln);
+      const first = (fn || cn).trim();
+      const single = (u.jobs || []).length === 1 ? (u.jobs[0].wageOverride?.fAmount ?? u.jobs[0].wage?.fAmount) : null;
+      roster.push({
+        toastUserId: `name:${lastFirst}`.slice(0, 80),
+        toastGuid: String(u.guid || '').slice(0, 80) || null,
+        toastName: (first && ln ? `${first} ${ln}` : lastFirst).slice(0, 160),
+        jobTitle: String(u.jobs?.[0]?.name || '').slice(0, 120) || null,
+        hourlyWage: single && single / 100 > 0 && single / 100 <= 500 ? Math.round((single / 100) * 100) / 100 : null,
+      });
     }
-    console.log(`💵 wages loaded for ${map.size} names`);
+    console.log(`💵 wages loaded for ${map.size} names (${roster.length} roster)`);
     __wageCache = { at: Date.now(), map };
+    if (locationId && roster.length > 0) {
+      postEmployees(locationId, roster).then((r) => console.log(`👥 roster → toast-sync ${r.status}`)).catch((e) => console.log('👥 roster push failed:', e.message));
+    }
     return map;
   } catch (e) { console.log('💵 wages error', e.message); return __wageCache.map; }
 }
 // Read-only punches from Toast's Time Entries report table (no GraphQL template needed).
-async function fetchShiftsTable(ctx, tz) {
+async function fetchShiftsTable(ctx, tz, locationId) {
   const p = await ctx.newPage();
   try {
     await p.goto('https://www.toasttab.com/restaurants/admin/legacyReports/labor#labor-time-entries', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -428,7 +448,7 @@ async function fetchShiftsTable(ctx, tz) {
       });
     });
     if (!globalThis.__loggedHeads && rows[0]) { console.log('🧾 columns:', Object.keys(rows[0]).join(' | ')); globalThis.__loggedHeads = true; }
-    const wages = await fetchWageMap(p);
+    const wages = await fetchWageMap(p, locationId);
     const money = (v) => { const n = parseFloat(String(v || '').replace(/[$,]/g, '')); return Number.isFinite(n) ? n : null; };
     return rows.filter((r) => r['employee'] && r['in date']).map((r) => {
       const wKey = Object.keys(r).find((k) => /^(wage|hourly wage|wage rate|pay rate|rate)$/.test(k));
@@ -460,6 +480,18 @@ function postLabor(locationId, date, shifts) {
       'x-cron-secret': CRON_SECRET,
     },
     body: JSON.stringify({ action: 'ingest-labor', locationId, date, shifts }),
+  });
+}
+
+function postEmployees(locationId, employees) {
+  return fetch(`${SUPABASE_URL}/functions/v1/toast-sync`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'x-cron-secret': CRON_SECRET,
+    },
+    body: JSON.stringify({ action: 'ingest-employees', locationId, employees }),
   });
 }
 
@@ -569,7 +601,7 @@ async function main() {
         // Read-only punch pull for the same day (Toast owns punches).
         if (SHIFTS_TPL || (loopN % 2 === 0)) {
           try {
-            const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone);
+            const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone, store.locationId);
             if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
             else if (Array.isArray(shifts) && shifts.length === 0) { console.warn(`🧾 ${date}: blank punch read — keeping last good labor`); }
             else if (Array.isArray(shifts)) {

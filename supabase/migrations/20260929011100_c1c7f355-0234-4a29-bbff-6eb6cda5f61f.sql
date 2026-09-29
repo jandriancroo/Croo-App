@@ -1,0 +1,1 @@
+alter table public.toast_employees add column if not exists toast_guid text;
