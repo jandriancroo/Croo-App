@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageCircle } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 
 interface HiringConversation {
   id: string;
@@ -34,6 +35,7 @@ interface HiringChatListProps {
 
 export function HiringChatList({ onSelectConversation, selectedId, autoSelectApplicationId }: HiringChatListProps) {
   const { currentLocation } = useLocation();
+  const { timezone } = useLocationTimezone();
   const [conversations, setConversations] = useState<HiringConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const autoSelectDone = useRef(false);
@@ -146,8 +148,8 @@ export function HiringChatList({ onSelectConversation, selectedId, autoSelectApp
   }, [currentLocation?.id]);
 
   const formatTime = (dateString: string) => {
-    const messageTime = DateTime.fromISO(dateString, { zone: 'utc' }).setZone('America/Los_Angeles');
-    const today = DateTime.now().setZone('America/Los_Angeles');
+    const messageTime = DateTime.fromISO(dateString, { zone: 'utc' }).setZone(timezone);
+    const today = DateTime.now().setZone(timezone);
     return messageTime.hasSame(today, 'day') ? messageTime.toFormat('h:mm a') : messageTime.toFormat('MMM d');
   };
 
