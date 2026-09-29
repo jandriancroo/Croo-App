@@ -1260,6 +1260,7 @@ export function MobileScheduleView({
                           formatTimeDisplay={formatTimeDisplay}
                           showBreakIndicator={false}
                           posIcon={punch.isToast ? 'toast' : null}
+                          isLinked={punch.isLinked}
                           onClick={() => {
                             if (punch.isToast) return; // Toast punches are read-only
                             const today = getTodayInTimezone(timezone);
@@ -1361,6 +1362,7 @@ export function MobileScheduleView({
                               formatTimeDisplay={formatTimeDisplay}
                               showBreakIndicator={false}
                               posIcon={punch.isToast ? 'toast' : null}
+                              isLinked={punch.isLinked}
                               onClick={() => {
                                 if (punch.isToast) return; // Toast punches are read-only
                                 const today = getTodayInTimezone(timezone);
@@ -1415,6 +1417,7 @@ export function MobileScheduleView({
                         formatTimeDisplay={formatTimeDisplay}
                         showBreakIndicator={false}
                         posIcon={punch.isToast ? 'toast' : null}
+                        isLinked={punch.isLinked}
                         onClick={() => {
                           if (punch.isToast) return; // Toast punches are read-only
                           setSelectedPunch({
