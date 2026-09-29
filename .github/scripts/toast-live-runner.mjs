@@ -571,6 +571,7 @@ async function main() {
           try {
             const shifts = SHIFTS_TPL ? await fetchShifts(session.page, store.restaurantGuid, date) : await fetchShiftsTable(session.ctx, store.timezone);
             if (shifts?.error) { console.warn(`🧾 ${date}: ${shifts.error}`); }
+            else if (Array.isArray(shifts) && shifts.length === 0) { console.warn(`🧾 ${date}: blank punch read — keeping last good labor`); }
             else if (Array.isArray(shifts)) {
               const lr = await postLabor(store.locationId, date, shifts);
               const lj = await lr.json().catch(() => ({}));
