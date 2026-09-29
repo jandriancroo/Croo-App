@@ -17,7 +17,7 @@
 ### 2. A robot that doesn't quit
 - **Starts reliably:** GitHub's timed starts can run late or get skipped. Instead of three fixed start times, the watchdog starts the robot at opening and at every handoff.
 - **Reports in:** The robot checks in with CrooHQ every cycle: signed in, stuck at the human check, Toast page blank, or stopped. The watchdog and the alerts use that.
-- **Human check:** It keeps its saved sign-in so the check rarely comes up. If the check shows, it waits it out and tries again, spacing tries at least 2 minutes apart so Toast doesn't lock the account.
+- **Human check:** It keeps its saved sign-in so the check rarely comes up. If the check shows, it waits it out and tries again, spacing tries at least 2 minutes apart, with no more than 4 full Toast sign-ins a day. The watchdog never contacts Toast itself; it only reads CrooHQ records.
 - **Clean handoff:** A new run starts before the old one ends, so there's no gap.
 
 ### 3. Honest screens
