@@ -100,6 +100,19 @@ const LaborBodySchema = z.object({
   shifts: z.array(ShiftSchema).max(400),
 });
 
+// Full Toast roster for the pairing screens (names only — no wages).
+const EmployeeBodySchema = z.object({
+  action: z.literal("ingest-employees"),
+  locationId: z.string().uuid(),
+  employees: z.array(z.object({
+    toastUserId: z.string().min(1).max(80),
+    toastGuid: z.string().max(80).nullable().optional(),
+    toastName: z.string().min(1).max(160),
+    jobTitle: z.string().max(120).nullable().optional(),
+    hourlyWage: z.number().finite().min(0).max(500).nullable().optional(),
+  })).max(400),
+});
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -317,6 +330,40 @@ function distributeHours(inIso: string, outIso: string | null, tz: string, total
 
 function minutesBetween(isoA: string, isoB: string): number {
   return Math.round((new Date(isoA).getTime() - new Date(isoB).getTime()) / 60000);
+}
+
+// Full Toast roster → toast_employees. Names/job titles only; wages go to
+// toast_employee_wages (admin-only) so paired profiles get Toast rates even
+// before their first punch.
+async function ingestEmployees(supabase: any, body: z.infer<typeof EmployeeBodySchema>) {
+  const { locationId, employees } = body;
+  await assertToastLocation(supabase, locationId);
+  const dedup = new Map<string, { toast_name: string; job_title: string | null }>();
+  for (const e of employees) dedup.set(e.toastUserId, { toast_name: e.toastName, job_title: e.jobTitle ?? null });
+  if (dedup.size > 0) {
+    const rows = [...dedup.entries()].map(([toastUserId, v]) => ({
+      location_id: locationId,
+      toast_user_id: toastUserId,
+      toast_name: v.toast_name,
+      job_title: v.job_title,
+      is_active: true,
+    }));
+    const { error } = await supabase
+      .from("toast_employees")
+      .upsert(rows, { onConflict: "location_id,toast_user_id" });
+    if (error) throw error;
+  }
+  const wages = new Map<string, number>();
+  for (const e of employees) {
+    if (e.hourlyWage && e.hourlyWage > 0) wages.set(e.toastUserId, e.hourlyWage);
+  }
+  if (wages.size > 0) {
+    await supabase.from("toast_employee_wages").upsert(
+      [...wages].map(([toastUserId, w]) => ({ location_id: locationId, toast_user_id: toastUserId, hourly_wage: w, updated_at: new Date().toISOString() })),
+      { onConflict: "location_id,toast_user_id" },
+    );
+  }
+  return { ok: true, employees: dedup.size, wages: wages.size };
 }
 
 async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>) {
@@ -629,6 +676,18 @@ Deno.serve(async (req) => {
     const supabaseLabor = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     try {
       const result = await ingestLabor(supabaseLabor, labor.data);
+      return json({ success: true, result });
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : String(e) }, 500);
+    }
+  }
+
+  if ((body as any)?.action === "ingest-employees") {
+    const emp = EmployeeBodySchema.safeParse(body);
+    if (!emp.success) return json({ error: emp.error.flatten() }, 400);
+    const supabaseEmp = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    try {
+      const result = await ingestEmployees(supabaseEmp, emp.data);
       return json({ success: true, result });
     } catch (e) {
       return json({ error: e instanceof Error ? e.message : String(e) }, 500);
