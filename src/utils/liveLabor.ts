@@ -36,8 +36,12 @@ export const fetchLiveLaborForToday = async (
     _date: today,
   });
   if (error) {
-    console.error('[liveLabor] get_live_labor_totals failed:', error);
-    return empty;
+    // Never pretend "0 labor": let the screen show "—". Not-allowed viewers
+    // (team members, unpaired devices) are expected, so don't log as errors.
+    const err = new Error(error.message) as Error & { code?: string };
+    err.code = (error as any).code;
+    if (err.code !== '42501') console.error('[liveLabor] get_live_labor_totals failed:', error);
+    throw err;
   }
   const row = (data as any[])?.[0];
   return { date: today, hours: Number(row?.hours) || 0, cost: Number(row?.cost) || 0 };

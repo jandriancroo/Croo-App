@@ -522,7 +522,9 @@ export function ManagerDashboardOverlay({
     queryFn: () => fetchLiveLaborForToday(locationId, timezone),
     enabled: !!locationId && !!todayStr,
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    // Stop asking once the server says this viewer isn't allowed to see labor.
+    refetchInterval: (q) => ((q.state.error as any)?.code === '42501' ? false : 60_000),
+    retry: (n, e: any) => e?.code !== '42501' && n < 1,
   });
 
   const laborData = liveLaborToday && (liveLaborToday.hours > 0 || liveLaborToday.cost > 0)
