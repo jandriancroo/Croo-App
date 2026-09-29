@@ -290,24 +290,67 @@ const Inventory = () => {
         ];
         const salesRows = (salesRes.data as any[]) || [];
 
-        // ─── Manual assignments win over the date window ────────────────────
-        // Managers check which deliveries belong to a count (a Monday-morning
-        // PFG drop can legitimately belong to the prior month-end). The
-        // expanded panel / Report Builder read those checkboxes, so the list
-        // pill must too — otherwise the same period shows two numbers.
-        // Dedupe defensively: duplicate assignment rows exist in the wild.
-        const { data: assignRows } = await supabase
-          .from("inventory_order_assignments" as any)
-          .select("count_id, source_type, source_row_id")
-          .eq("location_id", locationId)
-          .in("count_id", completedWithWindow.map(x => x.c.id));
+        // ─── Same rules as the expanded PeriodDetailPanel ──────────────────
+        // The manager's checkboxes (inventory_order_assignments) are the only
+        // source of truth. Monthly/yearly counts also inherit their weekly
+        // children's deliveries, minus exclusions and minus anything locked to
+        // a different count of the same type. No date-window guessing.
+        const [assignAllRes, exclRes, weeklyCountsRes] = await Promise.all([
+          supabase
+            .from("inventory_order_assignments" as any)
+            .select("count_id, source_type, source_row_id, period_type")
+            .eq("location_id", locationId),
+          supabase
+            .from("inventory_order_exclusions" as any)
+            .select("count_id, source_type, source_row_id, period_type")
+            .eq("location_id", locationId),
+          supabase
+            .from("inventory_counts")
+            .select("id, period_end_date")
+            .eq("location_id", locationId)
+            .eq("is_sandbox", false)
+            .eq("period_type", "weekly"),
+        ]);
+        const assignAll = (assignAllRes.data as any[]) || [];
+        const exclAll = (exclRes.data as any[]) || [];
+        const weeklyCounts = (weeklyCountsRes.data as any[]) || [];
+
+        // key -> count_id, per period_type (same-type lock map)
+        const lockByType: Record<string, Map<string, string>> = {};
+        const directByCount: Record<string, Set<string>> = {};
+        for (const a of assignAll) {
+          const k = `${a.source_type}_${a.source_row_id}`;
+          (lockByType[a.period_type] ||= new Map()).set(k, a.count_id);
+          (directByCount[a.count_id] ||= new Set()).add(k);
+        }
+        const exclByCountType: Record<string, Set<string>> = {};
+        for (const e of exclAll) {
+          (exclByCountType[`${e.count_id}|${e.period_type}`] ||= new Set()).add(`${e.source_type}_${e.source_row_id}`);
+        }
 
         const assignedByCount: Record<string, Set<string>> = {};
         const idsByType: Record<string, Set<string>> = { pfg: new Set(), pa: new Set(), invoice: new Set() };
-        for (const r of ((assignRows as any[]) || [])) {
-          const key = `${r.source_type}_${r.source_row_id}`;
-          (assignedByCount[r.count_id] ||= new Set()).add(key);
-          if (idsByType[r.source_type]) idsByType[r.source_type].add(r.source_row_id);
+        for (const { c, win } of completedWithWindow) {
+          const pt = c.period_type as string;
+          const set = new Set<string>();
+          const lockMap = lockByType[pt] || new Map();
+          for (const [k, cid] of lockMap) if (cid === c.id) set.add(k);
+          if (pt === "monthly" || pt === "yearly") {
+            const excl = exclByCountType[`${c.id}|${pt}`] || new Set();
+            for (const w of weeklyCounts) {
+              if (!w.period_end_date || w.period_end_date < win.start || w.period_end_date > win.end) continue;
+              for (const k of directByCount[w.id] || []) {
+                const lockedTo = lockMap.get(k);
+                if (excl.has(k) || (lockedTo && lockedTo !== c.id)) continue;
+                set.add(k);
+              }
+            }
+          }
+          assignedByCount[c.id] = set;
+          for (const k of set) {
+            const i = k.indexOf("_");
+            idsByType[k.slice(0, i)]?.add(k.slice(i + 1));
+          }
         }
 
         const amountByKey: Record<string, number> = {};
@@ -375,13 +418,10 @@ const Inventory = () => {
 
         for (const { c, win } of completedWithWindow) {
           const assigned = assignedByCount[c.id];
-          const purchasesTotal = assigned && assigned.size > 0
+          const purchasesTotal = assigned
             ? [...assigned].reduce((s, k) => s + (amountByKey[k] || 0), 0)
-            : allOrders.reduce((s, o) => {
-                if (!o.delivery_date) return s;
-                if (o.delivery_date < win.start || o.delivery_date > win.end) return s;
-                return s + (Number(o.total_amount) || 0);
-              }, 0);
+            : 0;
+          void allOrders;
 
           const salesEnd = salesEndFor(c, win);
           const netSales = salesRows.reduce((s, r) => {
