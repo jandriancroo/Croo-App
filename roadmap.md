@@ -90,4 +90,4 @@
 - [x] Robot check-ins + 4/day sign-in cap + handoff
 - [x] Watchdog every 5 min: restart + alerts (verified: alerts sent 19:10/19:15 UTC)
 - [x] "Toast data delayed" on dashboard + mobile schedule
-- [ ] Auto-restart needs GITHUB_DISPATCH_TOKEN + GITHUB_REPO from Jordan
+- [x] Auto-restart live: watchdog now dispatches via GitHub connector (GITHUB_API_KEY + GITHUB_REPO saved; dispatch verified 204 Sep 29)
