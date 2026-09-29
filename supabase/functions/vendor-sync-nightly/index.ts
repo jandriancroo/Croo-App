@@ -599,6 +599,11 @@ Deno.serve(async (req) => {
           status: msg.includes("waiting on predecessor") ? "pending" : "failed",
           error: msg, completed_at: new Date().toISOString(),
         });
+        // Waiting its turn is normal, not a failure: answer 409 so the queue
+        // still retries, but real failures (500) stay visible.
+        if (msg.includes("waiting on predecessor")) {
+          return json({ waiting: true, message: msg }, 409);
+        }
         throw e;
       }
     }
