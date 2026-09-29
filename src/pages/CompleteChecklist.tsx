@@ -882,6 +882,11 @@ export default function CompleteChecklist() {
           { body: { imageUrl: data.publicUrl } }
         );
 
+        if (tempError || !tempData || tempData.temperature == null) {
+          toast.warning("Couldn't read the temperature", {
+            description: 'Retake the photo with the numbers or needle clearly in view.',
+          });
+        }
         if (!tempError && tempData) {
           extractedTemp = tempData.temperature;
           tempValid = tempData.isValid;

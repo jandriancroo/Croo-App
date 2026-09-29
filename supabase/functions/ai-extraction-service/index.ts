@@ -374,17 +374,48 @@ Do NOT return ranges — give your single best estimate.`;
   const itemContext = itemName ? ` The item being measured is: "${itemName}".` : '';
   const userPrompt = `Read the temperature on this thermometer.${itemContext} Even if numbers are partially cut off, use the needle position relative to the color zones (blue=freezer, white=refrigerator safe, red=danger) and count tick marks from zone boundaries. Return only the numeric Fahrenheit value.`;
 
-  // Use pro model for better accuracy on visual temperature reading
-  const data = await callAI([
+  // Pro model for accuracy; if it errors, retry once on flash. Never crash the
+  // checklist — an unreadable photo returns temperature:null with a reason.
+  // Download the photo ourselves and send it inline: the AI provider often
+  // can't fetch storage links directly ("Cannot fetch content from URL").
+  let imagePayload = imageUrl;
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (imgRes.ok) {
+      const buf = new Uint8Array(await imgRes.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      imagePayload = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${btoa(bin)}`;
+    } else {
+      console.error('[extract-temperature] photo download failed', imgRes.status);
+      return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true });
+    }
+  } catch (e) {
+    console.error('[extract-temperature] photo download error', String(e));
+  }
+  const msgs = [
     { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: [
         { type: 'text', text: userPrompt },
-        { type: 'image_url', image_url: { url: imageUrl } }
+        { type: 'image_url', image_url: { url: imagePayload } }
       ]
     }
-  ], undefined, undefined, 'google/gemini-2.5-pro');
+  ];
+  let data: any = null;
+  for (const model of ['google/gemini-2.5-pro', 'google/gemini-2.5-flash']) {
+    try {
+      data = await callAI(msgs, undefined, undefined, model);
+      break;
+    } catch (e: any) {
+      console.error('[extract-temperature] model failed', model, e?.status, e?.message);
+      if (e?.status === 402) break;
+    }
+  }
+  if (!data) {
+    return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true });
+  }
 
   const extractedText = data.choices?.[0]?.message?.content?.trim() || 'NONE';
   let temperature: number | null = null;
