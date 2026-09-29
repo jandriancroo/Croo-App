@@ -418,13 +418,10 @@ const Inventory = () => {
 
         for (const { c, win } of completedWithWindow) {
           const assigned = assignedByCount[c.id];
-          const purchasesTotal = assigned && assigned.size > 0
+          const purchasesTotal = assigned
             ? [...assigned].reduce((s, k) => s + (amountByKey[k] || 0), 0)
-            : allOrders.reduce((s, o) => {
-                if (!o.delivery_date) return s;
-                if (o.delivery_date < win.start || o.delivery_date > win.end) return s;
-                return s + (Number(o.total_amount) || 0);
-              }, 0);
+            : 0;
+          void allOrders;
 
           const salesEnd = salesEndFor(c, win);
           const netSales = salesRows.reduce((s, r) => {
