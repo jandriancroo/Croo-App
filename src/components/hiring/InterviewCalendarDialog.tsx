@@ -26,6 +26,7 @@ export function InterviewCalendarDialog({
   organizationId
 }: InterviewCalendarDialogProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [downloadingDay, setDownloadingDay] = useState(false);
 
   // Fetch interviews
   const { data: interviews, isLoading: interviewsLoading } = useQuery({
@@ -210,20 +211,34 @@ export function InterviewCalendarDialog({
                       variant="outline"
                       size="sm"
                       className="mt-2 min-h-[36px]"
-                      onClick={() => {
-                        const loc = (x: any) => (Array.isArray(x.location) ? x.location[0] : x.location);
-                        downloadIcs(
-                          buildDayIcs(selectedDateInterviews.map((i: any) => ({
-                            ...i,
-                            locationName: loc(i)?.name,
-                            locationAddress: loc(i)?.address,
-                          }))),
-                          `interviews-${format(selectedDate, 'yyyy-MM-dd')}.ics`,
-                        );
-                        toast.success('Calendar file downloaded');
+                      disabled={downloadingDay}
+                      onClick={async () => {
+                        setDownloadingDay(true);
+                        try {
+                          const { data, error } = await supabase.functions.invoke('interview-calendar', {
+                            body: { applicationIds: selectedDateInterviews.map((i: any) => i.id) },
+                          });
+                          if (error) throw error;
+                          const loc = (x: any) => (Array.isArray(x.location) ? x.location[0] : x.location);
+                          downloadIcs(
+                            buildDayIcs(selectedDateInterviews.map((i: any) => ({
+                              ...i,
+                              interviewJoinUrl: data?.links?.[i.id] || null,
+                              locationName: loc(i)?.name,
+                              locationAddress: loc(i)?.address,
+                            }))),
+                            `interviews-${format(selectedDate, 'yyyy-MM-dd')}.ics`,
+                          );
+                          toast.success('Calendar file downloaded');
+                        } catch (error) {
+                          console.error('Calendar download failed:', error);
+                          toast.error('Could not prepare the calendar file');
+                        } finally {
+                          setDownloadingDay(false);
+                        }
                       }}
                     >
-                      <Download className="h-4 w-4 mr-1" /> Download day
+                      {downloadingDay ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />} Download day
                     </Button>
                   )}
                 </div>

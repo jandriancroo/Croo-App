@@ -2,7 +2,7 @@
 // Shared interview calendar helpers (applicant + staff emails, interview-calendar function).
 // - Store-local wall time -> UTC via the store's location_settings.timezone (Coop's Central, Blaze Pacific).
 // - Stable UID per application so a rescheduled link updates the same calendar event.
-// - Virtual: LOCATION + URL + DESCRIPTION carry the meeting link. In person: store name + address.
+// - Virtual: calendar files contain a signed CrooHQ join link, never the raw Meet URL.
 import { DateTime } from "npm:luxon@3.4.4";
 
 export const CAL_FUNCTION_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/interview-calendar`;
@@ -75,7 +75,7 @@ function times(i: InterviewCal) {
   return { start, end: start.plus({ minutes: 30 }) };
 }
 
-function details(i: InterviewCal, audience: "applicant" | "staff") {
+function details(i: InterviewCal, audience: "applicant" | "staff", joinUrl?: string) {
   const place = [i.locationName, i.locationAddress].filter(Boolean).join(", ");
   const summary = audience === "staff"
     ? `Interview: ${i.applicantName}${i.modality === "virtual" ? " (virtual)" : i.modality === "phone" ? " (phone)" : ""}`
@@ -83,9 +83,9 @@ function details(i: InterviewCal, audience: "applicant" | "staff") {
   let location = place;
   let description = "";
   if (i.modality === "virtual" && i.meetingUrl) {
-    // Link only in the notes: Google swaps Meet links it finds in the location/URL fields.
+    // Google rewrites raw Meet links anywhere in an imported event. Only expose CrooHQ here.
     location = "Virtual (link in notes)";
-    description = `Virtual interview${audience === "staff" ? ` with ${i.applicantName}` : ""}.\nJoin the call (${audience === "staff" ? "same link the applicant has" : "use this link"}): ${i.meetingUrl}`;
+    description = `Virtual interview${audience === "staff" ? ` with ${i.applicantName}` : ""}.\nJoin the call (${audience === "staff" ? "opens the same room as the applicant" : "use this link"}): ${joinUrl || "Open CrooHQ for the call link"}`;
   } else if (i.modality === "phone") {
     location = "Phone call";
     description = audience === "staff" ? `Phone interview. Call ${i.applicantName}.` : "Phone interview. A manager will call you.";
@@ -95,9 +95,9 @@ function details(i: InterviewCal, audience: "applicant" | "staff") {
   return { summary, location, description };
 }
 
-export function buildIcs(i: InterviewCal, audience: "applicant" | "staff"): string {
+export function buildIcs(i: InterviewCal, audience: "applicant" | "staff", joinUrl?: string): string {
   const { start, end } = times(i);
-  const { summary, location, description } = details(i, audience);
+  const { summary, location, description } = details(i, audience, joinUrl);
   const cancelled = ["declined", "cancelled", "canceled"].includes(String(i.status));
   const lines = [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CrooHQ//Interview//EN", "CALSCALE:GREGORIAN",
@@ -118,9 +118,9 @@ export function buildIcs(i: InterviewCal, audience: "applicant" | "staff"): stri
   return lines.map(fold).join("\r\n") + "\r\n";
 }
 
-export function googleCalendarUrl(i: InterviewCal, audience: "applicant" | "staff"): string {
+export function googleCalendarUrl(i: InterviewCal, audience: "applicant" | "staff", joinUrl?: string): string {
   const { start, end } = times(i);
-  const { summary, location, description } = details(i, audience);
+  const { summary, location, description } = details(i, audience, joinUrl);
   const p = new URLSearchParams({
     action: "TEMPLATE",
     text: summary,
@@ -136,11 +136,16 @@ export async function calendarFileUrl(appId: string, audience: "applicant" | "st
   return `${CAL_FUNCTION_URL}?a=${appId}&s=${await signApplication(appId)}&for=${audience}`;
 }
 
+export async function interviewJoinUrl(appId: string): Promise<string> {
+  return `${CAL_FUNCTION_URL}?action=join&a=${appId}&s=${await signApplication(appId)}`;
+}
+
 /** Two email buttons: Google Calendar + Apple/Outlook (.ics). Returns "" if no interview found. */
 export async function calendarButtonsHtml(i: InterviewCal | null, audience: "applicant" | "staff", primaryColor: string): Promise<string> {
   if (!i) return "";
   const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-  const g = esc(googleCalendarUrl(i, audience));
+  const joinUrl = await interviewJoinUrl(i.applicationId);
+  const g = esc(googleCalendarUrl(i, audience, joinUrl));
   const f = esc(await calendarFileUrl(i.applicationId, audience));
   const btn = `display:inline-block;margin:4px;border:1.5px solid ${primaryColor};color:${primaryColor};text-decoration:none;padding:10px 18px;border-radius:10px;font-weight:600;font-size:14px;`;
   return `<div style="text-align:center;margin:18px 0 4px;"><p style="color:#888;font-size:12px;margin:0 0 6px;text-transform:uppercase;letter-spacing:1px;">Add to calendar</p><a href="${g}" style="${btn}">Google Calendar</a><a href="${f}" style="${btn}">Apple / Outlook</a></div>`;

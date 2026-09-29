@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { requireCaller } from "../_shared/callerAuth.ts";
-import { loadInterview, buildIcs, calendarButtonsHtml } from "../_shared/interviewCalendar.ts";
+import { loadInterview, buildIcs, calendarButtonsHtml, interviewJoinUrl } from "../_shared/interviewCalendar.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -311,11 +311,11 @@ function generateICS(date: string, time: string, orgName: string, locationName: 
   const formatICSDate = (d: Date): string => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const uid = `interview-${date}-${time}-${Date.now()}@croohq.email`;
   const icsEsc = (v: string) => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-  const location = modality === 'virtual' && meetingUrl ? meetingUrl : modality === 'phone' ? 'Phone call' : (locationAddress || locationName);
+  const location = modality === 'virtual' && meetingUrl ? 'Virtual interview' : modality === 'phone' ? 'Phone call' : (locationAddress || locationName);
   const description = modality === 'virtual' && meetingUrl
-    ? `Virtual interview. Join: ${meetingUrl}`
+    ? 'Virtual interview. Open CrooHQ for the call link.'
     : modality === 'phone' ? 'Phone interview. A manager will reach out by phone.' : '';
-  const extra = (description ? `DESCRIPTION:${icsEsc(description)}\n` : '') + (modality === 'virtual' && meetingUrl ? `URL:${meetingUrl}\n` : '');
+  const extra = description ? `DESCRIPTION:${icsEsc(description)}\n` : '';
   return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//CrooHQ//Interview//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${formatICSDate(new Date())}\nDTSTART:${formatICSDate(startDate)}\nDTEND:${formatICSDate(endDate)}\nSUMMARY:${icsEsc(`${modality === 'phone' ? 'Phone interview' : 'Interview'} with ${orgName}`)}\nLOCATION:${icsEsc(location)}\n${extra}STATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR`;
 }
 
@@ -611,7 +611,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const formattedTime = `${hour12}:${mins.toString().padStart(2, '0')} ${ampm}`;
   const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress, modality, meetingUrl);
   const calInfo = application?.id ? await loadInterview(supabase, application.id) : null;
-  const icsFinal = calInfo ? buildIcs(calInfo, 'applicant') : icsContent;
+  const icsFinal = calInfo ? buildIcs(calInfo, 'applicant', await interviewJoinUrl(calInfo.applicationId)) : icsContent;
   const calButtons = await calendarButtonsHtml(calInfo, 'applicant', primaryColor);
   const modalityBlock = modality === 'virtual'
     ? `<p style="color:#666;font-size:14px;margin:0 0 12px;">Virtual interview</p><a href="${escH(meetingUrl)}" style="display:inline-block;background:${primaryColor};color:#fff;text-decoration:none;padding:10px 22px;border-radius:10px;font-weight:600;font-size:14px;">Join meeting</a><p style="color:#888;font-size:12px;margin:10px 0 0;word-break:break-all;">${escH(meetingUrl)}</p>`
