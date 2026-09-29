@@ -153,7 +153,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.whos-out-email]
-verify_jwt = true
+verify_jwt = false
 
 [functions.hiring-interview-response]
 verify_jwt = false
