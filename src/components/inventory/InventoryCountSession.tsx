@@ -432,10 +432,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
 
   // Fetch recipe costs for on-the-fly calculation
-  const { data: recipeCosts } = useQuery({
+  const { data: recipeCosts, error: recipeCostsError, refetch: refetchRecipeCosts } = useQuery({
     queryKey: ["recipe-costs", locationId],
     queryFn: () => fetchRecipeCosts(locationId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1,
   });
 
   // Resolve brand for Pipeline 1 conversion fallback (standard SOT contract)
