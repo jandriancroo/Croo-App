@@ -86,8 +86,15 @@ export function useSubscription() {
         organizationId: data.organization_id || null,
         locationSubscriptions: data.location_subscriptions || {},
       });
-    } catch (err) {
-      console.error('Subscription check failed:', err);
+    } catch (err: any) {
+      // A 401 means sign-in couldn't be confirmed right now (e.g. backend restarting).
+      // Keep the last known plan and retry on the next tick instead of reporting a crash.
+      const status = err?.context?.status;
+      if (status === 401) {
+        console.warn('Subscription check: sign-in not confirmed yet, will retry');
+      } else {
+        console.warn('Subscription check failed:', err);
+      }
       setState(s => ({ ...s, loading: false }));
     }
   }, [organizationId]);
