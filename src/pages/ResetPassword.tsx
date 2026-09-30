@@ -15,10 +15,25 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [tokenHash, setTokenHash] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkSession = async () => {
+      // New-style invite/reset links: token is redeemed only on submit,
+      // so email scanners that pre-open links can't use it up.
+      const qs = new URLSearchParams(window.location.search);
+      const th = qs.get('token_hash');
+      if (th) {
+        setTokenHash(th);
+        setIsValidSession(true);
+        setChecking(false);
+        return;
+      }
       // Check URL hash for recovery token
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const type = hashParams.get('type');
@@ -35,8 +50,8 @@ export default function ResetPassword() {
           
           if (error) {
             console.error('Session error:', error);
-            toast.error('Invalid or expired reset link');
-            navigate('/auth');
+            setExpired(true);
+            setChecking(false);
             return;
           }
           
@@ -56,8 +71,7 @@ export default function ResetPassword() {
         if (session) {
           setIsValidSession(true);
         } else {
-          toast.error('Invalid or expired reset link');
-          navigate('/auth');
+          setExpired(true);
         }
       }
       setChecking(false);
@@ -92,6 +106,14 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
+      if (tokenHash) {
+        const { error: vErr } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+        if (vErr) {
+          setExpired(true);
+          setIsValidSession(false);
+          return;
+        }
+      }
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
@@ -118,8 +140,50 @@ export default function ResetPassword() {
     );
   }
 
-  if (!isValidSession) {
-    return null;
+  const handleResend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResending(true);
+    try {
+      await supabase.auth.resetPasswordForEmail(resendEmail.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      setResent(true);
+    } finally {
+      setResending(false);
+    }
+  };
+
+  if (expired || !isValidSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
+        <Card className="w-full max-w-md shadow-2xl border-2">
+          <CardHeader className="space-y-1 text-center">
+            <img src={crooLogo} alt="Croo Logo" className="h-24 w-auto mx-auto" />
+            <CardTitle className="text-2xl">This link has expired</CardTitle>
+            <CardDescription>
+              {resent
+                ? 'Check your email for a fresh link. It can take a minute to arrive.'
+                : 'No problem — enter your email and we\'ll send you a new link to set your password.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!resent ? (
+              <form onSubmit={handleResend} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="resendEmail">Email</Label>
+                  <Input id="resendEmail" type="email" required value={resendEmail}
+                    onChange={(e) => setResendEmail(e.target.value)} placeholder="you@restaurant.com" />
+                </div>
+                <Button type="submit" className="w-full" disabled={resending}>
+                  {resending ? 'Sending...' : 'Send me a new link'}
+                </Button>
+              </form>
+            ) : null}
+            <Button variant="ghost" className="w-full mt-2" onClick={() => navigate('/auth')}>Back to sign in</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
