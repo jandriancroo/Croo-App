@@ -31,6 +31,13 @@ interface ActiveConversionRow {
   canonical_qty_per_inner: number | null;
 }
 
+export class RecipePricesUnavailableError extends Error {
+  constructor(detail?: string) {
+    super(`Recipe prices unavailable${detail ? `: ${detail}` : ""}`);
+    this.name = "RecipePricesUnavailableError";
+  }
+}
+
 /**
  * Fetches all recipe ingredients and item cost info for a location,
  * then calculates the effective cost per "count unit" for each recipe item.
@@ -52,6 +59,9 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
   if (recipeItemIds.length === 0) return new Map();
 
   // Pipeline 1 — fetch brand-level conversions for raw ingredient unit normalization
+  // Fail loudly: if the brand has conversions but this user's load came back
+  // empty or errored, recipe prices would silently fall back to store pack
+  // sizes and inflate (Sept 1 PD). Never price recipes in that state.
   const conversionMap = new Map<string, ActiveConversionRow>();
   if (recipeItems && recipeItems.length > 0) {
     const { resolveBrandId } = await import("@/utils/resolveBrandId");
@@ -62,10 +72,21 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         .select("brand_template_id, canonical_unit, outer_qty, canonical_qty_per_inner")
         .eq("brand_id", brandId)
         .is("effective_to", null);
-      if (!convErr && conversions) {
-        for (const c of conversions) {
-          conversionMap.set(c.brand_template_id, c as ActiveConversionRow);
+      if (convErr) {
+        throw new RecipePricesUnavailableError(convErr.message);
+      }
+      if (!conversions || conversions.length === 0) {
+        const { data: expected, error: cntErr } = await supabase.rpc(
+          "brand_conversion_count" as any,
+          { _brand_id: brandId } as any
+        );
+        if (cntErr) throw new RecipePricesUnavailableError(cntErr.message);
+        if (Number(expected ?? 0) > 0) {
+          throw new RecipePricesUnavailableError("Pack conversions did not load");
         }
+      }
+      for (const c of conversions || []) {
+        conversionMap.set(c.brand_template_id, c as ActiveConversionRow);
       }
     }
   }
