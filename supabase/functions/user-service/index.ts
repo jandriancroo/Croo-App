@@ -133,6 +133,14 @@ async function verifyAdminRole(supabaseAdmin: any, userId: string): Promise<void
 // localhost which would otherwise expire or be inaccessible to new hires.
 const PRODUCTION_APP_URL = 'https://croohq.com';
 
+// Link straight to our page with the token; it is only redeemed when the person
+// submits a new password, so email link-scanners can't burn it by pre-clicking.
+function buildSafeSetPasswordLink(redirectTo: string, props: any): string | null {
+  const hash = props?.hashed_token;
+  if (!hash) return null;
+  return `${redirectTo}?token_hash=${encodeURIComponent(hash)}&type=recovery`;
+}
+
 function getRedirectUrl(req: Request, _supabaseUrl: string): string {
   const origin =
     req.headers.get('origin') ||
@@ -258,7 +266,7 @@ async function handleInvite(payload: InviteUserPayload, req: Request, supabaseAd
     console.error("Password reset link generation failed:", resetError);
   }
 
-  const resetLink = resetData?.properties?.action_link ?? null;
+  const resetLink = buildSafeSetPasswordLink(redirectTo, resetData?.properties) ?? resetData?.properties?.action_link ?? null;
 
   // Send branded invite email directly via email_queue
   if (resetLink) {
@@ -357,7 +365,7 @@ async function handleResendInvite(req: Request, supabaseAdmin: any, requestingUs
 
   if (resetError) throw resetError;
 
-  const resetLink = resetData.properties.action_link;
+  const resetLink = buildSafeSetPasswordLink(redirectTo, resetData?.properties) ?? resetData.properties.action_link;
 
   // Get user's location for branding
   let locationId: string | null = null;
