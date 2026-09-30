@@ -31,7 +31,7 @@ export function useCountPackLens(locationId: string | null | undefined) {
     },
   });
 
-  const { data: lensMap, isLoading } = useQuery({
+  const { data: lensMap, isFetching } = useQuery({
     queryKey: ["pack-config-lens", brandId, lensEnabled],
     enabled: !!brandId && lensEnabled === true,
     staleTime: 60 * 1000,
@@ -61,5 +61,5 @@ export function useCountPackLens(locationId: string | null | undefined) {
     },
   });
 
-  return { lensEnabled: lensEnabled === true, lensMap, loading: lensEnabled === true && isLoading };
+  return { lensEnabled: lensEnabled === true, lensMap, loading: lensEnabled === true && (lensMap === undefined || isFetching && !lensMap) };
 }
