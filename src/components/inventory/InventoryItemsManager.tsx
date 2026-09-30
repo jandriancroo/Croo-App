@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, EyeOff, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, RefreshCw, Link2, Tag, ListOrdered, CheckSquare, Search, Power, PowerOff } from "lucide-react";
+import { MapPin, Package, Loader2, EyeOff, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, RefreshCw, Link2, Tag, ListOrdered, CheckSquare, Search, Power, PowerOff, Lock, ChefHat } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -25,6 +25,9 @@ import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
+import { PAN_CONTAINER_LABELS } from "./PanSizesSection";
+import { ItemPriceLine, ItemPackLine } from "./ItemEditInfoLines";
+import { useCountPackLens } from "@/hooks/useCountPackLens";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import ShortcutConfigSheet from "./ShortcutConfigSheet";
@@ -107,6 +110,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   
   const [linkTargetItemId, setLinkTargetItemId] = useState<string>("");
+  const [panEditorOpen, setPanEditorOpen] = useState(false);
+  const countLens = useCountPackLens(locationId);
 
 
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -601,6 +606,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   const openEditDialog = async (item: any) => {
     setLinkTargetItemId("");
+    setPanEditorOpen(false);
     setEditingItem({
       id: item.id,
       name: item.name,
