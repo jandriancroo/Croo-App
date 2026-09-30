@@ -84,6 +84,26 @@ export function DayBreakdownDialog({
       
       setIsLoadingSales(true);
       try {
+        // POS-agnostic: read the sales mailroom first (QU, Clover, Toast, Aloha all land here)
+        if (!isFuture) {
+          const { data: row } = await supabase
+            .from('sales_cache')
+            .select('net_sales, hourly_data')
+            .eq('location_id', currentLocation.id)
+            .eq('sale_date', dateStr)
+            .maybeSingle();
+          const hourlyArr = (row?.hourly_data as { hour: string; sales: number }[] | null) || [];
+          const daily = Number(row?.net_sales || 0);
+          if (row && (daily > 0 || hourlyArr.length > 0)) {
+            const hourlyMap: Record<number, number> = {};
+            hourlyArr.forEach((item) => {
+              const hourNum = parseInt(String(item.hour).split(':')[0]);
+              hourlyMap[hourNum] = (hourlyMap[hourNum] || 0) + (item.sales || 0);
+            });
+            setSalesData({ daily, hourly: hourlyMap, isProjection: false });
+            return;
+          }
+        }
         const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
           body: { locationId: currentLocation.id, targetDate: dateStr }
         });
