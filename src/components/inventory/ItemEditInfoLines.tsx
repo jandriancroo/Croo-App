@@ -84,10 +84,13 @@ export function ItemPackLine({ item, lensEnabled, lensMap, loading }: {
   else if (item?.pack_quantity != null && Number(item.pack_quantity) > 0) why = item?.is_recipe ? "store pack field" : "vendor pack";
   else why = "no pack set — counted one at a time";
 
+  const ignoredOverride = shape.source === "lens" && item?.pack_quantity_override != null && Number(item.pack_quantity_override) > 0
+    ? `store override ${Number(item.pack_quantity_override)} is not used (being retired)`
+    : null;
   const unitWord = shape.unit && shape.unit !== "cs" && shape.unit !== "case" ? shape.unit : "units";
   const container = shape.outerLabel ?? "case";
   const main = shape.innerPackQty
-    ? `${shape.packQty} ${shape.innerLabel ?? "pack"}s × ${shape.innerPackQty} ${unitWord} per ${container}`
+    ? `${shape.packQty} ${shape.innerLabel ?? "pack"}s × ${shape.innerPackQty} ${unitWord} per ${container} (${+(shape.packQty * shape.innerPackQty).toFixed(2)} total)`
     : `${shape.packQty} ${unitWord} per ${container}`;
 
   return (
@@ -98,6 +101,7 @@ export function ItemPackLine({ item, lensEnabled, lensMap, loading }: {
         <p className="text-muted-foreground">
           {why}{item?.pack_size ? ` · vendor pack ${item.pack_size}` : ""}
         </p>
+        {ignoredOverride && <p className="text-muted-foreground">{ignoredOverride}</p>}
       </div>
     </div>
   );
