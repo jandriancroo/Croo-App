@@ -52,6 +52,8 @@ const ALL_CONTAINERS: ContainerDef[] = [
   { key: "dough_box",        label: "Dough Box",          ratio: 1.2,   blazeDefault: false, category: "dough_tray", description: "Deep 18x26x6 dough proofing box" },
 ];
 
+export const PAN_CONTAINER_LABELS: Record<string, string> = Object.fromEntries(ALL_CONTAINERS.map(c => [c.key, c.label]));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Round to 2 decimal places for clean display */

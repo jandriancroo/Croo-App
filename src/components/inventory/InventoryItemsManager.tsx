@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, EyeOff, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, RefreshCw, Link2, Tag, ListOrdered, CheckSquare, Search, Power, PowerOff } from "lucide-react";
+import { MapPin, Package, Loader2, EyeOff, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, RefreshCw, Link2, Tag, ListOrdered, CheckSquare, Search, Power, PowerOff, Lock, ChefHat } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -25,6 +25,9 @@ import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
+import { PAN_CONTAINER_LABELS } from "./PanSizesSection";
+import { ItemPriceLine, ItemPackLine } from "./ItemEditInfoLines";
+import { useCountPackLens } from "@/hooks/useCountPackLens";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import ShortcutConfigSheet from "./ShortcutConfigSheet";
@@ -107,6 +110,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   
   const [linkTargetItemId, setLinkTargetItemId] = useState<string>("");
+  const [panEditorOpen, setPanEditorOpen] = useState(false);
+  const countLens = useCountPackLens(locationId);
 
 
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -519,10 +524,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, override, category, storage_location_id, pan_sizes, is_daily_tracked }: { itemId: string; override: number | null; category: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null; is_daily_tracked?: boolean }) => {
+    mutationFn: async ({ itemId, category, storage_location_id, pan_sizes, is_daily_tracked, categoryLocked }: { itemId: string; category: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null; is_daily_tracked?: boolean; categoryLocked?: boolean }) => {
+      // Only the fields shown in the dialog are written. Pack fields, links and
+      // remap status are never touched from here.
+      const patch: Record<string, any> = { storage_location_id, pan_sizes: pan_sizes as any, is_daily_tracked: is_daily_tracked ?? false };
+      if (!categoryLocked) patch.category = category;
       const { error } = await supabase
         .from("inventory_items")
-        .update({ pack_quantity_override: override, category, storage_location_id, pan_sizes: pan_sizes as any, is_daily_tracked: is_daily_tracked ?? false } as any)
+        .update(patch as any)
         .eq("id", itemId);
       
       if (error) throw error;
@@ -597,6 +606,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   const openEditDialog = async (item: any) => {
     setLinkTargetItemId("");
+    setPanEditorOpen(false);
     setEditingItem({
       id: item.id,
       name: item.name,
@@ -635,11 +645,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   const saveItem = async () => {
     if (!editingItem) return;
-    const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
     const storage_location_id = storageLocationValue || null;
 
-    updateItemMutation.mutate({ itemId: editingItem.id, override, category, storage_location_id, pan_sizes: panSizesConfig, is_daily_tracked: isDailyTracked });
+    updateItemMutation.mutate({ itemId: editingItem.id, category, storage_location_id, pan_sizes: panSizesConfig, is_daily_tracked: isDailyTracked, categoryLocked: !canEditCategories || !!editingItem.brand_item_id });
   };
 
 
@@ -1680,253 +1689,192 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
            <DialogHeader>
              <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
-           {editingItem && (
+           {editingItem && (() => {
+              const rawItem = (items || []).find((i: any) => i.id === editingItem.id) || editingItem;
+              const categoryLocked = !canEditCategories || !!editingItem.brand_item_id;
+              const vendorDesc = (rawItem as any).vendor_description || (rawItem as any).pfg_description || null;
+              const panOn = !!panSizesConfig?.enabled;
+              return (
               <div className="space-y-4">
-                {!!editingItem.brand_item_id && (
-                  <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2.5 py-1.5">
-                    <Tag className="h-3 w-3" />
-                    Brand managed — category controlled by brand catalog
-                  </div>
-                )}
+                {/* 1. Header */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
-                    <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">
-                      {editingItem.name}
-                    </p>
-                   <Select
-                     value={categoryValue || "__none__"}
-                     onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
-                     disabled={!canEditCategories || !!editingItem.brand_item_id}
-                   >
-                     <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
-                       <SelectValue placeholder="No category" />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="__none__">No category</SelectItem>
-                       {INVENTORY_CATEGORIES.map(cat => (
-                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                       ))}
-                     </SelectContent>
-                   </Select>
-                 </div>
-                 <VendorInvoiceNameHint itemNumber={editingItem.item_number} vendorSource={editingItem.vendor_source} />
-              </div>
-
-
-              {/* Storage Location */}
-              <div className="space-y-2">
-                <Label>Storage Location</Label>
-                <Select
-                  value={storageLocationValue || "__unassigned__"}
-                  onValueChange={(val) => {
-                    const newVal = val === "__unassigned__" ? "" : val;
-                    setStorageLocationValue(newVal);
-                    // Keep storageLocationIds in sync — primary location is always included
-                    const next = new Set(storageLocationIds);
-                    // Remove old primary if it was only there as primary
-                    if (storageLocationValue) next.delete(storageLocationValue);
-                    if (newVal) next.add(newVal);
-                    setStorageLocationIds(next);
-                  }}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Unassigned" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                    {storageLocations?.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Shortcuts info */}
-              {(() => {
-                const shortcuts = (itemLocationShortcuts || [])
-                  .filter(s => s.item_id === editingItem.id && s.storage_location_id !== editingItem.storage_location_id);
-                if (shortcuts.length === 0) return null;
-                return (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs flex items-center gap-1.5">
-                      <Link2 className="h-3 w-3" />
-                      Shortcuts ({shortcuts.length})
-                    </Label>
-                    <div className="space-y-1">
-                      {shortcuts.map(s => {
-                        const locName = storageLocations?.find(l => l.id === s.storage_location_id)?.name || 'Unknown';
-                        return (
-                          <div key={s.storage_location_id} className="flex items-center justify-between px-2 py-1.5 bg-accent/20 border border-dashed border-accent/40 rounded text-sm">
-                            <div className="flex items-center gap-1.5">
-                              <Link2 className="h-3 w-3 text-muted-foreground" />
-                              <span>{locName}</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-destructive hover:text-destructive"
-                              onClick={async () => {
-                                await supabase
-                                  .from("inventory_item_locations")
-                                  .delete()
-                                  .eq("item_id", editingItem.id)
-                                  .eq("storage_location_id", s.storage_location_id);
-                                queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
-                                queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
-                                toast.success(`Shortcut to ${locName} removed`);
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Shortcuts let this item appear in multiple locations during counting. Use bulk select + "Shortcut" to add more.
-                    </p>
+                    <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">{editingItem.name}</p>
+                    {categoryLocked && !!editingItem.brand_item_id ? (
+                      <span
+                        className="inline-flex items-center gap-1 h-7 px-3 text-xs rounded-full font-medium bg-primary text-primary-foreground flex-shrink-0"
+                        title="Set by brand"
+                      >
+                        <Lock className="h-3 w-3" />
+                        {categoryValue || "No category"}
+                      </span>
+                    ) : (
+                      <Select
+                        value={categoryValue || "__none__"}
+                        onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
+                        disabled={categoryLocked}
+                      >
+                        <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
+                          <SelectValue placeholder="No category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No category</SelectItem>
+                          {INVENTORY_CATEGORIES.map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
-                );
-              })()}
-
-              {/* Category is now in the dialog header */}
-
-              {/* Common name is now edited inline at the top */}
-
-              {/* Pan Sizes */}
-              <PanSizesSection
-                value={panSizesConfig}
-                onChange={setPanSizesConfig}
-                costPerUnit={editingItem.cost_per_unit ? Number(editingItem.cost_per_unit) : null}
-                unitLabel={editingItem.unit || 'case'}
-                packSize={editingItem.pack_size || null}
-                packQuantity={editingItem.pack_quantity_override || editingItem.pack_quantity || null}
-              />
-
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
-                  PFG Pack Quantity: {editingItem.pack_quantity || "Not set"}
-                </Label>
-                
-                <div className="space-y-1">
-                  <Label htmlFor="override">Units per Case Override</Label>
-                  <Input
-                    id="override"
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="e.g., 64 for 64 brownies per case"
-                    value={overrideValue}
-                    onChange={(e) => setOverrideValue(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to use PFG value.
-                  </p>
+                  <VendorInvoiceNameHint itemNumber={editingItem.item_number} vendorSource={editingItem.vendor_source} />
+                  {vendorDesc && vendorDesc !== editingItem.name && (
+                    <p className="text-[11px] text-muted-foreground break-words">{vendorDesc}</p>
+                  )}
                 </div>
-              </div>
 
-              {/* Daily Tracking Toggle */}
-              <div className="flex items-center justify-between py-2 border-t border-border/50">
-                <div>
-                  <Label className="text-sm font-medium">Daily Spot Check</Label>
-                  <p className="text-[10px] text-muted-foreground">Track this item in daily spot counts</p>
-                </div>
-                <Switch
-                  checked={isDailyTracked}
-                  onCheckedChange={setIsDailyTracked}
-                />
-              </div>
+                {/* 2. Price line */}
+                <ItemPriceLine item={rawItem} timezone={timezone || "America/Los_Angeles"} />
 
-              {/* Flag for Remap */}
-              {pfgIntegration && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
-                  onClick={async () => {
-                    if (!editingItem) return;
-                    await supabase
-                      .from("inventory_items")
-                      .update({ remap_status: "needs_remap" } as any)
-                      .eq("id", editingItem.id);
-                    toast.success("Item flagged for remap");
-                    queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
-                    setEditingItem(null);
-                  }}
-                >
-                  <AlertTriangle className="h-4 w-4 mr-1" />
-                  Flag for Remap
-                </Button>
-              )}
-              
-              <Button
-                variant="destructive"
-                size="sm"
-                className="w-full"
-                onClick={() => editingItem && hideItemMutation.mutate({ itemId: editingItem.id })}
-                disabled={hideItemMutation.isPending}
-              >
-                <EyeOff className="h-4 w-4 mr-1" />
-                {hideItemMutation.isPending ? "Hiding..." : "Hide Item"}
-              </Button>
-              <p className="text-[10px] text-muted-foreground text-center -mt-1">
-                Hidden items won't reappear after syncing
-              </p>
-
-
-              {/* Link to primary item for price blending */}
-              {items && items.length > 1 && (
-                <div className="space-y-2 border-t pt-3">
-                  <Label className="text-xs font-medium">Link to another item (for price blending)</Label>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={linkTargetItemId}
-                    onChange={(e) => setLinkTargetItemId(e.target.value)}
+                {/* 3. Where it's stored */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Where it's stored</p>
+                  <Label className="sr-only">Storage location</Label>
+                  <Select
+                    value={storageLocationValue || "__unassigned__"}
+                    onValueChange={(val) => {
+                      const newVal = val === "__unassigned__" ? "" : val;
+                      setStorageLocationValue(newVal);
+                      const next = new Set(storageLocationIds);
+                      if (storageLocationValue) next.delete(storageLocationValue);
+                      if (newVal) next.add(newVal);
+                      setStorageLocationIds(next);
+                    }}
                   >
-                    <option value="">No link</option>
-                    {items.filter(i => i.id !== editingItem?.id).map(i => (
-                      <option key={i.id} value={i.id}>{i.name}</option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-muted-foreground">
-                    If this is a duplicate (e.g., case vs. single), link it to the primary item. Prices will be averaged during sync.
-                  </p>
-                  {linkTargetItemId && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => editingItem && hideItemMutation.mutate({ itemId: editingItem.id, linkedItemId: linkTargetItemId })}
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                      {storageLocations?.map(loc => (
+                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {(() => {
+                    const shortcuts = (itemLocationShortcuts || [])
+                      .filter(s => s.item_id === editingItem.id && s.storage_location_id !== editingItem.storage_location_id);
+                    if (shortcuts.length === 0) return null;
+                    return (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs flex items-center gap-1.5">
+                          <Link2 className="h-3 w-3" />
+                          Shortcuts ({shortcuts.length})
+                        </Label>
+                        <div className="space-y-1">
+                          {shortcuts.map(s => {
+                            const locName = storageLocations?.find(l => l.id === s.storage_location_id)?.name || 'Unknown';
+                            return (
+                              <div key={s.storage_location_id} className="flex items-center justify-between px-2 py-1.5 bg-accent/20 border border-dashed border-accent/40 rounded text-sm">
+                                <div className="flex items-center gap-1.5">
+                                  <Link2 className="h-3 w-3 text-muted-foreground" />
+                                  <span>{locName}</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 text-destructive hover:text-destructive"
+                                  onClick={async () => {
+                                    await supabase
+                                      .from("inventory_item_locations")
+                                      .delete()
+                                      .eq("item_id", editingItem.id)
+                                      .eq("storage_location_id", s.storage_location_id);
+                                    queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
+                                    queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                                    toast.success(`Shortcut to ${locName} removed`);
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Shortcuts let this item appear in multiple locations during counting. Use bulk select + "Shortcut" to add more.
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 4. How it's counted */}
+                <div className="space-y-2 border-t border-border/50 pt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How it's counted</p>
+                  <ItemPackLine item={rawItem} lensEnabled={countLens.lensEnabled} lensMap={countLens.lensMap} loading={countLens.loading} />
+                  {panOn && !panEditorOpen ? (
+                    <div className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ChefHat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        <p className="text-xs text-foreground truncate">
+                          Count in pans: {PAN_CONTAINER_LABELS[panSizesConfig!.baseline_key] ?? panSizesConfig!.baseline_key} = {panSizesConfig!.baseline_units} {rawItem && (rawItem as any).is_recipe ? ((rawItem as any).recipe_yield_unit || "units") : "units"}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setPanEditorOpen(true)}>
+                        Edit
+                      </Button>
+                    </div>
+                  ) : (
+                    <PanSizesSection
+                      value={panSizesConfig}
+                      onChange={setPanSizesConfig}
+                      costPerUnit={editingItem.cost_per_unit ? Number(editingItem.cost_per_unit) : null}
+                      unitLabel={editingItem.unit || 'case'}
+                      packSize={editingItem.pack_size || null}
+                      packQuantity={editingItem.pack_quantity_override || editingItem.pack_quantity || null}
+                    />
+                  )}
+                </div>
+
+                {/* 5. Tracking */}
+                <div className="space-y-2 border-t border-border/50 pt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tracking</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium">Daily Spot Check</Label>
+                      <p className="text-[10px] text-muted-foreground">Track this item in daily spot counts</p>
+                    </div>
+                    <Switch checked={isDailyTracked} onCheckedChange={setIsDailyTracked} />
+                  </div>
+                </div>
+
+                {/* 6. Footer */}
+                <div className="space-y-3 border-t border-border/50 pt-3">
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setEditingItem(null)}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1" onClick={saveItem} disabled={updateItemMutation.isPending}>
+                      {updateItemMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                    </Button>
+                  </div>
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs text-destructive hover:underline disabled:opacity-50"
+                      onClick={() => editingItem && hideItemMutation.mutate({ itemId: editingItem.id })}
                       disabled={hideItemMutation.isPending}
                     >
-                      <EyeOff className="h-4 w-4 mr-1" />
-                      {hideItemMutation.isPending ? "Hiding..." : "Hide & Link"}
-                    </Button>
-                  )}
+                      <EyeOff className="h-3 w-3" />
+                      {hideItemMutation.isPending ? "Hiding..." : "Hide from this store"}
+                    </button>
+                    <p className="text-[10px] text-muted-foreground">Hidden items won't reappear after syncing</p>
+                  </div>
                 </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setEditingItem(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={saveItem}
-                  disabled={updateItemMutation.isPending}
-                >
-                  {updateItemMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Save"
-                  )}
-                </Button>
               </div>
-            </div>
-          )}
+              );
+            })()}
         </DialogContent>
       </Dialog>
 
