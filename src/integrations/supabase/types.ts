@@ -14485,6 +14485,23 @@ export type Database = {
         Args: { _rules: Json; _shifts: Json; _wage: number }
         Returns: Json
       }
+      _rc_batch: {
+        Args: { _bp_id: string; _location_id: string; _visited?: string[] }
+        Returns: Json
+      }
+      _rc_brand_bp: { Args: { _bp_id: string }; Returns: string }
+      _rc_caller_can_read_brand: {
+        Args: { _brand_id: string }
+        Returns: boolean
+      }
+      _rc_expand: {
+        Args: { _qty: number; _unit: string }
+        Returns: Record<string, unknown>
+      }
+      _rc_hash_can_oz: { Args: { _n: string }; Returns: number }
+      _rc_oz: { Args: { _key: string }; Returns: number }
+      _rc_pack_oz: { Args: { _pack: string }; Returns: number }
+      _rc_unit_key: { Args: { _u: string }; Returns: string }
       _resolve_goal: {
         Args: { _date: string; _location_id: string }
         Returns: number
@@ -14542,6 +14559,7 @@ export type Database = {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
       }
+      brand_conversion_count: { Args: { _brand_id: string }; Returns: number }
       build_pan_sizes_from_template: {
         Args: {
           _baseline_key: string
@@ -14598,6 +14616,27 @@ export type Database = {
       clone_count_to_sandbox: {
         Args: { _source_count_id: string; _source_location_id: string }
         Returns: string
+      }
+      compute_recipe_costs: {
+        Args: { _brand_id: string; _location_id?: string }
+        Returns: {
+          blueprint_id: string
+          brand_yield_qty: number
+          brand_yield_unit: string
+          computed_batch_cost: number
+          cost_per_yield_unit: number
+          item_id: string
+          item_name: string
+          location_id: string
+          location_name: string
+          missing_ingredients: string[]
+          old_cost: number
+          old_yield_qty: number
+          old_yield_unit: string
+          proposed_cost: number
+          status: string
+          unpriced_ingredients: string[]
+        }[]
       }
       convert_recipe_unit_to_count: {
         Args: { p_count_unit: string; p_recipe_unit: string }
