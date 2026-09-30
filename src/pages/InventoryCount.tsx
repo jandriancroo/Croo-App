@@ -149,7 +149,13 @@ const BrandInventoryCountPage = () => {
       
       navigate(`/inventory/${locationId}`);
     },
-    onError: () => {
+    onError: (err) => {
+      if (err instanceof RecipePricesUnavailableError) {
+        toast.error("Recipe prices unavailable — count not submitted", {
+          description: "Your counts are saved. Try again in a minute, or message support.",
+        });
+        return;
+      }
       toast.error("Failed to submit count");
     }
   });
