@@ -1689,43 +1689,108 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
            <DialogHeader>
              <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
-           {editingItem && (() => {
+            {editingItem && (() => {
               const rawItem = (items || []).find((i: any) => i.id === editingItem.id) || editingItem;
               const categoryLocked = !canEditCategories || !!editingItem.brand_item_id;
               const vendorDesc = (rawItem as any).vendor_description || (rawItem as any).pfg_description || null;
               const panOn = !!panSizesConfig?.enabled;
+              const headerShortcuts = (itemLocationShortcuts || [])
+                .filter(s => s.item_id === editingItem.id && s.storage_location_id !== editingItem.storage_location_id);
               return (
               <div className="space-y-4">
-                {/* 1. Header */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
-                    <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">{editingItem.name}</p>
-                    {categoryLocked && !!editingItem.brand_item_id ? (
-                      <span
-                        className="inline-flex items-center gap-1 h-7 px-3 text-xs rounded-full font-medium bg-primary text-primary-foreground flex-shrink-0"
-                        title="Set by brand"
-                      >
-                        <Lock className="h-3 w-3" />
-                        {categoryValue || "No category"}
-                      </span>
-                    ) : (
+                {/* 1. Header: name + category / storage pills */}
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pr-6">
+                    <p className="text-sm font-medium min-w-0 max-w-full break-all line-clamp-2">{editingItem.name}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0 max-w-full">
+                      {categoryLocked && !!editingItem.brand_item_id ? (
+                        <span
+                          className="inline-flex items-center gap-1 h-7 px-3 text-xs rounded-full font-medium bg-primary text-primary-foreground flex-shrink-0"
+                          title="Set by brand"
+                        >
+                          <Lock className="h-3 w-3" />
+                          {categoryValue || "No category"}
+                        </span>
+                      ) : (
+                        <Select
+                          value={categoryValue || "__none__"}
+                          onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
+                          disabled={categoryLocked}
+                        >
+                          <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
+                            <SelectValue placeholder="No category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">No category</SelectItem>
+                            {INVENTORY_CATEGORIES.map(cat => (
+                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Select
-                        value={categoryValue || "__none__"}
-                        onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
-                        disabled={categoryLocked}
+                        value={storageLocationValue || "__unassigned__"}
+                        onValueChange={(val) => {
+                          const newVal = val === "__unassigned__" ? "" : val;
+                          setStorageLocationValue(newVal);
+                          const next = new Set(storageLocationIds);
+                          if (storageLocationValue) next.delete(storageLocationValue);
+                          if (newVal) next.add(newVal);
+                          setStorageLocationIds(next);
+                        }}
                       >
-                        <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
-                          <SelectValue placeholder="No category" />
+                        <SelectTrigger
+                          className="h-7 w-auto max-w-[10rem] gap-1 px-3 py-0 text-xs rounded-full font-medium bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/80 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-secondary-foreground"
+                          title="Storage location"
+                        >
+                          <span className="inline-flex items-center gap-1 min-w-0">
+                            <MapPin className="h-3 w-3 flex-shrink-0" />
+                            <SelectValue placeholder="Unassigned" className="truncate" />
+                          </span>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">No category</SelectItem>
-                          {INVENTORY_CATEGORIES.map(cat => (
-                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                          {storageLocations?.map(loc => (
+                            <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    )}
+                    </div>
                   </div>
+                  {headerShortcuts.length > 0 && (
+                    <div
+                      className="flex items-center flex-wrap gap-1.5 text-[11px] text-muted-foreground"
+                      title="Shortcuts let this item appear in multiple locations during counting. Use bulk select + Shortcut to add more."
+                    >
+                      <Link2 className="h-3 w-3 flex-shrink-0" />
+                      <span>Also counted in:</span>
+                      {headerShortcuts.map(s => {
+                        const locName = storageLocations?.find(l => l.id === s.storage_location_id)?.name || 'Unknown';
+                        return (
+                          <span key={s.storage_location_id} className="inline-flex items-center gap-1 rounded-full bg-accent/30 border border-dashed border-accent/40 px-2 py-0.5">
+                            {locName}
+                            <button
+                              type="button"
+                              aria-label={`Remove shortcut to ${locName}`}
+                              className="text-destructive hover:text-destructive"
+                              onClick={async () => {
+                                await supabase
+                                  .from("inventory_item_locations")
+                                  .delete()
+                                  .eq("item_id", editingItem.id)
+                                  .eq("storage_location_id", s.storage_location_id);
+                                queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
+                                queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                                toast.success(`Shortcut to ${locName} removed`);
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   <VendorInvoiceNameHint itemNumber={editingItem.item_number} vendorSource={editingItem.vendor_source} />
                   {vendorDesc && vendorDesc !== editingItem.name && (
                     <p className="text-[11px] text-muted-foreground break-words">{vendorDesc}</p>
@@ -1735,81 +1800,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 {/* 2. Price line */}
                 <ItemPriceLine item={rawItem} timezone={timezone || "America/Los_Angeles"} />
 
-                {/* 3. Where it's stored */}
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Where it's stored</p>
-                  <Label className="sr-only">Storage location</Label>
-                  <Select
-                    value={storageLocationValue || "__unassigned__"}
-                    onValueChange={(val) => {
-                      const newVal = val === "__unassigned__" ? "" : val;
-                      setStorageLocationValue(newVal);
-                      const next = new Set(storageLocationIds);
-                      if (storageLocationValue) next.delete(storageLocationValue);
-                      if (newVal) next.add(newVal);
-                      setStorageLocationIds(next);
-                    }}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Unassigned" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                      {storageLocations?.map(loc => (
-                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {(() => {
-                    const shortcuts = (itemLocationShortcuts || [])
-                      .filter(s => s.item_id === editingItem.id && s.storage_location_id !== editingItem.storage_location_id);
-                    if (shortcuts.length === 0) return null;
-                    return (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs flex items-center gap-1.5">
-                          <Link2 className="h-3 w-3" />
-                          Shortcuts ({shortcuts.length})
-                        </Label>
-                        <div className="space-y-1">
-                          {shortcuts.map(s => {
-                            const locName = storageLocations?.find(l => l.id === s.storage_location_id)?.name || 'Unknown';
-                            return (
-                              <div key={s.storage_location_id} className="flex items-center justify-between px-2 py-1.5 bg-accent/20 border border-dashed border-accent/40 rounded text-sm">
-                                <div className="flex items-center gap-1.5">
-                                  <Link2 className="h-3 w-3 text-muted-foreground" />
-                                  <span>{locName}</span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5 text-destructive hover:text-destructive"
-                                  onClick={async () => {
-                                    await supabase
-                                      .from("inventory_item_locations")
-                                      .delete()
-                                      .eq("item_id", editingItem.id)
-                                      .eq("storage_location_id", s.storage_location_id);
-                                    queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
-                                    queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
-                                    toast.success(`Shortcut to ${locName} removed`);
-                                  }}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          Shortcuts let this item appear in multiple locations during counting. Use bulk select + "Shortcut" to add more.
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* 4. How it's counted */}
+                {/* 3. How it's counted */}
                 <div className="space-y-2 border-t border-border/50 pt-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How it's counted</p>
                   <ItemPackLine item={rawItem} lensEnabled={countLens.lensEnabled} lensMap={countLens.lensMap} loading={countLens.loading} />
