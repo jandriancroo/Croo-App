@@ -2814,6 +2814,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         </div>
       )}
 
+      {recipeCostsError && (
+        <div role="alert" className="mx-4 mt-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive flex items-center justify-between gap-3">
+          <span>
+            <strong>Recipe prices unavailable.</strong> Keep counting — your numbers are saved — but don't submit this count until prices load.
+          </span>
+          <Button size="sm" variant="outline" onClick={() => refetchRecipeCosts()}>Retry</Button>
+        </div>
+      )}
+
       {/* Edit mode notice — shown once on entry as a dialog */}
       <Dialog open={showEditNotice} onOpenChange={setShowEditNotice}>
         <DialogContent className="sm:max-w-md">
