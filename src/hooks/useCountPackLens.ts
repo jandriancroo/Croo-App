@@ -61,5 +61,5 @@ export function useCountPackLens(locationId: string | null | undefined) {
     },
   });
 
-  return { lensEnabled: lensEnabled === true, lensMap, loading: lensEnabled === true && (lensMap === undefined || isFetching && !lensMap) };
+  return { lensEnabled: lensEnabled === true, lensMap, loading: lensEnabled === true && isFetching && !lensMap };
 }
