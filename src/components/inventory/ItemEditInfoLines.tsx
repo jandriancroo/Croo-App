@@ -28,7 +28,9 @@ const SOURCE_LABEL: Record<string, string> = {
 
 export function ItemPriceLine({ item, timezone }: { item: any; timezone: string }) {
   const cost = item?.cost_per_unit != null ? Number(item.cost_per_unit) : null;
-  const unit = item?.is_recipe ? (item.recipe_yield_unit ? `batch` : "batch") : (item?.unit || "case");
+  const unit = item?.is_recipe
+    ? (item.recipe_yield_qty ? `${Number(item.recipe_yield_qty)} ${item.recipe_yield_unit ?? ""}`.trim() : "batch")
+    : (item?.unit || "case");
   let source: string;
   if (item?.is_recipe) {
     const when = relDate(item.cost_computed_at, timezone);
