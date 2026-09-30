@@ -2181,6 +2181,44 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_photo_fingerprints: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string | null
+          location_id: string
+          photo_hash: string
+          submission_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          location_id: string
+          photo_hash: string
+          submission_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          location_id?: string
+          photo_hash?: string
+          submission_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_photo_fingerprints_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_prep_completions: {
         Row: {
           business_date: string | null
@@ -14536,6 +14574,15 @@ export type Database = {
       can_see_admin_locations: { Args: { _user_id: string }; Returns: boolean }
       check_alerts_sql: { Args: never; Returns: undefined }
       check_weekly_checklist_alerts_sql: { Args: never; Returns: undefined }
+      claim_checklist_photo: {
+        Args: {
+          _item_id: string
+          _location_id: string
+          _photo_hash: string
+          _submission_id: string
+        }
+        Returns: boolean
+      }
       cleanup_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
       clear_all_pending_pin_plaintext: { Args: never; Returns: Json }
