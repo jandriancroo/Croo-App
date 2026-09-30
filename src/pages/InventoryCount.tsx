@@ -9,6 +9,7 @@ import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, 
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
 import { toast } from "sonner";
 import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
+import { fetchRecipeCosts, RecipePricesUnavailableError } from "@/utils/recipeCostCalculation";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryCountView from "@/components/inventory/InventoryCountView";
 import CountEditHistory from "@/components/inventory/CountEditHistory";
@@ -112,6 +113,11 @@ const BrandInventoryCountPage = () => {
   // Submit/complete count mutation
   const submitCountMutation = useMutation({
     mutationFn: async () => {
+      // Block submit (which locks the count) if recipe prices can't load —
+      // otherwise wrong recipe values would be frozen forever.
+      if (locationId) {
+        await fetchRecipeCosts(locationId);
+      }
       const { error } = await supabase
         .from("inventory_counts")
         .update({ 
@@ -143,7 +149,13 @@ const BrandInventoryCountPage = () => {
       
       navigate(`/inventory/${locationId}`);
     },
-    onError: () => {
+    onError: (err) => {
+      if (err instanceof RecipePricesUnavailableError) {
+        toast.error("Recipe prices unavailable — count not submitted", {
+          description: "Your counts are saved. Try again in a minute, or message support.",
+        });
+        return;
+      }
       toast.error("Failed to submit count");
     }
   });

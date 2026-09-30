@@ -432,10 +432,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
 
   // Fetch recipe costs for on-the-fly calculation
-  const { data: recipeCosts } = useQuery({
+  const { data: recipeCosts, error: recipeCostsError, refetch: refetchRecipeCosts } = useQuery({
     queryKey: ["recipe-costs", locationId],
     queryFn: () => fetchRecipeCosts(locationId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1,
   });
 
   // Resolve brand for Pipeline 1 conversion fallback (standard SOT contract)
@@ -2810,6 +2811,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             </div>
           </div>
 
+        </div>
+      )}
+
+      {recipeCostsError && (
+        <div role="alert" className="mx-4 mt-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive flex items-center justify-between gap-3">
+          <span>
+            <strong>Recipe prices unavailable.</strong> Keep counting — your numbers are saved — but don't submit this count until prices load.
+          </span>
+          <Button size="sm" variant="outline" onClick={() => refetchRecipeCosts()}>Retry</Button>
         </div>
       )}
 
