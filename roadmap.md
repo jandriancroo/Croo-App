@@ -4,6 +4,11 @@
 - [ ] Per-till expected cash fix: fetch individual QU till rows (AM/PM), match to the count instead of summing the day; keep live fallbacks; never $0.
 - [x] Hiring inbox parity: DM-style preview/date/unread rows and delete inside the open conversation.
 
+## Recipe costing fix (unlocked Sep 30)
+- [ ] Step 1: store counters read pack data, loud failure, server dry-run calculator — awaiting Jordan's table approval
+- [ ] Step 2: write costs + reset store yields to brand yield (together), clear orphaned blended prices, nightly schedule
+- [ ] Later phases: editor stops writing cost/pack, recipe case-multiplier reset, raw items use store pack
+
 ## Open
 - [ ] Overnight fill-in: after QU reconciles the closing till, fill expected cash for counts saved with no/blank expected.
 - [ ] Backfill the 54 Tuscaloosa nights (and any SM gaps) with QU per-till expected figures — needs approval before writing history.
