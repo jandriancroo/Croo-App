@@ -814,6 +814,30 @@ export default function CompleteChecklist() {
       toast.info('Upload in progress — please wait');
       return;
     }
+    // Block exact repeat photos: same file used at this store in the last
+    // 7 days on a different checklist submission. Fingerprint the ORIGINAL
+    // file (before compression). If hashing or the check fails, allow it.
+    const repeatLocationId = currentLocation?.id || checklist?.location_id;
+    if (repeatLocationId && typeof crypto !== 'undefined' && crypto.subtle) {
+      try {
+        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+        const photoHash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const { data: isNew, error: claimErr } = await supabase.rpc('claim_checklist_photo' as any, {
+          _location_id: repeatLocationId,
+          _photo_hash: photoHash,
+          _submission_id: submissionId || null,
+          _item_id: itemId,
+        } as any);
+        if (!claimErr && isNew === false) {
+          toast.error('This photo was already used', {
+            description: 'Please take a new photo for today.',
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn('[photo-repeat-check] skipped', e);
+      }
+    }
     const item = items.find(i => i.id === itemId);
     const minPhotos = item ? getMinPhotos(item) : 1;
     const isMultiPhoto = minPhotos > 1;
