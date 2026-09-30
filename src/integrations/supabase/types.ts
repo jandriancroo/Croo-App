@@ -4662,7 +4662,9 @@ export type Database = {
           brand_archived_at: string | null
           brand_item_id: string | null
           category: string | null
+          cost_computed_at: string | null
           cost_per_unit: number | null
+          cost_status: string | null
           cost_zeroed_at: string | null
           cost_zeroed_by: string | null
           count_unit: string | null
@@ -4720,7 +4722,9 @@ export type Database = {
           brand_archived_at?: string | null
           brand_item_id?: string | null
           category?: string | null
+          cost_computed_at?: string | null
           cost_per_unit?: number | null
+          cost_status?: string | null
           cost_zeroed_at?: string | null
           cost_zeroed_by?: string | null
           count_unit?: string | null
@@ -4778,7 +4782,9 @@ export type Database = {
           brand_archived_at?: string | null
           brand_item_id?: string | null
           category?: string | null
+          cost_computed_at?: string | null
           cost_per_unit?: number | null
+          cost_status?: string | null
           cost_zeroed_at?: string | null
           cost_zeroed_by?: string | null
           count_unit?: string | null
@@ -14555,6 +14561,14 @@ export type Database = {
         Args: { _content: string; _token: string }
         Returns: string
       }
+      apply_recipe_costs: {
+        Args: { _brand_id: string }
+        Returns: {
+          items: number
+          status: string
+        }[]
+      }
+      apply_recipe_costs_all_brands: { Args: never; Returns: undefined }
       assign_user_to_location: {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
