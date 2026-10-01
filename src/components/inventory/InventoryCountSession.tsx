@@ -388,6 +388,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             // Pan config: apply per-shortcut enabled_keys override if junction has one
             pan_sizes: (() => {
               const basePan = (item as any).pan_sizes ?? null;
+              // Oct 2026: pans only show for recipes. Vendor items hide pans
+              // (config kept in DB) unless this line already has pan counts
+              // entered, so no existing value is lost.
+              if (!isRecipe) {
+                const existing = (countData as any)?.pan_inputs as Record<string, number> | null | undefined;
+                const hasPanEntries = !!existing && Object.values(existing).some((v) => Number(v) > 0);
+                if (!hasPanEntries) return null;
+              }
               const shortcutKeys = locId ? junctionPanKeysMap.get(`${item.id}|${locId}`) : null;
               if (basePan && shortcutKeys && shortcutKeys.length > 0) {
                 return { ...basePan, enabled_keys: shortcutKeys };

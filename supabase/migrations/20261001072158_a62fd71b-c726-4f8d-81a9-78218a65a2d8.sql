@@ -1,0 +1,1 @@
+ALTER TABLE public.brand_pack_configs ALTER COLUMN show_common_unit SET DEFAULT true;
