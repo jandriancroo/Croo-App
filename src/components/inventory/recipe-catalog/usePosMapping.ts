@@ -198,7 +198,7 @@ export function usePosMapping(locationId: string, brandId?: string): PosMappingS
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", locationId] });
+      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", scopeKey] });
       qc.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
       toast.success("POS mapping saved");
     },
@@ -216,7 +216,7 @@ export function usePosMapping(locationId: string, brandId?: string): PosMappingS
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", locationId] });
+      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", scopeKey] });
       qc.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
       toast.success("POS mapping removed");
     },
@@ -236,7 +236,7 @@ export function usePosMapping(locationId: string, brandId?: string): PosMappingS
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", locationId] });
+      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", scopeKey] });
       qc.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
       toast.success("Mapping updated");
     },
