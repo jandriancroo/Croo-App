@@ -1469,10 +1469,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const percent = (difference / lastYear) * 100;
     const isPositive = difference >= 0;
     return (
-      <span className="inline-flex items-center justify-end gap-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
+      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
         {isPositive ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
         <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-        <span className="text-accent-foreground/70">({isPositive ? '+' : ''}{percent.toFixed(1)}%)</span>
+        <span className="text-accent-foreground/80">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
       </span>
     );
   };
@@ -1495,58 +1495,61 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     pace: number;
     lastYear?: number;
     status: PaceStatus | null;
-  }) => (
-    <div className="grid grid-cols-[minmax(64px,0.8fr)_minmax(0,1.15fr)_minmax(0,1.25fr)] items-center gap-2 sm:gap-4">
-      <div className="min-w-0">
-        <p className="mb-0.5 text-[9px] font-bold text-accent-foreground/70 sm:text-[10px]">Goal</p>
-        <p className="text-base font-bold text-accent-foreground sm:text-lg">
-          {goal > 0 ? formatCurrency(goal) : '--'}
-        </p>
-      </div>
-
-      <div className="min-w-0 text-center">
-        <p className="mb-0.5 text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
-        <div className="flex min-w-0 flex-wrap items-center justify-center gap-1.5">
-          <p className="text-2xl font-extrabold text-accent-foreground sm:text-3xl">
-            {sales !== undefined ? formatCurrency(sales) : '--'}
-          </p>
-          {renderStatusBadge(status)}
-        </div>
-        <div className="mt-0.5 flex items-center justify-center gap-1">
-          {priorComparison !== undefined && sales !== undefined && (() => {
-            const change = getChangePercent(sales, priorComparison);
-            if (change === null) return null;
-            return (
-              <>
+  }) => {
+    const progress = goal > 0 && sales !== undefined ? Math.min(100, Math.max(0, (sales / goal) * 100)) : 0;
+    const pacePct = goal > 0 && pace > 0 ? Math.min(100, (pace / goal) * 100) : 0;
+    const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
+    return (
+      <div className="space-y-2">
+        <div className="flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="text-3xl font-extrabold leading-tight text-accent-foreground">
+                {sales !== undefined ? formatCurrency(sales) : '--'}
+              </p>
+              {renderStatusBadge(status)}
+            </div>
+            {change !== null && (
+              <div className="flex items-center gap-1">
                 {change >= 0 ? <TrendingUp className="h-3 w-3 text-accent-foreground" /> : <TrendingDown className="h-3 w-3 text-accent-foreground" />}
                 <span className="text-[9px] font-medium text-accent-foreground">
                   {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}
                 </span>
-              </>
-            );
-          })()}
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[9px] font-bold text-accent-foreground/70">Goal</p>
+            <p className="text-base font-bold text-accent-foreground sm:text-lg">{goal > 0 ? formatCurrency(goal) : '--'}</p>
+          </div>
         </div>
-      </div>
 
-      <div className="min-w-0 text-right">
-        <div>
-          <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
-          <p className="text-base font-bold text-accent-foreground sm:text-lg">
-            {lastYear !== undefined && lastYear > 0 ? formatCurrency(lastYear) : '--'}
-          </p>
+        <div className="relative h-2 w-full overflow-hidden rounded-full bg-accent-foreground/20">
+          {pacePct > 0 && (
+            <div className="absolute inset-y-0 left-0 rounded-full bg-accent-foreground/30" style={{ width: `${pacePct}%` }} />
+          )}
+          <div className="absolute inset-y-0 left-0 rounded-full bg-accent-foreground" style={{ width: `${progress}%` }} />
         </div>
-        <div className="mt-1">
-          <p className="text-[9px] font-bold text-accent-foreground/70">Pace</p>
-          <div className="flex flex-wrap items-baseline justify-end gap-x-1.5 gap-y-0">
-            <p className="text-base font-bold text-accent-foreground sm:text-lg">
-              {pace > 0 ? formatCurrency(pace) : '--'}
+
+        <div className="grid grid-cols-2 gap-2 border-t border-accent-foreground/15 pt-2">
+          <div className="min-w-0">
+            <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
+            <p className="text-sm font-bold text-accent-foreground sm:text-base">
+              {lastYear !== undefined && lastYear > 0 ? formatCurrency(lastYear) : '--'}
             </p>
-            {renderPaceVsLastYear(pace, lastYear)}
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[9px] font-bold text-accent-foreground/70">Pace</p>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {renderPaceVsLastYear(pace, lastYear)}
+              <p className="text-sm font-bold text-accent-foreground sm:text-base">{pace > 0 ? formatCurrency(pace) : '--'}</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Show skeleton shimmer only on first load with no cached data
   // If we have cached data, show it immediately (stale-while-revalidate)
