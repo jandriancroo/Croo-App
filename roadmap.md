@@ -105,3 +105,6 @@
 - [ ] Post-inventory: credit-waste review (which background jobs/queries burn the most) — Jordan wants to trim before spending on bigger compute.
 
 - [ ] Bottled beer at Palm Springs: cost/packs wrong. Revisit in next few days — Jordan may build a beer product/order sync (most stores order monthly).
+
+## Oct 1, 2026
+- [in-progress] Redesign sales summary scoreboard layout (sales/Goal swap looked messy) — preview layout options, then implement Jordan's pick.
