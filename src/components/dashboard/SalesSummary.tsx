@@ -1457,28 +1457,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const weekStatus = getPaceStatus(salesData?.weekly || 0, calculatedWeekPace, calculatedWeekProjected, isCurrentWeek);
   const monthStatus = getPaceStatus(salesData?.monthly || 0, calculatedMonthPace, calculatedMonthProjected, isCurrentMonth);
 
-  const renderStatusBadge = (status: PaceStatus | null) => {
-    if (!status) return null;
-    return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-1 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
-        {status === 'ahead' && <Flame className="h-3 w-3" />}
-        {status === 'onTrack' && <Activity className="h-3 w-3" />}
-        {status === 'behind' && <AlertCircle className="h-3 w-3" />}
-        {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
-      </span>
-    );
-  };
-
   const renderPaceVsLastYear = (pace: number, lastYear?: number) => {
     if (!lastYear || lastYear <= 0 || pace <= 0) return null;
     const difference = pace - lastYear;
     const percent = (difference / lastYear) * 100;
     const isPositive = difference >= 0;
     return (
-      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-[10px]">
-        {isPositive ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
+      <span className="mt-px flex items-center justify-center gap-[3px] whitespace-nowrap text-[10px] font-bold text-accent-foreground">
+        {isPositive ? <TrendingUp className="h-[11px] w-[11px] shrink-0 text-success" /> : <TrendingDown className="h-[11px] w-[11px] shrink-0 text-destructive" />}
         <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-        <span className="text-accent-foreground/80">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
+        <span className="text-accent-foreground/85">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
       </span>
     );
   };
@@ -1504,52 +1492,50 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }) => {
     const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
     return (
-      <div className="space-y-1">
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
-            <p className="text-2xl font-extrabold leading-none text-accent-foreground">
-              {sales !== undefined ? formatCurrency(sales) : '--'}
-            </p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[9px] font-bold text-accent-foreground/70">Goal</p>
-            <p className="text-base font-bold text-accent-foreground sm:text-lg">{goal > 0 ? formatCurrency(goal) : '--'}</p>
-          </div>
-        </div>
-        {change !== null && (
-          <div className="-mt-1">
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-[10px]">
-              {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
-              <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
-            </span>
+      <div className="flex flex-col items-center text-center">
+        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent-foreground/85">{salesLabel}</p>
+        <p className="mt-1 whitespace-nowrap text-[44px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-accent-foreground">
+          {sales !== undefined ? formatCurrency(sales) : '--'}
+        </p>
+
+        {(status || change !== null) && (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+            {status && (
+              <span className="inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full bg-accent-foreground/20 px-2 text-[11px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30">
+                {status === 'ahead' && <Flame className="h-[13px] w-[13px]" />}
+                {status === 'onTrack' && <Activity className="h-[13px] w-[13px]" />}
+                {status === 'behind' && <AlertCircle className="h-[13px] w-[13px]" />}
+                {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
+              </span>
+            )}
+            {change !== null && (
+              <span className="inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full bg-accent-foreground/20 px-2 text-[11px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30">
+                {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
+                <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
+              </span>
+            )}
           </div>
         )}
 
-        {status && (
-          <div className="flex justify-center">
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent-foreground/20 px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-xs">
-              {status === 'ahead' && <Flame className="h-3.5 w-3.5 shrink-0" />}
-              {status === 'onTrack' && <Activity className="h-3.5 w-3.5 shrink-0" />}
-              {status === 'behind' && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
-              {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
-            </span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-2 pt-0.5">
-          <div className="min-w-0">
-            <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
-            <p className="text-base font-bold text-accent-foreground sm:text-lg">
+        <div className="mt-3.5 grid w-full grid-cols-3 rounded-xl bg-black/[0.12] px-0.5 py-2.5">
+          <div className="min-w-0 px-1 text-center">
+            <p className="text-[11px] font-semibold text-accent-foreground/85">Last Year</p>
+            <p className="whitespace-nowrap text-[17px] font-bold leading-[1.3] tabular-nums text-accent-foreground">
               {lastYear !== undefined && lastYear > 0 ? formatCurrency(lastYear) : '--'}
             </p>
           </div>
-          <div className="min-w-0 text-right">
-            <p className="text-[9px] font-bold text-accent-foreground/70">Pace</p>
-            <p className="text-base font-bold text-accent-foreground sm:text-lg">{pace > 0 ? formatCurrency(pace) : '--'}</p>
-            <div className="mt-0.5 flex justify-end">
-              {renderPaceVsLastYear(pace, lastYear)}
-            </div>
+          <div className="min-w-0 border-x border-accent-foreground/[0.22] px-1 text-center">
+            <p className="text-[11px] font-semibold text-accent-foreground/85">Goal</p>
+            <p className="whitespace-nowrap text-[17px] font-bold leading-[1.3] tabular-nums text-accent-foreground">
+              {goal > 0 ? formatCurrency(goal) : '--'}
+            </p>
+          </div>
+          <div className="min-w-0 px-1 text-center">
+            <p className="text-[11px] font-semibold text-accent-foreground/85">Pace</p>
+            <p className="whitespace-nowrap text-[17px] font-bold leading-[1.3] tabular-nums text-accent-foreground">
+              {pace > 0 ? formatCurrency(pace) : '--'}
+            </p>
+            {renderPaceVsLastYear(pace, lastYear)}
           </div>
         </div>
       </div>
@@ -1737,7 +1723,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-1.5 cursor-pointer select-none"
+                className="relative rounded-2xl bg-accent border border-accent/80 p-4 cursor-pointer select-none"
                 style={{ borderBottomLeftRadius: expandedToday ? '0' : undefined, borderBottomRightRadius: expandedToday ? '0' : undefined }}
                 onClick={() => setExpandedToday((v) => !v)}
               >
@@ -1745,21 +1731,21 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   salesLabel: "TODAY'S SALES",
                   sales: salesData?.daily,
                   priorComparison: salesData?.comparison?.prevDay,
-                  priorComparisonLabel: targetDateTime.toFormat('ccc'),
+                  priorComparisonLabel: `Last ${targetDateTime.toFormat('ccc')}`,
                   goal: todayGoal,
                   pace: todayPace,
                   lastYear: salesData?.lastYear?.sameDay,
                   status: todayStatus,
                 })}
                 {isToday && toastFresh.isDelayed ? (
-                  <p className="text-[9px] text-amber-300 mt-1 font-semibold">
+                  <p className="mt-2.5 text-center text-[10px] font-semibold text-amber-300">
                     Toast data delayed{toastFresh.lastLabel ? `, last update ${toastFresh.lastLabel}` : ''}
                   </p>
                 ) : lastFetchTimestamp && isToday && (() => {
                   const pos = (currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined) as string | undefined;
                   const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : pos === 'toast' ? 'Toast' : pos === 'aloha' ? 'Aloha' : 'POS';
                   return (
-                    <p className="text-[8px] text-white/50 mt-1 font-medium">
+                    <p className="mt-2.5 text-center text-[10px] font-medium text-white/75">
                       Updated from {label} at {format(lastFetchTimestamp, 'h:mm a')}
                     </p>
                   );
@@ -1959,7 +1945,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Week */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-1.5 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-accent border border-accent/80 p-4 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedWeek ? '0' : undefined, borderBottomRightRadius: expandedWeek ? '0' : undefined }}
                 onClick={() => setExpandedWeek((v) => !v)}
               >
@@ -1967,7 +1953,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   salesLabel: 'WEEK-TO-DATE',
                   sales: salesData?.weekly,
                   priorComparison: salesData?.comparison?.prevWeek,
-                  priorComparisonLabel: 'LW',
+                  priorComparisonLabel: 'Last Week',
                   goal: calculatedWeekProjected,
                   pace: isCurrentWeek ? calculatedWeekPace : 0,
                   lastYear: salesData?.lastYear?.sameWeek,
@@ -2099,7 +2085,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Month */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-1.5 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-accent border border-accent/80 p-4 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedMonth ? '0' : undefined, borderBottomRightRadius: expandedMonth ? '0' : undefined }}
                 onClick={() => setExpandedMonth((v) => !v)}
               >
@@ -2107,7 +2093,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   salesLabel: 'MONTH-TO-DATE',
                   sales: salesData?.monthly,
                   priorComparison: salesData?.comparison?.prevMonth,
-                  priorComparisonLabel: 'LM',
+                  priorComparisonLabel: 'Last Month',
                   goal: calculatedMonthProjected,
                   pace: isCurrentMonth ? calculatedMonthPace : 0,
                   lastYear: salesData?.lastYear?.sameMonth,
