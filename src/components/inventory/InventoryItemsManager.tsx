@@ -622,7 +622,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       vendor_source: item.vendor_source || null,
     });
     setIsDailyTracked(!!item.is_daily_tracked);
-    setOverrideValue(item.pack_quantity_override?.toString() || "");
+    setOverrideValue("");
     setCategoryValue(item.category || "");
     setStorageLocationValue(item.storage_location_id || "");
     setStorageLocationValue(item.storage_location_id || "");
