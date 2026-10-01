@@ -14590,10 +14590,6 @@ export type Database = {
         Args: { _bp_id: string; _location_id: string; _visited?: string[] }
         Returns: Json
       }
-      _rc_batch_lens: {
-        Args: { _bp_id: string; _location_id: string; _visited?: string[] }
-        Returns: Json
-      }
       _rc_brand_bp: { Args: { _bp_id: string }; Returns: string }
       _rc_caller_can_read_brand: {
         Args: { _brand_id: string }
@@ -14604,9 +14600,19 @@ export type Database = {
         Returns: Record<string, unknown>
       }
       _rc_hash_can_oz: { Args: { _n: string }; Returns: number }
+      _rc_item_line: {
+        Args: {
+          _location_id: string
+          _qty: number
+          _tpl: string
+          _unit: string
+        }
+        Returns: Json
+      }
       _rc_oz: { Args: { _key: string }; Returns: number }
       _rc_pack_oz: { Args: { _pack: string }; Returns: number }
       _rc_unit_key: { Args: { _u: string }; Returns: string }
+      _rc_unit_label: { Args: { _u: string }; Returns: string }
       _resolve_goal: {
         Args: { _date: string; _location_id: string }
         Returns: number
@@ -14673,6 +14679,37 @@ export type Database = {
         Returns: undefined
       }
       brand_conversion_count: { Args: { _brand_id: string }; Returns: number }
+      brand_price_outliers: {
+        Args: { _brand_id: string }
+        Returns: {
+          ingredient_name: string
+          median_unit_price: number
+          problem: string
+          recipes: string[]
+          store: string
+          store_unit_price: number
+          template_id: string
+          unit_label: string
+        }[]
+      }
+      brand_recipe_pricing: {
+        Args: { _bp_id: string }
+        Returns: {
+          ingredient_id: string
+          ingredient_name: string
+          is_sub: boolean
+          max_cost: number
+          median_cost: number
+          median_unit_price: number
+          min_cost: number
+          outliers: Json
+          quantity: number
+          store_prices: Json
+          stores_priced: number
+          unit: string
+          unit_label: string
+        }[]
+      }
       build_pan_sizes_from_template: {
         Args: {
           _baseline_key: string
@@ -15210,21 +15247,6 @@ export type Database = {
       pfg_swap_credentials_ropc: {
         Args: { p_integration_id: string; p_new_credentials: Json }
         Returns: boolean
-      }
-      preview_recipe_costs_lens: {
-        Args: { _brand_id: string; _location_id?: string }
-        Returns: {
-          item_name: string
-          location_name: string
-          new_per_unit: number
-          new_problems: string[]
-          new_status: string
-          old_per_unit: number
-          old_status: string
-          pct_change: number
-          store_packs_used: string[]
-          yield_unit: string
-        }[]
       }
       profile_at_punch_device_location: {
         Args: { _device_user_id: string; _profile_id: string }
