@@ -1541,8 +1541,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           </div>
           <div className="min-w-0 text-right">
             <p className="text-[9px] font-bold text-accent-foreground/70">Pace</p>
-            <p className="text-sm font-bold text-accent-foreground sm:text-base">{pace > 0 ? formatCurrency(pace) : '--'}</p>
-            {renderPaceVsLastYear(pace, lastYear)}
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {renderPaceVsLastYear(pace, lastYear)}
+              <p className="text-sm font-bold text-accent-foreground sm:text-base">{pace > 0 ? formatCurrency(pace) : '--'}</p>
+            </div>
           </div>
         </div>
       </div>
