@@ -1741,15 +1741,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   <p className="mt-2.5 text-center text-[10px] font-semibold text-amber-300">
                     Toast data delayed{toastFresh.lastLabel ? `, last update ${toastFresh.lastLabel}` : ''}
                   </p>
-                ) : lastFetchTimestamp && isToday && (() => {
-                  const pos = (currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined) as string | undefined;
-                  const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : pos === 'toast' ? 'Toast' : pos === 'aloha' ? 'Aloha' : 'POS';
-                  return (
-                    <p className="mt-2.5 text-center text-[10px] font-medium text-white/75">
-                      Updated from {label} at {format(lastFetchTimestamp, 'h:mm a')}
-                    </p>
-                  );
-                })()}
+                ) : null}
               </div>
 
               {/* Collapsed tab */}
@@ -1895,6 +1887,15 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                       <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </ComposedChart>
                   </ResponsiveContainer>
+                );
+              })()}
+              {lastFetchTimestamp && isToday && (() => {
+                const pos = (currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined) as string | undefined;
+                const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : pos === 'toast' ? 'Toast' : pos === 'aloha' ? 'Aloha' : 'POS';
+                return (
+                  <p className="mt-2 text-center text-[10px] font-medium text-muted-foreground">
+                    Updated from {label} at {format(lastFetchTimestamp, 'h:mm a')}
+                  </p>
                 );
               })()}
               </div>

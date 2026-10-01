@@ -109,6 +109,7 @@
 ## Oct 1, 2026
 - [in-progress] Redesign sales summary scoreboard layout (sales/Goal swap looked messy) — preview layout options, then implement Jordan's pick.
 - [in-progress] Reduce the centered sales scoreboard tile height while preserving the approved layout.
+- [in-progress] Move the Today sales sync timestamp below the hourly sales chart.
 - [x] Sales card: show Pace vs Last Year comparison as a badge
 
 ## In progress
