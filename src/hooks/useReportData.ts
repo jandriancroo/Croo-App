@@ -139,9 +139,17 @@ async function fetchLocationData(
       weekOt.set(k, cur);
     }
   }
+  // Weeks span full workweeks (can include days outside the report). Scale
+  // them so totals match the in-range ot_hours / dt_hours from the server.
+  const inRangeOt = payrollRows.reduce((s, e) => s + Number(e.ot_hours || 0), 0);
+  const inRangeDt = payrollRows.reduce((s, e) => s + Number(e.dt_hours || 0), 0);
+  let weekOtSum = 0, weekDtSum = 0;
+  for (const v of weekOt.values()) { weekOtSum += v.ot; weekDtSum += v.dt; }
+  const otScale = weekOtSum > 0 ? inRangeOt / weekOtSum : 0;
+  const dtScale = weekDtSum > 0 ? inRangeDt / weekDtSum : 0;
   for (const [ws, v] of weekOt) {
     const target = dayRows.find((d) => d.date >= ws) || dayRows[dayRows.length - 1];
-    if (target) { target.otHours += v.ot; target.dotHours += v.dt; }
+    if (target) { target.otHours += v.ot * otScale; target.dotHours += v.dt * dtScale; }
   }
   const laborAgg = dayRows.reduce(
     (acc, r) => ({

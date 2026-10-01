@@ -228,7 +228,13 @@ const Inventory = () => {
       let recipeCostMap: Map<string, number> | null = null;
       if (recipeIds.size > 0 && locationId) {
         const { fetchRecipeCosts } = await import("@/utils/recipeCostCalculation");
-        recipeCostMap = await fetchRecipeCosts(locationId);
+        try {
+          recipeCostMap = await fetchRecipeCosts(locationId);
+        } catch (e) {
+          // Keep the count list visible; recipe lines just show without a price.
+          console.warn("[Inventory] recipe prices unavailable", e);
+          recipeCostMap = null;
+        }
       }
 
       const { calculateCountItemValue } = await import("@/utils/countItemValue");
