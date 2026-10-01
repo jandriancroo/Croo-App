@@ -795,12 +795,18 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           _date: cmpDate,
         });
         const c = Array.isArray(cmp) ? cmp[0] : cmp;
-        if (c) {
+        // Completed last-year periods: full day, full week, full calendar month.
+        const { data: tot } = await supabase.rpc('get_sales_ly_totals' as any, {
+          _location_id: currentLocation.id,
+          _date: cmpDate,
+        });
+        const t = Array.isArray(tot) ? tot[0] : tot;
+        if (c || t) {
           salesData.lastYear = {
-            sameDay: c.ly_net_sales != null ? Number(c.ly_net_sales) : undefined,
-            sameWeek: c.ly_wtd_net != null ? Number(c.ly_wtd_net) : salesData.lastYear?.sameWeek,
-            sameMonth: c.ly_mtd_net != null ? Number(c.ly_mtd_net) : salesData.lastYear?.sameMonth,
-            date: c.ly_date ?? undefined,
+            sameDay: t?.ly_day_total != null ? Number(t.ly_day_total) : c?.ly_net_sales != null ? Number(c.ly_net_sales) : undefined,
+            sameWeek: t?.ly_week_total != null ? Number(t.ly_week_total) : salesData.lastYear?.sameWeek,
+            sameMonth: t?.ly_month_total != null ? Number(t.ly_month_total) : salesData.lastYear?.sameMonth,
+            date: c?.ly_date ?? undefined,
           };
         }
       } catch (e) {
