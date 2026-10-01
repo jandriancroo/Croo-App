@@ -1524,6 +1524,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     sales,
     priorComparison,
     priorComparisonLabel,
+    compLY,
+    compPeriodLabel,
     goal,
     pace,
     lastYear,
@@ -1533,12 +1535,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     sales?: number;
     priorComparison?: number;
     priorComparisonLabel: string;
+    compLY?: number;
+    compPeriodLabel: string;
     goal: number;
     pace: number;
     lastYear?: number;
     status: PaceStatus | null;
   }) => {
-    const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
+    const chipValue = compLY !== undefined ? compLY : priorComparison;
+    const chipLabel = compLY !== undefined ? 'LY at this point' : priorComparisonLabel;
+    const change = chipValue !== undefined && sales !== undefined ? getChangePercent(sales, chipValue) : null;
     return (
       <div className="flex flex-col items-center text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent-foreground/85">{salesLabel}</p>
