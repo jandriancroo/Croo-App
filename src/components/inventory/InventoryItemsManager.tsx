@@ -1685,7 +1685,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto overflow-x-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
            <DialogHeader>
              <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
