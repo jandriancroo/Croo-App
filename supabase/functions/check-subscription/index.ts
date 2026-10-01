@@ -38,9 +38,10 @@ serve(async (req) => {
       : { data: { user: null }, error: new Error("missing") } as any;
     if (userError || !userData?.user) {
       // Stale or missing sign-in: tell the app to sign in again, not a crash.
-      return new Response(JSON.stringify({ error: "reauth_required", subscribed: false }), {
+      // 200 so the app can handle it quietly instead of surfacing a crash.
+      return new Response(JSON.stringify({ reauth_required: true, subscribed: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
+        status: 200,
       });
     }
     const user = userData.user;

@@ -55,6 +55,12 @@ export function useSubscription() {
         body: { organization_id: organizationId },
       });
       if (error) throw error;
+      // Sign-in couldn't be confirmed (stale/expired session): keep last known
+      // plan and retry on the next tick; auth flow handles signing back in.
+      if (data?.reauth_required) {
+        setState(s => ({ ...s, loading: false }));
+        return;
+      }
 
       if (!data?.subscribed) {
         setState({
