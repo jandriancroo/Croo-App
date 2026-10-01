@@ -31,25 +31,32 @@ export interface PosMappingState {
 export function usePosMapping(locationId: string, brandId?: string): PosMappingState {
   const qc = useQueryClient();
 
+  // Brand mode (brandId given): brand mappings only — never read or write a store's own mappings.
+  const brandMode = !!brandId;
+  const scopeKey = brandMode ? `brand:${brandId}` : locationId;
+
   // Fetch existing product_group → blueprint mappings using inheritance merge
   const { data: groups } = useQuery({
-    queryKey: ["pos-mapping-groups", locationId],
+    queryKey: ["pos-mapping-groups", scopeKey],
     queryFn: async () => {
       const { resolveBrandId } = await import("@/utils/resolveBrandId");
-      const brandId = await resolveBrandId(locationId);
+      const resolvedBrandId = brandMode ? brandId! : await resolveBrandId(locationId);
 
       const fields = "id, name, blueprint_id, pos_items, mapping_type, reconciliation_group";
       const [localRes, brandRes] = await Promise.all([
-        supabase
-          .from("inventory_product_groups")
-          .select(fields)
-          .eq("location_id", locationId)
-          .not("blueprint_id", "is", null),
-        brandId
+        brandMode
+          ? Promise.resolve({ data: [], error: null } as any)
+          : supabase
+              .from("inventory_product_groups")
+              .select(fields)
+              .eq("location_id", locationId)
+              .not("blueprint_id", "is", null),
+        resolvedBrandId
           ? supabase
               .from("inventory_product_groups")
               .select(fields)
-              .eq("brand_id", brandId)
+              .eq("brand_id", resolvedBrandId)
+              .is("location_id", null)
               .not("blueprint_id", "is", null)
           : Promise.resolve({ data: [], error: null }),
       ]);
@@ -66,18 +73,18 @@ export function usePosMapping(locationId: string, brandId?: string): PosMappingS
 
   // Fetch distinct POS items from last 60 days — aggregate across ALL brand locations
   const { data: posData } = useQuery({
-    queryKey: ["pos-items-for-mapping", locationId],
+    queryKey: ["pos-items-for-mapping", scopeKey],
     queryFn: async () => {
       const { resolveBrandId } = await import("@/utils/resolveBrandId");
-      const brandId = await resolveBrandId(locationId);
+      const brandId_ = brandMode ? brandId! : await resolveBrandId(locationId);
 
       // Get all location IDs for this brand
-      let locationIds = [locationId];
-      if (brandId) {
+      let locationIds = locationId ? [locationId] : [];
+      if (brandId_) {
         const { data: orgs } = await supabase
           .from("organizations")
           .select("id")
-          .eq("brand_id", brandId);
+          .eq("brand_id", brandId_);
         if (orgs?.length) {
           const orgIds = orgs.map(o => o.id);
           const { data: locs } = await supabase
