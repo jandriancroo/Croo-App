@@ -73,7 +73,7 @@ const BrandRecipesTab = ({ brandId }: { brandId: string }) => {
         ) : (
           <div className="divide-y divide-border">
             {grouped.map((g, gi) => (
-              <Collapsible key={g.key} defaultOpen={gi === 0 || !!q}>
+              <Collapsible key={g.key + (q ? "-q" : "")} defaultOpen={gi === 0 || !!q}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/30">
                     <span className="text-sm font-medium">{g.label}</span>
