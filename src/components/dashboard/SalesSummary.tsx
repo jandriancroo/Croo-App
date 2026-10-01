@@ -1482,14 +1482,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           align="center"
           sideOffset={6}
           onClick={(event) => event.stopPropagation()}
-          className="w-auto rounded-xl border-border bg-popover px-3 py-2 text-popover-foreground shadow-lg"
+          className="w-auto rounded-md border-border bg-card px-2 py-2 text-popover-foreground shadow-lg"
         >
-          <p className="mb-1 text-center text-[10px] font-semibold text-muted-foreground">Pace vs Last Year</p>
-          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-xs font-bold tabular-nums">
-            {isPositive ? <TrendingUp className="h-3.5 w-3.5 shrink-0 text-success" /> : <TrendingDown className="h-3.5 w-3.5 shrink-0 text-destructive" />}
-            <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-            <span className="text-muted-foreground">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
-          </div>
+          <p className="font-medium">Pace vs Last Year</p>
+          <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(pace)}</span></p>
+          <p className="text-muted-foreground">Last Year: <span className="text-foreground">{formatCurrency(lastYear)}</span></p>
+          <p className={isPositive ? 'text-success' : 'text-destructive'}>
+            Difference: <span className="font-medium">{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))} ({isPositive ? '+' : ''}{percent.toFixed(1)}%)</span>
+          </p>
         </PopoverContent>
       </Popover>
     );
