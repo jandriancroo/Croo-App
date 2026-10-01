@@ -176,7 +176,7 @@ const Inventory = () => {
       const live = data.filter((c: any) => c.status === "completed" || c.status === "in_progress");
       const neededIds = new Set<string>();
       const takeTop = (arr: any[]) =>
-        [...arr].sort((a, b) => endOf(b).localeCompare(endOf(a))).slice(0, countsShown + 2).forEach(c => neededIds.add(c.id));
+        [...arr].sort((a, b) => endOf(b).localeCompare(endOf(a))).slice(0, countsShown + 1).forEach(c => neededIds.add(c.id));
       takeTop(live);
       for (const t of ["weekly", "monthly", "yearly"]) takeTop(live.filter((c: any) => c.period_type === t));
       live.filter((c: any) => c.status === "in_progress").forEach((c: any) => neededIds.add(c.id));
