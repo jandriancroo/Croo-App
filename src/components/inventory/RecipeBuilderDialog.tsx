@@ -647,6 +647,15 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
 
   // ========== SAVE MUTATION ==========
 
+  // Recipe costs come only from the server calculator (apply_recipe_costs).
+  // This dialog never writes cost_per_unit / count_units_per_case / count_unit.
+  const refreshServerRecipeCosts = async () => {
+    const bId = brandId || (locationId ? await resolveBrandId(locationId) : null);
+    if (!bId) return;
+    const { error } = await supabase.rpc("apply_recipe_costs" as any, { _brand_id: bId } as any);
+    if (error) console.warn("[RecipeBuilder] apply_recipe_costs failed", error);
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!recipeName.trim()) throw new Error("Name required");
@@ -662,9 +671,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             name: recipeName.trim(),
             recipe_yield_qty: parseFloat(yieldQty),
             recipe_yield_unit: yieldUnit,
-            count_unit: yieldUnit,
-            count_units_per_case: parseFloat(yieldQty),
-            cost_per_unit: costPerCase,
             countable,
             pan_sizes: panSizesConfig as any,
           } as any)
@@ -681,6 +687,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             unit: normalizeUnit(ing.unit) || ing.unit,
           })));
         if (ingErr) throw ingErr;
+        await refreshServerRecipeCosts();
         return;
       }
 
@@ -723,9 +730,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               name: recipeName.trim(),
               recipe_yield_qty: parseFloat(yieldQty),
               recipe_yield_unit: yieldUnit,
-              count_unit: yieldUnit,
-              count_units_per_case: parseFloat(yieldQty),
-              cost_per_unit: batchCost,
               pan_sizes: panSizesConfig as any,
             } as any).eq("id", existingProducesId);
           } else {
@@ -739,8 +743,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             if (!newItemId) throw new Error("Failed to create countable item");
             // Apply countable-specific fields the RPC doesn't set
             await supabase.from("inventory_items").update({
-              cost_per_unit: batchCost,
-              count_units_per_case: parseFloat(yieldQty),
               pan_sizes: panSizesConfig as any,
             } as any).eq("id", newItemId);
           }
@@ -791,8 +793,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           if (!newItemId) throw new Error("Failed to create countable item");
           // Apply countable-specific fields the RPC doesn't set
           await supabase.from("inventory_items").update({
-            cost_per_unit: batchCost,
-            count_units_per_case: parseFloat(yieldQty),
             pan_sizes: panSizesConfig as any,
           } as any).eq("id", newItemId);
         }
