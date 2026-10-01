@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
-import RecipeCatalog from '@/components/inventory/RecipeCatalog';
+import BrandRecipesTab from '@/components/brand/recipes/BrandRecipesTab';
 import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
 import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
 import BrandCategoryEditor from '@/components/brand/BrandCategoryEditor';
@@ -85,8 +85,6 @@ export default function BrandInventory() {
 
   const { conversionMap } = useBrandConversions(brandId);
 
-  // Source location for recipe catalog
-  const [sourceLocationId, setSourceLocationId] = useState<string | null>(null);
 
   const catalogSelectionMode = catalogSelectedIds.size > 0;
   const toggleCatalogSelect = (id: string) => {
@@ -220,10 +218,6 @@ export default function BrandInventory() {
         .eq('brand_id', brandId!);
       if (error) throw error;
       const locs = data?.flatMap(org => org.locations || []) || [];
-      // Auto-select first location as source if not set
-      if (locs.length > 0 && !sourceLocationId) {
-        setSourceLocationId(locs[0].id);
-      }
       return locs;
     },
     enabled: !!brandId,
@@ -639,41 +633,7 @@ export default function BrandInventory() {
 
           {/* ===== RECIPES TAB ===== */}
           <TabsContent value="recipes" className="space-y-4">
-            {/* Source location picker */}
-            <Card>
-              <CardContent className="p-3 flex items-center gap-3">
-                <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground">Recipe data source</p>
-                </div>
-                <Select
-                  value={sourceLocationId || ''}
-                  onValueChange={setSourceLocationId}
-                >
-                  <SelectTrigger className="h-8 w-auto max-w-[200px] text-xs">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((loc: any) => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name} {loc.store_number ? `#${loc.store_number}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-
-            {sourceLocationId ? (
-              <RecipeCatalog locationId={sourceLocationId} brandId={brandId} />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <ChefHat className="h-10 w-10 text-muted-foreground mb-3 opacity-50" />
-                  <p className="text-sm text-muted-foreground">Select a source location to view recipes</p>
-                </CardContent>
-              </Card>
-            )}
+            {brandId && <BrandRecipesTab brandId={brandId} />}
           </TabsContent>
 
           {/* ===== THEO MAPPING TAB ===== */}
