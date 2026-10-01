@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package, RefreshCcw, Flame, Activity, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, TrendingUp, TrendingDown, Package, RefreshCcw, Flame, Activity, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -1470,10 +1470,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             type="button"
             variant="ghost"
             onClick={(event) => event.stopPropagation()}
-            className="mt-px h-auto min-h-0 whitespace-nowrap rounded-full px-1.5 py-0 text-[10px] font-bold text-accent-foreground/85 hover:bg-accent-foreground/15 hover:text-accent-foreground"
+            className="mt-1 h-[18px] min-h-0 gap-[3px] whitespace-nowrap rounded-full bg-accent-foreground/20 px-1.5 py-0 text-[9px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30 hover:bg-accent-foreground/30 hover:text-accent-foreground"
             aria-label="Show Pace comparison with last year"
           >
             {isPositive ? '+' : ''}{percent.toFixed(1)}% vs LY
+            <ChevronUp className="h-2.5 w-2.5 shrink-0 opacity-80" />
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -1517,7 +1518,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     return (
       <div className="flex flex-col items-center text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent-foreground/85">{salesLabel}</p>
-        <p className="mt-1 whitespace-nowrap text-[44px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-accent-foreground">
+        <p className="mt-1 whitespace-nowrap text-[37px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-accent-foreground">
           {sales !== undefined ? formatCurrency(sales) : '--'}
         </p>
 
