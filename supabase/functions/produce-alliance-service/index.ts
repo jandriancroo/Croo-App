@@ -555,7 +555,10 @@ async function fetchInvoiceDetail(session: PASession, inv: PAInvoiceSummary): Pr
     console.error('[PA InvDetail]', inv.invoiceNumber, 'err:', resp.status);
     return null;
   }
-  let data: any; try { data = JSON.parse(text); } catch { return null; }
+  let data: any; try { data = JSON.parse(text); } catch {
+    console.warn('[PA InvDetail] non-JSON', inv.invoiceNumber, resp.status, text.substring(0, 600));
+    return null;
+  }
   const rows: any[] = Array.isArray(data) ? data : (data.dataList || data.data || []);
   if (!rows.length) {
     console.warn('[PA InvDetail] empty', JSON.stringify(inv), 'resp:', text.substring(0, 800));
