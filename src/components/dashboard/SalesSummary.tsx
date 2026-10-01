@@ -39,6 +39,7 @@ interface SalesData {
     monthly: Array<{ paymentType: string; amount: number }>;
   } | null;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
+  comparisonLY?: { day?: number; week?: number; month?: number };
   lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number; date?: string };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number; todaySource?: ProjectionSource };
   currentHour?: number;
@@ -809,6 +810,29 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             sameMonth: t?.ly_month_total != null ? Number(t.ly_month_total) : salesData.lastYear?.sameMonth,
             date: c?.ly_date ?? undefined,
           };
+        }
+        // LY "at this point": last year's same business date through the same
+        // local hour as now (same hour rule the real-time POS comparison uses).
+        const lyHourlyRaw = (c as any)?.ly_hourly_data;
+        if (isTodayCheck && Array.isArray(lyHourlyRaw) && lyHourlyRaw.length > 0) {
+          const cutoffHour = DateTime.now().setZone(locationZone).hour;
+          let lyThrough = 0;
+          for (const h of lyHourlyRaw as Array<{ hour?: unknown; sales?: unknown }>) {
+            const hs = String(h?.hour ?? '');
+            const hn = parseInt(hs.includes(':') ? hs.split(':')[0] : hs, 10);
+            if (!Number.isFinite(hn)) continue;
+            if (hn <= cutoffHour) lyThrough += Number(h?.sales) || 0;
+          }
+          const lyFullDay = c?.ly_net_sales != null ? Number(c.ly_net_sales) : undefined;
+          const lyWtd = c?.ly_wtd_net != null ? Number(c.ly_wtd_net) : undefined;
+          const lyMtd = c?.ly_mtd_net != null ? Number(c.ly_mtd_net) : undefined;
+          if (lyThrough > 0) {
+            salesData.comparisonLY = {
+              day: lyThrough,
+              week: lyWtd !== undefined && lyFullDay !== undefined ? Math.max(0, lyWtd - lyFullDay + lyThrough) : undefined,
+              month: lyMtd !== undefined && lyFullDay !== undefined ? Math.max(0, lyMtd - lyFullDay + lyThrough) : undefined,
+            };
+          }
         }
       } catch (e) {
         console.warn('[SalesOverview] comparisons failed:', e);
