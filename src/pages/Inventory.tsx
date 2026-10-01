@@ -131,8 +131,12 @@ const Inventory = () => {
   });
 
   // Fetch recent counts with stats
+  // How many past periods the count list shows. Only those (plus the counts
+  // their starting value depends on) get their line items loaded.
+  const [countsShown, setCountsShown] = useState(4);
   const { data: recentCounts } = useQuery({
-    queryKey: ["inventory-counts", locationId, conversionMap.size],
+    queryKey: ["inventory-counts", locationId, conversionMap.size, countsShown],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_counts")
@@ -151,7 +155,45 @@ const Inventory = () => {
       // Fetch stats for all counts from count_items (source of truth).
       // Paginated to bypass Supabase/PostgREST default 1000-row cap — without this,
       // locations with >~5 counts silently drop rows and counts appear "not started".
-      const countIds = data.map(c => c.id);
+      // ─── Load line items only for the counts that need totals ─────────
+      // Shown = the `countsShown` most recent per type (+2 slack for the
+      // monthly/weekly same-end dedupe), every in-progress count, and each
+      // one's predecessors (same-type previous + any-type before its start),
+      // because a card's beginning value is the prior count's ending value.
+      const pwin = (c: any): { start: string; end: string } | null => {
+        const end = c.period_end_date as string | null;
+        if (!end) return null;
+        if (c.period_start_date) return { start: c.period_start_date, end };
+        if (c.period_type === "weekly") {
+          const d = new Date(end + "T12:00:00");
+          d.setDate(d.getDate() - 6);
+          return { start: d.toISOString().slice(0, 10), end };
+        }
+        if (c.period_type === "monthly") return { start: end.slice(0, 7) + "-01", end };
+        return null;
+      };
+      const endOf = (c: any) => (c.period_end_date || c.count_date || "") as string;
+      const live = data.filter((c: any) => c.status === "completed" || c.status === "in_progress");
+      const neededIds = new Set<string>();
+      const takeTop = (arr: any[]) =>
+        [...arr].sort((a, b) => endOf(b).localeCompare(endOf(a))).slice(0, countsShown + 2).forEach(c => neededIds.add(c.id));
+      takeTop(live);
+      for (const t of ["weekly", "monthly", "yearly"]) takeTop(live.filter((c: any) => c.period_type === t));
+      live.filter((c: any) => c.status === "in_progress").forEach((c: any) => neededIds.add(c.id));
+      const completedAsc = live
+        .filter((c: any) => c.status === "completed" && pwin(c))
+        .sort((a: any, b: any) => (pwin(a)!.end > pwin(b)!.end ? 1 : -1));
+      for (const id of [...neededIds]) {
+        const c: any = data.find((x: any) => x.id === id);
+        const w = c && pwin(c);
+        if (!w) continue;
+        const sameBefore = completedAsc.filter((x: any) => x.id !== id && x.period_type === c.period_type && pwin(x)!.end <= w.end);
+        sameBefore.slice(-2).forEach((x: any) => neededIds.add(x.id));
+        const anyBeforeStart = completedAsc.filter((x: any) => x.id !== id && pwin(x)!.end < w.start);
+        if (anyBeforeStart.length) neededIds.add(anyBeforeStart[anyBeforeStart.length - 1].id);
+      }
+
+      const countIds = data.map(c => c.id).filter(id => neededIds.has(id));
       const PAGE_SIZE = 1000;
       const countItems: any[] = [];
       for (let from = 0; ; from += PAGE_SIZE) {
@@ -261,7 +303,7 @@ const Inventory = () => {
       };
 
       const completedWithWindow = data
-        .filter(c => (c.status === "completed" || c.status === "in_progress") && periodWindow(c))
+        .filter(c => neededIds.has(c.id) && (c.status === "completed" || c.status === "in_progress") && periodWindow(c))
         .map(c => ({ c, win: periodWindow(c)! }));
 
       const enrichMap: Record<string, { purchasesTotal: number; cogsPct: number | null }> = {};
@@ -717,6 +759,8 @@ const Inventory = () => {
                   locationId={locationId!}
                   inProgressCount={inProgressCount}
                   recentCounts={recentCounts}
+                  visibleCount={countsShown}
+                  onLoadMore={() => setCountsShown(n => n + 4)}
                   onStartCount={handleStartCount}
                   onDeleteCount={handleDeleteClick}
                   onCreateCountForPeriod={(periodType, periodEndDate) => {
