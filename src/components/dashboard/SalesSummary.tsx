@@ -1496,16 +1496,23 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     lastYear?: number;
     status: PaceStatus | null;
   }) => (
-    <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(76px,0.8fr)_minmax(0,1.25fr)] items-center gap-2 sm:gap-4">
+    <div className="grid grid-cols-[minmax(64px,0.8fr)_minmax(0,1.15fr)_minmax(0,1.25fr)] items-center gap-2 sm:gap-4">
       <div className="min-w-0">
+        <p className="mb-0.5 text-[9px] font-bold text-accent-foreground/70 sm:text-[10px]">Goal</p>
+        <p className="text-base font-bold text-accent-foreground sm:text-lg">
+          {goal > 0 ? formatCurrency(goal) : '--'}
+        </p>
+      </div>
+
+      <div className="min-w-0 text-center">
         <p className="mb-0.5 text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-1.5">
           <p className="text-2xl font-extrabold text-accent-foreground sm:text-3xl">
             {sales !== undefined ? formatCurrency(sales) : '--'}
           </p>
           {renderStatusBadge(status)}
         </div>
-        <div className="mt-0.5 flex items-center gap-1">
+        <div className="mt-0.5 flex items-center justify-center gap-1">
           {priorComparison !== undefined && sales !== undefined && (() => {
             const change = getChangePercent(sales, priorComparison);
             if (change === null) return null;
