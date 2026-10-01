@@ -63,6 +63,8 @@ export type LegsValuationContext = {
   legsConfigsByBrandItemId: Map<string, LegsConfigRow[]>;
   /** Config labels keyed by pack_config_id — for per-leg display rows. */
   legLabelById: Map<string, string>;
+  /** Store's approved pack (lens) keyed by brand_item_id; only used for lines with no saved pack. */
+  lensByBrandItemId?: Map<string, any>;
 };
 
 export type LegsValuationBundle = LegsValuationContext & {
@@ -143,6 +145,13 @@ export function makeGetItemValueWithLegs(ctx: LegsValuationContext) {
     opts?: { forceLiveData?: boolean }
   ): number {
     const force = opts?.forceLiveData ?? false;
+    // Lines without a saved pack (e.g. practice copies) must value with the
+    // store's approved pack, same as the counting screen — never the item's
+    // stale pack_quantity.
+    if (item && item.lens === undefined && item.brand_item_id && ctx.lensByBrandItemId) {
+      const lens = ctx.lensByBrandItemId.get(item.brand_item_id);
+      if (lens) item = { ...item, lens };
+    }
     const legRows = ctx.legsByCountItemId.get(countItem.id) ?? [];
     const legs = ctx.legsEnabled
       ? buildLegsForValuation(
@@ -157,6 +166,34 @@ export function makeGetItemValueWithLegs(ctx: LegsValuationContext) {
 }
 
 // ── Fetchers (shared by hook + non-hook utility) ─────────────────────────
+
+async function fetchStoreLensMap(locationId: string): Promise<Map<string, any>> {
+  const { data: loc } = await supabase
+    .from("locations" as any)
+    .select("lens_enabled")
+    .eq("id", locationId)
+    .maybeSingle();
+  if ((loc as any)?.lens_enabled !== true) return new Map();
+  const { data, error } = await supabase.rpc("get_store_pack_lens" as any, { _location_id: locationId } as any);
+  if (error) throw error;
+  const map = new Map<string, any>();
+  for (const row of (data as any[]) || []) {
+    if (!row?.brand_template_id) continue;
+    map.set(row.brand_template_id, {
+      count_units_per_case: row.count_units_per_case,
+      cost_per_common_unit: row.cost_per_common_unit,
+      common_unit: row.common_unit,
+      outer_qty: row.outer_qty,
+      outer_type: row.outer_type,
+      inner_qty: row.inner_qty,
+      inner_type: row.inner_type,
+      show_cases: row.show_cases ?? null,
+      show_inner_packs: row.show_inner_packs ?? null,
+      show_common_unit: row.show_common_unit ?? null,
+    });
+  }
+  return map;
+}
 
 async function fetchLegsEnabled(locationId: string): Promise<boolean> {
   const { data, error } = await supabase
@@ -293,13 +330,17 @@ export async function fetchLegsValuationContext(args: {
   countIds: string[];
 }): Promise<LegsValuationContext> {
   const { locationId, countIds } = args;
-  const legsEnabled = await fetchLegsEnabled(locationId);
+  const [legsEnabled, lensByBrandItemId] = await Promise.all([
+    fetchLegsEnabled(locationId),
+    fetchStoreLensMap(locationId),
+  ]);
   if (!legsEnabled) {
     return {
       legsEnabled: false,
       legsByCountItemId: new Map(),
       legsConfigsByBrandItemId: new Map(),
       legLabelById: new Map(),
+      lensByBrandItemId,
     };
   }
   const [{ configsByBrandItemId, labelById }, legsByCountItemId] = await Promise.all([
@@ -311,6 +352,7 @@ export async function fetchLegsValuationContext(args: {
     legsByCountItemId,
     legsConfigsByBrandItemId: configsByBrandItemId,
     legLabelById: labelById,
+    lensByBrandItemId,
   };
 }
 
@@ -353,21 +395,29 @@ export function useLegsValuation(
     queryFn: () => fetchLegsForCount(countId!),
   });
 
+  const { data: lensByBrandItemId, isLoading: lensLoading } = useQuery({
+    queryKey: ["legs-valuation:lens", locationId],
+    enabled: enabled && !!locationId,
+    staleTime: 60 * 1000,
+    queryFn: () => fetchStoreLensMap(locationId!),
+  });
+
   const ctx: LegsValuationContext = useMemo(
     () => ({
       legsEnabled: legsEnabled === true,
       legsByCountItemId: legsByCountItemId ?? new Map(),
       legsConfigsByBrandItemId: configs?.configsByBrandItemId ?? new Map(),
       legLabelById: configs?.labelById ?? new Map(),
+      lensByBrandItemId: lensByBrandItemId ?? new Map(),
     }),
-    [legsEnabled, legsByCountItemId, configs]
+    [legsEnabled, legsByCountItemId, configs, lensByBrandItemId]
   );
 
   const getItemValueWithLegs = useMemo(() => makeGetItemValueWithLegs(ctx), [ctx]);
 
   return {
     ...ctx,
-    isLoading: enabledLoading || configsLoading || legsLoading,
+    isLoading: enabledLoading || configsLoading || legsLoading || lensLoading,
     getItemValueWithLegs,
   };
 }
