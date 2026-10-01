@@ -5,6 +5,34 @@ import { cn } from '@/lib/utils';
 import { User } from 'lucide-react';
 import React from 'react';
 
+type HastNode = {
+  type?: string;
+  tagName?: string;
+  value?: string;
+  children?: HastNode[];
+};
+
+function nodeText(node: HastNode | undefined): string {
+  if (!node) return '';
+  if (node.type === 'text') return node.value || '';
+  return (node.children || []).map(nodeText).join('');
+}
+
+function getTwoColumnRows(node: HastNode | undefined): Array<[string, string]> | null {
+  const sections = node?.children?.filter((child) => child.type === 'element') || [];
+  const rowNodes = sections.flatMap((section) =>
+    section.tagName === 'tr'
+      ? [section]
+      : (section.children || []).filter((child) => child.tagName === 'tr')
+  );
+  if (rowNodes.length < 2) return null;
+  const rows = rowNodes.map((row) =>
+    (row.children || []).filter((child) => child.tagName === 'th' || child.tagName === 'td')
+  );
+  if (rows.some((row) => row.length !== 2)) return null;
+  return rows.slice(1).map((row) => [nodeText(row[0]).replace(/\*\*/g, '').trim(), nodeText(row[1]).trim()]);
+}
+
 // Parse [[employee:Name]] tags in text and render as badges
 function renderWithEmployeeBadges(text: string): React.ReactNode[] {
   const parts = text.split(/(\[\[employee:[^\]]+\]\])/g);
@@ -44,13 +72,40 @@ function withEmployeeBadges(children: React.ReactNode): React.ReactNode {
 }
 
 const markdownComponents: Components = {
-  table: ({ children, ...props }) => (
-    <div className="my-2.5 overflow-x-auto rounded-xl border border-border/40 bg-card/80 shadow-sm">
-      <table className="w-full text-xs" {...props}>
-        {children}
-      </table>
-    </div>
-  ),
+  table: ({ children, node, ...props }) => {
+    const tileRows = getTwoColumnRows(node as HastNode | undefined);
+    if (tileRows) {
+      return (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {tileRows.map(([label, value], index) => {
+            const isLong = value.length > 12;
+            return (
+              <div
+                key={`${label}-${index}`}
+                className={cn(
+                  'min-w-0 rounded-xl bg-background px-3 py-2.5',
+                  isLong ? 'basis-full' : 'flex-[1_1_calc(33.333%-0.5rem)]'
+                )}
+              >
+                <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
+                <div className={cn(
+                  'tabular-nums text-foreground',
+                  isLong ? 'text-sm font-semibold leading-[1.4] whitespace-normal' : 'text-[18px] font-bold leading-[1.3]'
+                )}>
+                  {value}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+    return (
+      <div className="my-2.5 overflow-x-auto rounded-xl border border-border/40 bg-card/80 shadow-sm">
+        <table className="w-full text-xs" {...props}>{children}</table>
+      </div>
+    );
+  },
   thead: ({ children, ...props }) => (
     <thead className="bg-muted/50 text-muted-foreground" {...props}>
       {children}
@@ -80,34 +135,34 @@ const markdownComponents: Components = {
     </td>
   ),
   ul: ({ children, ...props }) => (
-    <ul className="my-1.5 ml-3.5 space-y-1 list-disc marker:text-primary/40" {...props}>
+    <ul className="mt-2 list-none space-y-1.5 pl-0 [&_ul]:mt-1.5 [&_ul_li]:before:bg-primary/50" {...props}>
       {children}
     </ul>
   ),
   ol: ({ children, ...props }) => (
-    <ol className="my-1.5 ml-3.5 space-y-1 list-decimal marker:text-primary/40" {...props}>
+    <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-[1.6] marker:font-bold marker:text-primary" {...props}>
       {children}
     </ol>
   ),
   li: ({ children, ...props }) => (
-    <li className="text-xs leading-relaxed pl-0.5" {...props}>
+    <li className="relative pl-4 text-sm leading-[1.6] before:absolute before:left-0 before:top-[9px] before:h-1.5 before:w-1.5 before:rounded-full before:bg-primary" {...props}>
       {withEmployeeBadges(children)}
     </li>
   ),
   h1: ({ children, ...props }) => (
-    <h1 className="text-sm font-bold mt-3 mb-1.5 text-foreground tracking-tight" {...props}>{children}</h1>
+    <h1 {...props}>{children}</h1>
   ),
   h2: ({ children, ...props }) => (
-    <h2 className="text-[13px] font-semibold mt-2.5 mb-1 text-foreground tracking-tight" {...props}>{children}</h2>
+    <h2 {...props}>{children}</h2>
   ),
   h3: ({ children, ...props }) => (
-    <h3 className="text-xs font-semibold mt-2 mb-0.5 text-foreground" {...props}>{children}</h3>
+    <h3 {...props}>{children}</h3>
   ),
   p: ({ children, ...props }) => (
-    <p className="my-1 text-xs leading-[1.6]" {...props}>{withEmployeeBadges(children)}</p>
+    <p className="mt-3 text-sm leading-[1.6]" {...props}>{withEmployeeBadges(children)}</p>
   ),
   strong: ({ children, ...props }) => (
-    <strong className="font-semibold text-foreground" {...props}>{withEmployeeBadges(children)}</strong>
+    <strong className="font-bold text-foreground" {...props}>{withEmployeeBadges(children)}</strong>
   ),
   code: ({ children, className, ...props }) => {
     const isInline = !className;
@@ -125,7 +180,7 @@ const markdownComponents: Components = {
     );
   },
   hr: (props) => (
-    <hr className="my-2.5 border-border/30" {...props} />
+    <hr className="mt-4 border-t border-muted" {...props} />
   ),
   blockquote: ({ children, ...props }) => (
     <blockquote className="my-2 border-l-2 border-primary/30 pl-3 text-xs italic text-muted-foreground bg-primary/3 rounded-r-lg py-1" {...props}>
@@ -140,7 +195,7 @@ interface AiMarkdownRendererProps {
 
 export function AiMarkdownRenderer({ content }: AiMarkdownRendererProps) {
   return (
-    <div className="ai-markdown max-w-none">
+    <div className="ai-markdown max-w-none text-foreground">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</ReactMarkdown>
     </div>
   );
