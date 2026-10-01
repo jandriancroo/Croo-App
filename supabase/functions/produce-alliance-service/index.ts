@@ -609,14 +609,60 @@ async function handleInvoices(supabase: any, body: any): Promise<Response> {
   const list = await fetchInvoiceList(session, sd, ed);
   const toFetch = list.slice(0, maxInvoices);
 
+  // Duplicate guard (never uses dollar totals — substitutions change them and
+  // two different deliveries can cost the same):
+  //  1. Invoice names a webOrderId that this store already has saved → same delivery, skip.
+  //  2. No webOrderId: pair it with a saved portal order for this store whose
+  //     delivery date equals the invoice date and that no other invoice claimed.
+  //     Paired → skip. Unpaired (e.g. a phone order on a day with no portal order,
+  //     or a second delivery the same day) → save.
+  //  3. Invoice already saved as INV-<number> → upsert on the same key, never a second row.
+  const toIso = (mdy: string) => { const [m, d, y] = (mdy || '').split('/'); return y ? `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}` : ''; };
+  const isoDates = toFetch.map(i => toIso(i.invoiceDate)).filter(Boolean).sort();
+  const savedOrders: { id: string; date: string }[] = [];
+  if (isoDates.length) {
+    const { data: ex } = await supabase
+      .from('pa_orders').select('pa_order_id, delivery_date')
+      .eq('location_id', locationId).not('pa_order_id', 'like', 'INV-%')
+      .gte('delivery_date', isoDates[0]).lte('delivery_date', isoDates[isoDates.length - 1]);
+    (ex || []).forEach((r: any) => savedOrders.push({ id: String(r.pa_order_id), date: String(r.delivery_date).substring(0, 10) }));
+  }
+  const claimed = new Set<string>();
+  const decisionByInv = new Map<string, { decision: string; matchedOrder: string | null }>();
+  const realWo = (inv: PAInvoiceSummary) => inv.webOrderId && inv.webOrderId !== '0' ? inv.webOrderId : null;
+  // Pass 1: explicit webOrderId links
+  for (const inv of toFetch) {
+    const wo = realWo(inv);
+    if (wo && savedOrders.some(o => o.id === wo)) { claimed.add(wo); decisionByInv.set(inv.invoiceNumber, { decision: 'skip_linked_order_saved', matchedOrder: wo }); }
+  }
+  // Pass 2: same delivery date, unclaimed order
+  for (const inv of toFetch) {
+    if (decisionByInv.has(inv.invoiceNumber)) continue;
+    if (realWo(inv)) { decisionByInv.set(inv.invoiceNumber, { decision: 'save_linked_order_not_saved', matchedOrder: null }); continue; }
+    const date = toIso(inv.invoiceDate);
+    const twin = savedOrders.find(o => o.date === date && !claimed.has(o.id));
+    if (twin) { claimed.add(twin.id); decisionByInv.set(inv.invoiceNumber, { decision: 'skip_same_day_order_saved', matchedOrder: twin.id }); }
+    else decisionByInv.set(inv.invoiceNumber, { decision: 'save_no_matching_order', matchedOrder: null });
+  }
+  const decisions = toFetch.map(inv => ({ invoiceNumber: inv.invoiceNumber, invoiceDate: inv.invoiceDate, total: inv.invoiceTotal, webOrderId: realWo(inv), ...decisionByInv.get(inv.invoiceNumber)! }));
+  if (body.dryRun) {
+    return jsonResponse({ success: true, dryRun: true, range: { sd, ed }, decisions });
+  }
+
   let persisted = 0;
   const persistedInvoices: string[] = [];
+  const skippedDuplicates: string[] = [];
   const errors: string[] = [];
 
   for (const inv of toFetch) {
+    if (decisionByInv.get(inv.invoiceNumber)?.decision.startsWith('skip')) {
+      skippedDuplicates.push(inv.invoiceNumber);
+      continue;
+    }
     const detail = await fetchInvoiceDetail(session, inv);
     await new Promise(r => setTimeout(r, 250));
     if (!detail) continue;
+
 
     const items = detail.lineItems.map(li => ({
       name: li.description,
@@ -668,6 +714,7 @@ async function handleInvoices(supabase: any, body: any): Promise<Response> {
     fetched: toFetch.length,
     persisted,
     persistedInvoices,
+    skippedDuplicates,
     errors,
   });
 }
