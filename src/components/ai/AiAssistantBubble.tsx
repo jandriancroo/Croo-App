@@ -368,7 +368,7 @@ export function AiAssistantBubble() {
                 right: 0,
                 top: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)',
                 height: 'calc(100% - env(safe-area-inset-top, 0px) - 5.5rem)',
-                borderRadius: '0 0 16px 16px',
+                borderRadius: '16px',
                 margin: '0 8px',
                 transformOrigin: 'top center',
                 boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4)',
