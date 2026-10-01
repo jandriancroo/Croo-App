@@ -1498,11 +1498,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }) => {
     const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
     return (
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
-            <p className="text-3xl font-extrabold leading-tight text-accent-foreground">
+            <p className="text-2xl font-extrabold leading-none text-accent-foreground">
               {sales !== undefined ? formatCurrency(sales) : '--'}
             </p>
           </div>
@@ -1522,16 +1522,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
         {status && (
           <div className="flex justify-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-foreground/20 px-3 py-1 text-[11px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-sm">
-              {status === 'ahead' && <Flame className="h-4 w-4 shrink-0" />}
-              {status === 'onTrack' && <Activity className="h-4 w-4 shrink-0" />}
-              {status === 'behind' && <AlertCircle className="h-4 w-4 shrink-0" />}
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-foreground/20 px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-xs">
+              {status === 'ahead' && <Flame className="h-3.5 w-3.5 shrink-0" />}
+              {status === 'onTrack' && <Activity className="h-3.5 w-3.5 shrink-0" />}
+              {status === 'behind' && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
               {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
             </span>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className="grid grid-cols-2 gap-2 pt-0.5">
           <div className="min-w-0">
             <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
             <p className="text-base font-bold text-accent-foreground sm:text-lg">
