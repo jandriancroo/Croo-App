@@ -14590,6 +14590,10 @@ export type Database = {
         Args: { _bp_id: string; _location_id: string; _visited?: string[] }
         Returns: Json
       }
+      _rc_batch_lens: {
+        Args: { _bp_id: string; _location_id: string; _visited?: string[] }
+        Returns: Json
+      }
       _rc_brand_bp: { Args: { _bp_id: string }; Returns: string }
       _rc_caller_can_read_brand: {
         Args: { _brand_id: string }
@@ -15206,6 +15210,21 @@ export type Database = {
       pfg_swap_credentials_ropc: {
         Args: { p_integration_id: string; p_new_credentials: Json }
         Returns: boolean
+      }
+      preview_recipe_costs_lens: {
+        Args: { _brand_id: string; _location_id?: string }
+        Returns: {
+          item_name: string
+          location_name: string
+          new_per_unit: number
+          new_problems: string[]
+          new_status: string
+          old_per_unit: number
+          old_status: string
+          pct_change: number
+          store_packs_used: string[]
+          yield_unit: string
+        }[]
       }
       profile_at_punch_device_location: {
         Args: { _device_user_id: string; _profile_id: string }
