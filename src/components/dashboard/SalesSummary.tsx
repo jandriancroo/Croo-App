@@ -1496,8 +1496,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     lastYear?: number;
     status: PaceStatus | null;
   }) => {
-    const progress = goal > 0 && sales !== undefined ? Math.min(100, Math.max(0, (sales / goal) * 100)) : 0;
-    const pacePct = goal > 0 && pace > 0 ? Math.min(100, (pace / goal) * 100) : 0;
     const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
     return (
       <div className="space-y-2">
@@ -1522,24 +1520,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           </div>
         </div>
 
-        <div className="relative flex items-center">
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-accent-foreground/20">
-            {pacePct > 0 && (
-              <div className="absolute inset-y-0 left-0 rounded-full bg-accent-foreground/30" style={{ width: `${pacePct}%` }} />
-            )}
-            <div className="absolute inset-y-0 left-0 rounded-full bg-accent-foreground" style={{ width: `${progress}%` }} />
+        {status && (
+          <div className="flex justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-foreground/20 px-3 py-1 text-[11px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-sm">
+              {status === 'ahead' && <Flame className="h-4 w-4 shrink-0" />}
+              {status === 'onTrack' && <Activity className="h-4 w-4 shrink-0" />}
+              {status === 'behind' && <AlertCircle className="h-4 w-4 shrink-0" />}
+              {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
+            </span>
           </div>
-          {status && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="inline-flex items-center gap-1 rounded-full bg-card px-3 py-1 text-[10px] font-bold text-card-foreground ring-4 ring-card sm:text-xs">
-                {status === 'ahead' && <Flame className="h-3.5 w-3.5 shrink-0" />}
-                {status === 'onTrack' && <Activity className="h-3.5 w-3.5 shrink-0" />}
-                {status === 'behind' && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
-                {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
-              </span>
-            </div>
-          )}
-        </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2 border-t border-accent-foreground/15 pt-2">
           <div className="min-w-0">
