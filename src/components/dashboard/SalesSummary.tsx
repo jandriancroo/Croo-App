@@ -1466,7 +1466,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       <span className="mt-px flex items-center justify-center gap-[3px] whitespace-nowrap text-[10px] font-bold text-accent-foreground">
         {isPositive ? <TrendingUp className="h-[11px] w-[11px] shrink-0 text-success" /> : <TrendingDown className="h-[11px] w-[11px] shrink-0 text-destructive" />}
         <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-        <span className="text-accent-foreground/85">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
+        <span className="text-accent-foreground/85">{isPositive ? '+' : ''}{percent.toFixed(1)}% vs LY</span>
       </span>
     );
   };
@@ -1517,7 +1517,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           </div>
         )}
 
-        <div className="mt-3.5 grid w-full grid-cols-3 rounded-xl bg-black/[0.12] px-0.5 py-2.5">
+        <div className="mt-2.5 grid w-full grid-cols-3 rounded-xl bg-black/[0.12] px-0.5 py-2">
           <div className="min-w-0 px-1 text-center">
             <p className="text-[11px] font-semibold text-accent-foreground/85">Last Year</p>
             <p className="whitespace-nowrap text-[17px] font-bold leading-[1.3] tabular-nums text-accent-foreground">
@@ -1723,7 +1723,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-4 py-3 cursor-pointer select-none"
+                className="relative rounded-2xl bg-accent border border-accent/80 px-4 py-2.5 cursor-pointer select-none"
                 style={{ borderBottomLeftRadius: expandedToday ? '0' : undefined, borderBottomRightRadius: expandedToday ? '0' : undefined }}
                 onClick={() => setExpandedToday((v) => !v)}
               >
@@ -1946,7 +1946,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Week */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-4 py-3 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-accent border border-accent/80 px-4 py-2.5 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedWeek ? '0' : undefined, borderBottomRightRadius: expandedWeek ? '0' : undefined }}
                 onClick={() => setExpandedWeek((v) => !v)}
               >
@@ -2086,7 +2086,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Month */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-4 py-3 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-accent border border-accent/80 px-4 py-2.5 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedMonth ? '0' : undefined, borderBottomRightRadius: expandedMonth ? '0' : undefined }}
                 onClick={() => setExpandedMonth((v) => !v)}
               >
