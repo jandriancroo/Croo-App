@@ -1475,10 +1475,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const percent = (difference / lastYear) * 100;
     const isPositive = difference >= 0;
     return (
-      <span className={`mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold text-white sm:text-[10px] ${isPositive ? 'bg-success' : 'bg-destructive'}`}>
-        {isPositive ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
+      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-[10px]">
+        {isPositive ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
         <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-        <span className="text-white/80">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
+        <span className="text-accent-foreground/80">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
       </span>
     );
   };
@@ -1519,8 +1519,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         </div>
         {change !== null && (
           <div className="-mt-1">
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold text-white sm:text-[10px] ${change >= 0 ? 'bg-success' : 'bg-destructive'}`}>
-              {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-[10px]">
+              {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
               <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
             </span>
           </div>
