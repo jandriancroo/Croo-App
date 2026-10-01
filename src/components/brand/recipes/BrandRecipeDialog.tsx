@@ -80,7 +80,7 @@ const BrandRecipeDialog = ({ open, onOpenChange, brandId, blueprintId }: Props) 
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const [tpl, bps] = await Promise.all([
-        supabase.from("brand_inventory_templates")
+        (supabase.from as any)("brand_inventory_templates")
           .select("id, common_name, product_name")
           .eq("brand_id", brandId).order("common_name"),
         supabase.from("recipe_blueprints" as any)
