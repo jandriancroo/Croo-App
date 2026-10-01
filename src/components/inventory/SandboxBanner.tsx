@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Beaker, RotateCw, Wrench, Rocket, Copy, Check, Search } from "lucide-react";
+import { Beaker, RotateCw, Wrench, Rocket, Copy, Check, Search, FilePlus } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SandboxFlagsCounter } from "./SandboxFlagsPanel";
@@ -59,6 +59,8 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerLocationId, setPickerLocationId] = useState<string>("");
   const [pickerCountId, setPickerCountId] = useState<string>("");
+  const [freshOpen, setFreshOpen] = useState(false);
+  const [freshLocationId, setFreshLocationId] = useState<string>("");
   const [bugText, setBugText] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -66,14 +68,16 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
   const { data: source } = useQuery({
     queryKey: ["sandbox-source", count.cloned_from_location_id, count.cloned_from_count_id],
     queryFn: async () => {
-      if (!count.cloned_from_location_id || !count.cloned_from_count_id) return null;
+      if (!count.cloned_from_location_id) return null;
       const [loc, src] = await Promise.all([
         supabase.from("locations").select("name").eq("id", count.cloned_from_location_id).maybeSingle(),
-        supabase
-          .from("inventory_counts")
-          .select("period_type, count_date")
-          .eq("id", count.cloned_from_count_id)
-          .maybeSingle(),
+        count.cloned_from_count_id
+          ? supabase
+              .from("inventory_counts")
+              .select("period_type, count_date")
+              .eq("id", count.cloned_from_count_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null } as any),
       ]);
       return {
         location_name: loc.data?.name ?? "Unknown",
@@ -82,7 +86,7 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
           : "Unknown count",
       };
     },
-    enabled: !!count.cloned_from_location_id && !!count.cloned_from_count_id,
+    enabled: !!count.cloned_from_location_id,
   });
 
   // Outstanding (non-deployed) fix for this sandbox count
@@ -142,7 +146,7 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
         .order("name");
       return data ?? [];
     },
-    enabled: pickerOpen,
+    enabled: pickerOpen || freshOpen,
   });
 
   // Picker: recent counts at the selected location
@@ -186,6 +190,30 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
       if (sandbox?.id) {
         navigate(`/inventory/${sandbox.id}/count/${newCountId}`);
       }
+      queryClient.invalidateQueries({ queryKey: ["inventory-count-details"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const startFresh = useMutation({
+    mutationFn: async () => {
+      if (!freshLocationId) throw new Error("Pick a store");
+      const { data, error } = await supabase.rpc("start_fresh_sandbox_count" as any, {
+        _source_location_id: freshLocationId,
+      } as any);
+      if (error) throw error;
+      return data as unknown as string;
+    },
+    onSuccess: async (newCountId) => {
+      toast.success("Fresh practice count started");
+      setFreshOpen(false);
+      setFreshLocationId("");
+      const { data: sandbox } = await supabase
+        .from("locations")
+        .select("id")
+        .eq("requires_super_admin", true)
+        .maybeSingle();
+      if (sandbox?.id) navigate(`/inventory/${sandbox.id}/count/${newCountId}`);
       queryClient.invalidateQueries({ queryKey: ["inventory-count-details"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -278,7 +306,18 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
               <SandboxFlagsCounter countId={count.id} />
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {hasSource ? (
+              {count.cloned_from_location_id && !count.cloned_from_count_id ? (
+                <>
+                  Fresh count using{" "}
+                  <span className="font-medium text-foreground">
+                    {source?.location_name ?? "…"}
+                  </span>{" "}
+                  items, prices and pack sizes
+                  {count.cloned_at && (
+                    <> · copied {new Date(count.cloned_at).toLocaleString()}</>
+                  )}
+                </>
+              ) : hasSource ? (
                 <>
                   Cloned from{" "}
                   <span className="font-medium text-foreground">
@@ -307,6 +346,10 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setFreshOpen(true)}>
+            <FilePlus className="h-3.5 w-3.5 mr-1.5" />
+            Start fresh count
+          </Button>
           {hasSource ? (
             <Button
               size="sm"
@@ -416,6 +459,48 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
             <Button onClick={handleMarkDeployed}>
               <Copy className="h-4 w-4 mr-1.5" />
               Mark deployed + copy prompt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Start fresh count dialog */}
+      <Dialog open={freshOpen} onOpenChange={setFreshOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Start a fresh practice count</DialogTitle>
+            <DialogDescription>
+              Copies the store&apos;s current items, prices and pack sizes into the
+              practice store and starts a blank count for today — just like a
+              real new count. Replaces the current practice count. Real stores
+              are never changed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Store</label>
+            <Select value={freshLocationId} onValueChange={setFreshLocationId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a store…" />
+              </SelectTrigger>
+              <SelectContent>
+                {pickerLocations.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFreshOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => startFresh.mutate()}
+              disabled={!freshLocationId || startFresh.isPending}
+            >
+              <FilePlus className="h-4 w-4 mr-1.5" />
+              {startFresh.isPending ? "Starting…" : "Start fresh count"}
             </Button>
           </DialogFooter>
         </DialogContent>
