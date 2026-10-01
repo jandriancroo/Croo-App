@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package, RefreshCcw, Flame, Activity, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, TrendingUp, TrendingDown, Package, RefreshCcw, Flame, Activity, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -39,6 +39,7 @@ interface SalesData {
     monthly: Array<{ paymentType: string; amount: number }>;
   } | null;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
+  comparisonLY?: { day?: number; week?: number; month?: number };
   lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number; date?: string };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number; todaySource?: ProjectionSource };
   currentHour?: number;
@@ -810,6 +811,29 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             date: c?.ly_date ?? undefined,
           };
         }
+        // LY "at this point": last year's same business date through the same
+        // local hour as now (same hour rule the real-time POS comparison uses).
+        const lyHourlyRaw = (c as any)?.ly_hourly_data;
+        if (isTodayCheck && Array.isArray(lyHourlyRaw) && lyHourlyRaw.length > 0) {
+          const cutoffHour = DateTime.now().setZone(locationZone).hour;
+          let lyThrough = 0;
+          for (const h of lyHourlyRaw as Array<{ hour?: unknown; sales?: unknown }>) {
+            const hs = String(h?.hour ?? '');
+            const hn = parseInt(hs.includes(':') ? hs.split(':')[0] : hs, 10);
+            if (!Number.isFinite(hn)) continue;
+            if (hn <= cutoffHour) lyThrough += Number(h?.sales) || 0;
+          }
+          const lyFullDay = c?.ly_net_sales != null ? Number(c.ly_net_sales) : undefined;
+          const lyWtd = c?.ly_wtd_net != null ? Number(c.ly_wtd_net) : undefined;
+          const lyMtd = c?.ly_mtd_net != null ? Number(c.ly_mtd_net) : undefined;
+          if (lyThrough > 0) {
+            salesData.comparisonLY = {
+              day: lyThrough,
+              week: lyWtd !== undefined && lyFullDay !== undefined ? Math.max(0, lyWtd - lyFullDay + lyThrough) : undefined,
+              month: lyMtd !== undefined && lyFullDay !== undefined ? Math.max(0, lyMtd - lyFullDay + lyThrough) : undefined,
+            };
+          }
+        }
       } catch (e) {
         console.warn('[SalesOverview] comparisons failed:', e);
       }
@@ -1470,10 +1494,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             type="button"
             variant="ghost"
             onClick={(event) => event.stopPropagation()}
-            className="mt-px h-auto min-h-0 whitespace-nowrap rounded-full px-1.5 py-0 text-[10px] font-bold text-accent-foreground/85 hover:bg-accent-foreground/15 hover:text-accent-foreground"
+            className="mt-1 h-[18px] min-h-0 gap-[3px] whitespace-nowrap rounded-full bg-accent-foreground/20 px-1.5 py-0 text-[9px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30 hover:bg-accent-foreground/30 hover:text-accent-foreground"
             aria-label="Show Pace comparison with last year"
           >
             {isPositive ? '+' : ''}{percent.toFixed(1)}% vs LY
+            <ChevronUp className="h-2.5 w-2.5 shrink-0 opacity-80" />
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -1481,14 +1506,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           align="center"
           sideOffset={6}
           onClick={(event) => event.stopPropagation()}
-          className="w-auto rounded-xl border-border bg-popover px-3 py-2 text-popover-foreground shadow-lg"
+          className="w-auto rounded-md border-border bg-card px-2 py-2 text-popover-foreground shadow-lg"
         >
-          <p className="mb-1 text-center text-[10px] font-semibold text-muted-foreground">Pace vs Last Year</p>
-          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-xs font-bold tabular-nums">
-            {isPositive ? <TrendingUp className="h-3.5 w-3.5 shrink-0 text-success" /> : <TrendingDown className="h-3.5 w-3.5 shrink-0 text-destructive" />}
-            <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-            <span className="text-muted-foreground">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
-          </div>
+          <p className="font-medium">Pace vs Last Year</p>
+          <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(pace)}</span></p>
+          <p className="text-muted-foreground">Last Year: <span className="text-foreground">{formatCurrency(lastYear)}</span></p>
+          <p className={isPositive ? 'text-success' : 'text-destructive'}>
+            Difference: <span className="font-medium">{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))} ({isPositive ? '+' : ''}{percent.toFixed(1)}%)</span>
+          </p>
         </PopoverContent>
       </Popover>
     );
@@ -1499,6 +1524,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     sales,
     priorComparison,
     priorComparisonLabel,
+    compLY,
+    compPeriodLabel,
     goal,
     pace,
     lastYear,
@@ -1508,16 +1535,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     sales?: number;
     priorComparison?: number;
     priorComparisonLabel: string;
+    compLY?: number;
+    compPeriodLabel: string;
     goal: number;
     pace: number;
     lastYear?: number;
     status: PaceStatus | null;
   }) => {
-    const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
+    const chipValue = compLY !== undefined ? compLY : priorComparison;
+    const chipLabel = compLY !== undefined ? 'LY at this point' : priorComparisonLabel;
+    const change = chipValue !== undefined && sales !== undefined ? getChangePercent(sales, chipValue) : null;
     return (
       <div className="flex flex-col items-center text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent-foreground/85">{salesLabel}</p>
-        <p className="mt-1 whitespace-nowrap text-[44px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-accent-foreground">
+        <p className="mt-1 whitespace-nowrap text-[37px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-accent-foreground">
           {sales !== undefined ? formatCurrency(sales) : '--'}
         </p>
 
@@ -1531,11 +1562,37 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
               </span>
             )}
-            {change !== null && (
-              <span className="inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full bg-accent-foreground/20 px-2 text-[11px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30">
-                {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
-                <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
-              </span>
+            {change !== null && chipValue !== undefined && sales !== undefined && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(event) => event.stopPropagation()}
+                    className="inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full bg-accent-foreground/20 px-2 text-[11px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30 transition-colors hover:bg-accent-foreground/30"
+                    aria-label="Show sales comparison with last year"
+                  >
+                    {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
+                    <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {chipLabel}</span>
+                    <ChevronUp className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="top"
+                  align="center"
+                  sideOffset={6}
+                  onClick={(event) => event.stopPropagation()}
+                  className="w-auto rounded-md border-border bg-card px-2 py-2 text-popover-foreground shadow-lg"
+                >
+                  <p className="font-medium">
+                    {compLY !== undefined ? `${compPeriodLabel} vs LY at this point` : `vs ${priorComparisonLabel}`}
+                  </p>
+                  <p className="text-muted-foreground">{compPeriodLabel}: <span className="text-foreground">{formatCurrency(sales)}</span></p>
+                  <p className="text-muted-foreground">{chipLabel}: <span className="text-foreground">{formatCurrency(chipValue)}</span></p>
+                  <p className={change >= 0 ? 'text-success' : 'text-destructive'}>
+                    Difference: <span className="font-medium">{change >= 0 ? '+' : '-'}{formatCurrency(Math.abs(sales - chipValue))} ({change >= 0 ? '+' : ''}{change.toFixed(1)}%)</span>
+                  </p>
+                </PopoverContent>
+              </Popover>
             )}
           </div>
         )}
@@ -1755,6 +1812,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   sales: salesData?.daily,
                   priorComparison: salesData?.comparison?.prevDay,
                   priorComparisonLabel: `Last ${targetDateTime.toFormat('ccc')}`,
+                  compLY: salesData?.comparisonLY?.day,
+                  compPeriodLabel: 'Today',
                   goal: todayGoal,
                   pace: todayPace,
                   lastYear: salesData?.lastYear?.sameDay,
@@ -1978,6 +2037,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   sales: salesData?.weekly,
                   priorComparison: salesData?.comparison?.prevWeek,
                   priorComparisonLabel: 'Last Week',
+                  compLY: salesData?.comparisonLY?.week,
+                  compPeriodLabel: 'This week',
                   goal: calculatedWeekProjected,
                   pace: isCurrentWeek ? calculatedWeekPace : 0,
                   lastYear: salesData?.lastYear?.sameWeek,
@@ -2118,6 +2179,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   sales: salesData?.monthly,
                   priorComparison: salesData?.comparison?.prevMonth,
                   priorComparisonLabel: 'Last Month',
+                  compLY: salesData?.comparisonLY?.month,
+                  compPeriodLabel: 'This month',
                   goal: calculatedMonthProjected,
                   pace: isCurrentMonth ? calculatedMonthPace : 0,
                   lastYear: salesData?.lastYear?.sameMonth,

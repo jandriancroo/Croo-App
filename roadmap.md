@@ -116,3 +116,7 @@
 
 ## In progress
 - Sales summary scoreboard (Option B): center the status pill over the progress bar with a "cutout" (ring in card color), make the pill slightly larger, and raise Last Year + Pace numbers to Goal's font size. Comp badges below data points already done. File: src/components/dashboard/SalesSummary.tsx renderScoreboard.
+
+## In progress (Oct 1, 2026)
+- Sales scoreboard: reduce hero number ~15% (44px -> 37px), style pace comp popover trigger as a clickable badge with a small open icon.
+- Pace popover styling must match the hourly chart popover design (white card, bold title, label/value rows) per Jordan.
