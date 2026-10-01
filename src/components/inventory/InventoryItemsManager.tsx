@@ -1823,7 +1823,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       costPerUnit={editingItem.cost_per_unit ? Number(editingItem.cost_per_unit) : null}
                       unitLabel={editingItem.unit || 'case'}
                       packSize={editingItem.pack_size || null}
-                      packQuantity={editingItem.pack_quantity_override || editingItem.pack_quantity || null}
+                      packQuantity={editingItem.pack_quantity || null}
                     />
                   )}
                 </div>

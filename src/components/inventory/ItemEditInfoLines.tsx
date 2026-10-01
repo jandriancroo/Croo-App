@@ -71,7 +71,6 @@ export function ItemPackLine({ item, lensEnabled, lensMap, loading }: {
   const lens = lensEnabled && item?.brand_item_id ? lensMap?.get(item.brand_item_id) ?? null : null;
   const shape = resolveItemPackShape({
     pack_quantity: item?.pack_quantity ?? null,
-    pack_quantity_override: item?.pack_quantity_override ?? null,
     inner_pack_quantity: item?.inner_pack_quantity ?? null,
     inner_pack_label: item?.inner_pack_label ?? null,
     unit: item?.unit ?? null,

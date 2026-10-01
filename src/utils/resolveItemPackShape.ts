@@ -74,8 +74,6 @@ const finiteOrNull = (v: unknown): number | null => {
 
 const localPackQty = (item: PackShapeItemInput): number => {
   const candidates = [
-    item._rawPackQuantityOverride,
-    item.pack_quantity_override,
     item._rawPackQuantity,
     item.pack_quantity,
   ];

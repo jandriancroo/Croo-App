@@ -331,7 +331,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       for (const item of itemsData || []) {
         rawPackMap.set(item.id, {
           pack_quantity: (item as any).pack_quantity ?? null,
-          pack_quantity_override: (item as any).pack_quantity_override ?? null,
+          pack_quantity_override: null,
         });
       }
 
@@ -376,7 +376,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             pack_size: item.pack_size,
             // Effective pack qty: shortcut override (junction) > item override > item default
             pack_quantity: (locId ? junctionPackQtyMap.get(`${item.id}|${locId}`) : undefined)
-              ?? (item as any).pack_quantity_override
               ?? item.pack_quantity,
             pack_quantity_override: null,
             // Phase 3: brand-level inner pack tier (NULL = no inner-pack input shown)
@@ -422,7 +421,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _sortOrder: sortOrder,
             // Raw uncollapsed pack values (before line 284 collapse) for SOT parity
             _rawPackQuantity: rawPackMap.get(item.id)?.pack_quantity ?? null,
-            _rawPackQuantityOverride: rawPackMap.get(item.id)?.pack_quantity_override ?? null,
+            _rawPackQuantityOverride: null,
           } as any);
         }
       }
@@ -880,7 +879,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         pack_quantity_at_count: item.pack_quantity_at_count ?? item._packQuantityAtCount ?? null,
         inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? item._innerPackQuantityAtCount ?? null,
         pack_quantity: item.pack_quantity ?? null,
-        pack_quantity_override: item.pack_quantity_override ?? null,
+        pack_quantity_override: null,
         _rawPackQuantity: item._rawPackQuantity ?? null,
         _rawPackQuantityOverride: item._rawPackQuantityOverride ?? null,
         inner_pack_quantity: item.inner_pack_quantity ?? null,
