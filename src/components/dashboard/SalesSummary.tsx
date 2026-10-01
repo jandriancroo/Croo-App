@@ -1505,20 +1505,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             <p className="text-3xl font-extrabold leading-tight text-accent-foreground">
               {sales !== undefined ? formatCurrency(sales) : '--'}
             </p>
-            {change !== null && (
-              <div className="mt-0.5">
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
-                  {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
-                  <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
-                </span>
-              </div>
-            )}
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[9px] font-bold text-accent-foreground/70">Goal</p>
             <p className="text-base font-bold text-accent-foreground sm:text-lg">{goal > 0 ? formatCurrency(goal) : '--'}</p>
           </div>
         </div>
+        {change !== null && (
+          <div className="-mt-1">
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
+              {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
+              <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
+            </span>
+          </div>
+        )}
 
         {status && (
           <div className="flex justify-center">
@@ -1531,7 +1531,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 border-t border-accent-foreground/15 pt-2">
+        <div className="grid grid-cols-2 gap-2 pt-1">
           <div className="min-w-0">
             <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
             <p className="text-base font-bold text-accent-foreground sm:text-lg">
