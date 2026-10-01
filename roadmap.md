@@ -103,3 +103,5 @@
 
 ## Queued
 - [ ] Post-inventory: credit-waste review (which background jobs/queries burn the most) — Jordan wants to trim before spending on bigger compute.
+
+- [ ] Bottled beer at Palm Springs: cost/packs wrong. Revisit in next few days — Jordan may build a beer product/order sync (most stores order monthly).
