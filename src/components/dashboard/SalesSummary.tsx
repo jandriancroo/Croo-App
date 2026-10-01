@@ -1469,10 +1469,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const percent = (difference / lastYear) * 100;
     const isPositive = difference >= 0;
     return (
-      <span className="inline-flex items-center justify-end gap-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
+      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
         {isPositive ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
         <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-        <span className="text-accent-foreground/70">({isPositive ? '+' : ''}{percent.toFixed(1)}%)</span>
+        <span className="text-accent-foreground/80">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
       </span>
     );
   };
