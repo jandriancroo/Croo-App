@@ -17,6 +17,9 @@ interface InventoryCountTabProps {
   locationId: string;
   inProgressCount: any | null;
   recentCounts: any[] | undefined;
+  /** How many past periods are shown (and have totals loaded). */
+  visibleCount?: number;
+  onLoadMore?: () => void;
   onStartCount: () => void;
   onDeleteCount: (count: any) => void;
   onCreateCountForPeriod?: (periodType: string, periodEndDate: string) => void;
@@ -31,12 +34,17 @@ export default function InventoryCountTab({
   onDeleteCount,
   onCreateCountForPeriod,
   onStartDailyCount,
+  visibleCount: visibleCountProp,
+  onLoadMore,
 }: InventoryCountTabProps) {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const [pageIndex, setPageIndex] = useState(0);
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [visibleCountLocal, setVisibleCountLocal] = useState(4);
+  const visibleCount = visibleCountProp ?? visibleCountLocal;
+  const setVisibleCount = (fn: (v: number) => number) =>
+    onLoadMore ? onLoadMore() : setVisibleCountLocal(fn);
   // tabsRef removed — old horizontal tab strip replaced by Design D divider list.
 
   // Merge in-progress into recentCounts stats if available
@@ -380,7 +388,7 @@ export default function InventoryCountTab({
         const loadMore = hasMoreHistory && pageIndex === pastMaxPage ? (
           <div className="flex justify-center">
             <button
-              onClick={() => setVisibleCount(v => v + 6)}
+              onClick={() => setVisibleCount(v => v + 4)}
               className="text-[11px] font-semibold text-muted-foreground hover:text-foreground px-3 py-1 rounded-full bg-muted/40 hover:bg-muted/70 transition-colors"
             >
               Load older periods

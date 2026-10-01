@@ -199,29 +199,34 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
     queryClient.prefetchQuery({
       queryKey: ['schedule-stable', locationId],
       queryFn: async () => {
-        const [userLocationsResult, allProfilesResult, rolesResult, templatesResult] = await Promise.all([
+        // Roster first, then only this store's people — never every store's.
+        const [userLocationsResult, templatesResult] = await Promise.all([
           supabase
             .from("user_locations")
             .select("user_id, show_on_schedule")
             .eq("location_id", locationId),
-          supabase
-            .from("profiles")
-            .select(`id, full_name, profile_photo_url, display_order, appears_on_schedule, weekly_availability`)
-            .eq("is_active", true)
-            .eq("appears_on_schedule", true),
-          supabase.from("user_roles").select("user_id, role"),
           supabase
             .from("shift_templates")
             .select("*")
             .eq("location_id", locationId)
             .order("start_time", { ascending: true }),
         ]);
-
-        if (userLocationsResult.error || allProfilesResult.error || rolesResult.error || templatesResult.error) {
-          return null;
-        }
-
+        if (userLocationsResult.error || templatesResult.error) return null;
         const locationUserIds = new Set((userLocationsResult.data || []).filter(ul => ul.show_on_schedule !== false).map((ul) => ul.user_id));
+        const scopedIds = Array.from(locationUserIds);
+        const [allProfilesResult, rolesResult] = scopedIds.length
+          ? await Promise.all([
+              supabase
+                .from("profiles")
+                .select(`id, full_name, profile_photo_url, display_order, appears_on_schedule, weekly_availability`)
+                .in("id", scopedIds)
+                .eq("is_active", true)
+                .eq("appears_on_schedule", true),
+              supabase.from("user_roles").select("user_id, role").in("user_id", scopedIds),
+            ])
+          : [{ data: [], error: null } as any, { data: [], error: null } as any];
+        if (allProfilesResult.error || rolesResult.error) return null;
+
         const locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
         
         const { data: wageRows } = await supabase.rpc('get_current_wages_batch', {

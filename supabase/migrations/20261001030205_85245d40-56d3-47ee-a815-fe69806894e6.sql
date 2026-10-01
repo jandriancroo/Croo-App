@@ -1,0 +1,2 @@
+ALTER POLICY "Admins can view all profiles" ON public.profiles USING ((SELECT public.has_role(auth.uid(), 'admin'::app_role)));
+CREATE INDEX IF NOT EXISTS idx_checklist_responses_created_at ON public.checklist_responses USING btree (created_at);
