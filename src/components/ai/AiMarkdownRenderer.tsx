@@ -15,7 +15,10 @@ type HastNode = {
 function nodeText(node: HastNode | undefined): string {
   if (!node) return '';
   if (node.type === 'text') return node.value || '';
-  return (node.children || []).map(nodeText).join('');
+  return (node.children || []).map(nodeText).reduce((text, part) => {
+    const needsSpace = /[A-Za-z0-9]$/.test(text) && /^[A-Za-z0-9]/.test(part);
+    return `${text}${needsSpace ? ' ' : ''}${part}`;
+  }, '');
 }
 
 function getTwoColumnRows(node: HastNode | undefined): Array<[string, string]> | null {
@@ -195,7 +198,7 @@ interface AiMarkdownRendererProps {
 
 export function AiMarkdownRenderer({ content }: AiMarkdownRendererProps) {
   return (
-    <div className="ai-markdown max-w-none text-foreground">
+    <div className="ai-markdown max-w-none text-foreground [&>*:first-child]:mt-0 [&>p:first-child]:text-[15px] [&>p:first-child]:leading-[1.5]">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</ReactMarkdown>
     </div>
   );
