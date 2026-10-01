@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_sales_ly_totals(uuid, date) FROM PUBLIC, anon;

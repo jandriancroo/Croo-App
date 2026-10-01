@@ -14977,6 +14977,14 @@ export type Database = {
           wtd_net: number
         }[]
       }
+      get_sales_ly_totals: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          ly_day_total: number
+          ly_month_total: number
+          ly_week_total: number
+        }[]
+      }
       get_store_labor: {
         Args: { _end: string; _location_ids: string[]; _start: string }
         Returns: {
