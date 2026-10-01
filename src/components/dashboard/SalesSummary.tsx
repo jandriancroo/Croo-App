@@ -1498,7 +1498,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }) => {
     const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
     return (
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
