@@ -227,13 +227,13 @@ export function calculateCountItemValue(
   // helper falls through to lens → live override → pack_quantity → Pipeline 1.
   const lensForPackHelper = useLens ? item?.lens : null;
   const packSource = useLive
-    ? { lens: lensForPackHelper, pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity }
-    : { pack_quantity_at_count: ci.pack_quantity_at_count, lens: lensForPackHelper, pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity };
+    ? { lens: lensForPackHelper, pack_quantity: item?.pack_quantity }
+    : { pack_quantity_at_count: ci.pack_quantity_at_count, lens: lensForPackHelper, pack_quantity: item?.pack_quantity };
   let safePackQty = getEffectivePackQty(packSource);
   // Pipeline 1 fallback applies only when nothing else resolved (helper returned 1 with no inputs).
   // Skip entirely when lens owns the valuation — lens count_units_per_case is authoritative.
   if (!useLens && safePackQty === 1 && pipeline1PackQty != null && Number.isFinite(pipeline1PackQty) && pipeline1PackQty > 0
-      && !ci.pack_quantity_at_count && !item?.pack_quantity_override && !item?.pack_quantity) {
+      && !ci.pack_quantity_at_count && !item?.pack_quantity) {
     safePackQty = Number(pipeline1PackQty);
   }
 

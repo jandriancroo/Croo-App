@@ -331,7 +331,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       for (const item of itemsData || []) {
         rawPackMap.set(item.id, {
           pack_quantity: (item as any).pack_quantity ?? null,
-          pack_quantity_override: (item as any).pack_quantity_override ?? null,
+          pack_quantity_override: null,
         });
       }
 
@@ -376,7 +376,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             pack_size: item.pack_size,
             // Effective pack qty: shortcut override (junction) > item override > item default
             pack_quantity: (locId ? junctionPackQtyMap.get(`${item.id}|${locId}`) : undefined)
-              ?? (item as any).pack_quantity_override
               ?? item.pack_quantity,
             pack_quantity_override: null,
             // Phase 3: brand-level inner pack tier (NULL = no inner-pack input shown)
@@ -422,7 +421,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _sortOrder: sortOrder,
             // Raw uncollapsed pack values (before line 284 collapse) for SOT parity
             _rawPackQuantity: rawPackMap.get(item.id)?.pack_quantity ?? null,
-            _rawPackQuantityOverride: rawPackMap.get(item.id)?.pack_quantity_override ?? null,
+            _rawPackQuantityOverride: null,
           } as any);
         }
       }
@@ -493,14 +492,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Read-path only; resolver falls back to local when missing. Snapshots still win.
   // Skipped entirely when the location gate is off.
   const { data: packLensMap } = useQuery({
-    queryKey: ["pack-config-lens", brandId, lensEnabledForLocation],
+    queryKey: ["pack-config-lens", brandId, locationId, lensEnabledForLocation],
     enabled: !!brandId && lensEnabledForLocation === true,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("brand_pack_configs" as any)
-        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, outer_qty, outer_type, inner_qty, inner_type, status, show_cases, show_inner_packs, show_common_unit")
-        .eq("status", "approved");
+      const { data, error } = await supabase.rpc("get_store_pack_lens" as any, { _location_id: locationId } as any);
       if (error) throw error;
       const map = new Map<string, {
         count_units_per_case: number | null;
@@ -883,7 +879,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         pack_quantity_at_count: item.pack_quantity_at_count ?? item._packQuantityAtCount ?? null,
         inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? item._innerPackQuantityAtCount ?? null,
         pack_quantity: item.pack_quantity ?? null,
-        pack_quantity_override: item.pack_quantity_override ?? null,
+        pack_quantity_override: null,
         _rawPackQuantity: item._rawPackQuantity ?? null,
         _rawPackQuantityOverride: item._rawPackQuantityOverride ?? null,
         inner_pack_quantity: item.inner_pack_quantity ?? null,

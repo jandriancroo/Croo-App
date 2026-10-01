@@ -71,7 +71,6 @@ export function ItemPackLine({ item, lensEnabled, lensMap, loading }: {
   const lens = lensEnabled && item?.brand_item_id ? lensMap?.get(item.brand_item_id) ?? null : null;
   const shape = resolveItemPackShape({
     pack_quantity: item?.pack_quantity ?? null,
-    pack_quantity_override: item?.pack_quantity_override ?? null,
     inner_pack_quantity: item?.inner_pack_quantity ?? null,
     inner_pack_label: item?.inner_pack_label ?? null,
     unit: item?.unit ?? null,
@@ -80,13 +79,10 @@ export function ItemPackLine({ item, lensEnabled, lensMap, loading }: {
 
   let why: string;
   if (shape.source === "lens" && isLensValid(lens)) why = "brand pack config";
-  else if (item?.pack_quantity_override != null && Number(item.pack_quantity_override) > 0) why = "store override (being retired)";
   else if (item?.pack_quantity != null && Number(item.pack_quantity) > 0) why = item?.is_recipe ? "store pack field" : "vendor pack";
   else why = "no pack set — counted one at a time";
 
-  const ignoredOverride = shape.source === "lens" && item?.pack_quantity_override != null && Number(item.pack_quantity_override) > 0
-    ? `store override ${Number(item.pack_quantity_override)} is not used (being retired)`
-    : null;
+  const ignoredOverride: string | null = null;
   const unitWord = shape.unit && shape.unit !== "cs" && shape.unit !== "case" ? shape.unit : "units";
   const container = shape.outerLabel ?? "case";
   const main = shape.innerPackQty

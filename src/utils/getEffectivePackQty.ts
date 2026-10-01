@@ -4,7 +4,7 @@
  * Priority (snapshot-first, fail-closed):
  *   1. pack_quantity_at_count  — frozen snapshot from save time (post-Apr-28 lock)
  *   2. lens.count_units_per_case  — approved brand_pack_configs (structure)
- *   3. pack_quantity_override  — location-level override
+ *   3. (retired Oct 2026) pack_quantity_override — no longer read
  *   4. count_units_per_case    — legacy count config
  *   5. pack_quantity           — vendor sync
  *   6. 1                       — final fallback
@@ -60,7 +60,6 @@ export function getEffectivePackQty(item: PackQtySource): number {
     if (Number.isFinite(n) && n > 0) return n;
   }
   const raw =
-    item.pack_quantity_override ??
     item.count_units_per_case ??
     item.pack_quantity ??
     1;

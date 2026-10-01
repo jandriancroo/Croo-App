@@ -622,7 +622,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       vendor_source: item.vendor_source || null,
     });
     setIsDailyTracked(!!item.is_daily_tracked);
-    setOverrideValue(item.pack_quantity_override?.toString() || "");
+    setOverrideValue("");
     setCategoryValue(item.category || "");
     setStorageLocationValue(item.storage_location_id || "");
     setStorageLocationValue(item.storage_location_id || "");
@@ -1823,7 +1823,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       costPerUnit={editingItem.cost_per_unit ? Number(editingItem.cost_per_unit) : null}
                       unitLabel={editingItem.unit || 'case'}
                       packSize={editingItem.pack_size || null}
-                      packQuantity={editingItem.pack_quantity_override || editingItem.pack_quantity || null}
+                      packQuantity={editingItem.pack_quantity || null}
                     />
                   )}
                 </div>

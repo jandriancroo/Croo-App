@@ -7499,6 +7499,52 @@ export type Database = {
           },
         ]
       }
+      location_pack_lens_pins: {
+        Row: {
+          brand_template_id: string
+          created_at: string
+          location_id: string
+          pack_config_id: string
+          reason: string
+        }
+        Insert: {
+          brand_template_id: string
+          created_at?: string
+          location_id: string
+          pack_config_id: string
+          reason?: string
+        }
+        Update: {
+          brand_template_id?: string
+          created_at?: string
+          location_id?: string
+          pack_config_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_pack_lens_pins_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pack_lens_pins_pack_config_id_fkey"
+            columns: ["pack_config_id"]
+            isOneToOne: false
+            referencedRelation: "brand_pack_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pack_lens_pins_pack_config_id_fkey"
+            columns: ["pack_config_id"]
+            isOneToOne: false
+            referencedRelation: "v_store_pack_lens"
+            referencedColumns: ["pack_config_id"]
+          },
+        ]
+      }
       location_pack_seen_ledger: {
         Row: {
           brand_template_id: string
@@ -7579,6 +7625,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "brand_pack_configs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pack_selections_active_pack_config_id_fkey"
+            columns: ["active_pack_config_id"]
+            isOneToOne: false
+            referencedRelation: "v_store_pack_lens"
+            referencedColumns: ["pack_config_id"]
           },
           {
             foreignKeyName: "location_pack_selections_brand_template_id_fkey"
@@ -9157,6 +9210,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "brand_pack_configs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pack_config_seed_log_existing_config_id_fkey"
+            columns: ["existing_config_id"]
+            isOneToOne: false
+            referencedRelation: "v_store_pack_lens"
+            referencedColumns: ["pack_config_id"]
           },
         ]
       }
@@ -14353,6 +14413,41 @@ export type Database = {
           },
         ]
       }
+      v_store_pack_lens: {
+        Row: {
+          brand_template_id: string | null
+          common_unit: string | null
+          cost_per_common_unit: number | null
+          count_units_per_case: number | null
+          inner_qty: number | null
+          inner_type: string | null
+          location_id: string | null
+          match_reason: string | null
+          needs_review: boolean | null
+          outer_qty: number | null
+          outer_type: string | null
+          pack_config_id: string | null
+          show_cases: boolean | null
+          show_common_unit: boolean | null
+          show_inner_packs: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_pack_configs_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _labor_cache_refresh_from: {
@@ -14862,6 +14957,25 @@ export type Database = {
           location_id: string
           net_sales: number
           source: string
+        }[]
+      }
+      get_store_pack_lens: {
+        Args: { _location_id: string }
+        Returns: {
+          brand_template_id: string
+          common_unit: string
+          cost_per_common_unit: number
+          count_units_per_case: number
+          inner_qty: number
+          inner_type: string
+          match_reason: string
+          needs_review: boolean
+          outer_qty: number
+          outer_type: string
+          pack_config_id: string
+          show_cases: boolean
+          show_common_unit: boolean
+          show_inner_packs: boolean
         }[]
       }
       get_theo_unread: {
