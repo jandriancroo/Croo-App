@@ -557,7 +557,10 @@ async function fetchInvoiceDetail(session: PASession, inv: PAInvoiceSummary): Pr
   }
   let data: any; try { data = JSON.parse(text); } catch { return null; }
   const rows: any[] = Array.isArray(data) ? data : (data.dataList || data.data || []);
-  if (!rows.length) return null;
+  if (!rows.length) {
+    console.warn('[PA InvDetail] empty', JSON.stringify(inv), 'resp:', text.substring(0, 800));
+    return null;
+  }
 
   const first = rows[0];
   const lineItems: PAInvoiceLineItem[] = rows.map((r: any) => ({
