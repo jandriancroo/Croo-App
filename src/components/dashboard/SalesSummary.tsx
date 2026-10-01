@@ -1528,13 +1528,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         </div>
       </div>
 
-      <div className="min-w-0 text-center">
-        <p className="text-[9px] font-bold text-accent-foreground/70">Goal</p>
-        <p className="text-base font-bold text-accent-foreground sm:text-lg">
-          {goal > 0 ? formatCurrency(goal) : '--'}
-        </p>
-      </div>
-
       <div className="min-w-0 text-right">
         <div>
           <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
