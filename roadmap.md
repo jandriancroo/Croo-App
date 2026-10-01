@@ -111,6 +111,7 @@
 - [in-progress] Reduce the centered sales scoreboard tile height while preserving the approved layout.
 - [in-progress] Move the Today sales sync timestamp below the hourly sales chart.
 - [in-progress] Label the Pace comparison explicitly as versus last year.
+- [in-progress] Make each Pace stat tappable: show the LY percentage by default and reveal percentage, dollars, and arrows in a compact popover.
 - [x] Sales card: show Pace vs Last Year comparison as a badge
 
 ## In progress
