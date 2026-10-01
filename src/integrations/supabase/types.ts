@@ -15337,6 +15337,10 @@ export type Database = {
         Args: { _post_id: string }
         Returns: undefined
       }
+      start_fresh_sandbox_count: {
+        Args: { _source_location_id: string }
+        Returns: string
+      }
       toast_push_wage_to_profile: {
         Args: { _location_id: string; _toast_user_id: string }
         Returns: undefined
