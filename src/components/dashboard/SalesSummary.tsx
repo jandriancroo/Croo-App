@@ -1731,7 +1731,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-2 cursor-pointer select-none"
+                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-1.5 cursor-pointer select-none"
                 style={{ borderBottomLeftRadius: expandedToday ? '0' : undefined, borderBottomRightRadius: expandedToday ? '0' : undefined }}
                 onClick={() => setExpandedToday((v) => !v)}
               >
@@ -1953,7 +1953,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Week */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-2 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-1.5 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedWeek ? '0' : undefined, borderBottomRightRadius: expandedWeek ? '0' : undefined }}
                 onClick={() => setExpandedWeek((v) => !v)}
               >
@@ -2093,7 +2093,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Month */}
               <div
-                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-2 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-accent border border-accent/80 px-3 py-1.5 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedMonth ? '0' : undefined, borderBottomRightRadius: expandedMonth ? '0' : undefined }}
                 onClick={() => setExpandedMonth((v) => !v)}
               >
