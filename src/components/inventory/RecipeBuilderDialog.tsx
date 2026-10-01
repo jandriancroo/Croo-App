@@ -650,6 +650,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
   // Recipe costs come only from the server calculator (apply_recipe_costs).
   // This dialog never writes cost_per_unit / count_units_per_case / count_unit.
   const refreshServerRecipeCosts = async () => {
+    const { resolveBrandId } = await import("@/utils/resolveBrandId");
     const bId = brandId || (locationId ? await resolveBrandId(locationId) : null);
     if (!bId) return;
     const { error } = await supabase.rpc("apply_recipe_costs" as any, { _brand_id: bId } as any);
@@ -664,8 +665,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
 
       // === LEGACY RECIPE MODE (inventory_items) ===
       if (editRecipeId && !editBlueprintId) {
-        const costPerCase = recipeCost;
-        const { error: itemErr } = await supabase
+                const { error: itemErr } = await supabase
           .from("inventory_items")
           .update({
             name: recipeName.trim(),
@@ -692,8 +692,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       }
 
       // === BLUEPRINT MODE (new architecture) ===
-      const batchCost = recipeCost;
-
+      
       if (editBlueprintId) {
         // Update existing blueprint
         const { error: bpErr } = await supabase
@@ -797,6 +796,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           } as any).eq("id", newItemId);
         }
       }
+      await refreshServerRecipeCosts();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
