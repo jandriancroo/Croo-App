@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -1463,11 +1464,33 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const percent = (difference / lastYear) * 100;
     const isPositive = difference >= 0;
     return (
-      <span className="mt-px flex items-center justify-center gap-[3px] whitespace-nowrap text-[10px] font-bold text-accent-foreground">
-        {isPositive ? <TrendingUp className="h-[11px] w-[11px] shrink-0 text-success" /> : <TrendingDown className="h-[11px] w-[11px] shrink-0 text-destructive" />}
-        <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
-        <span className="text-accent-foreground/85">{isPositive ? '+' : ''}{percent.toFixed(1)}% vs LY</span>
-      </span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={(event) => event.stopPropagation()}
+            className="mt-px h-auto min-h-0 whitespace-nowrap rounded-full px-1.5 py-0 text-[10px] font-bold text-accent-foreground/85 hover:bg-accent-foreground/15 hover:text-accent-foreground"
+            aria-label="Show Pace comparison with last year"
+          >
+            {isPositive ? '+' : ''}{percent.toFixed(1)}% vs LY
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="center"
+          sideOffset={6}
+          onClick={(event) => event.stopPropagation()}
+          className="w-auto rounded-xl border-border bg-popover px-3 py-2 text-popover-foreground shadow-lg"
+        >
+          <p className="mb-1 text-center text-[10px] font-semibold text-muted-foreground">Pace vs Last Year</p>
+          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-xs font-bold tabular-nums">
+            {isPositive ? <TrendingUp className="h-3.5 w-3.5 shrink-0 text-success" /> : <TrendingDown className="h-3.5 w-3.5 shrink-0 text-destructive" />}
+            <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
+            <span className="text-muted-foreground">{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   };
 
