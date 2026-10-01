@@ -1685,7 +1685,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto overflow-x-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
            <DialogHeader>
              <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
@@ -1740,12 +1740,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         }}
                       >
                         <SelectTrigger
-                          className="h-7 w-auto max-w-[10rem] gap-1 px-3 py-0 text-xs rounded-full font-medium bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/80 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-secondary-foreground"
+                          className="h-7 w-auto max-w-[10rem] gap-1.5 px-3 py-0 text-left text-xs rounded-full font-medium bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/80 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-secondary-foreground"
                           title="Storage location"
                         >
-                          <span className="inline-flex items-center gap-1 min-w-0">
+                          <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
                             <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <SelectValue placeholder="Unassigned" className="truncate" />
+                            <span className="min-w-0 truncate"><SelectValue placeholder="Unassigned" /></span>
                           </span>
                         </SelectTrigger>
                         <SelectContent>
