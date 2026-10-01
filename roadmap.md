@@ -109,3 +109,6 @@
 ## Oct 1, 2026
 - [in-progress] Redesign sales summary scoreboard layout (sales/Goal swap looked messy) — preview layout options, then implement Jordan's pick.
 - [x] Sales card: show Pace vs Last Year comparison as a badge
+
+## In progress
+- Sales summary scoreboard (Option B): center the status pill over the progress bar with a "cutout" (ring in card color), make the pill slightly larger, and raise Last Year + Pace numbers to Goal's font size. Comp badges below data points already done. File: src/components/dashboard/SalesSummary.tsx renderScoreboard.

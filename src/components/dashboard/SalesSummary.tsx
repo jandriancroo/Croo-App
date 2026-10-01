@@ -1496,25 +1496,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     lastYear?: number;
     status: PaceStatus | null;
   }) => {
-    const progress = goal > 0 && sales !== undefined ? Math.min(100, Math.max(0, (sales / goal) * 100)) : 0;
-    const pacePct = goal > 0 && pace > 0 ? Math.min(100, (pace / goal) * 100) : 0;
     const change = priorComparison !== undefined && sales !== undefined ? getChangePercent(sales, priorComparison) : null;
     return (
       <div className="space-y-2">
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <p className="text-3xl font-extrabold leading-tight text-accent-foreground">
-                {sales !== undefined ? formatCurrency(sales) : '--'}
-              </p>
-              {renderStatusBadge(status)}
-            </div>
+            <p className="text-3xl font-extrabold leading-tight text-accent-foreground">
+              {sales !== undefined ? formatCurrency(sales) : '--'}
+            </p>
             {change !== null && (
-              <div className="flex items-center gap-1">
-                {change >= 0 ? <TrendingUp className="h-3 w-3 text-accent-foreground" /> : <TrendingDown className="h-3 w-3 text-accent-foreground" />}
-                <span className="text-[9px] font-medium text-accent-foreground">
-                  {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}
+              <div className="mt-0.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
+                  {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
+                  <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
                 </span>
               </div>
             )}
@@ -1525,25 +1520,29 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           </div>
         </div>
 
-        <div className="relative h-2 w-full overflow-hidden rounded-full bg-accent-foreground/20">
-          {pacePct > 0 && (
-            <div className="absolute inset-y-0 left-0 rounded-full bg-accent-foreground/30" style={{ width: `${pacePct}%` }} />
-          )}
-          <div className="absolute inset-y-0 left-0 rounded-full bg-accent-foreground" style={{ width: `${progress}%` }} />
-        </div>
+        {status && (
+          <div className="flex justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-foreground/20 px-3 py-1 text-[11px] font-bold text-accent-foreground ring-1 ring-accent-foreground/30 sm:text-sm">
+              {status === 'ahead' && <Flame className="h-4 w-4 shrink-0" />}
+              {status === 'onTrack' && <Activity className="h-4 w-4 shrink-0" />}
+              {status === 'behind' && <AlertCircle className="h-4 w-4 shrink-0" />}
+              {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2 border-t border-accent-foreground/15 pt-2">
           <div className="min-w-0">
             <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
-            <p className="text-sm font-bold text-accent-foreground sm:text-base">
+            <p className="text-base font-bold text-accent-foreground sm:text-lg">
               {lastYear !== undefined && lastYear > 0 ? formatCurrency(lastYear) : '--'}
             </p>
           </div>
           <div className="min-w-0 text-right">
             <p className="text-[9px] font-bold text-accent-foreground/70">Pace</p>
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <p className="text-base font-bold text-accent-foreground sm:text-lg">{pace > 0 ? formatCurrency(pace) : '--'}</p>
+            <div className="mt-0.5 flex justify-end">
               {renderPaceVsLastYear(pace, lastYear)}
-              <p className="text-sm font-bold text-accent-foreground sm:text-base">{pace > 0 ? formatCurrency(pace) : '--'}</p>
             </div>
           </div>
         </div>
