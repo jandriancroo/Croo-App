@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, AlertCircle } from 'lucide-react';
+import { ChevronRight, AlertCircle, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
@@ -73,18 +73,67 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  // Fill color ramps from cool gray up through forest green with progress
-  const segmentFillClass = (percent: number) => {
-    if (percent >= 100) return 'bg-emerald-500';
-    if (percent >= 90) return 'bg-emerald-500';
-    if (percent >= 80) return 'bg-emerald-400';
-    if (percent >= 70) return 'bg-green-400';
-    if (percent >= 60) return 'bg-lime-400';
-    if (percent >= 50) return 'bg-lime-300';
-    if (percent >= 40) return 'bg-slate-400';
-    if (percent >= 30) return 'bg-slate-400';
-    if (percent >= 20) return 'bg-slate-300';
-    return 'bg-slate-300';
+  // Pie glyph color ramp — text-color classes drive both the ring and the
+  // wedge (SVG strokes use currentColor). Lime steps one shade darker than the
+  // old segment ramp so the thin ring stays visible on white cards.
+  const pieColorClass = (percent: number) => {
+    if (percent >= 90) return 'text-emerald-500';
+    if (percent >= 80) return 'text-emerald-400';
+    if (percent >= 70) return 'text-green-400';
+    if (percent >= 60) return 'text-lime-500';
+    if (percent >= 50) return 'text-lime-400';
+    if (percent >= 30) return 'text-slate-400';
+    return 'text-slate-300';
+  };
+
+  const renderPieGlyph = (isLocked: boolean, completed: number, expected: number) => {
+    // a. Locked — muted circle with a lock
+    if (isLocked) {
+      return (
+        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+      );
+    }
+
+    // b. Complete — solid emerald circle with a check
+    if (expected > 0 && completed >= expected) {
+      return (
+        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600">
+          <Check className="h-4 w-4 text-white" strokeWidth={3} />
+        </div>
+      );
+    }
+
+    // c. Not started / no items — empty ring
+    if (completed === 0 || expected === 0) {
+      return <div aria-hidden className="h-7 w-7 shrink-0 rounded-full border-2 border-border" />;
+    }
+
+    // d. In progress — pie wedge inside a ring (2px ring, 3px gap, r=9 wedge)
+    const pct = Math.min(100, (completed / expected) * 100);
+    const wedge = (pct / 100) * 2 * Math.PI * 4.5;
+    return (
+      <svg
+        aria-hidden
+        width="28"
+        height="28"
+        viewBox="0 0 28 28"
+        className={cn('shrink-0', pieColorClass(Math.round(pct)))}
+      >
+        <circle cx="14" cy="14" r="13" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle
+          cx="14"
+          cy="14"
+          r="4.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="9"
+          strokeDasharray={`${wedge} ${2 * Math.PI * 4.5}`}
+          transform="rotate(-90 14 14)"
+        />
+      </svg>
+    );
   };
 
 
@@ -123,13 +172,15 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
               key={checklist.id}
               onClick={() => { if (!isLocked) navigate(`/complete/${checklist.id}`); }}
               className={cn(
-                'flex flex-col gap-[7px] px-[14px] py-[11px] transition-colors duration-150',
+                'flex items-center gap-3 px-[14px] py-[11px] transition-colors duration-150',
                 idx > 0 && 'border-t border-border',
                 isLocked ? 'opacity-60' : 'cursor-pointer hover:bg-muted/40'
               )}
             >
-              <div className="flex items-center gap-3">
-                <span className="flex-1 text-[15px] font-medium tracking-[-0.01em] text-foreground truncate">
+              {renderPieGlyph(isLocked, completed, expected)}
+
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="min-w-0 truncate text-[15px] font-medium tracking-[-0.01em] text-foreground">
                   {checklist.title}
                 </span>
                 {isOverdue && (
@@ -138,38 +189,19 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                     Overdue
                   </Badge>
                 )}
-                <ChecklistStat
-                  completed={completed}
-                  total={expected}
-                  countOverride={
-                    isLocked && checklist.lock_until_time
-                      ? `Locked until ${formatLockTime(checklist.lock_until_time)}`
-                      : undefined
-                  }
-                />
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </div>
 
-              {expected > 0 && (() => {
-                const pct = Math.round((completed / expected) * 100);
-                const fill = segmentFillClass(pct);
-                return (
-                  <div className="flex items-center gap-[3px] w-full">
-                    {Array.from({ length: expected }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          'h-[3px] flex-1 rounded-full transition-colors duration-200',
-                          i < completed ? fill : 'bg-muted'
-                        )}
-                      />
-                    ))}
-                  </div>
-                );
-              })()}
-
+              <ChecklistStat
+                completed={completed}
+                total={expected}
+                countOverride={
+                  isLocked && checklist.lock_until_time
+                    ? `Locked until ${formatLockTime(checklist.lock_until_time)}`
+                    : undefined
+                }
+              />
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </div>
-
           );
         })}
 
