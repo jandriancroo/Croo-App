@@ -1433,20 +1433,120 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   const hasLaborData = !!(salesData?.labor && salesData.labor.laborPercent > 0);
 
-  // Calculate pacing status for "On Track" badge
-  const pacingStatus = useMemo(() => {
-    if (!isToday || !salesData?.projections?.todayProjected || !salesData?.projections?.todayPaceAdjusted) {
-      return null;
-    }
-    if (salesData.daily < 100) return null; // Not enough data yet
+  type PaceStatus = 'ahead' | 'onTrack' | 'behind';
 
-    const effectivePace = Math.max(salesData.projections.todayPaceAdjusted, salesData.daily || 0);
-    const paceVsProjection = (effectivePace / salesData.projections.todayProjected) * 100;
-
-    if (paceVsProjection >= 102) return 'ahead';
-    if (paceVsProjection >= 95) return 'onTrack';
+  const getPaceStatus = (actual: number, pace: number, goal: number, enabled: boolean): PaceStatus | null => {
+    if (!enabled || actual < 100 || pace <= 0 || goal <= 0) return null;
+    const paceVsGoal = (pace / goal) * 100;
+    if (paceVsGoal >= 102) return 'ahead';
+    if (paceVsGoal >= 95) return 'onTrack';
     return 'behind';
-  }, [isToday, salesData?.daily, salesData?.projections?.todayProjected, salesData?.projections?.todayPaceAdjusted]);
+  };
+
+  const todayPace = isToday && salesData?.projections?.todayPaceAdjusted
+    ? Math.max(salesData.projections.todayPaceAdjusted, salesData.daily || 0)
+    : 0;
+  const todayGoal = salesData?.projections?.todayProjected || 0;
+  const todayStatus = getPaceStatus(salesData?.daily || 0, todayPace, todayGoal, isToday);
+  const weekStatus = getPaceStatus(salesData?.weekly || 0, calculatedWeekPace, calculatedWeekProjected, isCurrentWeek);
+  const monthStatus = getPaceStatus(salesData?.monthly || 0, calculatedMonthPace, calculatedMonthProjected, isCurrentMonth);
+
+  const renderStatusBadge = (status: PaceStatus | null) => {
+    if (!status) return null;
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-foreground/20 px-2 py-1 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
+        {status === 'ahead' && <Flame className="h-3 w-3" />}
+        {status === 'onTrack' && <Activity className="h-3 w-3" />}
+        {status === 'behind' && <AlertCircle className="h-3 w-3" />}
+        {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
+      </span>
+    );
+  };
+
+  const renderPaceVsLastYear = (pace: number, lastYear?: number) => {
+    if (!lastYear || lastYear <= 0 || pace <= 0) return null;
+    const difference = pace - lastYear;
+    const percent = (difference / lastYear) * 100;
+    const isPositive = difference >= 0;
+    return (
+      <span className="inline-flex items-center justify-end gap-0.5 text-[9px] font-bold text-accent-foreground sm:text-[10px]">
+        {isPositive ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
+        <span>{isPositive ? '+' : '-'}{formatCurrency(Math.abs(difference))}</span>
+        <span className="text-accent-foreground/70">({isPositive ? '+' : ''}{percent.toFixed(1)}%)</span>
+      </span>
+    );
+  };
+
+  const renderScoreboard = ({
+    salesLabel,
+    sales,
+    priorComparison,
+    priorComparisonLabel,
+    goal,
+    pace,
+    lastYear,
+    status,
+  }: {
+    salesLabel: string;
+    sales?: number;
+    priorComparison?: number;
+    priorComparisonLabel: string;
+    goal: number;
+    pace: number;
+    lastYear?: number;
+    status: PaceStatus | null;
+  }) => (
+    <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(76px,0.8fr)_minmax(0,1.25fr)] items-center gap-2 sm:gap-4">
+      <div className="min-w-0">
+        <p className="mb-0.5 text-[10px] font-bold uppercase text-accent-foreground/60 sm:text-xs">{salesLabel}</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <p className="text-2xl font-extrabold text-accent-foreground sm:text-3xl">
+            {sales !== undefined ? formatCurrency(sales) : '--'}
+          </p>
+          {renderStatusBadge(status)}
+        </div>
+        <div className="mt-0.5 flex items-center gap-1">
+          {priorComparison !== undefined && sales !== undefined && (() => {
+            const change = getChangePercent(sales, priorComparison);
+            if (change === null) return null;
+            return (
+              <>
+                {change >= 0 ? <TrendingUp className="h-3 w-3 text-accent-foreground" /> : <TrendingDown className="h-3 w-3 text-accent-foreground" />}
+                <span className="text-[9px] font-medium text-accent-foreground">
+                  {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}
+                </span>
+              </>
+            );
+          })()}
+        </div>
+      </div>
+
+      <div className="min-w-0 text-center">
+        <p className="text-[9px] font-bold text-accent-foreground/70">Goal</p>
+        <p className="text-base font-bold text-accent-foreground sm:text-lg">
+          {goal > 0 ? formatCurrency(goal) : '--'}
+        </p>
+      </div>
+
+      <div className="min-w-0 text-right">
+        <div>
+          <p className="text-[9px] font-bold text-accent-foreground/70">Last Year</p>
+          <p className="text-base font-bold text-accent-foreground sm:text-lg">
+            {lastYear !== undefined && lastYear > 0 ? formatCurrency(lastYear) : '--'}
+          </p>
+        </div>
+        <div className="mt-1">
+          <p className="text-[9px] font-bold text-accent-foreground/70">Pace</p>
+          <div className="flex flex-wrap items-baseline justify-end gap-x-1.5 gap-y-0">
+            <p className="text-base font-bold text-accent-foreground sm:text-lg">
+              {pace > 0 ? formatCurrency(pace) : '--'}
+            </p>
+            {renderPaceVsLastYear(pace, lastYear)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   // Show skeleton shimmer only on first load with no cached data
   // If we have cached data, show it immediately (stale-while-revalidate)
@@ -1633,56 +1733,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 style={{ borderBottomLeftRadius: expandedToday ? '0' : undefined, borderBottomRightRadius: expandedToday ? '0' : undefined }}
                 onClick={() => setExpandedToday((v) => !v)}
               >
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  {pacingStatus && (
-                    <div className="flex items-center gap-1.5 rounded-full px-4 py-1.5 shadow-sm pointer-events-auto" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
-                      {pacingStatus === 'ahead' && <Flame className="h-4 w-4 text-white" />}
-                      {pacingStatus === 'onTrack' && <Activity className="h-4 w-4 text-white" />}
-                      {pacingStatus === 'behind' && <AlertCircle className="h-4 w-4 text-white" />}
-                      <span className="text-sm font-bold text-white">
-                        {pacingStatus === 'ahead' ? 'On Fire' : pacingStatus === 'onTrack' ? 'On Track' : 'Behind'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-1 items-center">
-                  <div>
-                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">TODAY'S SALES</p>
-                    <p className="text-2xl font-extrabold text-white">
-                      {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
-                    </p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      {salesData?.comparison?.prevDay !== undefined && salesData?.daily !== undefined && (() => {
-                        const change = getChangePercent(salesData.daily, salesData.comparison!.prevDay!);
-                        if (change === null) return null;
-                        return (
-                          <>
-                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
-                            <span className="text-[9px] text-white font-medium">
-                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {targetDateTime.toFormat('ccc')}
-                            </span>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="text-right space-y-0">
-                    <div>
-                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
-                      <p className="text-lg font-bold text-white">
-                        {salesData?.projections?.todayProjected ? formatCurrency(salesData.projections.todayProjected) : '--'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
-                      <p className="text-lg font-bold text-white">
-                        {isToday && salesData?.projections?.todayPaceAdjusted 
-                          ? formatCurrency(Math.max(salesData.projections.todayPaceAdjusted, salesData.daily || 0))
-                          : '--'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                {renderScoreboard({
+                  salesLabel: "TODAY'S SALES",
+                  sales: salesData?.daily,
+                  priorComparison: salesData?.comparison?.prevDay,
+                  priorComparisonLabel: targetDateTime.toFormat('ccc'),
+                  goal: todayGoal,
+                  pace: todayPace,
+                  lastYear: salesData?.lastYear?.sameDay,
+                  status: todayStatus,
+                })}
                 {isToday && toastFresh.isDelayed ? (
                   <p className="text-[9px] text-amber-300 mt-1 font-semibold">
                     Toast data delayed{toastFresh.lastLabel ? `, last update ${toastFresh.lastLabel}` : ''}
@@ -1895,42 +1955,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 style={{ borderBottomLeftRadius: expandedWeek ? '0' : undefined, borderBottomRightRadius: expandedWeek ? '0' : undefined }}
                 onClick={() => setExpandedWeek((v) => !v)}
               >
-                <div className="grid grid-cols-2 gap-1 items-center">
-                  <div>
-                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">WEEK-TO-DATE</p>
-                    <p className="text-2xl font-extrabold text-white">
-                      {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
-                    </p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      {salesData?.comparison?.prevWeek !== undefined && salesData?.weekly !== undefined && (() => {
-                        const change = getChangePercent(salesData.weekly!, salesData.comparison!.prevWeek!);
-                        if (change === null) return null;
-                        return (
-                          <>
-                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
-                            <span className="text-[9px] text-white font-medium">
-                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs LW
-                            </span>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="text-right space-y-0">
-                    <div>
-                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
-                      <p className="text-lg font-bold text-white">
-                        {calculatedWeekProjected > 0 ? formatCurrency(calculatedWeekProjected) : '--'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
-                      <p className="text-lg font-bold text-white">
-                        {isToday && calculatedWeekPace > 0 ? formatCurrency(calculatedWeekPace) : '--'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                {renderScoreboard({
+                  salesLabel: 'WEEK-TO-DATE',
+                  sales: salesData?.weekly,
+                  priorComparison: salesData?.comparison?.prevWeek,
+                  priorComparisonLabel: 'LW',
+                  goal: calculatedWeekProjected,
+                  pace: isCurrentWeek ? calculatedWeekPace : 0,
+                  lastYear: salesData?.lastYear?.sameWeek,
+                  status: weekStatus,
+                })}
               </div>
 
               {/* Collapsed tab */}
@@ -2061,42 +2095,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 style={{ borderBottomLeftRadius: expandedMonth ? '0' : undefined, borderBottomRightRadius: expandedMonth ? '0' : undefined }}
                 onClick={() => setExpandedMonth((v) => !v)}
               >
-                <div className="grid grid-cols-2 gap-1 items-center">
-                  <div>
-                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">MONTH-TO-DATE</p>
-                    <p className="text-2xl font-extrabold text-white">
-                      {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
-                    </p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      {salesData?.comparison?.prevMonth !== undefined && salesData?.monthly !== undefined && (() => {
-                        const change = getChangePercent(salesData.monthly!, salesData.comparison!.prevMonth!);
-                        if (change === null) return null;
-                        return (
-                          <>
-                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
-                            <span className="text-[9px] text-white font-medium">
-                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs LM
-                            </span>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="text-right space-y-0">
-                    <div>
-                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
-                      <p className="text-lg font-bold text-white">
-                        {calculatedMonthProjected > 0 ? formatCurrency(calculatedMonthProjected) : '--'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
-                      <p className="text-lg font-bold text-white">
-                        {isToday && calculatedMonthPace > 0 ? formatCurrency(calculatedMonthPace) : '--'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                {renderScoreboard({
+                  salesLabel: 'MONTH-TO-DATE',
+                  sales: salesData?.monthly,
+                  priorComparison: salesData?.comparison?.prevMonth,
+                  priorComparisonLabel: 'LM',
+                  goal: calculatedMonthProjected,
+                  pace: isCurrentMonth ? calculatedMonthPace : 0,
+                  lastYear: salesData?.lastYear?.sameMonth,
+                  status: monthStatus,
+                })}
               </div>
 
               {/* Collapsed tab */}
