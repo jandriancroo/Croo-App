@@ -37,6 +37,37 @@ Not confirmed yet: how the page reached Hemet's Romaine item, given the brand re
 
 **0. Confirm (read only):** trace how Romaine reaches Hemet's item. List every brand recipe's counted value, linked item and pans, next to Hemet's.
 
+### Step 0 audit: what on the brand page depends on the picked store (done, read only)
+
+Root cause: the page keeps one store id, defaulting to the first store returned, which is Hemet (`BrandInventory.tsx:89, 224-226`). That id is passed into the whole Recipes tab (`:650-668`). Sorted worst first:
+
+| # | Kind | File:line | What it does with the store | Brand field affected | Real bug? |
+|---|---|---|---|---|---|
+| 1 | WRITE | `RecipeBuilderDialog.tsx:736-746, 786-796` together with `heal_orphan_blueprint` (migration `20260510175432`, lines 112-131) | Turning "counted" on creates the counted item at the picked store. Because the brand recipe has no store, the link-back step is skipped, so the brand recipe's `produces_item_id` stays empty | Counted output of the brand recipe | Yes |
+| 2 | WRITE | `RecipeBuilderDialog.tsx:728-733` | Saving a counted recipe writes name, yield and pans onto the linked **store** item | Recipe pans, yield on the counted item | Yes |
+| 3 | WRITE | `RecipeBuilderDialog.tsx:748-750` | Turning "counted" off deactivates the store item | Counted toggle | Yes |
+| 4 | WRITE | `usePosMapping.ts:42-63, 149-183` | If the picked store has its own POS mapping, "Save POS mapping" updates that store's mapping instead of the brand's | Brand POS mapping | Yes |
+| 5 | WRITE | `PrepRecipesSection.tsx:88-102, 198-219` | "Purge" deactivates the picked store's old recipe items | Store data deleted from a brand screen | Yes |
+| 6 | READ | `RecipeBuilderDialog.tsx:366-372, 506-507` | Counted toggle and pans are read from the store item, never from `is_countable` | Counted, pans | Yes (the Prepped Dough and Romaine symptoms) |
+| 7 | READ | `RecipeBuilderDialog.tsx:253-258, 638-656` and `blueprintCostCalculation.ts:88, 190` | Cost preview uses the picked store's prices | Recipe cost shown on the brand page | Yes, as a label problem: show it as "priced at Store X" or a brand-wide range |
+| 8 | READ | `IngredientsSection.tsx:22-38` | Lists ingredients only for the picked store's own recipe copies, never the brand's | Ingredients list | Yes |
+| 9 | READ | `PrepRecipesSection.tsx:88-102` | Shows the picked store's old prep recipes as if they were brand recipes | Recipe list | Yes |
+| 10 | READ | `PrepRecipesSection.tsx:104-115` | Groups recipes by the picked store's storage areas | Grouping only | Minor |
+| 11 | READ | `usePosMapping.ts:42-63` | Mapped/unmapped POS badges reflect the store's own mappings | POS badges | Yes (same cause as #4) |
+| 12 | OK | `RecipeBuilderDialog.tsx:270-281`; `resolveBrandId.ts:34-61` | Uses the store only to find its brand, or explicitly shows brand-only recipes | none | No |
+| 13 | DISPLAY | `BrandCatalogSection.tsx:168-171` | Shows the template's own source fields | none | No |
+| 14 | DISPLAY | `VendorGapFinder.tsx:629-650` | Records which store reported a vendor item, by design | none | No |
+| 15 | DISPLAY | `UnmappedPosBanner.tsx:54-67` | Falls back to the store only when there is no brand id, which never happens here | none | No |
+
+Checked with no dependency on the picked store: pack config approvals, unpriced ingredients, conversions, the pan matrix, the deploy dialog and location activation.
+
+**Database side:**
+- Only two routines mention `source_location_id` or the `'recipe:'` tag: `heal_orphan_blueprint` (sets the tag; it is involved in #1) and `clone_count_to_sandbox` (sandbox only).
+- No scheduled jobs and no server functions read either one.
+- The "Hemet as template" pattern survives only in the one-time copy (`20260502034538:70-80`) and in the stored links on brand items. No trigger or job reads brand values from Hemet today.
+
+**Impact on the fix:** step (a) covers #1-3, #6 and #8. Step (a) also needs #4, #5, #9 and #11 handled, scoping to brand rows and removing Purge from the brand page. #7 gets a clear label.
+
 **a) Brand page uses only brand records**
 - The dialog reads and saves counted from `recipe_blueprints.is_countable`. Pans are read and saved on the brand item.
 - In brand mode it never creates or edits store items. It no longer depends on the selected store, except for showing prices.
