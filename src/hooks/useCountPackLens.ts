@@ -32,14 +32,11 @@ export function useCountPackLens(locationId: string | null | undefined) {
   });
 
   const { data: lensMap, isFetching } = useQuery({
-    queryKey: ["pack-config-lens", brandId, lensEnabled],
+    queryKey: ["pack-config-lens", brandId, locationId, lensEnabled],
     enabled: !!brandId && lensEnabled === true,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("brand_pack_configs" as any)
-        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, outer_qty, outer_type, inner_qty, inner_type, status, show_cases, show_inner_packs, show_common_unit")
-        .eq("status", "approved");
+      const { data, error } = await supabase.rpc("get_store_pack_lens" as any, { _location_id: locationId } as any);
       if (error) throw error;
       const map = new Map<string, any>();
       for (const row of (data as any[]) || []) {
