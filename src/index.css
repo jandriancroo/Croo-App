@@ -2124,7 +2124,7 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
   color: inherit;
 }
 
-.ai-markdown :is(h1, h2, h3):first-of-type {
+.ai-markdown :is(h1, h2, h3):not(:is(h1, h2, h3) ~ :is(h1, h2, h3)) {
   margin-top: 0.625rem;
   font-size: 19px;
   font-weight: 800;

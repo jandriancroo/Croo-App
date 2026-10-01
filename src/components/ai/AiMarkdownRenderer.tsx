@@ -135,12 +135,12 @@ const markdownComponents: Components = {
     </td>
   ),
   ul: ({ children, ...props }) => (
-    <ul className="mt-2 list-none space-y-1.5 pl-0 [&_ul]:mt-1.5 [&_ul_li]:before:bg-primary/50" {...props}>
+    <ul className="mt-2 list-none space-y-1.5 pl-0 [&_ul]:mt-1.5 [&_ul>li]:before:bg-primary/50" {...props}>
       {children}
     </ul>
   ),
   ol: ({ children, ...props }) => (
-    <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-[1.6] marker:font-bold marker:text-primary" {...props}>
+    <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-[1.6] marker:font-bold marker:text-primary [&>li]:pl-0 [&>li]:before:hidden" {...props}>
       {children}
     </ol>
   ),
