@@ -5,6 +5,10 @@
 - [x] Hiring inbox parity: DM-style preview/date/unread rows and delete inside the open conversation.
 
 ## Recipe costing fix (unlocked Sep 30)
+- [ ] Brand→store recipes Gate 1: costing uses store pack (lens) — preview built, 0 cost changes; awaiting approval to switch
+- [ ] Gate 2: brand Recipes tab brand-only (no store picker, median pricing, outlier flags) — waits on Gate 1
+- [ ] Gate 3: brand cleanup table, Jordan picks per row — waits on Gate 2
+- [ ] Brand→store sync + pans — after PS/PD count
 - [ ] Step 1: store counters read pack data, loud failure, server dry-run calculator — awaiting Jordan's table approval
 - [ ] Step 2: write costs + reset store yields to brand yield (together), clear orphaned blended prices, nightly schedule
 - [ ] Later phases: editor stops writing cost/pack, recipe case-multiplier reset, raw items use store pack
