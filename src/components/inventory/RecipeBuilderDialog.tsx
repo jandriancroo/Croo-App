@@ -654,7 +654,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     const bId = brandId || (locationId ? await resolveBrandId(locationId) : null);
     if (!bId) return;
     const { error } = await supabase.rpc("apply_recipe_costs" as any, { _brand_id: bId } as any);
-    if (error) console.warn("[RecipeBuilder] apply_recipe_costs failed", error);
+    if (error) {
+      console.warn("[RecipeBuilder] apply_recipe_costs failed", error);
+      throw new Error("Recipe saved, but its price could not be recalculated. Try saving again.");
+    }
   };
 
   const saveMutation = useMutation({
