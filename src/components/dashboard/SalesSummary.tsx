@@ -1562,11 +1562,37 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 {status === 'ahead' ? 'On Fire' : status === 'onTrack' ? 'On Track' : 'Behind'}
               </span>
             )}
-            {change !== null && (
-              <span className="inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full bg-accent-foreground/20 px-2 text-[11px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30">
-                {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
-                <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {priorComparisonLabel}</span>
-              </span>
+            {change !== null && chipValue !== undefined && sales !== undefined && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(event) => event.stopPropagation()}
+                    className="inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full bg-accent-foreground/20 px-2 text-[11px] font-bold text-accent-foreground ring-1 ring-inset ring-accent-foreground/30 transition-colors hover:bg-accent-foreground/30"
+                    aria-label="Show sales comparison with last year"
+                  >
+                    {change >= 0 ? <TrendingUp className="h-3 w-3 shrink-0 text-success" /> : <TrendingDown className="h-3 w-3 shrink-0 text-destructive" />}
+                    <span>{change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {chipLabel}</span>
+                    <ChevronUp className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="top"
+                  align="center"
+                  sideOffset={6}
+                  onClick={(event) => event.stopPropagation()}
+                  className="w-auto rounded-md border-border bg-card px-2 py-2 text-popover-foreground shadow-lg"
+                >
+                  <p className="font-medium">
+                    {compLY !== undefined ? `${compPeriodLabel} vs LY at this point` : `vs ${priorComparisonLabel}`}
+                  </p>
+                  <p className="text-muted-foreground">{compPeriodLabel}: <span className="text-foreground">{formatCurrency(sales)}</span></p>
+                  <p className="text-muted-foreground">{chipLabel}: <span className="text-foreground">{formatCurrency(chipValue)}</span></p>
+                  <p className={change >= 0 ? 'text-success' : 'text-destructive'}>
+                    Difference: <span className="font-medium">{change >= 0 ? '+' : '-'}{formatCurrency(Math.abs(sales - chipValue))} ({change >= 0 ? '+' : ''}{change.toFixed(1)}%)</span>
+                  </p>
+                </PopoverContent>
+              </Popover>
             )}
           </div>
         )}
