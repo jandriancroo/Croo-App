@@ -177,6 +177,23 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   // Theo unread state — drives the red dot on the orb + speech bubble swap.
   const { count: theoUnreadCount, preview: theoUnreadPreview } = useTheoUnread();
   const hasUnreadTheo = theoUnreadCount > 0;
+
+  // "Tap me" hint on Theo's orb until he's been tapped once today (store's local date).
+  const theoTapKey = useMemo(() => {
+    let d = '';
+    try { d = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date()); } catch { d = format(new Date(), 'yyyy-MM-dd'); }
+    return `theo-dock-tapped:${userProfile?.id ?? ''}:${d}`;
+  }, [timezone, userProfile?.id]);
+  const [theoTappedToday, setTheoTappedToday] = useState(() => {
+    try { return !!localStorage.getItem(theoTapKey); } catch { return false; }
+  });
+  useEffect(() => {
+    try { setTheoTappedToday(!!localStorage.getItem(theoTapKey)); } catch { /* ignore */ }
+  }, [theoTapKey]);
+  const markTheoTapped = () => {
+    try { localStorage.setItem(theoTapKey, '1'); } catch { /* ignore */ }
+    setTheoTappedToday(true);
+  };
   
   // Format time in location timezone (no seconds)
   const formattedTime = useMemo(() => {
@@ -718,17 +735,23 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                         </p>
                       )}
                     </div>
-                    <div className="mr-10 shrink-0">
+                    <div className="mr-10 shrink-0 flex flex-col items-center">
                       <TheoOrb
                         size={58}
                         data-tour="theo-orb"
                         label="Open Theo"
-                        nudge={false}
+                        nudge={!theoTappedToday}
                         unread={false}
                         onClick={() => {
+                          markTheoTapped();
                           window.dispatchEvent(new CustomEvent('open-theo'));
                         }}
                       />
+                      {!theoTappedToday && !hasUnreadTheo && !teaching && (
+                        <span aria-hidden className="mt-1.5 rounded-full bg-accent-foreground px-2.5 py-0.5 text-[12px] font-extrabold text-accent animate-pulse">
+                          Tap me
+                        </span>
+                      )}
                     </div>
                   </div>
 
