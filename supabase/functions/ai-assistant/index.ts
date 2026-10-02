@@ -8,6 +8,8 @@ const corsHeaders = {
 };
 
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+// Theo's brain. Chosen by Jordan after the Oct 2 2026 bake-off (Luna + action guard). Reasoning must stay off with tools.
+const THEO_MODEL = "openai/gpt-6-luna";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MIRROR OF src/utils/countItemValue.ts — keep in sync.
@@ -3084,9 +3086,9 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: bakeModel ?? "google/gemini-2.5-flash",
-          // gpt-6-luna on chat-completions only accepts function tools with reasoning off (bake-off only).
-          ...(bakeModel === "openai/gpt-6-luna" ? { reasoning_effort: lunaEffort } : {}),
+          model: bakeModel ?? THEO_MODEL,
+          // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
+          ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
           tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : THEO_TOOLS,
           tool_choice: "auto",
@@ -3177,7 +3179,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
         user_id: user.id,
         location_id: location_id || null,
         source: usageSource === "voice" ? "voice" : "chat",
-        model: "google/gemini-2.5-flash",
+        model: THEO_MODEL,
         prompt_tokens: usage.pt,
         completion_tokens: usage.ct,
       }).then(({ error }: any) => error && console.error("usage log failed", error.message));
