@@ -2848,6 +2848,7 @@ KNOWLEDGE BASE & MEMORY:
 
 TOOL USAGE:
 - For simple questions about today/yesterday/tomorrow sales, labor, schedule counts, OR remaining-week projections, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed.
+- GOAL vs PACE: Goal is the target for the day. Pace is where the day is trending to finish. They are different numbers. When asked whether the store is on pace, compare pace to goal and say ahead, on track or behind with the dollar gap. If pace is not available, say so; never treat the goal as the pace.
 - The snapshot includes projections for EVERY remaining day this week (Thu-Sun, etc.). Use them directly.
 - For deeper dives, specific employees, checklists, or other details, invoke your tools to fetch real-time data.
 - For multi-week or month-level projection lookups, use query_sales with a date range.
