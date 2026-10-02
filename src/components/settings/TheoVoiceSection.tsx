@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const VOICES = [
-  { id: 'eve', name: 'Eve', desc: 'Energetic and upbeat (default)' },
-  { id: 'ara', name: 'Ara', desc: 'Warm and friendly' },
-  { id: 'leo', name: 'Leo', desc: 'Authoritative and strong' },
-  { id: 'rex', name: 'Rex', desc: 'Confident and clear' },
-  { id: 'sal', name: 'Sal', desc: 'Smooth and balanced' },
+  { id: 'eve', name: 'Eve', desc: 'Default' },
+  { id: 'ara', name: 'Ara', desc: '' },
+  { id: 'leo', name: 'Leo', desc: '' },
+  { id: 'rex', name: 'Rex', desc: '' },
+  { id: 'sal', name: 'Sal', desc: '' },
 ];
 
 export function TheoVoiceSection() {
@@ -44,7 +44,7 @@ export function TheoVoiceSection() {
             className="flex w-full items-center justify-between px-3 py-3 text-left">
             <div>
               <div className="text-sm font-semibold text-foreground">{v.name}</div>
-              <div className="text-xs text-muted-foreground">{v.desc}</div>
+              {v.desc && <div className="text-xs text-muted-foreground">{v.desc}</div>}
             </div>
             <span className={cn('flex h-6 w-6 items-center justify-center rounded-full border',
               voice === v.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
