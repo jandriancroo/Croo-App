@@ -771,12 +771,14 @@ const tools = [
     type: "function",
     function: {
       name: "query_ovation_reviews",
-      description: "Query OvationUp guest reviews and feedback scores for this location. Returns recent reviews with ratings, customer names, feedback text, and whether the review was responded to. Also returns the average score and review count. Use for questions about guest reviews, customer feedback, Ovation scores, review trends, or guest satisfaction. When a review mentions an employee by name, cross-reference with team members at the location and tag matches with [[employee:Full Name]].",
+      description: "Query OvationUp guest reviews and feedback scores for this location. Returns recent reviews with ratings, customer names, feedback text, and whether the review was responded to. Returns a ready "summary" (window_start, window_end, review_count, average_rating) for exactly the window asked — quote it, never recount. Use for questions about guest reviews, customer feedback, Ovation scores, review trends, or guest satisfaction. When a review mentions an employee by name, cross-reference with team members at the location and tag matches with [[employee:Full Name]].",
       parameters: {
         type: "object",
         properties: {
           location_id: { type: "string", description: "UUID of the location" },
-          days: { type: "number", description: "Number of days to look back (default 7)" },
+          start_date: { type: "string", description: "Window start YYYY-MM-DD (store date). For 'this week' use this week's Monday." },
+          end_date: { type: "string", description: "Window end YYYY-MM-DD (defaults to today)" },
+          days: { type: "number", description: "Used only when start_date is not given: number of days back including today (default 7)" },
           min_rating: { type: "number", description: "Filter reviews with rating >= this value" },
           max_rating: { type: "number", description: "Filter reviews with rating <= this value" },
           search_keyword: { type: "string", description: "Search feedback text for a keyword" },
@@ -875,13 +877,39 @@ const tools = [
   },
 ];
 
+// TEMPORARY (bake-off actions dry-run only): never offered on normal requests, writes nothing.
+const PROPOSE_ACTION_TOOL = {
+  type: "function",
+  function: {
+    name: "propose_action",
+    description: "Propose an action for the manager to confirm. Only call after resolving people and shifts with the read tools (use employee_id from query_schedule). If anything needed is missing (e.g. shift times), ask instead of proposing. Only these four actions exist.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["create_task", "create_shift", "swap_shifts", "create_checklist"] },
+        employees: { type: "array", items: { type: "object", properties: { employee_id: { type: "string" }, name: { type: "string" } } }, description: "People involved (one for create_shift, two for swap_shifts)" },
+        date: { type: "string", description: "Calendar date YYYY-MM-DD" },
+        start_time: { type: "string", description: "HH:MM 24h" },
+        end_time: { type: "string", description: "HH:MM 24h" },
+        task_title: { type: "string" },
+        due_time: { type: "string", description: "HH:MM 24h" },
+        checklist_title: { type: "string" },
+        lock_time: { type: "string", description: "HH:MM 24h" },
+        items: { type: "array", items: { type: "object", properties: { label: { type: "string" }, input_type: { type: "string", description: "e.g. photo_temperature, checkbox, text, number" } } } },
+        shifts: { type: "array", items: { type: "object", properties: { employee_id: { type: "string" }, date: { type: "string" }, start_time: { type: "string" }, end_time: { type: "string" } } }, description: "For swap_shifts: the two current shifts being swapped" },
+      },
+      required: ["action"],
+    },
+  },
+};
+
 // query_inventory is parked (not offered to the model) — see THEO_INVENTORY.md. Code kept for later.
 const THEO_TOOLS = tools.filter((t: any) => t.function?.name !== "query_inventory");
 
 // Execute tool calls against the database
 const MANAGER_PLUS_ROLES = ["manager", "general_manager", "admin", "org_admin", "brand_admin", "super_admin"];
 
-async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string, ctx: { userClient?: any; today?: string } = {}): Promise<string> {
+async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string, ctx: { userClient?: any; today?: string; exposeIds?: boolean } = {}): Promise<string> {
   const storeToday = ctx.today || new Date().toLocaleDateString("en-CA", { timeZone: timezone });
   const offset = getTzOffset(timezone);
   // Per-person wage/cost data is manager+ only.
@@ -1140,6 +1168,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         let results = (data || []).map((s: any) => ({
           date: s.shift_date,
           name: profileMap[s.user_id] || "Unknown",
+          ...(ctx.exposeIds ? { employee_id: s.user_id } : {}),
           start: s.start_time,
           end: s.end_time,
           position: s.shift_templates?.position || s.shift_templates?.template_name || null,
@@ -1922,13 +1951,16 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         // Fetch reviews via the ovation-service edge function
         const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
-        const days = args.days || 7;
+        const tzToday = ctx.today || new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+        const winEnd: string = args.end_date || tzToday;
+        const winStart: string = args.start_date || addDays(winEnd, -((args.days || 7) - 1));
+        const days = Math.max(1, Math.round((Date.parse(tzToday + "T12:00:00Z") - Date.parse(winStart + "T12:00:00Z")) / 86400000) + 2);
         
         try {
           const ovationResp = await fetch(`${supabaseUrl}/functions/v1/ovation-service?action=fetch_reviews`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
-            body: JSON.stringify({ locationId: args.location_id, days, pageSize: 50 }),
+            body: JSON.stringify({ locationId: args.location_id, days, pageSize: 500 }),
           });
           
           if (!ovationResp.ok) {
@@ -1941,7 +1973,20 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             return JSON.stringify({ message: ovationData.error || "No OvationUp data available for this location." });
           }
           
-          let reviews = ovationData.reviews || [];
+          // Keep only reviews whose STORE-LOCAL date is inside the asked window.
+          let reviews = (ovationData.reviews || []).filter((r: any) => {
+            if (!r.createdAt) return false;
+            const d = localDate(r.createdAt, timezone);
+            return d >= winStart && d <= winEnd;
+          });
+          const rated = reviews.filter((r: any) => typeof r.rating === "number");
+          const summary = {
+            window_start: winStart,
+            window_end: winEnd,
+            review_count: reviews.length,
+            average_rating: rated.length ? Math.round((rated.reduce((a: number, r: any) => a + r.rating, 0) / rated.length) * 100) / 100 : null,
+            note: "Quote review_count and average_rating from here. Do not recount the reviews list.",
+          };
           
           // Apply filters
           if (args.min_rating) {
@@ -1989,12 +2034,12 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             };
           });
           
+          const shown = enrichedReviews.slice(0, 25);
           const result: any = {
-            period: `Last ${days} days`,
-            average_score: ovationData.wtdAverage,
-            review_count: ovationData.wtdCount,
-            total_reviews: ovationData.totalCount,
-            reviews: enrichedReviews.slice(0, 20),
+            summary,
+            filtered_count: (args.min_rating || args.max_rating || args.search_keyword) ? enrichedReviews.length : undefined,
+            showing: `showing ${shown.length} of ${enrichedReviews.length}`,
+            reviews: shown,
           };
           
           if (enrichedReviews.some((r: any) => r.matched_employees)) {
@@ -2596,14 +2641,18 @@ serve(async (req) => {
     }
 
     const userRole = roleData.role;
-    const { messages, location_id, location_name, source: usageSource, model_override } = await req.json();
+    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
     // write no usage rows and return token counts instead. Remove after the bake-off.
-    const BAKEOFF_MODELS = ["google/gemini-2.5-flash", "google/gemini-3.8-flash", "google/gemini-3.1-flash-lite", "openai/gpt-6-luna"];
+    const BAKEOFF_MODELS = ["google/gemini-2.5-flash", "google/gemini-3.1-flash-lite", "openai/gpt-6-luna"];
     const bakeoff = usageSource === "bakeoff" && userRole === "super_admin" && BAKEOFF_MODELS.includes(model_override);
     const bakeModel: string | null = bakeoff ? model_override : null;
     const toolsCalled: string[] = [];
+    // Actions dry-run (bake-off only): propose_action is offered, writes nothing, returns preview_ready.
+    const dryRun = bakeoff && actions_dry_run === true;
+    const proposals: any[] = [];
+    const lunaEffort = bakeoff && ["none", "low", "medium", "high"].includes(reasoning_override) ? reasoning_override : "none";
     // Store time zone from location_settings (same place useLocationTimezone and the
     // business-day functions read). "Today" is the store's BUSINESS date.
     let timezone = "America/Los_Angeles";
@@ -3031,9 +3080,9 @@ DATE ANCHORS:
         body: JSON.stringify({
           model: bakeModel ?? "google/gemini-2.5-flash",
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off (bake-off only).
-          ...(bakeModel === "openai/gpt-6-luna" ? { reasoning_effort: "none" } : {}),
+          ...(bakeModel === "openai/gpt-6-luna" ? { reasoning_effort: lunaEffort } : {}),
           messages: currentMessages,
-          tools: THEO_TOOLS,
+          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : THEO_TOOLS,
           tool_choice: "auto",
         }),
       });
@@ -3081,7 +3130,13 @@ DATE ANCHORS:
         
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
         toolsCalled.push(tc.function.name);
-        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today });
+        let result: string;
+        if (dryRun && tc.function.name === "propose_action") {
+          proposals.push(args);
+          result = JSON.stringify({ status: "preview_ready" });
+        } else {
+          result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun }), timezone);
+        }
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
         
         currentMessages.push({
@@ -3098,7 +3153,7 @@ DATE ANCHORS:
 
     // Usage log for Settings → Super Admin → Theo Usage (never blocks the reply).
     if (bakeoff) {
-      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled } }), {
+      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled, proposals } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
