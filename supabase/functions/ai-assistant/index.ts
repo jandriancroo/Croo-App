@@ -1094,7 +1094,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .from("checklist_submissions")
           .select(`
             submitted_at, submitted_by, 
-            profiles(full_name), 
+            profiles!checklist_submissions_submitted_by_fkey(full_name), 
             checklists(title),
             checklist_responses(
               item_id, response_text, response_image_url, created_at,

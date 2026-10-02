@@ -45,7 +45,7 @@ export function AiAssistantBubble() {
   const [helpfulIndices, setHelpfulIndices] = useState<Set<number>>(new Set());
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastVoiceIdxRef = useRef<number | null>(null);
+  const jumpToVoiceRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const briefingLoadedRef = useRef(false);
 
@@ -88,9 +88,20 @@ export function AiAssistantBubble() {
         if (error || cancelled) return;
         
         if (data && data.length > 0) {
-          setMessages(data.map((m: any) => ({ role: m.role, content: m.content })));
+          // Merge, never replace: keep messages added in memory (e.g. voice answers) that aren't saved yet.
+          const loaded = data.map((m: any) => ({ role: m.role, content: m.content })) as Message[];
+          setMessages(prev => {
+            const pool = loaded.map(m => `${m.role}\u0000${m.content}`);
+            const extra = prev.filter(m => {
+              const i = pool.indexOf(`${m.role}\u0000${m.content}`);
+              if (i === -1) return true;
+              pool.splice(i, 1);
+              return false;
+            });
+            return [...loaded, ...extra];
+          });
           briefingLoadedRef.current = true; // skip briefing injection if we have history
-          scrollToBottom();
+          if (!jumpToVoiceRef.current) scrollToBottom();
         }
       } catch (e) {
         console.error('Failed to load chat history:', e);
@@ -172,7 +183,8 @@ export function AiAssistantBubble() {
   const hasUnreadBriefing = !!briefing && !hasRead;
 
   useEffect(() => {
-    if (open && briefing?.content && !briefingLoadedRef.current && messages.length === 0) {
+    // Only after today's history has loaded, and only if it was empty (no duplicate brief rows).
+    if (open && historyLoaded && briefing?.content && !briefingLoadedRef.current && messages.length === 0) {
       briefingLoadedRef.current = true;
       const briefingMsg: Message = { role: 'assistant', content: briefing.content };
       setMessages([briefingMsg]);
@@ -183,6 +195,19 @@ export function AiAssistantBubble() {
       scrollToBottom();
     }
   }, [open, briefing, historyLoaded]);
+
+  const [jumpTick, setJumpTick] = useState(0);
+  useEffect(() => {
+    if (!open || !historyLoaded || !jumpToVoiceRef.current) return;
+    const t = setTimeout(() => {
+      jumpToVoiceRef.current = false;
+      const idx = messages.map(m => m.role === 'user' && m.content.startsWith('🎙️')).lastIndexOf(true);
+      const box = scrollRef.current;
+      const el = idx >= 0 ? box?.querySelector(`[data-msg-idx="${idx}"]`) as HTMLElement | null : null;
+      if (box && el) box.scrollTo({ top: box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - 12 });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [open, historyLoaded, messages, jumpTick]);
 
   useEffect(() => {
     briefingLoadedRef.current = false;
@@ -602,19 +627,14 @@ export function AiAssistantBubble() {
         )}
       </AnimatePresence>
       <TheoVoiceOverlay intent={voiceIntent} open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} onOpenAnswer={() => {
-        // Land with the latest voice question at the top of the chat, its full answer below.
-        const idx = lastVoiceIdxRef.current;
+        // Land with the latest voice question at the top of the chat (done once history has loaded).
+        jumpToVoiceRef.current = true;
         setOpen(true);
-        if (idx == null) return;
-        setTimeout(() => {
-          const box = scrollRef.current;
-          const el = box?.querySelector(`[data-msg-idx="${idx}"]`) as HTMLElement | null;
-          if (box && el) box.scrollTo({ top: box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - 12 });
-        }, 400);
+        setJumpTick(n => n + 1);
       }} onExchange={(q, a) => {
         const userMsg = { role: 'user', content: `🎙️ ${q}` } as Message;
         const theoMsg = { role: 'assistant', content: a } as Message;
-        setMessages(prev => { lastVoiceIdxRef.current = prev.length; return [...prev, userMsg, theoMsg]; });
+        setMessages(prev => [...prev, userMsg, theoMsg]);
         void persistMessage(userMsg).then(() => persistMessage(theoMsg));
       }} />
     </>,
