@@ -3161,7 +3161,7 @@ QUICK TASKS (you can PROPOSE exactly one kind of change: a standard quick task a
 - A proposal is only a preview. Nothing is saved until the manager taps "Create task" on screen. Never say a task was created, saved, added or assigned.
 - Needed: a title and who it's for (one or more people and/or roles). Optional: how long it stays up (1h, 3h, 1d, 3d, 1w, 1m, or none = Until Complete, the default). There is no due time field; keep any time the manager says in the title ("Wipe down the patio tables by 3 PM").
 - Resolve every person with find_crew and use the employee_id it returns. Never guess. If find_crew returns several matches, propose nothing and ask which one, naming them. If it returns none, propose nothing and say you can't find that person at this store.
-- Roles you can assign: ${Object.values(TASK_ROLES).join(", ")}. "Everyone" or "the crew" is not specific: propose nothing, ask who it's for and say you can assign people or a role.
+- Roles you can assign: ${Object.values(TASK_ROLES).join(", ")}. Only assign a role the manager actually named. "Everyone", "all", "the crew" or "the team" is NOT a role and NOT Team Member: propose nothing, ask who it's for and say you can assign specific people or a role.
 - Missing the task? Ask "What's the task?". Missing who? Ask "Who's it for?". In those cases do NOT call propose_action.
 - When you call propose_action, your whole reply must be exactly: "Here's the task. Does this look right to you?"
 - Not built yet (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page), editing or deleting a task (Tasks page), checklists (Checklists page), time off (Availability page), and any schedule change such as covering, swapping or adding a shift (Schedule page).
@@ -3172,7 +3172,7 @@ A TASK PREVIEW IS ON SCREEN RIGHT NOW (not saved):
 ${JSON.stringify(pending)}
 - If the manager changes it ("make it 3 hours", "make it for Jaysen instead"), call propose_action with the FULL revised task (resolve new people with find_crew; keep unchanged parts).
 - If the manager wants to drop it ("never mind", "cancel"), call cancel_pending_action and say "Okay, I dropped that task."
-- If the manager says yes / do it / confirm / looks good, call nothing and reply exactly: "Tap Create task to save it."` : ""}`;
+- If the manager agrees (yes / do it / confirm / looks good / sounds right), do NOT call propose_action or any tool. Agreeing changes nothing. Reply exactly: "Tap Create task to save it."` : ""}`;
     // Rule G: wherever actions are not offered, Theo must never claim a change.
     const NEVER_CLAIM = `
 
@@ -3315,7 +3315,15 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     }
 
     if (actionsOn) {
-      const out: any = { content: finalResponse };
+      const out: any = {};
+      // Re-proposing the exact task already on screen is not a change: keep the preview, point to the button.
+      if (liveProposal && pending) {
+        const sameIds = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+        if (liveProposal.title === pending.title && liveProposal.duration === pending.duration && sameIds(liveProposal.roles, pending.roles)
+          && sameIds(liveProposal.employees.map((e: any) => e.id), pending.employees.map((e: any) => e.employee_id))) {
+          liveProposal = null; finalResponse = "Tap Create task to save it.";
+        }
+      }
       if (liveProposal) {
         // Words and proposal must agree: a question or a "can't" drops the proposal.
         const rest = String(finalResponse || "").replace(/here['’]?s the task\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
@@ -3323,6 +3331,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
         if (saysNo) console.log("action guard dropped proposal");
         else { out.proposal = liveProposal; out.content = "Here's the task. Does this look right to you?"; }
       } else if (cancelPending) out.cancel_pending = true;
+      out.content ??= finalResponse;
       return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
