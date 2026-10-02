@@ -30,7 +30,7 @@ export async function hasOpenOffer(admin: any, shiftId: string) {
 async function shiftsOn(admin: any, locationId: string, date: string) {
   const { data } = await admin.from("scheduled_shifts")
     .select("id, user_id, shift_date, start_time, end_time, is_time_off, schedule:schedules!inner(location_id)")
-    .eq("schedules.location_id", locationId).eq("shift_date", date).not("user_id", "is", null);
+    .eq("schedule.location_id", locationId).eq("shift_date", date).not("user_id", "is", null);
   return (data || []).filter((s: any) => !s.is_time_off).sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)));
 }
 
