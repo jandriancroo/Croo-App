@@ -2531,7 +2531,14 @@ serve(async (req) => {
     }
 
     const userRole = roleData.role;
-    const { messages, location_id, location_name, source: usageSource } = await req.json();
+    const { messages, location_id, location_name, source: usageSource, model_override } = await req.json();
+    // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
+    // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
+    // write no usage rows and return token counts instead. Remove after the bake-off.
+    const BAKEOFF_MODELS = ["google/gemini-2.5-flash", "google/gemini-3.8-flash", "google/gemini-3.1-flash-lite", "openai/gpt-6-luna"];
+    const bakeoff = usageSource === "bakeoff" && userRole === "super_admin" && BAKEOFF_MODELS.includes(model_override);
+    const bakeModel: string | null = bakeoff ? model_override : null;
+    const toolsCalled: string[] = [];
     // Store time zone from location_settings (same place useLocationTimezone and the
     // business-day functions read). "Today" is the store's BUSINESS date.
     let timezone = "America/Los_Angeles";
@@ -2942,7 +2949,7 @@ DATE ANCHORS:
     let loopCount = 0;
     const MAX_LOOPS = 5;
     let currentMessages = [...aiMessages];
-    const usage = { calls: 0, pt: 0, ct: 0 };
+    const usage = { calls: 0, pt: 0, ct: 0, cached: 0 };
 
     while (loopCount < MAX_LOOPS) {
       loopCount++;
@@ -2953,7 +2960,9 @@ DATE ANCHORS:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: bakeModel ?? "google/gemini-2.5-flash",
+          // gpt-6-luna on chat-completions only accepts function tools with reasoning off (bake-off only).
+          ...(bakeModel === "openai/gpt-6-luna" ? { reasoning_effort: "none" } : {}),
           messages: currentMessages,
           tools: THEO_TOOLS,
           tool_choice: "auto",
@@ -2984,6 +2993,7 @@ DATE ANCHORS:
       usage.calls++;
       usage.pt += aiData.usage?.prompt_tokens || 0;
       usage.ct += aiData.usage?.completion_tokens || 0;
+      usage.cached += aiData.usage?.prompt_tokens_details?.cached_tokens || 0;
       const choice = aiData.choices?.[0];
       
       if (!choice) throw new Error("No AI response");
@@ -3001,6 +3011,7 @@ DATE ANCHORS:
           : tc.function.arguments;
         
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
+        toolsCalled.push(tc.function.name);
         const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today });
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
         
@@ -3017,6 +3028,11 @@ DATE ANCHORS:
     }
 
     // Usage log for Settings → Super Admin → Theo Usage (never blocks the reply).
+    if (bakeoff) {
+      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (usage.calls > 0) {
       await supabaseAdmin.from("theo_ai_usage").insert({
         user_id: user.id,
