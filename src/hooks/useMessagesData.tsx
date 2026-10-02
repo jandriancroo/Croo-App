@@ -128,7 +128,8 @@ export function useMessagesData() {
     if (!user) return;
     setLoading(true);
     try {
-      ensureMarketplaceChat();
+      // Wait so a freshly created marketplace shows up in this same load.
+      await ensureMarketplaceChat().catch(() => {});
 
       let query = supabase
         .from('chats')
