@@ -141,7 +141,8 @@ Deno.serve(async (req) => {
     const token = tok?.value || tok?.client_secret?.value || tok?.token;
     if (!token) return json({ error: "Voice service unavailable" }, 502);
 
-    const voice = VOICES.includes(body.voice) ? body.voice : "eve";
+    const { data: pref } = await admin.from("theo_voice_prefs").select("voice").eq("user_id", user.id).maybeSingle();
+    const voice = VOICES.includes(pref?.voice) ? pref.voice : "eve";
     return json({
       token,
       model: "grok-voice-latest",

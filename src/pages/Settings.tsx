@@ -17,7 +17,8 @@ import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TheoUsageSection } from '@/components/settings/TheoUsageSection';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, AudioLines } from 'lucide-react';
+import { TheoVoiceSection } from '@/components/settings/TheoVoiceSection';
 import { syncChromeColor } from '@/utils/syncChrome';
 
 // Lazy-load heavy sub-panels — only fetched when their section is opened.
@@ -79,13 +80,14 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock', 'kds-board', 'location-profile'];
+const LOCATION_SECTIONS = ['theme', 'theo-voice', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock', 'kds-board', 'location-profile'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
 const SUPER_ADMIN_SECTIONS = ['theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
+  'theo-voice': { title: 'Theo Voice', icon: <AudioLines className="h-4 w-4" /> },
   'theo-usage': { title: 'Theo Usage', icon: <BarChart3 className="h-4 w-4" /> },
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
   reporting: { title: 'Reporting', icon: <FileText className="h-4 w-4" /> },
@@ -306,6 +308,10 @@ export default function Settings() {
         if (!isSuperAdmin) return null;
         return <CloneLocationSettings />;
 
+      case 'theo-voice':
+        if (!isShiftManager) return null;
+        return <TheoVoiceSection />;
+
       case 'theo-usage':
         if (!isSuperAdmin) return null;
         return <TheoUsageSection />;
@@ -482,6 +488,7 @@ export default function Settings() {
     const pool = tab === 'location' ? LOCATION_SECTIONS : ORG_SECTIONS;
 
     return pool.filter(id => {
+      if (id === 'theo-voice') return isShiftManager;
       if (id === 'food-safety-audits') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'location-profile') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'inventory') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_inventory'));
