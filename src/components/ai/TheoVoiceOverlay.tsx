@@ -69,7 +69,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number>();
-  const logRef = useRef<{ id: string; start: number; questions: number } | null>(null);
+  // liveStart = when the paid live connection opened (null while only the update is playing).
+  const logRef = useRef<{ id: string; liveStart: number | null; liveMs: number; questions: number } | null>(null);
+  const updateSrcRef = useRef<AudioBufferSourceNode | null>(null);
+  const userSpeakingRef = useRef(false);
+  const [speechTick, setSpeechTick] = useState(0);
+  const [stoppedListening, setStoppedListening] = useState(false);
 
   const stopPlayback = useCallback(() => {
     sourcesRef.current.forEach((s) => { try { s.stop(); } catch { /* done */ } });
@@ -81,27 +86,47 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
     const log = logRef.current;
     logRef.current = null;
     if (log) {
+      const liveMs = log.liveMs + (log.liveStart ? Date.now() - log.liveStart : 0);
       void supabase.from('theo_voice_sessions').update({
         ended_at: new Date().toISOString(),
-        seconds: Math.min(14400, Math.round((Date.now() - log.start) / 1000)),
+        seconds: Math.min(14400, Math.round(liveMs / 1000)),
         questions: log.questions,
       }).eq('id', log.id);
     }
+    const u = updateSrcRef.current;
+    updateSrcRef.current = null;
+    if (u) { u.onended = null; try { u.stop(); } catch { /* done */ } }
     stopPlayback();
-    wsRef.current?.close();
+    const ws = wsRef.current;
     wsRef.current = null;
+    if (ws) { ws.onclose = null; ws.onerror = null; ws.onmessage = null; ws.close(); }
     procRef.current?.disconnect();
+    procRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
+    userSpeakingRef.current = false;
     setPhase('idle');
     setLevel(0);
   }, [stopPlayback]);
 
-  useEffect(() => { if (!open) teardown(); }, [open, teardown]);
+  useEffect(() => { if (!open) { teardown(); setStoppedListening(false); } }, [open, teardown]);
   useEffect(() => () => teardown(), [teardown]);
+
+  // Hang up the paid live connection after SILENCE_HANGUP_MS of no speech on the manager's turn.
+  // "Speech" = the server's speech-started event, never raw mic level (kitchens are loud).
+  useEffect(() => {
+    if (phase !== 'listening' || !wsRef.current || userSpeakingRef.current) return;
+    const t = setTimeout(() => {
+      if (!wsRef.current || userSpeakingRef.current) return;
+      teardown();
+      setMode('talk');
+      setStoppedListening(true);
+    }, SILENCE_HANGUP_MS);
+    return () => clearTimeout(t);
+  }, [phase, speechTick, teardown]);
 
   const playChunk = (f: Float32Array) => {
     const ctx = ctxRef.current;
@@ -136,14 +161,116 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
     return JSON.stringify({ answer: data?.content || 'No answer.' });
   };
 
+  const fail = (e: any) => {
+    const denied = e?.name === 'NotAllowedError';
+    setError(denied ? 'Microphone access is off. Allow it in your browser settings, or use text chat.' : e?.message || 'Theo’s voice isn’t available right now.');
+    teardown();
+    setPhase('error');
+  };
+
+  // Opens the paid live connection and goes straight to the manager's turn.
+  const goLive = async (heardUpdate: string) => {
+    const ctx = ctxRef.current;
+    const stream = streamRef.current;
+    if (!ctx || !stream || !currentLocation?.id) return;
+    setPhase('connecting');
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation.id } });
+      if (fnErr || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
+      if (!ctxRef.current) return; // closed while connecting
+      const ws = new WebSocket(`wss://api.x.ai/v1/realtime?model=${data.model}`, [`xai-client-secret.${data.token}`]);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        if (logRef.current) logRef.current.liveStart = Date.now();
+        ws.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            voice: data.voice,
+            instructions: heardUpdate
+              ? `${data.instructions}\nThe manager just heard this update read aloud — don't repeat it, just answer what they ask next:\n${heardUpdate}`
+              : data.instructions,
+            turn_detection: { type: 'server_vad' },
+            audio: { input: { format: { type: 'audio/pcm', rate: RATE } }, output: { format: { type: 'audio/pcm', rate: RATE } } },
+            tools: [{
+              type: 'function',
+              name: 'ask_theo',
+              description: "Ask Theo's store-data brain any question about this store (sales, labor, schedule, checklists, tips, reviews, punches, crew). Returns the answer to speak.",
+              parameters: { type: 'object', properties: { question: { type: 'string', description: 'The full question in plain English' } }, required: ['question'] },
+            }],
+          },
+        }));
+        const mic = ctx.createMediaStreamSource(stream);
+        const proc = ctx.createScriptProcessor(4096, 1, 1);
+        proc.onaudioprocess = (ev) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: floatToB64(ev.inputBuffer.getChannelData(0)) }));
+          }
+        };
+        const mute = ctx.createGain();
+        mute.gain.value = 0;
+        mic.connect(proc);
+        proc.connect(mute);
+        mute.connect(ctx.destination);
+        procRef.current = proc;
+        setPhase('listening');
+      };
+      ws.onmessage = async (msg) => {
+        const ev = JSON.parse(msg.data);
+        switch (ev.type) {
+          case 'response.output_audio.delta':
+          case 'response.audio.delta':
+            setPhase('speaking');
+            playChunk(b64ToFloat(ev.delta));
+            break;
+          case 'response.output_audio_transcript.delta':
+          case 'response.audio_transcript.delta':
+            if (ev.delta) setCaption((c) => (c.endsWith('\u200b') ? '' : c) + ev.delta);
+            break;
+          case 'response.done':
+            setCaption((c) => c + '\u200b');
+            break;
+          case 'input_audio_buffer.speech_started':
+            userSpeakingRef.current = true;
+            stopPlayback();
+            setPhase('listening');
+            setSpeechTick((n) => n + 1);
+            break;
+          case 'input_audio_buffer.speech_stopped':
+          case 'conversation.item.input_audio_transcription.completed':
+            userSpeakingRef.current = false;
+            setSpeechTick((n) => n + 1);
+            break;
+          case 'response.function_call_arguments.done': {
+            setPhase('thinking');
+            let q = '';
+            try { q = JSON.parse(ev.arguments || '{}').question || ''; } catch { /* bad args */ }
+            const output = ev.name === 'ask_theo' && q ? await askTheo(q) : JSON.stringify({ error: 'Unknown tool' });
+            ws.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: ev.call_id, output } }));
+            ws.send(JSON.stringify({ type: 'response.create' }));
+            break;
+          }
+          case 'error':
+            console.error('[theo-voice]', ev);
+            break;
+        }
+      };
+      ws.onerror = () => { setError('Lost connection to Theo’s voice.'); teardown(); setPhase('error'); };
+      ws.onclose = () => { teardown(); setMode('talk'); };
+    } catch (e: any) {
+      fail(e);
+    }
+  };
+
   const start = async (withOpener: boolean) => {
     if (!currentLocation?.id || phase !== 'idle') return;
     withOpenerRef.current = withOpener;
     setMode('talk');
     setError('');
+    setStoppedListening(false);
     setPhase('connecting');
     try {
-      // Audio must be created inside the tap for iPhone/iPad.
+      // Audio and mic must be set up inside the tap for iPhone/iPad; the mic stays open
+      // (but sends nothing) while the update plays, so going live later needs no new permission.
       const ctx = new AudioContext({ sampleRate: RATE });
       await ctx.resume();
       ctxRef.current = ctx;
@@ -162,102 +289,44 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
       };
       tick();
 
-      const [{ data, error: fnErr }, stream] = await Promise.all([
-        supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation.id } }),
+      const [upd, stream] = await Promise.all([
+        withOpener ? supabase.functions.invoke('theo-voice', { body: { action: 'update', location_id: currentLocation.id } }) : Promise.resolve(null),
         navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }),
       ]);
-      if (fnErr || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
+      if (!ctxRef.current) { stream.getTracks().forEach((t) => t.stop()); return; }
       streamRef.current = stream;
-      setCaption(withOpener ? data.opener?.script || '' : '');
+      if (upd && (upd.error || !upd.data?.opener)) throw new Error(upd.data?.error || 'Theo’s voice isn’t available right now.');
+      const opener = upd?.data?.opener;
+      setCaption(opener?.script || '');
       if (user?.id) {
         const { data: row } = await supabase.from('theo_voice_sessions')
-          .insert({ user_id: user.id, location_id: currentLocation.id, opener_key: withOpener ? data.opener?.key ?? null : null })
+          .insert({ user_id: user.id, location_id: currentLocation.id, opener_key: opener?.key ?? null, tts_chars: upd?.data?.audio ? upd.data.tts_chars || 0 : 0 })
           .select('id').single();
-        if (row) logRef.current = { id: row.id, start: Date.now(), questions: 0 };
+        if (row) logRef.current = { id: row.id, liveStart: null, liveMs: 0, questions: 0 };
       }
-      if (withOpener && user?.id) localStorage.setItem(`theo-voice-seen:${user.id}:${currentLocation.id}`, data.opener?.key || '');
+      if (opener && user?.id) localStorage.setItem(`theo-voice-seen:${user.id}:${currentLocation.id}`, opener.key || '');
 
-      const ws = new WebSocket(`wss://api.x.ai/v1/realtime?model=${data.model}`, [`xai-client-secret.${data.token}`]);
-      wsRef.current = ws;
-      ws.onopen = () => {
-        ws.send(JSON.stringify({
-          type: 'session.update',
-          session: {
-            voice: data.voice,
-            instructions: data.instructions,
-            turn_detection: { type: 'server_vad' },
-            audio: { input: { format: { type: 'audio/pcm', rate: RATE } }, output: { format: { type: 'audio/pcm', rate: RATE } } },
-            tools: [{
-              type: 'function',
-              name: 'ask_theo',
-              description: "Ask Theo's store-data brain any question about this store (sales, labor, schedule, checklists, tips, reviews, punches, crew). Returns the answer to speak.",
-              parameters: { type: 'object', properties: { question: { type: 'string', description: 'The full question in plain English' } }, required: ['question'] },
-            }],
-          },
-        }));
-        if (withOpener) {
-          ws.send(JSON.stringify({
-            type: 'conversation.item.create',
-            item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: `Greet me by reading this opening update naturally, then wait for me:\n\n${data.opener?.script || ''}` }] },
-          }));
-          ws.send(JSON.stringify({ type: 'response.create' }));
-        }
-
-        const mic = ctx.createMediaStreamSource(stream);
-        const proc = ctx.createScriptProcessor(4096, 1, 1);
-        proc.onaudioprocess = (ev) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: floatToB64(ev.inputBuffer.getChannelData(0)) }));
-          }
-        };
-        const mute = ctx.createGain();
-        mute.gain.value = 0;
-        mic.connect(proc);
-        proc.connect(mute);
-        mute.connect(ctx.destination);
-        procRef.current = proc;
-        if (!withOpener) setPhase('listening');
-      };
-      ws.onmessage = async (msg) => {
-        const ev = JSON.parse(msg.data);
-        switch (ev.type) {
-          case 'response.output_audio.delta':
-          case 'response.audio.delta':
-            setPhase('speaking');
-            playChunk(b64ToFloat(ev.delta));
-            break;
-          case 'response.output_audio_transcript.delta':
-          case 'response.audio_transcript.delta':
-            if (ev.delta) setCaption((c) => (c.endsWith('\u200b') ? '' : c) + ev.delta);
-            break;
-          case 'response.done':
-            setCaption((c) => c + '\u200b');
-            break;
-          case 'input_audio_buffer.speech_started':
-            stopPlayback();
-            setPhase('listening');
-            break;
-          case 'response.function_call_arguments.done': {
-            setPhase('thinking');
-            let q = '';
-            try { q = JSON.parse(ev.arguments || '{}').question || ''; } catch { /* bad args */ }
-            const output = ev.name === 'ask_theo' && q ? await askTheo(q) : JSON.stringify({ error: 'Unknown tool' });
-            ws.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: ev.call_id, output } }));
-            ws.send(JSON.stringify({ type: 'response.create' }));
-            break;
-          }
-          case 'error':
-            console.error('[theo-voice]', ev);
-            break;
-        }
-      };
-      ws.onerror = () => { setError('Lost connection to Theo’s voice.'); setPhase('error'); };
-      ws.onclose = () => setPhase((p) => (p === 'error' ? p : 'idle'));
+      if (!withOpener) return goLive('');
+      if (!upd?.data?.audio) {
+        // Text-to-speech failed: show the update as text, offer "Tap to talk to Theo".
+        setShowText(true);
+        teardown();
+        return;
+      }
+      const bin = atob(upd.data.audio);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const buf = await ctx.decodeAudioData(bytes.buffer);
+      if (!ctxRef.current) return;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(analyser);
+      src.onended = () => { updateSrcRef.current = null; void goLive(opener.script); };
+      updateSrcRef.current = src;
+      src.start();
+      setPhase('speaking');
     } catch (e: any) {
-      const denied = e?.name === 'NotAllowedError';
-      setError(denied ? 'Microphone access is off. Allow it in your browser settings, or use text chat.' : e?.message || 'Theo’s voice isn’t available right now.');
-      teardown();
-      setPhase('error');
+      fail(e);
     }
   };
 
@@ -265,6 +334,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
     if (phase === 'idle') { const w = mode === 'update'; setTimeout(() => start(w), 0); return; }
     if (phase === 'error') { const w = withOpenerRef.current; setPhase('idle'); setTimeout(() => start(w), 0); return; }
     if (phase === 'speaking') {
+      const u = updateSrcRef.current;
+      if (u) { try { u.stop(); } catch { /* onended goes live */ } return; }
       stopPlayback();
       wsRef.current?.send(JSON.stringify({ type: 'response.cancel' }));
       setPhase('listening');
