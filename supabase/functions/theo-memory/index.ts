@@ -66,6 +66,22 @@ serve(async (req) => {
       return null;
     };
 
+    // One-time re-fingerprint after switching to the real embedding model (super admin only).
+    if (action === "reembed_batch") {
+      const { data: isSA } = await supabaseUser.rpc("has_role_or_higher", { _user_id: user.id, _minimum_role: "super_admin" });
+      if (isSA !== true) return deny(403, "Forbidden");
+      const offset = Number(body.offset) || 0;
+      const { data: rows } = await supabaseUser.from("theo_knowledge").select("id, topic, content")
+        .order("created_at").order("id").range(offset, offset + 49);
+      let done = 0;
+      for (const r of rows ?? []) {
+        const e = await generateEmbedding(`${r.topic} - ${r.content}`);
+        if (e) { await supabaseUser.from("theo_knowledge").update({ embedding: JSON.stringify(e) }).eq("id", r.id); done++; }
+      }
+      return new Response(JSON.stringify({ offset, fetched: rows?.length ?? 0, done }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (action === "save") {
       // Save knowledge with embedding
       const { location_id, content, topic } = body;
