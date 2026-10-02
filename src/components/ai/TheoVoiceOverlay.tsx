@@ -12,6 +12,8 @@ type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'er
 const RATE = 24000;
 /** Live voice is billed per minute: hang up after this much silence on the manager's turn. */
 const SILENCE_HANGUP_MS = 10_000;
+/** Safety net: hang up if Theo is stuck thinking/speaking with no activity and no audio playing. */
+const STUCK_HANGUP_MS = 20_000;
 /** Quiet time before xAI treats the manager's turn as complete. */
 const SILENCE_WAIT_MS = 600;
 // Hard stop for one live connection (only live time counts, not the read-aloud update).
@@ -228,6 +230,22 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     return () => clearTimeout(t);
   }, [phase, speechTick, teardown]);
 
+  // Stuck-line safety net: during Theo's turn, if nothing arrives and no audio plays for STUCK_HANGUP_MS, hang up.
+  const lastActivityRef = useRef(Date.now());
+  useEffect(() => {
+    if ((phase !== 'thinking' && phase !== 'speaking') || !wsRef.current) return;
+    lastActivityRef.current = Date.now();
+    const iv = setInterval(() => {
+      if (!wsRef.current) return;
+      if (sourcesRef.current.length > 0) { lastActivityRef.current = Date.now(); return; }
+      if (Date.now() - lastActivityRef.current < STUCK_HANGUP_MS) return;
+      teardown(true);
+      setMode('talk');
+      setStoppedListening(true);
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [phase, teardown]);
+
   const playChunk = (f: Float32Array) => {
     const ctx = ctxRef.current;
     if (!ctx || !analyserRef.current) return;
@@ -336,6 +354,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       };
       ws.onmessage = async (msg) => {
         const ev = JSON.parse(msg.data);
+        lastActivityRef.current = Date.now();
         switch (ev.type) {
           case 'response.output_audio.delta':
           case 'response.audio.delta':
