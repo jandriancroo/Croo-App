@@ -339,10 +339,15 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const ctx = ctxRef.current;
     const stream = streamRef.current;
     if (!ctx || !stream || !currentLocation?.id) return;
-    setPhase('connecting');
+    // Optimistic: it's the manager's turn right away. Their voice is captured now and
+    // sent the moment the live line opens.
+    pendingAudioRef.current = [];
+    capturingRef.current = true;
+    reachedListeningRef.current = true;
+    setPhase('listening');
+    triggerCue('ready', true);
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation.id } });
-      if (fnErr || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
+      const data = await takeSession();
       if (!ctxRef.current) return; // closed while connecting
       const ws = new WebSocket(`wss://api.x.ai/v1/realtime?model=${data.model}`, [`xai-client-secret.${data.token}`]);
       wsRef.current = ws;
@@ -375,22 +380,9 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             }],
           },
         }));
-        const mic = ctx.createMediaStreamSource(stream);
-        const proc = ctx.createScriptProcessor(4096, 1, 1);
-        proc.onaudioprocess = (ev) => {
-          if (ws.readyState === WebSocket.OPEN && ctx.currentTime >= micGateUntilRef.current) {
-            ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: floatToB64(ev.inputBuffer.getChannelData(0)) }));
-          }
-        };
-        const mute = ctx.createGain();
-        mute.gain.value = 0;
-        mic.connect(proc);
-        proc.connect(mute);
-        mute.connect(ctx.destination);
-        procRef.current = proc;
-        reachedListeningRef.current = true;
-        setPhase('listening');
-        triggerCue('ready', true);
+        const held = pendingAudioRef.current;
+        pendingAudioRef.current = [];
+        held.forEach((audio) => ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio })));
       };
       ws.onmessage = async (msg) => {
         const ev = JSON.parse(msg.data);
@@ -415,13 +407,17 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             setSpeechTick((n) => n + 1);
             break;
           case 'input_audio_buffer.speech_stopped':
+            userSpeakingRef.current = false;
+            setSpeechTick((n) => n + 1);
+            // "Got it" = the manager finished talking (skipped if Theo is already talking).
+            triggerCue('heard', true);
+            break;
           case 'conversation.item.input_audio_transcription.completed':
             userSpeakingRef.current = false;
             setSpeechTick((n) => n + 1);
             break;
           case 'response.function_call_arguments.done': {
             setPhase('thinking');
-            triggerCue('heard', true);
             let q = '';
             try { q = JSON.parse(ev.arguments || '{}').question || ''; } catch { /* bad args */ }
             const output = ev.name === 'ask_theo' && q ? await askTheo(q) : JSON.stringify({ error: 'Unknown tool' });
@@ -449,6 +445,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     closedCuePlayedRef.current = false;
     errorEndingRef.current = false;
     micGateUntilRef.current = 0;
+    capturingRef.current = false;
+    pendingAudioRef.current = [];
     withOpenerRef.current = withOpener;
     setMode('talk');
     setError('');
@@ -457,10 +455,11 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (withOpener) setCaption('');
     setPhase('connecting');
     try {
-      // Audio and mic must be set up inside the tap for iPhone/iPad; the mic stays open
-      // (but sends nothing) while the update plays, so going live later needs no new permission.
+      // iPhone/iPad: pick "call" audio mode once, up front, so the volume doesn't drop mid-talk.
+      try { const s = (navigator as any).audioSession; if (s) s.type = 'play-and-record'; } catch { /* unsupported */ }
+      // Audio and mic must be set up inside the tap for iPhone/iPad.
       const ctx = new AudioContext({ sampleRate: RATE });
-      await ctx.resume();
+      void ctx.resume();
       ctxRef.current = ctx;
       playAtRef.current = ctx.currentTime;
       const analyser = ctx.createAnalyser();
@@ -476,6 +475,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         rafRef.current = requestAnimationFrame(tick);
       };
       tick();
+      if (!withOpener) prefetchSession();
 
       const [upd, stream] = await Promise.all([
         withOpener ? supabase.functions.invoke('theo-voice', { body: { action: 'update', location_id: currentLocation.id } }) : Promise.resolve(null),
@@ -483,14 +483,39 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       ]);
       if (!ctxRef.current) { stream.getTracks().forEach((t) => t.stop()); return; }
       streamRef.current = stream;
+      // The mic runs from now until the talk ends (never restarted while Theo speaks),
+      // and only sends audio on the manager's turn.
+      const mic = ctx.createMediaStreamSource(stream);
+      const proc = ctx.createScriptProcessor(4096, 1, 1);
+      proc.onaudioprocess = (ev) => {
+        if (!capturingRef.current || ctx.currentTime < micGateUntilRef.current) return;
+        const audio = floatToB64(ev.inputBuffer.getChannelData(0));
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio }));
+        else if (pendingAudioRef.current.length < 60) pendingAudioRef.current.push(audio); // ~10s
+      };
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      mic.connect(proc);
+      proc.connect(mute);
+      mute.connect(ctx.destination);
+      procRef.current = proc;
+
       if (upd && (upd.error || !upd.data?.opener)) throw new Error(upd.data?.error || 'Theo’s voice isn’t available right now.');
       const opener = upd?.data?.opener;
       setCaption(opener?.script || '');
       if (user?.id) {
-        const { data: row } = await supabase.from('theo_voice_sessions')
+        // Usage row is saved in the background; it never holds up the talk.
+        const log: NonNullable<typeof logRef.current> = { id: '', liveStart: null, liveMs: 0, questions: 0 };
+        logRef.current = log;
+        void supabase.from('theo_voice_sessions')
           .insert({ user_id: user.id, location_id: currentLocation.id, opener_key: opener?.key ?? null, tts_chars: upd?.data?.audio ? upd.data.tts_chars || 0 : 0 })
-          .select('id').single();
-        if (row) logRef.current = { id: row.id, liveStart: null, liveMs: 0, questions: 0 };
+          .select('id').single()
+          .then(({ data: row }) => {
+            if (!row) return;
+            log.id = row.id;
+            if (log.final) saveFinal(row.id, log.final);
+          });
       }
       if (opener && user?.id) localStorage.setItem(`theo-voice-seen:${user.id}:${currentLocation.id}`, opener.key || '');
 
@@ -501,6 +526,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         teardown();
         return;
       }
+      prefetchSession(); // ready for the live talk right after the update
       const bin = atob(upd.data.audio);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -517,6 +543,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       fail(e);
     }
   };
+
 
   const onOrbTap = () => {
     if (phase === 'idle') { const w = mode === 'update'; setTimeout(() => start(w), 0); return; }
