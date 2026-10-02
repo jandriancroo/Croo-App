@@ -15177,6 +15177,7 @@ export type Database = {
       get_theo_usage: {
         Args: { _end: string; _start: string }
         Returns: {
+          ai_by_model: Json
           ai_calls: number
           chat_questions: number
           completion_tokens: number
@@ -15184,6 +15185,8 @@ export type Database = {
           location_id: string
           location_name: string
           prompt_tokens: number
+          tts_chars: number
+          unrecorded_talks: number
           user_id: string
           user_name: string
           voice_questions: number
