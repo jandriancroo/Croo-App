@@ -383,6 +383,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         const held = pendingAudioRef.current;
         pendingAudioRef.current = [];
         held.forEach((audio) => ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio })));
+        setSpeechTick((n) => n + 1); // start the silence hang-up clock now that the line is open
       };
       ws.onmessage = async (msg) => {
         const ev = JSON.parse(msg.data);
