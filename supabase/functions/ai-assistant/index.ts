@@ -931,9 +931,9 @@ const PROPOSE_TASK_TOOL = {
       type: "object",
       properties: {
         action: { type: "string", enum: ["create_task"] },
-        title: { type: "string", description: "Short task title. Keep any time the manager said, e.g. 'Wipe down the patio tables by 3 PM'." },
+        title: { type: "string", description: "Short task title. Keep any time the manager said and write it with AM/PM, e.g. 'by 3' becomes 'Wipe down the patio tables by 3 PM'." },
         employee_ids: { type: "array", items: { type: "string" }, description: "employee_id values from find_crew" },
-        roles: { type: "array", items: { type: "string", enum: Object.keys(TASK_ROLES) } },
+        roles: { type: "array", items: { type: "string", enum: Object.keys(TASK_ROLES) }, description: "Only roles the manager named out loud (e.g. 'the shift managers'). Never use team_member for 'everyone', 'all', 'the crew' or 'the team' — for those, do not call this tool; ask who it's for." },
         duration: { type: "string", enum: TASK_DURATIONS, description: "How long it stays up: 1h, 3h, 1d, 3d, 1w, 1m, none (= Until Complete, the default)" },
       },
       required: ["action", "title"],
