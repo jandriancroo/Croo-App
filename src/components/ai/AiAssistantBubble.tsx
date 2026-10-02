@@ -631,6 +631,10 @@ export function AiAssistantBubble() {
         jumpToVoiceRef.current = true;
         setOpen(true);
         setJumpTick(n => n + 1);
+      }} onRecord={(text) => {
+        const theoMsg = { role: 'assistant', content: text } as Message;
+        setMessages(prev => [...prev, theoMsg]);
+        void persistMessage(theoMsg);
       }} onExchange={(q, a) => {
         const userMsg = { role: 'user', content: `🎙️ ${q}` } as Message;
         const theoMsg = { role: 'assistant', content: a } as Message;
