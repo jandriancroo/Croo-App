@@ -182,8 +182,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const theoTapKey = useMemo(() => {
     let d = '';
     try { d = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date()); } catch { d = format(new Date(), 'yyyy-MM-dd'); }
-    return `theo-dock-tapped:${userProfile?.id ?? ''}:${d}`;
-  }, [timezone, userProfile?.id]);
+    return `theo-dock-tapped:${user?.id ?? ''}:${d}`;
+  }, [timezone, user?.id]);
   const [theoTappedToday, setTheoTappedToday] = useState(() => {
     try { return !!localStorage.getItem(theoTapKey); } catch { return false; }
   });
