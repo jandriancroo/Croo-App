@@ -339,120 +339,69 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
     setIsSubmitting(true);
     
     try {
-      // Calculate expiry time (only for standard tasks)
-      let expiresAt = null;
+      let task: any;
       if (taskStyle === "standard") {
-        const durationOption = DURATION_OPTIONS.find(d => d.value === duration);
-        if (durationOption?.hours) {
-          expiresAt = new Date(Date.now() + durationOption.hours * 60 * 60 * 1000).toISOString();
+        // One shared save path (also used by Theo's Create task button).
+        task = await createStandardQuickTask({
+          locationId: currentLocation!.id,
+          createdBy: user!.id,
+          title,
+          employeeIds: selectedEmployees,
+          roles: selectedRoles,
+          duration,
+          description,
+          accentColor,
+          showOnDashboard,
+          shareable,
+          subtasks,
+        });
+      } else {
+        // Prepare task data
+        const taskData: any = {
+          location_id: currentLocation!.id,
+          title: title.trim(),
+          description: description.trim() || null,
+          accent_color: accentColor,
+          created_by: user!.id,
+          task_style: taskStyle === "qr" ? "standard" : taskStyle, // QR uses standard style in DB
+          is_recurring: taskStyle === "alarm" || taskStyle === "team",
+          show_on_dashboard: taskStyle === "qr" ? false : taskStyle === "team" ? false : showOnDashboard,
+          show_on_punch_clock: taskStyle === "team" ? true : (taskStyle === "alarm" ? showOnPunchClock : false),
+          shareable: taskStyle !== "qr" && taskStyle !== "team" && subtasks.length > 0 ? shareable : false,
+        };
+
+        if (taskStyle === "alarm") {
+          // Alarm task fields
+          taskData.days_of_week = daysOfWeek;
+          taskData.frequency_type = frequencyType === "custom" ? "custom" : "interval";
+          taskData.frequency_minutes = frequencyType !== "custom" ? parseInt(frequencyType) : null;
+          taskData.custom_times = frequencyType === "custom" ? customTimes : null;
+          taskData.alarm_start_time = alarmStartTime;
+          taskData.alarm_end_time = alarmEndTime;
+          taskData.notify_only_working = notifyOnlyWorking;
+          taskData.push_enabled = pushEnabled;
+        } else if (taskStyle === "team") {
+          // Team task fields
+          taskData.days_of_week = daysOfWeek;
+          taskData.is_active = true;
+        } else if (taskStyle === "qr") {
+          // QR task fields
+          taskData.is_qr_triggered = true;
+          taskData.qr_code = generateQrCode();
+          taskData.qr_issue_options = qrIssueOptions;
+          taskData.qr_allow_notes = qrAllowNotes;
+          taskData.qr_notify_punch_clock = qrNotifyPunchClock;
         }
-      }
 
-      // Prepare task data
-      const taskData: any = {
-        location_id: currentLocation!.id,
-        title: title.trim(),
-        description: description.trim() || null,
-        accent_color: accentColor,
-        created_by: user!.id,
-        task_style: taskStyle === "qr" ? "standard" : taskStyle, // QR uses standard style in DB
-        is_recurring: taskStyle === "alarm" || taskStyle === "team",
-        show_on_dashboard: taskStyle === "qr" ? false : taskStyle === "team" ? false : showOnDashboard,
-        show_on_punch_clock: taskStyle === "team" ? true : (taskStyle === "alarm" ? showOnPunchClock : false),
-        shareable: taskStyle !== "qr" && taskStyle !== "team" && subtasks.length > 0 ? shareable : false,
-      };
-
-      if (taskStyle === "standard") {
-        taskData.expires_at = expiresAt;
-      } else if (taskStyle === "alarm") {
-        // Alarm task fields
-        taskData.days_of_week = daysOfWeek;
-        taskData.frequency_type = frequencyType === "custom" ? "custom" : "interval";
-        taskData.frequency_minutes = frequencyType !== "custom" ? parseInt(frequencyType) : null;
-        taskData.custom_times = frequencyType === "custom" ? customTimes : null;
-        taskData.alarm_start_time = alarmStartTime;
-        taskData.alarm_end_time = alarmEndTime;
-        taskData.notify_only_working = notifyOnlyWorking;
-        taskData.push_enabled = pushEnabled;
-      } else if (taskStyle === "team") {
-        // Team task fields
-        taskData.days_of_week = daysOfWeek;
-        taskData.is_active = true;
-      } else if (taskStyle === "qr") {
-        // QR task fields
-        taskData.is_qr_triggered = true;
-        taskData.qr_code = generateQrCode();
-        taskData.qr_issue_options = qrIssueOptions;
-        taskData.qr_allow_notes = qrAllowNotes;
-        taskData.qr_notify_punch_clock = qrNotifyPunchClock;
-      }
-
-      // Create the task
-      const { data: task, error: taskError } = await supabase
-        .from('temporary_tasks')
-        .insert(taskData)
-        .select()
-        .single();
-
-      if (taskError) throw taskError;
-
-      // Create assignments (skip for QR and Team tasks). Roles + individual employees can both be set.
-      if (taskStyle !== "qr" && taskStyle !== "team") {
-        const assignments: any[] = [
-          ...selectedRoles.map(role => ({ task_id: task.id, user_id: null, role })),
-          ...selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null })),
-        ];
-
-        if (assignments.length > 0) {
-          const { error: assignmentError } = await supabase
-            .from('temporary_task_assignments')
-            .insert(assignments);
-          if (assignmentError) throw assignmentError;
-        }
-      }
-
-      // Create subtasks (skip for QR tasks)
-      if (taskStyle !== "qr" && subtasks.length > 0) {
-        const subtaskRecords = subtasks.map((subtask, index) => ({
-          task_id: task.id,
-          title: subtask.title,
-          item_type: subtask.item_type,
-          order_index: index,
-          
-          ...(subtask.quantity ? { quantity: subtask.quantity } : {}),
-        }));
-
-        const { error: subtaskError } = await supabase
-          .from('temporary_task_subtasks')
-          .insert(subtaskRecords);
-
-        if (subtaskError) throw subtaskError;
-      }
-
-      // Send push notification to assigned users for standard/team tasks
-      if (taskStyle !== "qr" && taskStyle !== "alarm") {
-        try {
-          const pushBody: any = {
-            title: '📋 New Task Assigned',
-            body: title.trim(),
-            notification_type: 'task_assigned',
-            data: { type: 'task_assigned', task_id: task.id },
-          };
-
-          if (selectedEmployees.length > 0) {
-            pushBody.user_ids = selectedEmployees;
-          }
-          if (selectedRoles.length > 0) {
-            pushBody.roles = selectedRoles;
-            pushBody.location_id = currentLocation!.id;
-          }
-
-          if (pushBody.user_ids || pushBody.roles) {
-            await supabase.functions.invoke('send-push-notification', { body: pushBody });
-          }
-        } catch (pushErr) {
-          console.error('Push notification failed (non-blocking):', pushErr);
-        }
+        // Assignments skipped for QR and Team; subtasks skipped for QR; push for team only (as before).
+        task = await saveQuickTask({
+          taskData,
+          employeeIds: selectedEmployees,
+          roles: selectedRoles,
+          assign: taskStyle !== "team",
+          subtasks: taskStyle !== "qr" ? subtasks : [],
+          notify: taskStyle === "team",
+        });
       }
 
       // For QR tasks, show the QR code dialog
