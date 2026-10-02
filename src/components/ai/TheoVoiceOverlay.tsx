@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check } from 'lucide-react';
 import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
+import { reassignAndNotify } from '@/lib/scheduleActions';
+import { countPendingChanges } from '@/lib/scheduleDiff';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
@@ -71,7 +74,21 @@ supabase.auth.getSession().then(({ data }) => { accessToken = data.session?.acce
 supabase.auth.onAuthStateChange((_e, session) => { accessToken = session?.access_token || ''; });
 // Theo hands (build 1): a proposal Theo made; saved only by the manager's Create task tap.
 type TaskProposal = { id: string; action: 'create_task'; title: string; employees: { id: string; name: string }[]; roles: string[]; duration: string };
-type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: TaskProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean };
+// Theo hands (build 2): cover a shift. Saved only by the manager's Confirm change tap.
+type CoverProposal = {
+  id: string; action: 'cover_shift'; shift_id: string; schedule_id: string; day_of_week: number; shift_date: string;
+  start_time: string; end_time: string; date_label: string; time_label: string;
+  covered: { id: string; name: string }; replacement: { id: string; name: string };
+  checks: string[]; tag: string | null; published: boolean;
+};
+type AnyProposal = TaskProposal | CoverProposal;
+type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean };
+type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
+type CoverScreen =
+  | { kind: 'shifts'; date: string; title: string; shifts: { shift_id: string; employee_id: string; name: string; time: string }[] }
+  | { kind: 'people'; date: string; title: string; people: { employee_id: string; name: string }[] }
+  | { kind: 'candidates'; shift_id: string; title: string; subtitle: string; clear: ScreenRow[]; working: ScreenRow[]; blocked_summary: string | null };
+const firstName = (n: string) => n.split(' ')[0];
 const UNDO_MS = 10 * 60 * 1000;
 const roleLabel = (r: string) => ROLE_DISPLAY_NAMES[r as AppRole] ?? r;
 const whoText = (p: TaskProposal) => [...p.employees.map((e) => e.name), ...p.roles.map(roleLabel)].join(', ');
@@ -101,6 +118,13 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const { currentLocation } = useLocation();
   const { user } = useAuth();
   const { isSuperAdmin } = useUserRole();
+  const { timezone } = useLocationTimezone();
+  // Cover-a-shift lists (shift picker, which-person, who-can-cover). Showing one changes nothing.
+  const [screen, setScreenState] = useState<CoverScreen | null>(null);
+  const screenRef = useRef<CoverScreen | null>(null);
+  const setScreen = (sc: CoverScreen | null) => { screenRef.current = sc; setScreenState(sc); };
+  const [screenNote, setScreenNote] = useState('');
+  const [picking, setPicking] = useState(false);
   // Action preview card: lives outside the voice line, so hang-ups and the time limit never dismiss it.
   const [action, setActionState] = useState<ActionCard | null>(null);
   const actionRef = useRef<ActionCard | null>(null);
@@ -245,7 +269,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     return data;
   };
 
-  useEffect(() => { if (!open) { const a = actionRef.current; if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' }); setAction(null); teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
+  useEffect(() => { if (!open) { const a = actionRef.current; if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' }); setAction(null); setScreen(null); setScreenNote(''); teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   const hardStop = useCallback(() => {
@@ -327,6 +351,52 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     };
   };
 
+  /** Put a proposal on screen and log it as previewed. False if a save is in progress. */
+  const showProposal = (proposal: AnyProposal) => {
+    if (!user?.id || !currentLocation?.id) return false;
+    const prev = actionRef.current;
+    if (prev?.stage === 'saving') return false;
+    if (prev?.stage === 'preview') logAction(prev.logId, { status: 'cancelled' });
+    const logId = Promise.resolve(supabase.from('theo_action_log')
+      .insert({ user_id: user.id, location_id: currentLocation.id, action: proposal.action, proposal: proposal as any, status: 'previewed' })
+      .select('id').single()).then(({ data: row }) => row?.id ?? null, () => null);
+    setScreen(null);
+    setScreenNote('');
+    setAction({ stage: 'preview', proposal, logId });
+    if (proposal.action === 'cover_shift' && proposal.published) {
+      // Other changes already waiting on this published week go out with the Update.
+      void (async () => {
+        const [{ data: sch }, { data: cur }] = await Promise.all([
+          supabase.from('schedules').select('published_shifts_snapshot').eq('id', proposal.schedule_id).single(),
+          supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', proposal.schedule_id),
+        ]);
+        const snap = Array.isArray(sch?.published_shifts_snapshot) ? (sch!.published_shifts_snapshot as any[]) : [];
+        const n = countPendingChanges(snap, cur as any[]);
+        const c = actionRef.current;
+        if (c?.proposal.id === proposal.id) setAction({ ...c, otherChanges: n });
+      })();
+    }
+    return true;
+  };
+
+  /** A tap on a list row: answered by the app's code, never by the AI. Saves nothing. */
+  const pickFromScreen = async (pick: Record<string, unknown>) => {
+    if (picking) return;
+    setPicking(true);
+    setScreenNote('');
+    try {
+      const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation?.id, location_name: currentLocation?.name, source: 'voice', pick },
+      });
+      if (e) { setScreenNote('Theo could not reach the schedule right now.'); return; }
+      if (data?.proposal?.action === 'cover_shift') { showProposal(data.proposal as CoverProposal); return; }
+      if (data?.screen?.kind) { setScreen(data.screen as CoverScreen); return; }
+      setScreenNote(data?.content || '');
+    } finally {
+      setPicking(false);
+    }
+  };
+
   const askTheo = async (question: string) => {
     if (logRef.current) logRef.current.questions += 1;
     setLongAnswer(false);
@@ -337,6 +407,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         location_name: currentLocation?.name,
         source: 'voice',
         ...(isSuperAdmin && actionRef.current?.stage === 'preview' ? { pending_action: actionRef.current.proposal } : {}),
+        ...(isSuperAdmin && screenRef.current?.kind === 'candidates' ? { list_context: { shift_id: screenRef.current.shift_id } } : {}),
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
@@ -345,18 +416,17 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       logAction(actionRef.current.logId, { status: 'cancelled' });
       setAction(null);
     }
-    if (isSuperAdmin && data?.proposal?.action === 'create_task' && user?.id && currentLocation?.id) {
-      const prev = actionRef.current;
-      if (prev?.stage === 'preview') logAction(prev.logId, { status: 'cancelled' });
-      if (prev?.stage !== 'saving') {
-        const proposal = data.proposal as TaskProposal;
-        const logId = Promise.resolve(supabase.from('theo_action_log')
-          .insert({ user_id: user.id, location_id: currentLocation.id, action: 'create_task', proposal: proposal as any, status: 'previewed' })
-          .select('id').single()).then(({ data: row }) => row?.id ?? null, () => null);
-        setAction({ stage: 'preview', proposal, logId });
+    if (isSuperAdmin && (data?.proposal?.action === 'create_task' || data?.proposal?.action === 'cover_shift')) {
+      if (showProposal(data.proposal as AnyProposal)) {
         onExchange?.(question, answer);
         return JSON.stringify({ answer, long: false, preview: true });
       }
+    }
+    if (isSuperAdmin && data?.screen?.kind && !actionRef.current) {
+      setScreen(data.screen as CoverScreen);
+      setScreenNote('');
+      onExchange?.(question, answer);
+      return JSON.stringify({ answer, long: false, screen: true });
     }
     const long = !!answer && isLongAnswer(answer);
     if (answer) {
@@ -587,9 +657,51 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
 
 
+  const confirmCover = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'preview' || a.proposal.action !== 'cover_shift' || !user?.id || !currentLocation?.id) return;
+    const p = a.proposal;
+    setAction({ ...a, stage: 'saving', error: undefined });
+    try {
+      // Re-check at the moment of the tap: anything changed since the preview means no save.
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: 'voice', pick: { kind: 'recheck', proposal: p } },
+      });
+      if (ce || !chk?.recheck) throw new Error('Could not re-check the shift.');
+      if (!chk.recheck.ok) {
+        logAction(a.logId, { status: 'failed' });
+        setAction({ ...a, stage: 'preview', error: `Not saved. Something changed: ${chk.recheck.changed}` });
+        return;
+      }
+      const res = await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.replacement.id, changedBy: user.id, timezone });
+      logAction(a.logId, { status: 'confirmed', record_id: p.shift_id });
+      onRecord?.(`Covered shift: ${p.date_label}, ${p.time_label}. ${p.replacement.name} takes it from ${p.covered.name}`);
+      const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      setAction({ ...a, stage: 'done', savedAt, undoOpen: true, notified: res.notified });
+      setTimeout(() => { const c = actionRef.current; if (c?.proposal.id === p.id && c.stage === 'done') setAction({ ...c, undoOpen: false }); }, UNDO_MS);
+    } catch (err: any) {
+      logAction(a.logId, { status: 'failed' });
+      setAction({ ...a, stage: 'preview', error: err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the change. Try again." });
+    }
+  };
+  const undoCover = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'done' || a.proposal.action !== 'cover_shift' || !user?.id) return;
+    const p = a.proposal;
+    setAction({ ...a, stage: 'undoing', error: undefined });
+    try {
+      await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.covered.id, changedBy: user.id, timezone });
+      logAction(a.logId, { status: 'undone' });
+      onRecord?.(`Undid shift cover: ${p.covered.name} has ${p.date_label}, ${p.time_label} again`);
+      setAction({ ...a, stage: 'undone' });
+    } catch {
+      setAction({ ...a, stage: 'done', error: "Couldn't undo the change. Try again." });
+    }
+  };
   const confirmTask = async () => {
     const a = actionRef.current;
-    if (!a || a.stage !== 'preview' || !user?.id || !currentLocation?.id) return;
+    if (a?.proposal.action === 'cover_shift') return confirmCover();
+    if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_task' || !user?.id || !currentLocation?.id) return;
     setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
     try {
       const task = await createStandardQuickTask({
@@ -613,7 +725,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
   const undoTask = async () => {
     const a = actionRef.current;
-    if (!a || a.stage !== 'done' || !a.taskId) return;
+    if (a?.proposal.action === 'cover_shift') return undoCover();
+    if (!a || a.stage !== 'done' || !a.taskId || a.proposal.action !== 'create_task') return;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
       await deleteQuickTask(a.taskId);
@@ -638,6 +751,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
 
   function renderAction(a: ActionCard) {
+    if (a.proposal.action === 'cover_shift') return renderCover(a, a.proposal);
     const p = a.proposal;
     const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
     if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
