@@ -3205,6 +3205,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       };
       if (pick.kind === "shift") return await shiftToScreen(sid);
       if (pick.kind === "person") {
+        if (!crewForActions.some((c) => c.id === pick.employee_id)) return reply({ content: "I can't find that person at this store." });
         const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, { employee_id: String(pick.employee_id || ""), date: pick.date }, today, nowHHMM, matchCrew);
         if (r.status === "one_shift") return await shiftToScreen(r.shift_id);
         if (r.screen) return reply({ content: r.screen.title, screen: r.screen });

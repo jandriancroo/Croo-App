@@ -35,6 +35,10 @@ async function shiftsOn(admin: any, locationId: string, date: string) {
 }
 
 async function buildInput(admin: any, shift: any, locationId: string, crew: Crew[], name: (c: Crew) => string): Promise<CoverInput> {
+  // Candidates are the store's schedule roster (same "show on schedule" rule the Schedule page uses).
+  const { data: ros } = await admin.from("user_locations").select("user_id").eq("location_id", locationId).eq("show_on_schedule", true);
+  const onRoster = new Set((ros || []).map((r: any) => r.user_id));
+  crew = crew.filter((c) => onRoster.has(c.id));
   const ids = crew.map((c) => c.id);
   const [prof, roles, off, week, hrs] = await Promise.all([
     admin.from("profiles").select("id, weekly_availability").in("id", ids),
@@ -152,14 +156,15 @@ export async function findShifts(admin: any, locationId: string, crew: Crew[], n
 /** Preview for one replacement, or why not. Also the re-check at the Confirm tap. */
 export async function buildCoverProposal(admin: any, locationId: string, shiftId: string, replacementId: string, crew: Crew[], name: (c: Crew) => string) {
   const shift = await loadShift(admin, shiftId, locationId);
-  if (!shift) return { ok: false as const, error: "That shift isn't on this store's schedule anymore." };
+  if (!shift) return { ok: false as const, error: "That shift_id isn't a shift at this store. Call find_shifts for the person being covered and use the shift_id it returns, then try again." };
   if (await hasOpenOffer(admin, shift.id)) return { ok: false as const, error: POSTED, posted: true };
   const rep = crew.find((c) => c.id === replacementId);
   if (!rep) return { ok: false as const, error: "That person isn't active crew at this store. Use find_crew." };
   if (rep.id === shift.user_id) return { ok: false as const, error: `${first(name(rep))} already has this shift.` };
   const covered = crew.find((c) => c.id === shift.user_id);
   const input = await buildInput(admin, shift, locationId, crew, name);
-  const me = input.people.find((p) => p.id === rep.id)!;
+  const me = input.people.find((p) => p.id === rep.id);
+  if (!me) return { ok: false as const, error: `${first(name(rep))} isn't on this store's schedule roster.` };
   const fail = hurdleFor(me, input);
   if (fail) return { ok: false as const, error: fail.reason, hurdle: fail.kind };
   const c = candidateFor(me, input);
