@@ -750,6 +750,130 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     }
   };
 
+  const amberTag = (t: string) => (
+    <span className="inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-extrabold" style={{ background: 'hsl(38 95% 88%)', color: 'hsl(32 90% 26%)' }}>{t}</span>
+  );
+
+  function renderCover(a: ActionCard, p: CoverProposal) {
+    const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const rf = firstName(p.replacement.name);
+    const cf = firstName(p.covered.name);
+    if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
+      const undone = a.stage === 'undone';
+      return (
+        <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : 'hsl(142 70% 28%)' }}>
+              {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
+            </span>
+            <div>
+              <div className="text-[18px] font-extrabold">{undone ? 'Change undone' : 'Shift covered'}</div>
+              {!undone && <div className="text-[13px] text-muted-foreground">Saved at {a.savedAt}</div>}
+            </div>
+          </div>
+          <p className="text-[17px] font-extrabold">{undone ? `${cf} has the shift again.` : `Done. ${rf} has ${p.date_label.split(',')[0]} ${Number(p.start_time.slice(0, 2)) >= 16 ? 'night' : 'shift'}.`}</p>
+          <p className="text-[14px] text-muted-foreground">{p.date_label} · {p.time_label}</p>
+          <p className="text-[13px] text-muted-foreground">{p.published ? (a.notified ? 'Both were notified.' : 'No one needed a notice.') : 'No one was notified, the week is a draft.'}</p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          {!undone && a.undoOpen && (
+            <div className="flex flex-col gap-1">
+              <button onClick={undoTask} disabled={a.stage === 'undoing'}
+                className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
+                {a.stage === 'undoing' ? 'Undoing…' : 'Undo'}
+              </button>
+              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes{p.published ? ' and notifies both again' : ''}.</p>
+            </div>
+          )}
+          <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
+        </div>
+      );
+    }
+    const saving = a.stage === 'saving';
+    const others = a.otherChanges ?? 0;
+    return (
+      <>
+        <p className="mt-3 text-center text-[22px] font-extrabold text-white">Does this look right?</p>
+        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[18px] font-extrabold">Cover a shift</span>
+            {amberTag('Preview · not saved')}
+          </div>
+          <div><div className={label}>When</div><div className="text-[17px] font-extrabold">{p.date_label} · {p.time_label}</div></div>
+          <div className="flex flex-col gap-2">
+            <div className="flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2" style={{ background: 'hsl(var(--destructive) / 0.12)' }}>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-destructive" />
+              <div><div className="text-[15px] font-extrabold">{p.covered.name}</div><div className="text-[13px] text-muted-foreground">Comes off this shift</div></div>
+            </div>
+            <div className="flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2" style={{ background: 'hsl(142 70% 28% / 0.12)' }}>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: 'hsl(142 70% 28%)' }} />
+              <div className="flex-1"><div className="text-[15px] font-extrabold">{p.replacement.name}</div><div className="text-[13px] text-muted-foreground">Takes this shift</div></div>
+              {p.tag && amberTag(p.tag)}
+            </div>
+          </div>
+          <ul className="flex flex-col gap-1">
+            {p.checks.map((c) => (
+              <li key={c} className="flex items-start gap-2 text-[14px]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={3} />{c}</li>
+            ))}
+          </ul>
+          <div className="h-px w-full bg-border" />
+          <p className="text-[13px] text-muted-foreground">
+            {p.published
+              ? `When you confirm, the schedule changes and ${cf} and ${rf} are notified.${others > 0 ? ` ${others} other ${others === 1 ? 'change' : 'changes'} on this week will also go out.` : ''}`
+              : "This week isn't published yet, so no one is notified."}
+          </p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <button onClick={confirmTask} disabled={saving}
+            className="h-[52px] w-full rounded-full text-[16px] font-extrabold text-white disabled:opacity-70" style={{ background: DEEP_PRIMARY }}>
+            {saving ? 'Saving…' : 'Confirm change'}
+          </button>
+          <button onClick={cancelTask} disabled={saving} className="h-11 w-full text-[15px] font-semibold text-muted-foreground">Cancel</button>
+        </div>
+        <p className="mt-3 text-center text-[13px] text-white/[0.78]">Or tell Theo what to change.</p>
+      </>
+    );
+  }
+
+  function renderScreen(sc: CoverScreen) {
+    const rowCls = 'flex min-h-[60px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted disabled:opacity-60';
+    const groupLabel = 'px-1 pt-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const person = (r: ScreenRow) => (
+      <button key={r.employee_id} disabled={picking} className={rowCls}
+        onClick={() => sc.kind === 'candidates' && pickFromScreen({ kind: 'candidate', shift_id: sc.shift_id, employee_id: r.employee_id })}>
+        <div className="flex-1"><div className="text-[16px] font-extrabold">{r.name}</div><div className="text-[13px] text-muted-foreground">{r.line}</div></div>
+        {r.tag && amberTag(r.tag)}
+      </button>
+    );
+    return (
+      <>
+        <p className="mt-3 text-center text-[22px] font-extrabold text-white">{sc.title}</p>
+        {sc.kind === 'candidates' && <p className="mt-1 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
+        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-3 text-foreground flex flex-col gap-1 tabular-nums">
+          {sc.kind === 'shifts' && (sc.shifts.length ? sc.shifts.map((sh) => (
+            <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id })}>
+              <div><div className="text-[16px] font-extrabold">{sh.name}</div><div className="text-[13px] text-muted-foreground">{sh.time}</div></div>
+            </button>
+          )) : <p className="p-3 text-[14px] text-muted-foreground">No shifts left today.</p>)}
+          {sc.kind === 'people' && sc.people.map((pp) => (
+            <button key={pp.employee_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'person', employee_id: pp.employee_id, date: sc.date })}>
+              <div className="text-[16px] font-extrabold">{pp.name}</div>
+            </button>
+          ))}
+          {sc.kind === 'candidates' && <>
+            {sc.clear.length > 0 && <div className={groupLabel}>Clear to cover</div>}
+            {sc.clear.map(person)}
+            {sc.working.length > 0 && <div className={groupLabel}>Already working that day</div>}
+            {sc.working.map(person)}
+            {!sc.clear.length && !sc.working.length && <p className="p-3 text-[14px] text-muted-foreground">Nobody passes the checks for this shift.</p>}
+            {sc.blocked_summary && <p className="px-1 pt-2 text-[13px] text-muted-foreground">{sc.blocked_summary}.</p>}
+          </>}
+          {screenNote && <p className="px-1 pt-2 text-[14px] font-semibold">{screenNote}</p>}
+        </div>
+        <p className="mt-3 text-center text-[13px] text-white/[0.78]">{sc.kind === 'candidates' ? 'Tap a name, or just say it.' : 'Tap one, or just say it.'}</p>
+        <button onClick={() => { setScreen(null); setScreenNote(''); }} className="mt-1 h-11 px-6 text-[14px] font-semibold text-white/80">Close list</button>
+      </>
+    );
+  }
+
   function renderAction(a: ActionCard) {
     if (a.proposal.action === 'cover_shift') return renderCover(a, a.proposal);
     const p = a.proposal;
@@ -825,14 +949,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         </button>
       </div>
 
-      <div className={action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
+      <div className={action || screen ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
-          className={action ? 'relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
-          <div className={action ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
+          className={action || screen ? 'relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
+          <div className={action || screen ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
             <TheoVoiceOrb ref={orbRef} phase={phase} level={level} />
           </div>
         </button>
-        {action ? renderAction(action) : <>
+        {action ? renderAction(action) : screen ? renderScreen(screen) : <>
         <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : PHASE_TEXT[phase]}</p>
         {(() => {
           const sub = phase === 'idle' && mode === 'talk'
