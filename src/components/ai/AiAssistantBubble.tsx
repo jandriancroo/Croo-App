@@ -15,6 +15,8 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheoUnread } from '@/hooks/useTheoUnread';
+import { TheoVoiceOverlay } from './TheoVoiceOverlay';
+import { AudioLines } from 'lucide-react';
 
 
 interface Message {
@@ -213,6 +215,28 @@ export function AiAssistantBubble() {
     return () => window.removeEventListener('open-theo', handler);
   }, []);
 
+  // ── Theo voice: offer each 4-hour opener once per person per store ──
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  useEffect(() => {
+    if (!isShiftManager || !currentLocation?.id || !timezone) return;
+    const check = async () => {
+      if (document.visibilityState !== 'visible' || window.location.pathname.startsWith('/kiosk')) return;
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user?.id;
+      if (!uid) return;
+      const date = formatInTimeZone(new Date(), timezone, 'yyyy-MM-dd');
+      const slot = Math.floor(Number(formatInTimeZone(new Date(), timezone, 'H')) / 4);
+      const key = `${date}#${slot}`;
+      const storeKey = `theo-voice-seen:${uid}:${currentLocation.id}`;
+      if (localStorage.getItem(storeKey) === key) return;
+      localStorage.setItem(storeKey, key);
+      setVoiceOpen(true);
+    };
+    check();
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, [isShiftManager, currentLocation?.id, timezone]);
+
   if (!isShiftManager) return null;
 
   const scrollToBottom = () => {
@@ -389,6 +413,13 @@ export function AiAssistantBubble() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => { setOpen(false); setVoiceOpen(true); }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.16] text-white transition-colors hover:bg-white/25"
+                    aria-label="Talk to Theo"
+                  >
+                    <AudioLines className="h-[18px] w-[18px]" />
+                  </button>
                   {messages.length > 0 && (
                     <button
                       onClick={handleNewChat}
@@ -566,6 +597,7 @@ export function AiAssistantBubble() {
           </>
         )}
       </AnimatePresence>
+      <TheoVoiceOverlay open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} />
     </>,
     document.body
   );

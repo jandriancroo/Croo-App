@@ -120,3 +120,7 @@
 ## In progress (Oct 1, 2026)
 - Sales scoreboard: reduce hero number ~15% (44px -> 37px), style pace comp popover trigger as a clickable badge with a small open icon.
 - Pace popover styling must match the hourly chart popover design (white card, bold title, label/value rows) per Jordan.
+
+## Theo voice (Oct 2)
+- [x] Phase 1 live voice screen, 4-hour openers, talk button
+- [ ] Jordan to test on his phone (mic + sound)
