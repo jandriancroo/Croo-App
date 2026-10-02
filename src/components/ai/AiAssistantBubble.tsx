@@ -45,6 +45,7 @@ export function AiAssistantBubble() {
   const [helpfulIndices, setHelpfulIndices] = useState<Set<number>>(new Set());
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastVoiceIdxRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const briefingLoadedRef = useRef(false);
 
@@ -478,6 +479,7 @@ export function AiAssistantBubble() {
                     {messages.map((msg, i) => (
                       <motion.div
                         key={i}
+                        data-msg-idx={i}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
@@ -599,10 +601,20 @@ export function AiAssistantBubble() {
           </>
         )}
       </AnimatePresence>
-      <TheoVoiceOverlay intent={voiceIntent} open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} onExchange={(q, a) => {
+      <TheoVoiceOverlay intent={voiceIntent} open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} onOpenAnswer={() => {
+        // Land with the latest voice question at the top of the chat, its full answer below.
+        const idx = lastVoiceIdxRef.current;
+        setOpen(true);
+        if (idx == null) return;
+        setTimeout(() => {
+          const box = scrollRef.current;
+          const el = box?.querySelector(`[data-msg-idx="${idx}"]`) as HTMLElement | null;
+          if (box && el) box.scrollTo({ top: box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - 12 });
+        }, 400);
+      }} onExchange={(q, a) => {
         const userMsg = { role: 'user', content: `🎙️ ${q}` } as Message;
         const theoMsg = { role: 'assistant', content: a } as Message;
-        setMessages(prev => [...prev, userMsg, theoMsg]);
+        setMessages(prev => { lastVoiceIdxRef.current = prev.length; return [...prev, userMsg, theoMsg]; });
         void persistMessage(userMsg).then(() => persistMessage(theoMsg));
       }} />
     </>,

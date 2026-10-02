@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Keyboard, MessageSquareText, Mic, Volume2 } from 'lucide-react';
+import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
@@ -11,6 +11,8 @@ type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'er
 const RATE = 24000;
 /** Live voice is billed per minute: hang up after this much silence on the manager's turn. */
 const SILENCE_HANGUP_MS = 10_000;
+/** One decision for "long": Theo points to the chat and the screen shows "See full answer". */
+const isLongAnswer = (a: string) => a.length > 500 || a.split('\n').filter((l) => l.trim()).length > 10;
 const VOICE_SUFFIX =
   '\n\n(Voice mode: answer the whole question. If the answer is a list of people, shifts or items, include every one with its key detail (for a schedule: name and shift time). Keep it compact: round numbers, short lines, no tables. You are talking to a manager with full access, so say names and details plainly.)';
 
@@ -51,7 +53,7 @@ const ORB_LABEL: Record<Phase, string> = {
   listening: 'Theo is listening', thinking: 'Theo is checking the numbers', error: 'Try Theo voice again',
 };
 
-export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onExchange?: (question: string, answer: string) => void; intent?: 'update' | 'talk' }) {
+export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onExchange, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onOpenAnswer?: () => void; onExchange?: (question: string, answer: string) => void; intent?: 'update' | 'talk' }) {
   const { currentLocation } = useLocation();
   const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>('idle');
@@ -77,6 +79,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
   const userSpeakingRef = useRef(false);
   const [speechTick, setSpeechTick] = useState(0);
   const [stoppedListening, setStoppedListening] = useState(false);
+  const [longAnswer, setLongAnswer] = useState(false);
 
   const stopPlayback = useCallback(() => {
     sourcesRef.current.forEach((s) => { try { s.stop(); } catch { /* done */ } });
@@ -114,7 +117,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
     setLevel(0);
   }, [stopPlayback]);
 
-  useEffect(() => { if (!open) { teardown(); setStoppedListening(false); } }, [open, teardown]);
+  useEffect(() => { if (!open) { teardown(); setStoppedListening(false); setLongAnswer(false); } }, [open, teardown]);
   useEffect(() => () => teardown(), [teardown]);
 
   // Hang up the paid live connection after SILENCE_HANGUP_MS of no speech on the manager's turn.
@@ -150,6 +153,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
 
   const askTheo = async (question: string) => {
     if (logRef.current) logRef.current.questions += 1;
+    setLongAnswer(false);
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
         messages: [{ role: 'user', content: question + VOICE_SUFFIX }],
@@ -159,8 +163,11 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
-    if (data?.content) onExchange?.(question, data.content);
-    return JSON.stringify({ answer: data?.content || 'No answer.' });
+    const answer: string = data?.content || '';
+    const long = !!answer && isLongAnswer(answer);
+    if (answer) onExchange?.(question, answer);
+    setLongAnswer(long);
+    return JSON.stringify({ answer: answer || 'No answer.', long });
   };
 
   const fail = (e: any) => {
@@ -372,6 +379,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
             : PHASE_SUB[phase];
           return sub ? <p className="mt-1 text-center text-[13px] text-white/75">{sub}</p> : null;
         })()}
+        {longAnswer && (
+          <button onClick={() => { teardown(); onClose(); (onOpenAnswer ?? onOpenChat)(); }}
+            className="mt-4 flex h-11 min-h-[44px] items-center gap-2 rounded-full bg-white px-5 text-sm font-bold text-[hsl(220_25%_5%)] shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
+            <MessageSquareText className="h-4 w-4" /> See full answer <ArrowRight className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {showText && visibleCaption && (
