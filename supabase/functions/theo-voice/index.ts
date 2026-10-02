@@ -80,9 +80,9 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
 }
 
 const HANDS = `
-Quick tasks: ask_theo also takes requests to create a quick task ("have Alle wipe the patio tables"). Pass the whole request through, word for word.
-When an ask_theo result has "preview": true, say only its answer line. Never say a task was created, saved or assigned.
-If the manager says yes, do it, confirm or looks good while a preview is showing, pass it to ask_theo and say what it returns ("Tap Create task to save it.").`;
+Quick tasks and shift cover: ask_theo also takes requests to create a quick task ("have Alle wipe the patio tables") and to cover a shift ("who can cover Ryan tonight?", "cover Ryan's shift with Deborah", "someone called out"). Pass the whole request through, word for word.
+When an ask_theo result has "preview": true or "screen": true, say only its answer line. Never say a task was created or a shift was changed, moved or covered.
+If the manager says yes, do it, confirm or looks good while a preview is showing, pass it to ask_theo and say what it returns ("Tap Create task to save it." or "Tap Confirm change to save it.").`;
 
 const INSTRUCTIONS = (locName: string, role: string, hands = false) => `You are Theo, the AI general manager for ${locName} in CrooHQ — think Jarvis for a restaurant. You're talking out loud with a ${role.replace(/_/g, " ")}. Be friendly but serious. Answer the whole question, briefly and naturally, with round numbers.
 For ANY question about this store's data (sales, labor, schedule, checklists, tips, reviews, punches, crew, catering, logbook), call the ask_theo tool with the question and speak its answer in your own words. Never invent numbers.
