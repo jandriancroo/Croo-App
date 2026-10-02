@@ -2652,6 +2652,7 @@ serve(async (req) => {
     // Actions dry-run (bake-off only): propose_action is offered, writes nothing, returns preview_ready.
     const dryRun = bakeoff && actions_dry_run === true;
     const proposals: any[] = [];
+    const toolOutputs: any[] = [];
     const lunaEffort = bakeoff && ["none", "low", "medium", "high"].includes(reasoning_override) ? reasoning_override : "none";
     // Store time zone from location_settings (same place useLocationTimezone and the
     // business-day functions read). "Today" is the store's BUSINESS date.
@@ -3137,6 +3138,7 @@ DATE ANCHORS:
         } else {
           result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun }), timezone);
         }
+        if (bakeoff) toolOutputs.push({ tool: tc.function.name, args, output: result.slice(0, 6000) });
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
         
         currentMessages.push({
@@ -3153,7 +3155,7 @@ DATE ANCHORS:
 
     // Usage log for Settings → Super Admin → Theo Usage (never blocks the reply).
     if (bakeoff) {
-      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled, proposals } }), {
+      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled, proposals, tool_outputs: toolOutputs } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
