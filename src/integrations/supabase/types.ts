@@ -12886,6 +12886,24 @@ export type Database = {
           },
         ]
       }
+      theo_voice_prefs: {
+        Row: {
+          updated_at: string
+          user_id: string
+          voice: string
+        }
+        Insert: {
+          updated_at?: string
+          user_id: string
+          voice?: string
+        }
+        Update: {
+          updated_at?: string
+          user_id?: string
+          voice?: string
+        }
+        Relationships: []
+      }
       theo_voice_sessions: {
         Row: {
           ended_at: string | null
