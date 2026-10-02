@@ -12,7 +12,7 @@ const RATE = 24000;
 /** Live voice is billed per minute: hang up after this much silence on the manager's turn. */
 const SILENCE_HANGUP_MS = 10_000;
 const VOICE_SUFFIX =
-  '\n\n(Voice mode: answer in 1-3 short spoken sentences, round numbers, no lists or tables. You are talking to a manager with full access, so say names and details plainly. The full answer is also saved to their Theo chat.)';
+  '\n\n(Voice mode: answer the whole question. If the answer is a list of people, shifts or items, include every one with its key detail (for a schedule: name and shift time). Keep it compact: round numbers, short lines, no tables. You are talking to a manager with full access, so say names and details plainly.)';
 
 const b64ToFloat = (b64: string) => {
   const bin = atob(b64);
