@@ -304,78 +304,31 @@ async function handleExtractTemperature(payload: any) {
   const { imageUrl, itemName } = payload;
   if (!imageUrl) return errorResponse('Image URL is required', 400);
 
-  const systemPrompt = `You are an expert temperature extraction assistant for restaurant food safety. You read both digital LCD stick thermometers and analog round dial gauge thermometers.
+  // Thermometer reader: GPT-6 Luna + the store dial colour rule, read TWICE in
+  // parallel. If the two reads disagree by 5°F or more (or one fails), we do not
+  // guess — temperature comes back null so the manager types it.
+  const systemPrompt = `You read photos of restaurant cooler and freezer thermometers. Stores use different brands, so read what is printed on THIS dial — never assume a layout.
 
-=== ANALOG ROUND DIAL GAUGE THERMOMETERS (most common) ===
+How these dials work (common to most brands):
+- POINTER: the needle has a THIN pointed tip and a WIDE flat tail on the other side of the centre pin. Only the thin tip shows the temperature. The wide dark end is NOT the reading, even though it is easier to see. Many dials' tips are thin and faint — look for them.
+- SCALES: there are usually two rings of numbers. The OUTER ring is Fahrenheit (marked F, numbers like -40 … 0 … 30 … 50 … 65). The inner ring is Celsius (marked C) — ignore it. Read the outer F numbers the tip points at.
+- COLOURS (same pattern on almost every dial): the coloured arc beside the F numbers has exactly two BLUE sections and everything else is RED.
+  * Long blue section on the LEFT/lower-left: from about 0°F down to -40°F (freezer safe).
+  * Short blue section on the UPPER-RIGHT: about 35–40°F (refrigerator safe).
+  * Red everywhere else: roughly 0–35°F (between the two blues, at the top) and above 40°F (right side down to 65).
+  So: tip over left blue → 0 or below. Tip over red at the top-left/top between them → 1–34°F. Tip over the short blue → 35–40°F. Tip over red on the right → 41°F or warmer.
+  Remember the wide tail often points down-right toward the 20/65 area — ignore it and follow the thin tip.
 
-These are circular gauges typically made by Taylor, with TWO scales:
-- OUTER RING: Fahrenheit (°F) — this is the scale we need
-- INNER RING: Celsius (°C) — ignore this
+Steps:
+1. kind: digital, dial or bar.
+2. Digital: copy the digits exactly.
+3. Dial: find the thin tip. Name the two OUTER Fahrenheit numbers either side of it, count the small ticks, estimate a whole number. Check it against the colour band under the tip; if they disagree, re-check that you used the thin tip and the outer ring.
+4. Cold storage reads between -30 and 80°F.
 
-ANATOMY OF THE DIAL — CRITICAL LAYOUT:
-The gauge face is a ~270° arc (not a full circle). The scale runs CLOCKWISE:
-- The arc STARTS at roughly 7 o'clock position with the lowest value (around -20°F)
-- The arc ENDS at roughly 5 o'clock position with the highest value (around 80°F)
-- There is a GAP at the bottom (roughly 5-7 o'clock) with no scale
-
-COLOR ZONES on the dial face (painted arcs):
-- BLUE ARC: Covers roughly 7 o'clock to 10 o'clock. Labeled "FREEZER". Range: -20°F to ~20°F
-- WHITE/CLEAR zone: Covers roughly 10 o'clock to 12-1 o'clock. Labeled "REF." (refrigerator safe). Range: ~28°F to ~40°F
-- RED ARC: Covers roughly 1 o'clock to 5 o'clock. Labeled "DANGER ZONE". Range: ~40°F to 80°F
-
-TICK MARKS: Major ticks every 10°F, minor ticks every 2°F. Each small notch = 2°F.
-
-STEP-BY-STEP READING PROCESS:
-1. IDENTIFY THE NEEDLE: Find the single metal pointer/needle.
-2. DETERMINE WHICH COLOR ZONE the needle tip is in — this is your PRIMARY clue.
-3. COUNT TICK MARKS from the nearest labeled number or zone boundary to get the exact reading.
-4. ZONE-BASED ESTIMATION when numbers are cut off:
-   - Needle deep in BLUE arc (7-8 o'clock) → -20°F to 0°F
-   - Needle at left edge of BLUE (8-9 o'clock) → 0°F to 10°F
-   - Needle at top of BLUE (9-10 o'clock) → 10°F to 20°F
-   - Needle leaving BLUE, entering WHITE (10-11 o'clock) → 20°F to 30°F
-   - Needle in WHITE zone (11-12 o'clock) → 30°F to 36°F
-   - Needle at right side of WHITE (12-1 o'clock) → 36°F to 40°F
-   - Needle at BOUNDARY of WHITE and RED → exactly 40°F
-   - Needle ONE NOTCH past WHITE into RED → 42°F
-   - Needle TWO NOTCHES into RED → 44°F
-   - Needle clearly in RED (1-2 o'clock) → 42°F to 55°F
-   - Needle mid RED (2-3 o'clock) → 55°F to 65°F
-   - Needle deep RED (3-5 o'clock) → 65°F to 80°F
-
-5. CROSS-VALIDATION RULES (MANDATORY):
-   - If needle is in RED zone, temperature MUST be ≥ 40°F. Never return a value below 40 for a red-zone needle.
-   - If needle is in BLUE zone, temperature MUST be ≤ 20°F. Never return a value above 20 for a blue-zone needle.
-   - If needle is in WHITE zone, temperature MUST be between 28°F and 40°F.
-   - If needle is RIGHT of center/top of gauge → it is ABOVE 35°F, not below.
-   - If needle is LEFT of center/top of gauge → it is BELOW 35°F, not above.
-
-6. CONTEXT CHECK: The item name may hint at expected range:
-   - "Walk-In Cooler" → expect 34-42°F (needle should be in WHITE or just barely RED)
-   - "Walk-In Freezer" → expect -10°F to 10°F (needle should be in BLUE)
-   - "Reach-In" → expect 34-41°F
-   Do NOT force the reading to match expected range, but USE this as a sanity check.
-
-7. COMMON PHOTO ISSUES:
-   - Photos at angles: focus on needle position relative to color arcs, not numbers
-   - Numbers cut off: use color zone + tick count from zone boundary
-   - Blurry: the COLOR ZONE is the most reliable indicator
-   - Condensation: look for needle silhouette against color bands
-
-=== DIGITAL LCD STICK THERMOMETERS ===
-STEP 1: Find °F indicator (usually top-right of LCD). Use it to orient.
-STEP 2: Read seven-segment digits LEFT to RIGHT once properly oriented.
-
-=== OUTPUT ===
-Return ONLY the numeric Fahrenheit value (include negative sign if applicable, decimal if visible).
-If truly unreadable, return 'NONE'.
-Do NOT return ranges — give your single best estimate.`;
-
+Reply with a short explanation, then a final line exactly: ANSWER: <number> (or ANSWER: NONE if the tip or numbers can't be seen).`;
   const itemContext = itemName ? ` The item being measured is: "${itemName}".` : '';
-  const userPrompt = `Read the temperature on this thermometer.${itemContext} Even if numbers are partially cut off, use the needle position relative to the color zones (blue=freezer, white=refrigerator safe, red=danger) and count tick marks from zone boundaries. Return only the numeric Fahrenheit value.`;
+  const userPrompt = `Read the temperature on this thermometer.${itemContext}`;
 
-  // Pro model for accuracy; if it errors, retry once on flash. Never crash the
-  // checklist — an unreadable photo returns temperature:null with a reason.
   // Download the photo ourselves and send it inline: the AI provider often
   // can't fetch storage links directly ("Cannot fetch content from URL").
   let imagePayload = imageUrl;
@@ -395,41 +348,29 @@ Do NOT return ranges — give your single best estimate.`;
   }
   const msgs = [
     { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: userPrompt },
-        { type: 'image_url', image_url: { url: imagePayload } }
-      ]
-    }
+    { role: 'user', content: [ { type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: imagePayload } } ] },
   ];
-  let data: any = null;
-  for (const model of ['google/gemini-2.5-pro', 'google/gemini-2.5-flash']) {
+  const readOnce = async (): Promise<number | null> => {
     try {
-      data = await callAI(msgs, undefined, undefined, model);
-      break;
+      const data = await callAI(msgs, undefined, undefined, 'openai/gpt-6-luna');
+      const text: string = data?.choices?.[0]?.message?.content || '';
+      const m = text.match(/ANSWER:\s*(-?\d+(?:\.\d+)?|NONE)/i);
+      if (!m || m[1].toUpperCase() === 'NONE') return null;
+      const v = parseFloat(m[1]);
+      return Number.isFinite(v) && v >= -60 && v <= 250 ? v : null;
     } catch (e: any) {
-      console.error('[extract-temperature] model failed', model, e?.status, e?.message);
-      if (e?.status === 402) break;
+      console.error('[extract-temperature] read failed', e?.status, e?.message);
+      return null;
     }
+  };
+  const [a, b] = await Promise.all([readOnce(), readOnce()]);
+  console.log('[extract-temperature] reads', a, b);
+  if (a == null || b == null || Math.abs(a - b) >= 5) {
+    return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true, reads: [a, b], reason: a != null && b != null ? 'reads_disagree' : 'unreadable' });
   }
-  if (!data) {
-    return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true });
-  }
-
-  const extractedText = data.choices?.[0]?.message?.content?.trim() || 'NONE';
-  let temperature: number | null = null;
-  let isValid = false;
-
-  if (extractedText !== 'NONE') {
-    const tempMatch = extractedText.match(/[-+]?\d+\.?\d*/);
-    if (tempMatch) {
-      temperature = parseFloat(tempMatch[0]);
-      isValid = temperature <= 41.0 || temperature >= 135.0;
-    }
-  }
-
-  return jsonResponse({ temperature, isValid, extractedText });
+  const temperature = Math.round(((a + b) / 2) * 10) / 10;
+  const isValid = temperature <= 41.0 || temperature >= 135.0;
+  return jsonResponse({ temperature, isValid, extractedText: String(temperature), reads: [a, b] });
 }
 
 async function handleExtractAuditDate(payload: any) {
@@ -965,6 +906,11 @@ async function handleRescanTemperatures(payload: any) {
       }
 
       const { temperature, isValid } = extractData;
+      // Never wipe a saved reading when the rescan can't agree on a number.
+      if (temperature == null) {
+        results.push({ id: response.id, question, success: false, error: 'Reads disagreed — kept the saved value', previousTemp: response.extracted_temperature });
+        continue;
+      }
 
       const { error: updateError } = await supabase
         .from('checklist_responses')
