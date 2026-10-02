@@ -597,7 +597,12 @@ export function AiAssistantBubble() {
           </>
         )}
       </AnimatePresence>
-      <TheoVoiceOverlay open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} />
+      <TheoVoiceOverlay open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} onExchange={(q, a) => {
+        const userMsg = { role: 'user', content: `🎙️ ${q}` } as Message;
+        const theoMsg = { role: 'assistant', content: a } as Message;
+        setMessages(prev => [...prev, userMsg, theoMsg]);
+        void persistMessage(userMsg).then(() => persistMessage(theoMsg));
+      }} />
     </>,
     document.body
   );
