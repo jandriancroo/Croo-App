@@ -96,6 +96,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const logRef = useRef<{ id: string; liveStart: number | null; liveMs: number; questions: number } | null>(null);
   const updateSrcRef = useRef<AudioBufferSourceNode | null>(null);
   const userSpeakingRef = useRef(false);
+  // Synchronous lock: set at the top of start(), cleared in teardown(). Prevents double starts.
+  const startingRef = useRef(false);
   const [speechTick, setSpeechTick] = useState(0);
   const [stoppedListening, setStoppedListening] = useState(false);
   const [longAnswer, setLongAnswer] = useState(false);
@@ -132,6 +134,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
     userSpeakingRef.current = false;
+    startingRef.current = false;
     setPhase('idle');
     setLevel(0);
   }, [stopPlayback]);
@@ -310,7 +313,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
 
   const start = async (withOpener: boolean) => {
-    if (!currentLocation?.id || phase !== 'idle') return;
+    if (!currentLocation?.id || startingRef.current) return;
+    startingRef.current = true;
     withOpenerRef.current = withOpener;
     setMode('talk');
     setError('');
@@ -381,7 +385,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
   const onOrbTap = () => {
     if (phase === 'idle') { const w = mode === 'update'; setTimeout(() => start(w), 0); return; }
-    if (phase === 'error') { const w = withOpenerRef.current; setPhase('idle'); setTimeout(() => start(w), 0); return; }
+    if (phase === 'error') { const w = withOpenerRef.current; setTimeout(() => start(w), 0); return; }
     if (phase === 'speaking') {
       const u = updateSrcRef.current;
       if (u) { try { u.stop(); } catch { /* onended goes live */ } return; }
