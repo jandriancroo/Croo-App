@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 
 interface ChecklistItem {
   id: string;
@@ -35,6 +36,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   trainingTotal = 0,
 }: ChecklistsGridProps) {
   const navigate = useNavigate();
+  const { getBusinessDateInTimezone } = useLocationTimezone();
 
   // Monthly checklists (e.g. deep cleaning) appear in the list when they're
   // close to their due date, but should NOT count toward the daily "remaining"
@@ -64,7 +66,12 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   const nowH = Number(timeParts.find(p => p.type === 'hour')?.value ?? '0');
   const nowM = Number(timeParts.find(p => p.type === 'minute')?.value ?? '0');
   const nowS = Number(timeParts.find(p => p.type === 'second')?.value ?? '0');
-  const nowSeconds = nowH * 3600 + nowM * 60 + nowS;
+  // Locks/overdue must follow the same business day as the progress numbers.
+  // In the after-midnight carry-over (business date still = yesterday), treat
+  // the clock as 24h+ so yesterday's lists aren't shown as "locked until" today.
+  const calendarDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
+  const inCarryOver = getBusinessDateInTimezone() !== calendarDate;
+  const nowSeconds = nowH * 3600 + nowM * 60 + nowS + (inCarryOver ? 86400 : 0);
 
   const formatLockTime = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
