@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { QRTaskCodeDialog } from "./QRTaskCodeDialog";
 import { AssigneePicker } from "@/components/shared/AssigneePicker";
+import { createStandardQuickTask, saveQuickTask, QUICK_TASK_DURATIONS } from "@/lib/quickTasks";
 
 interface CreateTemporaryTaskDialogProps {
   open: boolean;
@@ -33,15 +34,7 @@ interface Subtask {
   quantity?: number;
 }
 
-const DURATION_OPTIONS = [
-  { value: "1h", label: "1 Hour", hours: 1 },
-  { value: "3h", label: "3 Hours", hours: 3 },
-  { value: "1d", label: "1 Day", hours: 24 },
-  { value: "3d", label: "3 Days", hours: 72 },
-  { value: "1w", label: "1 Week", hours: 168 },
-  { value: "1m", label: "1 Month", hours: 720 },
-  { value: "none", label: "Until Complete", hours: null },
-];
+const DURATION_OPTIONS = QUICK_TASK_DURATIONS;
 
 const ACCENT_COLORS = [
   { value: "#8B5CF6", label: "Purple" },
@@ -398,7 +391,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           taskData,
           employeeIds: selectedEmployees,
           roles: selectedRoles,
-          assign: taskStyle !== "team",
+          assign: taskStyle === "alarm",
           subtasks: taskStyle !== "qr" ? subtasks : [],
           notify: taskStyle === "team",
         });
