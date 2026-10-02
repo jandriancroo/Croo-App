@@ -65,6 +65,10 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
     });
     if (r.ok) {
       const d = await r.json();
+      await admin.from("theo_ai_usage").insert({
+        user_id: null, location_id: loc.id, source: "opener", model: "openai/gpt-6-astra",
+        prompt_tokens: d?.usage?.input_tokens || 0, completion_tokens: d?.usage?.output_tokens || 0,
+      });
       const t = (d?.output_text || (d?.output || []).flatMap((o: any) => o?.content || []).map((c: any) => c?.text || "").join("")).trim();
       if (t) script = t;
     } else console.error("opener AI failed", r.status, await r.text());

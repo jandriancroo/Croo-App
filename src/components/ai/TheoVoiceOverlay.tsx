@@ -139,6 +139,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
         messages: [{ role: 'user', content: question + VOICE_SUFFIX }],
         location_id: currentLocation?.id,
         location_name: currentLocation?.name,
+        source: 'voice',
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
