@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { generateEmbedding } from "../_shared/embeddings.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -12,71 +13,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-// Generate embedding using Lovable AI (extract from structured tool call)
-async function generateEmbedding(text: string): Promise<number[] | null> {
-  try {
-    const resp = await fetch(AI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          {
-            role: "system",
-            content: "You are an embedding generator. Given text, produce a semantic representation.",
-          },
-          {
-            role: "user",
-            content: `Generate a 768-dimensional embedding vector for the following text. Return ONLY the raw JSON array of 768 floating-point numbers, nothing else:\n\n"${text}"`,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "store_embedding",
-              description: "Store a 768-dimensional embedding vector",
-              parameters: {
-                type: "object",
-                properties: {
-                  embedding: {
-                    type: "array",
-                    items: { type: "number" },
-                    description: "768-dimensional embedding vector",
-                  },
-                },
-                required: ["embedding"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "store_embedding" } },
-      }),
-    });
-
-    if (!resp.ok) {
-      console.error("Embedding API error:", resp.status, await resp.text());
-      return null;
-    }
-
-    const data = await resp.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall) {
-      const args = JSON.parse(toolCall.function.arguments);
-      if (Array.isArray(args.embedding) && args.embedding.length === 768) {
-        return args.embedding;
-      }
-    }
-    return null;
-  } catch (e) {
-    console.error("Embedding generation failed:", e);
-    return null;
-  }
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -129,6 +65,22 @@ serve(async (req) => {
       if (locErr || hasLoc !== true) return deny(403, "Forbidden");
       return null;
     };
+
+    // One-time re-fingerprint after switching to the real embedding model (super admin only).
+    if (action === "reembed_batch") {
+      const { data: isSA } = await supabaseUser.rpc("has_role_or_higher", { _user_id: user.id, _minimum_role: "super_admin" });
+      if (isSA !== true) return deny(403, "Forbidden");
+      const offset = Number(body.offset) || 0;
+      const { data: rows } = await supabaseUser.from("theo_knowledge").select("id, topic, content")
+        .order("created_at").order("id").range(offset, offset + 49);
+      let done = 0;
+      for (const r of rows ?? []) {
+        const e = await generateEmbedding(`${r.topic} - ${r.content}`);
+        if (e) { await supabaseUser.from("theo_knowledge").update({ embedding: JSON.stringify(e) }).eq("id", r.id); done++; }
+      }
+      return new Response(JSON.stringify({ offset, fetched: rows?.length ?? 0, done }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (action === "save") {
       // Save knowledge with embedding
