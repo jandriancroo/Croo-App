@@ -3160,7 +3160,15 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
 
     // Usage log for Settings → Super Admin → Theo Usage (never blocks the reply).
     if (bakeoff) {
-      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled, proposals, tool_outputs: toolOutputs } }), {
+      // TEMPORARY guard safety check: drop proposals when Theo's own words say no change is being made.
+      let guardDropped = false;
+      let keptProposals = proposals;
+      if (actionGuard && proposals.length > 0) {
+        const t = String(finalResponse || "").toLowerCase();
+        const saysNo = /\b(can['’]?t|cannot|unable|not able|isn['’]?t able|no (additional|new|need)|not needed|already (has|have|scheduled|working|on)|doesn['’]?t have|does not have|has no shift|no shift|not scheduled|what time|which times|need the (start|times)|please (tell|share|let me know)|not something i can)\b/.test(t);
+        if (saysNo) { guardDropped = true; keptProposals = []; }
+      }
+      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled, proposals: keptProposals, raw_proposals: proposals, guard_dropped: guardDropped, tool_outputs: toolOutputs } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
