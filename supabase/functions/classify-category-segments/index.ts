@@ -39,7 +39,7 @@ Return STRICT JSON only: {"mapping":{"<category>":"<Segment>", ...}} for every i
 
     const user = `Categories: ${JSON.stringify(unique)}`;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await aiFetchWithShadow("category_sorting", "https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
