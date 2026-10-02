@@ -3220,7 +3220,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       if (pick.kind === "recheck" && pick.proposal && typeof pick.proposal === "object") {
         const p = pick.proposal;
         const v: any = await buildCoverProposal(supabaseAdmin, location_id, String(p.shift_id || ""), String(p.replacement?.id || ""), crewForActions, crewName);
-        if (!v.ok) return reply({ recheck: { ok: false, changed: v.error } });
+        if (!v.ok) return reply({ recheck: { ok: false, changed: /shift_id/.test(v.error) ? "That shift isn't on the schedule anymore." : v.error } });
         const n = v.proposal;
         if (n.covered.id !== p.covered?.id) return reply({ recheck: { ok: false, changed: `This shift now belongs to ${n.covered.name}.` } });
         if (n.shift_date !== p.shift_date || n.start_time !== p.start_time || n.end_time !== p.end_time) return reply({ recheck: { ok: false, changed: `The shift moved to ${n.date_label}, ${n.time_label}.` } });
