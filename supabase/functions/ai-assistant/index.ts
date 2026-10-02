@@ -771,7 +771,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_ovation_reviews",
-      description: "Query OvationUp guest reviews and feedback scores for this location. Returns recent reviews with ratings, customer names, feedback text, and whether the review was responded to. Returns a ready "summary" (window_start, window_end, review_count, average_rating) for exactly the window asked — quote it, never recount. Use for questions about guest reviews, customer feedback, Ovation scores, review trends, or guest satisfaction. When a review mentions an employee by name, cross-reference with team members at the location and tag matches with [[employee:Full Name]].",
+      description: "Query OvationUp guest reviews and feedback scores for this location. Returns recent reviews with ratings, customer names, feedback text, and whether the review was responded to. Returns a ready summary object (window_start, window_end, review_count, average_rating) for exactly the window asked — quote it, never recount. Use for questions about guest reviews, customer feedback, Ovation scores, review trends, or guest satisfaction. When a review mentions an employee by name, cross-reference with team members at the location and tag matches with [[employee:Full Name]].",
       parameters: {
         type: "object",
         properties: {
