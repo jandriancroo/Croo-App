@@ -126,3 +126,5 @@
 - [ ] Jordan to test on his phone (mic + sound)
 - [x] Track text-Theo AI usage (tokens/cost) per user and store in Theo Usage
 - [x] Per-person Theo voice picker in Settings
+
+- [ ] Theo model bake-off (4 models x 18 questions x 2 runs), report to .lovable/plan/theo-model-bakeoff-2026-10-02.md, no production model change
