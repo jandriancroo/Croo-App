@@ -365,10 +365,13 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
           <div aria-hidden className="absolute left-10 top-10 h-[200px] w-[200px] rounded-full blur-[34px]" style={{ background: 'hsl(var(--primary-light, 190 57% 60%) / 0.32)' }} />
           <TheoVoiceOrb phase={phase} level={level} />
         </button>
-        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : PHASE_TEXT[phase]}</p>
-        {(phase === 'idle' && mode === 'talk' ? 'Ask about sales, labor, the schedule or checklists' : PHASE_SUB[phase]) && (
-          <p className="mt-1 text-center text-[13px] text-white/75">{phase === 'idle' && mode === 'talk' ? 'Ask about sales, labor, the schedule or checklists' : PHASE_SUB[phase]}</p>
-        )}
+        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : PHASE_TEXT[phase]}</p>
+        {(() => {
+          const sub = phase === 'idle' && mode === 'talk'
+            ? (stoppedListening ? 'I stopped listening. Tap to pick up where we left off.' : 'Ask about sales, labor, the schedule or checklists')
+            : PHASE_SUB[phase];
+          return sub ? <p className="mt-1 text-center text-[13px] text-white/75">{sub}</p> : null;
+        })()}
       </div>
 
       {showText && visibleCaption && (
