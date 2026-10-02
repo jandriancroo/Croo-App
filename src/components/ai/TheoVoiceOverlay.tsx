@@ -241,7 +241,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   useEffect(() => {
     const t = setInterval(() => {
       const log = logRef.current;
-      if (!log?.liveStart) return;
+      if (!log?.liveStart || !log.id) return;
       const secs = Math.min(14400, Math.round((log.liveMs + Date.now() - log.liveStart) / 1000));
       void supabase.from('theo_voice_sessions').update({ seconds: secs, questions: log.questions }).eq('id', log.id).then(() => {});
     }, 15_000);
