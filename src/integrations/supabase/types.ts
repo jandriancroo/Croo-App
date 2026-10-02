@@ -12913,6 +12913,7 @@ export type Database = {
           questions: number
           seconds: number
           started_at: string
+          tts_chars: number
           user_id: string
         }
         Insert: {
@@ -12923,6 +12924,7 @@ export type Database = {
           questions?: number
           seconds?: number
           started_at?: string
+          tts_chars?: number
           user_id: string
         }
         Update: {
@@ -12933,6 +12935,7 @@ export type Database = {
           questions?: number
           seconds?: number
           started_at?: string
+          tts_chars?: number
           user_id?: string
         }
         Relationships: [
