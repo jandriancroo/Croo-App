@@ -93,7 +93,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
         ended_at: new Date().toISOString(),
         seconds: Math.min(14400, Math.round(liveMs / 1000)),
         questions: log.questions,
-      }).eq('id', log.id);
+      }).eq('id', log.id).then(({ error: e }) => { if (e) console.error('[theo-voice] usage log', e); });
     }
     const u = updateSrcRef.current;
     updateSrcRef.current = null;
