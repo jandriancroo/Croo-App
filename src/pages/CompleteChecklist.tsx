@@ -907,9 +907,10 @@ export default function CompleteChecklist() {
         );
 
         if (tempError || !tempData || tempData.temperature == null) {
-          toast.warning("Couldn't read the temperature", {
-            description: 'Retake the photo, or tap "Type the temperature instead".',
-          });
+          toast.warning(
+            tempData?.reason === 'reads_disagree' ? "Not sure of the temperature" : "Couldn't read the temperature",
+            { description: 'Please type the temperature you see on the thermometer.' }
+          );
           setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
         }
         if (!tempError && tempData) {
