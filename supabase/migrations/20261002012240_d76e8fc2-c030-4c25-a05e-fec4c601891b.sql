@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.trg_shift_offer_push() FROM PUBLIC, anon, authenticated;

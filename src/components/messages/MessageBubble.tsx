@@ -179,6 +179,9 @@ export function MessageBubble({
     );
   }
 
+  // Shift swap cards render edge-to-edge, not inside a grey chat bubble.
+  const isShiftOffer = !!message.content?.startsWith('SHIFT_OFFER:');
+
   return (
     <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
       <div className="w-8 flex-shrink-0">
@@ -193,7 +196,7 @@ export function MessageBubble({
       </div>
 
       <div
-        className={`flex flex-col min-w-0 ${isAnnouncement ? 'max-w-[90%]' : 'max-w-[75%]'} overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}
+        className={`flex flex-col min-w-0 ${isShiftOffer ? 'w-full max-w-[92%]' : isAnnouncement ? 'max-w-[90%]' : 'max-w-[75%]'} overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -218,10 +221,10 @@ export function MessageBubble({
         <div className="relative">
           <div
             className={`
-              rounded-2xl px-3 py-2 relative
-              ${isOwnMessage 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-muted'
+              rounded-2xl relative
+              ${isShiftOffer ? 'p-0 bg-transparent' : isOwnMessage
+                ? 'px-3 py-2 bg-primary text-primary-foreground'
+                : 'px-3 py-2 bg-muted'
               }
               ${isLastInCluster && isOwnMessage ? 'rounded-br-sm' : ''}
               ${isLastInCluster && !isOwnMessage ? 'rounded-bl-sm' : ''}

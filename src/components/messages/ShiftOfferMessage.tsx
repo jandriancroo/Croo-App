@@ -20,6 +20,8 @@ import {
 interface ShiftOfferMessageProps {
   offerId: string;
   messageId: string;
+  /** Feed list row: one line with a small Claim button; tap to open the full card. */
+  compact?: boolean;
 }
 
 interface ShiftClaim {
@@ -34,7 +36,8 @@ interface ShiftClaim {
   };
 }
 
-export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps) {
+export function ShiftOfferMessage({ offerId, messageId, compact = false }: ShiftOfferMessageProps) {
+  const [expanded, setExpanded] = useState(false);
   const [offer, setOffer] = useState<any>(null);
   const [claims, setClaims] = useState<ShiftClaim[]>([]);
   const [selectedClaimerId, setSelectedClaimerId] = useState<string>("");
@@ -316,17 +319,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         triggerAnimation(amount);
       }
 
-      // Send push notification to the approved claimer
-      const shiftDateFormatted = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('ccc, LLL d');
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          user_ids: [selectedClaimerId],
-          title: 'Shift Claim Approved!',
-          body: `Your claim for ${shiftDateFormatted} has been approved`,
-          notification_type: 'shift_approvals',
-          data: { type: 'shift_approval', shift_id: offer.shift.id }
-        }
-      });
+      // Phone alerts (claimer + offerer) are sent by the database when the offer is approved.
 
       toast.success("Shift approved and assigned!");
     } catch (error) {
@@ -428,6 +421,35 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         return null;
     }
   };
+
+  if (compact && !expanded) {
+    const d = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
+    const status =
+      offer.status === 'approved' ? { t: `Covered${offer.claimed_by ? ` by ${getDisplayName(offer.claimed_by.full_name, offer.claimed_by.nickname)}` : ''}`, c: 'bg-success/15 text-success' }
+      : offer.status === 'claimed' ? { t: `${claims.length || 1} wants it · needs approval`, c: 'bg-accent/15 text-accent' }
+      : null;
+    const isMine = currentUserId === offer.offered_by?.id;
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <button type="button" onClick={() => setExpanded(true)} className="min-w-0 flex-1 text-left">
+          <div className="text-sm font-semibold text-foreground">
+            {d.toFormat('ccc, LLL d')} · {formatTime(offer.shift.start_time)}–{formatTime(offer.shift.end_time)}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            {offer.shift.template?.position || 'Shift'} · {getDisplayName(offer.offered_by.full_name, offer.offered_by.nickname)}
+          </div>
+          {status && <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.c}`}>{status.t}</span>}
+        </button>
+        {offer.status === 'available' && !isMine ? (
+          <Button size="sm" className="h-9 shrink-0 rounded-full px-4" onClick={handleClaim} disabled={claiming}>
+            {claiming ? '…' : 'Claim'}
+          </Button>
+        ) : offer.status === 'claimed' && isAdmin ? (
+          <Button size="sm" variant="outline" className="h-9 shrink-0 rounded-full px-4" onClick={() => setExpanded(true)}>Review</Button>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <Card className="p-4 bg-[hsl(var(--croo-orange))] border-[hsl(var(--croo-orange))] border-2 shadow-lg">

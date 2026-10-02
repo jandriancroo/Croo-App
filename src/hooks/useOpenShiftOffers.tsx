@@ -31,7 +31,7 @@ export function useOpenShiftOffers() {
       const { data: offers, error } = await supabase
         .from('shift_offers')
         .select('id, shift_id, status, created_at')
-        .in('status', ['available', 'open', 'pending'])
+        .in('status', ['available', 'claimed', 'approved', 'open', 'pending'])
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
