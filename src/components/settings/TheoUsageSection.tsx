@@ -24,12 +24,13 @@ const VOICE_PER_MIN = 0.08;
 const TTS_PER_M_CHARS = 15;
 const voiceCost = (secs: number, chars: number) => (secs / 60) * VOICE_PER_MIN + (chars * TTS_PER_M_CHARS) / 1_000_000;
 // Per-model list rates, $ per 1M tokens [input, output]. Estimates, not a bill.
-// Gemini 2.5 Flash: $0.30 / $2.50. GPT-6 Astra (update writer): $10 / $50 (OpenAI pricing page, Oct 2026).
+// GPT-6 Luna (Theo since Oct 2 2026): $0.10 / $0.50 (gateway model list). Older rows: Gemini 2.5 Flash $0.30 / $2.50, GPT-6 Astra $10 / $50.
 const MODEL_RATES: Record<string, [number, number]> = {
+  'openai/gpt-6-luna': [0.1, 0.5],
   'google/gemini-2.5-flash': [0.3, 2.5],
   'openai/gpt-6-astra': [10, 50],
 };
-const DEFAULT_RATE: [number, number] = [0.3, 2.5];
+const DEFAULT_RATE: [number, number] = [0.1, 0.5];
 const aiCostByModel = (m: Row['ai_by_model']) =>
   Object.entries(m || {}).reduce((t, [model, v]) => {
     const [i, o] = MODEL_RATES[model] || DEFAULT_RATE;
