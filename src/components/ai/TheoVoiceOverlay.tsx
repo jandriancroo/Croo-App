@@ -128,9 +128,17 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (ctxRef.current) playAtRef.current = ctxRef.current.currentTime;
   }, []);
 
+  /** True while Theo's voice (live answer or read-aloud update) is still coming out of the speaker. */
+  const theoPlaying = () => {
+    const ctx = ctxRef.current;
+    return !!updateSrcRef.current || (!!ctx && playAtRef.current > ctx.currentTime + 0.02);
+  };
+
+  // Cues never play over Theo's voice: if he's talking, the cue is skipped.
   const triggerCue = useCallback((cue: TheoCue, gateMic = false) => {
     const ctx = ctxRef.current;
     if (!ctx) return 0;
+    if (cue !== 'closed' && theoPlaying()) return 0;
     const duration = playCue(ctx, cue);
     orbRef.current?.cue(cue);
     if (gateMic) micGateUntilRef.current = Math.max(micGateUntilRef.current, ctx.currentTime + duration);
@@ -140,35 +148,40 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const teardown = useCallback((withClosedCue = true) => {
     const ctx = ctxRef.current;
     const playClosed = withClosedCue && reachedListeningRef.current && !closedCuePlayedRef.current && !!ctx;
-    if (playClosed) {
-      closedCuePlayedRef.current = true;
-      triggerCue('closed');
-    }
     const log = logRef.current;
     logRef.current = null;
     if (log) {
       const liveMs = log.liveMs + (log.liveStart ? Date.now() - log.liveStart : 0);
-      saveFinal(log.id, {
+      const patch = {
         ended_at: new Date().toISOString(),
         seconds: Math.min(14400, Math.round(liveMs / 1000)),
         questions: log.questions,
-      });
+      };
+      if (log.id) saveFinal(log.id, patch);
+      else log.final = patch; // usage row still being created; saved when it arrives
     }
     const u = updateSrcRef.current;
     updateSrcRef.current = null;
     if (u) { u.onended = null; try { u.stop(); } catch { /* done */ } }
     stopPlayback();
+    // Closed plays after Theo's voice has been stopped, never on top of it.
+    if (playClosed) {
+      closedCuePlayedRef.current = true;
+      triggerCue('closed');
+    }
     const ws = wsRef.current;
     wsRef.current = null;
     if (ws) { ws.onclose = null; ws.onerror = null; ws.onmessage = null; ws.close(); }
     procRef.current?.disconnect();
     procRef.current = null;
+    pendingAudioRef.current = [];
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const resetSession = () => { try { const s = (navigator as any).audioSession; if (s) s.type = 'auto'; } catch { /* unsupported */ } };
     if (ctx) {
-      if (playClosed) setTimeout(() => { void ctx.close().catch(() => {}); }, 700);
-      else void ctx.close().catch(() => {});
+      if (playClosed) setTimeout(() => { void ctx.close().catch(() => {}); resetSession(); }, 700);
+      else { void ctx.close().catch(() => {}); resetSession(); }
     }
     ctxRef.current = null;
     reachedListeningRef.current = false;
@@ -181,6 +194,29 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     setPhase('idle');
     setLevel(0);
   }, [stopPlayback, triggerCue]);
+
+  // Voice pass fetched ahead of the tap (free; expires after 5 minutes, reused for up to 4).
+  const prefetchSession = useCallback(() => {
+    const id = currentLocation?.id;
+    if (!id) return;
+    const cur = sessionRef.current;
+    if (cur && cur.locationId === id && Date.now() - cur.at < 240_000) return;
+    const p = supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: id } })
+      .then(({ data, error }) => (error || !data?.token ? null : data));
+    sessionRef.current = { locationId: id, at: Date.now(), promise: p };
+    void p.then((d) => { if (!d && sessionRef.current?.promise === p) sessionRef.current = null; });
+  }, [currentLocation?.id]);
+  useEffect(() => { if (open) prefetchSession(); }, [open, prefetchSession]);
+  const takeSession = async () => {
+    prefetchSession();
+    const s = sessionRef.current;
+    sessionRef.current = null; // one pass per live connection
+    const d = s ? await s.promise : null;
+    if (d) return d;
+    const { data, error } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation!.id } });
+    if (error || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
+    return data;
+  };
 
   useEffect(() => { if (!open) { teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
 
