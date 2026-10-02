@@ -501,7 +501,7 @@ export function AiAssistantBubble() {
 
                 {messages.length > 0 && (
                   <div className="mx-auto w-full max-w-[720px] space-y-3 px-3 pb-3 pt-3.5">
-                    {messages.map((msg, i) => (
+                    {(() => { const lastAssistantIdx = messages.map(m => m.role).lastIndexOf('assistant'); return messages.map((msg, i) => (
                       <motion.div
                         key={i}
                         data-msg-idx={i}
@@ -513,7 +513,7 @@ export function AiAssistantBubble() {
                         {msg.role === 'assistant' ? (
                           <div className="w-full">
                             <div className="mb-1.5 flex items-center gap-1.5">
-                              <TheoOrb size={22} className="text-primary pointer-events-none" />
+                              <TheoOrb size={22} still={loading || i !== lastAssistantIdx} className="text-primary pointer-events-none" />
                               <span className="text-[13px] font-bold text-foreground">Theo</span>
                             </div>
                             <div className="rounded-2xl border border-border bg-card p-4">
