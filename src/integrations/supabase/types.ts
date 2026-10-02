@@ -12616,6 +12616,47 @@ export type Database = {
           },
         ]
       }
+      theo_ai_usage: {
+        Row: {
+          completion_tokens: number
+          created_at: string
+          id: string
+          location_id: string | null
+          model: string
+          prompt_tokens: number
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          completion_tokens?: number
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          model: string
+          prompt_tokens?: number
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          completion_tokens?: number
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          model?: string
+          prompt_tokens?: number
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_ai_usage_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       theo_chat_messages: {
         Row: {
           chat_date: string
@@ -12838,6 +12879,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "theo_voice_openers_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theo_voice_prefs: {
+        Row: {
+          updated_at: string
+          user_id: string
+          voice: string
+        }
+        Insert: {
+          updated_at?: string
+          user_id: string
+          voice?: string
+        }
+        Update: {
+          updated_at?: string
+          user_id?: string
+          voice?: string
+        }
+        Relationships: []
+      }
+      theo_voice_sessions: {
+        Row: {
+          ended_at: string | null
+          id: string
+          location_id: string
+          opener_key: string | null
+          questions: number
+          seconds: number
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          location_id: string
+          opener_key?: string | null
+          questions?: number
+          seconds?: number
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          location_id?: string
+          opener_key?: string | null
+          questions?: number
+          seconds?: number
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_voice_sessions_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -15060,6 +15160,23 @@ export type Database = {
           latest_message_id: string
           latest_preview: string
           unread_count: number
+        }[]
+      }
+      get_theo_usage: {
+        Args: { _end: string; _start: string }
+        Returns: {
+          ai_calls: number
+          chat_questions: number
+          completion_tokens: number
+          last_used: string
+          location_id: string
+          location_name: string
+          prompt_tokens: number
+          user_id: string
+          user_name: string
+          voice_questions: number
+          voice_seconds: number
+          voice_sessions: number
         }[]
       }
       get_tracker_ranking: {

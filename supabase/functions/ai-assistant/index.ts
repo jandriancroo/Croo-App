@@ -2332,7 +2332,7 @@ serve(async (req) => {
     }
 
     const userRole = roleData.role;
-    const { messages, location_id, location_name } = await req.json();
+    const { messages, location_id, location_name, source: usageSource } = await req.json();
     const timezone = "America/Los_Angeles";
     const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
     const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("en-CA", { timeZone: timezone });
@@ -2725,6 +2725,7 @@ DATE ANCHORS:
     let loopCount = 0;
     const MAX_LOOPS = 5;
     let currentMessages = [...aiMessages];
+    const usage = { calls: 0, pt: 0, ct: 0 };
 
     while (loopCount < MAX_LOOPS) {
       loopCount++;
@@ -2763,6 +2764,9 @@ DATE ANCHORS:
       }
 
       const aiData = await aiResp.json();
+      usage.calls++;
+      usage.pt += aiData.usage?.prompt_tokens || 0;
+      usage.ct += aiData.usage?.completion_tokens || 0;
       const choice = aiData.choices?.[0];
       
       if (!choice) throw new Error("No AI response");
@@ -2793,6 +2797,18 @@ DATE ANCHORS:
 
     if (!finalResponse) {
       finalResponse = "I wasn't able to fully process your request. Please try rephrasing.";
+    }
+
+    // Usage log for Settings → Super Admin → Theo Usage (never blocks the reply).
+    if (usage.calls > 0) {
+      await supabaseAdmin.from("theo_ai_usage").insert({
+        user_id: user.id,
+        location_id: location_id || null,
+        source: usageSource === "voice" ? "voice" : "chat",
+        model: "google/gemini-2.5-flash",
+        prompt_tokens: usage.pt,
+        completion_tokens: usage.ct,
+      }).then(({ error }: any) => error && console.error("usage log failed", error.message));
     }
 
     return new Response(JSON.stringify({ content: finalResponse }), {
