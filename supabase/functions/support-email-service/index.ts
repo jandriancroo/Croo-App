@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { aiFetchWithShadow } from "../_shared/ai-shadow.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
@@ -1338,7 +1339,7 @@ Write concise insights about sales trends, labor efficiency, cash handling, and 
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) throw new Error('LOVABLE_API_KEY not set');
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await aiFetchWithShadow('support_email', 'https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

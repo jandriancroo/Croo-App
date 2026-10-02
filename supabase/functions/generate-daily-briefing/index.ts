@@ -1,3 +1,4 @@
+import { aiFetchWithShadow } from "../_shared/ai-shadow.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireInternalCaller } from "../_shared/callerAuth.ts";
@@ -363,7 +364,7 @@ serve(async (req) => {
         context.push(`Shift Variances: ${variances.length ? variances.slice(0, 10).join(" | ") : "No significant variances"}`);
 
         // Generate the briefing via AI
-        const aiResponse = await fetch(AI_URL, {
+        const aiResponse = await aiFetchWithShadow("morning_brief", AI_URL, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${lovableApiKey}`,

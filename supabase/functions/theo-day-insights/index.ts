@@ -2,6 +2,7 @@
 // POST { location_id, dates: ["yyyy-MM-dd", ...] } -> { insights: { [date]: string[] } }
 // Finished days only (before today in the store's timezone). Results are cached in
 // theo_day_insights; at most 2 notes per day, ranked by how much they matter.
+import { aiFetchWithShadow } from "../_shared/ai-shadow.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { DateTime } from "https://esm.sh/luxon@3.4.4";
 
@@ -201,7 +202,7 @@ async function phrase(facts: Fact[]): Promise<string[]> {
   const fallback = facts.map((f) => f.text);
   if (!key) return fallback;
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const r = await aiFetchWithShadow("day_insights", "https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
