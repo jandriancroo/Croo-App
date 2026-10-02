@@ -80,6 +80,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number>();
+  const logRef = useRef<{ id: string; start: number; questions: number } | null>(null);
 
   const stopPlayback = useCallback(() => {
     sourcesRef.current.forEach((s) => { try { s.stop(); } catch { /* done */ } });
@@ -88,6 +89,15 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
   }, []);
 
   const teardown = useCallback(() => {
+    const log = logRef.current;
+    logRef.current = null;
+    if (log) {
+      void supabase.from('theo_voice_sessions').update({
+        ended_at: new Date().toISOString(),
+        seconds: Math.min(14400, Math.round((Date.now() - log.start) / 1000)),
+        questions: log.questions,
+      }).eq('id', log.id);
+    }
     stopPlayback();
     wsRef.current?.close();
     wsRef.current = null;
@@ -123,6 +133,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
   };
 
   const askTheo = async (question: string) => {
+    if (logRef.current) logRef.current.questions += 1;
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
         messages: [{ role: 'user', content: question + VOICE_SUFFIX }],
@@ -165,6 +176,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
       if (fnErr || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
       streamRef.current = stream;
       setCaption(data.opener?.script || '');
+      if (user?.id) {
+        const { data: row } = await supabase.from('theo_voice_sessions')
+          .insert({ user_id: user.id, location_id: currentLocation.id, opener_key: data.opener?.key ?? null })
+          .select('id').single();
+        if (row) logRef.current = { id: row.id, start: Date.now(), questions: 0 };
+      }
       if (user?.id) localStorage.setItem(`theo-voice-seen:${user.id}:${currentLocation.id}`, data.opener?.key || '');
 
       const ws = new WebSocket(`wss://api.x.ai/v1/realtime?model=${data.model}`, [`xai-client-secret.${data.token}`]);
