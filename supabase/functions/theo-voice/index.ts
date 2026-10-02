@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { requireInternalCaller } from "../_shared/callerAuth.ts";
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_URL = "https://ai.gateway.lovable.dev/v1/responses";
 const MANAGER_ROLES = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
 const ALL_ACCESS_ROLES = ["super_admin", "brand_admin", "org_admin", "fbc"];
 const VOICES = ["eve", "ara", "leo", "rex", "sal"];
@@ -58,16 +58,14 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: `You write a spoken opening update for Theo, the AI general manager of a restaurant. It is read aloud. Rules: 20-35 seconds, plain conversational sentences, no lists, no markdown, round numbers ("about twelve hundred dollars"). NEVER say individual employee names, labor grades, cash variances or who was late. If a number is missing or zero, leave it out — never say 0% or grade F. Open with "Hey, it's Theo with your ${w.label} for ${loc.name}." End by asking what they want to dig into.` },
-          { role: "user", content: `Live numbers:\n${facts || "(none yet)"}\n\nToday's written brief (for context only):\n${(briefing.data?.content || "(none)").slice(0, 4000)}` },
-        ],
+        model: "openai/gpt-6-astra",
+        instructions: `You write a spoken opening update for Theo, the AI general manager of a restaurant. It is read aloud. Rules: 20-35 seconds, plain conversational sentences, no lists, no markdown, round numbers ("about twelve hundred dollars"). NEVER say individual employee names, labor grades, cash variances or who was late. If a number is missing or zero, leave it out — never say 0% or grade F. Open with "Hey, it's Theo with your ${w.label} for ${loc.name}." End by asking what they want to dig into.`,
+        input: `Live numbers:\n${facts || "(none yet)"}\n\nToday's written brief (for context only):\n${(briefing.data?.content || "(none)").slice(0, 4000)}`,
       }),
     });
     if (r.ok) {
       const d = await r.json();
-      const t = d?.choices?.[0]?.message?.content?.trim();
+      const t = (d?.output_text || (d?.output || []).flatMap((o: any) => o?.content || []).map((c: any) => c?.text || "").join("")).trim();
       if (t) script = t;
     } else console.error("opener AI failed", r.status, await r.text());
   }
