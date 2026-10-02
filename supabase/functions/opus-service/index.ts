@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { generateEmbedding } from "../_shared/embeddings.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -13,35 +14,6 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPUS_GRAPHQL = "https://api.opus.so/graphql";
 
-/** Generate a 768-dim embedding via Lovable AI tool-calling */
-async function generateEmbedding(text: string): Promise<number[] | null> {
-  try {
-    const resp = await fetch(AI_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: "You are an embedding generator." },
-          { role: "user", content: `Generate a 768-dimensional embedding vector for: "${text.substring(0, 500)}". Return ONLY the raw JSON array of 768 floats.` },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "store_embedding",
-            description: "Store a 768-dimensional embedding vector",
-            parameters: { type: "object", properties: { embedding: { type: "array", items: { type: "number" } } }, required: ["embedding"], additionalProperties: false },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "store_embedding" } },
-      }),
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const args = JSON.parse(data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments || "{}");
-    return Array.isArray(args.embedding) && args.embedding.length === 768 ? args.embedding : null;
-  } catch { return null; }
-}
 
 const OPUS_HEADERS = (sessionId: string) => ({
   "Content-Type": "application/json",
