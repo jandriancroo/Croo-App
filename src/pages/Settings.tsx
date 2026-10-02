@@ -16,6 +16,8 @@ import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TheoUsageSection } from '@/components/settings/TheoUsageSection';
+import { BarChart3 } from 'lucide-react';
 import { syncChromeColor } from '@/utils/syncChrome';
 
 // Lazy-load heavy sub-panels — only fetched when their section is opened.
@@ -81,9 +83,10 @@ const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inve
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
+const SUPER_ADMIN_SECTIONS = ['theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
+  'theo-usage': { title: 'Theo Usage', icon: <BarChart3 className="h-4 w-4" /> },
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
   reporting: { title: 'Reporting', icon: <FileText className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
@@ -302,6 +305,10 @@ export default function Settings() {
       case 'clone-settings':
         if (!isSuperAdmin) return null;
         return <CloneLocationSettings />;
+
+      case 'theo-usage':
+        if (!isSuperAdmin) return null;
+        return <TheoUsageSection />;
 
       case 'brands':
         if (!isSuperAdmin) return null;
