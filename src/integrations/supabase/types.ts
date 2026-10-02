@@ -14756,6 +14756,15 @@ export type Database = {
         Args: { _location_id: string; _min_role: string }
         Returns: boolean
       }
+      _shift_offer_push: {
+        Args: {
+          _claimer?: string
+          _dedup_suffix?: string
+          _kind: string
+          _offer_id: string
+        }
+        Returns: undefined
+      }
       _store_labor: {
         Args: { _date: string; _live: boolean; _location_id: string }
         Returns: {
