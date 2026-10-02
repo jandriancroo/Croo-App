@@ -104,8 +104,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const orbRef = useRef<TheoVoiceOrbHandle>(null);
   const rafRef = useRef<number>();
   // liveStart = when the paid live connection opened (null while only the update is playing).
-  const logRef = useRef<{ id: string; liveStart: number | null; liveMs: number; questions: number } | null>(null);
+  const logRef = useRef<{ id: string; liveStart: number | null; liveMs: number; questions: number; final?: Record<string, unknown> } | null>(null);
   const updateSrcRef = useRef<AudioBufferSourceNode | null>(null);
+  // Mic audio captured after the tap but before the live line opens; sent as soon as it opens.
+  const pendingAudioRef = useRef<string[]>([]);
+  const capturingRef = useRef(false);
+  const sessionRef = useRef<{ locationId: string; at: number; promise: Promise<any> } | null>(null);
   const userSpeakingRef = useRef(false);
   // Synchronous lock: set at the top of start(), cleared in teardown(). Prevents double starts.
   const startingRef = useRef(false);
