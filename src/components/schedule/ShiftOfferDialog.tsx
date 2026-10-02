@@ -109,6 +109,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         .single();
 
       if (offerError) throw offerError;
+      try {
       // Find existing marketplace chat (unique index prevents duplicates)
       let { data: marketplaceChats, error: marketplaceChatsError } = await supabase
         .from("chats")
@@ -196,6 +197,11 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       });
 
       if (messageError) throw messageError;
+      } catch (postErr) {
+        // Don't leave a hidden offer behind if the marketplace post failed.
+        await supabase.from("shift_offers").delete().eq("id", newOffer.id);
+        throw postErr;
+      }
 
       toast.success("Shift offered up successfully!");
       onOfferCreated?.();
