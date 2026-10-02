@@ -5,8 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
-import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { DateTime } from "luxon";
 
 interface ShiftOfferDialogProps {
   open: boolean;
@@ -16,7 +15,6 @@ interface ShiftOfferDialogProps {
 }
 
 export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: ShiftOfferDialogProps) {
-  const { timezone } = useLocationTimezone();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingOffer, setExistingOffer] = useState<any>(null);
 
@@ -247,7 +245,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
           <div className="flex justify-between">
             <span className="text-muted-foreground">Date:</span>
             <span className="font-medium">
-              {shift?.shift_date ? parseDateStringInTimezone(shift.shift_date, timezone).toLocaleDateString() : "N/A"}
+              {shift?.shift_date ? DateTime.fromFormat(shift.shift_date, "yyyy-MM-dd").toFormat("M/d/yyyy") : "N/A"}
             </span>
           </div>
           <div className="flex justify-between">
@@ -263,10 +261,10 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
             <p>💰 <strong>Croo Cash:</strong></p>
             <p>• You'll lose $1.00 Croo Cash for offering this shift</p>
             {(() => {
-              const offerDate = shift?.shift_date
-                ? parseDateStringInTimezone(shift.shift_date, timezone)
+              // Read the calendar day straight from the shift's date (no timezone shift).
+              const dayOfWeek = shift?.shift_date
+                ? DateTime.fromFormat(shift.shift_date, "yyyy-MM-dd").weekday % 7
                 : null;
-              const dayOfWeek = offerDate ? offerDate.getDay() : null;
               // Weekend = Friday (5), Saturday (6), Sunday (0)
               return (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) && (
                 <p className="text-primary font-semibold">🎉 Weekend Bonus! You'll lose $2.00 Croo Cash (doubled)</p>
