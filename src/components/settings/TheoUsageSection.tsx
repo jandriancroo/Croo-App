@@ -8,7 +8,9 @@ import { Loader2 } from 'lucide-react';
 type Row = {
   user_id: string; user_name: string; location_id: string; location_name: string | null;
   chat_questions: number; voice_sessions: number; voice_seconds: number; voice_questions: number;
-  ai_calls: number; prompt_tokens: number; completion_tokens: number; last_used: string | null;
+  tts_chars: number; unrecorded_talks: number;
+  ai_calls: number; prompt_tokens: number; completion_tokens: number;
+  ai_by_model: Record<string, { pt: number; ct: number }> | null; last_used: string | null;
 };
 
 const RANGES = [
@@ -18,8 +20,21 @@ const RANGES = [
 ];
 // Grok live voice is billed per minute ($0.08/min, xAI pricing page, Oct 2026).
 const VOICE_PER_MIN = 0.08;
-// Text-AI estimate at Gemini Flash list rates ($0.30 in / $2.50 out per 1M tokens) — an estimate, not a bill.
-const aiCost = (pt: number, ct: number) => (pt * 0.3 + ct * 2.5) / 1_000_000;
+// xAI text-to-speech (update read aloud): $15 per 1M characters (docs.x.ai/developers/pricing, Oct 2026).
+const TTS_PER_M_CHARS = 15;
+const voiceCost = (secs: number, chars: number) => (secs / 60) * VOICE_PER_MIN + (chars * TTS_PER_M_CHARS) / 1_000_000;
+// Per-model list rates, $ per 1M tokens [input, output]. Estimates, not a bill.
+// Gemini 2.5 Flash: $0.30 / $2.50. GPT-6 Astra (update writer): $10 / $50 (OpenAI pricing page, Oct 2026).
+const MODEL_RATES: Record<string, [number, number]> = {
+  'google/gemini-2.5-flash': [0.3, 2.5],
+  'openai/gpt-6-astra': [10, 50],
+};
+const DEFAULT_RATE: [number, number] = [0.3, 2.5];
+const aiCostByModel = (m: Row['ai_by_model']) =>
+  Object.entries(m || {}).reduce((t, [model, v]) => {
+    const [i, o] = MODEL_RATES[model] || DEFAULT_RATE;
+    return t + (Number(v.pt) * i + Number(v.ct) * o) / 1_000_000;
+  }, 0);
 const tok = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
 
 const mins = (s: number) => (s >= 60 ? `${Math.round(s / 60)} min` : s > 0 ? `${s}s` : '—');
@@ -43,10 +58,11 @@ export function TheoUsageSection() {
   });
 
   const stores = useMemo(() => {
-    const m = new Map<string, { name: string; people: Set<string>; chat: number; sessions: number; secs: number; pt: number; ct: number }>();
+    const m = new Map<string, { name: string; people: Set<string>; chat: number; sessions: number; secs: number; chars: number; unrec: number; pt: number; ct: number; ai: number }>();
     data.forEach((r) => {
-      const s = m.get(r.location_id) || { name: r.location_name || 'Unknown', people: new Set(), chat: 0, sessions: 0, secs: 0, pt: 0, ct: 0 };
+      const s = m.get(r.location_id) || { name: r.location_name || 'Unknown', people: new Set(), chat: 0, sessions: 0, secs: 0, chars: 0, unrec: 0, pt: 0, ct: 0, ai: 0 };
       if (r.user_id) s.people.add(r.user_id); s.pt += Number(r.prompt_tokens); s.ct += Number(r.completion_tokens); s.chat += Number(r.chat_questions); s.sessions += Number(r.voice_sessions); s.secs += Number(r.voice_seconds);
+      s.chars += Number(r.tts_chars); s.unrec += Number(r.unrecorded_talks); s.ai += aiCostByModel(r.ai_by_model);
       m.set(r.location_id, s);
     });
     return [...m.values()].sort((a, b) => b.chat + b.sessions - (a.chat + a.sessions));
@@ -57,7 +73,8 @@ export function TheoUsageSection() {
     [data],
   );
 
-  const totals = stores.reduce((t, s) => ({ chat: t.chat + s.chat, sessions: t.sessions + s.sessions, secs: t.secs + s.secs, pt: t.pt + s.pt, ct: t.ct + s.ct }), { chat: 0, sessions: 0, secs: 0, pt: 0, ct: 0 });
+  const totals = stores.reduce((t, s) => ({ chat: t.chat + s.chat, sessions: t.sessions + s.sessions, secs: t.secs + s.secs, chars: t.chars + s.chars, unrec: t.unrec + s.unrec, pt: t.pt + s.pt, ct: t.ct + s.ct, ai: t.ai + s.ai }), { chat: 0, sessions: 0, secs: 0, chars: 0, unrec: 0, pt: 0, ct: 0, ai: 0 });
+  const unrecNote = (n: number) => (n > 0 ? `${n} length not recorded` : null);
 
   const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
     <button onClick={onClick} className={cn('rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
@@ -74,15 +91,16 @@ export function TheoUsageSection() {
       <div className="grid grid-cols-3 gap-2">
         {[
           { l: 'Typed questions', v: totals.chat.toLocaleString() },
-          { l: 'Voice talks', v: `${totals.sessions} · ${mins(totals.secs)}` },
-          { l: 'Est. voice cost', v: money((totals.secs / 60) * VOICE_PER_MIN) },
+          { l: 'Voice talks', v: `${totals.sessions} · ${mins(totals.secs)}`, n: unrecNote(totals.unrec) },
+          { l: 'Est. voice cost', v: money(voiceCost(totals.secs, totals.chars)), n: totals.unrec > 0 ? '+ unrecorded talks' : null },
           { l: 'AI words used', v: tok(totals.pt + totals.ct) },
-          { l: 'Est. AI cost', v: money(aiCost(totals.pt, totals.ct)) },
-          { l: 'Est. total', v: money(aiCost(totals.pt, totals.ct) + (totals.secs / 60) * VOICE_PER_MIN) },
+          { l: 'Est. AI cost', v: money(totals.ai) },
+          { l: 'Est. total', v: money(totals.ai + voiceCost(totals.secs, totals.chars)), n: totals.unrec > 0 ? '+ unrecorded talks' : null },
         ].map((t) => (
           <div key={t.l} className="rounded-xl bg-muted/50 px-3 py-2.5">
             <div className="text-[11px] font-semibold text-muted-foreground">{t.l}</div>
             <div className="text-base font-bold tabular-nums text-foreground">{t.v}</div>
+            {t.n && <div className="text-[10px] font-medium text-muted-foreground">{t.n}</div>}
           </div>
         ))}
       </div>
@@ -108,7 +126,8 @@ export function TheoUsageSection() {
               </div>
               <div className="text-right text-xs tabular-nums text-muted-foreground">
                 <div><span className="font-semibold text-foreground">{s.chat}</span> typed · <span className="font-semibold text-foreground">{s.sessions}</span> voice ({mins(s.secs)})</div>
-                <div>{money((s.secs / 60) * VOICE_PER_MIN)} voice · {money(aiCost(s.pt, s.ct))} AI</div>
+                {s.unrec > 0 && <div>{unrecNote(s.unrec)}</div>}
+                <div>{money(voiceCost(s.secs, s.chars))}{s.unrec > 0 ? '+' : ''} voice · {money(s.ai)} AI</div>
               </div>
             </div>
           ))}
@@ -125,14 +144,15 @@ export function TheoUsageSection() {
               </div>
               <div className="text-right text-xs tabular-nums text-muted-foreground">
                 <div><span className="font-semibold text-foreground">{r.chat_questions}</span> typed</div>
-                <div><span className="font-semibold text-foreground">{r.voice_sessions}</span> voice · {mins(Number(r.voice_seconds))}</div>
-                <div>{tok(Number(r.prompt_tokens) + Number(r.completion_tokens))} AI · {money(aiCost(Number(r.prompt_tokens), Number(r.completion_tokens)))}</div>
+                <div><span className="font-semibold text-foreground">{r.voice_sessions}</span> voice · {mins(Number(r.voice_seconds))} · {money(voiceCost(Number(r.voice_seconds), Number(r.tts_chars)))}{Number(r.unrecorded_talks) > 0 ? '+' : ''}</div>
+                {Number(r.unrecorded_talks) > 0 && <div>{unrecNote(Number(r.unrecorded_talks))}</div>}
+                <div>{tok(Number(r.prompt_tokens) + Number(r.completion_tokens))} AI · {money(aiCostByModel(r.ai_by_model))}</div>
               </div>
             </div>
           ))}
         </div>
       )}
-      <p className="text-[11px] text-muted-foreground">Estimates: voice $0.08/min, AI at Gemini Flash rates. Voice and AI tracking started Oct 1, 2026; typed questions go back further.</p>
+      <p className="text-[11px] text-muted-foreground">Estimates: live voice $0.08/min, read-aloud updates $15 per 1M characters; AI at each model's list rate (Gemini 2.5 Flash $0.30/$2.50, GPT-6 Astra update writer $10/$50 per 1M tokens). Talks marked "length not recorded" aren't in the dollar figure. Voice and AI tracking started Oct 1, 2026; typed questions go back further.</p>
     </div>
   );
 }
