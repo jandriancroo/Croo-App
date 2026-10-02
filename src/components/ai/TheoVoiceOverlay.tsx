@@ -53,6 +53,25 @@ const ORB_LABEL: Record<Phase, string> = {
   listening: 'Theo is listening', thinking: 'Theo is checking the numbers', error: 'Try Theo voice again',
 };
 
+// Final save uses fetch keepalive so it still goes out while the page is being hidden/closed.
+let accessToken = '';
+supabase.auth.getSession().then(({ data }) => { accessToken = data.session?.access_token || ''; });
+supabase.auth.onAuthStateChange((_e, session) => { accessToken = session?.access_token || ''; });
+function saveFinal(id: string, patch: Record<string, unknown>) {
+  const base = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!accessToken) {
+    void supabase.from('theo_voice_sessions').update(patch).eq('id', id).then(() => {});
+    return;
+  }
+  fetch(`${base}/rest/v1/theo_voice_sessions?id=eq.${id}`, {
+    method: 'PATCH',
+    keepalive: true,
+    headers: { apikey: key, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify(patch),
+  }).catch((e) => console.error('[theo-voice] usage log', e));
+}
+
 export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onExchange, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onOpenAnswer?: () => void; onExchange?: (question: string, answer: string) => void; intent?: 'update' | 'talk' }) {
   const { currentLocation } = useLocation();
   const { user } = useAuth();
@@ -92,11 +111,11 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     logRef.current = null;
     if (log) {
       const liveMs = log.liveMs + (log.liveStart ? Date.now() - log.liveStart : 0);
-      void supabase.from('theo_voice_sessions').update({
+      saveFinal(log.id, {
         ended_at: new Date().toISOString(),
         seconds: Math.min(14400, Math.round(liveMs / 1000)),
         questions: log.questions,
-      }).eq('id', log.id).then(({ error: e }) => { if (e) console.error('[theo-voice] usage log', e); });
+      });
     }
     const u = updateSrcRef.current;
     updateSrcRef.current = null;
@@ -119,6 +138,26 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
   useEffect(() => { if (!open) { teardown(); setStoppedListening(false); setLongAnswer(false); } }, [open, teardown]);
   useEffect(() => () => teardown(), [teardown]);
+
+  // Save progress every 15s while the paid live line is open, so a swiped-away app still records its length.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const log = logRef.current;
+      if (!log?.liveStart) return;
+      const secs = Math.min(14400, Math.round((log.liveMs + Date.now() - log.liveStart) / 1000));
+      void supabase.from('theo_voice_sessions').update({ seconds: secs, questions: log.questions }).eq('id', log.id).then(() => {});
+    }, 15_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Leaving the app or tab hangs up the paid line and saves the talk.
+  useEffect(() => {
+    const onHide = () => { if (logRef.current || wsRef.current) teardown(); };
+    const onVis = () => { if (document.visibilityState === 'hidden') onHide(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', onHide);
+    return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pagehide', onHide); };
+  }, [teardown]);
 
   // Hang up the paid live connection after SILENCE_HANGUP_MS of no speech on the manager's turn.
   // "Speech" = the server's speech-started event, never raw mic level (kitchens are loud).
