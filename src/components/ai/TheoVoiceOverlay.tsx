@@ -4,13 +4,16 @@ import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight } from 'lucide
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
-import { TheoVoiceOrb } from './TheoVoiceOrb';
+import { TheoVoiceOrb, type TheoVoiceOrbHandle } from './TheoVoiceOrb';
+import { playCue, type TheoCue } from './theoCues';
 
 type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'error';
 
 const RATE = 24000;
 /** Live voice is billed per minute: hang up after this much silence on the manager's turn. */
 const SILENCE_HANGUP_MS = 10_000;
+/** Quiet time before xAI treats the manager's turn as complete. */
+const SILENCE_WAIT_MS = 600;
 // Hard stop for one live connection (only live time counts, not the read-aloud update).
 const MAX_LIVE_MS = 180_000;
 // Earlier exchanges carried into a resumed live session (this open of the voice screen only).
@@ -96,6 +99,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const playAtRef = useRef(0);
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const orbRef = useRef<TheoVoiceOrbHandle>(null);
   const rafRef = useRef<number>();
   // liveStart = when the paid live connection opened (null while only the update is playing).
   const logRef = useRef<{ id: string; liveStart: number | null; liveMs: number; questions: number } | null>(null);
@@ -111,6 +115,10 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopAfterAnswerRef = useRef(false);
   const historyRef = useRef<{ q: string; a: string }[]>([]);
+  const micGateUntilRef = useRef(0);
+  const reachedListeningRef = useRef(false);
+  const closedCuePlayedRef = useRef(false);
+  const errorEndingRef = useRef(false);
 
   const stopPlayback = useCallback(() => {
     sourcesRef.current.forEach((s) => { try { s.stop(); } catch { /* done */ } });
@@ -118,7 +126,22 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (ctxRef.current) playAtRef.current = ctxRef.current.currentTime;
   }, []);
 
-  const teardown = useCallback(() => {
+  const triggerCue = useCallback((cue: TheoCue, gateMic = false) => {
+    const ctx = ctxRef.current;
+    if (!ctx) return 0;
+    const duration = playCue(ctx, cue);
+    orbRef.current?.cue(cue);
+    if (gateMic) micGateUntilRef.current = Math.max(micGateUntilRef.current, ctx.currentTime + duration);
+    return duration;
+  }, []);
+
+  const teardown = useCallback((withClosedCue = true) => {
+    const ctx = ctxRef.current;
+    const playClosed = withClosedCue && reachedListeningRef.current && !closedCuePlayedRef.current && !!ctx;
+    if (playClosed) {
+      closedCuePlayedRef.current = true;
+      triggerCue('closed');
+    }
     const log = logRef.current;
     logRef.current = null;
     if (log) {
@@ -141,8 +164,13 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    ctxRef.current?.close().catch(() => {});
+    if (ctx) {
+      if (playClosed) setTimeout(() => { void ctx.close().catch(() => {}); }, 700);
+      else void ctx.close().catch(() => {});
+    }
     ctxRef.current = null;
+    reachedListeningRef.current = false;
+    micGateUntilRef.current = 0;
     userSpeakingRef.current = false;
     startingRef.current = false;
     if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
@@ -150,7 +178,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     stopAfterAnswerRef.current = false;
     setPhase('idle');
     setLevel(0);
-  }, [stopPlayback]);
+  }, [stopPlayback, triggerCue]);
 
   useEffect(() => { if (!open) { teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
 
@@ -243,7 +271,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const fail = (e: any) => {
     const denied = e?.name === 'NotAllowedError';
     setError(denied ? 'Microphone access is off. Allow it in your browser settings, or use text chat.' : e?.message || 'Theo’s voice isn’t available right now.');
-    teardown();
+    errorEndingRef.current = true;
+    teardown(false);
     setPhase('error');
   };
 
@@ -278,7 +307,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             instructions: (heardUpdate
               ? `${data.instructions}\nThe manager just heard this update read aloud — don't repeat it, just answer what they ask next:\n${heardUpdate}`
               : data.instructions) + earlier,
-            turn_detection: { type: 'server_vad' },
+            turn_detection: { type: 'server_vad', silence_duration_ms: SILENCE_WAIT_MS },
             audio: { input: { format: { type: 'audio/pcm', rate: RATE } }, output: { format: { type: 'audio/pcm', rate: RATE } } },
             tools: [{
               type: 'function',
@@ -291,7 +320,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         const mic = ctx.createMediaStreamSource(stream);
         const proc = ctx.createScriptProcessor(4096, 1, 1);
         proc.onaudioprocess = (ev) => {
-          if (ws.readyState === WebSocket.OPEN) {
+          if (ws.readyState === WebSocket.OPEN && ctx.currentTime >= micGateUntilRef.current) {
             ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: floatToB64(ev.inputBuffer.getChannelData(0)) }));
           }
         };
@@ -301,7 +330,9 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         proc.connect(mute);
         mute.connect(ctx.destination);
         procRef.current = proc;
+        reachedListeningRef.current = true;
         setPhase('listening');
+        triggerCue('ready', true);
       };
       ws.onmessage = async (msg) => {
         const ev = JSON.parse(msg.data);
@@ -331,6 +362,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             break;
           case 'response.function_call_arguments.done': {
             setPhase('thinking');
+            triggerCue('heard', true);
             let q = '';
             try { q = JSON.parse(ev.arguments || '{}').question || ''; } catch { /* bad args */ }
             const output = ev.name === 'ask_theo' && q ? await askTheo(q) : JSON.stringify({ error: 'Unknown tool' });
@@ -340,11 +372,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
           }
           case 'error':
             console.error('[theo-voice]', ev);
+            errorEndingRef.current = true;
             break;
         }
       };
-      ws.onerror = () => { setError('Lost connection to Theo’s voice.'); teardown(); setPhase('error'); };
-      ws.onclose = () => { teardown(); setMode('talk'); };
+      ws.onerror = () => { errorEndingRef.current = true; setError('Lost connection to Theo’s voice.'); teardown(false); setPhase('error'); };
+      ws.onclose = () => { teardown(!errorEndingRef.current); setMode('talk'); };
     } catch (e: any) {
       fail(e);
     }
@@ -353,6 +386,10 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const start = async (withOpener: boolean) => {
     if (!currentLocation?.id || startingRef.current) return;
     startingRef.current = true;
+    reachedListeningRef.current = false;
+    closedCuePlayedRef.current = false;
+    errorEndingRef.current = false;
+    micGateUntilRef.current = 0;
     withOpenerRef.current = withOpener;
     setMode('talk');
     setError('');
@@ -451,8 +488,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       <div className="flex flex-1 flex-col items-center justify-center px-6">
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
           className="relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform">
-          <div aria-hidden className="absolute left-10 top-10 h-[200px] w-[200px] rounded-full blur-[34px]" style={{ background: 'hsl(var(--primary-light, 190 57% 60%) / 0.32)' }} />
-          <TheoVoiceOrb phase={phase} level={level} />
+          <TheoVoiceOrb ref={orbRef} phase={phase} level={level} />
         </button>
         <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : PHASE_TEXT[phase]}</p>
         {(() => {
