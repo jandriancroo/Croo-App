@@ -72,29 +72,17 @@ export function useMessagesData() {
     if (marketplaceChecked.current || !user || !currentLocation) return;
     marketplaceChecked.current = true;
 
-    let { data: marketplaceChats } = await supabase
+    // One marketplace per store. Never delete chats here — an old "dedupe" step used to
+    // delete other stores' marketplaces (and every shift offer posted in them).
+    const { data: marketplaceChats } = await supabase
       .from("chats")
       .select("id, title")
-      .ilike("title", "%Shift Marketplace%");
+      .eq("title", "Shift Marketplace")
+      .eq("location_id", currentLocation.id)
+      .order("created_at", { ascending: true })
+      .limit(1);
 
-    if (marketplaceChats && marketplaceChats.length > 1) {
-      const [keepChat, ...deleteChats] = marketplaceChats;
-      for (const chat of deleteChats) {
-        await supabase.from("chats").delete().eq("id", chat.id);
-      }
-      marketplaceChats = [keepChat];
-    }
-
-    let marketplaceChat = marketplaceChats?.[0] || null;
-
-    if (marketplaceChat && marketplaceChat.title !== "Shift Marketplace") {
-      await supabase
-        .from("chats")
-        .update({ title: "Shift Marketplace" })
-        .eq("id", marketplaceChat.id);
-    }
-
-    if (!marketplaceChat) {
+    if (!marketplaceChats?.length) {
       const { data: newChat } = await supabase
         .from("chats")
         .insert({
@@ -107,12 +95,12 @@ export function useMessagesData() {
         .single();
 
       if (newChat) {
-        const { data: allUsers } = await supabase.from("profiles").select("id");
-        if (allUsers) {
-          await supabase
-            .from("chat_members")
-            .insert(allUsers.map((u) => ({ chat_id: newChat.id, user_id: u.id })));
-        }
+        const { data: locUsers } = await supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("location_id", currentLocation.id);
+        const ids = Array.from(new Set([user.id, ...(locUsers ?? []).map((u) => u.user_id)]));
+        await supabase.from("chat_members").insert(ids.map((id) => ({ chat_id: newChat.id, user_id: id })));
       }
     }
   }, [user, currentLocation]);
