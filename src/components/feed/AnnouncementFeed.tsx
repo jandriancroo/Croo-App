@@ -10,7 +10,7 @@ import { PostCard } from './PostCard';
 import { PostComposer } from './PostComposer';
 
 import { SeenByDialog } from './SeenByDialog';
-import { ShiftOfferMessage } from '@/components/messages/ShiftOfferMessage';
+import { ShiftSwapBar } from './ShiftSwapBar';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -173,19 +173,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
             <>
               {hasPinnedStrip && (
                 <div className="space-y-3">
-                  {openShiftOffers.map(o => (
-                    <div
-                      key={`offer-${o.id}`}
-                      className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm px-3 py-3"
-                    >
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                          Shift Swap
-                        </span>
-                      </div>
-                      <ShiftOfferMessage offerId={o.id} messageId="" />
-                    </div>
-                  ))}
+                  <ShiftSwapBar offers={openShiftOffers} />
                   {pinnedPosts.map(p => (
                     <PostCard
                       key={p.id}

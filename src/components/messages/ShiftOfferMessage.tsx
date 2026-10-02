@@ -426,7 +426,7 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
     const d = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
     const status =
       offer.status === 'approved' ? { t: `Covered${offer.claimed_by ? ` by ${getDisplayName(offer.claimed_by.full_name, offer.claimed_by.nickname)}` : ''}`, c: 'bg-success/15 text-success' }
-      : offer.status === 'claimed' ? { t: `${claims.length || 1} wants it · needs approval`, c: 'bg-warning/15 text-warning-foreground' }
+      : offer.status === 'claimed' ? { t: `${claims.length || 1} wants it · needs approval`, c: 'bg-accent/15 text-accent' }
       : null;
     const isMine = currentUserId === offer.offered_by?.id;
     return (
