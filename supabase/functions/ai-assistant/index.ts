@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -926,25 +927,43 @@ const PROPOSE_TASK_TOOL = {
   type: "function",
   function: {
     name: "propose_action",
-    description: "Show the manager a PREVIEW of a standard quick task at this store. Saves nothing — only the manager's tap on Create task saves it. Call only when you have a title AND at least one person (employee_id from find_crew) or role. Also call it again with the full revised task when the manager changes a preview that is on screen.",
+    description: "Show the manager a PREVIEW of a change: create_task (a standard quick task) or cover_shift (give one shift to another person). Saves nothing — only the manager's tap on Create task saves it. Call only when you have a title AND at least one person (employee_id from find_crew) or role. Also call it again with the full revised task when the manager changes a preview that is on screen.",
     parameters: {
       type: "object",
       properties: {
-        action: { type: "string", enum: ["create_task"] },
+        action: { type: "string", enum: ["create_task", "cover_shift"] },
+        shift_id: { type: "string", description: "cover_shift only: shift_id from find_shifts" },
+        replacement_employee_id: { type: "string", description: "cover_shift only: employee_id (from find_crew) of the person taking the shift" },
         title: { type: "string", description: "Short task title. Keep any time the manager said and write it with AM/PM, e.g. 'by 3' becomes 'Wipe down the patio tables by 3 PM'." },
         employee_ids: { type: "array", items: { type: "string" }, description: "employee_id values from find_crew" },
         roles: { type: "array", items: { type: "string", enum: Object.keys(TASK_ROLES) }, description: "Only roles the manager named out loud (e.g. 'the shift managers'). Never use team_member for 'everyone', 'all', 'the crew' or 'the team' — for those, do not call this tool; ask who it's for." },
         duration: { type: "string", enum: TASK_DURATIONS, description: "How long it stays up: 1h, 3h, 1d, 3d, 1w, 1m, none (= Until Complete, the default)" },
       },
-      required: ["action", "title"],
+      required: ["action"],
     },
+  },
+};
+const FIND_SHIFTS_TOOL = {
+  type: "function",
+  function: {
+    name: "find_shifts",
+    description: "Cover a shift, step 1. With a name: that person's shifts on the date (default today). With no name: the store's remaining shifts today, shown on screen to tap. Returns status, shift_id(s) and a 'next' instruction to follow exactly.",
+    parameters: { type: "object", properties: { name: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD; omit for today" } } },
+  },
+};
+const COVER_CANDIDATES_TOOL = {
+  type: "function",
+  function: {
+    name: "cover_candidates",
+    description: "Cover a shift, step 2: the app's ranked list of who can take this shift (shown on screen). Saves nothing.",
+    parameters: { type: "object", properties: { shift_id: { type: "string" } }, required: ["shift_id"] },
   },
 };
 const CANCEL_PENDING_TOOL = {
   type: "function",
   function: {
     name: "cancel_pending_action",
-    description: "The manager wants to drop the task preview that is on screen (e.g. 'never mind', 'cancel', 'forget it').",
+    description: "The manager wants to drop the preview (task or cover) that is on screen (e.g. 'never mind', 'cancel', 'forget it').",
     parameters: { type: "object", properties: {} },
   },
 };
@@ -2723,7 +2742,7 @@ serve(async (req) => {
     }
 
     const userRole = roleData.role;
-    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard, pending_action } = await req.json();
+    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard, pending_action, pick, list_context } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
     // write no usage rows and return token counts instead. Remove after the bake-off.
