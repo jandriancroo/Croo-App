@@ -800,6 +800,9 @@ const tools = [
   },
 ];
 
+// query_inventory is parked (not offered to the model) — see THEO_INVENTORY.md. Code kept for later.
+const THEO_TOOLS = tools.filter((t: any) => t.function?.name !== "query_inventory");
+
 // Execute tool calls against the database
 const MANAGER_PLUS_ROLES = ["manager", "general_manager", "admin", "org_admin", "brand_admin", "super_admin"];
 
@@ -1015,8 +1018,9 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const endDate = args.end_date || args.start_date;
         const { data, error } = await supabase
           .from("scheduled_shifts")
-          .select("shift_date, start_time, end_time, is_time_off, user_id, template_id, schedule_id, schedules!inner(location_id, week_start_date, week_end_date), shift_templates(position, template_name)")
+          .select("shift_date, start_time, end_time, is_time_off, user_id, template_id, schedule_id, schedules!inner(location_id, week_start_date, week_end_date, is_published), shift_templates(position, template_name)")
           .eq("schedules.location_id", args.location_id)
+          .eq("schedules.is_published", true)
           .gte("shift_date", args.start_date)
           .lte("shift_date", endDate)
           .not("user_id", "is", null)
@@ -1055,12 +1059,36 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const q = args.employee_name.toLowerCase();
           results = results.filter((s: any) => s.name?.toLowerCase().includes(q));
         }
-        return JSON.stringify(results.length ? results : { message: "No scheduled shifts found for this date range." });
+        if (results.length) return JSON.stringify(results);
+        if ((data || []).length === 0) {
+          // Is there any published schedule covering this range at all?
+          const { data: pub } = await supabase
+            .from("schedules").select("id").eq("location_id", args.location_id).eq("is_published", true)
+            .gte("week_end_date", args.start_date).lte("week_start_date", endDate).limit(1);
+          if (!pub || pub.length === 0) {
+            const marker: any = { no_published_schedule: true, message: "There's no published schedule for that week." };
+            if (MANAGER_PLUS_ROLES.includes(userRole || "")) {
+              const { count } = await supabase
+                .from("scheduled_shifts")
+                .select("id, schedules!inner(location_id, is_published)", { count: "exact", head: true })
+                .eq("schedules.location_id", args.location_id)
+                .eq("schedules.is_published", false)
+                .gte("shift_date", args.start_date)
+                .lte("shift_date", endDate)
+                .not("user_id", "is", null);
+              marker.draft_shifts = count || 0;
+              marker.draft_note = "Draft shifts are not the schedule — only mention the count, never list them as who is working.";
+            }
+            return JSON.stringify(marker);
+          }
+        }
+        return JSON.stringify({ message: "No scheduled shifts found for this date range on the published schedule." });
       }
 
       case "query_checklists": {
-        const startTs = `${args.date}T00:00:00${offset}`;
-        const endTs = `${args.date}T23:59:59${offset}`;
+        const cWin = await dayWindow(supabase, args.location_id, args.date);
+        const startTs = cWin?.start_at || `${args.date}T00:00:00${offset}`;
+        const endTs = cWin?.end_at || `${addDays(args.date, 1)}T00:00:00${offset}`;
 
         const { data, error } = await supabase
           .from("checklist_submissions")
@@ -1258,7 +1286,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             subtaskMap[st.task_id].push(st);
           });
 
-          const targetDate = args.date || new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+          const targetDate = args.date || storeToday;
+          const tWin = await dayWindow(supabase, args.location_id, targetDate);
           const { data: completions } = await supabase
             .from("task_subtask_completions")
             .select("subtask_id, task_id, completed_by, completed_date, completed_at")
@@ -1274,8 +1303,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             .from("alarm_task_completions")
             .select("task_id, completed_by, completed_at, interval_key, profiles!alarm_task_completions_completed_by_fkey(full_name)")
             .in("task_id", taskIds)
-            .gte("completed_at", `${targetDate}T00:00:00${offset}`)
-            .lte("completed_at", `${targetDate}T23:59:59${offset}`);
+            .gte("completed_at", tWin?.start_at || `${targetDate}T00:00:00${offset}`)
+            .lt("completed_at", tWin?.end_at || `${addDays(targetDate, 1)}T00:00:00${offset}`);
 
           (alarmCompletions || []).forEach((c: any) => {
             if (!completionMap[c.task_id]) completionMap[c.task_id] = [];
@@ -1698,9 +1727,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         }));
 
         if (args.expiring_within_days) {
-          const cutoff = new Date();
-          cutoff.setDate(cutoff.getDate() + args.expiring_within_days);
-          const cutoffStr = cutoff.toISOString().split("T")[0];
+          const cutoffStr = addDays(storeToday, Number(args.expiring_within_days) || 0);
           results = results.filter((c: any) => c.expires && c.expires <= cutoffStr);
         }
 
@@ -2004,12 +2031,14 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .eq("is_time_off", false);
         if (sErr) return JSON.stringify({ error: sErr.message });
 
+        const coWin = await rangeWindow(supabase, args.location_id, args.start_date, endDate);
+        if (!coWin) return JSON.stringify({ error: "Couldn't work out the store's business day for those dates." });
         const { data: punches } = await supabase
           .from("time_punches")
           .select("user_id, shift_id, punch_type, punch_time")
           .eq("location_id", args.location_id)
-          .gte("punch_time", `${args.start_date}T00:00:00`)
-          .lte("punch_time", `${endDate}T23:59:59`);
+          .gte("punch_time", coWin.start_at)
+          .lt("punch_time", coWin.end_at);
 
         // Resolve names in one batch
         const userIdSet = new Set<string>();
@@ -2045,7 +2074,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         });
 
         const userPunchedForShift = (userId: string, shiftDate: string, startTime: string) => {
-          const shiftStart = new Date(`${shiftDate}T${startTime}`).getTime();
+          const shiftStart = localToUtcMs(shiftDate, startTime, timezone);
           return (punches || []).some((p: any) => {
             if (p.user_id !== userId || p.punch_type !== "clock_in") return false;
             const pTime = new Date(p.punch_time).getTime();
@@ -2062,7 +2091,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (userPunchedForShift(shift.user_id, shift.shift_date, shift.start_time)) continue;
           if (userOnApprovedTimeOff(shift.user_id, shift.shift_date)) continue;
 
-          const shiftStart = new Date(`${shift.shift_date}T${shift.start_time}`).getTime();
+          const shiftStart = localToUtcMs(shift.shift_date, shift.start_time, timezone);
           const scheduledUserIdsToday = (shifts || [])
             .filter((s: any) => s.shift_date === shift.shift_date)
             .map((s: any) => s.user_id);
@@ -2073,8 +2102,9 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             return Math.abs(pTime - shiftStart) <= 2 * 60 * 60 * 1000;
           });
 
-          const startMs = new Date(`${shift.shift_date}T${shift.start_time}`).getTime();
-          const endMs = new Date(`${shift.shift_date}T${shift.end_time}`).getTime();
+          const startMs = localToUtcMs(shift.shift_date, shift.start_time, timezone);
+          let endMs = localToUtcMs(shift.shift_date, shift.end_time, timezone);
+          if (endMs < startMs) endMs += 86400000;
           const hours = Math.max(0, (endMs - startMs) / 3600000);
           const wage = replacementPunch ? (wageMap[replacementPunch.user_id] || 0) : 0;
           const cost = hours * wage;
@@ -2105,6 +2135,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const ranked = Object.values(byEmployee).sort((a: any, b: any) => b.callouts - a.callouts);
 
         return JSON.stringify({
+          business_day_window: coWin,
           total_scheduled_shifts: shifts?.length || 0,
           total_callouts: filtered.length,
           callout_rate_pct: shifts?.length ? Math.round((filtered.length / shifts.length) * 1000) / 10 : 0,
@@ -2119,12 +2150,16 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const threshold = (args.threshold_minutes || 7) * 60 * 1000;
         const patternFilter = args.pattern_type || "all";
 
+        const ppWins = await windowsFor(supabase, args.location_id, args.start_date, endDate);
+        const ppWin = await rangeWindow(supabase, args.location_id, args.start_date, endDate);
+        if (!ppWin) return JSON.stringify({ error: "Couldn't work out the store's business day for those dates." });
+        const bizDate = (iso: string) => businessDateOf(iso, ppWins, timezone);
         const { data: punches, error: pErr } = await supabase
           .from("time_punches")
           .select("user_id, shift_id, punch_type, punch_time, is_auto_punched_out")
           .eq("location_id", args.location_id)
-          .gte("punch_time", `${args.start_date}T00:00:00`)
-          .lte("punch_time", `${endDate}T23:59:59`)
+          .gte("punch_time", ppWin.start_at)
+          .lt("punch_time", ppWin.end_at)
           .order("punch_time");
         if (pErr) return JSON.stringify({ error: pErr.message });
 
@@ -2172,7 +2207,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const shiftPunches: Record<string, any> = {};
         (punches || []).forEach((p: any) => {
-          const key = p.shift_id || `${p.user_id}-${p.punch_time.slice(0, 10)}`;
+          const key = p.shift_id || `${p.user_id}-${bizDate(p.punch_time)}`;
           if (!shiftPunches[key]) shiftPunches[key] = { user_id: p.user_id, name: nameMap[p.user_id] || "Unknown", in: null, out: null, auto: false };
           if (p.punch_type === "clock_in") shiftPunches[key].in = p.punch_time;
           if (p.punch_type === "clock_out") {
@@ -2183,13 +2218,13 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const findScheduled = (userId: string, punchInIso: string | null) => {
           if (!punchInIso) return null;
-          const date = punchInIso.slice(0, 10);
+          const date = bizDate(punchInIso);
           const punchMs = new Date(punchInIso).getTime();
           let best: any = null;
           let bestDiff = Infinity;
           shifts.forEach((s: any) => {
             if (s.user_id !== userId || s.shift_date !== date) return;
-            const schedMs = new Date(`${s.shift_date}T${s.start_time}`).getTime();
+            const schedMs = localToUtcMs(s.shift_date, s.start_time, timezone);
             const diff = Math.abs(schedMs - punchMs);
             if (diff < bestDiff && diff <= 4 * 60 * 60 * 1000) {
               bestDiff = diff;
@@ -2204,16 +2239,16 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const sched = findScheduled(sp.user_id, sp.in);
 
           if (sp.auto && (patternFilter === "all" || patternFilter === "auto_punch")) {
-            findings.push({ type: "auto_punch", employee: sp.name, date: (sp.in || sp.out || "").slice(0, 10), detail: "Forgot to clock out — system auto-punched" });
+            findings.push({ type: "auto_punch", employee: sp.name, date: (sp.in || sp.out) ? bizDate(sp.in || sp.out) : null, detail: "Forgot to clock out — system auto-punched" });
           }
 
           if (!sched && sp.in && (patternFilter === "all" || patternFilter === "no_schedule")) {
-            findings.push({ type: "no_schedule", employee: sp.name, date: sp.in.slice(0, 10), detail: "Worked without being on the schedule" });
+            findings.push({ type: "no_schedule", employee: sp.name, date: bizDate(sp.in), detail: "Worked without being on the schedule" });
             return;
           }
 
           if (sched && sp.in && (patternFilter === "all" || patternFilter === "early_in")) {
-            const schedMs = new Date(`${sched.shift_date}T${sched.start_time}`).getTime();
+            const schedMs = localToUtcMs(sched.shift_date, sched.start_time, timezone);
             const inMs = new Date(sp.in).getTime();
             const earlyMs = schedMs - inMs;
             if (earlyMs > threshold) {
@@ -2225,7 +2260,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           }
 
           if (sched && sp.out && (patternFilter === "all" || patternFilter === "late_out")) {
-            const schedMs = new Date(`${sched.shift_date}T${sched.end_time}`).getTime();
+            let schedMs = localToUtcMs(sched.shift_date, sched.end_time, timezone);
+            if (sched.end_time < sched.start_time) schedMs += 86400000;
             const outMs = new Date(sp.out).getTime();
             const lateMs = outMs - schedMs;
             if (lateMs > threshold) {
@@ -2253,6 +2289,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const ranked = Object.values(byEmployee).sort((a: any, b: any) => b.total - a.total);
 
         return JSON.stringify({
+          business_day_window: ppWin,
           total_findings: filtered.length,
           total_dollar_impact: Math.round(filtered.reduce((s, f) => s + (f.cost_impact || 0), 0) * 100) / 100,
           by_employee: ranked,
@@ -2264,12 +2301,15 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const minOccurrences = args.min_occurrences || 2;
         const shiftBlock = args.shift_block || "all";
 
+        const cpWins = await windowsFor(supabase, args.location_id, args.start_date, args.end_date);
+        const cpWin = await rangeWindow(supabase, args.location_id, args.start_date, args.end_date);
+        if (!cpWin) return JSON.stringify({ error: "Couldn't work out the store's business day for those dates." });
         const { data: punches, error: pErr } = await supabase
           .from("time_punches")
           .select("user_id, punch_type, punch_time")
           .eq("location_id", args.location_id)
-          .gte("punch_time", `${args.start_date}T00:00:00`)
-          .lte("punch_time", `${args.end_date}T23:59:59`)
+          .gte("punch_time", cpWin.start_at)
+          .lt("punch_time", cpWin.end_at)
           .order("punch_time");
         if (pErr) return JSON.stringify({ error: pErr.message });
 
@@ -2280,12 +2320,12 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .gte("sale_date", args.start_date)
           .lte("sale_date", args.end_date);
 
-        const { data: laborRows } = await supabase
-          .from("labor_cache")
-          .select("labor_date, labor_cost, labor_hours, hourly_breakdown")
-          .eq("location_id", args.location_id)
-          .gte("labor_date", args.start_date)
-          .lte("labor_date", args.end_date);
+        // Day labor totals ONLY from get_store_labor (signed-in user). Never labor_cache.
+        const { rows: crewLaborRows, error: crewLaborErr } = ctx.userClient
+          ? await fetchStoreLaborRows(ctx.userClient, args.location_id, args.start_date, args.end_date)
+          : { rows: null, error: "no user client" };
+        if (crewLaborErr || !crewLaborRows) return JSON.stringify(LABOR_UNAVAILABLE);
+        const laborRows = crewLaborRows.map((r: any) => ({ labor_date: String(r.date).slice(0, 10), labor_cost: Number(r.cost) || 0, labor_hours: Number(r.hours) || 0 }));
 
         const salesMap: Record<string, any> = {};
         (salesRows || []).forEach((r: any) => salesMap[r.sale_date] = r);
@@ -2303,8 +2343,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const dayBlockCrew: Record<string, Set<string>> = {};
         (punches || []).forEach((p: any) => {
           if (p.punch_type !== "clock_in") return;
-          const date = p.punch_time.slice(0, 10);
-          const hour = parseInt(p.punch_time.slice(11, 13), 10);
+          const date = businessDateOf(p.punch_time, cpWins, timezone);
+          const hour = localHour(p.punch_time, timezone);
           const block = hour < 14 ? "am" : "pm";
           if (shiftBlock !== "all" && block !== shiftBlock) return;
           if (args.day_of_week !== undefined && args.day_of_week !== null) {
@@ -2330,20 +2370,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               if (block === "pm" && hour >= 14) blockSales += Number(h.sales || 0);
             });
           }
-          if (labor?.hourly_breakdown && Array.isArray(labor.hourly_breakdown)) {
-            labor.hourly_breakdown.forEach((h: any) => {
-              const hour = h.hour;
-              if (block === "am" && hour < 14) {
-                blockLaborCost += Number(h.cost || h.labor_cost || 0);
-                blockLaborHours += Number(h.hours || h.labor_hours || 0);
-              }
-              if (block === "pm" && hour >= 14) {
-                blockLaborCost += Number(h.cost || h.labor_cost || 0);
-                blockLaborHours += Number(h.hours || h.labor_hours || 0);
-              }
-            });
-          }
-          if (blockLaborCost === 0 && labor?.labor_cost) {
+          if (labor?.labor_cost) {
             blockLaborCost = Number(labor.labor_cost) * 0.5;
             blockLaborHours = Number(labor.labor_hours || 0) * 0.5;
           }
@@ -2391,11 +2418,12 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .sort((a: any, b: any) => b.composite_score - a.composite_score);
 
         return JSON.stringify({
+          business_day_window: cpWin,
           total_unique_crews: crews.length,
           total_shift_blocks_analyzed: Object.keys(dayBlockCrew).length,
           top_crews: crews.slice(0, 10),
           worst_crews: crews.slice(-5).reverse(),
-          note: "SPLH = Sales Per Labor Hour. Composite is currently SPLH-based. AM = before 14:00, PM = 14:00 onward. Labor split between AM/PM uses hourly breakdown when available, otherwise 50/50 estimate.",
+          note: "SPLH = Sales Per Labor Hour. Composite is currently SPLH-based. AM = before 14:00, PM = 14:00 onward. Day labor comes from the same labor total as the dashboard; the AM/PM split is a 50/50 estimate. Days with no labor data count as zero labor here — say labor was unavailable rather than quoting labor % for them.",
         });
       }
 
@@ -2449,20 +2477,29 @@ serve(async (req) => {
 
     const userRole = roleData.role;
     const { messages, location_id, location_name, source: usageSource } = await req.json();
-    const timezone = "America/Los_Angeles";
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
-    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("en-CA", { timeZone: timezone });
-    const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("en-CA", { timeZone: timezone });
+    // Store time zone from location_settings (same place useLocationTimezone and the
+    // business-day functions read). "Today" is the store's BUSINESS date.
+    let timezone = "America/Los_Angeles";
+    if (location_id) {
+      const { data: tzRow } = await supabaseAdmin.from("location_settings").select("timezone").eq("location_id", location_id).maybeSingle();
+      if (tzRow?.timezone) timezone = tzRow.timezone;
+    }
+    let today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+    if (location_id) {
+      const { data: bd } = await supabaseAdmin.rpc("business_date", { _location_id: location_id, _at: new Date().toISOString() });
+      if (typeof bd === "string" && /^\d{4}-\d{2}-\d{2}/.test(bd)) today = bd.slice(0, 10);
+    }
+    const yesterday = addDays(today, -1);
+    const tomorrow = addDays(today, 1);
+    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
+    const weekStart = addDays(today, -(dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
-    const nowLA = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
-    const dayOfWeek = nowLA.getDay();
-    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const monday = new Date(nowLA);
-    monday.setDate(monday.getDate() - mondayOffset);
-    const weekStart = monday.toLocaleDateString("en-CA");
-
-    // === BUILD CONTEXT SNAPSHOT (cached per location for 60s) ===
-    const contextSnapshot = await getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart);
+    // === BUILD CONTEXT SNAPSHOT (cached per location for 60s; labor added per request) ===
+    const [cachedSnapshot, laborLines] = await Promise.all([
+      getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart),
+      buildLaborLines(supabaseUser, location_id, yesterday, today),
+    ]);
+    const contextSnapshot = laborLines ? `${cachedSnapshot}\n${laborLines}` : cachedSnapshot;
 
     // === RETRIEVE THEO'S LONG-TERM MEMORY ===
     let memoryContext = "";
@@ -2690,7 +2727,7 @@ serve(async (req) => {
 
     const systemPrompt = `You are Theo, an elite Restaurant Operations Assistant for CrooHQ. You are the Digital General Manager and Co-Pilot for the team at ${location_name || "this location"}.
 
-You are NOT a generic AI — you have direct, real-time access to this restaurant's live pulse: POS sales, labor data, schedules, checklists, guest reviews, inventory, and more.
+You are NOT a generic AI — you have direct, real-time access to this restaurant's live pulse: POS sales (including top items), labor data, schedules, checklists, guest reviews, and more.
 
 YOUR IDENTITY:
 - Direct, concise, and professional. No flowery AI introductions. No "I'd be happy to help."
@@ -2701,7 +2738,7 @@ YOUR IDENTITY:
 - Use emojis sparingly but naturally (📊 data, 🔥 wins, ⚠️ concerns, ✅ completions).
 - Short, punchy answers unless detail is requested. Bullet points over paragraphs.
 
-Current date: ${today} (timezone: ${timezone})
+Current business date: ${today} (store time zone: ${timezone}). The store's business day starts at its morning cutover, so after-midnight closing hours belong to the previous business date.
 Yesterday: ${yesterday}
 Tomorrow: ${tomorrow}
 This week started (Monday): ${weekStart}
@@ -2720,7 +2757,7 @@ ${userRole === 'team_member' ? `- TEAM MEMBER: You can see your OWN schedule, yo
 - When showing labor data, show HOURS only — never dollar amounts per person. Total labor cost and labor % are OK.
 - If asked about someone's pay rate or wage, respond: "Pay data is restricted to admin roles."` :
 
-userRole === 'manager' ? `- MANAGER: You can see all operational data including labor hours, labor %, schedules, checklists, inventory, guest reviews, employee notes you created.
+userRole === 'manager' ? `- MANAGER: You can see all operational data including labor hours, labor %, schedules, checklists, guest reviews, employee notes you created.
 - CANNOT see: individual pay rates or wage history unless you're the location admin.
 - When showing labor, you can show hours and total costs but NOT individual hourly rates.
 - If asked about someone's specific pay rate, respond: "Wage details require admin access."` :
@@ -2776,8 +2813,16 @@ SELF-HEALING & RECOVERY:
 - Only after exhausting alternatives should you tell the user you couldn't find the data.
 
 TOPIC BOUNDARIES:
-- You ONLY answer questions related to restaurant operations: sales, labor, schedules, checklists, tasks, inventory, catering, availability, tips, certifications, shift marketplace, store hours, employee notes, logbook entries, guest reviews (OvationUp), team chat messages, and general restaurant management advice.
+- You ONLY answer questions related to restaurant operations: sales (including top items / product mix), labor, schedules, checklists, tasks, catering, availability, tips, certifications, shift marketplace, store hours, employee notes, logbook entries, guest reviews (OvationUp), team chat messages, and general restaurant management advice.
 - If someone asks about something unrelated, politely redirect: "I'm all about the ops — sales, labor, schedules, reviews, chats, and keeping your store running smooth. What can I pull up for you?"
+
+INVENTORY IS OUT OF SCOPE (for now):
+- For inventory counts, count values, pack sizes, food cost / COGS, variance, vendor orders, invoices, transfers, waste, recipes or menu pricing, answer exactly: "Inventory isn't something I can help with yet." Then offer what you can do (sales and top items, labor, schedule, checklists, tasks, reviews). Never give numbers for these.
+- Item sales (top items by units and dollars from the POS) are sales data — answer those normally with query_sales.
+
+MISSING DATA:
+- If labor shows no_labor_data or labor_unavailable, say you don't have labor for that day (or can't see labor for this store right now) and skip it. Never say 0% and never give a grade.
+- Schedules are PUBLISHED only. If a tool returns no_published_schedule, say "There's no published schedule for that week." If draft_shifts is present, you may add how many draft shifts exist — never list draft shifts as who is working.
 
 CRITICAL RULES:
 - NEVER FABRICATE EMPLOYEE NAMES. Only mention an employee by name if their name was explicitly returned by a tool call. If unsure, say "no data found" — NEVER guess or invent names.
@@ -2854,7 +2899,7 @@ DATE ANCHORS:
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: currentMessages,
-          tools,
+          tools: THEO_TOOLS,
           tool_choice: "auto",
         }),
       });
@@ -2900,7 +2945,7 @@ DATE ANCHORS:
           : tc.function.arguments;
         
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
-        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole);
+        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today });
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
         
         currentMessages.push({
