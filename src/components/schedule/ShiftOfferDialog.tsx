@@ -70,18 +70,16 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       if (userError) throw userError;
       if (!user) throw new Error("Not authenticated");
 
-      // Determine who the offer should be attributed to.
-      // For admin/manager offering someone else's shift, the offer must be attributed to the shift owner.
-      let offeredByUserId: string | null = (shift as any)?.user_id ?? null;
-      if (!offeredByUserId) {
-        const { data: shiftRow, error: shiftRowError } = await supabase
-          .from("scheduled_shifts")
-          .select("user_id")
-          .eq("id", shift.id)
-          .single();
-        if (shiftRowError) throw shiftRowError;
-        offeredByUserId = shiftRow.user_id;
-      }
+      // Resolve owner + location from the database (callers don't always pass location_id).
+      const { data: shiftRow, error: shiftRowError } = await supabase
+        .from("scheduled_shifts")
+        .select("user_id, schedules(location_id)")
+        .eq("id", shift.id)
+        .single();
+      if (shiftRowError) throw shiftRowError;
+      const offeredByUserId: string | null = (shift as any)?.user_id ?? shiftRow.user_id;
+      const locationId: string | undefined = shift.location_id || (shiftRow as any)?.schedules?.location_id;
+      if (!locationId) throw new Error("Couldn't find this shift's store");
 
       // Check if this shift is already offered to prevent duplicates
       const { data: existingOffers, error: existingOfferError } = await supabase
@@ -111,9 +109,6 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         .single();
 
       if (offerError) throw offerError;
-
-      // Get the location_id from the shift
-      const locationId = shift.location_id;
       // Find existing marketplace chat (unique index prevents duplicates)
       let { data: marketplaceChats, error: marketplaceChatsError } = await supabase
         .from("chats")
