@@ -190,6 +190,40 @@ function localHour(iso: string, tz: string): number {
 function localDate(iso: string, tz: string): string {
   return new Date(iso).toLocaleDateString("en-CA", { timeZone: tz });
 }
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** "Fri 2026-10-02" — weekday for a yyyy-MM-dd date (calendar date, no time zone shift). */
+function wd(d: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${WD[new Date(d + "T12:00:00Z").getUTCDay()]} ${d}` : d;
+}
+/** "Thu Oct 1, 8:04 PM" in the store's time zone. */
+function localStamp(iso: string, tz: string): string {
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) return iso;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).formatToParts(dt);
+  const g = (t: string) => parts.find((x) => x.type === t)?.value || "";
+  return `${g("weekday")} ${g("month")} ${g("day")}, ${g("hour")}:${g("minute")} ${g("dayPeriod")}`;
+}
+/** Every tool result: each UTC timestamp gets a store-local *_local twin, each date a *_weekday twin. The model never converts UTC. */
+function addLocalTimes(result: string, tz: string): string {
+  let parsed: any;
+  try { parsed = JSON.parse(result); } catch { return result; }
+  const walk = (v: any): any => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) {
+        out[k] = walk(val);
+        if (typeof val === "string") {
+          if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(val) && !(`${k}_local` in v)) out[`${k}_local`] = localStamp(val, tz);
+          else if (/^\d{4}-\d{2}-\d{2}$/.test(val) && !(`${k}_weekday` in v)) out[`${k}_weekday`] = WD[new Date(val + "T12:00:00Z").getUTCDay()];
+        }
+      }
+      return out;
+    }
+    return v;
+  };
+  return JSON.stringify(walk(parsed));
+}
 type DayWindow = { start_at: string; end_at: string };
 async function dayWindow(admin: any, locationId: string, date: string): Promise<DayWindow | null> {
   const { data, error } = await admin.rpc("business_day_window", { _location_id: locationId, _date: date });
@@ -371,7 +405,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     if (yd) {
       const goal = (Number(yd.override_projection) || Number(yd.living_projection) || Number(yd.initial_projection) || Number(yd.projected_sales) || 0);
       const vs = goal > 0 ? ((yd.net_sales / goal - 1) * 100).toFixed(1) : "N/A";
-      lines.push(`Yesterday (${yesterday}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}`);
+      lines.push(`Yesterday (${wd(yesterday)}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}`);
     }
 
     // Today
@@ -384,7 +418,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       const paceTxt = pace && st
         ? `Pace ${money(pace)} (where today is trending to finish) | Status: ${st.status.toUpperCase()} (${st.pct}% of goal, ${pace - goal >= 0 ? '+' : '-'}${money(Math.abs(pace - goal))} vs goal)`
         : `Pace: not available yet`;
-      lines.push(`Today (${today}): Net Sales So Far ${money(sold)} | Goal ${money(goal)} | ${paceTxt} | Guests: ${td.guest_count || 0}`);
+      lines.push(`Today (${wd(today)}): Net Sales So Far ${money(sold)} | Goal ${money(goal)} | ${paceTxt} | Guests: ${td.guest_count || 0}`);
     }
 
     // Tomorrow
@@ -393,14 +427,14 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       const goal = (Number(tm.override_projection) || Number(tm.living_projection) || Number(tm.initial_projection) || Number(tm.projected_sales) || 0);
       // SANITY CHECK: flag if projection seems absurdly low
       const flagged = goal > 0 && goal < 500 ? " ⚠️ THIS PROJECTION LOOKS SUSPICIOUSLY LOW — it may be a stale override or data error. Tell the user the number seems off and suggest they check/update the projection." : "";
-      lines.push(`Tomorrow (${tomorrow}): Projected $${goal.toLocaleString()}${flagged}`);
+      lines.push(`Tomorrow (${wd(tomorrow)}): Projected $${goal.toLocaleString()}${flagged}`);
     }
 
     // Week-to-date
     if (weekRows && weekRows.length > 0) {
       const wtdSales = weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0);
       const wtdGoal = weekRows.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0);
-      lines.push(`Week-to-date (${weekStart} → ${today}): Sales $${wtdSales.toLocaleString()} | Goal $${wtdGoal.toLocaleString()} (${wtdGoal > 0 ? ((wtdSales / wtdGoal - 1) * 100).toFixed(1) : 'N/A'}%)`);
+      lines.push(`Week-to-date (${wd(weekStart)} → ${wd(today)}): Sales $${wtdSales.toLocaleString()} | Goal $${wtdGoal.toLocaleString()} (${wtdGoal > 0 ? ((wtdSales / wtdGoal - 1) * 100).toFixed(1) : 'N/A'}%)`);
     }
 
     // Remaining week projections (days after today through Sunday)
@@ -408,8 +442,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     if (futureDays.length > 0) {
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const futureLines = futureDays.map((r: any) => {
-        const d = new Date(r.sale_date + "T12:00:00");
-        const dayName = dayNames[d.getDay()];
+        const dayName = dayNames[new Date(r.sale_date + "T12:00:00Z").getUTCDay()];
         const proj = (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0);
         return `${dayName} ${r.sale_date}: $${proj.toLocaleString()}`;
       });
@@ -435,8 +468,8 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
         }
         const st = paceStatus(weekSold, weekPace, weekGoal);
         lines.push(st
-          ? `Week pace (${weekStart} → ${weekEnd}): Pace ${money(weekPace)} vs Week Goal ${money(weekGoal)} | Status: ${st.status.toUpperCase()} (${st.pct}%, ${weekPace - weekGoal >= 0 ? '+' : '-'}${money(Math.abs(weekPace - weekGoal))})`
-          : `Week pace (${weekStart} → ${weekEnd}): not available yet | Week Goal ${money(weekGoal)}`);
+          ? `Week pace (${wd(weekStart)} → ${wd(weekEnd)}): Pace ${money(weekPace)} vs Week Goal ${money(weekGoal)} | Status: ${st.status.toUpperCase()} (${st.pct}%, ${weekPace - weekGoal >= 0 ? '+' : '-'}${money(Math.abs(weekPace - weekGoal))})`
+          : `Week pace (${wd(weekStart)} → ${wd(weekEnd)}): not available yet | Week Goal ${money(weekGoal)}`);
       }
     }
 
@@ -501,7 +534,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_labor",
-      description: "Query labor data: labor cost, hours, overtime, employee breakdown. Also queries individual time punches (clock in/out times) for specific employees or all staff on a date. Use for questions about who clocked in/out, late arrivals, hours worked.",
+      description: "Query labor data: labor cost, hours, overtime, employee breakdown. Also queries individual time punches (clock in/out times) for specific employees or all staff on a date. Use for labor cost/hours and who clocked in/out. NOT for lateness — any "late", "tardy" or "on time" question goes to query_punch_patterns.",
       parameters: {
         type: "object",
         properties: {
@@ -806,7 +839,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_punch_patterns",
-      description: "Analyze scheduled-vs-actual punch behavior over time. Detects employees who clock in early, clock out late, work without being scheduled, or get auto-punched out (forgot to clock out). Calculates 'stolen' labor minutes and dollar impact. Use for time theft, punch abuse, payroll integrity, and attendance discipline questions.",
+      description: "USE FOR ANY 'late', 'tardy' or 'on time' question. Returns, per person per day, scheduled start, first clock-in, minutes late and a ready late: true/false flag (7-minute grace applied), plus late_count. Also analyzes scheduled-vs-actual punch behavior over time. Detects employees who clock in early, clock out late, work without being scheduled, or get auto-punched out (forgot to clock out). Calculates 'stolen' labor minutes and dollar impact. Use for time theft, punch abuse, payroll integrity, and attendance discipline questions.",
       parameters: {
         type: "object",
         properties: {
@@ -965,8 +998,10 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             }
           }
           const aggregatedMix = Object.entries(mixMap)
-            .map(([name, d]) => ({ name, quantity: d.quantity, net_sales: Math.round(d.sales * 100) / 100 }))
-            .sort((a, b) => b.quantity - a.quantity);
+            .map(([name, d]) => ({ name, quantity: d.quantity, net_sales: Math.round(d.sales * 100) / 100, price_zero: d.sales === 0 }))
+            // Same order as the dashboard's "Top 20 Products by Sales": net sales, highest first, no filter.
+            .sort((a, b) => b.net_sales - a.net_sales)
+            .map((it, i) => ({ rank: i + 1, ...it }));
           
           const totalDays = workingData.length;
           const mixNote = daysWithMix < totalDays 
@@ -983,6 +1018,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
                 date_range: `${args.start_date} to ${endDate}`,
               } : undefined,
               daily: results.length <= 7 ? results : undefined,
+              product_mix_ranking: "Ranked by net sales, highest first — same as the dashboard's Top 20 Products by Sales. price_zero items are free add-ons/modifiers.",
               product_mix: aggregatedMix.slice(0, 50),
               product_mix_note: mixNote,
             });
@@ -1187,6 +1223,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             checklist: s.checklists?.title,
             submitted_by: s.profiles?.full_name,
             submitted_at: s.submitted_at,
+            business_date: args.date,
             responses_count: s.checklist_responses?.length || 0,
           };
 
@@ -1690,7 +1727,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       case "query_availability": {
         let query = supabase
           .from("availability_requests")
-          .select("request_type, time_scope, start_date, end_date, start_time, end_time, hours_requested, status, notes, denial_reason, created_at, reviewed_at, profiles!availability_requests_user_id_fkey(full_name), reviewer:profiles!availability_requests_reviewed_by_fkey(full_name)")
+          .select("request_type, time_scope, start_date, end_date, start_time, end_time, hours_requested, status, notes, denial_reason, created_at, reviewed_at, profiles!availability_requests_user_id_fkey(full_name), reviewer:profiles!availability_requests_reviewed_by_fkey(full_name)", { count: "exact" })
           .eq("location_id", args.location_id)
           .order("start_date", { ascending: true });
 
@@ -1698,7 +1735,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         if (args.end_date) query = query.lte("start_date", args.end_date);
         if (args.status) query = query.eq("status", args.status);
 
-        const { data, error } = await query.limit(50);
+        const { data, error, count: matchCount } = await query.limit(50);
         if (error) {
           console.error("query_availability error:", error);
           return JSON.stringify({ error: error.message });
@@ -1726,7 +1763,19 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           results = results.filter((r: any) => r.employee?.toLowerCase().includes(q));
         }
 
-        return JSON.stringify(results.length ? results : { message: "No availability/time-off requests found." });
+        const { data: pend } = await supabase.from("availability_requests").select("start_date, end_date").eq("location_id", args.location_id).eq("status", "pending");
+        const pendRows = pend || [];
+        const pendingUpcoming = pendRows.filter((r: any) => (r.end_date || r.start_date) >= storeToday).length;
+        const total = args.employee_name ? results.length : (matchCount ?? results.length);
+        return JSON.stringify({
+          pending_total: pendRows.length,
+          pending_upcoming: pendingUpcoming,
+          pending_past_dated: pendRows.length - pendingUpcoming,
+          counts_note: "pending_* counts are for the whole store, all dates. Quote these counts; do not count the list.",
+          showing: `showing ${results.length} of ${total}`,
+          requests: results,
+          message: results.length ? undefined : "No availability/time-off requests found for that filter.",
+        });
       }
 
       // === NEW TOOL IMPLEMENTATIONS ===
@@ -2264,7 +2313,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         (punches || []).forEach((p: any) => {
           const key = p.shift_id || `${p.user_id}-${bizDate(p.punch_time)}`;
           if (!shiftPunches[key]) shiftPunches[key] = { user_id: p.user_id, name: nameMap[p.user_id] || "Unknown", in: null, out: null, auto: false };
-          if (p.punch_type === "clock_in") shiftPunches[key].in = p.punch_time;
+          if (p.punch_type === "clock_in" && !shiftPunches[key].in) shiftPunches[key].in = p.punch_time;
           if (p.punch_type === "clock_out") {
             shiftPunches[key].out = p.punch_time;
             if (p.is_auto_punched_out) shiftPunches[key].auto = true;
@@ -2290,8 +2339,14 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         };
 
         const findings: any[] = [];
+        const arrivals: any[] = [];
+        const graceMin = args.threshold_minutes || 7;
         Object.values(shiftPunches).forEach((sp: any) => {
           const sched = findScheduled(sp.user_id, sp.in);
+          if (sched && sp.in) {
+            const lateMin = Math.round((new Date(sp.in).getTime() - localToUtcMs(sched.shift_date, sched.start_time, timezone)) / 60000);
+            arrivals.push({ employee: sp.name, date: sched.shift_date, scheduled_start: String(sched.start_time).slice(0, 5), first_clock_in: sp.in, minutes_late: Math.max(0, lateMin), late: lateMin > graceMin });
+          }
 
           if (sp.auto && (patternFilter === "all" || patternFilter === "auto_punch")) {
             findings.push({ type: "auto_punch", employee: sp.name, date: (sp.in || sp.out) ? bizDate(sp.in || sp.out) : null, detail: "Forgot to clock out — system auto-punched" });
@@ -2342,8 +2397,18 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (f.cost_impact) byEmployee[f.employee].cost_impact += f.cost_impact;
         });
         const ranked = Object.values(byEmployee).sort((a: any, b: any) => b.total - a.total);
+        let arr = arrivals.sort((a, b) => (a.date + a.scheduled_start).localeCompare(b.date + b.scheduled_start));
+        if (args.employee_name) { const q = args.employee_name.toLowerCase(); arr = arr.filter((a) => (a.employee || "").toLowerCase().includes(q)); }
+        const lateCount = arr.filter((a) => a.late).length;
 
         return JSON.stringify({
+          lateness: {
+            grace_minutes: graceMin,
+            shifts_checked: arr.length,
+            late_count: lateCount,
+            summary: lateCount === 0 ? "Nobody was late." : `${lateCount} late arrival${lateCount === 1 ? "" : "s"}.`,
+            arrivals: arr.slice(0, 150),
+          },
           business_day_window: ppWin,
           total_findings: filtered.length,
           total_dollar_impact: Math.round(filtered.reduce((s, f) => s + (f.cost_impact || 0), 0) * 100) / 100,
@@ -2800,10 +2865,14 @@ YOUR IDENTITY:
 - Use emojis sparingly but naturally (📊 data, 🔥 wins, ⚠️ concerns, ✅ completions).
 - Short, punchy answers unless detail is requested. Bullet points over paragraphs.
 
-Current business date: ${today} (store time zone: ${timezone}). The store's business day starts at its morning cutover, so after-midnight closing hours belong to the previous business date.
-Yesterday: ${yesterday}
-Tomorrow: ${tomorrow}
-This week started (Monday): ${weekStart}
+Current business date: ${wd(today)} (store time zone: ${timezone}). The store's business day starts at its morning cutover, so after-midnight closing hours belong to the previous business date.
+Yesterday: ${wd(yesterday)}
+Tomorrow: ${wd(tomorrow)}
+This week started (Monday): ${wd(weekStart)}
+DATES AND TIMES: tool results give store-local times in *_local fields and weekdays in *_weekday fields. Always use those; never convert a UTC timestamp yourself.
+LATENESS: never judge lateness yourself. For any late / tardy / on-time question call query_punch_patterns and use its "late" flag and late_count (7-minute grace already applied).
+REVIEWS: quote the review count and average rating from query_ovation_reviews' "summary"; never recount the reviews.
+TOP ITEMS: query_sales ranks items by net sales, the same as the dashboard's "Top 20 Products by Sales". Items with price_zero: true are free add-ons/modifiers; say so if you mention them.
 Location ID: ${location_id}
 User's Role: ${userRole}
 
@@ -2937,7 +3006,7 @@ DOMAIN DISAMBIGUATION (only when terms are non-obvious):
 - For guest reviews from query_ovation_reviews, tag matched employees with [[employee:Full Name]].
 
 DATE ANCHORS:
-- "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.
+- "Today" = ${wd(today)}, "yesterday" = ${wd(yesterday)}, "tomorrow" = ${wd(tomorrow)}.
 - query_availability defaults to the next 14 days unless the user specifies a range.`;
 
     const aiMessages = [
