@@ -12810,6 +12810,41 @@ export type Database = {
           },
         ]
       }
+      theo_voice_openers: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          script: string
+          window_key: string
+          window_label: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          script: string
+          window_key: string
+          window_label: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          script?: string
+          window_key?: string
+          window_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_voice_openers_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_punches: {
         Row: {
           approved_at: string | null
