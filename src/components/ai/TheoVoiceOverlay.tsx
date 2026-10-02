@@ -118,6 +118,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const micGateUntilRef = useRef(0);
   const reachedListeningRef = useRef(false);
   const closedCuePlayedRef = useRef(false);
+  const errorEndingRef = useRef(false);
 
   const stopPlayback = useCallback(() => {
     sourcesRef.current.forEach((s) => { try { s.stop(); } catch { /* done */ } });
@@ -270,6 +271,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const fail = (e: any) => {
     const denied = e?.name === 'NotAllowedError';
     setError(denied ? 'Microphone access is off. Allow it in your browser settings, or use text chat.' : e?.message || 'Theo’s voice isn’t available right now.');
+    errorEndingRef.current = true;
     teardown(false);
     setPhase('error');
   };
@@ -370,11 +372,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
           }
           case 'error':
             console.error('[theo-voice]', ev);
+            errorEndingRef.current = true;
             break;
         }
       };
-      ws.onerror = () => { setError('Lost connection to Theo’s voice.'); teardown(false); setPhase('error'); };
-      ws.onclose = () => { teardown(); setMode('talk'); };
+      ws.onerror = () => { errorEndingRef.current = true; setError('Lost connection to Theo’s voice.'); teardown(false); setPhase('error'); };
+      ws.onclose = () => { teardown(!errorEndingRef.current); setMode('talk'); };
     } catch (e: any) {
       fail(e);
     }
@@ -385,6 +388,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     startingRef.current = true;
     reachedListeningRef.current = false;
     closedCuePlayedRef.current = false;
+    errorEndingRef.current = false;
     micGateUntilRef.current = 0;
     withOpenerRef.current = withOpener;
     setMode('talk');
