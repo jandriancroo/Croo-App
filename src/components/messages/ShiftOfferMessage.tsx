@@ -316,17 +316,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         triggerAnimation(amount);
       }
 
-      // Send push notification to the approved claimer
-      const shiftDateFormatted = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('ccc, LLL d');
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          user_ids: [selectedClaimerId],
-          title: 'Shift Claim Approved!',
-          body: `Your claim for ${shiftDateFormatted} has been approved`,
-          notification_type: 'shift_approvals',
-          data: { type: 'shift_approval', shift_id: offer.shift.id }
-        }
-      });
+      // Phone alerts (claimer + offerer) are sent by the database when the offer is approved.
 
       toast.success("Shift approved and assigned!");
     } catch (error) {
