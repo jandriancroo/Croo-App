@@ -108,7 +108,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
     const ctx = ctxRef.current;
     if (!ctx || !analyserRef.current) return;
     const buf = ctx.createBuffer(1, f.length, RATE);
-    buf.copyToChannel(f, 0);
+    buf.getChannelData(0).set(f);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(analyserRef.current);
