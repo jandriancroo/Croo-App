@@ -12616,6 +12616,47 @@ export type Database = {
           },
         ]
       }
+      theo_ai_usage: {
+        Row: {
+          completion_tokens: number
+          created_at: string
+          id: string
+          location_id: string | null
+          model: string
+          prompt_tokens: number
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          completion_tokens?: number
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          model: string
+          prompt_tokens?: number
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          completion_tokens?: number
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          model?: string
+          prompt_tokens?: number
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_ai_usage_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       theo_chat_messages: {
         Row: {
           chat_date: string
@@ -15106,10 +15147,13 @@ export type Database = {
       get_theo_usage: {
         Args: { _end: string; _start: string }
         Returns: {
+          ai_calls: number
           chat_questions: number
+          completion_tokens: number
           last_used: string
           location_id: string
           location_name: string
+          prompt_tokens: number
           user_id: string
           user_name: string
           voice_questions: number
