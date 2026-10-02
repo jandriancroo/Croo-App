@@ -67,10 +67,10 @@ export function useMessagesData() {
   const fetchChatsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Ensure marketplace chat exists — fire-and-forget, only once per session
-  const marketplaceChecked = useRef(false);
+  const marketplaceChecked = useRef<string | null>(null);
   const ensureMarketplaceChat = useCallback(async () => {
-    if (marketplaceChecked.current || !user || !currentLocation) return;
-    marketplaceChecked.current = true;
+    if (!user || !currentLocation || marketplaceChecked.current === currentLocation.id) return;
+    marketplaceChecked.current = currentLocation.id;
 
     // One marketplace per store. Never delete chats here — an old "dedupe" step used to
     // delete other stores' marketplaces (and every shift offer posted in them).
@@ -128,7 +128,8 @@ export function useMessagesData() {
     if (!user) return;
     setLoading(true);
     try {
-      ensureMarketplaceChat();
+      // Wait so a freshly created marketplace shows up in this same load.
+      await ensureMarketplaceChat().catch(() => {});
 
       let query = supabase
         .from('chats')
