@@ -187,8 +187,8 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       }
 
       // Determine if this is a weekend (Friday = 5, Saturday = 6, Sunday = 0)
-      const shiftDate = { toLocaleDateString: () => DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('M/d/yyyy') };
-      const dayOfWeek = shiftDate.getDay();
+      const shiftDate = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
+      const dayOfWeek = shiftDate.weekday % 7;
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
 
@@ -225,7 +225,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           shift_offer_id: offerId,
           shift_date: offer.shift.shift_date,
           is_weekend: isWeekend,
-          notes: `Claimed shift on ${shiftDate.toLocaleDateString()}`
+          notes: `Claimed shift on ${shiftDate.toFormat('M/d/yyyy')}`
         });
 
       if (transactionError) throw transactionError;
@@ -260,8 +260,8 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
     setProcessing(true);
     try {
       // Determine if this is a weekend shift for Croo Cash amount (Fri, Sat, Sun)
-      const shiftDate = { toLocaleDateString: () => DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('M/d/yyyy') };
-      const dayOfWeek = shiftDate.getDay();
+      const shiftDate = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
+      const dayOfWeek = shiftDate.weekday % 7;
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
 
@@ -294,7 +294,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           shift_offer_id: offerId,
           shift_date: offer.shift.shift_date,
           is_weekend: isWeekend,
-          notes: `Offered shift on ${shiftDate.toLocaleDateString()} - claim approved`
+          notes: `Offered shift on ${shiftDate.toFormat('M/d/yyyy')} - claim approved`
         });
 
       if (offererTransactionError) throw offererTransactionError;
@@ -317,11 +317,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       }
 
       // Send push notification to the approved claimer
-      const shiftDateFormatted = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('ccc, LLL d'); void ({ 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      const shiftDateFormatted = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('ccc, LLL d');
       await supabase.functions.invoke('send-push-notification', {
         body: {
           user_ids: [selectedClaimerId],
@@ -345,8 +341,8 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
     setProcessing(true);
     try {
       // Get all claimers for this shift (Fri, Sat, Sun = weekend)
-      const shiftDate = { toLocaleDateString: () => DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('M/d/yyyy') };
-      const dayOfWeek = shiftDate.getDay();
+      const shiftDate = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
+      const dayOfWeek = shiftDate.weekday % 7;
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
 
@@ -362,7 +358,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
             shift_offer_id: offerId,
             shift_date: offer.shift.shift_date,
             is_weekend: isWeekend,
-            notes: `Claim denied for shift on ${shiftDate.toLocaleDateString()}`
+            notes: `Claim denied for shift on ${shiftDate.toFormat('M/d/yyyy')}`
           });
 
         if (transactionError) throw transactionError;
