@@ -160,6 +160,101 @@ function getTzOffset(tz: string): string {
   return "-08:00";
 }
 
+// === STORE DATE / TIME HELPERS (Round 1: one number, one path) ===
+// Business date + day windows come ONLY from public.business_date / public.business_day_window.
+function addDays(d: string, n: number): string {
+  const [y, m, dd] = d.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, dd + n)).toISOString().slice(0, 10);
+}
+function datesBetween(a: string, b: string): string[] {
+  const out: string[] = [];
+  for (let d = a; d <= b && out.length < 400; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+function tzOffsetMs(ms: number, tz: string): number {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - ms;
+}
+/** Store-local wall time (yyyy-MM-dd + HH:mm[:ss]) → UTC ms. */
+function localToUtcMs(date: string, time: string, tz: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm, ss] = (time || "00:00").split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh || 0, mm || 0, ss || 0);
+  let t = guess - tzOffsetMs(guess, tz);
+  t = guess - tzOffsetMs(t, tz);
+  return t;
+}
+function localHour(iso: string, tz: string): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", hourCycle: "h23" }).format(new Date(iso)));
+}
+function localDate(iso: string, tz: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: tz });
+}
+type DayWindow = { start_at: string; end_at: string };
+async function dayWindow(admin: any, locationId: string, date: string): Promise<DayWindow | null> {
+  const { data, error } = await admin.rpc("business_day_window", { _location_id: locationId, _date: date });
+  if (error) { console.error("business_day_window failed", error.message); return null; }
+  const row = Array.isArray(data) ? data[0] : data;
+  return row?.start_at && row?.end_at ? { start_at: row.start_at, end_at: row.end_at } : null;
+}
+/** Start of the first business day → end of the last business day. */
+async function rangeWindow(admin: any, locationId: string, start: string, end: string): Promise<DayWindow | null> {
+  const [a, b] = await Promise.all([dayWindow(admin, locationId, start), dayWindow(admin, locationId, end)]);
+  return a && b ? { start_at: a.start_at, end_at: b.end_at } : null;
+}
+/** Per-date windows (capped at 120 days) so punches can be assigned to their business date. */
+async function windowsFor(admin: any, locationId: string, start: string, end: string): Promise<Record<string, DayWindow>> {
+  const dates = datesBetween(start, end).slice(0, 120);
+  const ws = await Promise.all(dates.map((d) => dayWindow(admin, locationId, d)));
+  const out: Record<string, DayWindow> = {};
+  dates.forEach((d, i) => { if (ws[i]) out[d] = ws[i]!; });
+  return out;
+}
+function businessDateOf(iso: string, windows: Record<string, DayWindow>, tz: string): string {
+  const t = new Date(iso).getTime();
+  for (const [d, w] of Object.entries(windows)) {
+    if (t >= new Date(w.start_at).getTime() && t < new Date(w.end_at).getTime()) return d;
+  }
+  return localDate(iso, tz);
+}
+
+// === LABOR: ONLY public.get_store_labor (same function as the dashboard) ===
+// Called with the SIGNED-IN user's client so the function's own role + store checks decide.
+async function fetchStoreLaborRows(userClient: any, locationId: string, start: string, end: string): Promise<{ rows: any[] | null; error: string | null }> {
+  const windows: Array<[string, string]> = [];
+  for (let cur = start; cur <= end; ) {
+    const wEnd = addDays(cur, 89) < end ? addDays(cur, 89) : end;
+    windows.push([cur, wEnd]);
+    cur = addDays(wEnd, 1);
+  }
+  const res = await Promise.all(windows.map(([s, e]) => userClient.rpc("get_store_labor", { _location_ids: [locationId], _start: s, _end: e })));
+  const bad = res.find((r: any) => r.error);
+  if (bad) { console.error("get_store_labor failed", bad.error?.message); return { rows: null, error: bad.error?.message || "error" }; }
+  return { rows: res.flatMap((r: any) => r.data || []), error: null };
+}
+const LABOR_UNAVAILABLE = { labor_unavailable: true, message: "Theo can't see labor for this store right now." };
+/** One entry per business date; missing days get an explicit marker (never 0%). */
+function laborByDay(rows: any[], start: string, end: string) {
+  const map: Record<string, any> = {};
+  for (const r of rows) map[String(r.date).slice(0, 10)] = r;
+  return datesBetween(start, end).map((d) => {
+    const r = map[d];
+    if (!r || (Number(r.hours) <= 0 && Number(r.cost) <= 0)) {
+      return { date: d, no_labor_data: true, message: "No labor data for this day — skip labor, never say 0% or give a grade." };
+    }
+    return {
+      date: d,
+      labor_hours: Number(r.hours),
+      labor_cost: Number(r.cost),
+      net_sales: r.net_sales == null ? null : Number(r.net_sales),
+      labor_pct: r.labor_pct == null ? null : Number(r.labor_pct),
+      ...(r.labor_pct == null ? { labor_pct_note: "No sales for this day, so no labor %." } : {}),
+      is_live: !!r.is_live,
+      source: r.source,
+    };
+  });
+}
+
 // === CONTEXT SNAPSHOT CACHE ===
 // In-memory cache keyed by locationId. Survives across warm invocations in the same Deno isolate.
 // TTL: 60 seconds — multiple managers querying the same location reuse the same DB lookups.
@@ -190,10 +285,7 @@ async function getCachedSnapshot(supabase: any, locationId: string, today: strin
 async function buildContextSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
   try {
     // Calculate end of week (Sunday) from weekStart (Monday)
-    const weekStartDate = new Date(weekStart + "T12:00:00");
-    const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setDate(weekEndDate.getDate() + 6);
-    const weekEnd = weekEndDate.toISOString().split("T")[0];
+    const weekEnd = addDays(weekStart, 6);
 
     // Fetch full week sales (yesterday through Sunday) for projections
     const fetchStart = yesterday < weekStart ? yesterday : weekStart;
@@ -205,19 +297,16 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       .lte("sale_date", weekEnd)
       .order("sale_date");
 
-    // Fetch today + yesterday labor
-    const { data: laborRows } = await supabase
-      .from("labor_cache")
-      .select("labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours")
-      .eq("location_id", locationId)
-      .in("labor_date", [yesterday, today])
-      .order("labor_date");
+    // Labor is NOT in this cached snapshot — it is fetched per request with the
+    // asking user's permissions (see buildLaborLines) so one person's labor never
+    // reaches someone who would have been refused.
 
     // Fetch today's schedule count
     const { data: scheduleRows } = await supabase
       .from("scheduled_shifts")
       .select("id, schedules!inner(location_id)")
       .eq("schedules.location_id", locationId)
+      .eq("schedules.is_published", true)
       .eq("shift_date", today)
       .not("user_id", "is", null);
 
@@ -226,6 +315,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       .from("scheduled_shifts")
       .select("id, schedules!inner(location_id)")
       .eq("schedules.location_id", locationId)
+      .eq("schedules.is_published", true)
       .eq("shift_date", tomorrow)
       .not("user_id", "is", null);
 
@@ -241,7 +331,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       .maybeSingle();
 
     // Fetch location hours for today
-    const dayOfWeek = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).getDay();
+    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
     const { data: hoursRow } = await supabase
       .from("location_hours")
       .select("open_time, close_time, is_closed")
@@ -261,20 +351,18 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
 
     // Yesterday
     const yd = (salesRows || []).find((r: any) => r.sale_date === yesterday);
-    const ydLabor = (laborRows || []).find((r: any) => r.labor_date === yesterday);
     if (yd) {
       const goal = (Number(yd.override_projection) || Number(yd.living_projection) || Number(yd.initial_projection) || Number(yd.projected_sales) || 0);
       const vs = goal > 0 ? ((yd.net_sales / goal - 1) * 100).toFixed(1) : "N/A";
-      lines.push(`Yesterday (${yesterday}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}${ydLabor ? ` | Labor: $${ydLabor.labor_cost?.toLocaleString() || 0} (${yd.net_sales > 0 ? ((ydLabor.labor_cost / yd.net_sales) * 100).toFixed(1) : '0'}%) | Hours: ${ydLabor.labor_hours?.toFixed(1) || 0}` : ''}`);
+      lines.push(`Yesterday (${yesterday}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}`);
     }
 
     // Today
     const td = (salesRows || []).find((r: any) => r.sale_date === today);
-    const tdLabor = (laborRows || []).find((r: any) => r.labor_date === today);
     if (td) {
       const goal = (Number(td.override_projection) || Number(td.living_projection) || Number(td.initial_projection) || Number(td.projected_sales) || 0);
       const pace = td.living_projection || goal;
-      lines.push(`Today (${today}): Net Sales So Far $${(td.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} | Pace $${pace.toLocaleString()} | Guests: ${td.guest_count || 0}${tdLabor ? ` | Labor So Far: $${tdLabor.labor_cost?.toLocaleString() || 0} | Hours: ${tdLabor.labor_hours?.toFixed(1) || 0}` : ''}`);
+      lines.push(`Today (${today}): Net Sales So Far $${(td.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} | Pace $${pace.toLocaleString()} | Guests: ${td.guest_count || 0}`);
     }
 
     // Tomorrow
@@ -316,7 +404,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     }
 
     // Schedule
-    lines.push(`Scheduled Today: ${scheduleRows?.length || 0} shifts | Tomorrow: ${tomorrowSchedule?.length || 0} shifts`);
+    lines.push(`Scheduled Today (published schedule only): ${scheduleRows?.length || 0} shifts | Tomorrow: ${tomorrowSchedule?.length || 0} shifts`);
 
     // Hours
     if (hoursRow) {
@@ -333,6 +421,18 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     console.error("Context snapshot error:", e);
     return "⚠️ Context snapshot unavailable — use tools to fetch data.";
   }
+}
+
+// Per-request labor lines for the snapshot (NOT cached; uses the asking user's permissions).
+async function buildLaborLines(userClient: any, locationId: string, yesterday: string, today: string): Promise<string> {
+  if (!locationId) return "";
+  const { rows, error } = await fetchStoreLaborRows(userClient, locationId, yesterday, today);
+  if (error || !rows) return "Labor: Theo can't see labor for this store right now.";
+  return laborByDay(rows, yesterday, today).map((d: any) => {
+    const label = d.date === today ? `Labor today so far (${d.date})` : `Labor yesterday (${d.date})`;
+    if (d.no_labor_data) return `${label}: no labor data yet — skip labor, never say 0% or a grade.`;
+    return `${label}: $${Math.round(d.labor_cost).toLocaleString()} | ${d.labor_hours.toFixed(1)} hrs | ${d.labor_pct == null ? "labor % n/a (no sales)" : `${d.labor_pct.toFixed(1)}%`}${d.is_live ? " (live)" : ""}`;
+  }).join("\n");
 }
 
 // Tool definitions for the AI model
@@ -703,7 +803,8 @@ const tools = [
 // Execute tool calls against the database
 const MANAGER_PLUS_ROLES = ["manager", "general_manager", "admin", "org_admin", "brand_admin", "super_admin"];
 
-async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string): Promise<string> {
+async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string, ctx: { userClient?: any; today?: string } = {}): Promise<string> {
+  const storeToday = ctx.today || new Date().toLocaleDateString("en-CA", { timeZone: timezone });
   const offset = getTzOffset(timezone);
   // Per-person wage/cost data is manager+ only.
   const canSeeWages = MANAGER_PLUS_ROLES.includes(userRole || "");
