@@ -3277,6 +3277,12 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     let liveProposal: any = null;
     let cancelPending = false;
     let coverScreen: any = null;
+    // Ids Theo was actually given this turn. The model sometimes mistypes a long id by a character or
+    // two; snap to the nearest id it was given (never an id it wasn't), then the server checks it as usual.
+    const seenShiftIds = new Set<string>([...(listShift ? [listShift] : []), ...(pendingCover ? [pendingCover.shift_id] : [])]);
+    const seenCrewIds = new Set<string>();
+    const lev = (a: string, b: string) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
+    const snap = (id: string, seen: Set<string>) => { if (seen.has(id)) return id; let best = id, bd = 5; for (const s2 of seen) { const x = lev(id, s2); if (x < bd) { bd = x; best = s2; } } return best; };
     let postedDecline = false;
 
     let finalResponse: any = null;
@@ -3352,20 +3358,24 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           result = JSON.stringify({ status: "preview_ready" });
         } else if (actionsOn && tc.function.name === "find_crew") {
           const matches = matchCrew(String(args?.name || ""));
+          matches.forEach((c) => seenCrewIds.add(c.id));
           result = JSON.stringify({ matches: matches.slice(0, 10).map((c) => ({ employee_id: c.id, name: crewName(c) })) });
         } else if (actionsOn && tc.function.name === "find_shifts") {
           const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, args || {}, today, nowHHMM, matchCrew);
+          if (r.shift_id) seenShiftIds.add(r.shift_id);
+          (r.shifts || []).forEach((x: any) => seenShiftIds.add(x.shift_id));
+          (r.matches || []).forEach((x: any) => seenCrewIds.add(x.employee_id));
           if (r.status === "posted") postedDecline = true;
           if (r.screen) coverScreen = r.screen;
           const { screen: _s, ...forTheo } = r;
           result = JSON.stringify(forTheo);
         } else if (actionsOn && tc.function.name === "cover_candidates") {
-          const r: any = await candidatesScreen(supabaseAdmin, location_id, String(args?.shift_id || ""), crewForActions, crewName);
+          const r: any = await candidatesScreen(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), crewForActions, crewName);
           if (r.declined) { postedDecline = true; coverScreen = null; result = JSON.stringify({ status: "posted", next: `Say exactly "${r.declined}" Propose nothing.` }); }
           else if (r.error) result = JSON.stringify({ error: r.error });
           else { coverScreen = r.screen; result = JSON.stringify({ status: "list_shown", ...r.for_theo, next: `Reply "Here's who can cover ${String(r.for_theo.covered).split(" ")[0]}." plus at most the top two names.` }); }
         } else if (actionsOn && tc.function.name === "propose_action" && args?.action === "cover_shift") {
-          const v: any = await buildCoverProposal(supabaseAdmin, location_id, String(args?.shift_id || ""), String(args?.replacement_employee_id || ""), crewForActions, crewName);
+          const v: any = await buildCoverProposal(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), snap(String(args?.replacement_employee_id || ""), seenCrewIds), crewForActions, crewName);
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; result = JSON.stringify({ status: "preview_shown" }); }
           else {
             liveProposal = null;
