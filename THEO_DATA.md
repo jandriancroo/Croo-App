@@ -29,7 +29,7 @@ Status key: OK = Theo reads the right place. FIX = Theo reads the wrong place or
 | Area | Where it shows in the app | Source of truth | What Theo reads today | Status | Correction |
 |---|---|---|---|---|---|
 | Sales (net, guests, avg ticket, hourly) | Dashboard Sales Summary, Today / Week / Month | `sales_cache` | `sales_cache` | OK | None. Freshness depends on the store's POS feed |
-| Sales goal and pace | Sales Summary orange box (Goal, Pace) | `sales_cache` projections through the shared projection order in `supabase/functions/_shared/projections.ts` | Picks override, then living, then initial, then projected, in his own order | FIX (unverified) | Confirm Theo's goal equals the dashboard's for the same day; if not, use the shared order |
+| Sales goal and pace | Sales Summary orange box (Goal, Pace) | Goal: `sales_cache` override → living → initial → projected_sales (same order as `resolveProjection`). Pace: `sales_cache.pace_adjusted_projection`, shown as max(pace, sales so far) | Goal in the same order as `resolveProjection` (confirmed); pace from `pace_adjusted_projection` with the dashboard's ahead/on track/behind thresholds; week pace = past actuals + today's pace + remaining goals | FIXED | Confirm Theo's goal equals the dashboard's for the same day; if not, use the shared order |
 | Comparisons (vs last week, vs last year) | Sales Summary chips and Last Year | `get_sales_comparisons` RPC (dashboard) | Not used | NEW | Give Theo the same RPC. QU stores only have prior-period comparison today; Toast and Clover have none |
 | Top items (units, dollars) | Sales Summary "Top 20 Products by Sales" | `sales_cache.product_mix` | `sales_cache.product_mix` via `query_sales` (top 50) | OK | None. Coverage is uneven outside QU stores (audit) |
 | Promo tracker (store rankings, units, dollars, P-mix per item) | Dashboard promo tracker widget (`TrackerWidget.tsx`) | `get_tracker_ranking` RPC | Nothing | NEW | Add a tool that calls `get_tracker_ranking` |
@@ -83,3 +83,4 @@ In rough priority order for a manager's day:
 - 2026-10-01: First version from the read-only audit. Inventory moved to `THEO_INVENTORY.md`.
 - 2026-10-01: Round 1 gate corrected the labor source to get_store_labor and the time zone source to location_settings.
 - 2026-10-02: Round 1 built in `ai-assistant`: store time zone and business date, business-day windows, published-only schedules, labor from `get_store_labor` as the signed-in user, inventory tool switched off.
+- 2026-10-02: Pace now comes from `sales_cache.pace_adjusted_projection` (never the goal) with the dashboard's status thresholds, today and week.
