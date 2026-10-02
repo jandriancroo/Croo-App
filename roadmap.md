@@ -131,3 +131,4 @@
 - [x] Theo model bake-off (4 models x 18 questions x 2 runs), report to .lovable/plan/theo-model-bakeoff-2026-10-02.md, no production model change
 - [x] Theo lookup fixes + bake-off rerun (3 models x 3 runs) + actions dry-run, report to .lovable/plan/theo-model-bakeoff-rerun-2026-10-02.md, no production model change
 - [x] Luna actions guard rerun + whole cost picture (test only)
+- [ ] Thermometer reader: better dial instructions (Jordan's blue/red zone pattern), test Luna; keep current model unless proven
