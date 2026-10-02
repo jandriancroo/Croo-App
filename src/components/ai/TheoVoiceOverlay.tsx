@@ -9,6 +9,8 @@ import { TheoVoiceOrb } from './TheoVoiceOrb';
 type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'error';
 
 const RATE = 24000;
+/** Live voice is billed per minute: hang up after this much silence on the manager's turn. */
+const SILENCE_HANGUP_MS = 10_000;
 const VOICE_SUFFIX =
   '\n\n(Voice mode: answer in 1-3 short spoken sentences, round numbers, no lists or tables. You are talking to a manager with full access, so say names and details plainly. The full answer is also saved to their Theo chat.)';
 
