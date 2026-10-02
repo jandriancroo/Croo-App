@@ -10,7 +10,7 @@ type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'er
 
 const RATE = 24000;
 const VOICE_SUFFIX =
-  '\n\n(Voice mode: answer in 1-3 short spoken sentences, round numbers, no lists or tables. Do not say individual employee names, labor grades, cash variances or lateness — say "details are on screen".)';
+  '\n\n(Voice mode: answer in 1-3 short spoken sentences, round numbers, no lists or tables. You are talking to a manager with full access, so say names and details plainly. The full answer is also saved to their Theo chat.)';
 
 const b64ToFloat = (b64: string) => {
   const bin = atob(b64);
@@ -49,7 +49,7 @@ const ORB_LABEL: Record<Phase, string> = {
   listening: 'Theo is listening', thinking: 'Theo is checking the numbers', error: 'Try Theo voice again',
 };
 
-export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean; onClose: () => void; onOpenChat: () => void }) {
+export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { open: boolean; onClose: () => void; onOpenChat: () => void; onExchange?: (question: string, answer: string) => void }) {
   const { currentLocation } = useLocation();
   const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>('idle');
@@ -128,6 +128,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
+    if (data?.content) onExchange?.(question, data.content);
     return JSON.stringify({ answer: data?.content || 'No answer.' });
   };
 

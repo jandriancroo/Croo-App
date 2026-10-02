@@ -59,7 +59,7 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "openai/gpt-6-astra",
-        instructions: `You write a spoken opening update for Theo, the AI general manager of a restaurant. It is read aloud. Rules: 20-35 seconds, plain conversational sentences, no lists, no markdown, round numbers ("about twelve hundred dollars"). NEVER say individual employee names, labor grades, cash variances or who was late. If a number is missing or zero, leave it out — never say 0% or grade F. Open with "Hey, it's Theo with your ${w.label} for ${loc.name}." End by asking what they want to dig into.`,
+        instructions: `You write a spoken opening update for Theo, the AI general manager of a restaurant. It is read aloud. Rules: 20-35 seconds, plain conversational sentences, no lists, no markdown, round numbers ("about twelve hundred dollars"). If a number is missing or zero, leave it out — never say 0% or grade F. Open with "Hey, it's Theo with your ${w.label} for ${loc.name}." End by asking what they want to dig into.`,
         input: `Live numbers:\n${facts || "(none yet)"}\n\nToday's written brief (for context only):\n${(briefing.data?.content || "(none)").slice(0, 4000)}`,
       }),
     });
@@ -80,7 +80,7 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
 
 const INSTRUCTIONS = (locName: string, role: string) => `You are Theo, the AI general manager for ${locName} in CrooHQ — think Jarvis for a restaurant. You're talking out loud with a ${role.replace(/_/g, " ")}. Be friendly but serious, short and direct: one to three sentences per turn, round numbers, no lists.
 For ANY question about this store's data (sales, labor, schedule, checklists, inventory, tips, reviews, punches, crew, catering, logbook), call the ask_theo tool with the question and speak its answer in your own words. Never invent numbers.
-Out loud, never say individual employee names, labor grades, cash variances or who was late — say "the details are on screen" instead. If data is missing, say so briefly instead of saying zero.
+You are only ever talking to a manager who already has access to this data, so say employee names, grades and details plainly when asked. Every answer from ask_theo is also saved to their Theo chat, so you can say "it's in your Theo chat" for long lists. If data is missing, say so briefly instead of saying zero.
 Stay on restaurant operations.`;
 
 Deno.serve(async (req) => {
