@@ -269,6 +269,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent
     setMode('talk');
     setError('');
     setStoppedListening(false);
+    if (withOpener) setCaption('');
     setPhase('connecting');
     try {
       // Audio and mic must be set up inside the tap for iPhone/iPad; the mic stays open
