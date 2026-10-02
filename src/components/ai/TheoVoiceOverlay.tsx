@@ -164,7 +164,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     streamRef.current = null;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     if (ctx) {
-      if (playClosed) setTimeout(() => { void ctx.close(); }, 700);
+      if (playClosed) setTimeout(() => { void ctx.close().catch(() => {}); }, 700);
       else void ctx.close().catch(() => {});
     }
     ctxRef.current = null;

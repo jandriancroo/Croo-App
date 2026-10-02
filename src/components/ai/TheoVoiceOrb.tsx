@@ -106,7 +106,7 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
       const t = still ? 0 : (now - start) / 1000;
       const breath = still ? 0 : Math.sin(breathT * 1.6) * 0.03;
       const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
-      sizeMul += ((p === 'listening' ? 0.92 : 1) - sizeMul) * Math.min(1, dt * 7);
+      sizeMul += (((!reduced && p === 'listening') ? 0.92 : 1) - sizeMul) * Math.min(1, dt * 7);
       dim += (dimTarget - dim) * Math.min(1, dt * 6);
       flash *= Math.pow(0.02, dt);
       spinAngle += spinVel * dt;
@@ -114,7 +114,7 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
       const nowS = now / 1000;
       bursts = bursts.filter((b) => nowS - b.t0 < BURST_S);
       let R = base * (1 + breath) * sizeMul;
-      if (p === 'speaking') R *= 1 + smooth * 0.12;
+      if (!reduced && p === 'speaking') R *= 1 + smooth * 0.12;
       const alphaMul = (p === 'error' ? 0.6 : 1) * (1 - dim * 0.45);
       const lift = p === 'speaking' ? smooth * 0.2 : 0;
 
