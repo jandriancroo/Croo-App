@@ -128,3 +128,4 @@
 - [x] Per-person Theo voice picker in Settings
 
 - [x] Theo model bake-off (4 models x 18 questions x 2 runs), report to .lovable/plan/theo-model-bakeoff-2026-10-02.md, no production model change
+- [x] Theo lookup fixes + bake-off rerun (3 models x 3 runs) + actions dry-run, report to .lovable/plan/theo-model-bakeoff-rerun-2026-10-02.md, no production model change
