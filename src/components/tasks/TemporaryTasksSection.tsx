@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText, ClipboardList } from "lucide-react";
+import { deleteQuickTask } from '@/lib/quickTasks';
 import { supabase } from "@/integrations/supabase/client";
 import { lightenHexTowardWhite } from "@/components/dashboard/TemporaryTaskCard";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
@@ -108,12 +109,7 @@ export function TemporaryTasksSection() {
     if (!deleteTaskId) return;
     
     try {
-      const { error } = await supabase
-        .from('temporary_tasks')
-        .delete()
-        .eq('id', deleteTaskId);
-
-      if (error) throw error;
+      await deleteQuickTask(deleteTaskId);
       
       toast.success("Task deleted");
       handleRefresh();

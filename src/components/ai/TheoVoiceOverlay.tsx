@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight } from 'lucide-react';
+import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check } from 'lucide-react';
+import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
+import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
@@ -67,6 +69,19 @@ const ORB_LABEL: Record<Phase, string> = {
 let accessToken = '';
 supabase.auth.getSession().then(({ data }) => { accessToken = data.session?.access_token || ''; });
 supabase.auth.onAuthStateChange((_e, session) => { accessToken = session?.access_token || ''; });
+// Theo hands (build 1): a proposal Theo made; saved only by the manager's Create task tap.
+type TaskProposal = { id: string; action: 'create_task'; title: string; employees: { id: string; name: string }[]; roles: string[]; duration: string };
+type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: TaskProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean };
+const UNDO_MS = 10 * 60 * 1000;
+const roleLabel = (r: string) => ROLE_DISPLAY_NAMES[r as AppRole] ?? r;
+const whoText = (p: TaskProposal) => [...p.employees.map((e) => e.name), ...p.roles.map(roleLabel)].join(', ');
+const notifyText = (p: TaskProposal) => {
+  const parts = [...p.employees.map((e) => e.name.split(' ')[0]), ...p.roles.map((r) => `${roleLabel(r)}s`)];
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  return `${list} ${parts.length === 1 && p.roles.length === 0 ? 'is' : 'are'} notified`;
+};
+const DEEP_PRIMARY = 'color-mix(in srgb, hsl(var(--primary)) 75%, black)';
+
 function saveFinal(id: string, patch: Record<string, unknown>) {
   const base = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -82,9 +97,17 @@ function saveFinal(id: string, patch: Record<string, unknown>) {
   }).catch((e) => console.error('[theo-voice] usage log', e));
 }
 
-export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onExchange, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onOpenAnswer?: () => void; onExchange?: (question: string, answer: string) => void; intent?: 'update' | 'talk' }) {
+export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onExchange, onRecord, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onOpenAnswer?: () => void; onExchange?: (question: string, answer: string) => void; onRecord?: (text: string) => void; intent?: 'update' | 'talk' }) {
   const { currentLocation } = useLocation();
   const { user } = useAuth();
+  const { isSuperAdmin } = useUserRole();
+  // Action preview card: lives outside the voice line, so hang-ups and the time limit never dismiss it.
+  const [action, setActionState] = useState<ActionCard | null>(null);
+  const actionRef = useRef<ActionCard | null>(null);
+  const setAction = (a: ActionCard | null) => { actionRef.current = a; setActionState(a); };
+  const logAction = (logId: Promise<string | null>, patch: Record<string, unknown>) => {
+    void logId.then((id) => { if (id) void supabase.from('theo_action_log').update(patch as any).eq('id', id).then(() => {}); });
+  };
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState('');
   const [caption, setCaption] = useState('');
@@ -222,7 +245,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     return data;
   };
 
-  useEffect(() => { if (!open) { teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
+  useEffect(() => { if (!open) { const a = actionRef.current; if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' }); setAction(null); teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   const hardStop = useCallback(() => {
@@ -313,10 +336,28 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         location_id: currentLocation?.id,
         location_name: currentLocation?.name,
         source: 'voice',
+        ...(isSuperAdmin && actionRef.current?.stage === 'preview' ? { pending_action: actionRef.current.proposal } : {}),
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
     const answer: string = data?.content || '';
+    if (isSuperAdmin && data?.cancel_pending && actionRef.current?.stage === 'preview') {
+      logAction(actionRef.current.logId, { status: 'cancelled' });
+      setAction(null);
+    }
+    if (isSuperAdmin && data?.proposal?.action === 'create_task' && user?.id && currentLocation?.id) {
+      const prev = actionRef.current;
+      if (prev?.stage === 'preview') logAction(prev.logId, { status: 'cancelled' });
+      if (prev?.stage !== 'saving') {
+        const proposal = data.proposal as TaskProposal;
+        const logId = Promise.resolve(supabase.from('theo_action_log')
+          .insert({ user_id: user.id, location_id: currentLocation.id, action: 'create_task', proposal: proposal as any, status: 'previewed' })
+          .select('id').single()).then(({ data: row }) => row?.id ?? null, () => null);
+        setAction({ stage: 'preview', proposal, logId });
+        onExchange?.(question, answer);
+        return JSON.stringify({ answer, long: false, preview: true });
+      }
+    }
     const long = !!answer && isLongAnswer(answer);
     if (answer) {
       onExchange?.(question, answer);
@@ -546,6 +587,44 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
 
 
+  const confirmTask = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'preview' || !user?.id || !currentLocation?.id) return;
+    setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
+    try {
+      const task = await createStandardQuickTask({
+        locationId: currentLocation.id, createdBy: user.id, title: a.proposal.title,
+        employeeIds: a.proposal.employees.map((e) => e.id), roles: a.proposal.roles, duration: a.proposal.duration,
+      });
+      logAction(a.logId, { status: 'confirmed', record_id: task.id });
+      onRecord?.(`Created quick task: ${a.proposal.title}, for ${whoText(a.proposal)}`);
+      const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      setAction({ ...a, stage: 'done', taskId: task.id, savedAt, undoOpen: true });
+      setTimeout(() => { const c = actionRef.current; if (c?.taskId === task.id && c.stage === 'done') setAction({ ...c, undoOpen: false }); }, UNDO_MS);
+    } catch (err: any) {
+      logAction(a.logId, { status: 'failed' });
+      setAction({ ...a, stage: 'preview', error: err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the task. Try again." });
+    }
+  };
+  const cancelTask = () => {
+    const a = actionRef.current;
+    if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' });
+    setAction(null);
+  };
+  const undoTask = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'done' || !a.taskId) return;
+    setAction({ ...a, stage: 'undoing', error: undefined });
+    try {
+      await deleteQuickTask(a.taskId);
+      logAction(a.logId, { status: 'undone' });
+      onRecord?.(`Removed quick task: ${a.proposal.title}`);
+      setAction({ ...a, stage: 'undone' });
+    } catch {
+      setAction({ ...a, stage: 'done', error: "Couldn't remove the task. Try again." });
+    }
+  };
+
   const onOrbTap = () => {
     if (phase === 'idle') { const w = mode === 'update'; setTimeout(() => start(w), 0); return; }
     if (phase === 'error') { const w = withOpenerRef.current; setTimeout(() => start(w), 0); return; }
@@ -557,6 +636,66 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       setPhase('listening');
     }
   };
+
+  function renderAction(a: ActionCard) {
+    const p = a.proposal;
+    const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
+      const undone = a.stage === 'undone';
+      return (
+        <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : 'hsl(142 70% 28%)' }}>
+              {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
+            </span>
+            <div>
+              <div className="text-[18px] font-extrabold">{undone ? 'Task removed' : 'Task created'}</div>
+              {!undone && <div className="text-[13px] text-muted-foreground">Saved at {a.savedAt}</div>}
+            </div>
+          </div>
+          <div><div className={label}>Task</div><div className="text-[17px] font-extrabold">{p.title}</div></div>
+          <div><div className={label}>For</div><div className="text-[15px] font-semibold">{whoText(p)}</div></div>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          {!undone && a.undoOpen && (
+            <div className="flex flex-col gap-1">
+              <button onClick={undoTask} disabled={a.stage === 'undoing'}
+                className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
+                {a.stage === 'undoing' ? 'Removing…' : 'Undo'}
+              </button>
+              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes.</p>
+            </div>
+          )}
+          <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
+        </div>
+      );
+    }
+    const saving = a.stage === 'saving';
+    return (
+      <>
+        <p className="mt-3 text-center text-[22px] font-extrabold text-white">Does this look right?</p>
+        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[18px] font-extrabold">New quick task</span>
+            <span className="flex h-6 items-center rounded-full px-2.5 text-[12px] font-extrabold" style={{ background: 'hsl(38 95% 88%)', color: 'hsl(32 90% 26%)' }}>Preview · not saved</span>
+          </div>
+          <div><div className={label}>Task</div><div className="text-[17px] font-extrabold">{p.title}</div></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><div className={label}>For</div><div className="text-[15px] font-semibold">{whoText(p)}</div></div>
+            <div><div className={label}>Stays up</div><div className="text-[15px] font-semibold">{durationLabel(p.duration)}</div></div>
+          </div>
+          <div className="h-px w-full bg-border" />
+          <p className="text-[13px] text-muted-foreground">When you confirm, the task appears in Quick Tasks and {notifyText(p)}.</p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <button onClick={confirmTask} disabled={saving}
+            className="h-[52px] w-full rounded-full text-[16px] font-extrabold text-white disabled:opacity-70" style={{ background: DEEP_PRIMARY }}>
+            {saving ? 'Saving…' : 'Create task'}
+          </button>
+          <button onClick={cancelTask} disabled={saving} className="h-11 w-full text-[15px] font-semibold text-muted-foreground">Cancel</button>
+        </div>
+        <p className="mt-3 text-center text-[13px] text-white/[0.78]">Or tell Theo what to change.</p>
+      </>
+    );
+  }
 
   if (!open) return null;
   const visibleCaption = caption.replace(/\u200b/g, '');
@@ -572,11 +711,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-6">
+      <div className={action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
-          className="relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform">
-          <TheoVoiceOrb ref={orbRef} phase={phase} level={level} />
+          className={action ? 'relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
+          <div className={action ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
+            <TheoVoiceOrb ref={orbRef} phase={phase} level={level} />
+          </div>
         </button>
+        {action ? renderAction(action) : <>
         <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : PHASE_TEXT[phase]}</p>
         {(() => {
           const sub = phase === 'idle' && mode === 'talk'
@@ -584,6 +726,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             : PHASE_SUB[phase];
           return sub ? <p className="mt-1 text-center text-[13px] text-white/75">{sub}</p> : null;
         })()}
+        </>}
         {longAnswer && (
           <button onClick={() => { teardown(); onClose(); (onOpenAnswer ?? onOpenChat)(); }}
             className="mt-4 flex h-11 min-h-[44px] items-center gap-2 rounded-full bg-white px-5 text-sm font-bold text-[hsl(220_25%_5%)] shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">

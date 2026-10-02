@@ -908,6 +908,86 @@ const PROPOSE_ACTION_TOOL = {
 // query_inventory is parked (not offered to the model) — see THEO_INVENTORY.md. Code kept for later.
 const THEO_TOOLS = tools.filter((t: any) => t.function?.name !== "query_inventory");
 
+// ---- THEO HANDS (build 1): real proposals, super admin + voice only. Never writes. ----
+const TASK_ROLES: Record<string, string> = {
+  team_member: "Team Member", shift_manager_in_training: "Shift Manager in Training", shift_manager: "Shift Manager",
+  manager: "Manager", admin: "Admin", org_admin: "Org Admin", brand_admin: "Brand Admin",
+};
+const TASK_DURATIONS = ["1h", "3h", "1d", "3d", "1w", "1m", "none"];
+const FIND_CREW_TOOL = {
+  type: "function",
+  function: {
+    name: "find_crew",
+    description: "Look up ACTIVE crew members at this store by name (first name, nickname or full name). Returns every match with employee_id. Always use this to resolve a person before proposing a task for them.",
+    parameters: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+  },
+};
+const PROPOSE_TASK_TOOL = {
+  type: "function",
+  function: {
+    name: "propose_action",
+    description: "Show the manager a PREVIEW of a standard quick task at this store. Saves nothing — only the manager's tap on Create task saves it. Call only when you have a title AND at least one person (employee_id from find_crew) or role. Also call it again with the full revised task when the manager changes a preview that is on screen.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["create_task"] },
+        title: { type: "string", description: "Short task title. Keep any time the manager said and write it with AM/PM, e.g. 'by 3' becomes 'Wipe down the patio tables by 3 PM'." },
+        employee_ids: { type: "array", items: { type: "string" }, description: "employee_id values from find_crew" },
+        roles: { type: "array", items: { type: "string", enum: Object.keys(TASK_ROLES) }, description: "Only roles the manager named out loud (e.g. 'the shift managers'). Never use team_member for 'everyone', 'all', 'the crew' or 'the team' — for those, do not call this tool; ask who it's for." },
+        duration: { type: "string", enum: TASK_DURATIONS, description: "How long it stays up: 1h, 3h, 1d, 3d, 1w, 1m, none (= Until Complete, the default)" },
+      },
+      required: ["action", "title"],
+    },
+  },
+};
+const CANCEL_PENDING_TOOL = {
+  type: "function",
+  function: {
+    name: "cancel_pending_action",
+    description: "The manager wants to drop the task preview that is on screen (e.g. 'never mind', 'cancel', 'forget it').",
+    parameters: { type: "object", properties: {} },
+  },
+};
+
+async function activeCrewAt(admin: any, locationId: string): Promise<{ id: string; full_name: string; nickname: string | null }[]> {
+  const { data: ul } = await admin.from("user_locations").select("user_id").eq("location_id", locationId);
+  const ids = (ul || []).map((r: any) => r.user_id);
+  if (!ids.length) return [];
+  const { data } = await admin.from("profiles").select("id, full_name, nickname").in("id", ids).eq("is_active", true);
+  return data || [];
+}
+
+const crewName = (p: { full_name: string; nickname: string | null }) => {
+  const parts = (p.full_name || "").trim().split(/\s+/);
+  return p.nickname?.trim() && parts.length > 1 ? [p.nickname.trim(), ...parts.slice(1)].join(" ") : (p.nickname?.trim() || p.full_name);
+};
+
+function validateTaskProposal(args: any, crew: { id: string; full_name: string; nickname: string | null }[]): { ok: true; proposal: any } | { ok: false; error: string } {
+  if (args?.action !== "create_task") return { ok: false, error: "Only create_task exists." };
+  const title = typeof args.title === "string" ? args.title.trim().slice(0, 200) : "";
+  if (!title) return { ok: false, error: "No task title. Ask the manager what the task is." };
+  const ids: string[] = Array.isArray(args.employee_ids) ? [...new Set(args.employee_ids.filter((x: any) => typeof x === "string"))] as string[] : [];
+  const roles: string[] = Array.isArray(args.roles) ? [...new Set(args.roles.filter((x: any) => typeof x === "string"))] as string[] : [];
+  const byId = new Map(crew.map((c) => [c.id, c]));
+  const badId = ids.find((id) => !byId.has(id));
+  if (badId) return { ok: false, error: `employee_id ${badId} is not an active crew member at this store. Use find_crew, or ask the manager who they meant.` };
+  const badRole = roles.find((r) => !TASK_ROLES[r]);
+  if (badRole) return { ok: false, error: `${badRole} is not a real role.` };
+  if (!ids.length && !roles.length) return { ok: false, error: "Nobody assigned. Ask the manager who it's for (a person or a role)." };
+  const duration = TASK_DURATIONS.includes(args.duration) ? args.duration : "none";
+  return {
+    ok: true,
+    proposal: {
+      id: crypto.randomUUID(),
+      action: "create_task",
+      title,
+      employees: ids.map((id) => ({ id, name: crewName(byId.get(id)!) })),
+      roles,
+      duration,
+    },
+  };
+}
+
 // Execute tool calls against the database
 const MANAGER_PLUS_ROLES = ["manager", "general_manager", "admin", "org_admin", "brand_admin", "super_admin"];
 
@@ -2643,7 +2723,7 @@ serve(async (req) => {
     }
 
     const userRole = roleData.role;
-    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard } = await req.json();
+    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard, pending_action } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
     // write no usage rows and return token counts instead. Remove after the bake-off.
@@ -3066,10 +3146,44 @@ DATE ANCHORS:
     const GUARD_RULE = `
 
 ACTION RULE (strict): Call propose_action ONLY when you are actually proposing that change in this reply. Do NOT call it when: the change already exists (e.g. the person already has that shift), the request is impossible (e.g. a person has no shift to swap), the action is not one of the four supported, or any required detail (like times) is missing — in those cases just tell the manager in words and propose nothing. Your words and your tool calls must agree.`;
+    // THEO HANDS: real create_task proposals — super admin, voice, a store, never in the bake-off.
+    const actionsOn = !bakeoff && userRole === "super_admin" && usageSource === "voice" && typeof location_id === "string";
+    const pending = actionsOn && pending_action && typeof pending_action === "object" && pending_action.action === "create_task" ? {
+      title: String(pending_action.title || "").slice(0, 200),
+      employees: Array.isArray(pending_action.employees) ? pending_action.employees.slice(0, 20).map((e: any) => ({ employee_id: String(e?.id || ""), name: String(e?.name || "").slice(0, 80) })) : [],
+      roles: Array.isArray(pending_action.roles) ? pending_action.roles.filter((r: any) => typeof r === "string" && TASK_ROLES[r]) : [],
+      duration: TASK_DURATIONS.includes(pending_action.duration) ? pending_action.duration : "none",
+    } : null;
+    const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
+    const ACTIONS_RULES = `
+
+QUICK TASKS (you can PROPOSE exactly one kind of change: a standard quick task at ${location_name || "this store"}):
+- A proposal is only a preview. Nothing is saved until the manager taps "Create task" on screen. Never say a task was created, saved, added or assigned.
+- Needed: a title and who it's for (one or more people and/or roles). Optional: how long it stays up (1h, 3h, 1d, 3d, 1w, 1m, or none = Until Complete, the default). There is no due time field; keep any time the manager says in the title ("Wipe down the patio tables by 3 PM").
+- Resolve every person with find_crew and use the employee_id it returns. Never guess. If find_crew returns several matches, propose nothing and ask which one, naming them. If it returns none, propose nothing and say you can't find that person at this store.
+- Roles you can assign: ${Object.values(TASK_ROLES).join(", ")}. Only assign a role the manager actually named. "Everyone", "all", "the crew" or "the team" is NOT a role and NOT Team Member: propose nothing, ask who it's for and say you can assign specific people or a role.
+- Missing the task? Ask "What's the task?". Missing who? Ask "Who's it for?". In those cases do NOT call propose_action.
+- When you call propose_action, your whole reply must be exactly: "Here's the task. Does this look right to you?"
+- Not built yet (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page), editing or deleting a task (Tasks page), checklists (Checklists page), time off (Availability page), and any schedule change such as covering, swapping or adding a shift (Schedule page).
+- ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the task in this reply. If you ask a question or say you can't, call nothing. Your words and your tool calls must agree.
+- Examples of meaning (not keywords): "Have Alle wipe down the patio tables" = task for Alle. "Remind the shift managers to check the walk-in temps" = task for the Shift Manager role. "keep it up for 3 hours" = 3h.${pending ? `
+
+A TASK PREVIEW IS ON SCREEN RIGHT NOW (not saved):
+${JSON.stringify(pending)}
+- If the manager changes it ("make it 3 hours", "make it for Jaysen instead"), call propose_action with the FULL revised task (resolve new people with find_crew; keep unchanged parts).
+- If the manager wants to drop it ("never mind", "cancel"), call cancel_pending_action and say "Okay, I dropped that task."
+- If the manager agrees (yes / do it / confirm / looks good / sounds right), do NOT call propose_action or any tool. Agreeing changes nothing. Reply exactly: "Tap Create task to save it."` : ""}`;
+    // Rule G: wherever actions are not offered, Theo must never claim a change.
+    const NEVER_CLAIM = `
+
+You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklists, time off or anything else). Never say you did. If asked, say you can't do that and tell them where in the app to do it.`;
+    const sysContent = actionGuard ? systemPrompt + GUARD_RULE : actionsOn ? systemPrompt + ACTIONS_RULES : dryRun ? systemPrompt : systemPrompt + NEVER_CLAIM;
     const aiMessages = [
-      { role: "system", content: actionGuard ? systemPrompt + GUARD_RULE : systemPrompt },
+      { role: "system", content: sysContent },
       ...messages,
     ];
+    let liveProposal: any = null;
+    let cancelPending = false;
 
     let finalResponse: any = null;
     let loopCount = 0;
@@ -3090,7 +3204,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
           ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
-          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : THEO_TOOLS,
+          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...THEO_TOOLS, FIND_CREW_TOOL, PROPOSE_TASK_TOOL, ...(pending ? [CANCEL_PENDING_TOOL] : [])] : THEO_TOOLS,
           tool_choice: "auto",
         }),
       });
@@ -3142,6 +3256,21 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
         if (dryRun && tc.function.name === "propose_action") {
           proposals.push(args);
           result = JSON.stringify({ status: "preview_ready" });
+        } else if (actionsOn && tc.function.name === "find_crew") {
+          const q = String(args?.name || "").trim().toLowerCase();
+          const matches = q ? crewForActions.filter((c) => {
+            const full = (c.full_name || "").toLowerCase();
+            const nick = (c.nickname || "").toLowerCase();
+            return full.split(/\s+/).some((w) => w.startsWith(q)) || full.startsWith(q) || (nick && nick.startsWith(q)) || full.includes(q);
+          }) : [];
+          result = JSON.stringify({ matches: matches.slice(0, 10).map((c) => ({ employee_id: c.id, name: crewName(c) })) });
+        } else if (actionsOn && tc.function.name === "propose_action") {
+          const v = validateTaskProposal(args, crewForActions);
+          if (v.ok) { liveProposal = v.proposal; cancelPending = false; result = JSON.stringify({ status: "preview_shown" }); }
+          else { liveProposal = null; result = JSON.stringify({ error: v.error }); }
+        } else if (actionsOn && pending && tc.function.name === "cancel_pending_action") {
+          cancelPending = true; liveProposal = null;
+          result = JSON.stringify({ status: "dropped" });
         } else {
           result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun }), timezone);
         }
@@ -3183,6 +3312,27 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
         prompt_tokens: usage.pt,
         completion_tokens: usage.ct,
       }).then(({ error }: any) => error && console.error("usage log failed", error.message));
+    }
+
+    if (actionsOn) {
+      const out: any = {};
+      // Re-proposing the exact task already on screen is not a change: keep the preview, point to the button.
+      if (liveProposal && pending) {
+        const sameIds = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+        if (liveProposal.title === pending.title && liveProposal.duration === pending.duration && sameIds(liveProposal.roles, pending.roles)
+          && sameIds(liveProposal.employees.map((e: any) => e.id), pending.employees.map((e: any) => e.employee_id))) {
+          liveProposal = null; finalResponse = "Tap Create task to save it.";
+        }
+      }
+      if (liveProposal) {
+        // Words and proposal must agree: a question or a "can't" drops the proposal.
+        const rest = String(finalResponse || "").replace(/here['’]?s the task\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
+        const saysNo = rest.includes("?") || /\b(can['’]?t|cannot|unable|not able|not something i can|which one|who['’]?s it for|what['’]?s the task)\b/.test(rest);
+        if (saysNo) console.log("action guard dropped proposal");
+        else { out.proposal = liveProposal; out.content = "Here's the task. Does this look right to you?"; }
+      } else if (cancelPending) out.cancel_pending = true;
+      out.content ??= finalResponse;
+      return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ content: finalResponse }), {
