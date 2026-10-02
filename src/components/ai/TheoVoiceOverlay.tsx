@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Mic, MessageSquareText } from 'lucide-react';
+import { X, Keyboard, MessageSquareText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
-import { cn } from '@/lib/utils';
+import { TheoVoiceOrb } from './TheoVoiceOrb';
 
 type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'error';
 
@@ -33,35 +33,20 @@ const floatToB64 = (f: Float32Array) => {
   return btoa(bin);
 };
 
-/** Animated version of Theo's three dotted rings — level (0..1) drives the breathing. */
-function VoiceOrb({ phase, level }: { phase: Phase; level: number }) {
-  const scale = 1 + (phase === 'speaking' ? level * 0.35 : 0);
-  return (
-    <div
-      className={cn('relative h-56 w-56 text-primary-foreground', phase === 'thinking' && 'animate-pulse')}
-      style={{ transform: `scale(${scale})`, transition: 'transform 90ms linear' }}
-    >
-      <div className="absolute inset-0 rounded-full bg-primary/30 blur-2xl" />
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth={1.2} className="relative h-full w-full">
-        <g className="origin-center animate-[spin_24s_linear_infinite]" style={{ transformBox: 'fill-box' }}>
-          <circle cx="12" cy="12" r="9.5" strokeDasharray="0.1 3.63" />
-        </g>
-        <g className="origin-center animate-[spin_16s_linear_infinite_reverse]" style={{ transformBox: 'fill-box' }}>
-          <circle cx="12" cy="12" r="6" strokeDasharray="0.1 3.67" />
-        </g>
-        <circle cx="12" cy="12" r="2.5" strokeDasharray="0.1 3.04" className={cn(phase === 'listening' && 'animate-ping origin-center')} style={{ transformBox: 'fill-box' }} />
-      </svg>
-    </div>
-  );
-}
-
 const PHASE_TEXT: Record<Phase, string> = {
   idle: 'Tap to hear your update',
   connecting: 'Connecting…',
-  speaking: 'Theo is talking — tap to interrupt',
+  speaking: 'Theo is talking',
   listening: 'Listening…',
   thinking: 'Checking the numbers…',
   error: '',
+};
+const PHASE_SUB: Record<Phase, string> = {
+  idle: '', connecting: '', speaking: 'Tap the orb to interrupt', listening: '', thinking: '', error: 'Tap the orb to try again.',
+};
+const ORB_LABEL: Record<Phase, string> = {
+  idle: 'Start Theo voice update', connecting: 'Connecting to Theo', speaking: 'Interrupt Theo',
+  listening: 'Theo is listening', thinking: 'Theo is checking the numbers', error: 'Try Theo voice again',
 };
 
 export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean; onClose: () => void; onOpenChat: () => void }) {
@@ -280,37 +265,38 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat }: { open: boolean;
 
   return createPortal(
     // Sits above the dock and toasts while open (unlocked for the voice screen only).
-    <div className="fixed inset-0 flex flex-col items-center bg-background/95 backdrop-blur-md" style={{ zIndex: 1000000000 }}>
+    <div className="fixed inset-0 flex flex-col items-center bg-[rgb(15_18_21/0.8)] text-white backdrop-blur-lg supports-[backdrop-filter]:bg-[rgb(15_18_21/0.52)]" style={{ zIndex: 1000000000 }}>
       <div className="flex w-full items-center justify-between px-4 pt-[max(env(safe-area-inset-top),16px)]">
-        <div className="text-sm font-semibold text-muted-foreground">{currentLocation?.name}</div>
+        <div className="text-sm font-semibold text-white/85">{currentLocation?.name}</div>
         <button aria-label="Close Theo voice" onClick={() => { teardown(); onClose(); }}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-foreground">
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.16] text-white ring-1 ring-inset ring-white/[0.28]">
           <X className="h-5 w-5" strokeWidth={2.25} />
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6">
-        <button aria-label={PHASE_TEXT[phase] || 'Theo'} onClick={onOrbTap}
-          className="flex h-64 w-64 items-center justify-center rounded-full bg-primary shadow-2xl active:scale-95 transition-transform">
-          <VoiceOrb phase={phase} level={level} />
+      <div className="flex flex-1 flex-col items-center justify-center px-6">
+        <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
+          className="relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform">
+          <div aria-hidden className="absolute left-10 top-10 h-[200px] w-[200px] rounded-full blur-[34px]" style={{ background: 'hsl(var(--primary-light, 190 57% 60%) / 0.32)' }} />
+          <TheoVoiceOrb phase={phase} level={level} />
         </button>
-        <p className="text-center text-[15px] font-semibold text-foreground">{phase === 'error' ? error : PHASE_TEXT[phase]}</p>
-        {phase === 'error' && <p className="text-xs text-muted-foreground">Tap the orb to try again.</p>}
+        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : PHASE_TEXT[phase]}</p>
+        {PHASE_SUB[phase] && <p className="mt-1 text-center text-[13px] text-white/75">{PHASE_SUB[phase]}</p>}
       </div>
 
       {showText && visibleCaption && (
-        <div className="mx-4 mb-3 max-h-48 w-[calc(100%-2rem)] max-w-[720px] overflow-y-auto rounded-2xl border border-border bg-card p-4 text-sm leading-relaxed text-foreground">
+        <div className="mx-4 mb-3 max-h-48 w-[calc(100%-2rem)] max-w-[720px] overflow-y-auto rounded-2xl border border-border bg-card/95 p-4 text-sm leading-relaxed text-foreground">
           {visibleCaption}
         </div>
       )}
-      <div className="flex gap-2 pb-[max(env(safe-area-inset-bottom),20px)]">
+      <div className="flex gap-2 pb-[max(env(safe-area-inset-bottom),28px)]">
         <button onClick={() => setShowText((s) => !s)}
-          className="flex items-center gap-1.5 rounded-full bg-muted px-4 py-2.5 text-sm font-semibold text-foreground">
+          className="flex h-11 items-center gap-2 rounded-full bg-white/[0.16] px-4 text-sm font-semibold text-white ring-1 ring-inset ring-white/[0.28]">
           <MessageSquareText className="h-4 w-4" /> {showText ? 'Hide text' : 'Show text'}
         </button>
         <button onClick={() => { teardown(); onClose(); onOpenChat(); }}
-          className="flex items-center gap-1.5 rounded-full bg-muted px-4 py-2.5 text-sm font-semibold text-foreground">
-          <Mic className="h-4 w-4" /> Type instead
+          className="flex h-11 items-center gap-2 rounded-full bg-white/[0.16] px-4 text-sm font-semibold text-white ring-1 ring-inset ring-white/[0.28]">
+          <Keyboard className="h-4 w-4" /> Type instead
         </button>
       </div>
     </div>,
