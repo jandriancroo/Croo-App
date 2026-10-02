@@ -2641,7 +2641,7 @@ serve(async (req) => {
     }
 
     const userRole = roleData.role;
-    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run } = await req.json();
+    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
     // write no usage rows and return token counts instead. Remove after the bake-off.
@@ -3059,8 +3059,13 @@ DATE ANCHORS:
 - "Today" = ${wd(today)}, "yesterday" = ${wd(yesterday)}, "tomorrow" = ${wd(tomorrow)}.
 - query_availability defaults to the next 14 days unless the user specifies a range.`;
 
+    // TEMPORARY (actions dry-run guard test only).
+    const actionGuard = dryRun && action_guard === true;
+    const GUARD_RULE = `
+
+ACTION RULE (strict): Call propose_action ONLY when you are actually proposing that change in this reply. Do NOT call it when: the change already exists (e.g. the person already has that shift), the request is impossible (e.g. a person has no shift to swap), the action is not one of the four supported, or any required detail (like times) is missing — in those cases just tell the manager in words and propose nothing. Your words and your tool calls must agree.`;
     const aiMessages = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: actionGuard ? systemPrompt + GUARD_RULE : systemPrompt },
       ...messages,
     ];
 
