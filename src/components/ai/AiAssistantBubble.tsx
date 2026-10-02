@@ -557,7 +557,7 @@ export function AiAssistantBubble() {
                           </div>
                         )}
                       </motion.div>
-                    ))}
+                    )); })()}
 
                     {loading && (
                       <motion.div
