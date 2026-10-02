@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -186,7 +187,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       }
 
       // Determine if this is a weekend (Friday = 5, Saturday = 6, Sunday = 0)
-      const shiftDate = new Date(offer.shift.shift_date);
+      const shiftDate = { toLocaleDateString: () => DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('M/d/yyyy') };
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
@@ -259,7 +260,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
     setProcessing(true);
     try {
       // Determine if this is a weekend shift for Croo Cash amount (Fri, Sat, Sun)
-      const shiftDate = new Date(offer.shift.shift_date);
+      const shiftDate = { toLocaleDateString: () => DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('M/d/yyyy') };
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
@@ -316,7 +317,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       }
 
       // Send push notification to the approved claimer
-      const shiftDateFormatted = new Date(offer.shift.shift_date).toLocaleDateString('en-US', { 
+      const shiftDateFormatted = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('ccc, LLL d'); void ({ 
         weekday: 'short', 
         month: 'short', 
         day: 'numeric' 
@@ -344,7 +345,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
     setProcessing(true);
     try {
       // Get all claimers for this shift (Fri, Sat, Sun = weekend)
-      const shiftDate = new Date(offer.shift.shift_date);
+      const shiftDate = { toLocaleDateString: () => DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('M/d/yyyy') };
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
@@ -448,7 +449,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         <div className="space-y-2 text-sm text-white">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-white/90" />
-            <span>{new Date(offer.shift.shift_date).toLocaleDateString()}</span>
+            <span>{DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd').toFormat('M/d/yyyy')}</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-white/90" />
