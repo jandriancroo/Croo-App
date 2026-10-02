@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_shadow_runs: {
+        Row: {
+          created_at: string
+          id: string
+          job: string
+          primary_in: number | null
+          primary_model: string
+          primary_ms: number | null
+          primary_out: number | null
+          primary_output: string | null
+          shadow_error: string | null
+          shadow_in: number | null
+          shadow_model: string
+          shadow_ms: number | null
+          shadow_out: number | null
+          shadow_output: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job: string
+          primary_in?: number | null
+          primary_model: string
+          primary_ms?: number | null
+          primary_out?: number | null
+          primary_output?: string | null
+          shadow_error?: string | null
+          shadow_in?: number | null
+          shadow_model: string
+          shadow_ms?: number | null
+          shadow_out?: number | null
+          shadow_output?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job?: string
+          primary_in?: number | null
+          primary_model?: string
+          primary_ms?: number | null
+          primary_out?: number | null
+          primary_output?: string | null
+          shadow_error?: string | null
+          shadow_in?: number | null
+          shadow_model?: string
+          shadow_ms?: number | null
+          shadow_out?: number | null
+          shadow_output?: string | null
+        }
+        Relationships: []
+      }
       alarm_task_completions: {
         Row: {
           completed_at: string
