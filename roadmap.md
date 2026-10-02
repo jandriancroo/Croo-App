@@ -124,3 +124,4 @@
 ## Theo voice (Oct 2)
 - [x] Phase 1 live voice screen, 4-hour openers, talk button
 - [ ] Jordan to test on his phone (mic + sound)
+- [ ] Track text-Theo AI usage (tokens/cost) per user and store in Theo Usage
