@@ -217,6 +217,7 @@ export function AiAssistantBubble() {
 
   // ── Theo voice: offer each 4-hour opener once per person per store ──
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [voiceIntent, setVoiceIntent] = useState<'update' | 'talk'>('talk');
   useEffect(() => {
     if (!isShiftManager || !currentLocation?.id || !timezone) return;
     const check = async () => {
@@ -230,6 +231,7 @@ export function AiAssistantBubble() {
       const storeKey = `theo-voice-seen:${uid}:${currentLocation.id}`;
       if (localStorage.getItem(storeKey) === key) return;
       localStorage.setItem(storeKey, key);
+      setVoiceIntent('update');
       setVoiceOpen(true);
     };
     check();
@@ -414,7 +416,7 @@ export function AiAssistantBubble() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => { setOpen(false); setVoiceOpen(true); }}
+                    onClick={() => { setOpen(false); setVoiceIntent('talk'); setVoiceOpen(true); }}
                     className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.16] text-white transition-colors hover:bg-white/25"
                     aria-label="Talk to Theo"
                   >
@@ -597,7 +599,7 @@ export function AiAssistantBubble() {
           </>
         )}
       </AnimatePresence>
-      <TheoVoiceOverlay open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} onExchange={(q, a) => {
+      <TheoVoiceOverlay intent={voiceIntent} open={voiceOpen} onClose={() => setVoiceOpen(false)} onOpenChat={() => setOpen(true)} onExchange={(q, a) => {
         const userMsg = { role: 'user', content: `🎙️ ${q}` } as Message;
         const theoMsg = { role: 'assistant', content: a } as Message;
         setMessages(prev => [...prev, userMsg, theoMsg]);

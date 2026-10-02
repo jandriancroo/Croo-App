@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Keyboard, MessageSquareText } from 'lucide-react';
+import { X, Keyboard, MessageSquareText, Mic, Volume2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
@@ -49,7 +49,7 @@ const ORB_LABEL: Record<Phase, string> = {
   listening: 'Theo is listening', thinking: 'Theo is checking the numbers', error: 'Try Theo voice again',
 };
 
-export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { open: boolean; onClose: () => void; onOpenChat: () => void; onExchange?: (question: string, answer: string) => void }) {
+export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onExchange?: (question: string, answer: string) => void; intent?: 'update' | 'talk' }) {
   const { currentLocation } = useLocation();
   const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>('idle');
@@ -57,6 +57,10 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
   const [caption, setCaption] = useState('');
   const [showText, setShowText] = useState(false);
   const [level, setLevel] = useState(0);
+  // Idle mode: 'update' reads the opener on tap, 'talk' just listens. After any session starts, the rest of this open is 'talk'.
+  const [mode, setMode] = useState<'update' | 'talk'>(intent);
+  const withOpenerRef = useRef(intent === 'update');
+  useEffect(() => { if (open) { setMode(intent); withOpenerRef.current = intent === 'update'; } }, [open, intent]);
   const wsRef = useRef<WebSocket | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -132,8 +136,10 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
     return JSON.stringify({ answer: data?.content || 'No answer.' });
   };
 
-  const start = async () => {
+  const start = async (withOpener: boolean) => {
     if (!currentLocation?.id || phase !== 'idle') return;
+    withOpenerRef.current = withOpener;
+    setMode('talk');
     setError('');
     setPhase('connecting');
     try {
@@ -162,14 +168,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
       ]);
       if (fnErr || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
       streamRef.current = stream;
-      setCaption(data.opener?.script || '');
+      setCaption(withOpener ? data.opener?.script || '' : '');
       if (user?.id) {
         const { data: row } = await supabase.from('theo_voice_sessions')
-          .insert({ user_id: user.id, location_id: currentLocation.id, opener_key: data.opener?.key ?? null })
+          .insert({ user_id: user.id, location_id: currentLocation.id, opener_key: withOpener ? data.opener?.key ?? null : null })
           .select('id').single();
         if (row) logRef.current = { id: row.id, start: Date.now(), questions: 0 };
       }
-      if (user?.id) localStorage.setItem(`theo-voice-seen:${user.id}:${currentLocation.id}`, data.opener?.key || '');
+      if (withOpener && user?.id) localStorage.setItem(`theo-voice-seen:${user.id}:${currentLocation.id}`, data.opener?.key || '');
 
       const ws = new WebSocket(`wss://api.x.ai/v1/realtime?model=${data.model}`, [`xai-client-secret.${data.token}`]);
       wsRef.current = ws;
@@ -184,16 +190,18 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
             tools: [{
               type: 'function',
               name: 'ask_theo',
-              description: "Ask Theo's store-data brain any question about this store (sales, labor, schedule, checklists, inventory, tips, reviews, punches, crew). Returns the answer to speak.",
+              description: "Ask Theo's store-data brain any question about this store (sales, labor, schedule, checklists, tips, reviews, punches, crew). Returns the answer to speak.",
               parameters: { type: 'object', properties: { question: { type: 'string', description: 'The full question in plain English' } }, required: ['question'] },
             }],
           },
         }));
-        ws.send(JSON.stringify({
-          type: 'conversation.item.create',
-          item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: `Greet me by reading this opening update naturally, then wait for me:\n\n${data.opener?.script || ''}` }] },
-        }));
-        ws.send(JSON.stringify({ type: 'response.create' }));
+        if (withOpener) {
+          ws.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: `Greet me by reading this opening update naturally, then wait for me:\n\n${data.opener?.script || ''}` }] },
+          }));
+          ws.send(JSON.stringify({ type: 'response.create' }));
+        }
 
         const mic = ctx.createMediaStreamSource(stream);
         const proc = ctx.createScriptProcessor(4096, 1, 1);
@@ -208,6 +216,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
         proc.connect(mute);
         mute.connect(ctx.destination);
         procRef.current = proc;
+        if (!withOpener) setPhase('listening');
       };
       ws.onmessage = async (msg) => {
         const ev = JSON.parse(msg.data);
@@ -253,7 +262,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
   };
 
   const onOrbTap = () => {
-    if (phase === 'idle' || phase === 'error') { setPhase('idle'); setTimeout(start, 0); return; }
+    if (phase === 'idle') { const w = mode === 'update'; setTimeout(() => start(w), 0); return; }
+    if (phase === 'error') { const w = withOpenerRef.current; setPhase('idle'); setTimeout(() => start(w), 0); return; }
     if (phase === 'speaking') {
       stopPlayback();
       wsRef.current?.send(JSON.stringify({ type: 'response.cancel' }));
@@ -281,8 +291,10 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
           <div aria-hidden className="absolute left-10 top-10 h-[200px] w-[200px] rounded-full blur-[34px]" style={{ background: 'hsl(var(--primary-light, 190 57% 60%) / 0.32)' }} />
           <TheoVoiceOrb phase={phase} level={level} />
         </button>
-        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : PHASE_TEXT[phase]}</p>
-        {PHASE_SUB[phase] && <p className="mt-1 text-center text-[13px] text-white/75">{PHASE_SUB[phase]}</p>}
+        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : PHASE_TEXT[phase]}</p>
+        {(phase === 'idle' && mode === 'talk' ? 'Ask about sales, labor, the schedule or checklists' : PHASE_SUB[phase]) && (
+          <p className="mt-1 text-center text-[13px] text-white/75">{phase === 'idle' && mode === 'talk' ? 'Ask about sales, labor, the schedule or checklists' : PHASE_SUB[phase]}</p>
+        )}
       </div>
 
       {showText && visibleCaption && (
@@ -290,7 +302,13 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onExchange }: { op
           {visibleCaption}
         </div>
       )}
-      <div className="flex gap-2 pb-[max(env(safe-area-inset-bottom),28px)]">
+      <div className="flex flex-wrap justify-center gap-2 px-4 pb-[max(env(safe-area-inset-bottom),28px)]">
+        {phase === 'idle' && (
+          <button onClick={() => { const w = mode === 'talk'; setTimeout(() => start(w), 0); }}
+            className="flex h-11 items-center gap-2 rounded-full bg-white/[0.16] px-4 text-sm font-semibold text-white ring-1 ring-inset ring-white/[0.28]">
+            {mode === 'update' ? <><Mic className="h-4 w-4" /> Just talk</> : <><Volume2 className="h-4 w-4" /> Hear your update</>}
+          </button>
+        )}
         <button onClick={() => setShowText((s) => !s)}
           className="flex h-11 items-center gap-2 rounded-full bg-white/[0.16] px-4 text-sm font-semibold text-white ring-1 ring-inset ring-white/[0.28]">
           <MessageSquareText className="h-4 w-4" /> {showText ? 'Hide text' : 'Show text'}
