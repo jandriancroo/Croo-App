@@ -181,7 +181,9 @@ export function useMessagesData() {
       const chatsWithUnread = userChats.map((chat: any) => {
         const latest = latestPerChat.get(chat.id);
         const lastMessageTime = latest?.created_at || chat.updated_at;
-        const messagePreview = latest?.content || '';
+        const raw = latest?.content || '';
+        const messagePreview = raw.startsWith('SHIFT_OFFER:') ? 'Shift offered up for grabs'
+          : raw.startsWith('SHARED_TASK:') ? 'Shared a task' : raw;
 
         const currentMember = chat.chat_members.find((m: any) => m.user_id === user.id);
         const lastReadAt = currentMember?.last_read_at;
