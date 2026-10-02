@@ -58,7 +58,8 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "openai/gpt-6-astra",
+        model: "openai/gpt-6-luna",
+        store: false,
         instructions: `You write a spoken opening update for Theo, the AI general manager of a restaurant. It is read aloud. Rules: 20-35 seconds, plain conversational sentences, no lists, no markdown, round numbers ("about twelve hundred dollars"). If a number is missing or zero, leave it out — never say 0% or grade F. Open with "Hey, it's Theo with your ${w.label} for ${loc.name}." End by asking what they want to dig into.`,
         input: `Live numbers:\n${facts || "(none yet)"}\n\nToday's written brief (for context only):\n${(briefing.data?.content || "(none)").slice(0, 4000)}`,
       }),
@@ -66,7 +67,7 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
     if (r.ok) {
       const d = await r.json();
       await admin.from("theo_ai_usage").insert({
-        user_id: null, location_id: loc.id, source: "opener", model: "openai/gpt-6-astra",
+        user_id: null, location_id: loc.id, source: "opener", model: "openai/gpt-6-luna",
         prompt_tokens: d?.usage?.input_tokens || 0, completion_tokens: d?.usage?.output_tokens || 0,
       });
       const t = (d?.output_text || (d?.output || []).flatMap((o: any) => o?.content || []).map((c: any) => c?.text || "").join("")).trim();
