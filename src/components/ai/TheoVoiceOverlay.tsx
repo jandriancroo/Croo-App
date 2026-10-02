@@ -10,9 +10,9 @@ type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'er
 
 const RATE = 24000;
 /** Live voice is billed per minute: hang up after this much silence on the manager's turn. */
-const SILENCE_HANGUP_MS = 60_000;
+const SILENCE_HANGUP_MS = 10_000;
 // Hard stop for one live connection (only live time counts, not the read-aloud update).
-const MAX_LIVE_MS = 20_000;
+const MAX_LIVE_MS = 180_000;
 // Earlier exchanges carried into a resumed live session (this open of the voice screen only).
 const CARRY_MAX = 6;
 const CARRY_ANSWER_CHARS = 300;
