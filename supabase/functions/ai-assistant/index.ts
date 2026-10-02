@@ -2641,7 +2641,7 @@ serve(async (req) => {
     }
 
     const userRole = roleData.role;
-    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run } = await req.json();
+    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
     // write no usage rows and return token counts instead. Remove after the bake-off.
@@ -3059,8 +3059,13 @@ DATE ANCHORS:
 - "Today" = ${wd(today)}, "yesterday" = ${wd(yesterday)}, "tomorrow" = ${wd(tomorrow)}.
 - query_availability defaults to the next 14 days unless the user specifies a range.`;
 
+    // TEMPORARY (actions dry-run guard test only).
+    const actionGuard = dryRun && action_guard === true;
+    const GUARD_RULE = `
+
+ACTION RULE (strict): Call propose_action ONLY when you are actually proposing that change in this reply. Do NOT call it when: the change already exists (e.g. the person already has that shift), the request is impossible (e.g. a person has no shift to swap), the action is not one of the four supported, or any required detail (like times) is missing — in those cases just tell the manager in words and propose nothing. Your words and your tool calls must agree.`;
     const aiMessages = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: actionGuard ? systemPrompt + GUARD_RULE : systemPrompt },
       ...messages,
     ];
 
@@ -3155,7 +3160,15 @@ DATE ANCHORS:
 
     // Usage log for Settings → Super Admin → Theo Usage (never blocks the reply).
     if (bakeoff) {
-      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled, proposals, tool_outputs: toolOutputs } }), {
+      // TEMPORARY guard safety check: drop proposals when Theo's own words say no change is being made.
+      let guardDropped = false;
+      let keptProposals = proposals;
+      if (actionGuard && proposals.length > 0) {
+        const t = String(finalResponse || "").toLowerCase();
+        const saysNo = /\b(can['’]?t|cannot|unable|not able|isn['’]?t able|no (additional|new|need)|not needed|already (has|have|scheduled|working|on)|doesn['’]?t have|does not have|has no shift|no shift|not scheduled|what time|which times|need the (start|times)|please (tell|share|let me know)|not something i can)\b/.test(t);
+        if (saysNo) { guardDropped = true; keptProposals = []; }
+      }
+      return new Response(JSON.stringify({ content: finalResponse, bakeoff: { model: bakeModel, prompt_tokens: usage.pt, completion_tokens: usage.ct, cached_tokens: usage.cached, round_trips: usage.calls, tools: toolsCalled, proposals: keptProposals, raw_proposals: proposals, guard_dropped: guardDropped, tool_outputs: toolOutputs } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
