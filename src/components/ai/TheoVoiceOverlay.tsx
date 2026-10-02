@@ -11,6 +11,11 @@ type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'er
 const RATE = 24000;
 /** Live voice is billed per minute: hang up after this much silence on the manager's turn. */
 const SILENCE_HANGUP_MS = 10_000;
+// Hard stop for one live connection (only live time counts, not the read-aloud update).
+const MAX_LIVE_MS = 180_000;
+// Earlier exchanges carried into a resumed live session (this open of the voice screen only).
+const CARRY_MAX = 6;
+const CARRY_ANSWER_CHARS = 300;
 /** One decision for "long": Theo points to the chat and the screen shows "See full answer". */
 const isLongAnswer = (a: string) => a.length > 500 || a.split('\n').filter((l) => l.trim()).length > 10;
 const VOICE_SUFFIX =
@@ -101,6 +106,11 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const [speechTick, setSpeechTick] = useState(0);
   const [stoppedListening, setStoppedListening] = useState(false);
   const [longAnswer, setLongAnswer] = useState(false);
+  const [hitLimit, setHitLimit] = useState(false);
+  const phaseRef = useRef<Phase>('idle');
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopAfterAnswerRef = useRef(false);
+  const historyRef = useRef<{ q: string; a: string }[]>([]);
 
   const stopPlayback = useCallback(() => {
     sourcesRef.current.forEach((s) => { try { s.stop(); } catch { /* done */ } });
@@ -135,11 +145,26 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     ctxRef.current = null;
     userSpeakingRef.current = false;
     startingRef.current = false;
+    if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
+    maxTimerRef.current = null;
+    stopAfterAnswerRef.current = false;
     setPhase('idle');
     setLevel(0);
   }, [stopPlayback]);
 
-  useEffect(() => { if (!open) { teardown(); setStoppedListening(false); setLongAnswer(false); } }, [open, teardown]);
+  useEffect(() => { if (!open) { teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
+
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  const hardStop = useCallback(() => {
+    teardown();
+    setMode('talk');
+    setStoppedListening(false);
+    setHitLimit(true);
+  }, [teardown]);
+  // 3-minute limit reached mid-answer: hang up once that answer is done (back on the manager's turn).
+  useEffect(() => {
+    if (phase === 'listening' && stopAfterAnswerRef.current && wsRef.current) hardStop();
+  }, [phase, hardStop]);
   useEffect(() => () => teardown(), [teardown]);
 
   // Save progress every 15s while the paid live line is open, so a swiped-away app still records its length.
@@ -207,7 +232,10 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
     const answer: string = data?.content || '';
     const long = !!answer && isLongAnswer(answer);
-    if (answer) onExchange?.(question, answer);
+    if (answer) {
+      onExchange?.(question, answer);
+      historyRef.current = [...historyRef.current, { q: question, a: answer.slice(0, CARRY_ANSWER_CHARS) }].slice(-CARRY_MAX);
+    }
     setLongAnswer(long);
     return JSON.stringify({ answer: answer || 'No answer.', long });
   };
@@ -233,13 +261,23 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       wsRef.current = ws;
       ws.onopen = () => {
         if (logRef.current) logRef.current.liveStart = Date.now();
+        if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
+        maxTimerRef.current = setTimeout(() => {
+          if (!wsRef.current) return;
+          const p = phaseRef.current;
+          if (p === 'speaking' || p === 'thinking') stopAfterAnswerRef.current = true;
+          else hardStop();
+        }, MAX_LIVE_MS);
+        const earlier = historyRef.current.length
+          ? `\nEarlier in this conversation (may be out of date):\n${historyRef.current.map((h) => `Q: ${h.q}\nA: ${h.a}`).join('\n')}`
+          : '';
         ws.send(JSON.stringify({
           type: 'session.update',
           session: {
             voice: data.voice,
-            instructions: heardUpdate
+            instructions: (heardUpdate
               ? `${data.instructions}\nThe manager just heard this update read aloud — don't repeat it, just answer what they ask next:\n${heardUpdate}`
-              : data.instructions,
+              : data.instructions) + earlier,
             turn_detection: { type: 'server_vad' },
             audio: { input: { format: { type: 'audio/pcm', rate: RATE } }, output: { format: { type: 'audio/pcm', rate: RATE } } },
             tools: [{
@@ -319,6 +357,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     setMode('talk');
     setError('');
     setStoppedListening(false);
+    setHitLimit(false);
     if (withOpener) setCaption('');
     setPhase('connecting');
     try {
@@ -400,7 +439,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
   return createPortal(
     // Sits above the dock and toasts while open (unlocked for the voice screen only).
-    <div className="fixed inset-0 flex flex-col items-center bg-[rgb(15_18_21/0.8)] text-white backdrop-blur-lg supports-[backdrop-filter]:bg-[rgb(15_18_21/0.52)]" style={{ zIndex: 1000000000 }}>
+    <div className="fixed inset-0 flex flex-col items-center bg-[rgb(15_18_21/0.8)] text-white backdrop-blur-lg [-webkit-backdrop-filter:blur(16px)] supports-[(backdrop-filter:blur(0))_or_(-webkit-backdrop-filter:blur(0))]:bg-[rgb(15_18_21/0.52)]" style={{ zIndex: 1000000000 }}>
       <div className="flex w-full items-center justify-between px-4 pt-[max(env(safe-area-inset-top),16px)]">
         <div className="text-sm font-semibold text-white/85">{currentLocation?.name}</div>
         <button aria-label="Close Theo voice" onClick={() => { teardown(); onClose(); }}
@@ -418,7 +457,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : PHASE_TEXT[phase]}</p>
         {(() => {
           const sub = phase === 'idle' && mode === 'talk'
-            ? (stoppedListening ? 'I stopped listening. Tap to pick up where we left off.' : 'Ask about sales, labor, the schedule or checklists')
+            ? (hitLimit ? 'We hit the 3-minute limit. Tap to keep going.' : stoppedListening ? 'I stopped listening. Tap to pick up where we left off.' : 'Ask about sales, labor, the schedule or checklists')
             : PHASE_SUB[phase];
           return sub ? <p className="mt-1 text-center text-[13px] text-white/75">{sub}</p> : null;
         })()}
