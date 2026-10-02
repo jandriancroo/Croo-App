@@ -12667,6 +12667,50 @@ export type Database = {
           },
         ]
       }
+      theo_action_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          location_id: string | null
+          proposal: Json
+          record_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          proposal?: Json
+          record_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          proposal?: Json
+          record_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_action_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       theo_ai_usage: {
         Row: {
           completion_tokens: number
