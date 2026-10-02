@@ -37,6 +37,24 @@ import { useAuth } from '@/lib/auth';
 import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
 import { summarizeCuts } from '@/utils/cutSavingsSummary';
 
+// Swipe-up panel palette. "Ink" = theme primary darkened for text on the light
+// page background; dark themes lighten it instead so it stays readable.
+const CD_STYLE = `
+.cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-solid:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-good:hsl(142 70% 28%);--cd-warn:hsl(32 90% 32%);--cd-bad:hsl(0 72% 42%);--cd-good-solid:hsl(142 70% 28%);--cd-bad-solid:hsl(0 72% 42%);--cd-line:color-mix(in srgb,var(--cd-ink) 25%,transparent)}
+.dark .cd-panel,[data-theme="oled"] .cd-panel,.dark.cd-panel,[data-theme="oled"].cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 45%,white);--cd-good:hsl(142 62% 55%);--cd-warn:hsl(38 92% 60%);--cd-bad:hsl(0 80% 66%)}
+`;
+const PACE_PILL_BG: Record<string, string> = {
+  'On Track': 'var(--cd-solid)',
+  'Ahead': 'var(--cd-good-solid)',
+  'On Fire': 'hsl(var(--accent))',
+  'Behind': 'var(--cd-bad-solid)',
+};
+const LABOR_COLOR: Record<string, string> = {
+  good: 'var(--cd-good)',
+  warning: 'var(--cd-warn)',
+  bad: 'var(--cd-bad)',
+};
+
 interface CompactDashboardProps {
   isExpanded: boolean;
   onClose: () => void;
@@ -656,25 +674,22 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={{ top: 0, bottom: 0.3 }}
           onDragEnd={(_, info) => onDragEnd(info)}
-          className="fixed bottom-0 left-0 right-0 z-[60] bg-accent rounded-t-3xl"
+          className="cd-panel fixed bottom-0 left-0 right-0 z-[60] bg-accent rounded-t-3xl flex flex-col overflow-hidden"
           style={{ height: '75vh', touchAction: 'none' }}
         >
-
-          {/* Drag Handle */}
-          <div className="flex justify-center pt-3 pb-2">
-            <div className="w-12 h-1.5 bg-accent-foreground/30 rounded-full" />
-          </div>
-          
-          {/* Close hint */}
-          <button 
-            onClick={onClose}
-            className="absolute top-3 right-4 text-accent-foreground/50 hover:text-accent-foreground transition-colors"
-          >
-            <ChevronDown className="h-6 w-6" />
-          </button>
-
-          {/* Content */}
-          <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(75vh - 60px)' }}>
+          <style>{CD_STYLE}</style>
+          {/* A. Orange header — does not scroll */}
+          <div className="relative shrink-0 px-4 pb-4">
+            <div className="flex justify-center items-center h-[34px]">
+              <div className="w-[44px] h-[5px] bg-accent-foreground/40 rounded-full" />
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="absolute top-0 right-1 h-11 w-11 flex items-center justify-center text-accent-foreground"
+            >
+              <ChevronDown className="h-6 w-6" />
+            </button>
             {/* Row 1: small time above greeting, THEO orb pinned right.
                 Tapping the orb opens Theo (listened for in AiAssistantBubble). */}
             {(() => {
@@ -689,16 +704,16 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
               } catch { /* ignore */ }
               return (
                 <>
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-accent-foreground/70 tabular-nums leading-none mb-1">
+                  <div className="flex items-start gap-3 mb-1">
+                    <div className="flex-1 min-w-0 text-accent-foreground">
+                      <p className="text-[13px] font-bold tabular-nums leading-none mb-1.5">
                         {formattedTime}
                       </p>
-                      <h2 className="text-2xl font-bold text-accent-foreground truncate leading-tight">
+                      <h2 className="text-[30px] font-extrabold tracking-[-0.02em] leading-[1.1] truncate">
                         Hey {firstName}
                       </h2>
                       {paceStatus && (
-                        <p className="text-sm font-medium text-accent-foreground/90 mt-1 leading-snug">
+                        <p className="text-[15px] font-semibold mt-1 leading-snug">
                           {paceStatus.greeting}
                         </p>
                       )}
@@ -764,170 +779,168 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                 </>
               );
             })()}
+          </div>
 
-            {/* Sales & Pace Cards */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {/* Total Sales Card */}
-              <div className="bg-accent-foreground/10 rounded-2xl p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="h-4 w-4 text-green-500" />
-                  <span className="text-accent-foreground/70 text-xs">Sales</span>
-                </div>
-                <p className="text-2xl font-bold text-accent-foreground">
+          {/* B. Beige panel — scrolls on its own */}
+          <div
+            className="flex-1 min-h-0 overflow-y-auto bg-background rounded-t-[24px] px-4 pt-5 tabular-nums"
+            style={{ color: 'var(--cd-ink)', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}
+          >
+            {/* B1. Sales | Pace */}
+            <div className="grid grid-cols-2">
+              <div className="pr-4">
+                <p className="text-[13px] font-bold">Sales</p>
+                <p className="text-[32px] font-extrabold tracking-[-0.02em] leading-tight">
                   {formatCurrency(totalSales)}
                 </p>
-                <div className="flex items-center gap-1 text-accent-foreground/50 text-[10px] mt-0.5">
-                  <span>of {formatCurrency(projectedSales)} projected</span>
-                  <ProjectionIcon source={resolvedProjection.source} className="text-accent-foreground" />
+                <div className="h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ background: 'color-mix(in srgb, var(--cd-ink) 18%, transparent)' }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      background: 'hsl(var(--primary))',
+                      width: `${projectedSales > 0 ? Math.min(100, (totalSales / projectedSales) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-1 text-[12px] font-bold mt-1.5">
+                  <span>
+                    {projectedSales > 0 ? Math.round((totalSales / projectedSales) * 100) : 0}% of {formatCurrency(projectedSales)} goal
+                  </span>
+                  <ProjectionIcon source={resolvedProjection.source} />
                 </div>
               </div>
-
-              {/* Pace Card */}
-              <div className="bg-accent-foreground/10 rounded-2xl p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  {paceStatus ? (
-                    <paceStatus.icon className={cn("h-4 w-4", paceStatus.color)} />
-                  ) : (
-                    <Target className="h-4 w-4 text-accent-foreground/50" />
-                  )}
-                  <span className="text-accent-foreground/70 text-xs">Pace</span>
-                </div>
-                <p className="text-2xl font-bold text-amber-500">
+              <div className="pl-4" style={{ borderLeft: '1px solid var(--cd-line)' }}>
+                <p className="text-[13px] font-bold">Pace</p>
+                <p className="text-[32px] font-extrabold tracking-[-0.02em] leading-tight">
                   {formatCurrency(paceAdjusted)}
                 </p>
                 {paceStatus && (
-                  <p className={cn("text-[10px] mt-0.5", paceStatus.color)}>
+                  <span
+                    className="inline-flex items-center gap-1 h-[26px] px-2.5 mt-1.5 rounded-full text-[12px] font-extrabold text-white"
+                    style={{ background: PACE_PILL_BG[paceStatus.label] }}
+                  >
+                    <paceStatus.icon className="h-[13px] w-[13px]" />
                     {paceStatus.label}
-                  </p>
+                  </span>
                 )}
               </div>
             </div>
 
-            {/* Labor / Goal / Variance — data pill */}
-            <div className="bg-accent-foreground/10 rounded-2xl px-4 py-3 mb-4">
-              <div className="grid grid-cols-3 divide-x divide-accent-foreground/20">
-                <div className="flex flex-col items-center justify-center px-2">
-                  <p className={cn(
-                    "text-xl font-bold leading-tight",
-                    laborStatus === 'good' ? 'text-green-500' :
-                    laborStatus === 'warning' ? 'text-yellow-500' :
-                    'text-red-500'
-                  )}>
-                    {laborPercentage.toFixed(1)}%
-                  </p>
-                  <p className="text-accent-foreground/70 text-xs mt-0.5">
-                    Labor
-                  </p>
-                </div>
-                <div className="flex flex-col items-center justify-center px-2">
-                  <p className="text-xl font-bold text-accent-foreground leading-tight">
-                    {laborTarget}%
-                  </p>
-                  <p className="text-accent-foreground/70 text-xs mt-0.5">
-                    Goal
-                  </p>
-                </div>
-                <div className="flex flex-col items-center justify-center px-2">
-                  <p className={cn(
-                    "text-xl font-bold leading-tight",
-                    laborSavings >= 0 ? 'text-green-500' : 'text-red-500'
-                  )}>
-                    {laborSavings >= 0 ? '−' : '+'}{formatCurrency(Math.abs(laborSavings))}
-                  </p>
-                  <p className="text-accent-foreground/70 text-xs mt-0.5">
-                    Variance
-                  </p>
-                </div>
+            <div className="my-[14px] h-px" style={{ background: 'var(--cd-line)' }} />
+
+            {/* B2. Labor | Goal | Variance */}
+            <div className="grid grid-cols-3 text-center">
+              <div>
+                <p className="text-[24px] font-extrabold leading-tight" style={{ color: LABOR_COLOR[laborStatus] }}>
+                  {laborPercentage.toFixed(1)}%
+                </p>
+                <p className="text-[13px] font-bold">Labor</p>
+              </div>
+              <div style={{ borderLeft: '1px solid var(--cd-line)', borderRight: '1px solid var(--cd-line)' }}>
+                <p className="text-[24px] font-extrabold leading-tight">{laborTarget}%</p>
+                <p className="text-[13px] font-bold">Goal</p>
+              </div>
+              <div>
+                <p
+                  className="text-[24px] font-extrabold leading-tight"
+                  style={{ color: laborSavings >= 0 ? 'var(--cd-good)' : 'var(--cd-bad)' }}
+                >
+                  {laborSavings >= 0 ? '−' : '+'}{formatCurrency(Math.abs(laborSavings))}
+                </p>
+                <p className="text-[13px] font-bold">Variance</p>
               </div>
             </div>
 
-            {/* On The Clock - with cut options */}
-            <div className="bg-accent-foreground/10 rounded-2xl p-3">
-              <div className="flex items-center justify-between mb-3">
+            <div className="my-[14px] h-px" style={{ background: 'var(--cd-line)' }} />
+
+            {/* B3. On the clock */}
+            <div>
+              <div className="flex items-center justify-between min-h-[44px]">
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-accent-foreground/70" />
-                  <span className="text-accent-foreground/70 text-xs font-medium">On The Clock</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  <Users className="h-[18px] w-[18px]" />
+                  <span className="text-[15px] font-extrabold">On the clock</span>
+                  <span
+                    className="inline-flex items-center justify-center h-[22px] min-w-[22px] px-2 rounded-full text-[12px] font-extrabold text-white"
+                    style={{ background: 'var(--cd-solid)' }}
+                  >
                     {activeShifts.length}
-                  </Badge>
+                  </span>
                 </div>
                 {hasAnyCuts && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 text-xs text-primary hover:text-primary/80 px-2"
+                  <button
+                    type="button"
+                    className="h-11 px-2 inline-flex items-center gap-1.5 text-[13px] font-extrabold"
                     onClick={() => setShowPreviewModal(true)}
                   >
-                    <Calculator className="h-3 w-3 mr-1" />
+                    <Calculator className="h-4 w-4" />
                     Preview
-                  </Button>
+                  </button>
                 )}
               </div>
 
               {activeShifts.length === 0 ? (
-                <p className="text-accent-foreground/50 text-xs text-center py-4">No one clocked in</p>
+                <p className="text-[14px] font-semibold text-center py-6">No one clocked in</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1 mt-1">
                   {activeShifts.map((shift) => {
                     const cut = getCutForEmployee(shift.userId);
+                    const cutText = cut
+                      ? cut.customEndTime
+                        ? `Out at ${formatCustomTime(cut.customEndTime)}`
+                        : shift.scheduledEndTime
+                          ? (getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut)
+                              ? `Out at ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut)}`
+                              : `−${cut.minutesCut}m`)
+                          : `−${cut.minutesCut}m`
+                      : null;
                     return (
                       <div
                         key={shift.userId}
-                        className={cn(
-                          "flex items-center gap-2 p-2 rounded-xl transition-colors",
-                          cut ? "bg-red-500/10 border border-red-500/30" : "bg-accent-foreground/5"
-                        )}
+                        className="flex items-center gap-3 min-h-[52px] px-2 py-1 rounded-[14px]"
+                        style={cut ? {
+                          background: 'color-mix(in srgb, var(--cd-bad) 8%, transparent)',
+                          boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--cd-bad) 35%, transparent)',
+                        } : undefined}
                       >
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-9 w-9">
                           <AvatarImage src={shift.profilePhoto || undefined} />
-                          <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                          <AvatarFallback className="bg-primary/15 text-[14px] font-extrabold" style={{ color: 'var(--cd-ink)' }}>
                             {shift.fullName.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-accent-foreground truncate">
-                            {shift.fullName}
-                          </p>
-                          {shift.scheduledEndTime && (
-                            <p className="text-[10px] text-accent-foreground/50">
-                              until {formatEndTime(shift.scheduledEndTime)}
-                            </p>
-                          )}
+                          <p className="text-[15px] font-bold truncate">{shift.fullName}</p>
+                          {cutText ? (
+                            <p className="text-[13px] font-extrabold" style={{ color: 'var(--cd-bad)' }}>{cutText}</p>
+                          ) : shift.scheduledEndTime ? (
+                            <p className="text-[13px] font-semibold">until {formatEndTime(shift.scheduledEndTime)}</p>
+                          ) : null}
                         </div>
-                        
+
                         {cut ? (
-                          <div className="flex items-center gap-1">
-                            <Badge className="bg-red-500/30 text-red-500 text-[10px] px-1.5">
-                              {cut.customEndTime 
-                                ? `Out @ ${formatCustomTime(cut.customEndTime)}`
-                                : shift.scheduledEndTime
-                                  ? `Out @ ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut) || `-${cut.minutesCut}m`}`
-                                  : `-${cut.minutesCut}m`
-                              }
-                            </Badge>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-5 w-5 p-0 text-red-500 hover:text-red-400"
-                              onClick={() => handleRemoveCut(shift.userId)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
+                          <button
+                            type="button"
+                            aria-label={`Remove cut for ${shift.fullName}`}
+                            className="h-11 w-11 flex items-center justify-center"
+                            style={{ color: 'var(--cd-bad)' }}
+                            onClick={() => handleRemoveCut(shift.userId)}
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
                         ) : (
                           <Popover open={showCutOptions === shift.userId} onOpenChange={(open) => {
                             setShowCutOptions(open ? shift.userId : null);
                             if (!open) setCustomTime('');
                           }}>
                             <PopoverTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 text-[10px] px-2 text-accent-foreground/70 hover:text-red-500 hover:bg-red-500/10"
+                              <button
+                                type="button"
+                                className="h-11 px-3.5 inline-flex items-center gap-1.5 rounded-full text-[13px] font-bold"
+                                style={{ boxShadow: 'inset 0 0 0 1.5px color-mix(in srgb, var(--cd-ink) 50%, transparent)' }}
                               >
-                                <Scissors className="h-3 w-3 mr-1" />
+                                <Scissors className="h-4 w-4" />
                                 Cut
-                              </Button>
+                              </button>
                             </PopoverTrigger>
                             <PopoverContent 
                               className="w-48 p-3 bg-background border border-border shadow-neumorphic-lg"
@@ -1003,142 +1016,127 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
               {/* Summary when cuts exist */}
               {hasAnyCuts && (
-                <div className="mt-3 pt-3 border-t border-accent-foreground/10 flex items-center justify-between">
-                  <div>
-                    <p className="text-green-500 text-xs font-medium">
-                      -{calculateLaborSavings.percentSaved.toFixed(1)}% labor
+                <div className="mt-3 pt-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid var(--cd-line)' }}>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-extrabold" style={{ color: 'var(--cd-good)' }}>
+                      −{calculateLaborSavings.percentSaved.toFixed(1)}% labor
                     </p>
-                    <p className="text-accent-foreground/50 text-[10px]">
+                    <p className="text-[13px] font-semibold">
                       {dollarsKnown
                         ? `Est. savings ${formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}`
                         : `${calculateLaborSavings.totalMinutesCut}m — savings estimate unavailable right now.`}
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs text-accent-foreground/70"
-                      onClick={handleClearAllCuts}
-                    >
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button" className="h-11 px-3 text-[14px] font-bold" onClick={handleClearAllCuts}>
                       Clear
-                    </Button>
-                    <Button
-                      size="sm"
-                      className={cn(
-                        "h-7 text-xs",
-                        cutsSaved 
-                          ? "bg-green-500 hover:bg-green-600" 
-                          : "bg-primary hover:bg-primary/90"
-                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="h-11 px-4 rounded-full text-[14px] font-extrabold text-white"
+                      style={{ background: cutsSaved ? 'var(--cd-good-solid)' : 'var(--cd-solid)' }}
                       onClick={handleSaveCuts}
                     >
-                      {cutsSaved ? 'Saved ✓' : 'Save Plan'}
-                    </Button>
+                      {cutsSaved ? 'Saved ✓' : 'Save plan'}
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Labor Savings Preview Modal */}
+          {/* C. Labor Savings Preview */}
           <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
-            <DialogContent className="max-w-sm bg-accent border-accent-foreground/20 text-accent-foreground">
+            <DialogContent className="cd-panel max-w-sm bg-background border-border tabular-nums" style={{ color: 'var(--cd-ink)' }}>
+              <style>{CD_STYLE}</style>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5 text-primary" />
+                <DialogTitle className="flex items-center gap-2 text-[18px] font-extrabold" style={{ color: 'var(--cd-ink)' }}>
+                  <Calculator className="h-5 w-5" />
                   Labor Savings Preview
                 </DialogTitle>
               </DialogHeader>
-              
-              <div className="space-y-4 py-2">
-                {/* Employees being cut */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-medium text-accent-foreground/70">Sending Home Early:</h4>
+
+              <div className="space-y-4 py-1">
+                <div>
+                  <h4 className="text-[13px] font-bold mb-1">Sending home early</h4>
                   {laborCuts.map(cut => {
                     const employee = activeShifts.find(s => s.userId === cut.userId);
                     if (!employee) return null;
                     return (
-                      <div key={cut.userId} className="flex items-center justify-between p-2 rounded-lg bg-accent-foreground/10">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
+                      <div key={cut.userId} className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--cd-line)' }}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar className="h-8 w-8">
                             <AvatarImage src={employee.profilePhoto || undefined} />
-                            <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                            <AvatarFallback className="bg-primary/15 text-[13px] font-extrabold" style={{ color: 'var(--cd-ink)' }}>
                               {employee.fullName.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-xs">{employee.fullName}</span>
+                          <span className="text-[15px] font-bold truncate">{employee.fullName}</span>
                         </div>
-                        <div className="text-right">
-                          {/* Minutes only — no per-person dollars on any device. */}
-                          <Badge className="bg-red-500/30 text-red-500 text-[10px]">-{cut.minutesCut}m</Badge>
-                        </div>
+                        {/* Minutes only — no per-person dollars on any device. */}
+                        <span className="text-[14px] font-extrabold" style={{ color: 'var(--cd-bad)' }}>−{cut.minutesCut}m</span>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Comparison */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-accent-foreground/10 text-center">
-                    <p className="text-[10px] mb-1 text-accent-foreground/70">Current</p>
-                    <p className={cn(
-                      "text-lg font-bold",
-                      calculateLaborSavings.currentLaborPercent > laborTarget ? 'text-red-500' : 'text-accent-foreground'
-                    )}>
+                <div className="grid grid-cols-2 text-center py-3" style={{ borderTop: '1px solid var(--cd-line)', borderBottom: '1px solid var(--cd-line)' }}>
+                  <div>
+                    <p className="text-[13px] font-bold">Current</p>
+                    <p
+                      className="text-[24px] font-extrabold"
+                      style={{ color: calculateLaborSavings.currentLaborPercent > laborTarget ? 'var(--cd-bad)' : 'var(--cd-ink)' }}
+                    >
                       {calculateLaborSavings.currentLaborPercent.toFixed(1)}%
                     </p>
                   </div>
-                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
-                    <p className="text-[10px] mb-1 text-green-500/80">After Cuts</p>
-                    <p className={cn(
-                      "text-lg font-bold",
-                      calculateLaborSavings.newLaborPercent <= laborTarget ? 'text-green-500' : 'text-yellow-500'
-                    )}>
+                  <div style={{ borderLeft: '1px solid var(--cd-line)' }}>
+                    <p className="text-[13px] font-bold">After cuts</p>
+                    <p
+                      className="text-[24px] font-extrabold"
+                      style={{ color: calculateLaborSavings.newLaborPercent <= laborTarget ? 'var(--cd-good)' : 'var(--cd-warn)' }}
+                    >
                       {calculateLaborSavings.newLaborPercent.toFixed(1)}%
                     </p>
                   </div>
                 </div>
 
-                {/* Summary */}
-                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-[10px] text-accent-foreground/70">Est. savings</p>
-                      {dollarsKnown ? (
-                        <p className="text-green-500 text-lg font-bold">
-                          {formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}
-                        </p>
-                      ) : (
-                        <p className="text-accent-foreground/60 text-[10px] mt-0.5">
-                          Savings estimate unavailable right now.
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-accent-foreground/70">Time Cut</p>
-                      <p className="text-green-500 text-lg font-bold">
-                        {Math.floor(calculateLaborSavings.totalMinutesCut / 60)}h {calculateLaborSavings.totalMinutesCut % 60}m
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[13px] font-bold">Est. savings</p>
+                    {dollarsKnown ? (
+                      <p className="text-[22px] font-extrabold" style={{ color: 'var(--cd-good)' }}>
+                        {formatCurrency(calculateLaborSavings.totalCostSaved ?? 0)}
                       </p>
-                    </div>
+                    ) : (
+                      <p className="text-[13px] font-semibold mt-0.5">Savings estimate unavailable right now.</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[13px] font-bold">Time cut</p>
+                    <p className="text-[22px] font-extrabold" style={{ color: 'var(--cd-good)' }}>
+                      {Math.floor(calculateLaborSavings.totalMinutesCut / 60)}h {calculateLaborSavings.totalMinutesCut % 60}m
+                    </p>
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
+                  <button
+                    type="button"
+                    className="flex-1 h-11 rounded-full text-[14px] font-bold"
+                    style={{ boxShadow: 'inset 0 0 0 1.5px color-mix(in srgb, var(--cd-ink) 50%, transparent)' }}
                     onClick={handleClearAllCuts}
                   >
                     Clear All
-                  </Button>
-                  <Button
-                    className="flex-1 bg-green-500 hover:bg-green-600"
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 h-11 rounded-full text-[14px] font-extrabold text-white"
+                    style={{ background: cutsSaved ? 'var(--cd-good-solid)' : 'var(--cd-solid)' }}
                     onClick={handleSaveCuts}
                   >
                     {cutsSaved ? 'Saved ✓' : 'Save Cuts'}
-                  </Button>
+                  </button>
                 </div>
               </div>
             </DialogContent>
