@@ -11,6 +11,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, isSameWeek
 import { formatInTimeZone } from "date-fns-tz";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
+import { reassignShift, sendScheduleUpdate, detectScheduleChanges as detectScheduleChangesShared } from "@/lib/scheduleActions";
 
 // Cache time constants
 const SCHEDULE_STALE_TIME = 15 * 60 * 1000;
@@ -568,8 +569,7 @@ export function useScheduleData() {
         });
         toast.success("Shift added");
       } else {
-        const { error } = await supabase.from("scheduled_shifts").update({ user_id: userId, day_of_week: dayIndex, shift_date: shiftDate }).eq("id", existingShift.id);
-        if (error) throw error;
+        await reassignShift(existingShift.id, userId, dayIndex, shiftDate);
         queryClient.setQueryData(scheduleQueryKey, (old: any) => {
           if (!old) return old;
           return { ...old, shifts: old.shifts.map((s: any) => s.id === existingShift.id ? { ...s, _optimistic: false } : s) };
@@ -671,34 +671,8 @@ export function useScheduleData() {
   }, [isPublished, publishedSnapshot, shifts]);
   const hasPendingChanges = pendingChangesCount > 0;
 
-  // Detect schedule changes helper
-  const detectScheduleChanges = useCallback((oldShifts: any[], newShifts: any[]) => {
-    const changes: any[] = [];
-    const oldShiftsMap = new Map(oldShifts.map(s => [s.id, s]));
-    const newShiftsMap = new Map(newShifts.map(s => [s.id, s]));
-
-    oldShifts.forEach(oldShift => {
-      if (!newShiftsMap.has(oldShift.id) && oldShift.user_id) {
-        changes.push({ user_id: oldShift.user_id, type: 'removed', oldShift, newShift: null });
-      }
-    });
-    newShifts.forEach(newShift => {
-      const oldShift = oldShiftsMap.get(newShift.id);
-      if (!oldShift && newShift.user_id) {
-        changes.push({ user_id: newShift.user_id, type: 'added', oldShift: null, newShift });
-      } else if (oldShift && newShift.user_id) {
-        if (oldShift.start_time !== newShift.start_time || oldShift.end_time !== newShift.end_time) {
-          changes.push({ user_id: newShift.user_id, type: 'time_changed', oldShift, newShift });
-        } else if (oldShift.shift_date !== newShift.shift_date || oldShift.day_of_week !== newShift.day_of_week) {
-          changes.push({ user_id: newShift.user_id, type: 'date_changed', oldShift, newShift });
-        } else if (oldShift.user_id !== newShift.user_id) {
-          if (oldShift.user_id) changes.push({ user_id: oldShift.user_id, type: 'removed', oldShift, newShift: null });
-          if (newShift.user_id) changes.push({ user_id: newShift.user_id, type: 'added', oldShift: null, newShift });
-        }
-      }
-    });
-    return changes;
-  }, []);
+  // Detect schedule changes helper (shared with Theo's Confirm change)
+  const detectScheduleChanges = useCallback((oldShifts: any[], newShifts: any[]) => detectScheduleChangesShared(oldShifts, newShifts), []);
 
   // Go Live
   const handleGoLive = useCallback(async () => {
@@ -748,38 +722,13 @@ export function useScheduleData() {
     if (!scheduleId) return;
     setIsPublishing(true);
     try {
-      const { data: currentShifts, error: shiftsError } = await supabase.from('scheduled_shifts').select('*').eq('schedule_id', scheduleId);
-      if (shiftsError) throw shiftsError;
-
-      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-      const dateRange = `${formatInTimeZone(currentWeekStart, timezone, "MMM d")} - ${formatInTimeZone(weekEnd, timezone, "MMM d, yyyy")}`;
-      const changes = detectScheduleChanges(publishedSnapshot, currentShifts || []);
-
-      if (changes.length > 0) {
-        const affectedUserIds = [...new Set(changes.map(c => c.user_id).filter(Boolean))];
-        for (const change of changes) {
-          await supabase.from('schedule_change_log').insert({
-            schedule_id: scheduleId, user_id: change.user_id, change_type: change.type,
-            old_shift_data: change.oldShift, new_shift_data: change.newShift, changed_by: user?.id
-          });
-        }
-        if (affectedUserIds.length > 0) {
-          await supabase.functions.invoke('send-push-notification', {
-            body: { user_ids: affectedUserIds, title: 'Schedule Updated', body: `Your schedule for ${dateRange} has been updated`, notification_type: 'schedule_updates', data: { type: 'schedule_update', schedule_id: scheduleId } }
-          });
-        }
-        toast.success(`Schedule updated! ${affectedUserIds.length} affected team member(s) notified.`);
-      } else {
-        toast.success("Schedule updated!");
-      }
-
-      await supabase.from('schedule_change_log').update({ is_draft: false }).eq('schedule_id', scheduleId).eq('is_draft', true);
-
-      const { error } = await supabase.from('schedules').update({
-        published_shifts_snapshot: currentShifts, last_status_changed_at: new Date().toISOString(),
-        last_status_changed_by: user?.id, last_status_action: 'updated'
-      }).eq('id', scheduleId);
-      if (error) throw error;
+      await sendScheduleUpdate({
+        scheduleId, weekStart: currentWeekStart, timezone, publishedSnapshot, changedBy: user?.id,
+        onNotified: (affected, changeCount) => {
+          if (changeCount > 0) toast.success(`Schedule updated! ${affected} affected team member(s) notified.`);
+          else toast.success("Schedule updated!");
+        },
+      });
       await refetchSchedule();
     } catch (error: any) {
       console.error('Error updating schedule:', error);
@@ -787,7 +736,7 @@ export function useScheduleData() {
     } finally {
       setIsPublishing(false);
     }
-  }, [scheduleId, currentWeekStart, publishedSnapshot, user?.id, refetchSchedule, detectScheduleChanges]);
+  }, [scheduleId, currentWeekStart, publishedSnapshot, user?.id, refetchSchedule, timezone]);
 
   // Withdraw schedule
   const handleWithdrawSchedule = useCallback(async () => {
