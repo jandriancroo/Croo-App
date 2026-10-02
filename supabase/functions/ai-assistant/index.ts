@@ -936,25 +936,40 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
       case "query_labor": {
         const endDate = args.end_date || args.start_date;
-        const { data: laborData, error: laborError } = await supabase
-          .from("labor_cache")
-          .select(canSeeWages
-            ? "labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours, employee_breakdown"
-            : "labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours")
-          .eq("location_id", args.location_id)
-          .gte("labor_date", args.start_date)
-          .lte("labor_date", endDate)
-          .order("labor_date");
-        if (laborError) {
-          console.error("query_labor cache error:", laborError);
-          return JSON.stringify({ error: laborError.message });
+        // Day totals (hours, cost, net sales, labor %) come ONLY from get_store_labor,
+        // called as the signed-in user. Never total labor_cache rows; never fall back.
+        const result: any = {};
+        const { rows: storeRows, error: storeErr } = ctx.userClient
+          ? await fetchStoreLaborRows(ctx.userClient, args.location_id, args.start_date, endDate)
+          : { rows: null, error: "no user client" };
+        if (storeErr || !storeRows) {
+          result.labor_summary = LABOR_UNAVAILABLE;
+        } else {
+          result.labor_summary = laborByDay(storeRows, args.start_date, endDate);
+          // Per-employee breakdown (manager+ only) may still come from labor_cache, but only
+          // from the row whose source matches the one get_store_labor used for that day.
+          if (canSeeWages) {
+            const srcByDate: Record<string, string> = {};
+            storeRows.forEach((r: any) => { srcByDate[String(r.date).slice(0, 10)] = r.source; });
+            const { data: bd } = await supabase
+              .from("labor_cache")
+              .select("labor_date, source, employee_breakdown")
+              .eq("location_id", args.location_id)
+              .gte("labor_date", args.start_date)
+              .lte("labor_date", endDate);
+            const byDate: Record<string, any> = {};
+            (bd || []).forEach((row: any) => {
+              if (srcByDate[row.labor_date] && row.source === srcByDate[row.labor_date] && row.employee_breakdown) byDate[row.labor_date] = row.employee_breakdown;
+            });
+            result.labor_summary = result.labor_summary.map((d: any) => byDate[d.date] ? { ...d, employee_breakdown: byDate[d.date] } : d);
+          }
         }
 
-        const result: any = { labor_summary: laborData || [] };
-
         if (args.include_punches) {
-          const startTs = `${args.start_date}T00:00:00${offset}`;
-          const endTs = `${endDate}T23:59:59${offset}`;
+          const win = await rangeWindow(supabase, args.location_id, args.start_date, endDate);
+          const startTs = win?.start_at || `${args.start_date}T00:00:00${offset}`;
+          const endTs = win?.end_at || `${addDays(endDate, 1)}T00:00:00${offset}`;
+          result.business_day_window = win;
           const { data: punches, error: punchError } = await supabase
             .from("time_punches")
             .select("user_id, punch_type, punch_time, notes, profiles!time_punches_user_id_fkey(full_name)")
