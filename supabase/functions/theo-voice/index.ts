@@ -2,7 +2,7 @@
 // per-location 4-hour opening update. The xAI key never leaves the server.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { requireInternalCaller } from "../_shared/callerAuth.ts";
+import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 
 const AI_URL = "https://ai.gateway.lovable.dev/v1/responses";
 const MANAGER_ROLES = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
@@ -91,19 +91,8 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch (_) { /* empty */ }
 
   try {
-    if (body?.action === "opener_cron") {
-      const denied = requireInternalCaller(req, corsHeaders);
-      if (denied) return denied;
-      const { data: locs } = await admin.from("locations").select("id, name").eq("is_active", true);
-      const out: any[] = [];
-      for (const loc of locs || []) {
-        try { const o = await buildOpener(admin, loc, await tzFor(admin, loc.id)); out.push({ loc: loc.name, w: o.window_key }); }
-        catch (e) { out.push({ loc: loc.name, error: String(e) }); }
-      }
-      return json({ ok: true, out });
-    }
-
-    if (body?.action !== "session") return json({ error: "Unknown action" }, 400);
+    // Updates are written only on demand ("update" action). The every-hour writer was removed.
+    if (body?.action !== "session" && body?.action !== "update") return json({ error: "Unknown action" }, 400);
     const locationId = typeof body.location_id === "string" && /^[0-9a-f-]{36}$/i.test(body.location_id) ? body.location_id : null;
     if (!locationId) return json({ error: "location_id required" }, 400);
 
@@ -124,15 +113,33 @@ Deno.serve(async (req) => {
 
     const xaiKey = Deno.env.get("XAI_API_KEY");
     if (!xaiKey) return json({ error: "Voice is not set up yet" }, 503);
+    const { data: pref } = await admin.from("theo_voice_prefs").select("voice").eq("user_id", user.id).maybeSingle();
+    const voice = VOICES.includes(pref?.voice) ? pref.voice : "eve";
 
-    const [opener, tokenRes] = await Promise.all([
-      buildOpener(admin, loc, await tzFor(admin, loc.id)),
-      fetch("https://api.x.ai/v1/realtime/client_secrets", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${xaiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ expires_after: { seconds: 300 } }),
-      }),
-    ]);
+    if (body.action === "update") {
+      // Cheap path: write the update if needed, read it with text-to-speech. No live connection.
+      const opener = await buildOpener(admin, loc, await tzFor(admin, loc.id));
+      const out = { key: opener.window_key, label: opener.window_label, script: opener.script };
+      try {
+        const r = await fetch("https://api.x.ai/v1/tts", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${xaiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ text: opener.script, voice_id: voice, language: "en" }),
+        });
+        if (!r.ok) { console.error("xai tts failed", r.status, await r.text()); return json({ opener: out, audio: null }); }
+        const audio = encodeBase64(new Uint8Array(await r.arrayBuffer()));
+        return json({ opener: out, audio, mime: "audio/mpeg", tts_chars: opener.script.length });
+      } catch (e) {
+        console.error("xai tts error", e);
+        return json({ opener: out, audio: null });
+      }
+    }
+
+    const tokenRes = await fetch("https://api.x.ai/v1/realtime/client_secrets", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${xaiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ expires_after: { seconds: 300 } }),
+    });
     if (!tokenRes.ok) {
       console.error("xai token failed", tokenRes.status, await tokenRes.text());
       return json({ error: "Voice service unavailable" }, 502);
@@ -141,14 +148,11 @@ Deno.serve(async (req) => {
     const token = tok?.value || tok?.client_secret?.value || tok?.token;
     if (!token) return json({ error: "Voice service unavailable" }, 502);
 
-    const { data: pref } = await admin.from("theo_voice_prefs").select("voice").eq("user_id", user.id).maybeSingle();
-    const voice = VOICES.includes(pref?.voice) ? pref.voice : "eve";
     return json({
       token,
       model: "grok-voice-latest",
       voice,
       instructions: INSTRUCTIONS(loc.name, role),
-      opener: { key: opener.window_key, label: opener.window_label, script: opener.script },
       location_name: loc.name,
     });
   } catch (e) {
