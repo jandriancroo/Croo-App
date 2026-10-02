@@ -534,7 +534,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_labor",
-      description: "Query labor data: labor cost, hours, overtime, employee breakdown. Also queries individual time punches (clock in/out times) for specific employees or all staff on a date. Use for labor cost/hours and who clocked in/out. NOT for lateness — any "late", "tardy" or "on time" question goes to query_punch_patterns.",
+      description: "Query labor data: labor cost, hours, overtime, employee breakdown. Also queries individual time punches (clock in/out times) for specific employees or all staff on a date. Use for labor cost/hours and who clocked in/out. NOT for lateness — any late, tardy or on-time question goes to query_punch_patterns.",
       parameters: {
         type: "object",
         properties: {
