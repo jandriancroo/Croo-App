@@ -83,6 +83,29 @@ const pickThinkingLine = (last: string) => {
   const line = THINKING_LINES[Math.floor(Math.random() * THINKING_LINES.length)];
   return line === last ? THINKING_LINES[(THINKING_LINES.indexOf(line) + 1) % THINKING_LINES.length] : line;
 };
+
+function MicInputMeter({ level, compact }: { level: number; compact: boolean }) {
+  const heights = [0.55, 0.8, 1, 0.72, 0.48];
+  return (
+    <div
+      role="status"
+      aria-label="Microphone is listening"
+      className={compact ? 'mt-1 flex h-4 shrink-0 items-center gap-1 text-primary' : 'mt-3 flex h-5 items-center gap-1.5 text-primary'}
+    >
+      {heights.map((weight, index) => {
+        const strength = Math.max(0.12, Math.min(1, level * (1.2 + weight) + 0.08));
+        return (
+          <span
+            key={index}
+            aria-hidden="true"
+            className="w-1 rounded-full bg-current transition-[height,opacity] duration-75"
+            style={{ height: `${Math.max(4, strength * (compact ? 14 : 18) * weight)}px`, opacity: 0.38 + strength * 0.62 }}
+          />
+        );
+      })}
+    </div>
+  );
+}
 let accessToken = '';
 supabase.auth.getSession().then(({ data }) => { accessToken = data.session?.access_token || ''; });
 supabase.auth.onAuthStateChange((_e, session) => { accessToken = session?.access_token || ''; });
@@ -188,6 +211,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const [caption, setCaption] = useState('');
   const [showText, setShowText] = useState(false);
   const [level, setLevel] = useState(0);
+  const [micLevel, setMicLevel] = useState(0);
+  const micLevelRef = useRef(0);
   // Idle mode: 'update' reads the opener on tap, 'talk' just listens. After any session starts, the rest of this open is 'talk'.
   const [mode, setMode] = useState<'update' | 'talk'>(intent);
   const withOpenerRef = useRef(intent === 'update');
@@ -295,6 +320,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     stopAfterAnswerRef.current = false;
     setPhase('idle');
     setLevel(0);
+    micLevelRef.current = 0;
+    setMicLevel(0);
   }, [stopPlayback, triggerCue]);
 
   // Voice pass fetched ahead of the tap (free; expires after 5 minutes, reused for up to 4).
@@ -654,8 +681,20 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       const mic = ctx.createMediaStreamSource(stream);
       const proc = ctx.createScriptProcessor(4096, 1, 1);
       proc.onaudioprocess = (ev) => {
+        const samples = ev.inputBuffer.getChannelData(0);
+        if (phaseRef.current === 'listening') {
+          let energy = 0;
+          for (let i = 0; i < samples.length; i += 4) energy += samples[i] * samples[i];
+          const rms = Math.sqrt(energy / Math.ceil(samples.length / 4));
+          const target = Math.min(1, Math.max(0, (rms - 0.008) * 14));
+          micLevelRef.current += (target - micLevelRef.current) * (target > micLevelRef.current ? 0.65 : 0.25);
+          setMicLevel(micLevelRef.current);
+        } else if (micLevelRef.current !== 0) {
+          micLevelRef.current = 0;
+          setMicLevel(0);
+        }
         if (!capturingRef.current || ctx.currentTime < micGateUntilRef.current) return;
-        const audio = floatToB64(ev.inputBuffer.getChannelData(0));
+        const audio = floatToB64(samples);
         const ws = wsRef.current;
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio }));
         else if (pendingAudioRef.current.length < 60) pendingAudioRef.current.push(audio); // ~10s
@@ -1023,8 +1062,9 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             <TheoVoiceOrb ref={orbRef} phase={phase} level={level} />
           </div>
         </button>
+        {phase === 'listening' && <MicInputMeter level={micLevel} compact={!!(action || screen)} />}
         {action ? renderAction(action) : screen ? renderScreen(screen) : <>
-        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : phase === 'thinking' ? thinkingLine : PHASE_TEXT[phase]}</p>
+        <p className={phase === 'listening' ? 'mt-3 text-center text-lg font-bold tracking-[-0.01em] text-white' : 'mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white'}>{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : phase === 'thinking' ? thinkingLine : PHASE_TEXT[phase]}</p>
         {(() => {
           const sub = phase === 'idle' && mode === 'talk'
             ? (hitLimit ? 'We hit the 3-minute limit. Tap to keep going.' : stoppedListening ? 'I stopped listening. Tap to pick up where we left off.' : 'Ask about sales, labor, the schedule or checklists')
