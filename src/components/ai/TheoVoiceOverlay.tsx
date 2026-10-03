@@ -114,9 +114,9 @@ function CoverListScroller({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="relative max-h-full w-full overflow-hidden rounded-[20px] bg-card">
+    <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-[20px] bg-card">
       <div ref={scrollRef} onScroll={onScroll} onWheel={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()}
-        className="max-h-[min(354px,100%)] min-h-[60px] overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[min(474px,100%)]">
+        className="min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px]">
         {children}
       </div>
       {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />}
