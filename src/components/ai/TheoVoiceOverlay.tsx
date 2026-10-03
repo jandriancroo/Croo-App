@@ -580,6 +580,9 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             setSpeechTick((n) => n + 1);
             break;
           case 'response.function_call_arguments.done': {
+            const nextLine = pickThinkingLine(lastThinkingRef.current);
+            lastThinkingRef.current = nextLine;
+            setThinkingLine(nextLine);
             setPhase('thinking');
             let q = '';
             try { q = JSON.parse(ev.arguments || '{}').question || ''; } catch { /* bad args */ }
