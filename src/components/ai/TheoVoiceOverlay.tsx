@@ -58,7 +58,7 @@ const PHASE_TEXT: Record<Phase, string> = {
   connecting: 'Connecting…',
   speaking: 'Theo is talking',
   listening: 'Listening…',
-  thinking: 'Checking the numbers…',
+  thinking: 'Thinking…',
   error: '',
 };
 const PHASE_SUB: Record<Phase, string> = {
@@ -66,10 +66,23 @@ const PHASE_SUB: Record<Phase, string> = {
 };
 const ORB_LABEL: Record<Phase, string> = {
   idle: 'Start Theo voice update', connecting: 'Connecting to Theo', speaking: 'Interrupt Theo',
-  listening: 'Theo is listening', thinking: 'Theo is checking the numbers', error: 'Try Theo voice again',
+  listening: 'Theo is listening', thinking: 'Theo is working on it', error: 'Try Theo voice again',
 };
-
-// Final save uses fetch keepalive so it still goes out while the page is being hidden/closed.
+// Rotating "thinking" lines — one is picked each time the thinking state starts, never the same twice in a row.
+const THINKING_LINES = [
+  'Let me take a look and see…',
+  'Checking into that now…',
+  'Thinking…',
+  'On it…',
+  'One sec…',
+  'Give me a second…',
+  'Looking into it…',
+  'Working on that…',
+];
+const pickThinkingLine = (last: string) => {
+  const line = THINKING_LINES[Math.floor(Math.random() * THINKING_LINES.length)];
+  return line === last ? THINKING_LINES[(THINKING_LINES.indexOf(line) + 1) % THINKING_LINES.length] : line;
+};
 let accessToken = '';
 supabase.auth.getSession().then(({ data }) => { accessToken = data.session?.access_token || ''; });
 supabase.auth.onAuthStateChange((_e, session) => { accessToken = session?.access_token || ''; });
@@ -116,7 +129,7 @@ function CoverListScroller({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-[20px] bg-card">
       <div ref={scrollRef} onScroll={onScroll} onWheel={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()}
-        className="min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px]">
+        className="min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px] flex flex-col gap-1">
         {children}
       </div>
       {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />}
@@ -169,6 +182,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     void logId.then((id) => { if (id) void supabase.from('theo_action_log').update(patch as any).eq('id', id).then(() => {}); });
   };
   const [phase, setPhase] = useState<Phase>('idle');
+  const [thinkingLine, setThinkingLine] = useState(THINKING_LINES[0]);
+  const lastThinkingRef = useRef(THINKING_LINES[0]);
   const [error, setError] = useState('');
   const [caption, setCaption] = useState('');
   const [showText, setShowText] = useState(false);
@@ -565,6 +580,9 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             setSpeechTick((n) => n + 1);
             break;
           case 'response.function_call_arguments.done': {
+            const nextLine = pickThinkingLine(lastThinkingRef.current);
+            lastThinkingRef.current = nextLine;
+            setThinkingLine(nextLine);
             setPhase('thinking');
             let q = '';
             try { q = JSON.parse(ev.arguments || '{}').question || ''; } catch { /* bad args */ }
@@ -1006,7 +1024,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
           </div>
         </button>
         {action ? renderAction(action) : screen ? renderScreen(screen) : <>
-        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : PHASE_TEXT[phase]}</p>
+        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : phase === 'thinking' ? thinkingLine : PHASE_TEXT[phase]}</p>
         {(() => {
           const sub = phase === 'idle' && mode === 'talk'
             ? (hitLimit ? 'We hit the 3-minute limit. Tap to keep going.' : stoppedListening ? 'I stopped listening. Tap to pick up where we left off.' : 'Ask about sales, labor, the schedule or checklists')
