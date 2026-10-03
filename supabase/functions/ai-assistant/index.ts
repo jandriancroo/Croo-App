@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
+import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2727,21 +2728,18 @@ serve(async (req) => {
       });
     }
 
-    const { data: roleData } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    // Every role row, reduced to the highest (people can hold more than one).
+    const { role: highest } = await roleForUser(supabaseAdmin, user.id);
     
     const managerRoles = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
-    if (!roleData || !managerRoles.includes(roleData.role)) {
+    if (!highest || !managerRoles.includes(highest)) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userRole = roleData.role;
+    const userRole = highest;
     const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard, pending_action, pick, list_context } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
