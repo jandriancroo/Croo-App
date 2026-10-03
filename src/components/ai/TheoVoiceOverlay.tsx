@@ -68,8 +68,21 @@ const ORB_LABEL: Record<Phase, string> = {
   idle: 'Start Theo voice update', connecting: 'Connecting to Theo', speaking: 'Interrupt Theo',
   listening: 'Theo is listening', thinking: 'Theo is working on it', error: 'Try Theo voice again',
 };
-
-// Final save uses fetch keepalive so it still goes out while the page is being hidden/closed.
+// Rotating "thinking" lines — one is picked each time the thinking state starts, never the same twice in a row.
+const THINKING_LINES = [
+  'Let me take a look and see…',
+  'Checking into that now…',
+  'Thinking…',
+  'On it…',
+  'One sec…',
+  'Give me a second…',
+  'Looking into it…',
+  'Working on that…',
+];
+const pickThinkingLine = (last: string) => {
+  const line = THINKING_LINES[Math.floor(Math.random() * THINKING_LINES.length)];
+  return line === last ? THINKING_LINES[(THINKING_LINES.indexOf(line) + 1) % THINKING_LINES.length] : line;
+};
 let accessToken = '';
 supabase.auth.getSession().then(({ data }) => { accessToken = data.session?.access_token || ''; });
 supabase.auth.onAuthStateChange((_e, session) => { accessToken = session?.access_token || ''; });
@@ -169,6 +182,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     void logId.then((id) => { if (id) void supabase.from('theo_action_log').update(patch as any).eq('id', id).then(() => {}); });
   };
   const [phase, setPhase] = useState<Phase>('idle');
+  const [thinkingLine, setThinkingLine] = useState(THINKING_LINES[0]);
+  const lastThinkingRef = useRef(THINKING_LINES[0]);
   const [error, setError] = useState('');
   const [caption, setCaption] = useState('');
   const [showText, setShowText] = useState(false);
