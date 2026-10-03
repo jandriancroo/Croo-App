@@ -189,7 +189,8 @@ function saveFinal(id: string, patch: Record<string, unknown>) {
 export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onExchange, onRecord, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onOpenAnswer?: () => void; onExchange?: (question: string, answer: string) => void; onRecord?: (text: string) => void; intent?: 'update' | 'talk' }) {
   const { currentLocation } = useLocation();
   const { user } = useAuth();
-  const { isSuperAdmin } = useUserRole();
+  // Which Theo actions this person has at this store: the server's answer (theo-voice session), nothing else.
+  const actionsRef = useRef<{ create_task: boolean; cover_shift: boolean }>({ create_task: false, cover_shift: false });
   const { timezone } = useLocationTimezone();
   // Cover-a-shift lists (shift picker, which-person, who-can-cover). Showing one changes nothing.
   const [screen, setScreenState] = useState<CoverScreen | null>(null);
@@ -341,10 +342,11 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const s = sessionRef.current;
     sessionRef.current = null; // one pass per live connection
     const d = s ? await s.promise : null;
-    if (d) return d;
+    const keep = (x: any) => { actionsRef.current = { create_task: x?.actions?.create_task === true, cover_shift: x?.actions?.cover_shift === true }; return x; };
+    if (d) return keep(d);
     const { data, error } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation!.id } });
     if (error || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
-    return data;
+    return keep(data);
   };
 
   useEffect(() => { if (!open) { const a = actionRef.current; if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' }); setAction(null); setScreen(null); setScreenNote(''); teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
@@ -478,29 +480,31 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const askTheo = async (question: string) => {
     if (logRef.current) logRef.current.questions += 1;
     setLongAnswer(false);
+    const acts = actionsRef.current;
+    const canAct = acts.create_task || acts.cover_shift;
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
         messages: [{ role: 'user', content: question + VOICE_SUFFIX }],
         location_id: currentLocation?.id,
         location_name: currentLocation?.name,
         source: 'voice',
-        ...(isSuperAdmin && actionRef.current?.stage === 'preview' ? { pending_action: actionRef.current.proposal } : {}),
-        ...(isSuperAdmin && screenRef.current?.kind === 'candidates' ? { list_context: { shift_id: screenRef.current.shift_id } } : {}),
+        ...(canAct && actionRef.current?.stage === 'preview' ? { pending_action: actionRef.current.proposal } : {}),
+        ...(acts.cover_shift && screenRef.current?.kind === 'candidates' ? { list_context: { shift_id: screenRef.current.shift_id } } : {}),
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
     const answer: string = data?.content || '';
-    if (isSuperAdmin && data?.cancel_pending && actionRef.current?.stage === 'preview') {
+    if (canAct && data?.cancel_pending && actionRef.current?.stage === 'preview') {
       logAction(actionRef.current.logId, { status: 'cancelled' });
       setAction(null);
     }
-    if (isSuperAdmin && (data?.proposal?.action === 'create_task' || data?.proposal?.action === 'cover_shift')) {
+    if ((acts.create_task && data?.proposal?.action === 'create_task') || (acts.cover_shift && data?.proposal?.action === 'cover_shift')) {
       if (showProposal(data.proposal as AnyProposal)) {
         onExchange?.(question, answer);
         return JSON.stringify({ answer, long: false, preview: true });
       }
     }
-    if (isSuperAdmin && data?.screen?.kind && !actionRef.current) {
+    if (acts.cover_shift && data?.screen?.kind && !actionRef.current) {
       setScreen(data.screen as CoverScreen);
       setScreenNote('');
       onExchange?.(question, answer);
@@ -938,8 +942,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   }
 
   function renderScreen(sc: CoverScreen) {
-    const rowCls = 'flex min-h-[60px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted disabled:opacity-60';
-    const groupLabel = 'sticky top-0 z-10 bg-card px-1 py-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const rowCls = 'flex min-h-[60px] w-full shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted disabled:opacity-60';
+    const groupLabel = 'sticky top-0 z-10 shrink-0 bg-card px-1 py-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
     const person = (r: ScreenRow) => (
       <button key={r.employee_id} disabled={picking} className={rowCls}
         onClick={() => sc.kind === 'candidates' && pickFromScreen({ kind: 'candidate', shift_id: sc.shift_id, employee_id: r.employee_id })}>

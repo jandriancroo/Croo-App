@@ -3,6 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { encodeBase64 } from "jsr:@std/encoding@1/base64";
+import { roleForUser, theoActionsAt, type TheoActions } from "../_shared/theoActions.ts";
 
 const AI_URL = "https://ai.gateway.lovable.dev/v1/responses";
 const MANAGER_ROLES = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
@@ -79,12 +80,15 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
   return row;
 }
 
-const HANDS = `
+const HANDS = (a: TheoActions) => a.cover_shift ? `
 Quick tasks and shift cover: ask_theo also takes requests to create a quick task ("have Alle wipe the patio tables") and to cover a shift ("who can cover Ryan tonight?", "cover Ryan's shift with Deborah", "someone called out"). Pass the whole request through, word for word.
 When an ask_theo result has "preview": true or "screen": true, say only its answer line. Never say a task was created or a shift was changed, moved or covered.
-If the manager says yes, do it, confirm or looks good while a preview is showing, pass it to ask_theo and say what it returns ("Tap Create task to save it." or "Tap Confirm change to save it.").`;
+If the manager says yes, do it, confirm or looks good while a preview is showing, pass it to ask_theo and say what it returns ("Tap Create task to save it." or "Tap Confirm change to save it.").` : a.create_task ? `
+Quick tasks: ask_theo also takes requests to create a quick task ("have Alle wipe the patio tables"). Pass the whole request through, word for word. Shift cover requests also go to ask_theo; say what it returns.
+When an ask_theo result has "preview": true, say only its answer line. Never say a task was created or a shift was changed, moved or covered.
+If the manager says yes, do it, confirm or looks good while a preview is showing, pass it to ask_theo and say what it returns ("Tap Create task to save it.").` : "";
 
-const INSTRUCTIONS = (locName: string, role: string, hands = false) => `You are Theo, the AI general manager for ${locName} in CrooHQ — think Jarvis for a restaurant. You're talking out loud with a ${role.replace(/_/g, " ")}. Be friendly but serious. Answer the whole question, briefly and naturally, with round numbers.
+const INSTRUCTIONS = (locName: string, role: string, hands = "") => `You are Theo, the AI general manager for ${locName} in CrooHQ — think Jarvis for a restaurant. You're talking out loud with a ${role.replace(/_/g, " ")}. Be friendly but serious. Answer the whole question, briefly and naturally, with round numbers.
 For ANY question about this store's data (sales, labor, schedule, checklists, tips, reviews, punches, crew, catering, logbook), call the ask_theo tool with the question and speak its answer in your own words. Never invent numbers.
 Every ask_theo result has "long": true or false — follow it exactly. When long is false, say the whole answer (short lists in full, e.g. "Seven on tomorrow. Ally and Marcus open at 9, Dee and Sam come in at 11, Jo at 2, and Chris and Priya close from 4.") and never mention the chat. Never drop part of a short answer to save time. When long is true, give the headline and the top few, then say "the rest is in your Theo chat — tap the button on screen." A one-number question gets one short sentence.
 You are only ever talking to a manager who already has access to this data, so say employee names, grades and details plainly when asked. If data is missing, say so briefly instead of saying zero.
@@ -92,7 +96,7 @@ Earlier answers are there so you understand what the manager means (who 'he' is,
 For any number or fact about the store, call ask_theo again, even if an earlier answer seems to cover it. Sales, labor and pace change by the minute.
 The only thing you may answer from the earlier conversation without calling ask_theo is a request to repeat or rephrase what you just said.
 ask_theo has no memory. Always send it a complete standalone question: include the person, the date and the subject from the conversation.
-Stay on restaurant operations.${hands ? HANDS : ""}`;
+Stay on restaurant operations.${hands}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -111,9 +115,8 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", user.id);
-    const roleList = (roles || []).map((r: any) => r.role);
-    const role = MANAGER_ROLES.find((r) => roleList.includes(r)) ? roleList.find((r: string) => MANAGER_ROLES.includes(r)) : null;
+    const { role: highest, roles: roleList } = await roleForUser(admin, user.id);
+    const role = highest && MANAGER_ROLES.includes(highest) ? highest : null;
     if (!role) return json({ error: "Theo voice is for shift managers and above" }, 403);
     if (!roleList.some((r: string) => ALL_ACCESS_ROLES.includes(r))) {
       const { data: m } = await admin.from("user_locations").select("id").eq("user_id", user.id).eq("location_id", locationId).maybeSingle();
@@ -159,11 +162,14 @@ Deno.serve(async (req) => {
     const token = tok?.value || tok?.client_secret?.value || tok?.token;
     if (!token) return json({ error: "Voice service unavailable" }, 502);
 
+    // Which Theo actions this person has at this store (store access checked inside). The screen uses only this.
+    const actions = await theoActionsAt(admin, user.id, role, loc.id);
     return json({
+      actions,
       token,
       model: "grok-voice-latest",
       voice,
-      instructions: INSTRUCTIONS(loc.name, role, roleList.includes("super_admin")),
+      instructions: INSTRUCTIONS(loc.name, role, HANDS(actions)),
       location_name: loc.name,
     });
   } catch (e) {

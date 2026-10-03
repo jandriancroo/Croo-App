@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
+import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -938,6 +939,25 @@ const PROPOSE_TASK_TOOL = {
         employee_ids: { type: "array", items: { type: "string" }, description: "employee_id values from find_crew" },
         roles: { type: "array", items: { type: "string", enum: Object.keys(TASK_ROLES) }, description: "Only roles the manager named out loud (e.g. 'the shift managers'). Never use team_member for 'everyone', 'all', 'the crew' or 'the team' — for those, do not call this tool; ask who it's for." },
         duration: { type: "string", enum: TASK_DURATIONS, description: "How long it stays up: 1h, 3h, 1d, 3d, 1w, 1m, none (= Until Complete, the default)" },
+      },
+      required: ["action"],
+    },
+  },
+};
+// Task-only version for people who have create_task but not cover_shift.
+const PROPOSE_TASK_ONLY_TOOL = {
+  type: "function",
+  function: {
+    name: "propose_action",
+    description: "Show the manager a PREVIEW of a standard quick task. Saves nothing — only the manager's tap on Create task saves it. Call only when you have a title AND at least one person (employee_id from find_crew) or role. Also call it again with the full revised task when the manager changes a preview that is on screen.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["create_task"] },
+        title: PROPOSE_TASK_TOOL.function.parameters.properties.title,
+        employee_ids: PROPOSE_TASK_TOOL.function.parameters.properties.employee_ids,
+        roles: PROPOSE_TASK_TOOL.function.parameters.properties.roles,
+        duration: PROPOSE_TASK_TOOL.function.parameters.properties.duration,
       },
       required: ["action"],
     },
@@ -2727,21 +2747,18 @@ serve(async (req) => {
       });
     }
 
-    const { data: roleData } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    // Every role row, reduced to the highest (people can hold more than one).
+    const { role: highest } = await roleForUser(supabaseAdmin, user.id);
     
     const managerRoles = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
-    if (!roleData || !managerRoles.includes(roleData.role)) {
+    if (!highest || !managerRoles.includes(highest)) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userRole = roleData.role;
+    const userRole = highest;
     const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard, pending_action, pick, list_context } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
@@ -3165,15 +3182,19 @@ DATE ANCHORS:
     const GUARD_RULE = `
 
 ACTION RULE (strict): Call propose_action ONLY when you are actually proposing that change in this reply. Do NOT call it when: the change already exists (e.g. the person already has that shift), the request is impossible (e.g. a person has no shift to swap), the action is not one of the four supported, or any required detail (like times) is missing — in those cases just tell the manager in words and propose nothing. Your words and your tool calls must agree.`;
-    // THEO HANDS: real create_task proposals — super admin, voice, a store, never in the bake-off.
-    const actionsOn = !bakeoff && userRole === "super_admin" && usageSource === "voice" && typeof location_id === "string";
+    // THEO HANDS: which actions this person has at this store — decided only in _shared/theoActions.ts.
+    // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
+    // Voice only, never in the bake-off.
+    const theoActions = !bakeoff && usageSource === "voice" ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
+    const actionsOn = theoActions.create_task || theoActions.cover_shift;
+    const coverOn = theoActions.cover_shift;
     const pending = actionsOn && pending_action && typeof pending_action === "object" && pending_action.action === "create_task" ? {
       title: String(pending_action.title || "").slice(0, 200),
       employees: Array.isArray(pending_action.employees) ? pending_action.employees.slice(0, 20).map((e: any) => ({ employee_id: String(e?.id || ""), name: String(e?.name || "").slice(0, 80) })) : [],
       roles: Array.isArray(pending_action.roles) ? pending_action.roles.filter((r: any) => typeof r === "string" && TASK_ROLES[r]) : [],
       duration: TASK_DURATIONS.includes(pending_action.duration) ? pending_action.duration : "none",
     } : null;
-    const pendingCover = actionsOn && pending_action && typeof pending_action === "object" && pending_action.action === "cover_shift" ? {
+    const pendingCover = coverOn && pending_action && typeof pending_action === "object" && pending_action.action === "cover_shift" ? {
       shift_id: String(pending_action.shift_id || ""),
       covered: String(pending_action.covered?.name || "").slice(0, 80),
       replacement_id: String(pending_action.replacement?.id || ""),
@@ -3181,7 +3202,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       when: `${String(pending_action.date_label || "").slice(0, 40)} ${String(pending_action.time_label || "").slice(0, 40)}`,
     } : null;
     const anyPending = !!(pending || pendingCover);
-    const listShift = actionsOn && list_context && typeof list_context.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
+    const listShift = coverOn && list_context && typeof list_context.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
     const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
     const matchCrew = (raw: string) => {
       const q = raw.trim().toLowerCase();
@@ -3194,7 +3215,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     const nowHHMM = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
 
     // Screen taps (a shift, a person or a name on the list) and the Confirm re-check: answered by code, no AI.
-    if (actionsOn && pick && typeof pick === "object") {
+    if (coverOn && pick && typeof pick === "object") {
       const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const sid = String(pick.shift_id || "");
       const shiftToScreen = async (shiftId: string) => {
@@ -3242,7 +3263,7 @@ QUICK TASKS (you can PROPOSE a standard quick task at ${location_name || "this s
 - Telling, asking or getting someone to DO A JOB is a task (examples of meaning): "Tell Jordan to clean the bathroom" = task "Clean the bathroom" for Jordan. "Ask Alle to restock the sauce station" = task "Restock the sauce station" for Alle. "Get Jaysen to sweep the lobby" = task "Sweep the lobby" for Jaysen.
 - You cannot send messages. If it is plainly a message and not a job ("tell Jordan I'm running late", "let Alle know the meeting moved"), propose nothing and say you can't send messages.
 
-COVER A SHIFT (you can also PROPOSE giving one existing shift to another person at this store):
+${coverOn ? `COVER A SHIFT (you can also PROPOSE giving one existing shift to another person at this store):
 - A cover needs three things: WHO needs cover, WHICH shift, WHO takes it. Ask only for what is missing. The app does all checking (time off, availability, already working, role); never judge who can cover yourself.
 - Nobody named ("I need coverage", "someone called out"): call find_shifts with no name.
 - Person named ("who can cover Ryan", "Ryan called out", "Ryan can't make it", "find someone for Ryan's shift tomorrow"): call find_shifts with name and date (no day said or "tonight" = today ${today}; "tomorrow" = ${tomorrow}; a weekday = the next one from today).
@@ -3251,7 +3272,8 @@ COVER A SHIFT (you can also PROPOSE giving one existing shift to another person 
 - A replacement named ("cover Ryan's shift with Deborah", "have Deborah take Ryan's Saturday shift", "put Deborah on for Ryan"): find the shift with find_shifts, resolve the replacement with find_crew (several matches: ask which one; none: say you can't find them), then call propose_action with action cover_shift, shift_id and replacement_employee_id.
 - When propose_action cover_shift returns preview_shown, your whole reply must be exactly: "Here's the change. Does this look right to you?" A preview saves nothing; never say a shift was changed, moved or covered.
 - If a shift is posted in the shift pool, say "That shift is posted in the shift pool. Handle it there." and propose nothing.
-
+` : `COVER A SHIFT is not something you can do yet: for any cover request ("who can cover Ryan?", "Ryan called out", "cover Ryan's shift with Deborah") propose nothing, say you can't do that yet and to handle it on the Schedule page. Never say a shift was changed, moved or covered.
+`}
 NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); swapping two people's shifts, adding or deleting a shift, changing shift times, or posting a shift offer (Schedule page).
 - ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the change in this reply. If you ask a question or say you can't, propose nothing. Your words and your tool calls must agree.${listShift ? `
 
@@ -3306,7 +3328,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
           ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
-          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...THEO_TOOLS, FIND_CREW_TOOL, FIND_SHIFTS_TOOL, COVER_CANDIDATES_TOOL, PROPOSE_TASK_TOOL, ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : THEO_TOOLS,
+          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...THEO_TOOLS, FIND_CREW_TOOL, ...(coverOn ? [FIND_SHIFTS_TOOL, COVER_CANDIDATES_TOOL, PROPOSE_TASK_TOOL] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : THEO_TOOLS,
           tool_choice: "auto",
         }),
       });
@@ -3362,7 +3384,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           const matches = matchCrew(String(args?.name || ""));
           matches.forEach((c) => seenCrewIds.add(c.id));
           result = JSON.stringify({ matches: matches.slice(0, 10).map((c) => ({ employee_id: c.id, name: crewName(c) })) });
-        } else if (actionsOn && tc.function.name === "find_shifts") {
+        } else if (coverOn && tc.function.name === "find_shifts") {
           const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, args || {}, today, nowHHMM, matchCrew);
           if (r.shift_id) seenShiftIds.add(r.shift_id);
           (r.shifts || []).forEach((x: any) => seenShiftIds.add(x.shift_id));
@@ -3371,12 +3393,12 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           if (r.screen) coverScreen = r.screen;
           const { screen: _s, ...forTheo } = r;
           result = JSON.stringify(forTheo);
-        } else if (actionsOn && tc.function.name === "cover_candidates") {
+        } else if (coverOn && tc.function.name === "cover_candidates") {
           const r: any = await candidatesScreen(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), crewForActions, crewName);
           if (r.declined) { postedDecline = true; coverScreen = null; result = JSON.stringify({ status: "posted", next: `Say exactly "${r.declined}" Propose nothing.` }); }
           else if (r.error) result = JSON.stringify({ error: r.error });
           else { coverScreen = r.screen; result = JSON.stringify({ status: "list_shown", ...r.for_theo, next: `Reply "Here's who can cover ${String(r.for_theo.covered).split(" ")[0]}." plus at most the top two names.` }); }
-        } else if (actionsOn && tc.function.name === "propose_action" && args?.action === "cover_shift") {
+        } else if (coverOn && tc.function.name === "propose_action" && args?.action === "cover_shift") {
           const v: any = await buildCoverProposal(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), snap(String(args?.replacement_employee_id || ""), seenCrewIds), crewForActions, crewName);
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; result = JSON.stringify({ status: "preview_shown" }); }
           else {
@@ -3384,7 +3406,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
             if (v.posted) postedDecline = true;
             result = JSON.stringify({ error: v.error, next: v.hurdle ? `Say "${v.error}. Want to see who else can cover?" Propose nothing.` : "Tell the manager in words. Propose nothing." });
           }
-        } else if (actionsOn && tc.function.name === "propose_action") {
+        } else if (actionsOn && tc.function.name === "propose_action" && args?.action !== "cover_shift") {
           const v = validateTaskProposal(args, crewForActions);
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; result = JSON.stringify({ status: "preview_shown" }); }
           else { liveProposal = null; result = JSON.stringify({ error: v.error }); }
