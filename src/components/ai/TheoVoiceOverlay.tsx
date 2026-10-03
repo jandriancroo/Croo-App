@@ -114,9 +114,9 @@ function CoverListScroller({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[20px] bg-card">
+    <div className="relative max-h-full w-full overflow-hidden rounded-[20px] bg-card">
       <div ref={scrollRef} onScroll={onScroll} onWheel={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()}
-        className="max-h-[min(330px,calc(100dvh-360px))] min-h-[60px] overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[min(450px,calc(100dvh-360px))]">
+        className="max-h-[min(330px,100%)] min-h-[60px] overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[min(450px,100%)]">
         {children}
       </div>
       {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />}
@@ -894,7 +894,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       <div className="flex min-h-0 w-full flex-1 flex-col items-center tabular-nums">
         <p className="mt-3 shrink-0 text-center text-[22px] font-extrabold text-white">{sc.title}</p>
         {sc.kind === 'candidates' && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
-        <div className="mt-3 min-h-0 w-full max-w-[420px] shrink">
+        <div className="mt-3 flex min-h-0 w-full max-w-[420px] flex-1 items-start overflow-hidden">
           <CoverListScroller>
           {sc.kind === 'shifts' && (sc.shifts.length ? sc.shifts.map((sh) => (
             <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id })}>
