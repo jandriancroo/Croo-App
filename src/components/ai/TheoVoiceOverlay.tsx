@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check } from 'lucide-react';
@@ -89,6 +89,41 @@ type CoverScreen =
   | { kind: 'shifts'; date: string; title: string; shifts: { shift_id: string; employee_id: string; name: string; time: string }[] }
   | { kind: 'people'; date: string; title: string; people: { employee_id: string; name: string }[] }
   | { kind: 'candidates'; shift_id: string; title: string; subtitle: string; clear: ScreenRow[]; working: ScreenRow[]; blocked_summary: string | null };
+
+function CoverListScroller({ children }: { children: ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
+
+  const updateFade = useCallback(() => {
+    const el = scrollRef.current;
+    setMoreBelow(!!el && el.scrollHeight - el.scrollTop - el.clientHeight > 2);
+  }, []);
+
+  useEffect(() => {
+    updateFade();
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateFade);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [children, updateFade]);
+
+  const onScroll = (event: UIEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    updateFade();
+  };
+
+  return (
+    <div className="relative w-full overflow-hidden rounded-[20px] bg-card">
+      <div ref={scrollRef} onScroll={onScroll} onWheel={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()}
+        className="max-h-[min(330px,calc(100dvh-360px))] min-h-[60px] overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[min(450px,calc(100dvh-360px))]">
+        {children}
+      </div>
+      {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />}
+    </div>
+  );
+}
+
 const firstName = (n: string) => n.split(' ')[0];
 const UNDO_MS = 10 * 60 * 1000;
 const roleLabel = (r: string) => ROLE_DISPLAY_NAMES[r as AppRole] ?? r;
@@ -847,7 +882,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
   function renderScreen(sc: CoverScreen) {
     const rowCls = 'flex min-h-[60px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted disabled:opacity-60';
-    const groupLabel = 'px-1 pt-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const groupLabel = 'sticky top-0 z-10 bg-card px-1 py-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
     const person = (r: ScreenRow) => (
       <button key={r.employee_id} disabled={picking} className={rowCls}
         onClick={() => sc.kind === 'candidates' && pickFromScreen({ kind: 'candidate', shift_id: sc.shift_id, employee_id: r.employee_id })}>
@@ -856,10 +891,11 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       </button>
     );
     return (
-      <>
-        <p className="mt-3 text-center text-[22px] font-extrabold text-white">{sc.title}</p>
-        {sc.kind === 'candidates' && <p className="mt-1 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
-        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-3 text-foreground flex flex-col gap-1 tabular-nums">
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center tabular-nums">
+        <p className="mt-3 shrink-0 text-center text-[22px] font-extrabold text-white">{sc.title}</p>
+        {sc.kind === 'candidates' && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
+        <div className="mt-3 min-h-0 w-full max-w-[420px] shrink">
+          <CoverListScroller>
           {sc.kind === 'shifts' && (sc.shifts.length ? sc.shifts.map((sh) => (
             <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id })}>
               <div><div className="text-[16px] font-extrabold">{sh.name}</div><div className="text-[13px] text-muted-foreground">{sh.time}</div></div>
@@ -871,18 +907,19 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             </button>
           ))}
           {sc.kind === 'candidates' && <>
-            {sc.clear.length > 0 && <div className={groupLabel}>Clear to cover</div>}
+            {sc.clear.length > 0 && <div className={groupLabel}>Clear to cover · {sc.clear.length}</div>}
             {sc.clear.map(person)}
-            {sc.working.length > 0 && <div className={groupLabel}>Already working that day</div>}
+            {sc.working.length > 0 && <div className={groupLabel}>Already working that day · {sc.working.length}</div>}
             {sc.working.map(person)}
             {!sc.clear.length && !sc.working.length && <p className="p-3 text-[14px] text-muted-foreground">Nobody passes the checks for this shift.</p>}
-            {sc.blocked_summary && <p className="px-1 pt-2 text-[13px] text-muted-foreground">{sc.blocked_summary}.</p>}
           </>}
-          {screenNote && <p className="px-1 pt-2 text-[14px] font-semibold">{screenNote}</p>}
+          </CoverListScroller>
         </div>
-        <p className="mt-3 text-center text-[13px] text-white/[0.78]">{sc.kind === 'candidates' ? 'Tap a name, or just say it.' : 'Tap one, or just say it.'}</p>
-        <button onClick={() => { setScreen(null); setScreenNote(''); }} className="mt-1 h-11 px-6 text-[14px] font-semibold text-white/80">Close list</button>
-      </>
+        {sc.kind === 'candidates' && sc.blocked_summary && <p className="mt-2 shrink-0 px-1 text-center text-[13px] text-white/[0.78]">{sc.blocked_summary}.</p>}
+        {screenNote && <p className="mt-2 shrink-0 px-1 text-center text-[14px] font-semibold text-white">{screenNote}</p>}
+        <p className="mt-2 shrink-0 text-center text-[13px] text-white/[0.78]">{sc.kind === 'candidates' ? 'Tap a name, or just say it.' : 'Tap one, or just say it.'}</p>
+        <button onClick={() => { setScreen(null); setScreenNote(''); }} className="mt-1 h-11 shrink-0 px-6 text-[14px] font-semibold text-white/80">Close list</button>
+      </div>
     );
   }
 
@@ -961,7 +998,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         </button>
       </div>
 
-      <div className={action || screen ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
+      <div className={action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
           className={action || screen ? 'relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
           <div className={action || screen ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
