@@ -129,7 +129,7 @@ function CoverListScroller({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-[20px] bg-card">
       <div ref={scrollRef} onScroll={onScroll} onWheel={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()}
-        className="min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px]">
+        className="min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px] flex flex-col gap-1">
         {children}
       </div>
       {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />}
@@ -1024,7 +1024,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
           </div>
         </button>
         {action ? renderAction(action) : screen ? renderScreen(screen) : <>
-        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : PHASE_TEXT[phase]}</p>
+        <p className="mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white">{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : phase === 'thinking' ? thinkingLine : PHASE_TEXT[phase]}</p>
         {(() => {
           const sub = phase === 'idle' && mode === 'talk'
             ? (hitLimit ? 'We hit the 3-minute limit. Tap to keep going.' : stoppedListening ? 'I stopped listening. Tap to pick up where we left off.' : 'Ask about sales, labor, the schedule or checklists')
