@@ -58,7 +58,7 @@ const PHASE_TEXT: Record<Phase, string> = {
   connecting: 'Connecting…',
   speaking: 'Theo is talking',
   listening: 'Listening…',
-  thinking: 'Checking the numbers…',
+  thinking: 'Thinking…',
   error: '',
 };
 const PHASE_SUB: Record<Phase, string> = {
@@ -66,7 +66,7 @@ const PHASE_SUB: Record<Phase, string> = {
 };
 const ORB_LABEL: Record<Phase, string> = {
   idle: 'Start Theo voice update', connecting: 'Connecting to Theo', speaking: 'Interrupt Theo',
-  listening: 'Theo is listening', thinking: 'Theo is checking the numbers', error: 'Try Theo voice again',
+  listening: 'Theo is listening', thinking: 'Theo is working on it', error: 'Try Theo voice again',
 };
 
 // Final save uses fetch keepalive so it still goes out while the page is being hidden/closed.
