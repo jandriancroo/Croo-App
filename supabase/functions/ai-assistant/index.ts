@@ -3239,6 +3239,8 @@ QUICK TASKS (you can PROPOSE a standard quick task at ${location_name || "this s
 - Missing the task? Ask "What's the task?". Missing who? Ask "Who's it for?". In those cases do NOT call propose_action.
 - When you call propose_action for a task, your whole reply must be exactly: "Here's the task. Does this look right to you?"
 - Examples of meaning (not keywords): "Have Alle wipe down the patio tables" = task for Alle. "Remind the shift managers to check the walk-in temps" = task for the Shift Manager role. "keep it up for 3 hours" = 3h.
+- Telling, asking or getting someone to DO A JOB is a task (examples of meaning): "Tell Jordan to clean the bathroom" = task "Clean the bathroom" for Jordan. "Ask Alle to restock the sauce station" = task "Restock the sauce station" for Alle. "Get Jaysen to sweep the lobby" = task "Sweep the lobby" for Jaysen.
+- You cannot send messages. If it is plainly a message and not a job ("tell Jordan I'm running late", "let Alle know the meeting moved"), propose nothing and say you can't send messages.
 
 COVER A SHIFT (you can also PROPOSE giving one existing shift to another person at this store):
 - A cover needs three things: WHO needs cover, WHICH shift, WHO takes it. Ask only for what is missing. The app does all checking (time off, availability, already working, role); never judge who can cover yourself.
@@ -3268,7 +3270,7 @@ A COVER PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${pendingCover.replacement} 
     // Rule G: wherever actions are not offered, Theo must never claim a change.
     const NEVER_CLAIM = `
 
-You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklists, time off or anything else). Never say you did. If asked, say you can't do that and tell them where in the app to do it.`;
+You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklists, time off or anything else). Never say you did. If asked, say you can't do that and tell them where in the app to do it. Telling or asking someone to do a job ("tell Jordan to clean the bathroom") means a quick task: say you can't assign it from here and to add it on the Tasks page — don't talk about messages.`;
     const sysContent = actionGuard ? systemPrompt + GUARD_RULE : actionsOn ? systemPrompt + ACTIONS_RULES : dryRun ? systemPrompt : systemPrompt + NEVER_CLAIM;
     const aiMessages = [
       { role: "system", content: sysContent },
