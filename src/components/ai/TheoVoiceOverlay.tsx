@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check } from 'lucide-react';
 import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
@@ -657,6 +658,15 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
 
 
+  // After Theo moves a shift (Confirm or Undo), throw away every saved copy that shows shifts,
+  // so the Schedule page and the shift cards reload fresh (and Update never re-sends Theo's change).
+  const queryClient = useQueryClient();
+  const refreshShiftViews = (locationId: string) => {
+    for (const key of [['schedule', locationId], ['compact-dash-shifts', locationId], ['manager-dash-shifts', locationId], ['watch-today-schedule', locationId], ['manager-shifts-org']]) {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+  };
+
   const confirmCover = async () => {
     const a = actionRef.current;
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'cover_shift' || !user?.id || !currentLocation?.id) return;
@@ -674,6 +684,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         return;
       }
       const res = await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.replacement.id, changedBy: user.id, timezone });
+      refreshShiftViews(currentLocation.id);
       logAction(a.logId, { status: 'confirmed', record_id: p.shift_id });
       onRecord?.(`Covered shift: ${p.date_label}, ${p.time_label}. ${p.replacement.name} takes it from ${p.covered.name}`);
       const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -691,6 +702,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
       await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.covered.id, changedBy: user.id, timezone });
+      if (currentLocation?.id) refreshShiftViews(currentLocation.id);
       logAction(a.logId, { status: 'undone' });
       onRecord?.(`Undid shift cover: ${p.covered.name} has ${p.date_label}, ${p.time_label} again`);
       setAction({ ...a, stage: 'undone' });
