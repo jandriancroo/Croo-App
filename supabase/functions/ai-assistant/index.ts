@@ -3372,7 +3372,7 @@ ${addOn ? `ADD A SHIFT (you can PROPOSE adding one shift for one person at this 
 - Any refusal ("posted in the shift pool", "already started", "in the past", "punches", "made automatically", "coverage-only"): say it in one sentence and propose nothing.
 ` : `DELETING A SHIFT is not something you can do yet: propose nothing, say you can't do that yet and to handle it on the Schedule page. Never say a shift was removed.
 `}
-NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); swapping two people's shifts, changing a shift's hours or day, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page).
+NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); swapping two people's shifts, changing a shift's hours or day, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page). For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Change Ethan's shift to 10 to 4" = changing a shift's hours, not built.
 - ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the change in this reply. If you ask a question or say you can't, propose nothing. Your words and your tool calls must agree.${listShift ? `
 
 A LIST OF WHO CAN COVER IS ON SCREEN for shift_id ${listShift}. If the manager names someone, resolve them with find_crew and call propose_action (cover_shift) with this shift_id.` : ""}${pending ? `
@@ -3611,6 +3611,8 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       else if (coverScreen && !declineLine) out.screen = coverScreen;
       if (declineLine) out.content = declineLine;
       out.content ??= finalResponse;
+      // The model sometimes repeats a one-line question ("Which day?\nWhich day?"): say it once.
+      if (typeof out.content === "string") { const ls = out.content.split(/\n+/).map((x: string) => x.trim()).filter(Boolean); if (ls.length > 1 && ls.every((x: string) => x === ls[0])) out.content = ls[0]; }
       return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
