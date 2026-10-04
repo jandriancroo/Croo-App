@@ -2,28 +2,12 @@
 // READ-ONLY — loads data, runs the pure rules (_shared/shiftPlan.ts) and the cover check's
 // time-off/availability reasons (hurdleFor), and returns screens or a proposal. Never writes.
 import { hurdleFor, fmtRange, fmtTime } from "../_shared/coverCandidates.ts";
-import { addHardStop, addShiftWarnings, buildDayView, dayOffset, deleteInfo, mondayOf, normTime, shiftRefusal, weekdayWord, type DayChange, type DayShift } from "../_shared/shiftPlan.ts";
-import { buildInput, dateLabel, hasOpenOffer, type Crew } from "./cover.ts";
+import { addHardStop, addShiftWarnings, buildDayView, dayOffset, deleteInfo, mondayOf, normTime, weekdayWord, type DayShift } from "../_shared/shiftPlan.ts";
+import { buildInput, dateLabel, dayShiftsAt, refusalFor, posOf, type Crew } from "./cover.ts";
 
 const NO_SCHEDULE = "00000000-0000-0000-0000-000000000000";
 const first = (n: string) => n.split(" ")[0];
-const posOf = (t: any) => (t ? (t.position || t.template_name || null) : null);
 
-/** Every assigned, non-time-off shift at this store on that date, with names and positions. */
-export async function dayShiftsAt(admin: any, locationId: string, date: string, name: (c: Crew) => string): Promise<DayShift[]> {
-  const { data } = await admin.from("scheduled_shifts")
-    .select("id, user_id, template_id, start_time, end_time, is_time_off, schedule:schedules!inner(location_id), template:shift_templates(template_name, position)")
-    .eq("schedule.location_id", locationId).eq("shift_date", date).not("user_id", "is", null);
-  const rows = (data || []).filter((s: any) => !s.is_time_off);
-  const ids = [...new Set(rows.map((s: any) => s.user_id))];
-  const { data: prof } = ids.length ? await admin.from("profiles").select("id, full_name, nickname").in("id", ids) : { data: [] };
-  const nm = new Map((prof || []).map((p: any) => [p.id, name(p)]));
-  return rows.map((s: any) => ({ id: s.id, user_id: s.user_id, name: nm.get(s.user_id) || "Someone", template_id: s.template_id, position: posOf(s.template), start_time: s.start_time, end_time: s.end_time }));
-}
-
-export async function dayViewFor(admin: any, locationId: string, date: string, name: (c: Crew) => string, change: DayChange) {
-  return buildDayView(date, await dayShiftsAt(admin, locationId, date, name), change);
-}
 
 async function scheduleFor(admin: any, locationId: string, date: string) {
   const week = mondayOf(date);
@@ -114,22 +98,12 @@ async function loadForDelete(admin: any, shiftId: string, locationId: string) {
   return data;
 }
 
-export async function punchLinked(admin: any, shiftId: string) {
-  const { data } = await admin.from("time_punches").select("id").eq("shift_id", shiftId).limit(1);
-  return (data || []).length > 0;
-}
-
-/** The refusal check shared by delete and cover (server-enforced). */
-export async function refusalFor(admin: any, shift: any, today: string, nowHHMM: string, purpose: "delete" | "cover") {
-  const [openOffer, linked] = await Promise.all([hasOpenOffer(admin, shift.id), punchLinked(admin, shift.id)]);
-  return shiftRefusal({ shift, today, nowHHMM, openOffer, punchLinked: linked, purpose });
-}
 
 /** Delete preview, or why not. Also the re-check at the Confirm tap. */
 export async function buildDeleteProposal(admin: any, locationId: string, shiftId: string, crew: Crew[], name: (c: Crew) => string, today: string, nowHHMM: string): Promise<any> {
   const s = await loadForDelete(admin, shiftId, locationId);
   if (!s) return { ok: false, error: "That shift isn't on this store's schedule. Use find_shifts." };
-  const why = await refusalFor(admin, s, today, nowHHMM, "delete");
+  const why = await refusalFor(admin, s, { today, nowHHMM }, "delete");
   if (why) return { ok: false, error: why, refused: true };
   const dayShifts = await dayShiftsAt(admin, locationId, s.shift_date, name);
   const me = dayShifts.find((d) => d.id === s.id);

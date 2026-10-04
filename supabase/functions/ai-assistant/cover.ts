@@ -1,6 +1,7 @@
 // THEO HANDS build 2: cover a shift. READ-ONLY — loads data, runs the shared cover check
 // (_shared/coverCandidates.ts) and returns screens or a proposal. Never writes.
 import { rankCover, hurdleFor, candidateFor, fmtRange, weekdayOf, type CoverInput } from "../_shared/coverCandidates.ts";
+import { buildDayView, shiftRefusal, type DayShift } from "../_shared/shiftPlan.ts";
 import * as mirror from "../_shared/availabilityMirror.ts";
 import { APP_ROLE_ORDER, APP_ROLE_NAMES } from "../_shared/appRoles.ts";
 
@@ -27,6 +28,33 @@ export async function hasOpenOffer(admin: any, shiftId: string) {
   return (data || []).length > 0;
 }
 
+export async function punchLinked(admin: any, shiftId: string) {
+  const { data } = await admin.from("time_punches").select("id").eq("shift_id", shiftId).limit(1);
+  return (data || []).length > 0;
+}
+
+export type When = { today: string; nowHHMM: string };
+/** The voice refusals shared by delete and cover (server-enforced, again at the tap). */
+export async function refusalFor(admin: any, shift: any, w: When, purpose: "delete" | "cover") {
+  const { data: flags } = await admin.from("scheduled_shifts").select("is_phantom, is_coverage_only").eq("id", shift.id).maybeSingle();
+  const [openOffer, linked] = await Promise.all([hasOpenOffer(admin, shift.id), punchLinked(admin, shift.id)]);
+  return shiftRefusal({ shift: { ...shift, ...(flags || {}) }, today: w.today, nowHHMM: w.nowHHMM, openOffer, punchLinked: linked, purpose });
+}
+
+export const posOf = (t: any) => (t ? (t.position || t.template_name || null) : null);
+
+/** Every assigned, non-time-off shift at this store on that date, with names and positions. */
+export async function dayShiftsAt(admin: any, locationId: string, date: string, name: (c: Crew) => string): Promise<DayShift[]> {
+  const { data } = await admin.from("scheduled_shifts")
+    .select("id, user_id, template_id, start_time, end_time, is_time_off, schedule:schedules!inner(location_id), template:shift_templates(template_name, position)")
+    .eq("schedule.location_id", locationId).eq("shift_date", date).not("user_id", "is", null);
+  const rows = (data || []).filter((s: any) => !s.is_time_off);
+  const ids = [...new Set(rows.map((s: any) => s.user_id))];
+  const { data: prof } = ids.length ? await admin.from("profiles").select("id, full_name, nickname").in("id", ids) : { data: [] };
+  const nm = new Map((prof || []).map((p: any) => [p.id, name(p)]));
+  return rows.map((s: any) => ({ id: s.id, user_id: s.user_id, name: nm.get(s.user_id) || "Someone", template_id: s.template_id, position: posOf(s.template), start_time: s.start_time, end_time: s.end_time }));
+}
+
 async function shiftsOn(admin: any, locationId: string, date: string) {
   const { data } = await admin.from("scheduled_shifts")
     .select("id, user_id, shift_date, start_time, end_time, is_time_off, schedule:schedules!inner(location_id)")
@@ -34,7 +62,7 @@ async function shiftsOn(admin: any, locationId: string, date: string) {
   return (data || []).filter((s: any) => !s.is_time_off).sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)));
 }
 
-async function buildInput(admin: any, shift: any, locationId: string, crew: Crew[], name: (c: Crew) => string): Promise<CoverInput> {
+export async function buildInput(admin: any, shift: any, locationId: string, crew: Crew[], name: (c: Crew) => string): Promise<CoverInput> {
   // Candidates are the store's schedule roster (same "show on schedule" rule the Schedule page uses).
   const { data: ros } = await admin.from("user_locations").select("user_id").eq("location_id", locationId).eq("show_on_schedule", true);
   const onRoster = new Set((ros || []).map((r: any) => r.user_id));
