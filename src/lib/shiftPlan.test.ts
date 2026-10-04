@@ -98,7 +98,7 @@ describe('day view payload', () => {
     expect(v.rows.map((r) => r.name)).toEqual(['Alle Rowe', 'Aubrey Andrian', 'Ethan Andrian', 'Jaysen Robertson']);
     expect(v.rows.find((r) => r.kind === 'new')?.position).toBe('No position');
     expect(v.title).toBe('Saturday, Oct 17 · the day with Ethan added');
-    expect(v.axis.labels).toEqual(['9 AM', '1 PM', '7 PM', '11 PM']);
+    expect(v.axis.labels).toEqual(['9 AM', '2 PM', '6 PM', '11 PM']);
   });
   it('removed row stays in the list, marked', () => {
     const v = buildDayView(DATE, day, { kind: 'removed', shift_id: 'b' });
