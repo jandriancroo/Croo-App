@@ -11,7 +11,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, isSameWeek
 import { formatInTimeZone } from "date-fns-tz";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
-import { reassignShift, sendScheduleUpdate, detectScheduleChanges as detectScheduleChangesShared } from "@/lib/scheduleActions";
+import { reassignShift, addShift, sendScheduleUpdate, detectScheduleChanges as detectScheduleChangesShared } from "@/lib/scheduleActions";
 
 // Cache time constants
 const SCHEDULE_STALE_TIME = 15 * 60 * 1000;
