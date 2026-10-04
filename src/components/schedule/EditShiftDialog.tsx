@@ -6,7 +6,7 @@ import {
 } from "@/types/availability";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { deleteShift } from "@/lib/scheduleActions";
+import { deleteShift, updateShiftTimes } from "@/lib/scheduleActions";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
@@ -218,21 +218,15 @@ export function EditShiftDialog({
 
 
       // Update the current shift
-      const { error: updateError } = await supabase
-        .from("scheduled_shifts")
-        .update({
-          start_time: startTime,
-          end_time: endTime,
-          user_id: selectedUserId === "unassigned" ? null : selectedUserId,
-          template_id: position || null,
-          breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
-          ...(isSingleDayMove
-            ? { day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
-            : {}),
-        } as any)
-        .eq("id", shift.id);
-
-      if (updateError) throw updateError;
+      // One write, through the shared save (same columns as before: times + person, position, breaks, date move).
+      await updateShiftTimes(shift.id, startTime, endTime, {
+        user_id: selectedUserId === "unassigned" ? null : selectedUserId,
+        template_id: position || null,
+        breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
+        ...(isSingleDayMove
+          ? { day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
+          : {}),
+      });
 
       // Optimistically update the cache immediately so Schedule Tools reflects changes
       const updatedUserId = selectedUserId === "unassigned" ? null : selectedUserId;

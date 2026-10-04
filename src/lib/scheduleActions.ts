@@ -53,6 +53,42 @@ export async function reassignShift(shiftId: string, userId: string, dayOfWeek: 
   if (error) throw error;
 }
 
+/**
+ * Change a shift's start and end (the Edit Shift window's save, and Theo's Change hours / its Undo).
+ * ONE write. `extra` carries the Edit Shift window's other fields (person, position, breaks, a date move)
+ * in that same write; Theo passes nothing extra, so person, day, position and breaks stay as they are.
+ */
+export async function updateShiftTimes(shiftId: string, startTime: string, endTime: string, extra: Record<string, unknown> = {}) {
+  const { error } = await supabase.from("scheduled_shifts").update({ ...extra, start_time: startTime, end_time: endTime } as any).eq("id", shiftId);
+  if (error) throw error;
+}
+
+/**
+ * Theo's Swap shifts (and its Undo): two reassignShift moves — the same as two drag-moves by hand — then ONE
+ * Update per published week. If the second move fails, the first is put back and nothing is sent.
+ */
+export async function swapShiftsAndNotify(opts: {
+  a: { id: string; schedule_id: string; day_of_week: number; shift_date: string; fromUserId: string; toUserId: string };
+  b: { id: string; schedule_id: string; day_of_week: number; shift_date: string; fromUserId: string; toUserId: string };
+  changedBy: string;
+  timezone: string;
+}) {
+  const { a, b } = opts;
+  await reassignShift(a.id, a.toUserId, a.day_of_week, a.shift_date);
+  try {
+    await reassignShift(b.id, b.toUserId, b.day_of_week, b.shift_date);
+  } catch (e) {
+    try { await reassignShift(a.id, a.fromUserId, a.day_of_week, a.shift_date); } catch { /* reported below */ }
+    throw new Error('Not saved');
+  }
+  const affected = new Set<string>();
+  for (const sid of [...new Set([a.schedule_id, b.schedule_id])]) {
+    const r = await updateIfPublished({ scheduleId: sid, changedBy: opts.changedBy, timezone: opts.timezone });
+    r.forEach((u) => affected.add(u));
+  }
+  return { notified: affected.size > 0, affectedUserIds: [...affected] };
+}
+
 /** Differences between the published snapshot and the current shifts (who is affected and how). */
 export function detectScheduleChanges(oldShifts: any[], newShifts: any[]) {
   const changes: any[] = [];
@@ -152,10 +188,16 @@ export async function reassignAndNotify(opts: {
  */
 export async function applyThenUpdate<T>(opts: { scheduleId: string; changedBy: string; timezone: string }, change: () => Promise<T>) {
   const result = await change();
+  const affectedUserIds = await updateIfPublished(opts);
+  return { result, notified: affectedUserIds.length > 0, affectedUserIds };
+}
+
+/** The Update step only, and only on a published week (draft: nothing sent). Returns who was notified. */
+export async function updateIfPublished(opts: { scheduleId: string; changedBy: string; timezone: string }): Promise<string[]> {
   const { data: sch, error } = await supabase.from('schedules')
     .select('id, is_published, published_shifts_snapshot, week_start_date').eq('id', opts.scheduleId).single();
   if (error) throw error;
-  if (!sch?.is_published) return { result, notified: false, affectedUserIds: [] as string[] };
+  if (!sch?.is_published) return [];
   const res = await sendScheduleUpdate({
     scheduleId: sch.id,
     weekStart: new Date(`${sch.week_start_date}T12:00:00`),
@@ -163,5 +205,5 @@ export async function applyThenUpdate<T>(opts: { scheduleId: string; changedBy: 
     publishedSnapshot: Array.isArray(sch.published_shifts_snapshot) ? (sch.published_shifts_snapshot as any[]) : [],
     changedBy: opts.changedBy,
   });
-  return { result, notified: res.affectedUserIds.length > 0, affectedUserIds: res.affectedUserIds };
+  return res.affectedUserIds;
 }

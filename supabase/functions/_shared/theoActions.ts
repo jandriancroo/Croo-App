@@ -29,9 +29,13 @@ export const COVER_SHIFT_ROLES = ["super_admin"];
 export const ADD_SHIFT_ROLES = ["super_admin"];
 // DELETE SHIFT SWITCH: super admin only for now. To open it, change this one line.
 export const DELETE_SHIFT_ROLES = ["super_admin"];
+// SWAP SHIFT SWITCH: super admin only for now. To open it, change this one line.
+export const SWAP_SHIFT_ROLES = ["super_admin"];
+// CHANGE SHIFT HOURS SWITCH: super admin only for now. To open it, change this one line.
+export const CHANGE_SHIFT_ROLES = ["super_admin"];
 
-export type TheoActions = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean };
-export const NO_ACTIONS: TheoActions = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false };
+export type TheoActions = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean };
+export const NO_ACTIONS: TheoActions = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false };
 
 // Pure decision (tested). hasStoreAccess must come from has_location_access for this user + store.
 export function actionsFor(role: string | null, hasStoreAccess: boolean): TheoActions {
@@ -39,6 +43,7 @@ export function actionsFor(role: string | null, hasStoreAccess: boolean): TheoAc
   return {
     create_task: CREATE_TASK_ROLES.includes(role), cover_shift: COVER_SHIFT_ROLES.includes(role),
     add_shift: ADD_SHIFT_ROLES.includes(role), delete_shift: DELETE_SHIFT_ROLES.includes(role),
+    swap_shift: SWAP_SHIFT_ROLES.includes(role), change_shift: CHANGE_SHIFT_ROLES.includes(role),
   };
 }
 

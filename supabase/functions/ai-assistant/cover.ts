@@ -35,7 +35,7 @@ export async function punchLinked(admin: any, shiftId: string) {
 
 export type When = { today: string; nowHHMM: string };
 /** The voice refusals shared by delete and cover (server-enforced, again at the tap). */
-export async function refusalFor(admin: any, shift: any, w: When, purpose: "delete" | "cover") {
+export async function refusalFor(admin: any, shift: any, w: When, purpose: "delete" | "cover" | "swap" | "change") {
   const { data: flags } = await admin.from("scheduled_shifts").select("is_phantom, is_coverage_only").eq("id", shift.id).maybeSingle();
   const [openOffer, linked] = await Promise.all([hasOpenOffer(admin, shift.id), punchLinked(admin, shift.id)]);
   return shiftRefusal({ shift: { ...shift, ...(flags || {}) }, today: w.today, nowHHMM: w.nowHHMM, openOffer, punchLinked: linked, purpose });
@@ -135,10 +135,14 @@ export async function candidatesScreen(admin: any, locationId: string, shiftId: 
 }
 
 /** Today's remaining shifts (nobody named) or one person's shifts on a date. */
-export async function findShifts(admin: any, locationId: string, crew: Crew[], name: (c: Crew) => string, args: { name?: string; employee_id?: string; date?: string; purpose?: string }, today: string, nowHHMM: string, match: (q: string) => Crew[]) {
-  const purpose: "cover" | "delete" = args.purpose === "delete" ? "delete" : "cover";
+export async function findShifts(admin: any, locationId: string, crew: Crew[], name: (c: Crew) => string, args: { name?: string; employee_id?: string; date?: string; purpose?: string; time?: string }, today: string, nowHHMM: string, match: (q: string) => Crew[]) {
+  const purpose: "cover" | "delete" | "swap" | "change" = args.purpose === "delete" || args.purpose === "swap" || args.purpose === "change" ? args.purpose : "cover";
   const verbQ = purpose === "delete" ? "should come off the schedule" : "needs to be covered";
-  const date = typeof args.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date) ? args.date : today;
+  const hasDate = typeof args.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date);
+  // Swap and change hours never assume today: no day said -> ask.
+  const voiceOnly = purpose === "swap" || purpose === "change";
+  if (voiceOnly && !hasDate) return { status: "need_day", next: 'Ask exactly "Which day?" Propose nothing.' };
+  const date = hasDate ? args.date! : today;
   const byId = new Map(crew.map((c) => [c.id, c]));
   let person: Crew | undefined = args.employee_id ? byId.get(args.employee_id) : undefined;
   if (!person && args.name) {
@@ -149,13 +153,14 @@ export async function findShifts(admin: any, locationId: string, crew: Crew[], n
       return {
         status: "which_person", matches: people,
         next: `Ask "Which ${cap(String(args.name).split(" ")[0])} did you mean?" and name them. Show no list of candidates yet.`,
-        screen: { kind: "people", purpose, date, title: `Which ${cap(String(args.name).split(" ")[0])} did you mean?`, people },
+        screen: voiceOnly ? undefined : { kind: "people", purpose, date, title: `Which ${cap(String(args.name).split(" ")[0])} did you mean?`, people },
       };
     }
     person = m[0];
   }
   const all = await shiftsOn(admin, locationId, date);
   const label = (s: any) => ({ shift_id: s.id, employee_id: s.user_id, name: byId.get(s.user_id) ? name(byId.get(s.user_id)!) : "Someone", time: fmtRange(s.start_time, s.end_time) });
+  if (!person && voiceOnly) return { status: "need_name", next: "Ask whose shift. Propose nothing." };
   if (!person) {
     // Only shifts Theo may act on: not started yet, not auto-made, not coverage-only.
     const remaining = all.filter((s: any) => !s.is_phantom && !s.is_coverage_only && (date > today || (date === today && String(s.start_time).slice(0, 5) > nowHHMM)));
@@ -165,7 +170,10 @@ export async function findShifts(admin: any, locationId: string, crew: Crew[], n
       screen: { kind: "shifts", purpose, date, title: `Which shift ${verbQ} ${date === today ? "today" : cap(weekdayOf(date))}?`, shifts: remaining.map(label) },
     };
   }
-  const mine = all.filter((s: any) => s.user_id === person!.id);
+  let mine = all.filter((s: any) => s.user_id === person!.id);
+  // The manager said which shift by its start time ("the 12 to 4 one"): keep just that one.
+  const hint = typeof args.time === "string" ? args.time.trim().slice(0, 5).padStart(5, "0") : "";
+  if (mine.length > 1 && /^\d{2}:\d{2}$/.test(hint)) { const m = mine.filter((s: any) => String(s.start_time).slice(0, 5) === hint); if (m.length === 1) mine = m; }
   const pn = first(name(person));
   if (mine.length === 0) return { status: "no_shift", employee_id: person.id, next: `Say "${pn} isn't scheduled ${dayWord(date, today)}. Did you mean another day?" Propose nothing.` };
   if (mine.length > 1) {
@@ -174,7 +182,7 @@ export async function findShifts(admin: any, locationId: string, crew: Crew[], n
     return {
       status: "which_shift", employee_id: person.id, shifts: mine.map(label),
       next: `Ask "${pn} has ${words} shifts ${dayWord(date, today)}, ${times}. Which one?"`,
-      screen: { kind: "shifts", purpose, date, title: `${pn} has ${words} shifts ${dayWord(date, today)}. Which one?`, shifts: mine.map(label) },
+      screen: voiceOnly ? undefined : { kind: "shifts", purpose, date, title: `${pn} has ${words} shifts ${dayWord(date, today)}. Which one?`, shifts: mine.map(label) },
     };
   }
   const s = mine[0];
@@ -184,6 +192,10 @@ export async function findShifts(admin: any, locationId: string, crew: Crew[], n
     status: "one_shift", shift_id: s.id, employee_id: person.id, name: name(person), date, time: fmtRange(s.start_time, s.end_time),
     next: purpose === "delete"
       ? "Call propose_action with action delete_shift and this shift_id."
+      : purpose === "swap"
+      ? `This is ${pn}'s shift. Find the other person's shift the same way (find_shifts, purpose swap), then call propose_action with action swap_shift, shift_id and other_shift_id.`
+      : purpose === "change"
+      ? "Call propose_action with action change_shift, this shift_id, and only the end(s) the manager said: start_time and/or end_time."
       : "If the manager named who should take it, resolve them with find_crew and call propose_action (cover_shift). Otherwise call cover_candidates with this shift_id.",
   };
 }
