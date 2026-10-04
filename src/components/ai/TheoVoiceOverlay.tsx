@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check } from 'lucide-react';
+import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check, AlertTriangle } from 'lucide-react';
 import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
-import { reassignAndNotify } from '@/lib/scheduleActions';
+import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule } from '@/lib/scheduleActions';
 import { countPendingChanges } from '@/lib/scheduleDiff';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,14 +116,32 @@ type CoverProposal = {
   id: string; action: 'cover_shift'; shift_id: string; schedule_id: string; day_of_week: number; shift_date: string;
   start_time: string; end_time: string; date_label: string; time_label: string;
   covered: { id: string; name: string }; replacement: { id: string; name: string };
-  checks: string[]; tag: string | null; published: boolean;
+  checks: string[]; tag: string | null; published: boolean; day?: DayView;
 };
-type AnyProposal = TaskProposal | CoverProposal;
-type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean };
+// Theo hands (build 3): the day as it will be, shared by add, cover and delete previews.
+type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: 'new' | 'cover' | 'removed' | null; from?: string };
+type DayView = { date: string; title: string; axis: { start: number; end: number; labels: string[] }; rows: DayRow[] };
+type AddProposal = {
+  id: string; action: 'add_shift'; employee: { id: string; name: string }; shift_date: string; start_time: string; end_time: string;
+  template_id: string | null; position: string | null; week_start: string; schedule_id: string | null; day_of_week: number; published: boolean;
+  date_label: string; time_label: string; warnings: string[]; info: string[]; day: DayView;
+};
+type DeleteProposal = {
+  id: string; action: 'delete_shift'; shift_id: string; schedule_id: string; day_of_week: number; shift_date: string; start_time: string; end_time: string;
+  template_id: string | null; position: string | null; employee: { id: string; name: string }; published: boolean;
+  date_label: string; time_label: string; warnings: string[]; info: string[]; day: DayView;
+};
+type ShiftProposal = CoverProposal | AddProposal | DeleteProposal;
+type AnyProposal = TaskProposal | ShiftProposal;
+type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any> };
+type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean };
+const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false };
+const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 type CoverScreen =
-  | { kind: 'shifts'; date: string; title: string; shifts: { shift_id: string; employee_id: string; name: string; time: string }[] }
-  | { kind: 'people'; date: string; title: string; people: { employee_id: string; name: string }[] }
+  | { kind: 'shifts'; purpose?: 'cover' | 'delete'; date: string; title: string; shifts: { shift_id: string; employee_id: string; name: string; time: string }[] }
+  | { kind: 'people'; purpose?: 'cover' | 'delete'; date: string; title: string; people: { employee_id: string; name: string }[] }
+  | { kind: 'templates'; title: string; subtitle: string; draft: { employee_id: string; date: string; start_time: string; end_time: string }; rows: { template_id: string; name: string; line: string }[] }
   | { kind: 'candidates'; shift_id: string; title: string; subtitle: string; clear: ScreenRow[]; working: ScreenRow[]; blocked_summary: string | null };
 
 function CoverListScroller({ children }: { children: ReactNode }) {
@@ -160,6 +178,54 @@ function CoverListScroller({ children }: { children: ReactNode }) {
   );
 }
 
+
+const NEW_GREEN = 'hsl(142 70% 28%)';
+const KIND_COLOR: Record<'new' | 'cover' | 'removed', string> = { new: 'hsl(142 70% 28%)', cover: 'color-mix(in srgb, hsl(var(--primary)) 75%, black)', removed: 'hsl(var(--destructive))' };
+const KIND_TAG: Record<'new' | 'cover' | 'removed', string> = { new: 'New', cover: 'Covering', removed: 'Removed' };
+/** The day as it will be: time axis + one row per shift with a bar on that axis. Rows scroll inside the card. */
+function DayRows({ view }: { view: DayView }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { boxRef.current?.querySelector('[data-changed="1"]')?.scrollIntoView({ block: 'nearest' }); }, [view]);
+  const len = Math.max(60, view.axis.end - view.axis.start);
+  return (
+    <div className="flex min-h-0 flex-col">
+      <div className="flex shrink-0 justify-between px-3 pb-1 text-[12px] font-semibold text-muted-foreground">
+        {view.axis.labels.map((l, i) => <span key={i}>{l}</span>)}
+      </div>
+      <div ref={boxRef} className="flex min-h-0 flex-col">
+        <CoverListScroller>
+          {view.rows.length === 0 && <p className="p-2 text-[14px] text-muted-foreground">No one else is on that day.</p>}
+          {view.rows.map((r) => {
+            const k = r.kind;
+            const col = k ? KIND_COLOR[k] : 'hsl(var(--muted-foreground))';
+            const left = ((r.start - view.axis.start) / len) * 100;
+            const width = Math.max(2, ((r.end - r.start) / len) * 100);
+            return (
+              <div key={r.id} data-changed={k ? '1' : undefined} className="shrink-0 rounded-xl px-2.5 py-2"
+                style={k ? { background: `color-mix(in srgb, ${col} 12%, transparent)`, boxShadow: `inset 4px 0 0 ${col}` } : undefined}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`min-w-0 truncate ${k === 'removed' ? 'line-through' : ''}`}>
+                    <span className="text-[14px] font-extrabold">{r.name}</span>
+                    <span className="text-[13px] text-muted-foreground"> · {r.position}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {k && <span className="inline-flex h-5 items-center rounded-full px-2 text-[12px] font-extrabold text-primary-foreground" style={{ background: col }}>{KIND_TAG[k]}</span>}
+                    <span className={`text-[13px] font-bold ${k === 'removed' ? 'line-through' : ''}`}>{r.time}</span>
+                  </span>
+                </div>
+                {k === 'cover' && r.from && <div className="text-[12px] text-muted-foreground">Takes this from {r.from}</div>}
+                <div className="relative mt-1.5 h-[5px] w-full rounded-full bg-muted">
+                  <div className="absolute top-0 h-full rounded-full" style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%`, background: col, opacity: k === 'removed' ? 0.35 : 1 }} />
+                </div>
+              </div>
+            );
+          })}
+        </CoverListScroller>
+      </div>
+    </div>
+  );
+}
+
 const firstName = (n: string) => n.split(' ')[0];
 const UNDO_MS = 10 * 60 * 1000;
 const roleLabel = (r: string) => ROLE_DISPLAY_NAMES[r as AppRole] ?? r;
@@ -190,7 +256,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const { currentLocation } = useLocation();
   const { user } = useAuth();
   // Which Theo actions this person has at this store: the server's answer (theo-voice session), nothing else.
-  const actionsRef = useRef<{ create_task: boolean; cover_shift: boolean }>({ create_task: false, cover_shift: false });
+  const actionsRef = useRef<Acts>({ ...NO_ACTS });
   const { timezone } = useLocationTimezone();
   // Cover-a-shift lists (shift picker, which-person, who-can-cover). Showing one changes nothing.
   const [screen, setScreenState] = useState<CoverScreen | null>(null);
@@ -342,7 +408,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const s = sessionRef.current;
     sessionRef.current = null; // one pass per live connection
     const d = s ? await s.promise : null;
-    const keep = (x: any) => { actionsRef.current = { create_task: x?.actions?.create_task === true, cover_shift: x?.actions?.cover_shift === true }; return x; };
+    const keep = (x: any) => { const a = x?.actions; actionsRef.current = { create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true }; return x; };
     if (d) return keep(d);
     const { data, error } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation!.id } });
     if (error || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
@@ -443,12 +509,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     setScreen(null);
     setScreenNote('');
     setAction({ stage: 'preview', proposal, logId });
-    if (proposal.action === 'cover_shift' && proposal.published) {
+    if (isShiftAction(proposal) && proposal.published && proposal.schedule_id) {
       // Other changes already waiting on this published week go out with the Update.
       void (async () => {
         const [{ data: sch }, { data: cur }] = await Promise.all([
-          supabase.from('schedules').select('published_shifts_snapshot').eq('id', proposal.schedule_id).single(),
-          supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', proposal.schedule_id),
+          supabase.from('schedules').select('published_shifts_snapshot').eq('id', proposal.schedule_id!).single(),
+          supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', proposal.schedule_id!),
         ]);
         const snap = Array.isArray(sch?.published_shifts_snapshot) ? (sch!.published_shifts_snapshot as any[]) : [];
         const n = countPendingChanges(snap, cur as any[]);
@@ -469,7 +535,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         body: { messages: [], location_id: currentLocation?.id, location_name: currentLocation?.name, source: 'voice', pick },
       });
       if (e) { setScreenNote('Theo could not reach the schedule right now.'); return; }
-      if (data?.proposal?.action === 'cover_shift') { showProposal(data.proposal as CoverProposal); return; }
+      if (data?.proposal?.action && isShiftAction(data.proposal)) { showProposal(data.proposal as ShiftProposal); return; }
       if (data?.screen?.kind) { setScreen(data.screen as CoverScreen); return; }
       setScreenNote(data?.content || '');
     } finally {
@@ -481,7 +547,9 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (logRef.current) logRef.current.questions += 1;
     setLongAnswer(false);
     const acts = actionsRef.current;
-    const canAct = acts.create_task || acts.cover_shift;
+    const canAct = acts.create_task || acts.cover_shift || acts.add_shift || acts.delete_shift;
+    const schedAct = acts.cover_shift || acts.add_shift || acts.delete_shift;
+    const sc = screenRef.current;
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
         messages: [{ role: 'user', content: question + VOICE_SUFFIX }],
@@ -489,7 +557,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         location_name: currentLocation?.name,
         source: 'voice',
         ...(canAct && actionRef.current?.stage === 'preview' ? { pending_action: actionRef.current.proposal } : {}),
-        ...(acts.cover_shift && screenRef.current?.kind === 'candidates' ? { list_context: { shift_id: screenRef.current.shift_id } } : {}),
+        ...(acts.cover_shift && sc?.kind === 'candidates' ? { list_context: { shift_id: sc.shift_id } } : {}),
+        ...(acts.add_shift && sc?.kind === 'templates' ? { list_context: { draft: sc.draft } } : {}),
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
@@ -498,13 +567,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       logAction(actionRef.current.logId, { status: 'cancelled' });
       setAction(null);
     }
-    if ((acts.create_task && data?.proposal?.action === 'create_task') || (acts.cover_shift && data?.proposal?.action === 'cover_shift')) {
+    const pa = data?.proposal?.action as string | undefined;
+    if (pa && acts[pa as keyof Acts] === true) {
       if (showProposal(data.proposal as AnyProposal)) {
         onExchange?.(question, answer);
         return JSON.stringify({ answer, long: false, preview: true });
       }
     }
-    if (acts.cover_shift && data?.screen?.kind && !actionRef.current) {
+    if (schedAct && data?.screen?.kind && !actionRef.current) {
       setScreen(data.screen as CoverScreen);
       setScreenNote('');
       onExchange?.(question, answer);
@@ -763,13 +833,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     }
   };
 
-  const confirmCover = async () => {
+  // Confirm for every schedule action (add, cover, delete): re-check at the tap, then the shared
+  // "apply the change, then Update if published" path. Nothing here decides anything; the server re-check does.
+  const confirmShift = async () => {
     const a = actionRef.current;
-    if (!a || a.stage !== 'preview' || a.proposal.action !== 'cover_shift' || !user?.id || !currentLocation?.id) return;
+    if (!a || a.stage !== 'preview' || !isShiftAction(a.proposal) || !user?.id || !currentLocation?.id) return;
     const p = a.proposal;
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
-      // Re-check at the moment of the tap: anything changed since the preview means no save.
       const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: 'voice', pick: { kind: 'recheck', proposal: p } },
       });
@@ -779,28 +850,61 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         setAction({ ...a, stage: 'preview', error: `Not saved. Something changed: ${chk.recheck.changed}` });
         return;
       }
-      const res = await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.replacement.id, changedBy: user.id, timezone });
+      const opts = (scheduleId: string) => ({ scheduleId, changedBy: user.id, timezone });
+      let next: Partial<ActionCard> = {};
+      let notified = false;
+      let record = '';
+      if (p.action === 'cover_shift') {
+        const res = await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.replacement.id, changedBy: user.id, timezone });
+        notified = res.notified; record = p.shift_id;
+        onRecord?.(`Covered shift: ${p.date_label}, ${p.time_label}. ${p.replacement.name} takes it from ${p.covered.name}`);
+      } else if (p.action === 'add_shift') {
+        const weekEnd = new Date(`${p.week_start}T12:00:00Z`); weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+        const sch = p.schedule_id ? { id: p.schedule_id } : await ensureDraftSchedule(currentLocation.id, p.week_start, weekEnd.toISOString().slice(0, 10));
+        const res = await applyThenUpdate(opts(sch.id), () => addShift({ schedule_id: sch.id, template_id: p.template_id, user_id: p.employee.id, day_of_week: p.day_of_week, shift_date: p.shift_date, start_time: p.start_time, end_time: p.end_time }));
+        notified = res.notified; record = res.result.id;
+        next = { newShiftId: res.result.id, scheduleId: sch.id };
+        onRecord?.(`Added shift: ${p.employee.name}, ${p.date_label}, ${p.time_label}${p.position ? ` (${p.position})` : ''}`);
+      } else {
+        const row = await readShiftRow(p.shift_id); // every column, kept for Undo
+        const res = await applyThenUpdate(opts(p.schedule_id), () => deleteShift(p.shift_id));
+        notified = res.notified; record = p.shift_id;
+        next = { removedRow: row, scheduleId: p.schedule_id };
+        onRecord?.(`Deleted shift: ${p.employee.name}, ${p.date_label}, ${p.time_label}`);
+      }
       refreshShiftViews(currentLocation.id);
-      logAction(a.logId, { status: 'confirmed', record_id: p.shift_id });
-      onRecord?.(`Covered shift: ${p.date_label}, ${p.time_label}. ${p.replacement.name} takes it from ${p.covered.name}`);
+      logAction(a.logId, { status: 'confirmed', record_id: record });
       const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-      setAction({ ...a, stage: 'done', savedAt, undoOpen: true, notified: res.notified });
-      setTimeout(() => { const c = actionRef.current; if (c?.proposal.id === p.id && c.stage === 'done') setAction({ ...c, undoOpen: false }); }, UNDO_MS);
+      setAction({ ...a, ...next, stage: 'done', savedAt, undoOpen: true, notified });
+      setTimeout(() => { const cur = actionRef.current; if (cur?.proposal.id === p.id && cur.stage === 'done') setAction({ ...cur, undoOpen: false }); }, UNDO_MS);
     } catch (err: any) {
       logAction(a.logId, { status: 'failed' });
       setAction({ ...a, stage: 'preview', error: err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the change. Try again." });
     }
   };
-  const undoCover = async () => {
+  // Undo (10 minutes): the same shared path in reverse, then Update if published.
+  const undoShift = async () => {
     const a = actionRef.current;
-    if (!a || a.stage !== 'done' || a.proposal.action !== 'cover_shift' || !user?.id) return;
+    if (!a || a.stage !== 'done' || !isShiftAction(a.proposal) || !user?.id) return;
     const p = a.proposal;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
-      await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.covered.id, changedBy: user.id, timezone });
+      if (p.action === 'cover_shift') {
+        await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.covered.id, changedBy: user.id, timezone });
+        onRecord?.(`Undid shift cover: ${p.covered.name} has ${p.date_label}, ${p.time_label} again`);
+      } else if (p.action === 'add_shift') {
+        if (!a.newShiftId || !a.scheduleId) throw new Error('missing shift');
+        const id = a.newShiftId;
+        await applyThenUpdate({ scheduleId: a.scheduleId, changedBy: user.id, timezone }, () => deleteShift(id));
+        onRecord?.(`Undid added shift: ${p.employee.name}, ${p.date_label}, ${p.time_label}`);
+      } else {
+        if (!a.removedRow || !a.scheduleId) throw new Error('missing shift');
+        const row = a.removedRow;
+        await applyThenUpdate({ scheduleId: a.scheduleId, changedBy: user.id, timezone }, () => restoreShift(row));
+        onRecord?.(`Undid deleted shift: ${p.employee.name} has ${p.date_label}, ${p.time_label} again`);
+      }
       if (currentLocation?.id) refreshShiftViews(currentLocation.id);
       logAction(a.logId, { status: 'undone' });
-      onRecord?.(`Undid shift cover: ${p.covered.name} has ${p.date_label}, ${p.time_label} again`);
       setAction({ ...a, stage: 'undone' });
     } catch {
       setAction({ ...a, stage: 'done', error: "Couldn't undo the change. Try again." });
@@ -808,7 +912,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
   const confirmTask = async () => {
     const a = actionRef.current;
-    if (a?.proposal.action === 'cover_shift') return confirmCover();
+    if (a && isShiftAction(a.proposal)) return confirmShift();
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_task' || !user?.id || !currentLocation?.id) return;
     setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
     try {
@@ -833,7 +937,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   };
   const undoTask = async () => {
     const a = actionRef.current;
-    if (a?.proposal.action === 'cover_shift') return undoCover();
+    if (a && isShiftAction(a.proposal)) return undoShift();
     if (!a || a.stage !== 'done' || !a.taskId || a.proposal.action !== 'create_task') return;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
@@ -862,26 +966,35 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     <span className="inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-extrabold" style={{ background: 'hsl(38 95% 88%)', color: 'hsl(32 90% 26%)' }}>{t}</span>
   );
 
-  function renderCover(a: ActionCard, p: CoverProposal) {
-    const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
-    const rf = firstName(p.replacement.name);
-    const cf = firstName(p.covered.name);
+  function renderShift(a: ActionCard, p: ShiftProposal) {
+    const who = p.action === 'cover_shift' ? p.replacement.name : p.employee.name;
+    const wf = firstName(who);
+    const day = p.date_label.split(',')[0];
     if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
       const undone = a.stage === 'undone';
+      const head = p.action === 'add_shift' ? (undone ? 'Shift removed' : 'Shift added') : p.action === 'delete_shift' ? (undone ? 'Shift put back' : 'Shift deleted') : (undone ? 'Change undone' : 'Shift covered');
+      const line = p.action === 'add_shift'
+        ? (undone ? `${wf} is off ${day} again.` : `Done. ${wf} is on ${day} ${p.time_label}.`)
+        : p.action === 'delete_shift'
+          ? (undone ? `${wf} has ${day} ${p.time_label} again.` : `Done. ${wf}'s ${day} shift is removed.`)
+          : (undone ? `${firstName(p.covered.name)} has the shift again.` : `Done. ${wf} has ${day} ${Number(p.start_time.slice(0, 2)) >= 16 ? 'night' : 'shift'}.`);
+      const notice = p.published
+        ? (a.notified ? (p.action === 'cover_shift' ? 'Both were notified.' : `${wf} was notified.`) : 'No one needed a notice.')
+        : 'No one was notified, the week is a draft.';
       return (
         <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : 'hsl(142 70% 28%)' }}>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : NEW_GREEN }}>
               {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
             </span>
             <div>
-              <div className="text-[18px] font-extrabold">{undone ? 'Change undone' : 'Shift covered'}</div>
+              <div className="text-[18px] font-extrabold">{head}</div>
               {!undone && <div className="text-[13px] text-muted-foreground">Saved at {a.savedAt}</div>}
             </div>
           </div>
-          <p className="text-[17px] font-extrabold">{undone ? `${cf} has the shift again.` : `Done. ${rf} has ${p.date_label.split(',')[0]} ${Number(p.start_time.slice(0, 2)) >= 16 ? 'night' : 'shift'}.`}</p>
+          <p className="text-[17px] font-extrabold">{line}</p>
           <p className="text-[14px] text-muted-foreground">{p.date_label} · {p.time_label}</p>
-          <p className="text-[13px] text-muted-foreground">{p.published ? (a.notified ? 'Both were notified.' : 'No one needed a notice.') : 'No one was notified, the week is a draft.'}</p>
+          <p className="text-[13px] text-muted-foreground">{notice}</p>
           {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
           {!undone && a.undoOpen && (
             <div className="flex flex-col gap-1">
@@ -889,7 +1002,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
                 className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
                 {a.stage === 'undoing' ? 'Undoing…' : 'Undo'}
               </button>
-              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes{p.published ? ' and notifies both again' : ''}.</p>
+              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes{p.published ? ' and sends the update again' : ''}.</p>
             </div>
           )}
           <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
@@ -898,49 +1011,52 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     }
     const saving = a.stage === 'saving';
     const others = a.otherChanges ?? 0;
+    const othersLine = others > 0 ? ` ${others} other ${others === 1 ? 'change' : 'changes'} on this week will also go out.` : '';
+    const name = p.action === 'cover_shift' ? 'Cover a shift' : p.action === 'add_shift' ? 'Add a shift' : 'Delete a shift';
+    const button = p.action === 'cover_shift' ? 'Confirm change' : p.action === 'add_shift' ? 'Add shift' : 'Delete shift';
+    const warnings = p.action === 'cover_shift' ? (p.tag ? [`${wf} is tagged: ${p.tag}`] : []) : p.warnings;
+    const info = p.action === 'cover_shift' ? p.checks : p.info;
+    const note = p.action === 'add_shift'
+      ? (p.published ? `When you confirm, the shift is added and ${wf} is notified.${othersLine}` : "This week isn't published yet, so the shift goes into the draft and no one is notified.")
+      : p.action === 'delete_shift'
+        ? (p.published ? `When you confirm, the shift is removed and ${wf} is notified.${othersLine}` : "This week isn't published yet, so the shift is removed from the draft and no one is notified.")
+        : (p.published ? `When you confirm, the schedule changes and ${firstName(p.covered.name)} and ${wf} are notified.${othersLine}` : "This week isn't published yet, so no one is notified.");
+    const dv = p.day;
     return (
       <>
-        <p className="mt-3 text-center text-[22px] font-extrabold text-white">Does this look right?</p>
-        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[18px] font-extrabold">Cover a shift</span>
+        <p className="mt-3 shrink-0 text-center text-[22px] font-extrabold text-white">Does this look right?</p>
+        {dv && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{dv.title}</p>}
+        <div className="mt-3 flex min-h-0 w-full max-w-[420px] flex-col gap-2 rounded-[20px] bg-card p-3 text-foreground tabular-nums">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-1">
+            <span className="text-[18px] font-extrabold">{name}</span>
             {amberTag('Preview · not saved')}
           </div>
-          <div><div className={label}>When</div><div className="text-[17px] font-extrabold">{p.date_label} · {p.time_label}</div></div>
-          <div className="flex flex-col gap-2">
-            <div className="flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2" style={{ background: 'hsl(var(--destructive) / 0.12)' }}>
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-destructive" />
-              <div><div className="text-[15px] font-extrabold">{p.covered.name}</div><div className="text-[13px] text-muted-foreground">Comes off this shift</div></div>
-            </div>
-            <div className="flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2" style={{ background: 'hsl(142 70% 28% / 0.12)' }}>
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: 'hsl(142 70% 28%)' }} />
-              <div className="flex-1"><div className="text-[15px] font-extrabold">{p.replacement.name}</div><div className="text-[13px] text-muted-foreground">Takes this shift</div></div>
-              {p.tag && amberTag(p.tag)}
-            </div>
+          {dv && <DayRows view={dv} />}
+          {warnings.length > 0 && (
+            <ul className="flex shrink-0 flex-col gap-1 rounded-xl px-3 py-2" style={{ background: 'hsl(38 95% 90%)', color: 'hsl(32 90% 22%)' }}>
+              {warnings.map((w) => <li key={w} className="flex items-start gap-2 text-[13px] font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
+            </ul>
+          )}
+          {info.length > 0 && (
+            <ul className="flex shrink-0 flex-col gap-1 px-1">
+              {info.map((t) => <li key={t} className="flex items-start gap-2 text-[13px]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={3} />{t}</li>)}
+            </ul>
+          )}
+          <p className="shrink-0 px-1 text-[13px] text-muted-foreground">{note}</p>
+          {a.error && <p className="shrink-0 px-1 text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <div className="flex shrink-0 items-center gap-2">
+            <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
+            <button onClick={confirmTask} disabled={saving}
+              className={`h-[52px] flex-1 rounded-full text-[16px] font-extrabold disabled:opacity-70 ${p.action === 'delete_shift' ? 'bg-destructive text-destructive-foreground' : 'text-primary-foreground'}`}
+              style={p.action === 'delete_shift' ? undefined : { background: p.action === 'add_shift' ? NEW_GREEN : DEEP_PRIMARY }}>
+              {saving ? 'Saving…' : button}
+            </button>
           </div>
-          <ul className="flex flex-col gap-1">
-            {p.checks.map((c) => (
-              <li key={c} className="flex items-start gap-2 text-[14px]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={3} />{c}</li>
-            ))}
-          </ul>
-          <div className="h-px w-full bg-border" />
-          <p className="text-[13px] text-muted-foreground">
-            {p.published
-              ? `When you confirm, the schedule changes and ${cf} and ${rf} are notified.${others > 0 ? ` ${others} other ${others === 1 ? 'change' : 'changes'} on this week will also go out.` : ''}`
-              : "This week isn't published yet, so no one is notified."}
-          </p>
-          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
-          <button onClick={confirmTask} disabled={saving}
-            className="h-[52px] w-full rounded-full text-[16px] font-extrabold text-white disabled:opacity-70" style={{ background: DEEP_PRIMARY }}>
-            {saving ? 'Saving…' : 'Confirm change'}
-          </button>
-          <button onClick={cancelTask} disabled={saving} className="h-11 w-full text-[15px] font-semibold text-muted-foreground">Cancel</button>
         </div>
-        <p className="mt-3 text-center text-[13px] text-white/[0.78]">Or tell Theo what to change.</p>
+        <p className="mt-3 shrink-0 text-center text-[13px] text-white/[0.78]">Or tell Theo what to change.</p>
       </>
     );
   }
-
   function renderScreen(sc: CoverScreen) {
     const rowCls = 'flex min-h-[60px] w-full shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted disabled:opacity-60';
     const groupLabel = 'sticky top-0 z-10 shrink-0 bg-card px-1 py-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
@@ -954,17 +1070,22 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     return (
       <div className="flex min-h-0 w-full flex-1 flex-col items-center tabular-nums">
         <p className="mt-3 shrink-0 text-center text-[22px] font-extrabold text-white">{sc.title}</p>
-        {sc.kind === 'candidates' && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
+        {(sc.kind === 'candidates' || sc.kind === 'templates') && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
         <div className="mt-3 flex min-h-0 w-full max-w-[420px] flex-1 items-start overflow-hidden">
           <CoverListScroller>
           {sc.kind === 'shifts' && (sc.shifts.length ? sc.shifts.map((sh) => (
-            <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id })}>
+            <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id, purpose: sc.purpose })}>
               <div><div className="text-[16px] font-extrabold">{sh.name}</div><div className="text-[13px] text-muted-foreground">{sh.time}</div></div>
             </button>
           )) : <p className="p-3 text-[14px] text-muted-foreground">No shifts left today.</p>)}
           {sc.kind === 'people' && sc.people.map((pp) => (
-            <button key={pp.employee_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'person', employee_id: pp.employee_id, date: sc.date })}>
+            <button key={pp.employee_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'person', employee_id: pp.employee_id, date: sc.date, purpose: sc.purpose })}>
               <div className="text-[16px] font-extrabold">{pp.name}</div>
+            </button>
+          ))}
+          {sc.kind === 'templates' && sc.rows.map((t) => (
+            <button key={t.template_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'template', ...sc.draft, template_id: t.template_id })}>
+              <div><div className="text-[16px] font-extrabold">{t.name}</div><div className="text-[13px] text-muted-foreground">{t.line}</div></div>
             </button>
           ))}
           {sc.kind === 'candidates' && <>
@@ -985,7 +1106,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   }
 
   function renderAction(a: ActionCard) {
-    if (a.proposal.action === 'cover_shift') return renderCover(a, a.proposal);
+    if (isShiftAction(a.proposal)) return renderShift(a, a.proposal);
     const p = a.proposal;
     const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
     if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
@@ -1059,7 +1180,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         </button>
       </div>
 
-      <div className={action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
+      <div className={action && isShiftAction(action.proposal) && (action.stage === 'preview' || action.stage === 'saving') ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2 pb-2" : action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
           className={action || screen ? 'relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
           <div className={action || screen ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>

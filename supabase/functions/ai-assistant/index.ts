@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
+import { buildAddProposal, buildDeleteProposal } from "./shifts.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 
 const corsHeaders = {
@@ -967,10 +968,36 @@ const FIND_SHIFTS_TOOL = {
   type: "function",
   function: {
     name: "find_shifts",
-    description: "Cover a shift, step 1. With a name: that person's shifts on the date (default today). With no name: the store's remaining shifts today, shown on screen to tap. Returns status, shift_id(s) and a 'next' instruction to follow exactly.",
-    parameters: { type: "object", properties: { name: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD; omit for today" } } },
+    description: "Cover or delete a shift, step 1. With a name: that person's shifts on the date (default today). With no name: the store's remaining shifts today, shown on screen to tap. Returns status, shift_id(s) and a 'next' instruction to follow exactly.",
+    parameters: { type: "object", properties: { name: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD; omit for today" }, purpose: { type: "string", enum: ["cover", "delete"], description: "cover (default) or delete" } } },
   },
 };
+// Build 3: the schedule-change proposal tool (super admin, voice). Enum is limited per person at request time.
+const proposeScheduleTool = (acts: { cover_shift: boolean; add_shift: boolean; delete_shift: boolean }) => ({
+  type: "function",
+  function: {
+    name: "propose_action",
+    description: "Show the manager a PREVIEW of a change. Saves nothing — only the manager's tap saves it. create_task: a standard quick task (needs a title AND at least one person or role). cover_shift: give one shift to another person. add_shift: add one shift for one person (needs employee_id, date, hours; template_id 'none' for from scratch; omit template_id to show the template list). delete_shift: remove one shift (shift_id from find_shifts purpose delete). Also call it again with the full revised change when the manager changes a preview that is on screen.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["create_task", ...(acts.cover_shift ? ["cover_shift"] : []), ...(acts.add_shift ? ["add_shift"] : []), ...(acts.delete_shift ? ["delete_shift"] : [])] },
+        shift_id: { type: "string", description: "cover_shift / delete_shift: shift_id from find_shifts" },
+        replacement_employee_id: { type: "string", description: "cover_shift only: employee_id (from find_crew) of the person taking the shift" },
+        employee_id: { type: "string", description: "add_shift only: employee_id from find_crew" },
+        date: { type: "string", description: "add_shift only: YYYY-MM-DD" },
+        start_time: { type: "string", description: "add_shift only: HH:MM 24h. Omit when the manager gave no hours." },
+        end_time: { type: "string", description: "add_shift only: HH:MM 24h. Omit when the manager gave no hours." },
+        template_id: { type: "string", description: "add_shift only: a template_id from the list, or 'none' for from scratch / no template. Omit to show the list." },
+        title: PROPOSE_TASK_TOOL.function.parameters.properties.title,
+        employee_ids: PROPOSE_TASK_TOOL.function.parameters.properties.employee_ids,
+        roles: PROPOSE_TASK_TOOL.function.parameters.properties.roles,
+        duration: PROPOSE_TASK_TOOL.function.parameters.properties.duration,
+      },
+      required: ["action"],
+    },
+  },
+});
 const COVER_CANDIDATES_TOOL = {
   type: "function",
   function: {
@@ -3186,8 +3213,12 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
     // Voice only, never in the bake-off.
     const theoActions = !bakeoff && usageSource === "voice" ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
-    const actionsOn = theoActions.create_task || theoActions.cover_shift;
+    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift;
     const coverOn = theoActions.cover_shift;
+    const addOn = theoActions.add_shift;
+    const deleteOn = theoActions.delete_shift;
+    const schedOn = coverOn || addOn || deleteOn;
+    const findOn = coverOn || deleteOn;
     const pending = actionsOn && pending_action && typeof pending_action === "object" && pending_action.action === "create_task" ? {
       title: String(pending_action.title || "").slice(0, 200),
       employees: Array.isArray(pending_action.employees) ? pending_action.employees.slice(0, 20).map((e: any) => ({ employee_id: String(e?.id || ""), name: String(e?.name || "").slice(0, 80) })) : [],
@@ -3201,8 +3232,23 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       replacement: String(pending_action.replacement?.name || "").slice(0, 80),
       when: `${String(pending_action.date_label || "").slice(0, 40)} ${String(pending_action.time_label || "").slice(0, 40)}`,
     } : null;
-    const anyPending = !!(pending || pendingCover);
-    const listShift = coverOn && list_context && typeof list_context.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
+    const pendingAdd = addOn && pending_action && typeof pending_action === "object" && pending_action.action === "add_shift" ? {
+      employee_id: String(pending_action.employee?.id || ""), employee: String(pending_action.employee?.name || "").slice(0, 80),
+      date: String(pending_action.shift_date || "").slice(0, 10), start_time: String(pending_action.start_time || "").slice(0, 8),
+      end_time: String(pending_action.end_time || "").slice(0, 8), template_id: pending_action.template_id ? String(pending_action.template_id).slice(0, 36) : "none",
+      position: String(pending_action.position || "No position").slice(0, 60),
+    } : null;
+    const pendingDelete = deleteOn && pending_action && typeof pending_action === "object" && pending_action.action === "delete_shift" ? {
+      shift_id: String(pending_action.shift_id || "").slice(0, 36), employee: String(pending_action.employee?.name || "").slice(0, 80),
+      when: `${String(pending_action.date_label || "").slice(0, 40)} ${String(pending_action.time_label || "").slice(0, 40)}`,
+    } : null;
+    // A template list on screen (add a shift): the draft it belongs to.
+    const listDraft = addOn && list_context && typeof list_context === "object" && list_context.draft && typeof list_context.draft === "object" ? {
+      employee_id: String(list_context.draft.employee_id || "").slice(0, 36), date: String(list_context.draft.date || "").slice(0, 10),
+      start_time: String(list_context.draft.start_time || "").slice(0, 8), end_time: String(list_context.draft.end_time || "").slice(0, 8),
+    } : null;
+    const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete);
+    const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
     const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
     const matchCrew = (raw: string) => {
       const q = raw.trim().toLowerCase();
@@ -3215,11 +3261,20 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     const nowHHMM = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
 
     // Screen taps (a shift, a person or a name on the list) and the Confirm re-check: answered by code, no AI.
-    if (coverOn && pick && typeof pick === "object") {
+    const when = { today, nowHHMM };
+    if (schedOn && pick && typeof pick === "object") {
       const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const sid = String(pick.shift_id || "");
+      const forDelete = pick.purpose === "delete";
+      if (forDelete && !deleteOn) return reply({ content: "I can't delete shifts yet. Use the Schedule page." });
+      if (!forDelete && (pick.kind === "shift" || pick.kind === "person" || pick.kind === "candidate") && !coverOn) return reply({ content: "I can't cover shifts yet. Use the Schedule page." });
+      const deleteReply = async (shiftId: string) => {
+        const v: any = await buildDeleteProposal(supabaseAdmin, location_id, shiftId, crewForActions, crewName, today, nowHHMM);
+        return v.ok ? reply({ content: "Here's the change. Does this look right to you?", proposal: v.proposal }) : reply({ content: v.error });
+      };
       const shiftToScreen = async (shiftId: string) => {
-        const r: any = await candidatesScreen(supabaseAdmin, location_id, shiftId, crewForActions, crewName);
+        if (forDelete) return await deleteReply(shiftId);
+        const r: any = await candidatesScreen(supabaseAdmin, location_id, shiftId, crewForActions, crewName, when);
         if (r.declined) return reply({ content: r.declined });
         if (r.error) return reply({ content: r.error });
         return reply({ content: r.screen.title, screen: r.screen });
@@ -3227,20 +3282,47 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       if (pick.kind === "shift") return await shiftToScreen(sid);
       if (pick.kind === "person") {
         if (!crewForActions.some((c) => c.id === pick.employee_id)) return reply({ content: "I can't find that person at this store." });
-        const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, { employee_id: String(pick.employee_id || ""), date: pick.date }, today, nowHHMM, matchCrew);
+        const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, { employee_id: String(pick.employee_id || ""), date: pick.date, purpose: forDelete ? "delete" : "cover" }, today, nowHHMM, matchCrew);
         if (r.status === "one_shift") return await shiftToScreen(r.shift_id);
         if (r.screen) return reply({ content: r.screen.title, screen: r.screen });
         const said = String(r.next || "").match(/"([^"]+)"/)?.[1] || "I couldn't find that shift.";
         return reply({ content: said });
       }
+      if (pick.kind === "template") {
+        if (!addOn) return reply({ content: "I can't add shifts yet. Use the Schedule page." });
+        const v: any = await buildAddProposal(supabaseAdmin, location_id, { employee_id: String(pick.employee_id || ""), date: String(pick.date || ""), start_time: String(pick.start_time || ""), end_time: String(pick.end_time || ""), template_id: String(pick.template_id || "none") }, crewForActions, crewName, today);
+        if (v.ok) return reply({ content: "Here's the shift. Does this look right to you?", proposal: v.proposal });
+        return reply({ content: v.stop || v.ask || "I couldn't use that tap. Try again." });
+      }
+      if (pick.kind === "recheck" && pick.proposal?.action === "add_shift") {
+        if (!addOn) return reply({ recheck: { ok: false, changed: "Adding shifts isn't available." } });
+        const p = pick.proposal;
+        const v: any = await buildAddProposal(supabaseAdmin, location_id, { employee_id: String(p.employee?.id || ""), date: String(p.shift_date || ""), start_time: String(p.start_time || ""), end_time: String(p.end_time || ""), template_id: p.template_id ? String(p.template_id) : "none" }, crewForActions, crewName, today);
+        if (!v.ok) return reply({ recheck: { ok: false, changed: v.stop || v.ask || "The shift can't be added any more." } });
+        const n = v.proposal;
+        if (n.published !== !!p.published) return reply({ recheck: { ok: false, changed: n.published ? "The week was just published." : "The week was just unpublished." } });
+        if (JSON.stringify(n.warnings) !== JSON.stringify(p.warnings || [])) return reply({ recheck: { ok: false, changed: "That day's shifts changed. Ask Theo again for a fresh preview." } });
+        return reply({ recheck: { ok: true, published: n.published, schedule_id: n.schedule_id, week_start: n.week_start, day_of_week: n.day_of_week } });
+      }
+      if (pick.kind === "recheck" && pick.proposal?.action === "delete_shift") {
+        if (!deleteOn) return reply({ recheck: { ok: false, changed: "Deleting shifts isn't available." } });
+        const p = pick.proposal;
+        const v: any = await buildDeleteProposal(supabaseAdmin, location_id, String(p.shift_id || ""), crewForActions, crewName, today, nowHHMM);
+        if (!v.ok) return reply({ recheck: { ok: false, changed: v.error } });
+        const n = v.proposal;
+        if (n.employee.id !== p.employee?.id) return reply({ recheck: { ok: false, changed: `This shift now belongs to ${n.employee.name}.` } });
+        if (n.shift_date !== p.shift_date || n.start_time !== p.start_time || n.end_time !== p.end_time) return reply({ recheck: { ok: false, changed: `The shift moved to ${n.date_label}, ${n.time_label}.` } });
+        return reply({ recheck: { ok: true, published: n.published } });
+      }
+      if ((pick.kind === "candidate" || pick.kind === "recheck") && !coverOn) return reply({ content: "I can't cover shifts yet. Use the Schedule page." });
       if (pick.kind === "candidate") {
-        const v: any = await buildCoverProposal(supabaseAdmin, location_id, sid, String(pick.employee_id || ""), crewForActions, crewName);
+        const v: any = await buildCoverProposal(supabaseAdmin, location_id, sid, String(pick.employee_id || ""), crewForActions, crewName, when);
         if (v.ok) return reply({ content: "Here's the change. Does this look right to you?", proposal: v.proposal });
         return reply({ content: v.hurdle ? `${v.error}. Want to see who else can cover?` : v.error });
       }
       if (pick.kind === "recheck" && pick.proposal && typeof pick.proposal === "object") {
         const p = pick.proposal;
-        const v: any = await buildCoverProposal(supabaseAdmin, location_id, String(p.shift_id || ""), String(p.replacement?.id || ""), crewForActions, crewName);
+        const v: any = await buildCoverProposal(supabaseAdmin, location_id, String(p.shift_id || ""), String(p.replacement?.id || ""), crewForActions, crewName, when);
         if (!v.ok) return reply({ recheck: { ok: false, changed: /shift_id/.test(v.error) ? "That shift isn't on the schedule anymore." : v.error } });
         const n = v.proposal;
         if (n.covered.id !== p.covered?.id) return reply({ recheck: { ok: false, changed: `This shift now belongs to ${n.covered.name}.` } });
@@ -3274,7 +3356,23 @@ ${coverOn ? `COVER A SHIFT (you can also PROPOSE giving one existing shift to an
 - If a shift is posted in the shift pool, say "That shift is posted in the shift pool. Handle it there." and propose nothing.
 ` : `COVER A SHIFT is not something you can do yet: for any cover request ("who can cover Ryan?", "Ryan called out", "cover Ryan's shift with Deborah") propose nothing, say you can't do that yet and to handle it on the Schedule page. Never say a shift was changed, moved or covered.
 `}
-NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); swapping two people's shifts, adding or deleting a shift, changing shift times, or posting a shift offer (Schedule page).
+${addOn ? `ADD A SHIFT (you can PROPOSE adding one shift for one person at this store):
+- An add needs WHO, WHICH DAY and WHAT HOURS, then a template choice. Ask only for what is missing, in that order: no day -> ask exactly "Which day?" (never assume today); no hours -> ask exactly "What hours?" (unless they named a template — see below).
+- Resolve the person with find_crew (several matches: ask which one, naming them; none: say you can't find them at this store). Day words: "today" = ${today}, "tomorrow" = ${tomorrow}, a weekday = the next one from today.
+- With who, day and hours: call propose_action add_shift with employee_id, date, start_time, end_time and NO template_id. The app shows the template list; say its "next" line.
+- If the manager named a template up front ("put Ethan on PM Line 2 Saturday"), call propose_action add_shift WITHOUT template_id first to get the template list (with or without hours), then call it again in the same turn with that template's template_id. If they gave no hours, leave start_time/end_time out — the template's hours are used. If they gave hours, the hours they said stay.
+- "From scratch" or "no template" = template_id "none".
+- When propose_action add_shift returns preview_shown, your whole reply must be exactly: "Here's the shift. Does this look right to you?" Never say a shift was added.
+- Any "stop" or "next" in a result: say it and propose nothing. The app does all checking; warnings never stop a preview.
+` : `ADDING A SHIFT is not something you can do yet: propose nothing, say you can't do that yet and to add it on the Schedule page. Never say a shift was added.
+`}${deleteOn ? `DELETE A SHIFT (you can PROPOSE removing one existing shift at this store):
+- "Delete Cheyenne's Saturday shift", "take Ethan off tonight", "remove Cheyenne's shift tomorrow": call find_shifts with name, date (no day said or "tonight" = today ${today}) and purpose "delete". Follow its "next" exactly.
+- find_shifts status one_shift: call propose_action with action delete_shift and that shift_id.
+- When propose_action delete_shift returns preview_shown, your whole reply must be exactly: "Here's the change. Does this look right to you?" Never say a shift was deleted or removed.
+- Any refusal ("posted in the shift pool", "already started", "in the past", "punches", "made automatically", "coverage-only"): say it in one sentence and propose nothing.
+` : `DELETING A SHIFT is not something you can do yet: propose nothing, say you can't do that yet and to handle it on the Schedule page. Never say a shift was removed.
+`}
+NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); swapping two people's shifts, changing a shift's hours or day, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page). For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Change Ethan's shift to 10 to 4" = changing a shift's hours, not built.
 - ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the change in this reply. If you ask a question or say you can't, propose nothing. Your words and your tool calls must agree.${listShift ? `
 
 A LIST OF WHO CAN COVER IS ON SCREEN for shift_id ${listShift}. If the manager names someone, resolve them with find_crew and call propose_action (cover_shift) with this shift_id.` : ""}${pending ? `
@@ -3288,7 +3386,18 @@ ${JSON.stringify(pending)}
 A COVER PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${pendingCover.replacement} takes ${pendingCover.covered}'s shift ${pendingCover.when} (shift_id ${pendingCover.shift_id}).
 - If the manager names someone else ("actually make it Janessa"), resolve them with find_crew and call propose_action (cover_shift) with the SAME shift_id and the new replacement_employee_id.
 - If the manager wants to drop it ("never mind", "cancel"), call cancel_pending_action and say "Okay, I dropped that change."
-- If the manager agrees (yes / do it / confirm / looks good / sounds right), do NOT call any tool. Agreeing changes nothing. Reply exactly: "Tap Confirm change to save it."` : ""}`;
+- If the manager agrees (yes / do it / confirm / looks good / sounds right), do NOT call any tool. Agreeing changes nothing. Reply exactly: "Tap Confirm change to save it."` : ""}${pendingAdd ? `
+
+AN ADD-A-SHIFT PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${JSON.stringify(pendingAdd)}
+- If the manager changes it ("make it 10 to 4", "use PM Line 2", "from scratch"), call propose_action add_shift with the FULL revised shift (same employee_id and date unless changed; template_id as on screen unless changed).
+- If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that shift."
+- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Add shift to save it."` : ""}${pendingDelete ? `
+
+A DELETE-A-SHIFT PREVIEW IS ON SCREEN RIGHT NOW (not saved): remove ${pendingDelete.employee}'s shift ${pendingDelete.when} (shift_id ${pendingDelete.shift_id}).
+- If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that change."
+- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Delete shift to save it."` : ""}${listDraft ? `
+
+A TEMPLATE LIST IS ON SCREEN for adding a shift: ${JSON.stringify(listDraft)}. If the manager says a template name or "from scratch", call propose_action add_shift with this employee_id, date, start_time, end_time and the template_id (or "none").` : ""}`;
     // Rule G: wherever actions are not offered, Theo must never claim a change.
     const NEVER_CLAIM = `
 
@@ -3307,7 +3416,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     const seenCrewIds = new Set<string>();
     const lev = (a: string, b: string) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
     const snap = (id: string, seen: Set<string>) => { if (seen.has(id)) return id; let best = id, bd = 5; for (const s2 of seen) { const x = lev(id, s2); if (x < bd) { bd = x; best = s2; } } return best; };
-    let postedDecline = false;
+    let declineLine: string | null = null;
 
     let finalResponse: any = null;
     let loopCount = 0;
@@ -3328,7 +3437,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
           ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
-          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...THEO_TOOLS, FIND_CREW_TOOL, ...(coverOn ? [FIND_SHIFTS_TOOL, COVER_CANDIDATES_TOOL, PROPOSE_TASK_TOOL] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : THEO_TOOLS,
+          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...THEO_TOOLS, FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : THEO_TOOLS,
           tool_choice: "auto",
         }),
       });
@@ -3384,29 +3493,41 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           const matches = matchCrew(String(args?.name || ""));
           matches.forEach((c) => seenCrewIds.add(c.id));
           result = JSON.stringify({ matches: matches.slice(0, 10).map((c) => ({ employee_id: c.id, name: crewName(c) })) });
-        } else if (coverOn && tc.function.name === "find_shifts") {
-          const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, args || {}, today, nowHHMM, matchCrew);
+        } else if (findOn && tc.function.name === "find_shifts") {
+          const fargs = { ...(args || {}), purpose: args?.purpose === "delete" && deleteOn ? "delete" : coverOn ? "cover" : "delete" };
+          const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, fargs, today, nowHHMM, matchCrew);
+          if (r.status === "refused") { declineLine = r.refusal; coverScreen = null; }
           if (r.shift_id) seenShiftIds.add(r.shift_id);
           (r.shifts || []).forEach((x: any) => seenShiftIds.add(x.shift_id));
           (r.matches || []).forEach((x: any) => seenCrewIds.add(x.employee_id));
-          if (r.status === "posted") postedDecline = true;
+          if (r.status === "posted") { declineLine = r.refusal; coverScreen = null; }
           if (r.screen) coverScreen = r.screen;
           const { screen: _s, ...forTheo } = r;
           result = JSON.stringify(forTheo);
         } else if (coverOn && tc.function.name === "cover_candidates") {
-          const r: any = await candidatesScreen(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), crewForActions, crewName);
-          if (r.declined) { postedDecline = true; coverScreen = null; result = JSON.stringify({ status: "posted", next: `Say exactly "${r.declined}" Propose nothing.` }); }
+          const r: any = await candidatesScreen(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), crewForActions, crewName, when);
+          if (r.declined) { declineLine = r.declined; coverScreen = null; result = JSON.stringify({ status: "refused", next: `Say exactly "${r.declined}" Propose nothing.` }); }
           else if (r.error) result = JSON.stringify({ error: r.error });
           else { coverScreen = r.screen; result = JSON.stringify({ status: "list_shown", ...r.for_theo, next: `Reply "Here's who can cover ${String(r.for_theo.covered).split(" ")[0]}." plus at most the top two names.` }); }
         } else if (coverOn && tc.function.name === "propose_action" && args?.action === "cover_shift") {
-          const v: any = await buildCoverProposal(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), snap(String(args?.replacement_employee_id || ""), seenCrewIds), crewForActions, crewName);
+          const v: any = await buildCoverProposal(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), snap(String(args?.replacement_employee_id || ""), seenCrewIds), crewForActions, crewName, when);
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; result = JSON.stringify({ status: "preview_shown" }); }
           else {
             liveProposal = null;
-            if (v.posted) postedDecline = true;
+            if (v.refused) declineLine = v.error;
             result = JSON.stringify({ error: v.error, next: v.hurdle ? `Say "${v.error}. Want to see who else can cover?" Propose nothing.` : "Tell the manager in words. Propose nothing." });
           }
-        } else if (actionsOn && tc.function.name === "propose_action" && args?.action !== "cover_shift") {
+        } else if (addOn && tc.function.name === "propose_action" && args?.action === "add_shift") {
+          const v: any = await buildAddProposal(supabaseAdmin, location_id, { employee_id: snap(String(args?.employee_id || ""), seenCrewIds) || undefined, date: args?.date, start_time: args?.start_time, end_time: args?.end_time, template_id: typeof args?.template_id === "string" ? args.template_id : undefined }, crewForActions, crewName, today);
+          if (v.ok) { liveProposal = v.proposal; cancelPending = false; coverScreen = null; result = JSON.stringify({ status: "preview_shown" }); }
+          else if (v.screen) { liveProposal = null; coverScreen = v.screen; result = JSON.stringify({ status: "list_shown", ...v.for_theo, next: `Reply exactly "${v.screen.title}"` }); }
+          else if (v.ask) { liveProposal = null; result = JSON.stringify({ status: "need_more", ...(v.templates ? { templates: v.templates } : {}), next: v.templates ? `If the manager named one of these templates, call propose_action add_shift again with its template_id and no hours. Otherwise ask exactly "${v.ask}"` : `Ask exactly "${v.ask}" Propose nothing.` }); }
+          else { liveProposal = null; result = JSON.stringify({ stop: v.stop, next: `Say "${v.stop}" Propose nothing.` }); }
+        } else if (deleteOn && tc.function.name === "propose_action" && args?.action === "delete_shift") {
+          const v: any = await buildDeleteProposal(supabaseAdmin, location_id, snap(String(args?.shift_id || ""), seenShiftIds), crewForActions, crewName, today, nowHHMM);
+          if (v.ok) { liveProposal = v.proposal; cancelPending = false; coverScreen = null; result = JSON.stringify({ status: "preview_shown" }); }
+          else { liveProposal = null; if (v.refused) declineLine = v.error; result = JSON.stringify({ error: v.error, next: `Say "${v.error}" Propose nothing.` }); }
+        } else if (actionsOn && tc.function.name === "propose_action" && !["cover_shift", "add_shift", "delete_shift"].includes(args?.action)) {
           const v = validateTaskProposal(args, crewForActions);
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; result = JSON.stringify({ status: "preview_shown" }); }
           else { liveProposal = null; result = JSON.stringify({ error: v.error }); }
@@ -3469,19 +3590,29 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       if (liveProposal?.action === "cover_shift" && pendingCover && liveProposal.shift_id === pendingCover.shift_id && liveProposal.replacement.id === pendingCover.replacement_id) {
         liveProposal = null; finalResponse = "Tap Confirm change to save it.";
       }
+      if (liveProposal?.action === "add_shift" && pendingAdd && liveProposal.employee.id === pendingAdd.employee_id && liveProposal.shift_date === pendingAdd.date
+        && liveProposal.start_time === pendingAdd.start_time && liveProposal.end_time === pendingAdd.end_time && (liveProposal.template_id || "none") === pendingAdd.template_id) {
+        liveProposal = null; finalResponse = "Tap Add shift to save it.";
+      }
+      if (liveProposal?.action === "delete_shift" && pendingDelete && liveProposal.shift_id === pendingDelete.shift_id) {
+        liveProposal = null; finalResponse = "Tap Delete shift to save it.";
+      }
+      if (declineLine) { liveProposal = null; coverScreen = null; }
       if (liveProposal) {
         // Words and proposal must agree: a question or a "can't" drops the proposal.
-        const rest = String(finalResponse || "").replace(/here['’]?s the (task|change)\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
+        const rest = String(finalResponse || "").replace(/here['’]?s the (task|change|shift)\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
         const saysNo = rest.includes("?") || /\b(can['’]?t|cannot|unable|not able|not something i can|which one|who['’]?s it for|what['’]?s the task|shift pool)\b/.test(rest);
         if (saysNo) console.log("action guard dropped proposal");
         else {
           out.proposal = liveProposal;
-          out.content = liveProposal.action === "cover_shift" ? "Here's the change. Does this look right to you?" : "Here's the task. Does this look right to you?";
+          out.content = liveProposal.action === "create_task" ? "Here's the task. Does this look right to you?" : liveProposal.action === "add_shift" ? "Here's the shift. Does this look right to you?" : "Here's the change. Does this look right to you?";
         }
       } else if (cancelPending) out.cancel_pending = true;
-      else if (coverScreen && !postedDecline) out.screen = coverScreen;
-      if (postedDecline) out.content = "That shift is posted in the shift pool. Handle it there.";
+      else if (coverScreen && !declineLine) out.screen = coverScreen;
+      if (declineLine) out.content = declineLine;
       out.content ??= finalResponse;
+      // The model sometimes repeats a one-line question ("Which day?\nWhich day?"): say it once.
+      if (typeof out.content === "string") { const ls = out.content.split(/\n+/).map((x: string) => x.trim()).filter(Boolean); if (ls.length > 1 && ls.every((x: string) => x === ls[0])) out.content = ls[0]; }
       return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

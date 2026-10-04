@@ -6,6 +6,7 @@ import {
 } from "@/types/availability";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { deleteShift } from "@/lib/scheduleActions";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
@@ -311,12 +312,7 @@ export function EditShiftDialog({
     
     setDeleting(true);
     try {
-      const { error } = await supabase
-        .from("scheduled_shifts")
-        .delete()
-        .eq("id", shift.id);
-
-      if (error) throw error;
+      await deleteShift(shift.id);
 
       // Optimistically remove from cache so Schedule Tools updates instantly
       queryClient.setQueryData(scheduleQueryKey, (old: any) => {
