@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check } from 'lucide-react';
+import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check, AlertTriangle } from 'lucide-react';
 import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
-import { reassignAndNotify } from '@/lib/scheduleActions';
+import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule } from '@/lib/scheduleActions';
 import { countPendingChanges } from '@/lib/scheduleDiff';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,14 +116,32 @@ type CoverProposal = {
   id: string; action: 'cover_shift'; shift_id: string; schedule_id: string; day_of_week: number; shift_date: string;
   start_time: string; end_time: string; date_label: string; time_label: string;
   covered: { id: string; name: string }; replacement: { id: string; name: string };
-  checks: string[]; tag: string | null; published: boolean;
+  checks: string[]; tag: string | null; published: boolean; day?: DayView;
 };
-type AnyProposal = TaskProposal | CoverProposal;
-type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean };
+// Theo hands (build 3): the day as it will be, shared by add, cover and delete previews.
+type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: 'new' | 'cover' | 'removed' | null; from?: string };
+type DayView = { date: string; title: string; axis: { start: number; end: number; labels: string[] }; rows: DayRow[] };
+type AddProposal = {
+  id: string; action: 'add_shift'; employee: { id: string; name: string }; shift_date: string; start_time: string; end_time: string;
+  template_id: string | null; position: string | null; week_start: string; schedule_id: string | null; day_of_week: number; published: boolean;
+  date_label: string; time_label: string; warnings: string[]; info: string[]; day: DayView;
+};
+type DeleteProposal = {
+  id: string; action: 'delete_shift'; shift_id: string; schedule_id: string; day_of_week: number; shift_date: string; start_time: string; end_time: string;
+  template_id: string | null; position: string | null; employee: { id: string; name: string }; published: boolean;
+  date_label: string; time_label: string; warnings: string[]; info: string[]; day: DayView;
+};
+type ShiftProposal = CoverProposal | AddProposal | DeleteProposal;
+type AnyProposal = TaskProposal | ShiftProposal;
+type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any> };
+type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean };
+const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false };
+const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 type CoverScreen =
-  | { kind: 'shifts'; date: string; title: string; shifts: { shift_id: string; employee_id: string; name: string; time: string }[] }
-  | { kind: 'people'; date: string; title: string; people: { employee_id: string; name: string }[] }
+  | { kind: 'shifts'; purpose?: 'cover' | 'delete'; date: string; title: string; shifts: { shift_id: string; employee_id: string; name: string; time: string }[] }
+  | { kind: 'people'; purpose?: 'cover' | 'delete'; date: string; title: string; people: { employee_id: string; name: string }[] }
+  | { kind: 'templates'; title: string; subtitle: string; draft: { employee_id: string; date: string; start_time: string; end_time: string }; rows: { template_id: string; name: string; line: string }[] }
   | { kind: 'candidates'; shift_id: string; title: string; subtitle: string; clear: ScreenRow[]; working: ScreenRow[]; blocked_summary: string | null };
 
 function CoverListScroller({ children }: { children: ReactNode }) {
@@ -190,7 +208,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const { currentLocation } = useLocation();
   const { user } = useAuth();
   // Which Theo actions this person has at this store: the server's answer (theo-voice session), nothing else.
-  const actionsRef = useRef<{ create_task: boolean; cover_shift: boolean }>({ create_task: false, cover_shift: false });
+  const actionsRef = useRef<Acts>({ ...NO_ACTS });
   const { timezone } = useLocationTimezone();
   // Cover-a-shift lists (shift picker, which-person, who-can-cover). Showing one changes nothing.
   const [screen, setScreenState] = useState<CoverScreen | null>(null);
@@ -342,7 +360,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const s = sessionRef.current;
     sessionRef.current = null; // one pass per live connection
     const d = s ? await s.promise : null;
-    const keep = (x: any) => { actionsRef.current = { create_task: x?.actions?.create_task === true, cover_shift: x?.actions?.cover_shift === true }; return x; };
+    const keep = (x: any) => { const a = x?.actions; actionsRef.current = { create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true }; return x; };
     if (d) return keep(d);
     const { data, error } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation!.id } });
     if (error || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
@@ -443,12 +461,12 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     setScreen(null);
     setScreenNote('');
     setAction({ stage: 'preview', proposal, logId });
-    if (proposal.action === 'cover_shift' && proposal.published) {
+    if (isShiftAction(proposal) && proposal.published && proposal.schedule_id) {
       // Other changes already waiting on this published week go out with the Update.
       void (async () => {
         const [{ data: sch }, { data: cur }] = await Promise.all([
-          supabase.from('schedules').select('published_shifts_snapshot').eq('id', proposal.schedule_id).single(),
-          supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', proposal.schedule_id),
+          supabase.from('schedules').select('published_shifts_snapshot').eq('id', proposal.schedule_id!).single(),
+          supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', proposal.schedule_id!),
         ]);
         const snap = Array.isArray(sch?.published_shifts_snapshot) ? (sch!.published_shifts_snapshot as any[]) : [];
         const n = countPendingChanges(snap, cur as any[]);
@@ -469,7 +487,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         body: { messages: [], location_id: currentLocation?.id, location_name: currentLocation?.name, source: 'voice', pick },
       });
       if (e) { setScreenNote('Theo could not reach the schedule right now.'); return; }
-      if (data?.proposal?.action === 'cover_shift') { showProposal(data.proposal as CoverProposal); return; }
+      if (data?.proposal?.action && isShiftAction(data.proposal)) { showProposal(data.proposal as ShiftProposal); return; }
       if (data?.screen?.kind) { setScreen(data.screen as CoverScreen); return; }
       setScreenNote(data?.content || '');
     } finally {
@@ -481,7 +499,9 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (logRef.current) logRef.current.questions += 1;
     setLongAnswer(false);
     const acts = actionsRef.current;
-    const canAct = acts.create_task || acts.cover_shift;
+    const canAct = acts.create_task || acts.cover_shift || acts.add_shift || acts.delete_shift;
+    const schedAct = acts.cover_shift || acts.add_shift || acts.delete_shift;
+    const sc = screenRef.current;
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
         messages: [{ role: 'user', content: question + VOICE_SUFFIX }],
@@ -489,7 +509,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         location_name: currentLocation?.name,
         source: 'voice',
         ...(canAct && actionRef.current?.stage === 'preview' ? { pending_action: actionRef.current.proposal } : {}),
-        ...(acts.cover_shift && screenRef.current?.kind === 'candidates' ? { list_context: { shift_id: screenRef.current.shift_id } } : {}),
+        ...(acts.cover_shift && sc?.kind === 'candidates' ? { list_context: { shift_id: sc.shift_id } } : {}),
+        ...(acts.add_shift && sc?.kind === 'templates' ? { list_context: { draft: sc.draft } } : {}),
       },
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
@@ -498,13 +519,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       logAction(actionRef.current.logId, { status: 'cancelled' });
       setAction(null);
     }
-    if ((acts.create_task && data?.proposal?.action === 'create_task') || (acts.cover_shift && data?.proposal?.action === 'cover_shift')) {
+    const pa = data?.proposal?.action as string | undefined;
+    if (pa && acts[pa as keyof Acts] === true) {
       if (showProposal(data.proposal as AnyProposal)) {
         onExchange?.(question, answer);
         return JSON.stringify({ answer, long: false, preview: true });
       }
     }
-    if (acts.cover_shift && data?.screen?.kind && !actionRef.current) {
+    if (schedAct && data?.screen?.kind && !actionRef.current) {
       setScreen(data.screen as CoverScreen);
       setScreenNote('');
       onExchange?.(question, answer);
