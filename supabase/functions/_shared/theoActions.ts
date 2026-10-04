@@ -25,14 +25,21 @@ export const CREATE_TASK_ROLES = ["manager", "admin", "org_admin", "super_admin"
 // To open it to everyone who can edit the schedule by hand, change this one line to:
 //   export const COVER_SHIFT_ROLES = ["manager", "admin", "org_admin", "brand_admin", "super_admin"];
 export const COVER_SHIFT_ROLES = ["super_admin"];
+// ADD SHIFT SWITCH: super admin only for now. To open it, change this one line.
+export const ADD_SHIFT_ROLES = ["super_admin"];
+// DELETE SHIFT SWITCH: super admin only for now. To open it, change this one line.
+export const DELETE_SHIFT_ROLES = ["super_admin"];
 
-export type TheoActions = { create_task: boolean; cover_shift: boolean };
-export const NO_ACTIONS: TheoActions = { create_task: false, cover_shift: false };
+export type TheoActions = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean };
+export const NO_ACTIONS: TheoActions = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false };
 
 // Pure decision (tested). hasStoreAccess must come from has_location_access for this user + store.
 export function actionsFor(role: string | null, hasStoreAccess: boolean): TheoActions {
   if (!role || !hasStoreAccess) return { ...NO_ACTIONS };
-  return { create_task: CREATE_TASK_ROLES.includes(role), cover_shift: COVER_SHIFT_ROLES.includes(role) };
+  return {
+    create_task: CREATE_TASK_ROLES.includes(role), cover_shift: COVER_SHIFT_ROLES.includes(role),
+    add_shift: ADD_SHIFT_ROLES.includes(role), delete_shift: DELETE_SHIFT_ROLES.includes(role),
+  };
 }
 
 // Store check + decision. No store, no access, or an error -> no actions.
