@@ -12675,6 +12675,7 @@ export type Database = {
           location_id: string | null
           proposal: Json
           record_id: string | null
+          source: string | null
           status: string
           updated_at: string
           user_id: string
@@ -12686,6 +12687,7 @@ export type Database = {
           location_id?: string | null
           proposal?: Json
           record_id?: string | null
+          source?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -12697,6 +12699,7 @@ export type Database = {
           location_id?: string | null
           proposal?: Json
           record_id?: string | null
+          source?: string | null
           status?: string
           updated_at?: string
           user_id?: string
