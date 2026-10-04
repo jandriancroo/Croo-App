@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check, AlertTriangle, ChevronRight } from 'lucide-react';
 import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
-import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule } from '@/lib/scheduleActions';
+import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule, updateShiftTimes, swapShiftsAndNotify } from '@/lib/scheduleActions';
 import { countPendingChanges } from '@/lib/scheduleDiff';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
@@ -119,7 +119,8 @@ type CoverProposal = {
   checks: string[]; tag: string | null; published: boolean; day?: DayView;
 };
 // Theo hands (build 3): the day as it will be, shared by add, cover and delete previews.
-type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: 'new' | 'cover' | 'removed' | null };
+type RowKind = 'new' | 'cover' | 'removed' | 'swapped' | 'changed';
+type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: RowKind | null; was?: string };
 type DayView = { date: string; title: string; rows: DayRow[] };
 type AddProposal = {
   id: string; action: 'add_shift'; employee: { id: string; name: string }; shift_date: string; start_time: string; end_time: string;
@@ -131,12 +132,24 @@ type DeleteProposal = {
   template_id: string | null; position: string | null; employee: { id: string; name: string }; published: boolean;
   date_label: string; time_label: string; warnings: string[]; info: string[]; day: DayView;
 };
-type ShiftProposal = CoverProposal | AddProposal | DeleteProposal;
+// Theo hands (build 4): swap two shifts, change a shift's hours.
+type SwapSide = { shift_id: string; schedule_id: string; day_of_week: number; shift_date: string; start_time: string; end_time: string; date_label: string; time_label: string; owner: { id: string; name: string }; published: boolean };
+type SwapProposal = {
+  id: string; action: 'swap_shift'; a: SwapSide; b: SwapSide; published: boolean; two_weeks: boolean; notified: string[];
+  warnings: string[]; info: string[]; days: DayView[]; date_label: string; time_label: string;
+};
+type ChangeProposal = {
+  id: string; action: 'change_shift'; shift_id: string; schedule_id: string; day_of_week: number; shift_date: string;
+  start_time: string; end_time: string; old_start: string; old_end: string; template_id: string | null; position: string | null;
+  employee: { id: string; name: string }; published: boolean; date_label: string; time_label: string; old_time_label: string;
+  warnings: string[]; info: string[]; day: DayView;
+};
+type ShiftProposal = CoverProposal | AddProposal | DeleteProposal | SwapProposal | ChangeProposal;
 type AnyProposal = TaskProposal | ShiftProposal;
 type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any> };
-type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean };
-const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false };
-const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift';
+type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean };
+const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false };
+const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift' || p.action === 'swap_shift' || p.action === 'change_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 type CoverScreen =
   | { kind: 'shifts'; purpose?: 'cover' | 'delete'; date: string; title: string; shifts: { shift_id: string; employee_id: string; name: string; time: string }[] }
@@ -183,9 +196,9 @@ function CoverListScroller({ children }: { children: ReactNode }) {
 
 
 const NEW_GREEN = 'hsl(142 70% 28%)';
-const KIND_COLOR: Record<'new' | 'cover' | 'removed', string> = { new: NEW_GREEN, cover: NEW_GREEN, removed: 'hsl(var(--destructive))' };
-const KIND_TINT: Record<'new' | 'cover' | 'removed', number> = { new: 9, cover: 9, removed: 7 };
-const KIND_TAG: Record<'new' | 'cover' | 'removed', string> = { new: 'New', cover: 'Covering', removed: 'Removed' };
+const KIND_COLOR: Record<RowKind, string> = { new: NEW_GREEN, cover: NEW_GREEN, swapped: NEW_GREEN, changed: NEW_GREEN, removed: 'hsl(var(--destructive))' };
+const KIND_TINT: Record<RowKind, number> = { new: 9, cover: 9, swapped: 9, changed: 9, removed: 7 };
+const KIND_TAG: Record<RowKind, string> = { new: 'New', cover: 'Covering', swapped: 'Swapped', changed: 'Changed', removed: 'Removed' };
 /** The day as it will be: one quiet read-only line per shift; changed rows tinted with a left edge and a chip. Rows scroll inside the card. */
 function DayRows({ view }: { view: DayView }) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -208,7 +221,10 @@ function DayRows({ view }: { view: DayView }) {
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {k && <span className="inline-flex h-5 items-center rounded-full px-2 text-[11px] font-extrabold text-white" style={{ background: col }}>{KIND_TAG[k]}</span>}
-                <span className={`whitespace-nowrap text-[13px] font-bold ${strike}`}>{r.time}</span>
+                <span className="flex flex-col items-end">
+                  <span className={`whitespace-nowrap text-[13px] font-bold ${strike}`}>{r.time}</span>
+                  {r.was && <span className="whitespace-nowrap text-[12px] text-muted-foreground"><span className="sr-only">was </span><span className="line-through">{r.was}</span></span>}
+                </span>
               </div>
             </div>
           );
@@ -400,7 +416,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const s = sessionRef.current;
     sessionRef.current = null; // one pass per live connection
     const d = s ? await s.promise : null;
-    const keep = (x: any) => { const a = x?.actions; actionsRef.current = { create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true }; return x; };
+    const keep = (x: any) => { const a = x?.actions; actionsRef.current = { create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true }; return x; };
     if (d) return keep(d);
     const { data, error } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation!.id } });
     if (error || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
@@ -501,15 +517,21 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     setScreen(null);
     setScreenNote('');
     setAction({ stage: 'preview', proposal, logId });
-    if (isShiftAction(proposal) && proposal.published && proposal.schedule_id) {
-      // Other changes already waiting on this published week go out with the Update.
+    const pubWeeks = !isShiftAction(proposal) ? [] : proposal.action === 'swap_shift'
+      ? [...new Set([proposal.a, proposal.b].filter((s) => s.published).map((s) => s.schedule_id))]
+      : proposal.published && proposal.schedule_id ? [proposal.schedule_id] : [];
+    if (pubWeeks.length) {
+      // Other changes already waiting on the published week(s) go out with the Update.
       void (async () => {
-        const [{ data: sch }, { data: cur }] = await Promise.all([
-          supabase.from('schedules').select('published_shifts_snapshot').eq('id', proposal.schedule_id!).single(),
-          supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', proposal.schedule_id!),
-        ]);
-        const snap = Array.isArray(sch?.published_shifts_snapshot) ? (sch!.published_shifts_snapshot as any[]) : [];
-        const n = countPendingChanges(snap, cur as any[]);
+        let n = 0;
+        for (const sid of pubWeeks) {
+          const [{ data: sch }, { data: cur }] = await Promise.all([
+            supabase.from('schedules').select('published_shifts_snapshot').eq('id', sid).single(),
+            supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', sid),
+          ]);
+          const snap = Array.isArray(sch?.published_shifts_snapshot) ? (sch!.published_shifts_snapshot as any[]) : [];
+          n += countPendingChanges(snap, cur as any[]);
+        }
         const c = actionRef.current;
         if (c?.proposal.id === proposal.id) setAction({ ...c, otherChanges: n });
       })();
@@ -539,8 +561,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (logRef.current) logRef.current.questions += 1;
     setLongAnswer(false);
     const acts = actionsRef.current;
-    const canAct = acts.create_task || acts.cover_shift || acts.add_shift || acts.delete_shift;
-    const schedAct = acts.cover_shift || acts.add_shift || acts.delete_shift;
+    const schedAct = acts.cover_shift || acts.add_shift || acts.delete_shift || acts.swap_shift || acts.change_shift;
+    const canAct = acts.create_task || schedAct;
     const sc = screenRef.current;
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
@@ -850,6 +872,18 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         const res = await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.replacement.id, changedBy: user.id, timezone });
         notified = res.notified; record = p.shift_id;
         onRecord?.(`Covered shift: ${p.date_label}, ${p.time_label}. ${p.replacement.name} takes it from ${p.covered.name}`);
+      } else if (p.action === 'swap_shift') {
+        const res = await swapShiftsAndNotify({
+          a: { id: p.a.shift_id, schedule_id: p.a.schedule_id, day_of_week: p.a.day_of_week, shift_date: p.a.shift_date, fromUserId: p.a.owner.id, toUserId: p.b.owner.id },
+          b: { id: p.b.shift_id, schedule_id: p.b.schedule_id, day_of_week: p.b.day_of_week, shift_date: p.b.shift_date, fromUserId: p.b.owner.id, toUserId: p.a.owner.id },
+          changedBy: user.id, timezone,
+        });
+        notified = res.notified; record = p.a.shift_id;
+        onRecord?.(`Swapped shifts: ${p.b.owner.name} takes ${p.a.date_label}, ${p.a.time_label}; ${p.a.owner.name} takes ${p.b.date_label}, ${p.b.time_label}`);
+      } else if (p.action === 'change_shift') {
+        const res = await applyThenUpdate(opts(p.schedule_id), () => updateShiftTimes(p.shift_id, p.start_time, p.end_time));
+        notified = res.notified; record = p.shift_id;
+        onRecord?.(`Changed hours: ${p.employee.name}, ${p.date_label}, now ${p.time_label} (was ${p.old_time_label})`);
       } else if (p.action === 'add_shift') {
         const weekEnd = new Date(`${p.week_start}T12:00:00Z`); weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
         const sch = p.schedule_id ? { id: p.schedule_id } : await ensureDraftSchedule(currentLocation.id, p.week_start, weekEnd.toISOString().slice(0, 10));
@@ -871,7 +905,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       setTimeout(() => { const cur = actionRef.current; if (cur?.proposal.id === p.id && cur.stage === 'done') setAction({ ...cur, undoOpen: false }); }, UNDO_MS);
     } catch (err: any) {
       logAction(a.logId, { status: 'failed' });
-      setAction({ ...a, stage: 'preview', error: err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the change. Try again." });
+      setAction({ ...a, stage: 'preview', error: err?.message === 'Not saved' ? 'Not saved. The swap could not be finished, so nothing changed.' : err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the change. Try again." });
     }
   };
   // Undo (10 minutes): the same shared path in reverse, then Update if published.
@@ -884,6 +918,16 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       if (p.action === 'cover_shift') {
         await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.covered.id, changedBy: user.id, timezone });
         onRecord?.(`Undid shift cover: ${p.covered.name} has ${p.date_label}, ${p.time_label} again`);
+      } else if (p.action === 'swap_shift') {
+        await swapShiftsAndNotify({
+          a: { id: p.a.shift_id, schedule_id: p.a.schedule_id, day_of_week: p.a.day_of_week, shift_date: p.a.shift_date, fromUserId: p.b.owner.id, toUserId: p.a.owner.id },
+          b: { id: p.b.shift_id, schedule_id: p.b.schedule_id, day_of_week: p.b.day_of_week, shift_date: p.b.shift_date, fromUserId: p.a.owner.id, toUserId: p.b.owner.id },
+          changedBy: user.id, timezone,
+        });
+        onRecord?.(`Undid shift swap: ${p.a.owner.name} and ${p.b.owner.name} have their own shifts again`);
+      } else if (p.action === 'change_shift') {
+        await applyThenUpdate({ scheduleId: p.schedule_id, changedBy: user.id, timezone }, () => updateShiftTimes(p.shift_id, p.old_start, p.old_end));
+        onRecord?.(`Undid hours change: ${p.employee.name}, ${p.date_label}, back to ${p.old_time_label}`);
       } else if (p.action === 'add_shift') {
         if (!a.newShiftId || !a.scheduleId) throw new Error('missing shift');
         const id = a.newShiftId;
@@ -959,20 +1003,29 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   );
 
   function renderShift(a: ActionCard, p: ShiftProposal) {
-    const who = p.action === 'cover_shift' ? p.replacement.name : p.employee.name;
+    const who = p.action === 'cover_shift' ? p.replacement.name : p.action === 'swap_shift' ? p.b.owner.name : p.employee.name;
     const wf = firstName(who);
     const day = p.date_label.split(',')[0];
+    // Swap: who the Update notifies is decided by the server from the published week(s); say exactly that.
+    const swapWho = p.action === 'swap_shift' ? p.notified.map(firstName).join(' and ') : '';
     if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
       const undone = a.stage === 'undone';
-      const head = p.action === 'add_shift' ? (undone ? 'Shift removed' : 'Shift added') : p.action === 'delete_shift' ? (undone ? 'Shift put back' : 'Shift deleted') : (undone ? 'Change undone' : 'Shift covered');
+      const head = p.action === 'add_shift' ? (undone ? 'Shift removed' : 'Shift added') : p.action === 'delete_shift' ? (undone ? 'Shift put back' : 'Shift deleted')
+        : p.action === 'swap_shift' ? (undone ? 'Swap undone' : 'Shifts swapped') : p.action === 'change_shift' ? (undone ? 'Hours put back' : 'Hours changed')
+        : (undone ? 'Change undone' : 'Shift covered');
       const line = p.action === 'add_shift'
         ? (undone ? `${wf} is off ${day} again.` : `Done. ${wf} is on ${day} ${p.time_label}.`)
         : p.action === 'delete_shift'
           ? (undone ? `${wf} has ${day} ${p.time_label} again.` : `Done. ${wf}'s ${day} shift is removed.`)
-          : (undone ? `${firstName(p.covered.name)} has the shift again.` : `Done. ${wf} has ${day} ${Number(p.start_time.slice(0, 2)) >= 16 ? 'night' : 'shift'}.`);
+          : p.action === 'swap_shift'
+            ? (undone ? `${firstName(p.a.owner.name)} and ${firstName(p.b.owner.name)} have their own shifts again.` : `Done. ${firstName(p.b.owner.name)} has ${p.a.date_label.split(',')[0]} ${p.a.time_label}, ${firstName(p.a.owner.name)} has ${p.b.date_label.split(',')[0]} ${p.b.time_label}.`)
+            : p.action === 'change_shift'
+              ? (undone ? `${wf} is back to ${p.old_time_label}.` : `Done. ${wf} now works ${day} ${p.time_label}.`)
+              : (undone ? `${firstName(p.covered.name)} has the shift again.` : `Done. ${wf} has ${day} ${Number(p.start_time.slice(0, 2)) >= 16 ? 'night' : 'shift'}.`);
       const notice = p.published
-        ? (a.notified ? (p.action === 'cover_shift' ? 'Both were notified.' : `${wf} was notified.`) : 'No one needed a notice.')
+        ? (a.notified ? (p.action === 'cover_shift' ? 'Both were notified.' : p.action === 'swap_shift' ? `${swapWho} ${p.notified.length > 1 ? 'were' : 'was'} notified.` : `${wf} was notified.`) : 'No one needed a notice.')
         : 'No one was notified, the week is a draft.';
+      const when = p.action === 'swap_shift' ? `${p.a.date_label} · ${p.a.time_label}${p.b.shift_date !== p.a.shift_date || p.b.time_label !== p.a.time_label ? ` and ${p.b.date_label} · ${p.b.time_label}` : ''}` : `${p.date_label} · ${p.time_label}`;
       return (
         <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
           <div className="flex items-center gap-3">
@@ -985,7 +1038,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             </div>
           </div>
           <p className="text-[17px] font-extrabold">{line}</p>
-          <p className="text-[14px] text-muted-foreground">{p.date_label} · {p.time_label}</p>
+          <p className="text-[14px] text-muted-foreground">{when}</p>
           <p className="text-[13px] text-muted-foreground">{notice}</p>
           {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
           {!undone && a.undoOpen && (
@@ -1004,26 +1057,43 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const saving = a.stage === 'saving';
     const others = a.otherChanges ?? 0;
     const othersLine = others > 0 ? ` ${others} other ${others === 1 ? 'change' : 'changes'} on this week will also go out.` : '';
-    const name = p.action === 'cover_shift' ? 'Cover a shift' : p.action === 'add_shift' ? 'Add a shift' : 'Delete a shift';
-    const button = p.action === 'cover_shift' ? 'Confirm change' : p.action === 'add_shift' ? 'Add shift' : 'Delete shift';
+    const name = p.action === 'cover_shift' ? 'Cover a shift' : p.action === 'add_shift' ? 'Add a shift' : p.action === 'swap_shift' ? 'Swap shifts' : p.action === 'change_shift' ? 'Change hours' : 'Delete a shift';
+    const button = p.action === 'cover_shift' ? 'Confirm change' : p.action === 'add_shift' ? 'Add shift' : p.action === 'swap_shift' ? 'Swap shifts' : p.action === 'change_shift' ? 'Change hours' : 'Delete shift';
     const warnings = p.action === 'cover_shift' ? (p.tag ? [`${wf} is tagged: ${p.tag}`] : []) : p.warnings;
     const info = p.action === 'cover_shift' ? p.checks : p.info;
+    const swapNote = () => {
+      if (p.action !== 'swap_shift') return '';
+      if (!p.published) return p.two_weeks ? "Neither week is published yet, so no one is notified." : "This week isn't published yet, so no one is notified.";
+      if (!p.two_weeks) return `When you confirm, the schedule changes and ${swapWho} are notified.${othersLine}`;
+      const draftSide = [p.a, p.b].find((s) => !s.published);
+      return `When you confirm, the schedule changes and ${swapWho} are notified${draftSide ? ` (the ${draftSide.date_label.split(',')[0]} week is a draft, so only the published week sends a notice)` : ''}.${othersLine}`;
+    };
     const note = p.action === 'add_shift'
       ? (p.published ? `When you confirm, the shift is added and ${wf} is notified.${othersLine}` : "This week isn't published yet, so the shift goes into the draft and no one is notified.")
       : p.action === 'delete_shift'
         ? (p.published ? `When you confirm, the shift is removed and ${wf} is notified.${othersLine}` : "This week isn't published yet, so the shift is removed from the draft and no one is notified.")
-        : (p.published ? `When you confirm, the schedule changes and ${firstName(p.covered.name)} and ${wf} are notified.${othersLine}` : "This week isn't published yet, so no one is notified.");
-    const dv = p.day;
+        : p.action === 'swap_shift' ? swapNote()
+        : p.action === 'change_shift'
+          ? (p.published ? `When you confirm, the hours change and ${wf} is notified.${othersLine}` : "This week isn't published yet, so no one is notified.")
+          : (p.published ? `When you confirm, the schedule changes and ${firstName(p.covered.name)} and ${wf} are notified.${othersLine}` : "This week isn't published yet, so no one is notified.");
+    const views: DayView[] = p.action === 'swap_shift' ? p.days : p.day ? [p.day] : [];
+    const dv = views.length === 1 ? views[0] : undefined;
     return (
       <>
         <p className="mt-3 shrink-0 text-center text-[22px] font-extrabold text-white">Does this look right?</p>
-        {dv && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{dv.title}</p>}
+        {dv ? <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{dv.title}</p> : views.length > 1 ? <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">Both days after the change</p> : null}
         <div className="mt-3 flex min-h-0 w-full max-w-[420px] flex-col gap-2 rounded-[20px] bg-card p-3 text-foreground tabular-nums">
           <div className="flex shrink-0 items-center justify-between gap-2 px-1">
             <span className="text-[18px] font-extrabold">{name}</span>
             {amberTag('Preview · not saved')}
           </div>
-          {dv && <DayRows view={dv} />}
+          {views.length === 1 && <DayRows view={views[0]} />}
+          {views.length > 1 && views.map((v) => (
+            <div key={v.date} className="flex min-h-0 flex-col gap-1">
+              <div className="shrink-0 px-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">{v.title.split(' · ')[0]}</div>
+              <DayRows view={v} />
+            </div>
+          ))}
           {warnings.length > 0 && (
             <ul className="flex shrink-0 flex-col gap-1 rounded-xl px-3 py-2" style={{ background: 'hsl(38 95% 90%)', color: 'hsl(32 90% 22%)' }}>
               {warnings.map((w) => <li key={w} className="flex items-start gap-2 text-[13px] font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
@@ -1040,7 +1110,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
             <button onClick={confirmTask} disabled={saving}
               className={`h-[52px] flex-1 rounded-full text-[16px] font-extrabold disabled:opacity-70 ${p.action === 'delete_shift' ? 'bg-destructive text-destructive-foreground' : 'text-primary-foreground'}`}
-              style={p.action === 'delete_shift' ? undefined : { background: p.action === 'add_shift' ? NEW_GREEN : DEEP_PRIMARY }}>
+              style={p.action === 'delete_shift' ? undefined : { background: p.action === 'add_shift' || p.action === 'swap_shift' || p.action === 'change_shift' ? NEW_GREEN : DEEP_PRIMARY }}>
               {saving ? 'Saving…' : button}
             </button>
           </div>

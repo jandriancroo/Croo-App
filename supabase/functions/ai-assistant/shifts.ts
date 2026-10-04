@@ -2,7 +2,7 @@
 // READ-ONLY — loads data, runs the pure rules (_shared/shiftPlan.ts) and the cover check's
 // time-off/availability reasons (hurdleFor), and returns screens or a proposal. Never writes.
 import { hurdleFor, fmtRange, fmtTime } from "../_shared/coverCandidates.ts";
-import { addHardStop, addShiftWarnings, buildDayView, dayOffset, deleteInfo, mondayOf, normTime, weekdayWord, type DayShift } from "../_shared/shiftPlan.ts";
+import { addHardStop, addShiftWarnings, buildDayView, changeHours, changeShiftWarnings, dayOffset, deleteInfo, mondayOf, normTime, swapPlan, weekdayWord, type DayShift } from "../_shared/shiftPlan.ts";
 import { buildInput, dateLabel, dayShiftsAt, refusalFor, posOf, type Crew } from "./cover.ts";
 
 const NO_SCHEDULE = "00000000-0000-0000-0000-000000000000";
@@ -127,3 +127,85 @@ export async function buildDeleteProposal(admin: any, locationId: string, shiftI
 
 export const timeWord = (t: string) => fmtTime(t);
 export const dayWord = weekdayWord;
+
+// ---------------------------------------------------------------- build 4: swap and change hours
+
+const sideOf = (s: any, owner: { id: string; name: string }) => ({
+  shift_id: s.id, schedule_id: s.schedule_id, day_of_week: s.day_of_week, shift_date: s.shift_date,
+  start_time: s.start_time, end_time: s.end_time, date_label: dateLabel(s.shift_date), time_label: fmtRange(s.start_time, s.end_time),
+  owner, published: !!s.schedule?.is_published,
+});
+
+/** Swap preview, or why not (one sentence). Also the re-check at the tap. */
+export async function buildSwapProposal(admin: any, locationId: string, shiftIdA: string, shiftIdB: string, crew: Crew[], name: (c: Crew) => string, today: string, nowHHMM: string): Promise<any> {
+  const [sa, sb] = await Promise.all([loadForDelete(admin, shiftIdA, locationId), loadForDelete(admin, shiftIdB, locationId)]);
+  if (!sa || !sb) return { ok: false, error: "That shift isn't on this store's schedule. Use find_shifts." };
+  if (sa.id === sb.id || sa.user_id === sb.user_id) return { ok: false, error: "That's the same person.", refused: true };
+  for (const s of [sa, sb]) {
+    const why = await refusalFor(admin, s, { today, nowHHMM }, "swap");
+    if (why) return { ok: false, error: why, refused: true };
+  }
+  const [inA, inB] = await Promise.all([buildInput(admin, sa, locationId, crew, name), buildInput(admin, sb, locationId, crew, name)]);
+  const pa = inB.people.find((p) => p.id === sa.user_id); // A takes B's shift: checked against B's shift
+  const pb = inA.people.find((p) => p.id === sb.user_id);
+  if (!pa || !pb) return { ok: false, error: "One of them isn't on this store's schedule, so I can't swap them.", refused: true };
+  const plan = swapPlan({ shift: sa, person: pa, input: inA }, { shift: sb, person: pb, input: inB });
+  if ("stop" in plan) return { ok: false, error: plan.stop, refused: true };
+  const A = { id: pa.id, name: pa.name }; const B = { id: pb.id, name: pb.name };
+  const days = [];
+  if (sa.shift_date === sb.shift_date) {
+    days.push(buildDayView(sa.shift_date, await dayShiftsAt(admin, locationId, sa.shift_date, name), { kind: "swapped", to: { [sa.id]: B, [sb.id]: A } }));
+  } else {
+    for (const [s, to] of [[sa, B], [sb, A]] as const) {
+      days.push(buildDayView(s.shift_date, await dayShiftsAt(admin, locationId, s.shift_date, name), { kind: "swapped", to: { [s.id]: to } }));
+    }
+  }
+  days.sort((x, y) => x.date.localeCompare(y.date));
+  const a = sideOf(sa, A); const b = sideOf(sb, B);
+  // Who the Update notifies (detectScheduleChanges): on a published week the shift there changes owner only,
+  // so its old owner gets "removed" and its new owner gets "added" — both people, from that week alone.
+  const notified = a.published || b.published ? [A.name, B.name] : [];
+  return {
+    ok: true,
+    proposal: {
+      id: crypto.randomUUID(), action: "swap_shift", a, b,
+      published: a.published || b.published, two_weeks: sa.schedule_id !== sb.schedule_id,
+      notified, warnings: plan.warnings, info: plan.info, days,
+      date_label: a.date_label, time_label: a.time_label,
+    },
+  };
+}
+
+/** Change-hours preview, or why not. Also the re-check at the tap. */
+export async function buildChangeProposal(admin: any, locationId: string, args: { shift_id: string; start_time?: unknown; end_time?: unknown }, crew: Crew[], name: (c: Crew) => string, today: string, nowHHMM: string): Promise<any> {
+  const s = await loadForDelete(admin, args.shift_id, locationId);
+  if (!s) return { ok: false, error: "That shift isn't on this store's schedule. Use find_shifts." };
+  const why = await refusalFor(admin, s, { today, nowHHMM }, "change");
+  if (why) return { ok: false, error: why, refused: true };
+  const owner = crew.find((c) => c.id === s.user_id);
+  const ownerName = owner ? name(owner) : "this person";
+  const given = (v: unknown) => typeof v === "string" && v.trim() !== "";
+  const h = changeHours({ name: ownerName, cur: s, start: given(args.start_time) ? normTime(args.start_time) : null, end: given(args.end_time) ? normTime(args.end_time) : null, startGiven: given(args.start_time), endGiven: given(args.end_time) });
+  if ("stop" in h) return { ok: false, error: h.stop, stop: true };
+  const moved = { ...s, start_time: h.start, end_time: h.end };
+  const input = await buildInput(admin, moved, locationId, crew, name);
+  const me = input.people.find((p) => p.id === s.user_id);
+  const hurdle = me ? hurdleFor(me, input) : null;
+  const dayShifts = await dayShiftsAt(admin, locationId, s.shift_date, name);
+  const mine = dayShifts.find((d) => d.id === s.id);
+  if (!mine) return { ok: false, error: "That shift isn't on this store's schedule. Use find_shifts." };
+  const { warnings, info } = changeShiftWarnings({ shift: { ...mine, shift_date: s.shift_date }, start: h.start, end: h.end, dayShifts, weekShifts: input.weekShifts, hurdle });
+  return {
+    ok: true,
+    proposal: {
+      id: crypto.randomUUID(), action: "change_shift",
+      shift_id: s.id, schedule_id: s.schedule_id, day_of_week: s.day_of_week, shift_date: s.shift_date,
+      start_time: h.start, end_time: h.end, old_start: s.start_time, old_end: s.end_time,
+      template_id: s.template_id, position: mine.position, employee: { id: s.user_id, name: ownerName },
+      published: !!s.schedule?.is_published,
+      date_label: dateLabel(s.shift_date), time_label: fmtRange(h.start, h.end), old_time_label: fmtRange(s.start_time, s.end_time),
+      warnings, info,
+      day: buildDayView(s.shift_date, dayShifts, { kind: "changed", shift_id: s.id, start_time: h.start, end_time: h.end }),
+    },
+  };
+}

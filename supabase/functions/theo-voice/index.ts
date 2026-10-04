@@ -80,8 +80,8 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
   return row;
 }
 
-const HANDS = (a: TheoActions) => a.cover_shift || a.add_shift || a.delete_shift ? `
-Quick tasks and schedule changes: ask_theo also takes requests to create a quick task ("have Alle wipe the patio tables")${a.cover_shift ? `, to cover a shift ("who can cover Ryan tonight?", "cover Ryan's shift with Deborah", "someone called out")` : ""}${a.add_shift ? `, to add a shift ("add Ethan Saturday 9 to 4")` : ""}${a.delete_shift ? `, to delete a shift ("take Ethan off tonight")` : ""}. Pass the whole request through, word for word, and pass every follow-up answer (a day, hours, a template name) through too.
+const HANDS = (a: TheoActions) => a.cover_shift || a.add_shift || a.delete_shift || a.swap_shift || a.change_shift ? `
+Quick tasks and schedule changes: ask_theo also takes requests to create a quick task ("have Alle wipe the patio tables")${a.cover_shift ? `, to cover a shift ("who can cover Ryan tonight?", "cover Ryan's shift with Deborah", "someone called out")` : ""}${a.add_shift ? `, to add a shift ("add Ethan Saturday 9 to 4")` : ""}${a.delete_shift ? `, to delete a shift ("take Ethan off tonight")` : ""}${a.swap_shift ? `, to swap two people's shifts ("swap Ryan and Joshua on Saturday")` : ""}${a.change_shift ? `, to change a shift's hours ("change Ethan's Saturday shift to 10 to 4", "have Ethan stay till 5")` : ""}. Pass the whole request through, word for word, and pass every follow-up answer (a day, hours, a template name) through too.
 When an ask_theo result has "preview": true or "screen": true, say only its answer line. Never say a task was created or a shift was added, removed, changed, moved or covered.
 If the manager says yes, do it, confirm or looks good while a preview is showing, pass it to ask_theo and say what it returns (for example "Tap Add shift to save it.").` : a.create_task ? `
 Quick tasks: ask_theo also takes requests to create a quick task ("have Alle wipe the patio tables"). Pass the whole request through, word for word. Shift cover requests also go to ask_theo; say what it returns.

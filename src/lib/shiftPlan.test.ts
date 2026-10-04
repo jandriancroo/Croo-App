@@ -128,3 +128,100 @@ describe('day view payload', () => {
       .toEqual(['This leaves no one on PM Line 2 that day', 'This takes Cheyenne to 8 hours this week']);
   });
 });
+
+// ---------------------------------------------------------------- build 4
+import { swapPlan, swapHurdle, changeHours, changeShiftWarnings } from '../../supabase/functions/_shared/shiftPlan';
+import type { CoverPerson, CoverTimeOff, CoverWeekShift } from '../../supabase/functions/_shared/coverCandidates';
+
+const MON = '2026-10-12';
+const RYAN: CoverPerson = { id: 'ryan', name: 'Ryan Lorenzo Cuen', role: 'team_member', weekly_availability: null };
+const JOSH: CoverPerson = { id: 'josh', name: 'Joshua Haro', role: 'shift_manager', weekly_availability: null };
+const sh = (id: string, user_id: string, s: string, e: string, date = MON) => ({ id, user_id, shift_date: date, start_time: s, end_time: e, schedule_id: 'w' });
+const inputFor = (shift: ReturnType<typeof sh>, coveredRole: string, week: CoverWeekShift[], timeOff: CoverTimeOff[] = [], people: CoverPerson[] = [RYAN, JOSH]): CoverInput => ({
+  shift, coveredRole, people, timeOff, weekShifts: week, roleOrder: APP_ROLE_ORDER, roleNames: APP_ROLE_NAMES,
+  avail: { normalizeWeekly: normalizeWeeklyAvailability as any, conflictingBlocks: conflictingBlocks as any },
+});
+const R = sh('r', 'ryan', '09:00:00', '15:00:00');
+const J = sh('j', 'josh', '12:00:00', '20:00:00'); // overlaps Ryan's own shift
+const WEEK = [R, J];
+const plan = (week = WEEK, timeOff: CoverTimeOff[] = [], ryan = RYAN, josh = JOSH) =>
+  swapPlan({ shift: R, person: ryan, input: inputFor(R, 'team_member', week, timeOff, [ryan, josh]) }, { shift: J, person: josh, input: inputFor(J, 'shift_manager', week, timeOff, [ryan, josh]) });
+
+describe('swap check (both ways, the shift given up left out)', () => {
+  it('overlapping shifts still swap: the shift each gives up does not count as already working', () => {
+    expect(swapHurdle(RYAN, inputFor(J, 'shift_manager', WEEK), 'r')).toBeNull();
+    expect(swapHurdle(JOSH, inputFor(R, 'team_member', WEEK), 'j')).toBeNull();
+    expect('stop' in plan()).toBe(false);
+  });
+  it('without leaving it out the cover check would block (proves the rule)', () => {
+    expect(hurdleFor(RYAN, inputFor(J, 'shift_manager', WEEK))?.kind).toBe('working_then');
+  });
+  it('time off blocks (checked on the person taking the shift)', () => {
+    const p = plan(WEEK, [{ user_id: 'josh', start_date: MON, end_date: null, start_time: null, end_time: null, time_scope: 'full_day', status: 'approved' }]);
+    expect(p).toEqual({ stop: "Joshua has approved time off Monday, so I can't swap them." });
+  });
+  it('pending time off blocks too (same as cover)', () => {
+    const p = plan(WEEK, [{ user_id: 'ryan', start_date: MON, end_date: null, start_time: null, end_time: null, time_scope: 'full_day', status: 'pending' }]);
+    expect(p).toEqual({ stop: "Ryan has time off requested Monday, so I can't swap them." });
+  });
+  it('weekly availability blocks', () => {
+    const ryan = { ...RYAN, weekly_availability: { monday: { available: false } } };
+    expect(plan(WEEK, [], ryan)).toEqual({ stop: "Ryan isn't available Mondays, so I can't swap them." });
+  });
+  it('already working during the other shift (a third shift) blocks', () => {
+    const week = [...WEEK, sh('r2', 'ryan', '17:00:00', '22:00:00')];
+    expect(plan(week)).toEqual({ stop: "Ryan is already working 5 PM – 10 PM that day, so I can't swap them." });
+  });
+  it('role warning, never a block: a team member takes a shift manager shift', () => {
+    const p = plan() as { warnings: string[]; info: string[] };
+    expect(p.warnings).toEqual(['Ryan is tagged: Not a shift manager']);
+    expect(p.info).toEqual(['This brings Ryan to 8 hours this week', 'This brings Joshua to 6 hours this week']);
+  });
+  it('same person -> stop', () => {
+    expect(swapPlan({ shift: R, person: RYAN, input: inputFor(R, 'team_member', WEEK) }, { shift: { ...R, id: 'r3' }, person: RYAN, input: inputFor(R, 'team_member', WEEK) })).toEqual({ stop: "That's the same person." });
+  });
+  it('refusals apply with purpose swap', () => {
+    const base = { shift: { shift_date: MON, start_time: '09:00:00' }, today: '2026-10-04', nowHHMM: '12:00', openOffer: false, punchLinked: false, purpose: 'swap' as const };
+    expect(shiftRefusal({ ...base, shift: { ...base.shift, shift_date: '2026-10-03' } })).toBe("That shift is in the past, so I can't swap it. Use the Schedule page.");
+    expect(shiftRefusal({ ...base, today: MON, nowHHMM: '09:00' })).toMatch(/already started, so I can't swap/);
+    expect(shiftRefusal({ ...base, openOffer: true })).toMatch(/shift pool/);
+    expect(shiftRefusal({ ...base, punchLinked: true, purpose: 'change' })).toMatch(/can't change it/);
+  });
+  it('day view: both shifts once each, new names, chip Swapped, no removed rows', () => {
+    const day = [ds('r', 'ryan', 'Ryan Lorenzo Cuen', '09:00:00', '15:00:00'), ds('j', 'josh', 'Joshua Haro', '12:00:00', '20:00:00'), ds('x', 'al', 'Alle Rowe', '09:00:00', '16:00:00')];
+    const v = buildDayView(MON, day, { kind: 'swapped', to: { r: { id: 'josh', name: 'Joshua Haro' }, j: { id: 'ryan', name: 'Ryan Lorenzo Cuen' } } });
+    expect(v.rows.filter((r) => r.kind === 'swapped').map((r) => `${r.name} ${r.time}`)).toEqual(['Joshua Haro 9 AM – 3 PM', 'Ryan Lorenzo Cuen 12 PM – 8 PM']);
+    expect(v.rows.some((r) => r.kind === 'removed')).toBe(false);
+    expect(v.rows).toHaveLength(3);
+  });
+});
+
+describe('change hours', () => {
+  const cur = { start_time: '09:00:00', end_time: '16:00:00' };
+  const ch = (start: string | null, end: string | null) => changeHours({ name: 'Alle Rowe', cur, start: start && normTime(start), end: end && normTime(end), startGiven: start !== null, endGiven: end !== null });
+  it('both ends', () => expect(ch('10:00', '16:00')).toEqual({ start: '10:00:00', end: '16:00:00' }));
+  it('end only ("stay till 5")', () => expect(ch(null, '17:00')).toEqual({ start: '09:00:00', end: '17:00:00' }));
+  it('start only ("start at 10")', () => expect(ch('10:00', null)).toEqual({ start: '10:00:00', end: '16:00:00' }));
+  it('same hours -> already', () => expect(ch('9:00', '16:00')).toEqual({ stop: "That's already Alle's shift." }));
+  it('invalid -> ask again', () => expect(ch('25:00', '16:00')).toEqual({ stop: "Those hours don't work. What hours should the shift be?" }));
+  it('start = end -> invalid', () => expect(ch('16:00', null)).toEqual({ stop: "Those hours don't work. What hours should the shift be?" }));
+  const me = { ...ds('a', 'alle', 'Alle Rowe', '09:00:00', '16:00:00', 't1', 'AM Manager'), shift_date: MON };
+  const other = ds('n', 'nic', 'Nicole Mendez', '10:30:00', '16:30:00');
+  it('the changed shift is left out: no "already works" or "close to these hours" against itself', () => {
+    const r = changeShiftWarnings({ shift: me, start: '10:00:00', end: '16:00:00', dayShifts: [me], weekShifts: [{ id: 'a', user_id: 'alle', start_time: '09:00:00', end_time: '16:00:00' }], hurdle: null });
+    expect(r).toEqual({ warnings: [], info: ['This takes Alle to 6 hours this week'] });
+  });
+  it('overlap with own other shift, similar hours, time off; working_then from the cover check ignored', () => {
+    const own2 = ds('a2', 'alle', 'Alle Rowe', '17:00:00', '22:00:00');
+    const r = changeShiftWarnings({ shift: me, start: '10:00:00', end: '18:00:00', dayShifts: [me, own2, other], weekShifts: [], hurdle: { kind: 'time_off', reason: 'Alle has approved time off Monday' } });
+    expect(r.warnings).toEqual(['Alle is already working 5 PM – 10 PM then', 'Alle has approved time off Monday']);
+    const r2 = changeShiftWarnings({ shift: me, start: '10:00:00', end: '17:00:00', dayShifts: [me, other], weekShifts: [], hurdle: { kind: 'working_then', reason: 'x' } });
+    expect(r2.warnings).toEqual(['Nicole works 10:30 AM – 4:30 PM, close to these hours']);
+  });
+  it('day view: one Changed row with the new time and the old time', () => {
+    const v = buildDayView(MON, [me, other], { kind: 'changed', shift_id: 'a', start_time: '10:00:00', end_time: '16:00:00' });
+    const r = v.rows.find((x) => x.kind)!;
+    expect([r.kind, r.time, r.was, r.position]).toEqual(['changed', '10 AM – 4 PM', '9 AM – 4 PM', 'AM Manager']);
+    expect(v.rows.filter((x) => x.kind)).toHaveLength(1);
+  });
+});
