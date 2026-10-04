@@ -557,12 +557,7 @@ export function useScheduleData() {
 
     try {
       if (isFromTemplate) {
-        const { data: insertedShift, error } = await supabase
-          .from("scheduled_shifts")
-          .insert({ schedule_id: scheduleId, template_id: template.id, user_id: userId, day_of_week: dayIndex, shift_date: shiftDate, start_time: template.start_time, end_time: template.end_time, is_time_off: false })
-          .select(`*, template:shift_templates(*)`)
-          .single();
-        if (error) throw error;
+        const insertedShift = await addShift({ schedule_id: scheduleId, template_id: template.id, user_id: userId, day_of_week: dayIndex, shift_date: shiftDate, start_time: template.start_time, end_time: template.end_time });
         queryClient.setQueryData(scheduleQueryKey, (old: any) => {
           if (!old) return old;
           return { ...old, shifts: old.shifts.map((s: any) => s.id === tempId ? { ...insertedShift, _optimistic: false } : s) };

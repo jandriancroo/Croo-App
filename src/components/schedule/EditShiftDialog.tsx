@@ -311,12 +311,7 @@ export function EditShiftDialog({
     
     setDeleting(true);
     try {
-      const { error } = await supabase
-        .from("scheduled_shifts")
-        .delete()
-        .eq("id", shift.id);
-
-      if (error) throw error;
+      await deleteShift(shift.id);
 
       // Optimistically remove from cache so Schedule Tools updates instantly
       queryClient.setQueryData(scheduleQueryKey, (old: any) => {

@@ -5,6 +5,48 @@ import { supabase } from '@/integrations/supabase/client';
 import { endOfWeek } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
+/** Add one shift (the Schedule page's desktop drag-add, and Theo's Add shift). No breaks. Returns the row with its template. */
+export async function addShift(row: { schedule_id: string; template_id: string | null; user_id: string; day_of_week: number; shift_date: string; start_time: string; end_time: string }) {
+  const { data, error } = await supabase
+    .from("scheduled_shifts")
+    .insert({ schedule_id: row.schedule_id, template_id: row.template_id, user_id: row.user_id, day_of_week: row.day_of_week, shift_date: row.shift_date, start_time: row.start_time, end_time: row.end_time, is_time_off: false })
+    .select(`*, template:shift_templates(*)`)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Delete one shift (the Edit Shift window's delete, and Theo's Delete shift / Undo of an add). */
+export async function deleteShift(shiftId: string) {
+  const { error } = await supabase.from("scheduled_shifts").delete().eq("id", shiftId);
+  if (error) throw error;
+}
+
+/** Undo of Theo's delete: put the same shift back, same id and every column it had. */
+export async function restoreShift(row: Record<string, any>) {
+  const { template: _t, schedule: _s, ...cols } = row;
+  const { error } = await supabase.from("scheduled_shifts").insert(cols as any);
+  if (error) throw error;
+}
+
+/** Read a shift's full row (taken just before Theo deletes it, so Undo can restore every column). */
+export async function readShiftRow(shiftId: string) {
+  const { data, error } = await supabase.from("scheduled_shifts").select("*").eq("id", shiftId).single();
+  if (error) throw error;
+  return data as Record<string, any>;
+}
+
+/** The week's schedule row: find it, or create it as a draft (the phone Add sheet's find-or-create). */
+export async function ensureDraftSchedule(locationId: string, weekStart: string, weekEnd: string) {
+  const { data: existing } = await supabase.from('schedules').select('id, is_published').eq('week_start_date', weekStart).eq('location_id', locationId).maybeSingle();
+  if (existing?.id) return existing as { id: string; is_published: boolean };
+  const { data: created, error } = await supabase.from('schedules')
+    .insert({ week_start_date: weekStart, week_end_date: weekEnd, location_id: locationId, is_published: false })
+    .select('id, is_published').single();
+  if (error) throw error;
+  return created as { id: string; is_published: boolean };
+}
+
 /** Move a shift to a person/day (the Schedule page's drag reassign). */
 export async function reassignShift(shiftId: string, userId: string, dayOfWeek: number, shiftDate: string) {
   const { error } = await supabase.from('scheduled_shifts').update({ user_id: userId, day_of_week: dayOfWeek, shift_date: shiftDate }).eq('id', shiftId);
@@ -99,11 +141,21 @@ export async function reassignAndNotify(opts: {
   changedBy: string;
   timezone: string;
 }) {
-  await reassignShift(opts.shift.id, opts.toUserId, opts.shift.day_of_week, opts.shift.shift_date);
+  const { notified, affectedUserIds } = await applyThenUpdate({ scheduleId: opts.shift.schedule_id, changedBy: opts.changedBy, timezone: opts.timezone },
+    () => reassignShift(opts.shift.id, opts.toUserId, opts.shift.day_of_week, opts.shift.shift_date));
+  return { notified, affectedUserIds };
+}
+
+/**
+ * Theo's Confirm and Undo for every schedule action: apply the change, then — only on a published
+ * week — the same Update the Schedule page sends. Draft week: the change only, nothing sent.
+ */
+export async function applyThenUpdate<T>(opts: { scheduleId: string; changedBy: string; timezone: string }, change: () => Promise<T>) {
+  const result = await change();
   const { data: sch, error } = await supabase.from('schedules')
-    .select('id, is_published, published_shifts_snapshot, week_start_date').eq('id', opts.shift.schedule_id).single();
+    .select('id, is_published, published_shifts_snapshot, week_start_date').eq('id', opts.scheduleId).single();
   if (error) throw error;
-  if (!sch?.is_published) return { notified: false, affectedUserIds: [] as string[] };
+  if (!sch?.is_published) return { result, notified: false, affectedUserIds: [] as string[] };
   const res = await sendScheduleUpdate({
     scheduleId: sch.id,
     weekStart: new Date(`${sch.week_start_date}T12:00:00`),
@@ -111,5 +163,5 @@ export async function reassignAndNotify(opts: {
     publishedSnapshot: Array.isArray(sch.published_shifts_snapshot) ? (sch.published_shifts_snapshot as any[]) : [],
     changedBy: opts.changedBy,
   });
-  return { notified: res.affectedUserIds.length > 0, affectedUserIds: res.affectedUserIds };
+  return { result, notified: res.affectedUserIds.length > 0, affectedUserIds: res.affectedUserIds };
 }
