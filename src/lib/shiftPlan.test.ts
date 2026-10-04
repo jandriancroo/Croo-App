@@ -98,17 +98,29 @@ describe('day view payload', () => {
     expect(v.rows.map((r) => r.name)).toEqual(['Alle Rowe', 'Aubrey Andrian', 'Ethan Andrian', 'Jaysen Robertson']);
     expect(v.rows.find((r) => r.kind === 'new')?.position).toBe('No position');
     expect(v.title).toBe('Saturday, Oct 17 · the day with Ethan added');
-    expect(v.axis.labels).toEqual(['9 AM', '2 PM', '6 PM', '11 PM']);
+    expect('axis' in v).toBe(false);
   });
   it('removed row stays in the list, marked', () => {
     const v = buildDayView(DATE, day, { kind: 'removed', shift_id: 'b' });
     expect(v.rows).toHaveLength(3);
     expect(v.rows.find((r) => r.id === 'b')?.kind).toBe('removed');
+    expect(v.rows.filter((r) => r.kind)).toHaveLength(1);
   });
-  it('cover row shows the replacement and who it is from', () => {
+  it('cover shows two adjacent rows: original removed, then replacement covering', () => {
     const v = buildDayView(DATE, day, { kind: 'cover', shift_id: 'a', to: { id: 'eth', name: 'Ethan Andrian' } });
-    const r = v.rows.find((x) => x.id === 'a')!;
-    expect([r.name, r.kind, r.from, r.position]).toEqual(['Ethan Andrian', 'cover', 'Alle Rowe', 'AM Manager']);
+    expect(v.rows).toHaveLength(4);
+    const i = v.rows.findIndex((r) => r.kind === 'removed');
+    const [was, now] = [v.rows[i], v.rows[i + 1]];
+    expect([was.name, was.kind, was.position, was.time]).toEqual(['Alle Rowe', 'removed', 'AM Manager', now.time]);
+    expect([now.name, now.kind, now.position]).toEqual(['Ethan Andrian', 'cover', 'AM Manager']);
+    expect(was.id).not.toBe(now.id);
+    expect(new Set(v.rows.map((r) => r.id)).size).toBe(v.rows.length);
+    expect(v.rows.some((r) => 'from' in r)).toBe(false);
+  });
+  it('cover pair stays together, removed first, even when the replacement name sorts first', () => {
+    const v = buildDayView(DATE, day, { kind: 'cover', shift_id: 'a', to: { id: 'z', name: 'Aaron Zed' } });
+    const i = v.rows.findIndex((r) => r.kind === 'removed');
+    expect([v.rows[i].name, v.rows[i + 1].name]).toEqual(['Alle Rowe', 'Aaron Zed']);
   });
   it('delete info lines', () => {
     const me = ds('c', 'chey', 'Cheyenne Nauretz', '17:30:00', '23:00:00', 't2', 'PM Line 2');
