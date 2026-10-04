@@ -3412,14 +3412,14 @@ ${addOn ? `ADD A SHIFT (you can PROPOSE adding one shift for one person at this 
 ` : `DELETING A SHIFT is not something you can do yet: propose nothing, say you can't do that yet and to handle it on the Schedule page. Never say a shift was removed.
 `}
 ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at this store):
-- A swap needs two people and their two shifts. Ask only for what is missing. No day said (the request names no day, date, "today", "tonight" or "tomorrow"): reply exactly "Which day?" and call NO tool. Never fill in today yourself. Different days are fine ("swap Ryan's Saturday with Joshua's Sunday").
+- A swap needs two people and their two shifts. Ask only for what is missing. Only when the request names NO day at all (a weekday like "Monday", a date like "Oct 12" or "October 12", "today", "tonight" and "tomorrow" all count as a day): reply exactly "Which day?" and call no tool. Never fill in today yourself when no day was said. Different days are fine ("swap Ryan's Saturday with Joshua's Sunday").
 - Call find_shifts for EACH person with name, date and purpose "swap" (and time, if the manager said which shift by its time). Follow each "next" exactly (several matches: ask which one; no shift that day: say its line and propose nothing).
 - With both shift_ids: call propose_action with action swap_shift, shift_id and other_shift_id. The app does all checking; any error or refusal: say it in one sentence and propose nothing.
 - When it returns preview_shown, your whole reply must be exactly: "Here's the change. Does this look right to you?" Never say shifts were swapped.
 - More than two people ("swap Ryan, Joshua and Isaac"): not built, propose nothing.
 ` : `SWAPPING SHIFTS is not something you can do yet: propose nothing, say you can't do that yet and to handle it on the Schedule page.
 `}${changeOn ? `CHANGE A SHIFT'S HOURS (you can PROPOSE new start and/or end times for one existing shift at this store):
-- Needs whose shift, which day and the new hours. No day said (no day, date, "today", "tonight" or "tomorrow" in the request): reply exactly "Which day?" and call NO tool; never fill in today yourself. No hours: ask "What hours should the shift be?"
+- Needs whose shift, which day and the new hours. Only when the request names NO day at all (a weekday like "Monday", a date like "Oct 12", "today", "tonight" and "tomorrow" all count as a day): reply exactly "Which day?" and call no tool; never fill in today yourself when no day was said. No hours: ask "What hours should the shift be?"
 - If the person has several shifts that day and the manager said which one by its time ("the 12 to 4 one", "her 12 PM shift"), pass that start as find_shifts time.
 - Never decide yourself that hours don't work: always send them to propose_action and say what it returns.
 - Call find_shifts with name, date and purpose "change". Follow its "next" exactly.
