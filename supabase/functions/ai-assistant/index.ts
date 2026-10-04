@@ -3500,7 +3500,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           if (r.shift_id) seenShiftIds.add(r.shift_id);
           (r.shifts || []).forEach((x: any) => seenShiftIds.add(x.shift_id));
           (r.matches || []).forEach((x: any) => seenCrewIds.add(x.employee_id));
-          if (r.status === "posted") postedDecline = true;
+          if (r.status === "posted") { declineLine = r.refusal; coverScreen = null; }
           if (r.screen) coverScreen = r.screen;
           const { screen: _s, ...forTheo } = r;
           result = JSON.stringify(forTheo);
