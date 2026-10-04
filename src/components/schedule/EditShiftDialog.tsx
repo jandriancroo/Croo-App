@@ -6,6 +6,7 @@ import {
 } from "@/types/availability";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { deleteShift } from "@/lib/scheduleActions";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
