@@ -911,7 +911,7 @@ const PROPOSE_ACTION_TOOL = {
 // query_inventory is parked (not offered to the model) — see THEO_INVENTORY.md. Code kept for later.
 const THEO_TOOLS = tools.filter((t: any) => t.function?.name !== "query_inventory");
 
-// ---- THEO HANDS (build 1): real proposals, super admin + voice only. Never writes. ----
+// ---- THEO HANDS: real proposals for the voice screen and the typed chat (never the bake-off). Never writes. ----
 const TASK_ROLES: Record<string, string> = {
   team_member: "Team Member", shift_manager_in_training: "Shift Manager in Training", shift_manager: "Shift Manager",
   manager: "Manager", admin: "Admin", org_admin: "Org Admin", brand_admin: "Brand Admin",
@@ -972,7 +972,7 @@ const FIND_SHIFTS_TOOL = {
     parameters: { type: "object", properties: { name: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD; omit for today (cover/delete only — swap and change need the day the manager said)" }, purpose: { type: "string", enum: ["cover", "delete", "swap", "change"], description: "cover (default), delete, swap or change" }, time: { type: "string", description: "HH:MM 24h start of the shift, only when the manager said which shift by its time (\"the 12 to 4 one\")" } } },
   },
 };
-// Build 3: the schedule-change proposal tool (super admin, voice). Enum is limited per person at request time.
+// Build 3: the schedule-change proposal tool (voice and chat). Enum is limited per person at request time.
 const proposeScheduleTool = (acts: { cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean }) => ({
   type: "function",
   function: {
@@ -3212,8 +3212,8 @@ DATE ANCHORS:
 ACTION RULE (strict): Call propose_action ONLY when you are actually proposing that change in this reply. Do NOT call it when: the change already exists (e.g. the person already has that shift), the request is impossible (e.g. a person has no shift to swap), the action is not one of the four supported, or any required detail (like times) is missing — in those cases just tell the manager in words and propose nothing. Your words and your tool calls must agree.`;
     // THEO HANDS: which actions this person has at this store — decided only in _shared/theoActions.ts.
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
-    // Voice only, never in the bake-off.
-    const theoActions = !bakeoff && usageSource === "voice" ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
+    // Voice screen and typed chat, never in the bake-off.
+    const theoActions = !bakeoff && (usageSource === "voice" || usageSource === "chat") ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
     const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift;
     const coverOn = theoActions.cover_shift;
     const addOn = theoActions.add_shift;
@@ -3653,7 +3653,8 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     }
 
     if (actionsOn) {
-      const out: any = {};
+      // The screen offers only what the server allows: the same actions object theo-voice returns.
+      const out: any = { actions: theoActions };
       // Re-proposing the exact task already on screen is not a change: keep the preview, point to the button.
       if (liveProposal?.action === "create_task" && pending) {
         const sameIds = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
