@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
+import { buildAddProposal, buildDeleteProposal } from "./shifts.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 
 const corsHeaders = {
@@ -967,10 +968,36 @@ const FIND_SHIFTS_TOOL = {
   type: "function",
   function: {
     name: "find_shifts",
-    description: "Cover a shift, step 1. With a name: that person's shifts on the date (default today). With no name: the store's remaining shifts today, shown on screen to tap. Returns status, shift_id(s) and a 'next' instruction to follow exactly.",
-    parameters: { type: "object", properties: { name: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD; omit for today" } } },
+    description: "Cover or delete a shift, step 1. With a name: that person's shifts on the date (default today). With no name: the store's remaining shifts today, shown on screen to tap. Returns status, shift_id(s) and a 'next' instruction to follow exactly.",
+    parameters: { type: "object", properties: { name: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD; omit for today" }, purpose: { type: "string", enum: ["cover", "delete"], description: "cover (default) or delete" } } },
   },
 };
+// Build 3: the schedule-change proposal tool (super admin, voice). Enum is limited per person at request time.
+const proposeScheduleTool = (acts: { cover_shift: boolean; add_shift: boolean; delete_shift: boolean }) => ({
+  type: "function",
+  function: {
+    name: "propose_action",
+    description: "Show the manager a PREVIEW of a change. Saves nothing — only the manager's tap saves it. create_task: a standard quick task (needs a title AND at least one person or role). cover_shift: give one shift to another person. add_shift: add one shift for one person (needs employee_id, date, hours; template_id 'none' for from scratch; omit template_id to show the template list). delete_shift: remove one shift (shift_id from find_shifts purpose delete). Also call it again with the full revised change when the manager changes a preview that is on screen.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["create_task", ...(acts.cover_shift ? ["cover_shift"] : []), ...(acts.add_shift ? ["add_shift"] : []), ...(acts.delete_shift ? ["delete_shift"] : [])] },
+        shift_id: { type: "string", description: "cover_shift / delete_shift: shift_id from find_shifts" },
+        replacement_employee_id: { type: "string", description: "cover_shift only: employee_id (from find_crew) of the person taking the shift" },
+        employee_id: { type: "string", description: "add_shift only: employee_id from find_crew" },
+        date: { type: "string", description: "add_shift only: YYYY-MM-DD" },
+        start_time: { type: "string", description: "add_shift only: HH:MM 24h. Omit when the manager gave no hours." },
+        end_time: { type: "string", description: "add_shift only: HH:MM 24h. Omit when the manager gave no hours." },
+        template_id: { type: "string", description: "add_shift only: a template_id from the list, or 'none' for from scratch / no template. Omit to show the list." },
+        title: PROPOSE_TASK_TOOL.function.parameters.properties.title,
+        employee_ids: PROPOSE_TASK_TOOL.function.parameters.properties.employee_ids,
+        roles: PROPOSE_TASK_TOOL.function.parameters.properties.roles,
+        duration: PROPOSE_TASK_TOOL.function.parameters.properties.duration,
+      },
+      required: ["action"],
+    },
+  },
+});
 const COVER_CANDIDATES_TOOL = {
   type: "function",
   function: {
@@ -3186,8 +3213,12 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
     // Voice only, never in the bake-off.
     const theoActions = !bakeoff && usageSource === "voice" ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
-    const actionsOn = theoActions.create_task || theoActions.cover_shift;
+    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift;
     const coverOn = theoActions.cover_shift;
+    const addOn = theoActions.add_shift;
+    const deleteOn = theoActions.delete_shift;
+    const schedOn = coverOn || addOn || deleteOn;
+    const findOn = coverOn || deleteOn;
     const pending = actionsOn && pending_action && typeof pending_action === "object" && pending_action.action === "create_task" ? {
       title: String(pending_action.title || "").slice(0, 200),
       employees: Array.isArray(pending_action.employees) ? pending_action.employees.slice(0, 20).map((e: any) => ({ employee_id: String(e?.id || ""), name: String(e?.name || "").slice(0, 80) })) : [],
@@ -3201,8 +3232,23 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       replacement: String(pending_action.replacement?.name || "").slice(0, 80),
       when: `${String(pending_action.date_label || "").slice(0, 40)} ${String(pending_action.time_label || "").slice(0, 40)}`,
     } : null;
-    const anyPending = !!(pending || pendingCover);
-    const listShift = coverOn && list_context && typeof list_context.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
+    const pendingAdd = addOn && pending_action && typeof pending_action === "object" && pending_action.action === "add_shift" ? {
+      employee_id: String(pending_action.employee?.id || ""), employee: String(pending_action.employee?.name || "").slice(0, 80),
+      date: String(pending_action.shift_date || "").slice(0, 10), start_time: String(pending_action.start_time || "").slice(0, 8),
+      end_time: String(pending_action.end_time || "").slice(0, 8), template_id: pending_action.template_id ? String(pending_action.template_id).slice(0, 36) : "none",
+      position: String(pending_action.position || "No position").slice(0, 60),
+    } : null;
+    const pendingDelete = deleteOn && pending_action && typeof pending_action === "object" && pending_action.action === "delete_shift" ? {
+      shift_id: String(pending_action.shift_id || "").slice(0, 36), employee: String(pending_action.employee?.name || "").slice(0, 80),
+      when: `${String(pending_action.date_label || "").slice(0, 40)} ${String(pending_action.time_label || "").slice(0, 40)}`,
+    } : null;
+    // A template list on screen (add a shift): the draft it belongs to.
+    const listDraft = addOn && list_context && typeof list_context === "object" && list_context.draft && typeof list_context.draft === "object" ? {
+      employee_id: String(list_context.draft.employee_id || "").slice(0, 36), date: String(list_context.draft.date || "").slice(0, 10),
+      start_time: String(list_context.draft.start_time || "").slice(0, 8), end_time: String(list_context.draft.end_time || "").slice(0, 8),
+    } : null;
+    const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete);
+    const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
     const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
     const matchCrew = (raw: string) => {
       const q = raw.trim().toLowerCase();
@@ -3215,11 +3261,20 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     const nowHHMM = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
 
     // Screen taps (a shift, a person or a name on the list) and the Confirm re-check: answered by code, no AI.
-    if (coverOn && pick && typeof pick === "object") {
+    const when = { today, nowHHMM };
+    if (schedOn && pick && typeof pick === "object") {
       const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const sid = String(pick.shift_id || "");
+      const forDelete = pick.purpose === "delete";
+      if (forDelete && !deleteOn) return reply({ content: "I can't delete shifts yet. Use the Schedule page." });
+      if (!forDelete && (pick.kind === "shift" || pick.kind === "person" || pick.kind === "candidate") && !coverOn) return reply({ content: "I can't cover shifts yet. Use the Schedule page." });
+      const deleteReply = async (shiftId: string) => {
+        const v: any = await buildDeleteProposal(supabaseAdmin, location_id, shiftId, crewForActions, crewName, today, nowHHMM);
+        return v.ok ? reply({ content: "Here's the change. Does this look right to you?", proposal: v.proposal }) : reply({ content: v.error });
+      };
       const shiftToScreen = async (shiftId: string) => {
-        const r: any = await candidatesScreen(supabaseAdmin, location_id, shiftId, crewForActions, crewName);
+        if (forDelete) return await deleteReply(shiftId);
+        const r: any = await candidatesScreen(supabaseAdmin, location_id, shiftId, crewForActions, crewName, when);
         if (r.declined) return reply({ content: r.declined });
         if (r.error) return reply({ content: r.error });
         return reply({ content: r.screen.title, screen: r.screen });
@@ -3227,20 +3282,47 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       if (pick.kind === "shift") return await shiftToScreen(sid);
       if (pick.kind === "person") {
         if (!crewForActions.some((c) => c.id === pick.employee_id)) return reply({ content: "I can't find that person at this store." });
-        const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, { employee_id: String(pick.employee_id || ""), date: pick.date }, today, nowHHMM, matchCrew);
+        const r: any = await findShifts(supabaseAdmin, location_id, crewForActions, crewName, { employee_id: String(pick.employee_id || ""), date: pick.date, purpose: forDelete ? "delete" : "cover" }, today, nowHHMM, matchCrew);
         if (r.status === "one_shift") return await shiftToScreen(r.shift_id);
         if (r.screen) return reply({ content: r.screen.title, screen: r.screen });
         const said = String(r.next || "").match(/"([^"]+)"/)?.[1] || "I couldn't find that shift.";
         return reply({ content: said });
       }
+      if (pick.kind === "template") {
+        if (!addOn) return reply({ content: "I can't add shifts yet. Use the Schedule page." });
+        const v: any = await buildAddProposal(supabaseAdmin, location_id, { employee_id: String(pick.employee_id || ""), date: String(pick.date || ""), start_time: String(pick.start_time || ""), end_time: String(pick.end_time || ""), template_id: String(pick.template_id || "none") }, crewForActions, crewName, today);
+        if (v.ok) return reply({ content: "Here's the shift. Does this look right to you?", proposal: v.proposal });
+        return reply({ content: v.stop || v.ask || "I couldn't use that tap. Try again." });
+      }
+      if (pick.kind === "recheck" && pick.proposal?.action === "add_shift") {
+        if (!addOn) return reply({ recheck: { ok: false, changed: "Adding shifts isn't available." } });
+        const p = pick.proposal;
+        const v: any = await buildAddProposal(supabaseAdmin, location_id, { employee_id: String(p.employee?.id || ""), date: String(p.shift_date || ""), start_time: String(p.start_time || ""), end_time: String(p.end_time || ""), template_id: p.template_id ? String(p.template_id) : "none" }, crewForActions, crewName, today);
+        if (!v.ok) return reply({ recheck: { ok: false, changed: v.stop || v.ask || "The shift can't be added any more." } });
+        const n = v.proposal;
+        if (n.published !== !!p.published) return reply({ recheck: { ok: false, changed: n.published ? "The week was just published." : "The week was just unpublished." } });
+        if (JSON.stringify(n.warnings) !== JSON.stringify(p.warnings || [])) return reply({ recheck: { ok: false, changed: "That day's shifts changed. Ask Theo again for a fresh preview." } });
+        return reply({ recheck: { ok: true, published: n.published, schedule_id: n.schedule_id, week_start: n.week_start, day_of_week: n.day_of_week } });
+      }
+      if (pick.kind === "recheck" && pick.proposal?.action === "delete_shift") {
+        if (!deleteOn) return reply({ recheck: { ok: false, changed: "Deleting shifts isn't available." } });
+        const p = pick.proposal;
+        const v: any = await buildDeleteProposal(supabaseAdmin, location_id, String(p.shift_id || ""), crewForActions, crewName, today, nowHHMM);
+        if (!v.ok) return reply({ recheck: { ok: false, changed: v.error } });
+        const n = v.proposal;
+        if (n.employee.id !== p.employee?.id) return reply({ recheck: { ok: false, changed: `This shift now belongs to ${n.employee.name}.` } });
+        if (n.shift_date !== p.shift_date || n.start_time !== p.start_time || n.end_time !== p.end_time) return reply({ recheck: { ok: false, changed: `The shift moved to ${n.date_label}, ${n.time_label}.` } });
+        return reply({ recheck: { ok: true, published: n.published } });
+      }
+      if ((pick.kind === "candidate" || pick.kind === "recheck") && !coverOn) return reply({ content: "I can't cover shifts yet. Use the Schedule page." });
       if (pick.kind === "candidate") {
-        const v: any = await buildCoverProposal(supabaseAdmin, location_id, sid, String(pick.employee_id || ""), crewForActions, crewName);
+        const v: any = await buildCoverProposal(supabaseAdmin, location_id, sid, String(pick.employee_id || ""), crewForActions, crewName, when);
         if (v.ok) return reply({ content: "Here's the change. Does this look right to you?", proposal: v.proposal });
         return reply({ content: v.hurdle ? `${v.error}. Want to see who else can cover?` : v.error });
       }
       if (pick.kind === "recheck" && pick.proposal && typeof pick.proposal === "object") {
         const p = pick.proposal;
-        const v: any = await buildCoverProposal(supabaseAdmin, location_id, String(p.shift_id || ""), String(p.replacement?.id || ""), crewForActions, crewName);
+        const v: any = await buildCoverProposal(supabaseAdmin, location_id, String(p.shift_id || ""), String(p.replacement?.id || ""), crewForActions, crewName, when);
         if (!v.ok) return reply({ recheck: { ok: false, changed: /shift_id/.test(v.error) ? "That shift isn't on the schedule anymore." : v.error } });
         const n = v.proposal;
         if (n.covered.id !== p.covered?.id) return reply({ recheck: { ok: false, changed: `This shift now belongs to ${n.covered.name}.` } });
