@@ -16,6 +16,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheoUnread } from '@/hooks/useTheoUnread';
 import { TheoVoiceOverlay } from './TheoVoiceOverlay';
+import { useTheoWizard, CHAT_COLORS, NO_ACTS, type Acts, type AnyProposal, type CoverScreen } from './theoWizard';
 import { AudioLines } from 'lucide-react';
 
 
@@ -130,6 +131,21 @@ export function AiAssistantBubble() {
       console.error('Failed to persist chat message:', e);
     }
   }, [currentLocation?.id, today]);
+
+  // A line in the chat after a confirmed action or Undo (voice and chat both add it the same way).
+  const recordLine = (text: string) => {
+    const theoMsg = { role: 'assistant', content: text } as Message;
+    setMessages(prev => [...prev, theoMsg]);
+    void persistMessage(theoMsg);
+  };
+  // THE ONE action wizard, shared with the voice screen (so only one preview is ever open).
+  const wizard = useTheoWizard({ onRecord: recordLine });
+  // Which Theo actions this person has here: the server's answer on the last chat reply, nothing else.
+  const chatActsRef = useRef<Acts>({ ...NO_ACTS });
+  // Closing the chat panel drops the chat's preview or list (logged cancelled), same as closing the voice screen.
+  useEffect(() => {
+    if (!open && wizard.ownerRef.current === 'chat' && (wizard.actionRef.current || wizard.screenRef.current)) wizard.dropAll();
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: briefing } = useQuery({
     queryKey: ['croo-ai-briefing', currentLocation?.id, today],
@@ -357,6 +373,9 @@ export function AiAssistantBubble() {
 
     // Persist user message
     persistMessage(userMsg);
+    const mine = wizard.ownerRef.current === 'chat';
+    const chatPending = mine ? wizard.openPreview() : null;
+    const chatScreen = mine ? wizard.screenRef.current : null;
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
@@ -364,6 +383,11 @@ export function AiAssistantBubble() {
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           location_id: currentLocation.id,
           location_name: currentLocation.name,
+          source: 'chat',
+          // Only an OPEN chat preview goes up (never a dropped or saved one); the server decides what it allows.
+          ...(chatPending ? { pending_action: chatPending } : {}),
+          ...(chatScreen?.kind === 'candidates' ? { list_context: { shift_id: chatScreen.shift_id } } : {}),
+          ...(chatScreen?.kind === 'templates' ? { list_context: { draft: chatScreen.draft } } : {}),
         },
       });
 
@@ -378,6 +402,19 @@ export function AiAssistantBubble() {
         return;
       }
 
+      const a = data?.actions;
+      chatActsRef.current = { create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true };
+      const acts = chatActsRef.current;
+      if (data?.cancel_pending && wizard.ownerRef.current === 'chat' && wizard.actionRef.current?.stage === 'preview') {
+        wizard.logAction(wizard.actionRef.current.logId, { status: 'cancelled' });
+        wizard.setAction(null);
+      }
+      const pa = data?.proposal?.action as keyof Acts | undefined;
+      if (pa && acts[pa] === true) wizard.showProposal(data.proposal as AnyProposal, 'chat');
+      else if (data?.screen?.kind && !wizard.actionRef.current && (acts.cover_shift || acts.add_shift || acts.delete_shift || acts.swap_shift || acts.change_shift)) {
+        wizard.setScreen(data.screen as CoverScreen, 'chat');
+        wizard.setScreenNote('');
+      }
       const assistantMsg: Message = { role: 'assistant', content: data.content };
       setMessages(prev => [...prev, assistantMsg]);
       persistMessage(assistantMsg);
@@ -582,6 +619,13 @@ export function AiAssistantBubble() {
                 )}
               </div>
 
+              {/* Theo's action card: pinned above the typing box so a long chat never buries Confirm */}
+              {wizard.ownerRef.current === 'chat' && (wizard.action || wizard.screen) && (
+                <div className="flex max-h-[58vh] shrink-0 flex-col items-center overflow-y-auto border-t border-border/70 bg-background px-3 pb-2">
+                  {wizard.action ? wizard.renderAction(wizard.action, CHAT_COLORS) : wizard.screen ? wizard.renderScreen(wizard.screen, CHAT_COLORS) : null}
+                </div>
+              )}
+
               {/* Input */}
               <div className="border-t border-border/70 bg-background px-3 pt-2.5" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.875rem)' }}>
                 <form
@@ -631,11 +675,7 @@ export function AiAssistantBubble() {
         jumpToVoiceRef.current = true;
         setOpen(true);
         setJumpTick(n => n + 1);
-      }} onRecord={(text) => {
-        const theoMsg = { role: 'assistant', content: text } as Message;
-        setMessages(prev => [...prev, theoMsg]);
-        void persistMessage(theoMsg);
-      }} onExchange={(q, a) => {
+      }} wizard={wizard} onExchange={(q, a) => {
         const userMsg = { role: 'user', content: `🎙️ ${q}` } as Message;
         const theoMsg = { role: 'assistant', content: a } as Message;
         setMessages(prev => [...prev, userMsg, theoMsg]);
