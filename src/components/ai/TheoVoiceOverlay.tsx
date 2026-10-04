@@ -1,17 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check, AlertTriangle, ChevronRight } from 'lucide-react';
-import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
-import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
-import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule, updateShiftTimes, swapShiftsAndNotify } from '@/lib/scheduleActions';
-import { countPendingChanges } from '@/lib/scheduleDiff';
-import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 import { TheoVoiceOrb, type TheoVoiceOrbHandle } from './TheoVoiceOrb';
 import { playCue, type TheoCue } from './theoCues';
+import { NO_ACTS, isShiftAction, type Acts, type AnyProposal, type CoverScreen, type TheoWizard } from './theoWizard';
 
 type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'error';
 
@@ -125,7 +120,7 @@ function saveFinal(id: string, patch: Record<string, unknown>) {
   }).catch((e) => console.error('[theo-voice] usage log', e));
 }
 
-export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onExchange, onRecord, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onOpenAnswer?: () => void; onExchange?: (question: string, answer: string) => void; onRecord?: (text: string) => void; intent?: 'update' | 'talk' }) {
+export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onExchange, wizard, intent = 'talk' }: { open: boolean; onClose: () => void; onOpenChat: () => void; onOpenAnswer?: () => void; onExchange?: (question: string, answer: string) => void; wizard: TheoWizard; intent?: 'update' | 'talk' }) {
   const { currentLocation } = useLocation();
   const { user } = useAuth();
   // Which Theo actions this person has at this store: the server's answer (theo-voice session), nothing else.
@@ -277,6 +272,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     return keep(data);
   };
 
+  // One preview at a time: opening the voice screen drops whatever the chat had open.
+  useEffect(() => { if (open && wizard.ownerRef.current === 'chat' && (actionRef.current || screenRef.current)) dropAll(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!open) { const a = actionRef.current; if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' }); setAction(null); setScreen(null); setScreenNote(''); teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -392,7 +389,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       }
     }
     if (schedAct && data?.screen?.kind && !actionRef.current) {
-      setScreen(data.screen as CoverScreen);
+      setScreen(data.screen as CoverScreen, 'voice');
       setScreenNote('');
       onExchange?.(question, answer);
       return JSON.stringify({ answer, long: false, screen: true });
