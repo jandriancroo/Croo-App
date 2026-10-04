@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check, AlertTriangle } from 'lucide-react';
+import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight, Check, AlertTriangle, ChevronRight } from 'lucide-react';
 import { useUserRole, ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
 import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule } from '@/lib/scheduleActions';
@@ -119,8 +119,8 @@ type CoverProposal = {
   checks: string[]; tag: string | null; published: boolean; day?: DayView;
 };
 // Theo hands (build 3): the day as it will be, shared by add, cover and delete previews.
-type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: 'new' | 'cover' | 'removed' | null; from?: string };
-type DayView = { date: string; title: string; axis: { start: number; end: number; labels: string[] }; rows: DayRow[] };
+type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: 'new' | 'cover' | 'removed' | null };
+type DayView = { date: string; title: string; rows: DayRow[] };
 type AddProposal = {
   id: string; action: 'add_shift'; employee: { id: string; name: string }; shift_date: string; start_time: string; end_time: string;
   template_id: string | null; position: string | null; week_start: string; schedule_id: string | null; day_of_week: number; published: boolean;
@@ -143,6 +143,9 @@ type CoverScreen =
   | { kind: 'people'; purpose?: 'cover' | 'delete'; date: string; title: string; people: { employee_id: string; name: string }[] }
   | { kind: 'templates'; title: string; subtitle: string; draft: { employee_id: string; date: string; start_time: string; end_time: string }; rows: { template_id: string; name: string; line: string }[] }
   | { kind: 'candidates'; shift_id: string; title: string; subtitle: string; clear: ScreenRow[]; working: ScreenRow[]; blocked_summary: string | null };
+
+// 1px hairline between two neighbouring PLAIN rows only (rows marked data-plain). Drawn in the 4px gap, so row heights never change.
+const HAIRLINE = "[&>[data-plain]]:relative [&>[data-plain]+[data-plain]::before]:pointer-events-none [&>[data-plain]+[data-plain]::before]:absolute [&>[data-plain]+[data-plain]::before]:inset-x-3 [&>[data-plain]+[data-plain]::before]:top-[-2.5px] [&>[data-plain]+[data-plain]::before]:h-px [&>[data-plain]+[data-plain]::before]:bg-border/60 [&>[data-plain]+[data-plain]::before]:content-['']";
 
 function CoverListScroller({ children }: { children: ReactNode }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -170,7 +173,7 @@ function CoverListScroller({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-[20px] bg-card">
       <div ref={scrollRef} onScroll={onScroll} onWheel={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()}
-        className="min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px] flex flex-col gap-1">
+        className={`min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px] flex flex-col gap-1 ${HAIRLINE}`}>
         {children}
       </div>
       {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />}
@@ -180,48 +183,37 @@ function CoverListScroller({ children }: { children: ReactNode }) {
 
 
 const NEW_GREEN = 'hsl(142 70% 28%)';
-const KIND_COLOR: Record<'new' | 'cover' | 'removed', string> = { new: 'hsl(142 70% 28%)', cover: 'color-mix(in srgb, hsl(var(--primary)) 75%, black)', removed: 'hsl(var(--destructive))' };
+const KIND_COLOR: Record<'new' | 'cover' | 'removed', string> = { new: NEW_GREEN, cover: NEW_GREEN, removed: 'hsl(var(--destructive))' };
+const KIND_TINT: Record<'new' | 'cover' | 'removed', number> = { new: 9, cover: 9, removed: 7 };
 const KIND_TAG: Record<'new' | 'cover' | 'removed', string> = { new: 'New', cover: 'Covering', removed: 'Removed' };
-/** The day as it will be: time axis + one row per shift with a bar on that axis. Rows scroll inside the card. */
+/** The day as it will be: one quiet read-only line per shift; changed rows tinted with a left edge and a chip. Rows scroll inside the card. */
 function DayRows({ view }: { view: DayView }) {
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => { boxRef.current?.querySelector('[data-changed="1"]')?.scrollIntoView({ block: 'nearest' }); }, [view]);
-  const len = Math.max(60, view.axis.end - view.axis.start);
   return (
-    <div className="flex min-h-0 flex-col">
-      <div className="flex shrink-0 justify-between px-3 pb-1 text-[12px] font-semibold text-muted-foreground">
-        {view.axis.labels.map((l, i) => <span key={i}>{l}</span>)}
-      </div>
-      <div ref={boxRef} className="flex min-h-0 flex-col">
-        <CoverListScroller>
-          {view.rows.length === 0 && <p className="p-2 text-[14px] text-muted-foreground">No one else is on that day.</p>}
-          {view.rows.map((r) => {
-            const k = r.kind;
-            const col = k ? KIND_COLOR[k] : 'hsl(var(--muted-foreground))';
-            const left = ((r.start - view.axis.start) / len) * 100;
-            const width = Math.max(2, ((r.end - r.start) / len) * 100);
-            return (
-              <div key={r.id} data-changed={k ? '1' : undefined} className="shrink-0 rounded-xl px-2.5 py-2"
-                style={k ? { background: `color-mix(in srgb, ${col} 12%, transparent)`, boxShadow: `inset 4px 0 0 ${col}` } : undefined}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`min-w-0 truncate ${k === 'removed' ? 'line-through' : ''}`}>
-                    <span className="text-[14px] font-extrabold">{r.name}</span>
-                    <span className="text-[13px] text-muted-foreground"> · {r.position}</span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1.5">
-                    {k && <span className="inline-flex h-5 items-center rounded-full px-2 text-[12px] font-extrabold text-primary-foreground" style={{ background: col }}>{KIND_TAG[k]}</span>}
-                    <span className={`text-[13px] font-bold ${k === 'removed' ? 'line-through' : ''}`}>{r.time}</span>
-                  </span>
-                </div>
-                {k === 'cover' && r.from && <div className="text-[12px] text-muted-foreground">Takes this from {r.from}</div>}
-                <div className="relative mt-1.5 h-[5px] w-full rounded-full bg-muted">
-                  <div className="absolute top-0 h-full rounded-full" style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%`, background: col, opacity: k === 'removed' ? 0.35 : 1 }} />
-                </div>
+    <div ref={boxRef} className="flex min-h-0 flex-col">
+      <CoverListScroller>
+        {view.rows.length === 0 && <p className="p-2 text-[14px] text-muted-foreground">No one else is on that day.</p>}
+        {view.rows.map((r) => {
+          const k = r.kind;
+          const col = k ? KIND_COLOR[k] : '';
+          const strike = k === 'removed' ? 'line-through' : '';
+          return (
+            <div key={r.id} data-changed={k ? '1' : undefined} data-plain={k ? undefined : ''}
+              className="flex min-h-[42px] shrink-0 items-center justify-between gap-2 rounded-[10px] py-[6px] pl-[11px] pr-[10px]"
+              style={k ? { background: `color-mix(in srgb, ${col} ${KIND_TINT[k]}%, transparent)`, boxShadow: `inset 3px 0 0 ${col}` } : undefined}>
+              <div className="min-w-0">
+                <div className={`truncate text-[14.5px] font-extrabold ${strike}`}>{r.name}</div>
+                <div className="truncate text-[12px] font-semibold text-muted-foreground">{r.position}</div>
               </div>
-            );
-          })}
-        </CoverListScroller>
-      </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {k && <span className="inline-flex h-5 items-center rounded-full px-2 text-[11px] font-extrabold text-white" style={{ background: col }}>{KIND_TAG[k]}</span>}
+                <span className={`whitespace-nowrap text-[13px] font-bold ${strike}`}>{r.time}</span>
+              </div>
+            </div>
+          );
+        })}
+      </CoverListScroller>
     </div>
   );
 }
@@ -1060,11 +1052,13 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   function renderScreen(sc: CoverScreen) {
     const rowCls = 'flex min-h-[60px] w-full shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted disabled:opacity-60';
     const groupLabel = 'sticky top-0 z-10 shrink-0 bg-card px-1 py-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const chev = <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />;
     const person = (r: ScreenRow) => (
-      <button key={r.employee_id} disabled={picking} className={rowCls}
+      <button key={r.employee_id} data-plain="" disabled={picking} className={rowCls}
         onClick={() => sc.kind === 'candidates' && pickFromScreen({ kind: 'candidate', shift_id: sc.shift_id, employee_id: r.employee_id })}>
         <div className="flex-1"><div className="text-[16px] font-extrabold">{r.name}</div><div className="text-[13px] text-muted-foreground">{r.line}</div></div>
         {r.tag && amberTag(r.tag)}
+        {chev}
       </button>
     );
     return (
@@ -1074,18 +1068,21 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         <div className="mt-3 flex min-h-0 w-full max-w-[420px] flex-1 items-start overflow-hidden">
           <CoverListScroller>
           {sc.kind === 'shifts' && (sc.shifts.length ? sc.shifts.map((sh) => (
-            <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id, purpose: sc.purpose })}>
-              <div><div className="text-[16px] font-extrabold">{sh.name}</div><div className="text-[13px] text-muted-foreground">{sh.time}</div></div>
+            <button key={sh.shift_id} data-plain="" disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id, purpose: sc.purpose })}>
+              <div className="flex-1"><div className="text-[16px] font-extrabold">{sh.name}</div><div className="text-[13px] text-muted-foreground">{sh.time}</div></div>
+              {chev}
             </button>
           )) : <p className="p-3 text-[14px] text-muted-foreground">No shifts left today.</p>)}
           {sc.kind === 'people' && sc.people.map((pp) => (
-            <button key={pp.employee_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'person', employee_id: pp.employee_id, date: sc.date, purpose: sc.purpose })}>
-              <div className="text-[16px] font-extrabold">{pp.name}</div>
+            <button key={pp.employee_id} data-plain="" disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'person', employee_id: pp.employee_id, date: sc.date, purpose: sc.purpose })}>
+              <div className="flex-1 text-[16px] font-extrabold">{pp.name}</div>
+              {chev}
             </button>
           ))}
           {sc.kind === 'templates' && sc.rows.map((t) => (
-            <button key={t.template_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'template', ...sc.draft, template_id: t.template_id })}>
-              <div><div className="text-[16px] font-extrabold">{t.name}</div><div className="text-[13px] text-muted-foreground">{t.line}</div></div>
+            <button key={t.template_id} data-plain="" disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'template', ...sc.draft, template_id: t.template_id })}>
+              <div className="flex-1"><div className="text-[16px] font-extrabold">{t.name}</div><div className="text-[13px] text-muted-foreground">{t.line}</div></div>
+              {chev}
             </button>
           ))}
           {sc.kind === 'candidates' && <>
@@ -1155,11 +1152,13 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
           <div className="h-px w-full bg-border" />
           <p className="text-[13px] text-muted-foreground">When you confirm, the task appears in Quick Tasks and {notifyText(p)}.</p>
           {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
-          <button onClick={confirmTask} disabled={saving}
-            className="h-[52px] w-full rounded-full text-[16px] font-extrabold text-white disabled:opacity-70" style={{ background: DEEP_PRIMARY }}>
-            {saving ? 'Saving…' : 'Create task'}
-          </button>
-          <button onClick={cancelTask} disabled={saving} className="h-11 w-full text-[15px] font-semibold text-muted-foreground">Cancel</button>
+          <div className="flex items-center gap-2">
+            <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
+            <button onClick={confirmTask} disabled={saving}
+              className="h-[52px] flex-1 rounded-full text-[16px] font-extrabold text-white disabled:opacity-70" style={{ background: DEEP_PRIMARY }}>
+              {saving ? 'Saving…' : 'Create task'}
+            </button>
+          </div>
         </div>
         <p className="mt-3 text-center text-[13px] text-white/[0.78]">Or tell Theo what to change.</p>
       </>
