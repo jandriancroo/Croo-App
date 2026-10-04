@@ -3655,6 +3655,15 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     if (actionsOn) {
       // The screen offers only what the server allows: the same actions object theo-voice returns.
       const out: any = { actions: theoActions };
+      // Agreeing ("yes, do it") with a preview open never drops or changes it: the answer is always the tap line.
+      const lastUser = String([...(messages || [])].reverse().find((m: any) => m?.role === "user")?.content || "").trim();
+      if (anyPending && /^(yes|yeah|yep|yup|sure|do it|confirm|looks good|sounds (good|right)|go ahead|ok(ay)?)\b/i.test(lastUser) && !/\b(not|don['’]?t|cancel|never|instead|make it|change)\b/i.test(lastUser)) {
+        cancelPending = false; liveProposal = null; coverScreen = null;
+        finalResponse = pending ? "Tap Create task to save it." : pendingCover ? "Tap Confirm change to save it." : pendingAdd ? "Tap Add shift to save it."
+          : pendingDelete ? "Tap Delete shift to save it." : pendingSwap ? "Tap Swap shifts to save it." : "Tap Change hours to save it.";
+      }
+      // A list shown with no usable words: say the list's own title.
+      if (coverScreen && /wasn't able to fully process/i.test(String(finalResponse))) finalResponse = coverScreen.title;
       // Re-proposing the exact task already on screen is not a change: keep the preview, point to the button.
       if (liveProposal?.action === "create_task" && pending) {
         const sameIds = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
