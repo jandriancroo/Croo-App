@@ -113,30 +113,33 @@ export function deleteInfo(o: { shift: DayShift; dayShifts: DayShift[]; weekShif
   return out;
 }
 
-export type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: "new" | "cover" | "removed" | null; from?: string };
-export type DayView = { date: string; title: string; axis: { start: number; end: number; labels: string[] }; rows: DayRow[] };
+export type DayRow = { id: string; name: string; position: string; time: string; start: number; end: number; kind: "new" | "cover" | "removed" | null };
+export type DayView = { date: string; title: string; rows: DayRow[] };
 export type DayChange =
   | { kind: "new"; shift: DayShift }
   | { kind: "cover"; shift_id: string; to: { id: string; name: string } }
   | { kind: "removed"; shift_id: string };
 
-/** The day AS IT WILL BE after the change, sorted by start time then name; the changed row marked. */
+/** The day AS IT WILL BE after the change, sorted by start time then name; the changed row(s) marked.
+ *  A cover shows two adjacent rows for the one shift: the original person (removed), then the replacement (cover). */
 export function buildDayView(date: string, dayShifts: DayShift[], change: DayChange): DayView {
-  let list = dayShifts.map((s) => ({ s, kind: null as DayRow["kind"], from: undefined as string | undefined }));
-  if (change.kind === "new") list.push({ s: change.shift, kind: "new", from: undefined });
-  if (change.kind === "cover") list = list.map((x) => x.s.id === change.shift_id ? { s: { ...x.s, user_id: change.to.id, name: change.to.name }, kind: "cover" as const, from: x.s.name } : x);
-  if (change.kind === "removed") list = list.map((x) => x.s.id === change.shift_id ? { ...x, kind: "removed" as const } : x);
-  const rows: DayRow[] = list.map(({ s, kind, from }) => {
+  const rowOf = (s: DayShift, kind: DayRow["kind"], id = s.id): DayRow => {
     const [a, b] = span(s.start_time, s.end_time);
-    return { id: s.id, name: s.name, position: s.position || "No position", time: fmtRange(s.start_time, s.end_time), start: a, end: b, kind, ...(from ? { from } : {}) };
-  }).sort((x, y) => x.start - y.start || x.name.localeCompare(y.name));
-  const lo = rows.length ? Math.floor(Math.min(...rows.map((r) => r.start)) / 60) * 60 : 9 * 60;
-  let hi = rows.length ? Math.ceil(Math.max(...rows.map((r) => r.end)) / 60) * 60 : 17 * 60;
-  if (hi <= lo) hi = lo + 60;
-  const labels = [0, 1, 2, 3].map((i) => fmtTime(`${String(Math.floor(Math.round((lo + ((hi - lo) * i) / 3) / 60) % 24)).padStart(2, "0")}:00`));
+    return { id, name: s.name, position: s.position || "No position", time: fmtRange(s.start_time, s.end_time), start: a, end: b, kind };
+  };
+  // Each entry is a group that sorts as one unit (the cover pair stays together, removed first).
+  const groups: DayRow[][] = dayShifts.map((s) => {
+    if (change.kind === "cover" && s.id === change.shift_id) {
+      return [rowOf(s, "removed", `${s.id}:was`), rowOf({ ...s, user_id: change.to.id, name: change.to.name }, "cover", `${s.id}:now`)];
+    }
+    return [rowOf(s, change.kind === "removed" && s.id === change.shift_id ? "removed" : null)];
+  });
+  if (change.kind === "new") groups.push([rowOf(change.shift, "new")]);
+  groups.sort((x, y) => x[0].start - y[0].start || x[0].name.localeCompare(y[0].name));
+  const rows = groups.flat();
   const word = change.kind === "new" ? `the day with ${first(change.shift.name)} added` : change.kind === "cover" ? "the day after the change" : "the day with this shift removed";
   const d = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
-  return { date, title: `${d} · ${word}`, axis: { start: lo, end: hi, labels }, rows };
+  return { date, title: `${d} · ${word}`, rows };
 }
 
 export const weekdayWord = (date: string) => cap(weekdayOf(date));
