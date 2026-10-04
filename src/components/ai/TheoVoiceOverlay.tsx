@@ -178,6 +178,54 @@ function CoverListScroller({ children }: { children: ReactNode }) {
   );
 }
 
+
+const NEW_GREEN = 'hsl(142 70% 28%)';
+const KIND_COLOR: Record<'new' | 'cover' | 'removed', string> = { new: 'hsl(142 70% 28%)', cover: 'color-mix(in srgb, hsl(var(--primary)) 75%, black)', removed: 'hsl(var(--destructive))' };
+const KIND_TAG: Record<'new' | 'cover' | 'removed', string> = { new: 'New', cover: 'Covering', removed: 'Removed' };
+/** The day as it will be: time axis + one row per shift with a bar on that axis. Rows scroll inside the card. */
+function DayRows({ view }: { view: DayView }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { boxRef.current?.querySelector('[data-changed="1"]')?.scrollIntoView({ block: 'nearest' }); }, [view]);
+  const len = Math.max(60, view.axis.end - view.axis.start);
+  return (
+    <div className="flex min-h-0 flex-col">
+      <div className="flex shrink-0 justify-between px-3 pb-1 text-[12px] font-semibold text-muted-foreground">
+        {view.axis.labels.map((l, i) => <span key={i}>{l}</span>)}
+      </div>
+      <div ref={boxRef} className="flex min-h-0 flex-col">
+        <CoverListScroller>
+          {view.rows.length === 0 && <p className="p-2 text-[14px] text-muted-foreground">No one else is on that day.</p>}
+          {view.rows.map((r) => {
+            const k = r.kind;
+            const col = k ? KIND_COLOR[k] : 'hsl(var(--muted-foreground))';
+            const left = ((r.start - view.axis.start) / len) * 100;
+            const width = Math.max(2, ((r.end - r.start) / len) * 100);
+            return (
+              <div key={r.id} data-changed={k ? '1' : undefined} className="shrink-0 rounded-xl px-2.5 py-2"
+                style={k ? { background: `color-mix(in srgb, ${col} 12%, transparent)`, boxShadow: `inset 4px 0 0 ${col}` } : undefined}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`min-w-0 truncate ${k === 'removed' ? 'line-through' : ''}`}>
+                    <span className="text-[14px] font-extrabold">{r.name}</span>
+                    <span className="text-[13px] text-muted-foreground"> · {r.position}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {k && <span className="inline-flex h-5 items-center rounded-full px-2 text-[12px] font-extrabold text-primary-foreground" style={{ background: col }}>{KIND_TAG[k]}</span>}
+                    <span className={`text-[13px] font-bold ${k === 'removed' ? 'line-through' : ''}`}>{r.time}</span>
+                  </span>
+                </div>
+                {k === 'cover' && r.from && <div className="text-[12px] text-muted-foreground">Takes this from {r.from}</div>}
+                <div className="relative mt-1.5 h-[5px] w-full rounded-full bg-muted">
+                  <div className="absolute top-0 h-full rounded-full" style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%`, background: col, opacity: k === 'removed' ? 0.35 : 1 }} />
+                </div>
+              </div>
+            );
+          })}
+        </CoverListScroller>
+      </div>
+    </div>
+  );
+}
+
 const firstName = (n: string) => n.split(' ')[0];
 const UNDO_MS = 10 * 60 * 1000;
 const roleLabel = (r: string) => ROLE_DISPLAY_NAMES[r as AppRole] ?? r;
@@ -918,7 +966,97 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     <span className="inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-extrabold" style={{ background: 'hsl(38 95% 88%)', color: 'hsl(32 90% 26%)' }}>{t}</span>
   );
 
-@@RENDER_SHIFT@@
+  function renderShift(a: ActionCard, p: ShiftProposal) {
+    const who = p.action === 'cover_shift' ? p.replacement.name : p.employee.name;
+    const wf = firstName(who);
+    const day = p.date_label.split(',')[0];
+    if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
+      const undone = a.stage === 'undone';
+      const head = p.action === 'add_shift' ? (undone ? 'Shift removed' : 'Shift added') : p.action === 'delete_shift' ? (undone ? 'Shift put back' : 'Shift deleted') : (undone ? 'Change undone' : 'Shift covered');
+      const line = p.action === 'add_shift'
+        ? (undone ? `${wf} is off ${day} again.` : `Done. ${wf} is on ${day} ${p.time_label}.`)
+        : p.action === 'delete_shift'
+          ? (undone ? `${wf} has ${day} ${p.time_label} again.` : `Done. ${wf}'s ${day} shift is removed.`)
+          : (undone ? `${firstName(p.covered.name)} has the shift again.` : `Done. ${wf} has ${day} ${Number(p.start_time.slice(0, 2)) >= 16 ? 'night' : 'shift'}.`);
+      const notice = p.published
+        ? (a.notified ? (p.action === 'cover_shift' ? 'Both were notified.' : `${wf} was notified.`) : 'No one needed a notice.')
+        : 'No one was notified, the week is a draft.';
+      return (
+        <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : NEW_GREEN }}>
+              {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
+            </span>
+            <div>
+              <div className="text-[18px] font-extrabold">{head}</div>
+              {!undone && <div className="text-[13px] text-muted-foreground">Saved at {a.savedAt}</div>}
+            </div>
+          </div>
+          <p className="text-[17px] font-extrabold">{line}</p>
+          <p className="text-[14px] text-muted-foreground">{p.date_label} · {p.time_label}</p>
+          <p className="text-[13px] text-muted-foreground">{notice}</p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          {!undone && a.undoOpen && (
+            <div className="flex flex-col gap-1">
+              <button onClick={undoTask} disabled={a.stage === 'undoing'}
+                className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
+                {a.stage === 'undoing' ? 'Undoing…' : 'Undo'}
+              </button>
+              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes{p.published ? ' and sends the update again' : ''}.</p>
+            </div>
+          )}
+          <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
+        </div>
+      );
+    }
+    const saving = a.stage === 'saving';
+    const others = a.otherChanges ?? 0;
+    const othersLine = others > 0 ? ` ${others} other ${others === 1 ? 'change' : 'changes'} on this week will also go out.` : '';
+    const name = p.action === 'cover_shift' ? 'Cover a shift' : p.action === 'add_shift' ? 'Add a shift' : 'Delete a shift';
+    const button = p.action === 'cover_shift' ? 'Confirm change' : p.action === 'add_shift' ? 'Add shift' : 'Delete shift';
+    const warnings = p.action === 'cover_shift' ? (p.tag ? [`${wf} is tagged: ${p.tag}`] : []) : p.warnings;
+    const info = p.action === 'cover_shift' ? p.checks : p.info;
+    const note = p.action === 'add_shift'
+      ? (p.published ? `When you confirm, the shift is added and ${wf} is notified.${othersLine}` : "This week isn't published yet, so the shift goes into the draft and no one is notified.")
+      : p.action === 'delete_shift'
+        ? (p.published ? `When you confirm, the shift is removed and ${wf} is notified.${othersLine}` : "This week isn't published yet, so the shift is removed from the draft and no one is notified.")
+        : (p.published ? `When you confirm, the schedule changes and ${firstName(p.covered.name)} and ${wf} are notified.${othersLine}` : "This week isn't published yet, so no one is notified.");
+    const dv = p.day;
+    return (
+      <>
+        <p className="mt-3 shrink-0 text-center text-[22px] font-extrabold text-white">Does this look right?</p>
+        {dv && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{dv.title}</p>}
+        <div className="mt-3 flex min-h-0 w-full max-w-[420px] flex-col gap-2 rounded-[20px] bg-card p-3 text-foreground tabular-nums">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-1">
+            <span className="text-[18px] font-extrabold">{name}</span>
+            {amberTag('Preview · not saved')}
+          </div>
+          {dv && <DayRows view={dv} />}
+          {warnings.length > 0 && (
+            <ul className="flex shrink-0 flex-col gap-1 rounded-xl px-3 py-2" style={{ background: 'hsl(38 95% 90%)', color: 'hsl(32 90% 22%)' }}>
+              {warnings.map((w) => <li key={w} className="flex items-start gap-2 text-[13px] font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
+            </ul>
+          )}
+          {info.length > 0 && (
+            <ul className="flex shrink-0 flex-col gap-1 px-1">
+              {info.map((t) => <li key={t} className="flex items-start gap-2 text-[13px]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={3} />{t}</li>)}
+            </ul>
+          )}
+          <p className="shrink-0 px-1 text-[13px] text-muted-foreground">{note}</p>
+          {a.error && <p className="shrink-0 px-1 text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <div className="flex shrink-0 items-center gap-2">
+            <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
+            <button onClick={confirmTask} disabled={saving}
+              className={`h-[52px] flex-1 rounded-full text-[16px] font-extrabold disabled:opacity-70 ${p.action === 'delete_shift' ? 'bg-destructive text-destructive-foreground' : 'text-primary-foreground'}`}
+              style={p.action === 'delete_shift' ? undefined : { background: p.action === 'add_shift' ? NEW_GREEN : DEEP_PRIMARY }}>
+              {saving ? 'Saving…' : button}
+            </button>
+          </div>
+        </div>
+        <p className="mt-3 shrink-0 text-center text-[13px] text-white/[0.78]">Or tell Theo what to change.</p>
+      </>
+    );
+  }
   function renderScreen(sc: CoverScreen) {
     const rowCls = 'flex min-h-[60px] w-full shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted disabled:opacity-60';
     const groupLabel = 'sticky top-0 z-10 shrink-0 bg-card px-1 py-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
@@ -932,17 +1070,22 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     return (
       <div className="flex min-h-0 w-full flex-1 flex-col items-center tabular-nums">
         <p className="mt-3 shrink-0 text-center text-[22px] font-extrabold text-white">{sc.title}</p>
-        {sc.kind === 'candidates' && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
+        {(sc.kind === 'candidates' || sc.kind === 'templates') && <p className="mt-1 shrink-0 text-center text-[13px] text-white/[0.78]">{sc.subtitle}</p>}
         <div className="mt-3 flex min-h-0 w-full max-w-[420px] flex-1 items-start overflow-hidden">
           <CoverListScroller>
           {sc.kind === 'shifts' && (sc.shifts.length ? sc.shifts.map((sh) => (
-            <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id })}>
+            <button key={sh.shift_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'shift', shift_id: sh.shift_id, purpose: sc.purpose })}>
               <div><div className="text-[16px] font-extrabold">{sh.name}</div><div className="text-[13px] text-muted-foreground">{sh.time}</div></div>
             </button>
           )) : <p className="p-3 text-[14px] text-muted-foreground">No shifts left today.</p>)}
           {sc.kind === 'people' && sc.people.map((pp) => (
-            <button key={pp.employee_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'person', employee_id: pp.employee_id, date: sc.date })}>
+            <button key={pp.employee_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'person', employee_id: pp.employee_id, date: sc.date, purpose: sc.purpose })}>
               <div className="text-[16px] font-extrabold">{pp.name}</div>
+            </button>
+          ))}
+          {sc.kind === 'templates' && sc.rows.map((t) => (
+            <button key={t.template_id} disabled={picking} className={rowCls} onClick={() => pickFromScreen({ kind: 'template', ...sc.draft, template_id: t.template_id })}>
+              <div><div className="text-[16px] font-extrabold">{t.name}</div><div className="text-[13px] text-muted-foreground">{t.line}</div></div>
             </button>
           ))}
           {sc.kind === 'candidates' && <>
@@ -1037,7 +1180,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         </button>
       </div>
 
-      <div className={action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
+      <div className={action && isShiftAction(action.proposal) && (action.stage === 'preview' || action.stage === 'saving') ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2 pb-2" : action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
           className={action || screen ? 'relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
           <div className={action || screen ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
