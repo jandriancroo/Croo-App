@@ -1,5 +1,10 @@
 # Toast live scrape (homemade integration)
 #
+# PAUSED 2026-10-04. Jordan asked to stop this cloud job until the house
+# Mac mini runner is up. The daily schedule is removed, and the job is
+# skipped even if something tries to start it, so it cannot sign into Toast.
+# Put the schedule back and remove `if: false` only when he says the mini is running.
+#
 # Signs into Toast Web once per run, then polls Sales Summary + punches + wages
 # every ~90 s. Three back-to-back runs (≤5h20m each) cover Coop's full day
 # (11 AM–10 PM America/Chicago, both CDT and CST). Concurrency queues the next
@@ -8,10 +13,6 @@
 name: Toast live scrape
 
 on:
-  schedule:
-    - cron: "45 15 * * *"   # 10:45 AM CDT / 9:45 AM CST
-    - cron: "55 20 * * *"   # handoff ~4 PM Chicago
-    - cron: "5 2 * * *"     # handoff ~9 PM Chicago, runs through close
   workflow_dispatch:
     inputs:
       oneshot:
@@ -28,6 +29,7 @@ concurrency:
 
 jobs:
   toast-live:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 340
     steps:
