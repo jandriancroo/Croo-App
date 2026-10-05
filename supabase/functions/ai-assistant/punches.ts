@@ -46,7 +46,7 @@ async function readState(admin: any, userId: string, locationId: string, date: s
 export async function buildPunchProposal(admin: any, managerId: string, managerFirst: string, loc: { id: string; name: string }, tz: string, args: any, crew: Person[]) {
   const kind: PunchKind | null = args?.kind === "in" || args?.kind === "out" ? args.kind : null;
   if (!kind) return { ask: "Clock them in or out?" };
-  const others = crew.filter((c) => c.id !== managerId || true);
+  const others = crew;
   const byId = args?.employee_id ? others.find((c) => c.id === args.employee_id) : null;
   const m = byId ? { one: byId } : matchPerson(String(args?.employee || ""), others);
   if ("several" in m && m.several) return { ask: `Which ${String(args?.employee || "").trim().split(/\s+/)[0]}: ${m.several.map((p) => p.name).join(" or ")}?` };
