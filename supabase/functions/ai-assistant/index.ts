@@ -1071,7 +1071,7 @@ function validateTaskProposal(args: any, crew: { id: string; full_name: string; 
 // Execute tool calls against the database
 const MANAGER_PLUS_ROLES = ["manager", "general_manager", "admin", "org_admin", "brand_admin", "super_admin"];
 
-async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string, ctx: { userClient?: any; today?: string; exposeIds?: boolean } = {}): Promise<string> {
+async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string, ctx: { userClient?: any; today?: string; exposeIds?: boolean; locationId?: string } = {}): Promise<string> {
   const storeToday = ctx.today || new Date().toLocaleDateString("en-CA", { timeZone: timezone });
   const offset = getTzOffset(timezone);
   // Per-person wage/cost data is manager+ only.
@@ -2252,13 +2252,17 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
       case "query_my_chats": {
         if (!userId) return JSON.stringify({ error: "User not authenticated" });
+        // Build 6A privacy rule: the person's OWN access (database chat rules apply) and only chats at THIS store.
+        // Before: read with full access and no store filter, so it also searched the person's chats at other stores.
+        const db = ctx.userClient;
+        if (!db || !ctx.locationId) return JSON.stringify({ error: "Chat search needs a store." });
         
         const daysBack = Math.min(args.days_back || 14, 90);
         const maxResults = Math.min(args.limit || 20, 50);
         const cutoffDate = new Date(Date.now() - daysBack * 86400000).toISOString();
 
         // Step 1: Get chat IDs user is a member of
-        const { data: memberships, error: memErr } = await supabase
+        const { data: memberships, error: memErr } = await db
           .from("chat_members")
           .select("chat_id")
           .eq("user_id", userId);
@@ -2266,12 +2270,14 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         if (memErr) return JSON.stringify({ error: memErr.message });
         if (!memberships || memberships.length === 0) return JSON.stringify({ message: "You're not a member of any chats." });
 
-        const chatIds = memberships.map((m: any) => m.chat_id);
+        const { data: storeChats } = await db.from("chats").select("id").in("id", memberships.map((m: any) => m.chat_id)).eq("location_id", ctx.locationId);
+        const chatIds = (storeChats || []).map((m: any) => m.id);
+        if (chatIds.length === 0) return JSON.stringify({ message: "You're not in any chats at this store." });
 
         // Step 2: Optionally filter by chat title
         let filteredChatIds = chatIds;
         if (args.chat_title) {
-          const { data: matchingChats } = await supabase
+          const { data: matchingChats } = await db
             .from("chats")
             .select("id, title")
             .in("id", chatIds)
@@ -2284,7 +2290,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         }
 
         // Step 3: Query messages
-        let query = supabase
+        let query = db
           .from("messages")
           .select("id, content, created_at, chat_id, sender_id, profiles:sender_id(full_name), chats:chat_id(title, is_group, is_announcement)")
           .in("chat_id", filteredChatIds)
@@ -3658,7 +3664,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           cancelPending = true; liveProposal = null;
           result = JSON.stringify({ status: "dropped" });
         } else {
-          result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun }), timezone);
+          result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun, locationId: location_id }), timezone);
         }
         if (bakeoff) toolOutputs.push({ tool: tc.function.name, args, output: result.slice(0, 6000) });
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
