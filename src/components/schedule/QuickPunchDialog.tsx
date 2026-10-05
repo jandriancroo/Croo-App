@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
+import { savePunches } from '@/lib/punches';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -215,16 +216,12 @@ export function QuickPunchDialog({
       const clockInISO = toISO(punchDate, startTime);
 
       // Create clock-in punch
-      const { error: clockInError } = await supabase
-        .from('time_punches')
-        .insert({
+      await savePunches({
           user_id: selectedUserId,
           punch_type: 'clock_in',
           punch_time: clockInISO,
           location_id: currentLocation?.id
         });
-
-      if (clockInError) throw clockInError;
 
       // If break included, create break punches
       // IMPORTANT: Use full format "30 minute unpaid break" or "10 minute paid break"
@@ -234,46 +231,36 @@ export function QuickPunchDialog({
         const duration = breakType === 'unpaid' ? 30 : 10;
         const breakNotes = `${duration} minute ${breakType} break`;
         
-        const { error: breakStartError } = await supabase
-          .from('time_punches')
-          .insert({
+        await savePunches({
             user_id: selectedUserId,
             punch_type: 'break_start',
             punch_time: breakStartISO,
             notes: breakNotes,
             location_id: currentLocation?.id
           });
-        if (breakStartError) throw breakStartError;
 
         // Create break end if provided
         if (breakEndTime) {
           const breakEndISO = toISO(punchDate, breakEndTime);
-          const { error: breakEndError } = await supabase
-            .from('time_punches')
-            .insert({
+          await savePunches({
               user_id: selectedUserId,
               punch_type: 'break_end',
               punch_time: breakEndISO,
               notes: breakNotes,
               location_id: currentLocation?.id
             });
-          if (breakEndError) throw breakEndError;
         }
       }
 
       // If end time provided and clock out is shown, also create clock-out
       if (showClockOut && endTime) {
         const clockOutISO = toISO(punchDate, endTime);
-        const { error: clockOutError } = await supabase
-          .from('time_punches')
-          .insert({
+        await savePunches({
             user_id: selectedUserId,
             punch_type: 'clock_out',
             punch_time: clockOutISO,
             location_id: currentLocation?.id
           });
-
-        if (clockOutError) throw clockOutError;
         toast.success('Shift recorded successfully');
       } else {
         toast.success('Employee punched in');
