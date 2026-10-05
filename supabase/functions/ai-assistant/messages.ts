@@ -120,7 +120,9 @@ export async function buildMessageProposal(userClient: any, admin: any, userId: 
   }
   const warnings: string[] = [];
   let reply_to: { id: string; sender: string; text: string } | null = null;
-  if (chat && (args.reply || args.reply_to_message_id)) {
+  // Answering someone ("tell Alle thanks", "reply to the group") is a threaded reply; plain "message Ryan: ..." is not.
+  const answering = args.reply === true || /^\s*(tell|reply|answer|respond|write back|let\s+\S+(\s+\S+)?\s+know)\b/i.test(lastUserText) && !/^\s*(message|text|dm)\b/i.test(lastUserText);
+  if (chat && (answering || args.reply_to_message_id)) {
     const msgs = await recentMessages(userClient, [chat.id], 50);
     const r = pickReplyTo(msgs as Msg[], userId, args.reply_to_message_id || null);
     if (r) {
