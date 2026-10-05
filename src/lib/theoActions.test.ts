@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { highestRole, actionsFor } from '../../supabase/functions/_shared/theoActions';
+import { highestRole, actionsFor, CREATE_EVENT_ROLES, CREATE_TASK_ROLES } from '../../supabase/functions/_shared/theoActions';
 
 // Same list ai-assistant uses to let people ask Theo questions (unchanged).
 const THEO_QUESTION_ROLES = ['shift_manager', 'shift_manager_in_training', 'manager', 'general_manager', 'admin', 'org_admin', 'fbc', 'brand_admin', 'super_admin'];
@@ -21,7 +21,7 @@ describe('highestRole', () => {
 });
 
 describe('actionsFor (role x action)', () => {
-  const table: [string, boolean, boolean][] = [
+  const table: [string, boolean, boolean][] = [ // [role, create_task + create_event, shift actions]
     ['team_member', false, false],
     ['shift_manager_in_training', false, false],
     ['shift_manager', false, false],
@@ -32,8 +32,9 @@ describe('actionsFor (role x action)', () => {
     ['super_admin', true, true],
   ];
   for (const [role, task, cover] of table) {
-    it(`${role}: create_task ${task}, cover/add/delete/swap/change shift ${cover}`, () => expect(actionsFor(role, true)).toEqual({ create_task: task, cover_shift: cover, add_shift: cover, delete_shift: cover, swap_shift: cover, change_shift: cover }));
+    it(`${role}: create_task ${task}, create_event ${task}, cover/add/delete/swap/change shift ${cover}`, () => expect(actionsFor(role, true)).toEqual({ create_task: task, cover_shift: cover, add_shift: cover, delete_shift: cover, swap_shift: cover, change_shift: cover, create_event: task }));
   }
-  it('no store access -> nothing, even super admin', () => expect(actionsFor('super_admin', false)).toEqual({ create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false }));
+  it('no store access -> nothing, even super admin', () => expect(actionsFor('super_admin', false)).toEqual({ create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false }));
+  it('CREATE_EVENT_ROLES is the CREATE_TASK_ROLES list', () => expect(CREATE_EVENT_ROLES).toBe(CREATE_TASK_ROLES));
   it('team_member + manager uses manager', () => expect(actionsFor(highestRole(['team_member', 'manager']), true).create_task).toBe(true));
 });

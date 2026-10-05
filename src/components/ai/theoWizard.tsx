@@ -8,6 +8,7 @@ import { ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
 import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule, updateShiftTimes, swapShiftsAndNotify } from '@/lib/scheduleActions';
 import { countPendingChanges } from '@/lib/scheduleDiff';
+import { createScheduleEvent, deleteScheduleEvent, createEventCategory, deleteEventCategory } from '@/lib/scheduleEvents';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
@@ -53,11 +54,20 @@ type ChangeProposal = {
   employee: { id: string; name: string }; published: boolean; date_label: string; time_label: string; old_time_label: string;
   warnings: string[]; info: string[]; day: DayView;
 };
+// Theo hands (build 5): add a schedule event (one-time or recurring). Saved only by the Add event tap.
+export type EventProposal = {
+  id: string; action: 'create_event'; name: string; mode: 'one-time' | 'recurring'; event_date: string | null; day_of_week: number; days: number[];
+  start_time: string; end_time: string | null; category: { id: string | null; name: string; color: string; is_new: boolean } | null;
+  notes: string | null; is_daily_task: boolean; is_meeting: boolean; tagged_roles: string[]; tagged_labels: string[];
+  week_start: string | null; week_end: string | null; schedule_id: string | null; needs_draft: boolean; when_label: string; warnings: string[];
+};
 export type ShiftProposal = CoverProposal | AddProposal | DeleteProposal | SwapProposal | ChangeProposal;
-export type AnyProposal = TaskProposal | ShiftProposal;
-export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any> };
-export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean };
-export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false };
+export type AnyProposal = TaskProposal | ShiftProposal | EventProposal;
+export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null };
+export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean };
+export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false };
+/** The server's actions answer, read strictly (anything not exactly true is off). */
+export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true });
 export const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift' || p.action === 'swap_shift' || p.action === 'change_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 export type CoverScreen =
@@ -343,6 +353,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
   const confirmTask = async () => {
     const a = actionRef.current;
     if (a && isShiftAction(a.proposal)) return confirmShift();
+    if (a?.proposal.action === 'create_event') return confirmEvent();
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_task' || !user?.id || !currentLocation?.id) return;
     setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
     try {
@@ -360,6 +371,73 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       setAction({ ...a, stage: 'preview', error: err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the task. Try again." });
     }
   };
+  // Events show on the schedule pages, the punch clock and (daily tasks) the dashboard: reload every saved copy that holds events.
+  const refreshEventViews = () => queryClient.invalidateQueries({ predicate: (q) => /event/i.test(JSON.stringify(q.queryKey)) });
+  // Add event: re-check at the tap, then the ONE shared save (src/lib/scheduleEvents.ts). Category first, then the event.
+  const confirmEvent = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_event' || !user?.id || !currentLocation?.id) return;
+    const p = a.proposal;
+    const locationId = currentLocation.id;
+    setAction({ ...a, stage: 'saving', error: undefined });
+    let newCategoryId: string | null = null;
+    try {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: locationId, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
+      });
+      if (ce || !chk?.recheck) throw new Error('Could not re-check the event.');
+      if (!chk.recheck.ok) {
+        logAction(a.logId, { status: 'failed' });
+        setAction({ ...a, stage: 'preview', error: `Not saved. Something changed: ${chk.recheck.changed}` });
+        return;
+      }
+      let scheduleId: string | null = chk.recheck.schedule_id ?? null;
+      if (p.mode === 'one-time' && !scheduleId) scheduleId = (await ensureDraftSchedule(locationId, p.week_start!, p.week_end!)).id;
+      let categoryId = p.category?.id ?? null;
+      if (p.category?.is_new) { newCategoryId = (await createEventCategory({ locationId, name: p.category.name, color: p.category.color })).id; categoryId = newCategoryId; }
+      let eventId: string;
+      try {
+        const common = { locationId, name: p.name, startTime: p.start_time, endTime: p.end_time, notes: p.notes, taggedRoles: p.tagged_roles, categoryId, isDailyTask: p.is_daily_task, isMeeting: p.is_meeting };
+        eventId = p.mode === 'one-time'
+          ? await createScheduleEvent({ ...common, mode: 'one-time', scheduleId: scheduleId!, eventDate: p.event_date!, dayOfWeek: p.day_of_week })
+          : await createScheduleEvent({ ...common, mode: 'recurring', days: p.days });
+      } catch (err) {
+        if (newCategoryId) { try { await deleteEventCategory(newCategoryId); } catch { /* reported below */ } }
+        throw new Error('Not saved');
+      }
+      refreshEventViews();
+      logAction(a.logId, { status: 'confirmed', record_id: eventId });
+      onRecord?.(`Added event: ${p.name}, ${p.when_label}${p.category ? ` (${p.category.name})` : ''}`);
+      const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      setAction({ ...a, stage: 'done', savedAt, undoOpen: true, eventId, newCategoryId });
+      setTimeout(() => { const cur = actionRef.current; if (cur?.proposal.id === p.id && cur.stage === 'done') setAction({ ...cur, undoOpen: false }); }, UNDO_MS);
+    } catch (err: any) {
+      logAction(a.logId, { status: 'failed' });
+      setAction({ ...a, stage: 'preview', error: err?.message === 'Not saved' ? 'Not saved. The event could not be added, so nothing changed.' : err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the event. Try again." });
+    }
+  };
+  // Undo (10 minutes): refused if someone ticked the daily task or an attendee was added; the new category goes only if unused.
+  const undoEvent = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'done' || a.proposal.action !== 'create_event' || !a.eventId || !currentLocation?.id) return;
+    const p = a.proposal;
+    setAction({ ...a, stage: 'undoing', error: undefined });
+    try {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'undo_event', event_id: a.eventId, category_id: a.newCategoryId ?? null } },
+      });
+      if (ce || !chk?.undo) throw new Error('check');
+      if (!chk.undo.ok) { setAction({ ...a, stage: 'done', error: chk.undo.reason }); return; }
+      await deleteScheduleEvent(a.eventId);
+      if (a.newCategoryId && !chk.undo.category_in_use) { try { await deleteEventCategory(a.newCategoryId); } catch { /* category stays; harmless */ } }
+      refreshEventViews();
+      logAction(a.logId, { status: 'undone' });
+      onRecord?.(`Removed event: ${p.name}, ${p.when_label}`);
+      setAction({ ...a, stage: 'undone' });
+    } catch {
+      setAction({ ...a, stage: 'done', error: "Couldn't undo the event. Try again." });
+    }
+  };
   const cancelTask = () => {
     const a = actionRef.current;
     if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' });
@@ -368,6 +446,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
   const undoTask = async () => {
     const a = actionRef.current;
     if (a && isShiftAction(a.proposal)) return undoShift();
+    if (a?.proposal.action === 'create_event') return undoEvent();
     if (!a || a.stage !== 'done' || !a.taskId || a.proposal.action !== 'create_task') return;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
@@ -554,8 +633,90 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     );
   }
 
+  function renderEvent(a: ActionCard, p: EventProposal, c: Colors) {
+    const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const chip = p.category ? (
+      <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-[13px] font-bold">
+        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: p.category.color }} />
+        {p.category.name}
+        {p.category.is_new && <span className="ml-0.5 inline-flex h-5 items-center rounded-full px-2 text-[11px] font-extrabold text-white" style={{ background: NEW_GREEN }}>New</span>}
+      </span>
+    ) : <span className="text-[15px] font-semibold text-muted-foreground">No category</span>;
+    const details = (
+      <>
+        <div><div className={label}>Event</div><div className="text-[17px] font-extrabold">{p.name}</div></div>
+        <div><div className={label}>When</div><div className="text-[15px] font-semibold">{p.when_label}</div></div>
+        <div><div className={label}>Category</div><div className="mt-0.5">{chip}</div></div>
+        {p.notes && <div><div className={label}>Notes</div><div className="text-[15px]">{p.notes}</div></div>}
+        {p.tagged_labels.length > 0 && <p className="text-[14px] font-semibold">Tagged: {p.tagged_labels.map((l) => `${l}s`).join(', ')}</p>}
+        {p.is_daily_task && <p className="text-[14px] font-semibold">Daily task: shows as a task on the dashboard.</p>}
+        {p.is_meeting && <p className="text-[14px] font-semibold">Meeting: attendees can punch in. Add attendees on the Schedule page after saving.</p>}
+      </>
+    );
+    if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
+      const undone = a.stage === 'undone';
+      return (
+        <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : NEW_GREEN }}>
+              {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
+            </span>
+            <div>
+              <div className="text-[18px] font-extrabold">{undone ? 'Event removed' : 'Event added'}</div>
+              {!undone && <div className="text-[13px] text-muted-foreground">Saved at {a.savedAt}</div>}
+            </div>
+          </div>
+          <div><div className={label}>Event</div><div className="text-[17px] font-extrabold">{p.name}</div></div>
+          <p className="text-[14px] text-muted-foreground">{p.when_label}</p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          {!undone && a.undoOpen && (
+            <div className="flex flex-col gap-1">
+              <button onClick={undoTask} disabled={a.stage === 'undoing'}
+                className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
+                {a.stage === 'undoing' ? 'Removing…' : 'Undo'}
+              </button>
+              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes, until someone completes it.</p>
+            </div>
+          )}
+          <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
+        </div>
+      );
+    }
+    const saving = a.stage === 'saving';
+    return (
+      <>
+        <p className={`mt-3 text-center text-[22px] font-extrabold ${c.fg}`}>Does this look right?</p>
+        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[18px] font-extrabold">Add event</span>
+            {amberTag('Preview · not saved')}
+          </div>
+          {details}
+          {p.warnings.length > 0 && (
+            <ul className="flex flex-col gap-1 rounded-xl px-3 py-2" style={{ background: 'hsl(38 95% 90%)', color: 'hsl(32 90% 22%)' }}>
+              {p.warnings.map((w) => <li key={w} className="flex items-start gap-2 text-[13px] font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
+            </ul>
+          )}
+          <div className="h-px w-full bg-border" />
+          <p className="text-[13px] text-muted-foreground">
+            {p.needs_draft ? "That week has no schedule yet, so a draft week will be created. " : ''}No one is notified. It shows on the schedule and punch clock, and on the dashboard if it's a daily task.
+          </p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <div className="flex items-center gap-2">
+            <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
+            <button onClick={confirmTask} disabled={saving}
+              className="h-[52px] flex-1 rounded-full text-[16px] font-extrabold text-primary-foreground disabled:opacity-70" style={{ background: NEW_GREEN }}>
+              {saving ? 'Saving…' : 'Add event'}
+            </button>
+          </div>
+        </div>
+        <p className={`mt-3 text-center text-[13px] ${c.dim}`}>Or tell Theo what to change.</p>
+      </>
+    );
+  }
   function renderAction(a: ActionCard, c: Colors = VOICE_COLORS) {
     if (isShiftAction(a.proposal)) return renderShift(a, a.proposal, c);
+    if (a.proposal.action === 'create_event') return renderEvent(a, a.proposal, c);
     const p = a.proposal;
     const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
     if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {

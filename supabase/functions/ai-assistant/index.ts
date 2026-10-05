@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
 import { buildAddProposal, buildDeleteProposal, buildSwapProposal, buildChangeProposal } from "./shifts.ts";
+import { buildEventProposal, recheckEvent, undoEventCheck } from "./events.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 
 const corsHeaders = {
@@ -973,22 +974,34 @@ const FIND_SHIFTS_TOOL = {
   },
 };
 // Build 3: the schedule-change proposal tool (voice and chat). Enum is limited per person at request time.
-const proposeScheduleTool = (acts: { cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean }) => ({
+const proposeScheduleTool = (acts: { cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean }) => ({
   type: "function",
   function: {
     name: "propose_action",
-    description: "Show the manager a PREVIEW of a change. Saves nothing — only the manager's tap saves it. create_task: a standard quick task (needs a title AND at least one person or role). cover_shift: give one shift to another person. add_shift: add one shift for one person (needs employee_id, date, hours; template_id 'none' for from scratch; omit template_id to show the template list). delete_shift: remove one shift (shift_id from find_shifts purpose delete). swap_shift: two people trade shifts (shift_id and other_shift_id, each from find_shifts purpose swap). change_shift: new start and/or end for one shift (shift_id from find_shifts purpose change; send only the end(s) the manager said). Also call it again with the full revised change when the manager changes a preview that is on screen.",
+    description: `Show the manager a PREVIEW of a change. Saves nothing — only the manager's tap saves it. create_task: a standard quick task (needs a title AND at least one person or role). cover_shift: give one shift to another person. add_shift: add one shift for one person (needs employee_id, date, hours; template_id 'none' for from scratch; omit template_id to show the template list). delete_shift: remove one shift (shift_id from find_shifts purpose delete). swap_shift: two people trade shifts (shift_id and other_shift_id, each from find_shifts purpose swap). change_shift: new start and/or end for one shift (shift_id from find_shifts purpose change; send only the end(s) the manager said).${acts.create_event ? " create_event: one schedule event (event_name, a date for one-time OR days for recurring, start_time; optional end_time, category, notes, daily_task, meeting, tag_roles)." : ""} Also call it again with the full revised change when the manager changes a preview that is on screen.`,
     parameters: {
       type: "object",
       properties: {
-        action: { type: "string", enum: ["create_task", ...(acts.cover_shift ? ["cover_shift"] : []), ...(acts.add_shift ? ["add_shift"] : []), ...(acts.delete_shift ? ["delete_shift"] : []), ...(acts.swap_shift ? ["swap_shift"] : []), ...(acts.change_shift ? ["change_shift"] : [])] },
+        action: { type: "string", enum: ["create_task", ...(acts.cover_shift ? ["cover_shift"] : []), ...(acts.add_shift ? ["add_shift"] : []), ...(acts.delete_shift ? ["delete_shift"] : []), ...(acts.swap_shift ? ["swap_shift"] : []), ...(acts.change_shift ? ["change_shift"] : []), ...(acts.create_event ? ["create_event"] : [])] },
         shift_id: { type: "string", description: "cover_shift / delete_shift / swap_shift / change_shift: shift_id from find_shifts" },
         other_shift_id: { type: "string", description: "swap_shift only: the other person's shift_id from find_shifts" },
         replacement_employee_id: { type: "string", description: "cover_shift only: employee_id (from find_crew) of the person taking the shift" },
         employee_id: { type: "string", description: "add_shift only: employee_id from find_crew" },
-        date: { type: "string", description: "add_shift only: YYYY-MM-DD" },
-        start_time: { type: "string", description: "add_shift / change_shift: HH:MM 24h. Omit when the manager didn't say a start." },
-        end_time: { type: "string", description: "add_shift / change_shift: HH:MM 24h. Omit when the manager didn't say an end." },
+        date: { type: "string", description: "add_shift / create_event (one-time): YYYY-MM-DD" },
+        start_time: { type: "string", description: "add_shift / change_shift / create_event: HH:MM 24h. Omit when the manager didn't say a start." },
+        end_time: { type: "string", description: "add_shift / change_shift / create_event: HH:MM 24h. Omit when the manager didn't say an end." },
+        ...(acts.create_event ? {
+          event_name: { type: "string", description: "create_event: the event's name as the manager said it" },
+          days: { type: "array", items: { type: "string" }, description: "create_event recurring only: weekday names (\"every Monday and Thursday\" = [\"Monday\",\"Thursday\"]). Omit for one-time." },
+          category: { type: "string", description: "create_event: the category name the manager said. Omit if none said." },
+          create_category: { type: "boolean", description: "create_event: true only when the manager asked for a NEW category" },
+          category_color: { type: "string", description: "create_event: the color word the manager said for a new category, exactly as said" },
+          no_category: { type: "boolean", description: "create_event: true when the manager said no category" },
+          notes: { type: "string", description: "create_event: notes, only if the manager said some" },
+          daily_task: { type: "boolean", description: "create_event: true only if the manager said to make it a daily task" },
+          meeting: { type: "boolean", description: "create_event: the punch-in Meeting box. true only when the manager separately says it's a meeting or attendees punch in (\"it's a meeting\"). The word meeting in the event's NAME (\"Staff meeting\") does NOT count: leave false." },
+          tag_roles: { type: "array", items: { type: "string" }, description: "create_event: roles to tag, as the manager said them (\"the managers\", \"shift managers\")" },
+        } : {}),
         template_id: { type: "string", description: "add_shift only: a template_id from the list, or 'none' for from scratch / no template. Omit to show the list." },
         title: PROPOSE_TASK_TOOL.function.parameters.properties.title,
         employee_ids: PROPOSE_TASK_TOOL.function.parameters.properties.employee_ids,
@@ -3214,7 +3227,8 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
     // Voice screen and typed chat, never in the bake-off.
     const theoActions = !bakeoff && (usageSource === "voice" || usageSource === "chat") ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
-    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift;
+    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift || theoActions.create_event;
+    const eventOn = theoActions.create_event;
     const coverOn = theoActions.cover_shift;
     const addOn = theoActions.add_shift;
     const deleteOn = theoActions.delete_shift;
@@ -3255,12 +3269,21 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       date: String(pending_action.date_label || "").slice(0, 40), was: String(pending_action.old_time_label || "").slice(0, 40),
       start_time: String(pending_action.start_time || "").slice(0, 8), end_time: String(pending_action.end_time || "").slice(0, 8),
     } : null;
+    const pendingEvent = eventOn && pending_action && typeof pending_action === "object" && pending_action.action === "create_event" ? {
+      event_name: String(pending_action.name || "").slice(0, 120), date: pending_action.event_date ? String(pending_action.event_date).slice(0, 10) : null,
+      days: Array.isArray(pending_action.days) ? pending_action.days.filter((d: any) => Number.isInteger(d) && d >= 0 && d <= 6).map((d: number) => ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][d]) : [],
+      start_time: String(pending_action.start_time || "").slice(0, 5), end_time: pending_action.end_time ? String(pending_action.end_time).slice(0, 5) : null,
+      category: pending_action.category ? String(pending_action.category.name || "").slice(0, 60) : null, create_category: pending_action.category?.is_new === true,
+      category_color: pending_action.category?.is_new ? (["blue", "red", "green", "amber", "violet", "pink", "cyan", "orange", "lime", "indigo"].find((n, i) => ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#6366f1"][i] === pending_action.category.color) || null) : null,
+      notes: pending_action.notes ? String(pending_action.notes).slice(0, 500) : null, daily_task: pending_action.is_daily_task === true, meeting: pending_action.is_meeting === true,
+      tag_roles: Array.isArray(pending_action.tagged_labels) ? pending_action.tagged_labels.slice(0, 8).map((x: any) => String(x).slice(0, 40)) : [],
+    } : null;
     // A template list on screen (add a shift): the draft it belongs to.
     const listDraft = addOn && list_context && typeof list_context === "object" && list_context.draft && typeof list_context.draft === "object" ? {
       employee_id: String(list_context.draft.employee_id || "").slice(0, 36), date: String(list_context.draft.date || "").slice(0, 10),
       start_time: String(list_context.draft.start_time || "").slice(0, 8), end_time: String(list_context.draft.end_time || "").slice(0, 8),
     } : null;
-    const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange);
+    const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange || pendingEvent);
     const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
     const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
     const matchCrew = (raw: string) => {
@@ -3275,6 +3298,13 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
 
     // Screen taps (a shift, a person or a name on the list) and the Confirm re-check: answered by code, no AI.
     const when = { today, nowHHMM };
+    // Add event: the re-check at the Add event tap and the check at its Undo tap (code, no AI).
+    if (pick && typeof pick === "object" && ((pick.kind === "recheck" && pick.proposal?.action === "create_event") || pick.kind === "undo_event")) {
+      const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!eventOn) return reply(pick.kind === "undo_event" ? { undo: { ok: false, reason: "Adding events isn't available." } } : { recheck: { ok: false, changed: "Adding events isn't available." } });
+      if (pick.kind === "undo_event") return reply({ undo: await undoEventCheck(supabaseAdmin, location_id, String(pick.event_id || ""), pick.category_id ? String(pick.category_id) : null) });
+      return reply({ recheck: await recheckEvent(supabaseAdmin, location_id, pick.proposal, userRole) });
+    }
     if (schedOn && pick && typeof pick === "object") {
       const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const sid = String(pick.shift_id || "");
@@ -3428,7 +3458,15 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 - When it returns preview_shown, your whole reply must be exactly: "Here's the change. Does this look right to you?" Never say hours were changed. Any error: say it and propose nothing.
 - Moving a shift to another day or changing its position is not built: propose nothing.
 ` : `CHANGING A SHIFT'S HOURS is not something you can do yet: propose nothing, say you can't do that yet and to use the Schedule page. Do not look anything up first.
-`}NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); moving a shift to another day, changing a shift's position, swapping more than two people, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page). For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Move Alle's shift to Tuesday" = moving a shift to another day, not built.
+`}${eventOn ? `ADD A SCHEDULE EVENT (you can PROPOSE one event on this store's schedule: a one-time event on a date, or a recurring event on weekdays every week):
+- Needs a name, WHEN (a date, or which weekdays if recurring) and a start time. Ask only for what is missing: no name -> "What should the event be called?"; no day at all -> exactly "Which day?" (never assume today); no start -> "What time does it start?".
+- "Every Monday", "Mondays and Thursdays" = recurring (days). A date, "Saturday", "this Saturday", "Friday" = one-time on the next such date from today ${today} (date). "Tomorrow" = ${tomorrow}.
+- Optional, ONLY when the manager says them: end time; category (pass the name they said; the app matches it); a NEW category (create_category true, the name, and category_color exactly as said: only blue, red, green, amber, violet, pink, cyan, orange, lime or indigo work, the app asks for anything else); notes ("remind them to bring ID" = notes "Bring ID"); daily_task ("make it a daily task"); meeting (only "it's a meeting" / "make it a meeting" / "they punch in"; a name like "Staff meeting" alone is NOT the meeting box); tag_roles ("tag the managers", "just for shift managers").
+- Always send what you have to propose_action create_event and follow its "next" exactly; the app does all checking (end before start, colors, categories, roles, duplicates). Never decide yourself.
+- When it returns preview_shown, your whole reply must be exactly: "Here's the event. Does this look right to you?" Never say an event was added or created.
+- Meeting attendees are added on the Schedule page after saving; you can't add them.
+- Changing an EXISTING event is not built (examples of meaning: "edit the Friday meeting", "move the staff meeting to 3", "rename the produce order", "delete the ice machine check"): call no tool and say exactly "I can't edit or delete events yet. Use the Schedule page." Only a request for a NEW event is an add.
+` : ""}NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); moving a shift to another day, changing a shift's position, swapping more than two people, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page)${eventOn ? "; editing or deleting a schedule event, adding meeting attendees, or copying event categories from another store (Schedule page)" : ""}. For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Move Alle's shift to Tuesday" = moving a shift to another day, not built.
 - ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the change in this reply. If you ask a question or say you can't, propose nothing. Your words and your tool calls must agree.${listShift ? `
 
 A LIST OF WHO CAN COVER IS ON SCREEN for shift_id ${listShift}. If the manager names someone, resolve them with find_crew and call propose_action (cover_shift) with this shift_id.` : ""}${pending ? `
@@ -3460,7 +3498,12 @@ A SWAP PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${pendingSwap.first} trades w
 A CHANGE-HOURS PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${pendingChange.employee}'s ${pendingChange.date} shift (was ${pendingChange.was}) to ${pendingChange.start_time}–${pendingChange.end_time} (shift_id ${pendingChange.shift_id}).
 - If the manager changes the hours ("make it 11 to 5"), call propose_action change_shift with the SAME shift_id and the new start_time and/or end_time.
 - If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that change."
-- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Change hours to save it."` : ""}${listDraft ? `
+- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Change hours to save it."` : ""}${pendingEvent ? `
+
+AN ADD-EVENT PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${JSON.stringify(pendingEvent)}
+- If the manager changes anything ("make it 9", "put it under Ordering", "make it a daily task", "add a note: bring your ID", "tag the managers", "it's a meeting"), call propose_action create_event with the FULL revised event: every field above kept unless changed.
+- If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that event."
+- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Add event to save it."` : ""}${listDraft ? `
 
 A TEMPLATE LIST IS ON SCREEN for adding a shift: ${JSON.stringify(listDraft)}. If the manager says a template name or "from scratch", call propose_action add_shift with this employee_id, date, start_time, end_time and the template_id (or "none").` : ""}`;
     // Rule G: wherever actions are not offered, Theo must never claim a change.
@@ -3502,7 +3545,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
           ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
-          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...THEO_TOOLS, FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : THEO_TOOLS,
+          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...THEO_TOOLS, FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : THEO_TOOLS,
           tool_choice: "auto",
         }),
       });
@@ -3602,7 +3645,12 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           const v: any = await buildChangeProposal(supabaseAdmin, location_id, { shift_id: snap(String(args?.shift_id || ""), seenShiftIds), start_time: args?.start_time, end_time: args?.end_time }, crewForActions, crewName, today, nowHHMM);
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; coverScreen = null; result = JSON.stringify({ status: "preview_shown" }); }
           else { liveProposal = null; if (v.refused || v.stop) declineLine = v.error; result = JSON.stringify({ error: v.error, next: `Say "${v.error}" Propose nothing.` }); }
-        } else if (actionsOn && tc.function.name === "propose_action" && !["cover_shift", "add_shift", "delete_shift", "swap_shift", "change_shift"].includes(args?.action)) {
+        } else if (eventOn && tc.function.name === "propose_action" && args?.action === "create_event") {
+          const v: any = await buildEventProposal(supabaseAdmin, location_id, args || {}, today, userRole);
+          if (v.ok) { liveProposal = v.proposal; cancelPending = false; coverScreen = null; result = JSON.stringify({ status: "preview_shown" }); }
+          else if (v.ask) { liveProposal = null; result = JSON.stringify({ status: "need_more", next: `Ask exactly "${v.ask}" Propose nothing.` }); }
+          else { liveProposal = null; declineLine = v.stop; result = JSON.stringify({ stop: v.stop, next: `Say "${v.stop}" Propose nothing.` }); }
+        } else if (actionsOn && tc.function.name === "propose_action" && !["cover_shift", "add_shift", "delete_shift", "swap_shift", "change_shift", "create_event"].includes(args?.action)) {
           const v = validateTaskProposal(args, crewForActions);
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; result = JSON.stringify({ status: "preview_shown" }); }
           else { liveProposal = null; result = JSON.stringify({ error: v.error }); }
@@ -3659,7 +3707,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       const lastUser = String([...(messages || [])].reverse().find((m: any) => m?.role === "user")?.content || "").trim();
       if (anyPending && /^(yes|yeah|yep|yup|sure|do it|confirm|looks good|sounds (good|right)|go ahead|ok(ay)?)\b/i.test(lastUser) && !/\b(not|don['’]?t|cancel|never|instead|make it|change)\b/i.test(lastUser)) {
         cancelPending = false; liveProposal = null; coverScreen = null;
-        finalResponse = pending ? "Tap Create task to save it." : pendingCover ? "Tap Confirm change to save it." : pendingAdd ? "Tap Add shift to save it."
+        finalResponse = pending ? "Tap Create task to save it." : pendingEvent ? "Tap Add event to save it." : pendingCover ? "Tap Confirm change to save it." : pendingAdd ? "Tap Add shift to save it."
           : pendingDelete ? "Tap Delete shift to save it." : pendingSwap ? "Tap Swap shifts to save it." : "Tap Change hours to save it.";
       }
       // A list shown with no usable words: say the list's own title.
@@ -3692,12 +3740,12 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       if (declineLine) { liveProposal = null; coverScreen = null; }
       if (liveProposal) {
         // Words and proposal must agree: a question or a "can't" drops the proposal.
-        const rest = String(finalResponse || "").replace(/here['’]?s the (task|change|shift)\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
+        const rest = String(finalResponse || "").replace(/here['’]?s the (task|change|shift|event)\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
         const saysNo = rest.includes("?") || /\b(can['’]?t|cannot|unable|not able|not something i can|which one|who['’]?s it for|what['’]?s the task|shift pool)\b/.test(rest);
         if (saysNo) console.log("action guard dropped proposal");
         else {
           out.proposal = liveProposal;
-          out.content = liveProposal.action === "create_task" ? "Here's the task. Does this look right to you?" : liveProposal.action === "add_shift" ? "Here's the shift. Does this look right to you?" : "Here's the change. Does this look right to you?";
+          out.content = liveProposal.action === "create_task" ? "Here's the task. Does this look right to you?" : liveProposal.action === "create_event" ? "Here's the event. Does this look right to you?" : liveProposal.action === "add_shift" ? "Here's the shift. Does this look right to you?" : "Here's the change. Does this look right to you?";
         }
       } else if (cancelPending) out.cancel_pending = true;
       else if (coverScreen && !declineLine) out.screen = coverScreen;
