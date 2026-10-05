@@ -36,8 +36,12 @@ export const CHANGE_SHIFT_ROLES = ["super_admin"];
 // ADD EVENT: the SAME list as CREATE_TASK_ROLES (manager and up whose save the database accepts).
 export const CREATE_EVENT_ROLES = CREATE_TASK_ROLES;
 
-export type TheoActions = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean };
-export const NO_ACTIONS: TheoActions = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false };
+// MESSAGES SWITCH (build 6A: read my chats, reply, new DM): the SAME list as CREATE_TASK_ROLES (manager and up).
+// Reading chats through Theo uses this one switch too. To change who gets it, change this one line.
+export const MESSAGE_ROLES = CREATE_TASK_ROLES;
+
+export type TheoActions = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; send_message: boolean; create_event: boolean };
+export const NO_ACTIONS: TheoActions = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false };
 
 // Pure decision (tested). hasStoreAccess must come from has_location_access for this user + store.
 export function actionsFor(role: string | null, hasStoreAccess: boolean): TheoActions {
