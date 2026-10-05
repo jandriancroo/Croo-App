@@ -3784,7 +3784,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       const lastUser = String([...(messages || [])].reverse().find((m: any) => m?.role === "user")?.content || "").trim();
       if (anyPending && /^(yes|yeah|yep|yup|sure|do it|confirm|looks good|sounds (good|right)|go ahead|ok(ay)?)\b/i.test(lastUser) && !/\b(not|don['’]?t|cancel|never|instead|make it|change)\b/i.test(lastUser)) {
         cancelPending = false; liveProposal = null; coverScreen = null;
-        finalResponse = pending ? "Tap Create task to save it." : pendingMessage ? "Tap Send to send it." : pendingEvent ? "Tap Add event to save it." : pendingCover ? "Tap Confirm change to save it." : pendingAdd ? "Tap Add shift to save it."
+        finalResponse = pending ? "Tap Create task to save it." : pendingPunch ? "Tap Confirm to save it." : pendingMessage ? "Tap Send to send it." : pendingEvent ? "Tap Add event to save it." : pendingCover ? "Tap Confirm change to save it." : pendingAdd ? "Tap Add shift to save it."
           : pendingDelete ? "Tap Delete shift to save it." : pendingSwap ? "Tap Swap shifts to save it." : "Tap Change hours to save it.";
       }
       // A list shown with no usable words: say the list's own title.
