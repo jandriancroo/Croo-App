@@ -8,6 +8,7 @@ import { ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
 import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule, updateShiftTimes, swapShiftsAndNotify } from '@/lib/scheduleActions';
 import { countPendingChanges } from '@/lib/scheduleDiff';
+import { sendChatMessage, findOrCreateDm, unsendMessage } from '@/lib/chatMessages';
 import { createScheduleEvent, deleteScheduleEvent, createEventCategory, deleteEventCategory } from '@/lib/scheduleEvents';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,13 +62,18 @@ export type EventProposal = {
   notes: string | null; is_daily_task: boolean; is_meeting: boolean; tagged_roles: string[]; tagged_labels: string[];
   week_start: string | null; week_end: string | null; schedule_id: string | null; needs_draft: boolean; when_label: string; warnings: string[];
 };
+// Theo hands (build 6A): reply in a chat or start a DM. Sent only by the Send tap.
+export type MessageProposal = {
+  id: string; action: 'send_message'; kind: 'dm' | 'group'; chat_id: string | null; new_dm: boolean; to: { id: string; name: string } | null;
+  group_title: string | null; member_count: number; recipients: number; text: string; reply_to: { id: string; sender: string; text: string } | null; warnings: string[];
+};
 export type ShiftProposal = CoverProposal | AddProposal | DeleteProposal | SwapProposal | ChangeProposal;
-export type AnyProposal = TaskProposal | ShiftProposal | EventProposal;
-export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null };
-export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean };
-export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false };
+export type AnyProposal = TaskProposal | ShiftProposal | EventProposal | MessageProposal;
+export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null; messageId?: string };
+export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean; send_message: boolean };
+export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false };
 /** The server's actions answer, read strictly (anything not exactly true is off). */
-export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true });
+export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true, send_message: a?.send_message === true });
 export const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift' || p.action === 'swap_shift' || p.action === 'change_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 export type CoverScreen =
@@ -354,6 +360,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     const a = actionRef.current;
     if (a && isShiftAction(a.proposal)) return confirmShift();
     if (a?.proposal.action === 'create_event') return confirmEvent();
+    if (a?.proposal.action === 'send_message') return confirmMessage();
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_task' || !user?.id || !currentLocation?.id) return;
     setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
     try {
@@ -438,6 +445,53 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       setAction({ ...a, stage: 'done', error: "Couldn't undo the event. Try again." });
     }
   };
+  // Send message: re-check at the tap, then the ONE shared send (src/lib/chatMessages.ts), which also sends the chat push.
+  const confirmMessage = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'preview' || a.proposal.action !== 'send_message' || !user?.id || !currentLocation?.id) return;
+    const p = a.proposal;
+    setAction({ ...a, stage: 'saving', error: undefined });
+    try {
+      await a.logId; // the preview must be in the action log: the re-check compares the words against it
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
+      });
+      if (ce || !chk?.recheck) throw new Error('Could not re-check the message.');
+      if (!chk.recheck.ok) {
+        logAction(a.logId, { status: 'failed' });
+        setAction({ ...a, stage: 'preview', error: `Not sent. Something changed: ${chk.recheck.changed}` });
+        return;
+      }
+      let chatId: string | null = chk.recheck.chat_id ?? null;
+      if (!chatId && p.to) chatId = (await findOrCreateDm({ userId: user.id, otherUserId: p.to.id, locationId: currentLocation.id })).chatId;
+      if (!chatId) throw new Error('no chat');
+      const sent = await sendChatMessage({ chatId, senderId: user.id, content: p.text, parentMessageId: p.reply_to?.id ?? null });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', chatId] });
+      logAction(a.logId, { status: 'confirmed', record_id: sent.id });
+      onRecord?.(`Sent message to ${p.kind === 'group' ? p.group_title : p.to?.name}: "${p.text}"`);
+      const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      setAction({ ...a, stage: 'done', savedAt, undoOpen: true, messageId: sent.id });
+      setTimeout(() => { const cur = actionRef.current; if (cur?.proposal.id === p.id && cur.stage === 'done') setAction({ ...cur, undoOpen: false }); }, UNDO_MS);
+    } catch (err: any) {
+      logAction(a.logId, { status: 'failed' });
+      setAction({ ...a, stage: 'preview', error: err?.message ? `Couldn't send: ${err.message}` : "Couldn't send the message. Try again." });
+    }
+  };
+  // Unsend (10 minutes): the chat window's own unsend. The notification may already have been seen.
+  const undoMessage = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'done' || a.proposal.action !== 'send_message' || !a.messageId || !user?.id) return;
+    const p = a.proposal;
+    setAction({ ...a, stage: 'undoing', error: undefined });
+    try {
+      await unsendMessage(a.messageId, user.id);
+      logAction(a.logId, { status: 'undone' });
+      onRecord?.(`Unsent message to ${p.kind === 'group' ? p.group_title : p.to?.name}`);
+      setAction({ ...a, stage: 'undone' });
+    } catch {
+      setAction({ ...a, stage: 'done', error: "Couldn't unsend the message. Try again." });
+    }
+  };
   const cancelTask = () => {
     const a = actionRef.current;
     if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' });
@@ -447,6 +501,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     const a = actionRef.current;
     if (a && isShiftAction(a.proposal)) return undoShift();
     if (a?.proposal.action === 'create_event') return undoEvent();
+    if (a?.proposal.action === 'send_message') return undoMessage();
     if (!a || a.stage !== 'done' || !a.taskId || a.proposal.action !== 'create_task') return;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
@@ -714,8 +769,77 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       </>
     );
   }
+  function renderMessage(a: ActionCard, p: MessageProposal, c: Colors) {
+    const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const toLine = p.kind === 'group' ? `${p.group_title} (group, ${p.member_count} people)` : p.to?.name ?? '';
+    const first = firstName(p.to?.name ?? '');
+    const notify = `${p.kind === 'group' ? `${p.recipients} ${p.recipients === 1 ? 'person' : 'people'}` : first} will get a notification, unless one went out for this chat in the last 3 minutes or they've turned chat alerts off.`;
+    const bubble = <div className="self-end max-w-[88%] whitespace-pre-wrap break-words rounded-[18px] rounded-br-[6px] bg-primary px-3.5 py-2 text-[15px] text-primary-foreground">{p.text}</div>;
+    if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
+      const undone = a.stage === 'undone';
+      return (
+        <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : NEW_GREEN }}>
+              {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
+            </span>
+            <div>
+              <div className="text-[18px] font-extrabold">{undone ? 'Message unsent' : 'Message sent'}</div>
+              {!undone && <div className="text-[13px] text-muted-foreground">Sent at {a.savedAt}</div>}
+            </div>
+          </div>
+          <div><div className={label}>To</div><div className="text-[15px] font-semibold">{toLine}</div></div>
+          {!undone && bubble}
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          {!undone && a.undoOpen && (
+            <div className="flex flex-col gap-1">
+              <button onClick={undoTask} disabled={a.stage === 'undoing'}
+                className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
+                {a.stage === 'undoing' ? 'Unsending…' : 'Unsend'}
+              </button>
+              <p className="text-center text-[12px] text-muted-foreground">Unsending removes the message. People may already have seen the notification.</p>
+            </div>
+          )}
+          <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
+        </div>
+      );
+    }
+    const saving = a.stage === 'saving';
+    return (
+      <>
+        <p className={`mt-3 text-center text-[22px] font-extrabold ${c.fg}`}>Does this look right?</p>
+        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[18px] font-extrabold">Send message</span>
+            {amberTag('Preview · not sent')}
+          </div>
+          <div><div className={label}>To</div><div className="text-[15px] font-semibold">{toLine}</div></div>
+          {p.new_dm && <p className="text-[14px] font-semibold">You don't have a chat with {first} yet. I'll start one.</p>}
+          {p.reply_to && <p className="truncate text-[13px] text-muted-foreground">Replying to {firstName(p.reply_to.sender)}: "{p.reply_to.text}"</p>}
+          {bubble}
+          {p.warnings.length > 0 && (
+            <ul className="flex flex-col gap-1 rounded-xl px-3 py-2" style={{ background: 'hsl(38 95% 90%)', color: 'hsl(32 90% 22%)' }}>
+              {p.warnings.map((w) => <li key={w} className="flex items-start gap-2 text-[13px] font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
+            </ul>
+          )}
+          <div className="h-px w-full bg-border" />
+          <p className="text-[13px] text-muted-foreground">{notify}</p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <div className="flex items-center gap-2">
+            <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
+            <button onClick={confirmTask} disabled={saving}
+              className="h-[52px] flex-1 rounded-full text-[16px] font-extrabold text-primary-foreground disabled:opacity-70" style={{ background: DEEP_PRIMARY }}>
+              {saving ? 'Sending…' : 'Send'}
+            </button>
+          </div>
+        </div>
+        <p className={`mt-3 text-center text-[13px] ${c.dim}`}>Or tell Theo what to change.</p>
+      </>
+    );
+  }
   function renderAction(a: ActionCard, c: Colors = VOICE_COLORS) {
     if (isShiftAction(a.proposal)) return renderShift(a, a.proposal, c);
+    if (a.proposal.action === 'send_message') return renderMessage(a, a.proposal, c);
     if (a.proposal.action === 'create_event') return renderEvent(a, a.proposal, c);
     const p = a.proposal;
     const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';

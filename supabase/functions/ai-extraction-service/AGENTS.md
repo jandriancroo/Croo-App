@@ -1,0 +1,1 @@
+- Thermometer photos are read only by ai-extraction-service extract-temperature: two parallel GPT-6 Luna reads with the store dial colour rule; reads 5°F+ apart or unreadable return null so staff type it, and rescans never overwrite a saved value with null. Why: dial readings were dangerously wrong; a disagreement means the AI isn't sure.

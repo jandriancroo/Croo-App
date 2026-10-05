@@ -1,0 +1,1 @@
+- Toast robot health is judged only by toast-watchdog (pg_cron 5 min, reads CrooHQ data, never calls Toast); it restarts the GitHub robot and alerts super admins, and the runner caps full Toast sign-ins at 4/day via toast-service heartbeat. Why: a browser robot will break, so breaks must be caught in minutes without hammering Toast.
