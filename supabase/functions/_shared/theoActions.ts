@@ -50,7 +50,7 @@ export function actionsFor(role: string | null, hasStoreAccess: boolean): TheoAc
     create_task: CREATE_TASK_ROLES.includes(role), cover_shift: COVER_SHIFT_ROLES.includes(role),
     add_shift: ADD_SHIFT_ROLES.includes(role), delete_shift: DELETE_SHIFT_ROLES.includes(role),
     swap_shift: SWAP_SHIFT_ROLES.includes(role), change_shift: CHANGE_SHIFT_ROLES.includes(role),
-    create_event: CREATE_EVENT_ROLES.includes(role),
+    create_event: CREATE_EVENT_ROLES.includes(role), send_message: MESSAGE_ROLES.includes(role),
   };
 }
 
