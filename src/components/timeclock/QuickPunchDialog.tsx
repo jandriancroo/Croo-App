@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { savePunches } from '@/lib/punches';
 import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
@@ -221,9 +222,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
         const { data: { user } } = await supabase.auth.getUser();
         const createdBy = user?.id;
 
-        const { error } = await supabase
-          .from('time_punches')
-          .insert({
+        await savePunches({
             user_id: selectedEmployee,
             punch_type: 'clock_out',
             punch_time: toISO(date, clockOut),
@@ -231,8 +230,6 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
             created_by: createdBy,
             notes: 'Manual entry by manager'
           });
-
-        if (error) throw error;
 
         toast.success('Employee punched out');
         onSuccess();
@@ -348,11 +345,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
         });
       }
 
-      const { error } = await supabase
-        .from('time_punches')
-        .insert(punches);
-
-      if (error) throw error;
+      await savePunches(punches);
 
       toast.success(showClockOut && clockOut ? 'Shift recorded' : 'Employee punched in');
       onSuccess();

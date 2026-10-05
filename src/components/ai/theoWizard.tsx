@@ -8,6 +8,7 @@ import { ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { createStandardQuickTask, deleteQuickTask, durationLabel } from '@/lib/quickTasks';
 import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift, readShiftRow, ensureDraftSchedule, updateShiftTimes, swapShiftsAndNotify } from '@/lib/scheduleActions';
 import { countPendingChanges } from '@/lib/scheduleDiff';
+import { savePunchReturning, deletePunch, deletePlaceholderShift } from '@/lib/punches';
 import { sendChatMessage, findOrCreateDm, unsendMessage } from '@/lib/chatMessages';
 import { createScheduleEvent, deleteScheduleEvent, createEventCategory, deleteEventCategory } from '@/lib/scheduleEvents';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -67,13 +68,18 @@ export type MessageProposal = {
   id: string; action: 'send_message'; kind: 'dm' | 'group'; chat_id: string | null; new_dm: boolean; to: { id: string; name: string } | null;
   group_title: string | null; member_count: number; recipients: number; text: string; reply_to: { id: string; sender: string; text: string } | null; warnings: string[];
 };
+// Theo hands (build 6C): clock one person in or out. Saved only by the Confirm tap.
+export type PunchProposal = {
+  id: string; action: 'clock_punch'; kind: 'in' | 'out'; employee: { id: string; name: string }; punch_time: string; time_label: string; date_label: string;
+  store: string; location_id: string; shift_id: string | null; open_clock_in_id: string | null; clock_in_label: string | null; notes: string; flags: string[];
+};
 export type ShiftProposal = CoverProposal | AddProposal | DeleteProposal | SwapProposal | ChangeProposal;
-export type AnyProposal = TaskProposal | ShiftProposal | EventProposal | MessageProposal;
-export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null; messageId?: string };
-export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean; send_message: boolean };
-export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false };
+export type AnyProposal = TaskProposal | ShiftProposal | EventProposal | MessageProposal | PunchProposal;
+export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null; messageId?: string; punchId?: string; placeholderAdded?: boolean };
+export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean; send_message: boolean; clock_punch: boolean };
+export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false };
 /** The server's actions answer, read strictly (anything not exactly true is off). */
-export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true, send_message: a?.send_message === true });
+export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true, send_message: a?.send_message === true, clock_punch: a?.clock_punch === true });
 export const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift' || p.action === 'swap_shift' || p.action === 'change_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 export type CoverScreen =
@@ -361,6 +367,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     if (a && isShiftAction(a.proposal)) return confirmShift();
     if (a?.proposal.action === 'create_event') return confirmEvent();
     if (a?.proposal.action === 'send_message') return confirmMessage();
+    if (a?.proposal.action === 'clock_punch') return confirmPunch();
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_task' || !user?.id || !currentLocation?.id) return;
     setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
     try {
@@ -492,6 +499,60 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       setAction({ ...a, stage: 'done', error: "Couldn't unsend the message. Try again." });
     }
   };
+  // Clock in / out: re-check at the tap, then the ONE shared punch save (src/lib/punches.ts) as the signed-in manager. No one is notified.
+  const refreshPunchViews = () => queryClient.invalidateQueries({ predicate: (q) => /punch|timecard|labor|schedule|shift/i.test(JSON.stringify(q.queryKey)) });
+  const confirmPunch = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'preview' || a.proposal.action !== 'clock_punch' || !user?.id || !currentLocation?.id) return;
+    const p = a.proposal;
+    if (p.location_id !== currentLocation.id) { setAction({ ...a, error: 'Not saved. You switched stores.' }); return; }
+    setAction({ ...a, stage: 'saving', error: undefined });
+    try {
+      await a.logId; // the re-check compares against the logged preview
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
+      });
+      if (ce || !chk?.recheck) throw new Error('Could not re-check the punch.');
+      if (!chk.recheck.ok) { logAction(a.logId, { status: 'failed' }); setAction({ ...a, stage: 'preview', error: `Not saved. Something changed: ${chk.recheck.changed}` }); return; }
+      const saved = await savePunchReturning({
+        user_id: p.employee.id, punch_type: p.kind === 'in' ? 'clock_in' : 'clock_out', punch_time: p.punch_time,
+        location_id: currentLocation.id, created_by: user.id, notes: p.notes,
+        ...(p.kind === 'in' && p.shift_id ? { shift_id: p.shift_id } : {}), // clock-out never attaches a shift
+      });
+      refreshPunchViews();
+      logAction(a.logId, { status: 'confirmed', record_id: saved.id });
+      onRecord?.(`Clocked ${p.kind} ${p.employee.name}: ${p.date_label}, ${p.time_label}`);
+      const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      setAction({ ...a, stage: 'done', savedAt, undoOpen: true, punchId: saved.id, placeholderAdded: p.kind === 'in' && !p.shift_id && !!saved.shift_id });
+      setTimeout(() => { const cur = actionRef.current; if (cur?.proposal.id === p.id && cur.stage === 'done') setAction({ ...cur, undoOpen: false }); }, UNDO_MS);
+    } catch (err: any) {
+      logAction(a.logId, { status: 'failed' });
+      setAction({ ...a, stage: 'preview', error: err?.message ? `Couldn't save: ${err.message}` : "Couldn't save the punch. Try again." });
+    }
+  };
+  // Undo (10 minutes): deletes only Theo's punch; the placeholder shift goes only when the server verified it is safe.
+  const undoPunch = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'done' || a.proposal.action !== 'clock_punch' || !a.punchId || !currentLocation?.id) return;
+    const p = a.proposal;
+    setAction({ ...a, stage: 'undoing', error: undefined });
+    try {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'undo_punch', punch_id: a.punchId } },
+      });
+      if (ce || !chk?.undo) throw new Error('check');
+      if (!chk.undo.ok) { setAction({ ...a, stage: 'done', error: chk.undo.reason }); return; }
+      await deletePunch(a.punchId);
+      let left = chk.undo.placeholder_left === true;
+      if (chk.undo.remove_shift_id) left = !(await deletePlaceholderShift(chk.undo.remove_shift_id));
+      refreshPunchViews();
+      logAction(a.logId, { status: 'undone' });
+      onRecord?.(`Undid clock ${p.kind}: ${p.employee.name}, ${p.date_label}, ${p.time_label}`);
+      setAction({ ...a, stage: 'undone', error: left ? 'Undone. A placeholder shift was left on the schedule.' : undefined });
+    } catch {
+      setAction({ ...a, stage: 'done', error: "Couldn't undo the punch. Try again." });
+    }
+  };
   const cancelTask = () => {
     const a = actionRef.current;
     if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' });
@@ -502,6 +563,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     if (a && isShiftAction(a.proposal)) return undoShift();
     if (a?.proposal.action === 'create_event') return undoEvent();
     if (a?.proposal.action === 'send_message') return undoMessage();
+    if (a?.proposal.action === 'clock_punch') return undoPunch();
     if (!a || a.stage !== 'done' || !a.taskId || a.proposal.action !== 'create_task') return;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
@@ -837,9 +899,84 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       </>
     );
   }
+  function renderPunch(a: ActionCard, p: PunchProposal, c: Colors) {
+    const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const first = firstName(p.employee.name);
+    const title = p.kind === 'in' ? 'Clock in' : 'Clock out';
+    const details = (
+      <>
+        <div><div className={label}>Who</div><div className="text-[17px] font-extrabold">{p.employee.name}</div></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><div className={label}>{p.kind === 'in' ? 'Clock in' : 'Clock out'}</div><div className="text-[15px] font-semibold">{p.time_label}</div></div>
+          <div><div className={label}>Date</div><div className="text-[15px] font-semibold">{p.date_label}</div></div>
+        </div>
+        {p.clock_in_label && <div><div className={label}>Clocked in</div><div className="text-[15px] font-semibold">{p.clock_in_label}</div></div>}
+        <div><div className={label}>Store</div><div className="text-[15px] font-semibold">{p.store}</div></div>
+      </>
+    );
+    if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
+      const undone = a.stage === 'undone';
+      return (
+        <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : NEW_GREEN }}>
+              {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
+            </span>
+            <div>
+              <div className="text-[18px] font-extrabold">{undone ? 'Punch removed' : p.kind === 'in' ? 'Clocked in' : 'Clocked out'}</div>
+              {!undone && <div className="text-[13px] text-muted-foreground">Saved at {a.savedAt}</div>}
+            </div>
+          </div>
+          <p className="text-[17px] font-extrabold">{undone ? `${first}'s ${p.time_label} punch is removed.` : `Done. ${first} is clocked ${p.kind} at ${p.time_label}.`}</p>
+          <p className="text-[14px] text-muted-foreground">{p.date_label} · {p.store}</p>
+          {a.error && <p className={`text-[13px] font-semibold ${undone ? 'text-muted-foreground' : 'text-destructive'}`}>{a.error}</p>}
+          {!undone && a.undoOpen && (
+            <div className="flex flex-col gap-1">
+              <button onClick={undoTask} disabled={a.stage === 'undoing'}
+                className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
+                {a.stage === 'undoing' ? 'Undoing…' : 'Undo'}
+              </button>
+              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes, until a newer punch or an approval.</p>
+            </div>
+          )}
+          <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
+        </div>
+      );
+    }
+    const saving = a.stage === 'saving';
+    return (
+      <>
+        <p className={`mt-3 text-center text-[22px] font-extrabold ${c.fg}`}>Does this look right?</p>
+        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px] tabular-nums">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[18px] font-extrabold">{title}</span>
+            {amberTag('Preview · not saved')}
+          </div>
+          {details}
+          {p.flags.length > 0 && (
+            <ul className="flex flex-col gap-1 rounded-xl px-3 py-2" style={{ background: 'hsl(38 95% 90%)', color: 'hsl(32 90% 22%)' }}>
+              {p.flags.map((w) => <li key={w} className="flex items-start gap-2 text-[13px] font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
+            </ul>
+          )}
+          <div className="h-px w-full bg-border" />
+          <p className="text-[13px] text-muted-foreground">No one is notified. This is a time record that payroll reads.</p>
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <div className="flex items-center gap-2">
+            <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
+            <button onClick={confirmTask} disabled={saving}
+              className="h-[52px] flex-1 rounded-full text-[16px] font-extrabold text-primary-foreground disabled:opacity-70" style={{ background: NEW_GREEN }}>
+              {saving ? 'Saving…' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+        <p className={`mt-3 text-center text-[13px] ${c.dim}`}>Or tell Theo what to change.</p>
+      </>
+    );
+  }
   function renderAction(a: ActionCard, c: Colors = VOICE_COLORS) {
     if (isShiftAction(a.proposal)) return renderShift(a, a.proposal, c);
     if (a.proposal.action === 'send_message') return renderMessage(a, a.proposal, c);
+    if (a.proposal.action === 'clock_punch') return renderPunch(a, a.proposal, c);
     if (a.proposal.action === 'create_event') return renderEvent(a, a.proposal, c);
     const p = a.proposal;
     const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
