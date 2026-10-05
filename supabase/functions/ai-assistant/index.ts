@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
 import { buildAddProposal, buildDeleteProposal, buildSwapProposal, buildChangeProposal } from "./shifts.ts";
+import { buildEventProposal, recheckEvent, undoEventCheck } from "./events.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 
 const corsHeaders = {
@@ -3457,7 +3458,14 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 - When it returns preview_shown, your whole reply must be exactly: "Here's the change. Does this look right to you?" Never say hours were changed. Any error: say it and propose nothing.
 - Moving a shift to another day or changing its position is not built: propose nothing.
 ` : `CHANGING A SHIFT'S HOURS is not something you can do yet: propose nothing, say you can't do that yet and to use the Schedule page. Do not look anything up first.
-`}NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); moving a shift to another day, changing a shift's position, swapping more than two people, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page). For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Move Alle's shift to Tuesday" = moving a shift to another day, not built.
+`}${eventOn ? `ADD A SCHEDULE EVENT (you can PROPOSE one event on this store's schedule: a one-time event on a date, or a recurring event on weekdays every week):
+- Needs a name, WHEN (a date, or which weekdays if recurring) and a start time. Ask only for what is missing: no name -> "What should the event be called?"; no day at all -> exactly "Which day?" (never assume today); no start -> "What time does it start?".
+- "Every Monday", "Mondays and Thursdays" = recurring (days). A date, "Saturday", "this Saturday", "Friday" = one-time on the next such date from today ${today} (date). "Tomorrow" = ${tomorrow}.
+- Optional, ONLY when the manager says them: end time; category (pass the name they said; the app matches it); a NEW category (create_category true, the name, and category_color exactly as said: only blue, red, green, amber, violet, pink, cyan, orange, lime or indigo work, the app asks for anything else); notes ("remind them to bring ID" = notes "Bring ID"); daily_task ("make it a daily task"); meeting ("it's a meeting"); tag_roles ("tag the managers", "just for shift managers").
+- Always send what you have to propose_action create_event and follow its "next" exactly; the app does all checking (end before start, colors, categories, roles, duplicates). Never decide yourself.
+- When it returns preview_shown, your whole reply must be exactly: "Here's the event. Does this look right to you?" Never say an event was added or created.
+- Meeting attendees are added on the Schedule page after saving; you can't add them.
+` : ""}NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); moving a shift to another day, changing a shift's position, swapping more than two people, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page)${eventOn ? "; editing or deleting a schedule event, adding meeting attendees, or copying event categories from another store (Schedule page)" : ""}. For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Move Alle's shift to Tuesday" = moving a shift to another day, not built.
 - ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the change in this reply. If you ask a question or say you can't, propose nothing. Your words and your tool calls must agree.${listShift ? `
 
 A LIST OF WHO CAN COVER IS ON SCREEN for shift_id ${listShift}. If the manager names someone, resolve them with find_crew and call propose_action (cover_shift) with this shift_id.` : ""}${pending ? `
@@ -3489,7 +3497,12 @@ A SWAP PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${pendingSwap.first} trades w
 A CHANGE-HOURS PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${pendingChange.employee}'s ${pendingChange.date} shift (was ${pendingChange.was}) to ${pendingChange.start_time}–${pendingChange.end_time} (shift_id ${pendingChange.shift_id}).
 - If the manager changes the hours ("make it 11 to 5"), call propose_action change_shift with the SAME shift_id and the new start_time and/or end_time.
 - If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that change."
-- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Change hours to save it."` : ""}${listDraft ? `
+- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Change hours to save it."` : ""}${pendingEvent ? `
+
+AN ADD-EVENT PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${JSON.stringify(pendingEvent)}
+- If the manager changes anything ("make it 9", "put it under Ordering", "make it a daily task", "add a note: bring your ID", "tag the managers", "it's a meeting"), call propose_action create_event with the FULL revised event: every field above kept unless changed.
+- If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that event."
+- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Add event to save it."` : ""}${listDraft ? `
 
 A TEMPLATE LIST IS ON SCREEN for adding a shift: ${JSON.stringify(listDraft)}. If the manager says a template name or "from scratch", call propose_action add_shift with this employee_id, date, start_time, end_time and the template_id (or "none").` : ""}`;
     // Rule G: wherever actions are not offered, Theo must never claim a change.
