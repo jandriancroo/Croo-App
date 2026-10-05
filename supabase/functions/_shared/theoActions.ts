@@ -21,18 +21,14 @@ export async function roleForUser(admin: any, userId: string): Promise<{ role: s
 // Who gets each action = who can already do it by hand at that store.
 // create_task: manager and above whose save the database accepts (brand admin and shift managers left out for now).
 export const CREATE_TASK_ROLES = ["manager", "admin", "org_admin", "super_admin"];
-// COVER SHIFT SWITCH: super admin only until a real Confirm + Undo has been done.
-// To open it to everyone who can edit the schedule by hand, change this one line to:
-//   export const COVER_SHIFT_ROLES = ["manager", "admin", "org_admin", "brand_admin", "super_admin"];
-export const COVER_SHIFT_ROLES = ["super_admin"];
-// ADD SHIFT SWITCH: super admin only for now. To open it, change this one line.
-export const ADD_SHIFT_ROLES = ["super_admin"];
-// DELETE SHIFT SWITCH: super admin only for now. To open it, change this one line.
-export const DELETE_SHIFT_ROLES = ["super_admin"];
-// SWAP SHIFT SWITCH: super admin only for now. To open it, change this one line.
-export const SWAP_SHIFT_ROLES = ["super_admin"];
-// CHANGE SHIFT HOURS SWITCH: super admin only for now. To open it, change this one line.
-export const CHANGE_SHIFT_ROLES = ["super_admin"];
+// SCHEDULE ACTION SWITCHES (cover, add, delete, swap, change hours): manager and up, the SAME list as
+// CREATE_TASK_ROLES. Shift managers and trainees stay out (they can still ask who is working; that's a read).
+// To change who gets one, change its one line.
+export const COVER_SHIFT_ROLES = CREATE_TASK_ROLES;
+export const ADD_SHIFT_ROLES = CREATE_TASK_ROLES;
+export const DELETE_SHIFT_ROLES = CREATE_TASK_ROLES;
+export const SWAP_SHIFT_ROLES = CREATE_TASK_ROLES;
+export const CHANGE_SHIFT_ROLES = CREATE_TASK_ROLES;
 // ADD EVENT: the SAME list as CREATE_TASK_ROLES (manager and up whose save the database accepts).
 export const CREATE_EVENT_ROLES = CREATE_TASK_ROLES;
 
