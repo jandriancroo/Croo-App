@@ -21,6 +21,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "npm:zod@3.23.8";
 import { requireInternalCaller } from "../_shared/callerAuth.ts";
+import { isToastRunner, TOAST_RUNNER_HEADER } from "../_shared/toastRunnerKey.ts";
 import {
   computeAndSavePace,
   fetchHistoricalDataFromCache,
@@ -32,7 +33,7 @@ import {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Access-Control-Allow-Headers": `authorization, x-client-info, apikey, content-type, x-cron-secret, ${TOAST_RUNNER_HEADER}`,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -665,8 +666,12 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const denied = requireInternalCaller(req, corsHeaders);
-  if (denied) return denied;
+  // Mac mini Toast runner: a matching x-toast-runner-secret header authorizes
+  // the call (hashed, constant-time compare). Otherwise the normal check runs.
+  if (!(await isToastRunner(req))) {
+    const denied = requireInternalCaller(req, corsHeaders);
+    if (denied) return denied;
+  }
 
   let body: unknown;
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }

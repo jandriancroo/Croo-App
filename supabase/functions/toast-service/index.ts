@@ -7,10 +7,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "npm:zod@3.23.8";
 import { authorizeCaller } from "../_shared/callerAuth.ts";
+import { isToastRunner, TOAST_RUNNER_HEADER } from "../_shared/toastRunnerKey.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Access-Control-Allow-Headers": `authorization, x-client-info, apikey, content-type, x-cron-secret, ${TOAST_RUNNER_HEADER}`,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (b: unknown, s = 200) =>
@@ -33,7 +34,11 @@ const Body = z.discriminatedUnion("action", [
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const auth = await authorizeCaller(req, corsHeaders, { minRole: "admin" });
+  // Mac mini Toast runner: a matching x-toast-runner-secret header acts as the
+  // service caller (hashed, constant-time compare) and skips the normal check.
+  const auth = (await isToastRunner(req))
+    ? { caller: { kind: "service" as const, userId: null } }
+    : await authorizeCaller(req, corsHeaders, { minRole: "admin" });
   if ("response" in auth) return auth.response;
 
   let raw: unknown;
