@@ -999,7 +999,7 @@ const proposeScheduleTool = (acts: { cover_shift: boolean; add_shift: boolean; d
           no_category: { type: "boolean", description: "create_event: true when the manager said no category" },
           notes: { type: "string", description: "create_event: notes, only if the manager said some" },
           daily_task: { type: "boolean", description: "create_event: true only if the manager said to make it a daily task" },
-          meeting: { type: "boolean", description: "create_event: true only if the manager said it's a meeting" },
+          meeting: { type: "boolean", description: "create_event: the punch-in Meeting box. true only when the manager separately says it's a meeting or attendees punch in (\"it's a meeting\"). The word meeting in the event's NAME (\"Staff meeting\") does NOT count: leave false." },
           tag_roles: { type: "array", items: { type: "string" }, description: "create_event: roles to tag, as the manager said them (\"the managers\", \"shift managers\")" },
         } : {}),
         template_id: { type: "string", description: "add_shift only: a template_id from the list, or 'none' for from scratch / no template. Omit to show the list." },
@@ -3461,7 +3461,7 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 `}${eventOn ? `ADD A SCHEDULE EVENT (you can PROPOSE one event on this store's schedule: a one-time event on a date, or a recurring event on weekdays every week):
 - Needs a name, WHEN (a date, or which weekdays if recurring) and a start time. Ask only for what is missing: no name -> "What should the event be called?"; no day at all -> exactly "Which day?" (never assume today); no start -> "What time does it start?".
 - "Every Monday", "Mondays and Thursdays" = recurring (days). A date, "Saturday", "this Saturday", "Friday" = one-time on the next such date from today ${today} (date). "Tomorrow" = ${tomorrow}.
-- Optional, ONLY when the manager says them: end time; category (pass the name they said; the app matches it); a NEW category (create_category true, the name, and category_color exactly as said: only blue, red, green, amber, violet, pink, cyan, orange, lime or indigo work, the app asks for anything else); notes ("remind them to bring ID" = notes "Bring ID"); daily_task ("make it a daily task"); meeting ("it's a meeting"); tag_roles ("tag the managers", "just for shift managers").
+- Optional, ONLY when the manager says them: end time; category (pass the name they said; the app matches it); a NEW category (create_category true, the name, and category_color exactly as said: only blue, red, green, amber, violet, pink, cyan, orange, lime or indigo work, the app asks for anything else); notes ("remind them to bring ID" = notes "Bring ID"); daily_task ("make it a daily task"); meeting (only "it's a meeting" / "make it a meeting" / "they punch in"; a name like "Staff meeting" alone is NOT the meeting box); tag_roles ("tag the managers", "just for shift managers").
 - Always send what you have to propose_action create_event and follow its "next" exactly; the app does all checking (end before start, colors, categories, roles, duplicates). Never decide yourself.
 - When it returns preview_shown, your whole reply must be exactly: "Here's the event. Does this look right to you?" Never say an event was added or created.
 - Meeting attendees are added on the Schedule page after saving; you can't add them.
