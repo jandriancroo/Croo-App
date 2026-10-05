@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { highestRole, actionsFor, CREATE_EVENT_ROLES, CREATE_TASK_ROLES, PUNCH_ROLES } from '../../supabase/functions/_shared/theoActions';
+import { highestRole, actionsFor, CREATE_EVENT_ROLES, CREATE_TASK_ROLES, PUNCH_ROLES, COVER_SHIFT_ROLES, ADD_SHIFT_ROLES, DELETE_SHIFT_ROLES, SWAP_SHIFT_ROLES, CHANGE_SHIFT_ROLES } from '../../supabase/functions/_shared/theoActions';
 
 // Same list ai-assistant uses to let people ask Theo questions (unchanged).
 const THEO_QUESTION_ROLES = ['shift_manager', 'shift_manager_in_training', 'manager', 'general_manager', 'admin', 'org_admin', 'fbc', 'brand_admin', 'super_admin'];
@@ -25,9 +25,9 @@ describe('actionsFor (role x action)', () => {
     ['team_member', false, false],
     ['shift_manager_in_training', false, false],
     ['shift_manager', false, false],
-    ['manager', true, false],
-    ['admin', true, false],
-    ['org_admin', true, false],
+    ['manager', true, true],
+    ['admin', true, true],
+    ['org_admin', true, true],
     ['brand_admin', false, false],
     ['super_admin', true, true],
   ];
@@ -37,5 +37,6 @@ describe('actionsFor (role x action)', () => {
   it('no store access -> nothing, even super admin', () => expect(actionsFor('super_admin', false)).toEqual({ create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false }));
   it('CREATE_EVENT_ROLES is the CREATE_TASK_ROLES list', () => expect(CREATE_EVENT_ROLES).toBe(CREATE_TASK_ROLES));
   it('PUNCH_ROLES is the CREATE_TASK_ROLES list', () => expect(PUNCH_ROLES).toBe(CREATE_TASK_ROLES));
+  it('every schedule switch is the CREATE_TASK_ROLES list', () => { for (const l of [COVER_SHIFT_ROLES, ADD_SHIFT_ROLES, DELETE_SHIFT_ROLES, SWAP_SHIFT_ROLES, CHANGE_SHIFT_ROLES]) expect(l).toBe(CREATE_TASK_ROLES); });
   it('team_member + manager uses manager', () => expect(actionsFor(highestRole(['team_member', 'manager']), true).create_task).toBe(true));
 });

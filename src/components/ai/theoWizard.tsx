@@ -327,10 +327,17 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
   // Undo (10 minutes): the same shared path in reverse, then Update if published.
   const undoShift = async () => {
     const a = actionRef.current;
-    if (!a || a.stage !== 'done' || !isShiftAction(a.proposal) || !user?.id) return;
+    if (!a || a.stage !== 'done' || !isShiftAction(a.proposal) || !user?.id || !currentLocation?.id) return;
     const p = a.proposal;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
+      // Server store + role check first (same switch as the request and the Confirm re-check).
+      const weekIds = p.action === 'swap_shift' ? [p.a.schedule_id, p.b.schedule_id] : [a.scheduleId || p.schedule_id];
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'undo_shift', action: p.action, schedule_ids: weekIds } },
+      });
+      if (ce || !chk?.undo) throw new Error('check');
+      if (!chk.undo.ok) { setAction({ ...a, stage: 'done', error: `Not undone: ${chk.undo.reason}` }); return; }
       if (p.action === 'cover_shift') {
         await reassignAndNotify({ shift: { id: p.shift_id, schedule_id: p.schedule_id, day_of_week: p.day_of_week, shift_date: p.shift_date }, toUserId: p.covered.id, changedBy: user.id, timezone });
         onRecord?.(`Undid shift cover: ${p.covered.name} has ${p.date_label}, ${p.time_label} again`);

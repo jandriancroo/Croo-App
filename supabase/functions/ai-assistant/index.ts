@@ -3344,6 +3344,18 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       if (pick.kind === "undo_event") return reply({ undo: await undoEventCheck(supabaseAdmin, location_id, String(pick.event_id || ""), pick.category_id ? String(pick.category_id) : null) });
       return reply({ recheck: await recheckEvent(supabaseAdmin, location_id, pick.proposal, userRole) });
     }
+    // Undo tap for schedule actions: same role + store check as the request and the Confirm re-check,
+    // and every week touched must belong to this store. Code only; the browser does the undo write.
+    if (pick && typeof pick === "object" && pick.kind === "undo_shift") {
+      const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const on: Record<string, boolean> = { cover_shift: coverOn, add_shift: addOn, delete_shift: deleteOn, swap_shift: swapOn, change_shift: changeOn };
+      if (!on[String(pick.action)]) return reply({ undo: { ok: false, reason: "Undo isn't available for this change." } });
+      const ids = [...new Set((Array.isArray(pick.schedule_ids) ? pick.schedule_ids : []).map(String).filter((s: string) => /^[0-9a-f-]{36}$/i.test(s)))];
+      if (!ids.length) return reply({ undo: { ok: false, reason: "Couldn't find that week." } });
+      const { data: sch } = await supabaseAdmin.from("schedules").select("id, location_id").in("id", ids);
+      if ((sch || []).length !== ids.length || (sch || []).some((s: any) => s.location_id !== location_id)) return reply({ undo: { ok: false, reason: "That change isn't at this store." } });
+      return reply({ undo: { ok: true } });
+    }
     if (schedOn && pick && typeof pick === "object") {
       const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const sid = String(pick.shift_id || "");
