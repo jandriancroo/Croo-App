@@ -10,6 +10,7 @@ import {
   formatDateTimeInTimezone,
   parseDateStringInTimezone,
 } from '@/utils/timezoneUtils';
+import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
 export function EditShiftForm({ 
@@ -37,18 +38,7 @@ export function EditShiftForm({
   );
   
   // Identify SHIFT-STARTING clock_ins (not return-from-break clock_ins)
-  const shiftStartClockIns: any[] = [];
-  sortedPunches.forEach((punch: any, idx: number) => {
-    if (punch.punch_type !== 'clock_in') return;
-    if (idx === 0) {
-      shiftStartClockIns.push(punch);
-      return;
-    }
-    const prevPunch = sortedPunches[idx - 1];
-    if (prevPunch.punch_type === 'clock_out') {
-      shiftStartClockIns.push(punch);
-    }
-  });
+  const shiftStartClockIns: any[] = findShiftStartClockIns(sortedPunches);
 
   // Support multiple breaks
   interface BreakEntry {
@@ -155,6 +145,11 @@ export function EditShiftForm({
   };
 
   const initialShifts = buildShifts();
+  const pairedIds = new Set(initialShifts.flatMap(s => s.punchIds));
+  const unpairedPunches = sortedPunches.filter((p: any) => !pairedIds.has(p.id));
+  const PUNCH_LABEL: Record<string, string> = {
+    clock_in: 'Clock in', clock_out: 'Clock out', break_start: 'Break start', break_end: 'Break end',
+  };
 
   // State: array of shift edit states
   interface ShiftEditState {
@@ -198,7 +193,29 @@ export function EditShiftForm({
     return baseDate;
   };
 
+  const handleRemovePunch = async (id: string) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-time-punches', {
+        body: { location_id: locationId, punch_ids: [id] },
+      });
+      if (error) { toast.error('Failed to remove punch'); return; }
+      toast.success('Punch removed');
+      onSave();
+    } catch {
+      toast.error('Failed to remove punch');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDeleteSingleShift = async (idx: number) => {
+    const target = shiftStates[idx];
+    if (target.punchIds.length === 0) {
+      setShiftStates(prev => prev.filter((_, i) => i !== idx));
+      setDeletingShiftIdx(null);
+      return;
+    }
     setSaving(true);
     try {
       const shift = shiftStates[idx];
@@ -250,7 +267,49 @@ export function EditShiftForm({
         return true;
       };
       
+      // Validate every shift before writing anything
+      const ranges: { start: number; end: number; n: number }[] = [];
+      for (let i = 0; i < shiftStates.length; i++) {
+        const sh = shiftStates[i];
+        if (!sh.clockInTime) continue;
+        const inMs = new Date(toISOStringInTimezone(shiftDate, sh.clockInTime, timezone)).getTime();
+        let outMs = Infinity;
+        if (sh.clockOutTime) {
+          const outDate = getAdjustedDateForClockOut(sh.clockOutTime, sh.clockInTime, shiftDate);
+          outMs = new Date(toISOStringInTimezone(outDate, sh.clockOutTime, timezone)).getTime();
+          if (outMs <= inMs) {
+            toast.error(`Shift #${i + 1}: clock out must be after clock in`);
+            setSaving(false);
+            return;
+          }
+        }
+        ranges.push({ start: inMs, end: outMs, n: i + 1 });
+      }
+      for (let i = 0; i < ranges.length; i++) {
+        for (let j = i + 1; j < ranges.length; j++) {
+          if (ranges[i].start < ranges[j].end && ranges[j].start < ranges[i].end) {
+            toast.error(`Shift #${ranges[i].n} and Shift #${ranges[j].n} overlap`);
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
       for (const shift of shiftStates) {
+        // New shift added in this form: skip if no clock-in time
+        if (!shift.clockInId && !shift.clockInTime) continue;
+        if (!shift.clockInId && shift.clockInTime) {
+          const newClockIn = toISOStringInTimezone(shiftDate, shift.clockInTime, timezone);
+          if (!validateNotFuture(newClockIn, 'Clock in')) { setSaving(false); return; }
+          await supabase.from('time_punches').insert({
+            user_id: userId,
+            location_id: locationId,
+            punch_type: 'clock_in',
+            punch_time: newClockIn,
+            created_by: currentUserId,
+          });
+        }
+
         // Update clock in
         if (shift.clockInId && shift.clockInTime) {
           const newClockInTime = toISOStringInTimezone(shiftDate, shift.clockInTime, timezone);
@@ -488,6 +547,40 @@ export function EditShiftForm({
           </div>
         </div>
       ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={saving}
+        onClick={() => setShiftStates(prev => [...prev, { clockInTime: '', clockOutTime: '', breaks: [], punchIds: [] }])}
+      >
+        Add shift
+      </Button>
+
+      {unpairedPunches.length > 0 && (
+        <div className="p-3 border rounded-lg space-y-2">
+          <div className="text-sm font-medium">Other punches this day (not part of a shift above)</div>
+          {unpairedPunches.map((p: any) => (
+            <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+              <span>
+                {PUNCH_LABEL[p.punch_type] || p.punch_type}{' '}
+                <span className="tabular-nums text-muted-foreground">{formatTimeForEdit(p)}</span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive h-7 px-2 text-xs"
+                onClick={() => handleRemovePunch(p.id)}
+                disabled={saving}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Delete single shift confirmation */}
       {deletingShiftIdx !== null && (

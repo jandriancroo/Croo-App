@@ -1,3 +1,4 @@
+import { bucketUserPunchesByDay, findShiftStartClockIns } from '@/utils/payrollDayBucketing';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -152,67 +153,10 @@ export function usePersonalPayData(periodOffset: number = 0) {
         return null;
       }
 
-      // Helper to get cutoff hour for a given date
-      const getCutoffForDate = (dateStr: string): number => {
-        const d = new Date(dateStr + 'T12:00:00Z');
-        const dayOfWeek = d.getUTCDay(); // 0=Sun, 1=Mon, etc.
-        return cutoffByDayOfWeek.get(dayOfWeek) ?? defaultCutoff;
-      };
-
-      // Group punches by BUSINESS day (handling overnight shifts)
-      const groupPunchesByBusinessDay = (allPunches: TimePunch[]): Map<string, TimePunch[]> => {
-        const punchesByDay = new Map<string, TimePunch[]>();
-        
-        // First pass: identify all clock_ins by calendar day
-        const clockInsByDay = new Map<string, TimePunch>();
-        allPunches.forEach((punch) => {
-          if (punch.punch_type === 'clock_in') {
-            const punchDate = toZonedTime(new Date(punch.punch_time), timezone);
-            const day = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
-            clockInsByDay.set(day, punch);
-          }
-        });
-        
-        // Second pass: assign punches to business days
-        allPunches.forEach((punch) => {
-          const punchTime = new Date(punch.punch_time);
-          const punchDate = toZonedTime(punchTime, timezone);
-          let day = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
-          const punchHour = parseInt(formatTZ(punchDate, 'H', { timeZone: timezone }));
-          
-          // Get dynamic cutoff for this calendar day
-          const cutoffHour = getCutoffForDate(day);
-          
-          // If punch is at or before cutoff hour, it might belong to previous business day
-          // Use <= to include punches exactly at the cutoff hour (e.g., 3:00 AM when cutoff is 3)
-          if (punch.punch_type !== 'clock_in' && punchHour <= cutoffHour) {
-            const sameDayClockIn = clockInsByDay.get(day);
-            const shouldMoveToPrevDay = !sameDayClockIn || 
-              new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
-            
-            if (shouldMoveToPrevDay) {
-              // Calculate previous day
-              const dateAtNoon = new Date(day + 'T12:00:00Z');
-              dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
-              const prevDay = dateAtNoon.toISOString().slice(0, 10);
-              // Only reassign if previous day has a clock_in
-              if (clockInsByDay.has(prevDay)) {
-                day = prevDay;
-              }
-            }
-          }
-          
-          if (!punchesByDay.has(day)) {
-            punchesByDay.set(day, []);
-          }
-          punchesByDay.get(day)!.push(punch);
-        });
-        
-        return punchesByDay;
-      };
-
       const allPunches = (punches || []) as TimePunch[];
-      const punchesByBusinessDay = groupPunchesByBusinessDay(allPunches);
+      const punchesByBusinessDay = new Map<string, TimePunch[]>(
+        Object.entries(bucketUserPunchesByDay(allPunches, timezone, cutoffByDayOfWeek, defaultCutoff))
+      );
 
       // Calculate hours and build shift entries for a given date range
       const calculateHoursAndShifts = (startDate: string, endDate: string): { hours: number; shifts: ShiftEntry[] } => {
@@ -229,21 +173,7 @@ export function usePersonalPayData(periodOffset: number = 0) {
           // Identify SHIFT-STARTING clock_ins (not return-from-break clock_ins)
           // A clock_in that follows a clock_out starts a new shift
           // A clock_in that follows a break_start is just returning from break
-          const shiftStartClockIns: TimePunch[] = [];
-          dayPunches.forEach((punch, idx) => {
-            if (punch.punch_type !== 'clock_in') return;
-            
-            if (idx === 0) {
-              shiftStartClockIns.push(punch);
-              return;
-            }
-            
-            const prevPunch = dayPunches[idx - 1];
-            // Only consider it a new shift if previous punch was clock_out
-            if (prevPunch.punch_type === 'clock_out') {
-              shiftStartClockIns.push(punch);
-            }
-          });
+          const shiftStartClockIns: TimePunch[] = findShiftStartClockIns(dayPunches);
 
           if (shiftStartClockIns.length === 0) return;
 
@@ -268,7 +198,7 @@ export function usePersonalPayData(periodOffset: number = 0) {
                      coTime > earliestClockInTime;
             });
             
-            const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[shiftClockOuts.length - 1] : null;
+            const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[0] : null;
             
             // Calculate shift duration
             let shiftEnd: Date | null = null;

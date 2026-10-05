@@ -28,7 +28,7 @@ import {
   getEndOfDateStringInTimezone,
   calculateCutoffHour,
 } from '@/utils/timezoneUtils';
-import { bucketPunchesByUserAndDay } from '@/utils/payrollDayBucketing';
+import { bucketPunchesByUserAndDay, bucketUserPunchesByDay, findShiftStartClockIns } from '@/utils/payrollDayBucketing';
 
 export function usePayrollData() {
   const { isAdmin, isManager } = useUserRole();
@@ -530,22 +530,7 @@ export function usePayrollData() {
     
     if (sortedPunches.length === 0) return 0;
     
-    const shiftStartClockIns: any[] = [];
-    
-    sortedPunches.forEach((punch, idx) => {
-      if (punch.punch_type !== 'clock_in') return;
-      
-      if (idx === 0) {
-        shiftStartClockIns.push(punch);
-        return;
-      }
-      
-      const prevPunch = sortedPunches[idx - 1];
-      if (prevPunch.punch_type === 'clock_out') {
-        shiftStartClockIns.push(punch);
-        return;
-      }
-    });
+    const shiftStartClockIns: any[] = findShiftStartClockIns(sortedPunches);
     
     const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
     
@@ -567,7 +552,7 @@ export function usePayrollData() {
         const coTime = new Date(co.punch_time).getTime();
         return coTime > clockInTime && coTime < nextShiftStartTime && !usedClockOutIds.has(co.id) && coTime > earliestClockInTime;
       });
-      const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[shiftClockOuts.length - 1] : null;
+      const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[0] : null;
 
       const lastPunchInWindow = sortedPunches
         .filter(p => {
@@ -630,16 +615,7 @@ export function usePayrollData() {
   const getDayFlags = (dayPunches: any[]) => {
     const sortedPunches = sortPunches(dayPunches);
 
-    const shiftStartClockIns: any[] = [];
-    sortedPunches.forEach((punch: any, idx: number) => {
-      if (punch.punch_type !== 'clock_in') return;
-      if (idx === 0) {
-        shiftStartClockIns.push(punch);
-        return;
-      }
-      const prev = sortedPunches[idx - 1];
-      if (prev.punch_type === 'clock_out') shiftStartClockIns.push(punch);
-    });
+    const shiftStartClockIns: any[] = findShiftStartClockIns(sortedPunches);
 
     const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
     const unpaidBreakStarts = sortedPunches.filter((p: any) => {
@@ -665,7 +641,7 @@ export function usePayrollData() {
         const coMs = new Date(co.punch_time).getTime();
         return coMs > clockInMs && coMs < nextStartMs && !usedClockOutIds.has(co.id) && coMs > earliestClockInTime;
       });
-      const clockOut = shiftClockOuts.length ? shiftClockOuts[shiftClockOuts.length - 1] : null;
+      const clockOut = shiftClockOuts.length ? shiftClockOuts[0] : null;
       
       if (clockOut) {
         usedClockOutIds.add(clockOut.id);
@@ -871,66 +847,10 @@ export function usePayrollData() {
         const punchesByDay: { [key: string]: any[] } = {};
         const allPunches = punches || [];
         
-        const getCutoffForPreviousDay = (dateStr: string): number => {
-          const d = new Date(dateStr + 'T12:00:00Z');
-          const prevDayOfWeek = (d.getUTCDay() + 6) % 7;
-          return cutoffByDayOfWeek.get(prevDayOfWeek) ?? defaultCutoff;
-        };
-        
-        const clockInsByDay = new Map<string, any>();
-        allPunches.forEach((punch) => {
-          if (punch.punch_type === 'clock_in') {
-            const day = getDateInTimezone(new Date(punch.punch_time), timezone);
-            clockInsByDay.set(day, punch);
-          }
-        });
-        
-        allPunches.forEach((punch) => {
-          const punchTime = new Date(punch.punch_time);
-          let day = getDateInTimezone(punchTime, timezone);
-          const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
-          
-          const cutoffHour = getCutoffForPreviousDay(day);
-          
-          if (punch.punch_type === 'clock_out') {
-            if (punchHour <= cutoffHour) {
-              const sameDayClockIn = clockInsByDay.get(day);
-              const shouldMoveToPrevDay = !sameDayClockIn || 
-                new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
-              
-              if (shouldMoveToPrevDay) {
-                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
-                const dateAtNoon = new Date(localDateStr + 'T12:00:00Z');
-                dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
-                const prevDay = dateAtNoon.toISOString().slice(0, 10);
-                if (clockInsByDay.has(prevDay)) {
-                  day = prevDay;
-                }
-              }
-            }
-          }
-          
-          if (punch.punch_type === 'break_end' || punch.punch_type === 'break_start') {
-            if (punchHour <= cutoffHour) {
-              const sameDayClockIn = clockInsByDay.get(day);
-              const shouldMoveToPrevDay = !sameDayClockIn || 
-                new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
-              
-              if (shouldMoveToPrevDay) {
-                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
-                const dateAtNoon = new Date(localDateStr + 'T12:00:00Z');
-                dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
-                const prevDay = dateAtNoon.toISOString().slice(0, 10);
-                if (clockInsByDay.has(prevDay)) {
-                  day = prevDay;
-                }
-              }
-            }
-          }
-          if (day < selectedPeriod.startDate || day > selectedPeriod.endDate) {
-            return;
-          }
-
+        const bucketed = bucketUserPunchesByDay(allPunches, timezone, cutoffByDayOfWeek, defaultCutoff);
+        Object.entries(bucketed).forEach(([day, dayPunchList]) => {
+          if (day < selectedPeriod.startDate || day > selectedPeriod.endDate) return;
+          dayPunchList.forEach((punch: any) => {
           if (!punchesByDay[day]) punchesByDay[day] = [];
           const createdByName = punch.created_by && punch.created_by !== profile.id
             ? creatorMap.get(punch.created_by) || null
@@ -939,6 +859,7 @@ export function usePayrollData() {
             ? creatorMap.get(punch.edited_by) || null
             : null;
           punchesByDay[day].push({ ...punch, created_by_name: createdByName, edited_by_name: editedByName });
+          });
         });
 
         const issues: string[] = [];

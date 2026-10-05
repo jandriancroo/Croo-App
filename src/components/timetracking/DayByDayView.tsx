@@ -11,6 +11,7 @@ import {
   type PunchBreakInfo,
   type PunchFlag,
 } from './PunchApprovalRow';
+import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
 import { TheoDayLine, useTheoDayInsights } from './TheoDayLine';
 
 interface DayByDayViewProps {
@@ -67,15 +68,15 @@ export function DayByDayView({
       // Identify distinct shifts
       const shifts: { clockIn: any; clockOut: any | null; breaks: any[] }[] = [];
       let currentShift: { clockIn: any; clockOut: any | null; breaks: any[] } | null = null;
+      const shiftStarts = new Set(findShiftStartClockIns(dayPunches));
       
-      sortedPunches.forEach((punch: any, punchIdx: number) => {
+      sortedPunches.forEach((punch: any) => {
         if (punch.punch_type === 'clock_in') {
-          const prevPunch = punchIdx > 0 ? sortedPunches[punchIdx - 1] : null;
-          if (!prevPunch || prevPunch.punch_type === 'clock_out') {
+          if (shiftStarts.has(punch)) {
             if (currentShift) shifts.push(currentShift);
             currentShift = { clockIn: punch, clockOut: null, breaks: [] };
           }
-        } else if (punch.punch_type === 'clock_out' && currentShift) {
+        } else if (punch.punch_type === 'clock_out' && currentShift && !currentShift.clockOut) {
           currentShift.clockOut = punch;
         } else if (punch.punch_type === 'break_start' && currentShift) {
           currentShift.breaks.push(punch);
