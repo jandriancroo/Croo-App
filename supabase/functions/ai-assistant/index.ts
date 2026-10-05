@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
 import { buildAddProposal, buildDeleteProposal, buildSwapProposal, buildChangeProposal } from "./shifts.ts";
 import { buildEventProposal, recheckEvent, undoEventCheck } from "./events.ts";
+import { buildPunchProposal, recheckPunch, checkPunchUndo, PROPOSE_PUNCH_TOOL } from "./punches.ts";
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 
@@ -3236,7 +3237,9 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
     // Voice screen and typed chat, never in the bake-off.
     const theoActions = !bakeoff && (usageSource === "voice" || usageSource === "chat") ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
-    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift || theoActions.create_event || theoActions.send_message;
+    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift || theoActions.create_event || theoActions.send_message || theoActions.clock_punch;
+    // Build 6C: clock someone in / out (one switch).
+    const punchOn = theoActions.clock_punch;
     const eventOn = theoActions.create_event;
     // Build 6A: read my chats, reply, new DM (one switch). Off -> Theo can't read chats at all (query_my_chats included).
     const msgOn = theoActions.send_message;
@@ -3294,12 +3297,16 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       chat_id: pending_action.chat_id ? String(pending_action.chat_id).slice(0, 36) : null, text: String(pending_action.text || "").slice(0, 1000),
       reply: !!pending_action.reply_to, reply_to_message_id: pending_action.reply_to?.id ? String(pending_action.reply_to.id).slice(0, 36) : null,
     } : null;
+    const pendingPunch = punchOn && pending_action && typeof pending_action === "object" && pending_action.action === "clock_punch" ? {
+      kind: pending_action.kind === "out" ? "out" : "in", employee_id: String(pending_action.employee?.id || "").slice(0, 36),
+      employee: String(pending_action.employee?.name || "").slice(0, 80), time: String(pending_action.time_label || "").slice(0, 20), date: String(pending_action.date_label || "").slice(0, 30),
+    } : null;
     // A template list on screen (add a shift): the draft it belongs to.
     const listDraft = addOn && list_context && typeof list_context === "object" && list_context.draft && typeof list_context.draft === "object" ? {
       employee_id: String(list_context.draft.employee_id || "").slice(0, 36), date: String(list_context.draft.date || "").slice(0, 10),
       start_time: String(list_context.draft.start_time || "").slice(0, 8), end_time: String(list_context.draft.end_time || "").slice(0, 8),
     } : null;
-    const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange || pendingEvent || pendingMessage);
+    const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange || pendingEvent || pendingMessage || pendingPunch);
     const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
     const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
     const matchCrew = (raw: string) => {
@@ -3314,6 +3321,16 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
 
     // Screen taps (a shift, a person or a name on the list) and the Confirm re-check: answered by code, no AI.
     const when = { today, nowHHMM };
+    // Clock in / out: the re-check at the Confirm tap and the check at the Undo tap (code, no AI).
+    if (pick && typeof pick === "object" && ((pick.kind === "recheck" && pick.proposal?.action === "clock_punch") || pick.kind === "undo_punch")) {
+      const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!punchOn) return reply(pick.kind === "undo_punch" ? { undo: { ok: false, reason: "Clocking people in isn't available." } } : { recheck: { ok: false, changed: "Clocking people in isn't available." } });
+      if (pick.kind === "undo_punch") return reply({ undo: await checkPunchUndo(supabaseAdmin, user.id, location_id, pick.punch_id) });
+      const { data: me } = await supabaseAdmin.from("profiles").select("full_name, nickname").eq("id", user.id).maybeSingle();
+      const { data: locRow } = await supabaseAdmin.from("locations").select("id, name").eq("id", location_id).maybeSingle();
+      if (!locRow) return reply({ recheck: { ok: false, changed: "store not found." } });
+      return reply({ recheck: await recheckPunch(supabaseAdmin, user.id, (me?.nickname || me?.full_name || "a manager").split(" ")[0], locRow, timezone, pick.proposal, crewForActions.map((c) => ({ id: c.id, name: crewName(c) }))) });
+    }
     // Send message: the re-check at the Send tap (code, no AI; the person's own access).
     if (pick && typeof pick === "object" && pick.kind === "recheck" && pick.proposal?.action === "send_message") {
       const reply = (o: any) => new Response(JSON.stringify(o), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -3495,6 +3512,10 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 - Anything about pay, wages, discipline, write-ups, firing or someone's performance: call no tool and say exactly "I'd rather you write that one yourself."
 - Announcements and the Shift Marketplace can be read but not posted to: announcements are coming; shift offers are handled in the marketplace.
 - Not built (call no tool, say you can't do that yet and to use the Messages page): creating a group chat, adding or removing members, attachments, photos, GIFs, reactions, @mentions, forwarding, editing a sent message, deleting a chat, hiring or support chats. Texting someone a job to do is still a quick task only when they say "have/get X to do Y"; "tell X that..." / "message X" / "reply" is a message.
+` : ""}${punchOn ? `CLOCK IN / CLOCK OUT (one person at this store):
+- Examples of meaning: "clock in Cheyenne at 8:30", "clock Cheyenne in", "clock out Cheyenne at 4", "punch Alle in at 9". Resolve the person with find_crew (several: ask which one, naming them; none: say you can't find them at this store), then call propose_punch with kind in or out, employee_id and the time as said (leave time out for now).
+- The app does every check (already in, not in, on a break, future time, flags). Follow its "next" exactly. When it returns preview_shown, your whole reply must be exactly: "Here's the punch. Does this look right to you?" Never say anyone was clocked in or out.
+- Breaks, editing or deleting an existing punch, and clocking several people at once are not built: say to use the Time Clock page.
 ` : ""}NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); checklists (Checklists page); time off, including giving someone a day off (Availability page); moving a shift to another day, changing a shift's position, swapping more than two people, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page)${eventOn ? "; editing or deleting a schedule event, adding meeting attendees, or copying event categories from another store (Schedule page)" : ""}. For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Move Alle's shift to Tuesday" = moving a shift to another day, not built.
 - ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the change in this reply. If you ask a question or say you can't, propose nothing. Your words and your tool calls must agree.${listShift ? `
 
@@ -3537,7 +3558,12 @@ AN ADD-EVENT PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${JSON.stringify(pendin
 A SEND-MESSAGE PREVIEW IS ON SCREEN RIGHT NOW (not sent): ${JSON.stringify(pendingMessage)}
 - If the manager changes it ("make it shorter", "say 11 instead", "add that we close early"), call propose_message with the FULL revised message: same recipient, chat_id, reply and reply_to_message_id, new text.
 - If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that message."
-- If the manager agrees (yes / send it / looks good), do NOT call any tool. Reply exactly: "Tap Send to send it."` : ""}${listDraft ? `
+- If the manager agrees (yes / send it / looks good), do NOT call any tool. Reply exactly: "Tap Send to send it."` : ""}${pendingPunch ? `
+
+A CLOCK ${pendingPunch.kind.toUpperCase()} PREVIEW IS ON SCREEN RIGHT NOW (not saved): ${JSON.stringify(pendingPunch)}
+- If the manager changes the time or person ("make it 8:45", "actually Alle"), call propose_punch with the full revised punch.
+- If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that punch."
+- If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Confirm to save it."` : ""}${listDraft ? `
 
 A TEMPLATE LIST IS ON SCREEN for adding a shift: ${JSON.stringify(listDraft)}. If the manager says a template name or "from scratch", call propose_action add_shift with this employee_id, date, start_time, end_time and the template_id (or "none").` : ""}`;
     // Rule G: wherever actions are not offered, Theo must never claim a change.
@@ -3579,7 +3605,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
           ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
-          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS,
+          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS,
           tool_choice: "auto",
         }),
       });
@@ -3698,6 +3724,13 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; coverScreen = null; result = JSON.stringify({ status: "preview_shown" }); }
           else if (v.ask) { liveProposal = null; result = JSON.stringify({ status: "need_more", next: `Ask exactly "${v.ask}" Propose nothing.` }); }
           else { liveProposal = null; declineLine = v.stop; result = JSON.stringify({ stop: v.stop, next: `Say "${v.stop}" Propose nothing.` }); }
+        } else if (punchOn && tc.function.name === "propose_punch") {
+          const { data: me } = await supabaseAdmin.from("profiles").select("full_name, nickname").eq("id", user.id).maybeSingle();
+          const { data: locRow } = await supabaseAdmin.from("locations").select("id, name").eq("id", location_id).maybeSingle();
+          const v: any = locRow ? await buildPunchProposal(supabaseAdmin, user.id, (me?.nickname || me?.full_name || "a manager").split(" ")[0], locRow, timezone, args || {}, crewForActions.map((c) => ({ id: c.id, name: crewName(c) }))) : { stop: "I can't find this store." };
+          if (v.ok) { liveProposal = v.proposal; cancelPending = false; coverScreen = null; result = JSON.stringify({ status: "preview_shown" }); }
+          else if (v.ask) { liveProposal = null; result = JSON.stringify({ status: "need_more", next: `Ask exactly "${v.ask}" Propose nothing.` }); }
+          else { liveProposal = null; declineLine = v.stop; result = JSON.stringify({ stop: v.stop, next: `Say "${v.stop}" Propose nothing.` }); }
         } else if (actionsOn && anyPending && tc.function.name === "cancel_pending_action") {
           cancelPending = true; liveProposal = null;
           result = JSON.stringify({ status: "dropped" });
@@ -3784,12 +3817,12 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       if (declineLine) { liveProposal = null; coverScreen = null; }
       if (liveProposal) {
         // Words and proposal must agree: a question or a "can't" drops the proposal.
-        const rest = String(finalResponse || "").replace(/here['’]?s the (task|change|shift|event|message)\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
+        const rest = String(finalResponse || "").replace(/here['’]?s the (task|change|shift|event|message|punch)\.?\s*does this look right( to you)?\??/i, "").toLowerCase();
         const saysNo = rest.includes("?") || /\b(can['’]?t|cannot|unable|not able|not something i can|which one|who['’]?s it for|what['’]?s the task|shift pool)\b/.test(rest);
         if (saysNo) console.log("action guard dropped proposal");
         else {
           out.proposal = liveProposal;
-          out.content = liveProposal.action === "create_task" ? "Here's the task. Does this look right to you?" : liveProposal.action === "send_message" ? "Here's the message. Does this look right to you?" : liveProposal.action === "create_event" ? "Here's the event. Does this look right to you?" : liveProposal.action === "add_shift" ? "Here's the shift. Does this look right to you?" : "Here's the change. Does this look right to you?";
+          out.content = liveProposal.action === "create_task" ? "Here's the task. Does this look right to you?" : liveProposal.action === "clock_punch" ? "Here's the punch. Does this look right to you?" : liveProposal.action === "send_message" ? "Here's the message. Does this look right to you?" : liveProposal.action === "create_event" ? "Here's the event. Does this look right to you?" : liveProposal.action === "add_shift" ? "Here's the shift. Does this look right to you?" : "Here's the change. Does this look right to you?";
         }
       } else if (cancelPending) out.cancel_pending = true;
       else if (coverScreen && !declineLine) out.screen = coverScreen;
