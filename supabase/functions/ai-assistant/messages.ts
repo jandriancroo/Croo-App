@@ -166,3 +166,40 @@ export async function recheckMessage(userClient: any, admin: any, userId: string
   }
   return { ok: true, chat_id: chatId };
 }
+
+// Tools Theo gets when the messages switch is on (manager and up, store access checked).
+export const FIND_CHATS_TOOL = {
+  type: "function",
+  function: {
+    name: "find_chats",
+    description: "The manager's OWN chats at this store (DMs, groups, announcements, Shift Marketplace), newest first, each with unread count and last message. Use for 'any unread messages?', 'what did Alle say?', 'latest in the managers chat'. Pass name to find a person's DM or a group by title. Only chats the manager is in exist; never claim to see anyone else's.",
+    parameters: { type: "object", properties: { name: { type: "string", description: "A person's name or a group title, as said" }, unread_only: { type: "boolean" } }, required: [] },
+  },
+};
+export const READ_CHAT_TOOL = {
+  type: "function",
+  function: {
+    name: "read_chat",
+    description: "The last messages (up to 20) of ONE of the manager's chats, by chat_id from find_chats. Read-only: marks nothing as read.",
+    parameters: { type: "object", properties: { chat_id: { type: "string" }, limit: { type: "number", description: "1-20, default 8" } }, required: ["chat_id"] },
+  },
+};
+export const PROPOSE_MESSAGE_TOOL = {
+  type: "function",
+  function: {
+    name: "propose_message",
+    description: "Show the manager a PREVIEW of a chat message (a reply in an existing DM or group, or a new DM). Sends nothing; only the manager's Send tap sends it. Call again with the full revised message when the manager changes the preview.",
+    parameters: {
+      type: "object",
+      properties: {
+        to_person: { type: "string", description: "The person's name as said (for a DM). Omit for a group." },
+        to_group: { type: "string", description: "The group chat's title as said (\"managers chat\"). Omit for a person." },
+        chat_id: { type: "string", description: "Optional: the chat_id from find_chats when you already know it" },
+        text: { type: "string", description: "The exact words to send. The manager's own words when they gave them; otherwise one or two short sentences in a plain manager voice with ONLY what they said or clearly meant: no added times, names, promises, numbers, emojis or sign-offs." },
+        reply: { type: "boolean", description: "true when answering what that person/group said ('tell Alle thanks', 'reply to her', 'reply to the group'). false for a plain 'message Ryan: ...'." },
+        reply_to_message_id: { type: "string", description: "Optional: a message_id from read_chat when the manager picks a specific earlier message" },
+      },
+      required: ["text"],
+    },
+  },
+};
