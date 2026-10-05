@@ -118,8 +118,8 @@ export async function undoEventCheck(admin: any, locationId: string, eventId: st
   const { data: ev } = await admin.from("schedule_events").select("id").eq("id", eventId).eq("location_id", locationId).maybeSingle();
   if (!ev) return { ok: false, reason: "Not undone: the event isn't on the schedule anymore." };
   const [{ count: done }, { count: att }] = await Promise.all([
-    admin.from("event_task_completions").select("id", { count: "exact", head: true }).eq("event_id", eventId),
-    admin.from("event_attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId),
+    admin.from("event_task_completions").select("event_id", { count: "exact", head: true }).eq("event_id", eventId),
+    admin.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("event_id", eventId),
   ]);
   if ((done || 0) > 0) return { ok: false, reason: "Not undone: someone already completed it." };
   if ((att || 0) > 0) return { ok: false, reason: "Not undone: an attendee has been added." };
