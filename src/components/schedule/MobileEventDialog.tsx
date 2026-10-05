@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Plus, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { createScheduleEvent, createEventCategory } from "@/lib/scheduleEvents";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -137,17 +138,10 @@ export function MobileEventDialog({
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim() || !locationId) return;
 
-    const { data, error } = await supabase
-      .from("event_categories")
-      .insert({
-        name: newCategoryName.trim(),
-        color: newCategoryColor,
-        location_id: locationId,
-      })
-      .select()
-      .single();
-
-    if (error) {
+    let data: any;
+    try {
+      data = await createEventCategory({ locationId, name: newCategoryName, color: newCategoryColor });
+    } catch {
       toast.error("Failed to create category");
       return;
     }
@@ -188,45 +182,22 @@ export function MobileEventDialog({
         const eventDateStr = format(formData.event_date, "yyyy-MM-dd");
         const dayOfWeek = (formData.event_date.getDay() + 6) % 7; // Convert to Monday=0 format
         
-        const { error } = await supabase.from("schedule_events").insert({
-          schedule_id: scheduleId,
-          event_name: formData.event_name,
-          event_time: formData.event_time,
-          event_end_time: formData.event_end_time || null,
-          event_date: eventDateStr,
-          day_of_week: dayOfWeek,
-          days_of_week: null,
-          notes: formData.notes || null,
-          tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-          is_recurring: false,
-          category_id: formData.category_id || null,
-          is_daily_task: formData.is_daily_task,
-          is_meeting: formData.is_meeting,
-          location_id: locationId,
+        await createScheduleEvent({
+          mode: "one-time", scheduleId, eventDate: eventDateStr, dayOfWeek,
+          locationId, name: formData.event_name, startTime: formData.event_time, endTime: formData.event_end_time,
+          notes: formData.notes, taggedRoles: formData.tagged_roles, categoryId: formData.category_id,
+          isDailyTask: formData.is_daily_task, isMeeting: formData.is_meeting,
         });
-
-        if (error) throw error;
       } else {
         // Recurring event
         const dbDays = formData.selected_days;
 
-        const { error } = await supabase.from("schedule_events").insert({
-          schedule_id: null,
-          event_name: formData.event_name,
-          event_time: formData.event_time,
-          event_end_time: formData.event_end_time || null,
-          day_of_week: dbDays[0],
-          days_of_week: dbDays.length > 1 ? dbDays : null,
-          notes: formData.notes || null,
-          tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-          is_recurring: true,
-          category_id: formData.category_id || null,
-          is_daily_task: formData.is_daily_task,
-          is_meeting: formData.is_meeting,
-          location_id: locationId,
+        await createScheduleEvent({
+          mode: "recurring", days: dbDays,
+          locationId, name: formData.event_name, startTime: formData.event_time, endTime: formData.event_end_time,
+          notes: formData.notes, taggedRoles: formData.tagged_roles, categoryId: formData.category_id,
+          isDailyTask: formData.is_daily_task, isMeeting: formData.is_meeting,
         });
-
-        if (error) throw error;
       }
 
       toast.success("Event created");
