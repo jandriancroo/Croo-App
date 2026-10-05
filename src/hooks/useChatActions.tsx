@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
-import { getDisplayName } from '@/utils/displayName';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import type { Message } from './useChatWindowData';
+import { sendChatMessage, pushChatMessage, unsendMessage } from '@/lib/chatMessages';
 
 interface UseChatActionsOptions {
   chatId: string;
@@ -34,35 +34,9 @@ export function useChatActions({
   const currentUserId = user?.id || null;
   const queryClient = useQueryClient();
 
+  // The push lives in the shared chat file (src/lib/chatMessages.ts); GIF and file sends still call it here.
   const sendPushNotification = useCallback(async (body: string, type = 'message') => {
-    try {
-      const { data: members } = await supabase
-        .from('chat_members')
-        .select('user_id')
-        .eq('chat_id', chatId)
-        .neq('user_id', currentUserId!);
-
-      if (members && members.length > 0) {
-        const { data: senderProfile } = await supabase
-          .from('profiles')
-          .select('full_name, nickname')
-          .eq('id', currentUserId!)
-          .single();
-
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            user_ids: members.map(m => m.user_id),
-            sender_id: currentUserId,
-            title: getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
-            body,
-            notification_type: 'chat_messages',
-            data: { chat_id: chatId, type }
-          }
-        });
-      }
-    } catch (err) {
-      console.error('Push notification error:', err);
-    }
+    await pushChatMessage(chatId, currentUserId!, body, type);
   }, [chatId, currentUserId]);
 
   const handleSend = useCallback(async () => {
@@ -107,18 +81,8 @@ export function useChatActions({
 
     const sendMessage = async () => {
       try {
-        const { data: inserted, error } = await supabase
-          .from('messages')
-          .insert({
-            chat_id: chatId,
-            sender_id: currentUserId,
-            content: messageContent || null,
-            parent_message_id: replyTo?.id || null,
-          })
-          .select('id, created_at')
-          .single();
-
-        if (error) throw error;
+        // The ONE typed-message send (insert + its push), shared with Theo's Send tap.
+        const inserted = await sendChatMessage({ chatId, senderId: currentUserId, content: messageContent, parentMessageId: replyTo?.id || null });
 
         if (inserted?.id) {
           queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
@@ -134,8 +98,6 @@ export function useChatActions({
             });
           });
         }
-
-        sendPushNotification(messageContent.substring(0, 100));
       } catch (error: any) {
         console.error('Error sending message:', error);
         queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
@@ -147,7 +109,7 @@ export function useChatActions({
     };
 
     sendMessage();
-  }, [newMessage, currentUserId, replyToMessage, chatId, user, queryClient, scrollToBottom, setNewMessage, setReplyToMessage, sendPushNotification]);
+  }, [newMessage, currentUserId, replyToMessage, chatId, user, queryClient, scrollToBottom, setNewMessage, setReplyToMessage]);
 
   const handleReaction = useCallback(async (messageId: string, reaction: string) => {
     if (!currentUserId) return;
@@ -215,19 +177,7 @@ export function useChatActions({
 
   const handleUnsendMessage = useCallback(async (messageId: string) => {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({
-          is_deleted_for_everyone: true,
-          deleted_by: currentUserId,
-          deleted_at: new Date().toISOString(),
-          content: null,
-          attachment_url: null,
-          attachment_type: null,
-        })
-        .eq('id', messageId);
-
-      if (error) throw error;
+      await unsendMessage(messageId, currentUserId!);
 
       // Optimistic update
       queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
