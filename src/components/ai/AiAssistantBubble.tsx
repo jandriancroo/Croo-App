@@ -16,7 +16,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheoUnread } from '@/hooks/useTheoUnread';
 import { TheoVoiceOverlay } from './TheoVoiceOverlay';
-import { useTheoWizard, CHAT_COLORS, NO_ACTS, type Acts, type AnyProposal, type CoverScreen } from './theoWizard';
+import { useTheoWizard, CHAT_COLORS, NO_ACTS, readActs, type Acts, type AnyProposal, type CoverScreen } from './theoWizard';
 import { AudioLines } from 'lucide-react';
 
 
@@ -403,7 +403,7 @@ export function AiAssistantBubble() {
       }
 
       const a = data?.actions;
-      chatActsRef.current = { create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true };
+      chatActsRef.current = readActs(a);
       const acts = chatActsRef.current;
       if (data?.cancel_pending && wizard.ownerRef.current === 'chat' && wizard.actionRef.current?.stage === 'preview') {
         wizard.logAction(wizard.actionRef.current.logId, { status: 'cancelled' });

@@ -6,7 +6,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 import { TheoVoiceOrb, type TheoVoiceOrbHandle } from './TheoVoiceOrb';
 import { playCue, type TheoCue } from './theoCues';
-import { NO_ACTS, isShiftAction, type Acts, type AnyProposal, type CoverScreen, type TheoWizard } from './theoWizard';
+import { NO_ACTS, readActs, isShiftAction, type Acts, type AnyProposal, type CoverScreen, type TheoWizard } from './theoWizard';
 
 type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'error';
 
@@ -265,7 +265,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const s = sessionRef.current;
     sessionRef.current = null; // one pass per live connection
     const d = s ? await s.promise : null;
-    const keep = (x: any) => { const a = x?.actions; actionsRef.current = { create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true }; return x; };
+    const keep = (x: any) => { actionsRef.current = readActs(x?.actions); return x; };
     if (d) return keep(d);
     const { data, error } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation!.id } });
     if (error || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
