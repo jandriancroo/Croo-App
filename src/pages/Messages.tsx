@@ -30,6 +30,14 @@ export default function Messages() {
     if (chatParam) setDmOpen(true);
   }, [chatParam]);
 
+  // Deep link from a Team Feed push: /messages?post=<id> → scroll to that post.
+  const postParam = searchParams.get('post');
+  const handlePostFocused = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('post');
+    setSearchParams(next, { replace: true });
+  };
+
   // Deep link: /messages?tab=hiring&applicationId=<id> — captured once on mount.
   const [hiringTarget, setHiringTarget] = useState<string | null>(() =>
     searchParams.get('tab') === 'hiring' ? searchParams.get('applicationId') : null
@@ -72,6 +80,8 @@ export default function Messages() {
 
         {/* The feed itself */}
         <AnnouncementFeed
+          focusPostId={postParam}
+          onFocusPostHandled={handlePostFocused}
           composerOpen={composerOpen}
           onComposerOpenChange={(o) => {
             setComposerOpen(o);

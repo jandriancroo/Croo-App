@@ -4,6 +4,11 @@ import { Capacitor } from '@capacitor/core';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { resolvePushRoute } from '@/lib/pushRouting';
+import { emitAppResume } from '@/lib/appResume';
+
+// Tap listener is attached once per app load (Layout remounts used to stack duplicates).
+let nativeTapListenerAttached = false;
 import {
   getVapidPublicKey,
   ensureSubscriptionForKey,
@@ -341,23 +346,22 @@ export const usePushNotifications = () => {
             title: notification.title || 'New notification',
             description: notification.body,
           });
+          emitAppResume();
         });
 
-        const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          console.log('[Push] Notification tapped:', notification);
-          const data = notification.notification.data;
-          // Handle chat_id or chatId (different sources use different formats)
-          const chatId = data?.chat_id || data?.chatId;
-          const checklistId = data?.checklist_id || data?.checklistId;
-          
-          if ((data?.type === 'chat' || data?.type === 'announcement' || data?.type === 'chat_message') && chatId) {
-            window.location.href = `/messages?chat=${chatId}`;
-          } else if (data?.type === 'checklist' && checklistId) {
-            window.location.href = `/complete/${checklistId}`;
-          } else if (data?.type === 'alert' || data?.type === 'overdue_checklist' || data?.type === 'late_arrival') {
-            window.location.href = '/alerts';
-          }
-        });
+        if (!nativeTapListenerAttached) {
+          nativeTapListenerAttached = true;
+          await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+            console.log('[Push] Notification tapped:', notification);
+            const route = resolvePushRoute(notification.notification.data);
+            const here = window.location.pathname + window.location.search;
+            if (!route || route === here) {
+              emitAppResume();
+              return;
+            }
+            window.location.href = route;
+          });
+        }
 
         console.log('[Push] ✅ All 4 listeners attached successfully');
         console.log('[Push] 📱 Now calling PushNotifications.register()...');

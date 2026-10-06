@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { markChatAsRead } from '@/hooks/useUnreadMessages';
 import { useUserRole } from '@/hooks/useUserRole';
 import { VirtuosoHandle } from 'react-virtuoso';
+import { useAppResume } from '@/lib/appResume';
 
 const MESSAGES_PER_PAGE = 50;
 
@@ -334,6 +335,16 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   }, [recentMessages.length, messagesLoading, scrollToBottom]);
 
   // Realtime subscription
+  // App resume: refetch the latest page (earlierMessages untouched), re-open the channel, re-mark read.
+  const [resumeNonce, setResumeNonce] = useState(0);
+  useAppResume(() => {
+    if (!chatId) return;
+    setResumeNonce((n) => n + 1);
+    queryClient.refetchQueries({ queryKey: ['chat-messages', chatId], exact: true }).then(() => {
+      if (currentUserId) markChatAsRead(chatId, currentUserId);
+    });
+  });
+
   useEffect(() => {
     if (!chatId) return;
 
@@ -419,7 +430,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId, queryClient, scrollToBottom, currentUserId]);
+  }, [chatId, queryClient, scrollToBottom, currentUserId, resumeNonce]);
 
   return {
     user,

@@ -31,49 +31,62 @@ self.addEventListener('push', function(event) {
   );
 });
 
-self.addEventListener('notificationclick', function(event) {
-  console.log('[SW] Notification clicked:', event);
-  
-  event.notification.close();
-  
-  const data = event.notification.data || {};
-  let url = '/';
-  
-  // Route based on notification type
-  const chatId = data.chat_id || data.chatId;
-  const checklistId = data.checklist_id || data.checklistId;
-  const visualAlertId = data.visual_alert_id || data.notification_id;
-  const alertType = data.type || data.notification_type;
+// Push-only service worker (no fetch handler): take control right away so
+// notification taps can talk to open windows.
+self.addEventListener('install', function() { self.skipWaiting(); });
+self.addEventListener('activate', function(event) { event.waitUntil(clients.claim()); });
 
-  // Visual Alerts: quick tasks and overdue checklists open as a deep-linked
-  // dialog stack on the Dashboard. The stack reads ?alert=<notification_id>
-  // and pops the matching card to the top.
-  if (visualAlertId && (alertType === 'alarm_task' || alertType === 'quick_task' || alertType === 'overdue_checklists' || alertType === 'overdue_checklist')) {
-    url = `/?alert=${visualAlertId}`;
-  } else if (chatId) {
-    // Any chat-related notification (message, announcement, mention, etc.)
-    url = `/messages?chat=${chatId}`;
-  } else if ((alertType === 'checklist' || alertType === 'overdue_checklist') && checklistId) {
-    url = `/complete/${checklistId}`;
-  } else if (alertType === 'alert' || alertType === 'late_arrival') {
-    url = '/alerts';
+// keep in sync with src/lib/pushRouting.ts
+function crooIsSafePath(url) {
+  return typeof url === 'string' && url.charAt(0) === '/' && url.indexOf('//') !== 0 && !/^\/*[a-z][a-z0-9+.-]*:/i.test(url);
+}
+function crooResolvePushRoute(data) {
+  if (!data) return null;
+  var type = data.type || data.notification_type;
+  var url = data.url;
+  if (type === 'overdue_checklist' || type === 'overdue_checklists' || type === 'checklist') return '/dashboard';
+  if (typeof url === 'string' && url.indexOf('/complete') === 0) return '/dashboard';
+  var alertId = data.notification_id || data.visual_alert_id;
+  if ((type === 'alarm_task' || type === 'quick_task') && alertId) return '/?alert=' + encodeURIComponent(alertId);
+  if (crooIsSafePath(url)) return url;
+  var chatId = data.chat_id || data.chatId;
+  var postId = data.post_id || data.postId;
+  if (postId && (type === 'announcement' || type === 'feed_post' || type === 'feed_comment' || !chatId)) {
+    return '/messages?post=' + encodeURIComponent(postId);
   }
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // Check if there's already a window open
-      for (let client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(url);
-          return client.focus();
-        }
-      }
-      // Open a new window if none exists
-      if (clients.openWindow) {
-        return clients.openWindow(url);
-      }
-    })
-  );
+  if (chatId) return '/messages?chat=' + encodeURIComponent(chatId);
+  if (type === 'alert' || type === 'late_arrival') return '/alerts';
+  return null;
+}
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  var route = crooResolvePushRoute(event.notification.data || {});
+  var url = route || '/';
+
+  event.waitUntil((async function() {
+    var list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    var client = null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].url.indexOf(self.location.origin) === 0 && 'focus' in list[i]) { client = list[i]; break; }
+    }
+    if (!client) {
+      if (clients.openWindow) return clients.openWindow(url);
+      return;
+    }
+    try { await client.focus(); } catch (e) {}
+    if (typeof client.postMessage === 'function') {
+      // route null = just resume where the app is (window refreshes its chat/feed)
+      client.postMessage({ type: 'CROO_PUSH_NAVIGATE', url: route });
+      return;
+    }
+    if (!route) return;
+    try {
+      await client.navigate(url);
+    } catch (e) {
+      if (clients.openWindow) return clients.openWindow(url);
+    }
+  })());
 });
 
 console.log('[SW] Push handler loaded');
