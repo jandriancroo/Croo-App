@@ -99,7 +99,9 @@ export interface UnreadableLines {
 const norm = (v: unknown) => String(v ?? "").trim();
 
 /** Heimark (and future profiled vendors) invoice prices. OFF until approved. */
-export const NON_PFG_INVOICE_PRICES_ENABLED = false;
+export const NON_PFG_INVOICE_PRICES_ENABLED = true;
+/** Heimark delivers every few weeks; look back far enough to find the latest checked line. */
+export const NON_PFG_INVOICE_WINDOW_DAYS = 400;
 
 /** Approved vendor numbers for a set of brand templates: template columns + brand_vendor_mappings. */
 export async function loadApprovedNumbers(
@@ -295,7 +297,7 @@ export async function loadActivityHits(
       .eq("vendor_invoices.review_status", "ok")
       .neq("vendor_invoices.profile", "default")
       .gt("cost_per_case", 0)
-      .gte("vendor_invoices.invoice_date", sinceIso);
+      .gte("vendor_invoices.invoice_date", new Date(Date.now() - NON_PFG_INVOICE_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10));
     const rows = ((vRows || []) as any[]).sort((a, b) =>
       String(b.vendor_invoices?.invoice_date ?? "").localeCompare(String(a.vendor_invoices?.invoice_date ?? "")));
     for (const r of rows) {
@@ -486,9 +488,11 @@ export async function chasePrices(
         if (o) { hit = o; break; }
       }
     }
-    // 3. Invoices
+    // 3. Invoices — the number this store's item carries comes first, so a
+    // store is priced from the packaging it actually buys.
     if (!hit) {
-      for (const n of [...pfg, ...pa]) {
+      const own = norm(item.item_number);
+      for (const n of own ? [own, ...[...pfg, ...pa].filter((x) => x !== own)] : [...pfg, ...pa]) {
         const inv = invoiceByNumber.get(n);
         if (inv) { hit = inv; break; }
       }
