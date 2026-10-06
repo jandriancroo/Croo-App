@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense } from "react";
+import { PushNavigationHandler } from '@/components/PushNavigationHandler';
 import { HelmetProvider } from "react-helmet-async";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Toaster } from "@/components/ui/toaster";
@@ -157,6 +158,7 @@ const AppWithSplash = () => {
   return (
     <>
       <ForceReloadHandler />
+      <PushNavigationHandler />
       <KioskAutoRestore />
       {showSplash && <AppSplashScreen onComplete={handleSplashComplete} />}
       <AppContent />

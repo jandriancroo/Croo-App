@@ -24,6 +24,8 @@ import {
 interface AnnouncementFeedProps {
   composerOpen?: boolean;
   onComposerOpenChange?: (open: boolean) => void;
+  focusPostId?: string | null;
+  onFocusPostHandled?: () => void;
 }
 
 function useCurrentProfile(userId: string | null) {
@@ -41,7 +43,7 @@ function useCurrentProfile(userId: string | null) {
   });
 }
 
-export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange }: AnnouncementFeedProps = {}) {
+export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpenChange, focusPostId, onFocusPostHandled }: AnnouncementFeedProps = {}) {
   const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin, isShiftManager } = useUserRole();
   const canAnnounce = isAdmin || isManager || isSuperAdmin;
@@ -66,6 +68,22 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   );
   const { offers: openShiftOffers } = useOpenShiftOffers();
   const { data: me } = useCurrentProfile(user?.id ?? null);
+
+  // Push deep link: show All, scroll to the post, brief highlight. Missing post = just show the feed.
+  useEffect(() => {
+    if (focusPostId && activeBadge !== 'all') setActiveBadge('all');
+  }, [focusPostId, activeBadge]);
+  useEffect(() => {
+    if (!focusPostId || isLoading || activeBadge !== 'all') return;
+    const el = document.getElementById(`post-${focusPostId}`);
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'ring-offset-background');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'ring-offset-background'), 2000);
+    }
+    onFocusPostHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPostId, isLoading, activeBadge, posts]);
 
   const pinnedPosts = useMemo(() => posts.filter(p => p.pinned), [posts]);
   const regularPosts = useMemo(() => posts.filter(p => !p.pinned), [posts]);

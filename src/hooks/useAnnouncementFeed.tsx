@@ -1,4 +1,5 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useAppResume } from '@/lib/appResume';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -242,6 +243,13 @@ export function useAnnouncementFeed(
     },
   });
 
+  const [resumeNonce, setResumeNonce] = useState(0);
+  useAppResume(() => {
+    if (!locationId) return;
+    queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
+    setResumeNonce((n) => n + 1);
+  });
+
   useEffect(() => {
     if (!locationId) return;
     const channel = supabase
@@ -263,7 +271,7 @@ export function useAnnouncementFeed(
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [locationId, queryClient]);
+  }, [locationId, queryClient, resumeNonce]);
 
   const markSeen = useCallback(async (postId: string): Promise<boolean> => {
     if (!user) return false;

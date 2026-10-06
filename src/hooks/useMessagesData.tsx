@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { toast } from 'sonner';
+import { useAppResume } from '@/lib/appResume';
 
 export interface Chat {
   id: string;
@@ -329,6 +330,10 @@ export function useMessagesData() {
     }
   };
 
+  // App resume: re-fetch the list; bumping the nonce re-opens the channel (which also fetches).
+  const [resumeNonce, setResumeNonce] = useState(0);
+  useAppResume(() => setResumeNonce((n) => n + 1));
+
   // Realtime subscription + initial fetch
   useEffect(() => {
     if (currentLocation) {
@@ -360,7 +365,7 @@ export function useMessagesData() {
       }
       supabase.removeChannel(channel);
     };
-  }, [currentLocation, fetchChats, debouncedFetchChats]);
+  }, [currentLocation, fetchChats, debouncedFetchChats, resumeNonce]);
 
   // Handle URL chat parameter
   useEffect(() => {

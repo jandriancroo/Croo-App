@@ -725,7 +725,13 @@ const handler = async (req: Request): Promise<Response> => {
     const payloadData = {
       ...(data || {}),
       ...(visualAlertNotificationId ? { notification_id: visualAlertNotificationId } : {}),
-    };
+    } as Record<string, unknown>;
+    {
+      const postId = (payloadData.post_id || payloadData.postId) as string | undefined;
+      if (!payloadData.url && postId && !payloadData.chat_id && !payloadData.chatId) {
+        payloadData.url = `/messages?post=${encodeURIComponent(String(postId))}`;
+      }
+    }
 
     // Get push tokens WITH user info for detailed logging
     const { data: tokens, error: tokensError } = await supabaseClient

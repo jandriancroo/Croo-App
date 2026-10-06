@@ -130,6 +130,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
 
   return (
     <article
+      id={`post-${post.id}`}
       ref={rootRef}
       className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-shadow hover:shadow-md"
     >
