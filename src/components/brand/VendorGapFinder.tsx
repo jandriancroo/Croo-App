@@ -24,6 +24,7 @@ import {
   Loader2, Filter, EyeOff, RotateCcw, Link2, ChevronDown, MapPin, X, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { DateTime } from 'luxon';
 import PendingVendorsCard from '@/components/brand/PendingVendorsCard';
 import { rankCandidates } from '@/utils/vendorCandidateMatch';
 
@@ -32,6 +33,17 @@ interface VendorGapFinderProps {
 }
 
 interface ReportedLoc { id: string; name: string }
+
+interface GapEvidence {
+  gap_id: string;
+  kind: 'bought' | 'invoice' | 'list';
+  pack_size: string | null;
+  price: number;
+  source: string;
+  ref: string | null;
+  seen_on: string | null;
+  location_id: string | null;
+}
 
 interface OutlierItem {
   id?: string;
@@ -100,6 +112,43 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       })) as OutlierItem[];
     },
   });
+
+  // Price already on file for each gap. Pack and price always come from the
+  // SAME row (order line, price list row or checked invoice line), so a
+  // single-unit purchase is never shown next to a full-case list price.
+  const { data: gapEvidence = [] } = useQuery({
+    queryKey: ['gap-price-evidence', brandId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_gap_price_evidence' as any, { _brand_id: brandId });
+      if (error) throw error;
+      return (data || []) as GapEvidence[];
+    },
+  });
+  const evidenceByGap = useMemo(() => {
+    const m = new Map<string, { bought?: GapEvidence; list?: GapEvidence }>();
+    // Source order: the store's order line, then the price list, then the invoice line.
+    const rank = (e: GapEvidence) => (e.kind === 'bought' ? 0 : e.kind === 'invoice' ? 1 : 2);
+    for (const e of [...gapEvidence].sort((a, b) => rank(a) - rank(b))) {
+      const entry = m.get(e.gap_id) || {};
+      if (e.kind === 'list') { if (!entry.list) entry.list = e; }
+      else if (!entry.bought) entry.bought = e;
+      m.set(e.gap_id, entry);
+    }
+    return m;
+  }, [gapEvidence]);
+  const renderEvidence = (gapId?: string) => {
+    const ev = gapId ? evidenceByGap.get(gapId) : undefined;
+    if (!ev || (!ev.bought && !ev.list)) return null;
+    const fmt = (e: GapEvidence, label: string) => {
+      const date = e.seen_on ? DateTime.fromISO(e.seen_on).toFormat('LLL d') : null;
+      return `${label}: ${e.pack_size ? `${e.pack_size} ` : ''}$${Number(e.price).toFixed(2)} (${e.source}${date ? `, ${date}` : ''})`;
+    };
+    const parts = [
+      ev.bought ? fmt(ev.bought, 'bought') : null,
+      ev.list ? fmt(ev.list, 'list') : null,
+    ].filter(Boolean);
+    return <div className="mt-0.5 text-xs text-foreground/80 tabular-nums">{parts.join(' · ')}</div>;
+  };
 
   const activeOutliers = useMemo(() => allAlerts.filter(a => a.status === 'new'), [allAlerts]);
   const ignoredOutliers = useMemo(
@@ -1016,6 +1065,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                           </span>
                         )}
                       </div>
+                      {renderEvidence(item.id)}
 
                       {/* Assisted match — the reporting store's own unpriced items,
                           ranked. One tap per suggestion, always a human decision. */}
@@ -1149,6 +1199,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                               </span>
                             )}
                           </div>
+                          {renderEvidence(item.id)}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <Button size="sm" variant="outline"

@@ -98,6 +98,9 @@ export interface UnreadableLines {
 
 const norm = (v: unknown) => String(v ?? "").trim();
 
+/** Heimark (and future profiled vendors) invoice prices. OFF until approved. */
+export const NON_PFG_INVOICE_PRICES_ENABLED = false;
+
 /** Approved vendor numbers for a set of brand templates: template columns + brand_vendor_mappings. */
 export async function loadApprovedNumbers(
   supabase: any,
@@ -278,6 +281,33 @@ export async function loadActivityHits(
           date: inv.invoice_date || null,
         });
       }
+    }
+  }
+
+  // Non-PFG vendor invoices read with a checked profile (Heimark today):
+  // paid cost per case from lines whose invoice passed every self-check.
+  // SWITCHED OFF until Jordan approves the Heimark dry run.
+  if (NON_PFG_INVOICE_PRICES_ENABLED) {
+    const { data: vRows } = await supabase
+      .from("vendor_invoice_items")
+      .select("item_number, cost_per_case, vendor_invoices!inner(location_id, invoice_number, invoice_date, delivery_date, review_status, profile)")
+      .eq("vendor_invoices.location_id", locationId)
+      .eq("vendor_invoices.review_status", "ok")
+      .neq("vendor_invoices.profile", "default")
+      .gt("cost_per_case", 0)
+      .gte("vendor_invoices.invoice_date", sinceIso);
+    const rows = ((vRows || []) as any[]).sort((a, b) =>
+      String(b.vendor_invoices?.invoice_date ?? "").localeCompare(String(a.vendor_invoices?.invoice_date ?? "")));
+    for (const r of rows) {
+      const n = norm(r.item_number);
+      const price = Number(r.cost_per_case);
+      if (!n || !Number.isFinite(price) || price <= 0 || invoiceByNumber.has(n)) continue;
+      invoiceByNumber.set(n, {
+        price,
+        source: "invoice",
+        ref: norm(r.vendor_invoices?.invoice_number) || null,
+        date: r.vendor_invoices?.invoice_date || r.vendor_invoices?.delivery_date || null,
+      });
     }
   }
 

@@ -13767,6 +13767,9 @@ export type Database = {
           created_at: string
           id: string
           item_number: string
+          last_seen_at: string | null
+          last_seen_invoice_id: string | null
+          notes: string | null
           pack_size: string | null
           reported_by_locations: Json
           resolved_at: string | null
@@ -13781,6 +13784,9 @@ export type Database = {
           created_at?: string
           id?: string
           item_number: string
+          last_seen_at?: string | null
+          last_seen_invoice_id?: string | null
+          notes?: string | null
           pack_size?: string | null
           reported_by_locations?: Json
           resolved_at?: string | null
@@ -13795,6 +13801,9 @@ export type Database = {
           created_at?: string
           id?: string
           item_number?: string
+          last_seen_at?: string | null
+          last_seen_invoice_id?: string | null
+          notes?: string | null
           pack_size?: string | null
           reported_by_locations?: Json
           resolved_at?: string | null
@@ -13815,46 +13824,73 @@ export type Database = {
       }
       vendor_invoice_items: {
         Row: {
+          cost_per_case: number | null
           created_at: string
+          deposit: number | null
+          discount: number | null
           id: string
+          inner_layout: string | null
           invoice_id: string
           item_number: string | null
+          list_price: number | null
           match_status: string
           matched_item_id: string | null
           matched_template_id: string | null
+          oz_per_unit: number | null
+          pack_size: string | null
           product_name: string
           quantity: number | null
+          raw_description: string | null
           total_price: number | null
           unit: string | null
           unit_price: number | null
+          units_per_case: number | null
         }
         Insert: {
+          cost_per_case?: number | null
           created_at?: string
+          deposit?: number | null
+          discount?: number | null
           id?: string
+          inner_layout?: string | null
           invoice_id: string
           item_number?: string | null
+          list_price?: number | null
           match_status?: string
           matched_item_id?: string | null
           matched_template_id?: string | null
+          oz_per_unit?: number | null
+          pack_size?: string | null
           product_name: string
           quantity?: number | null
+          raw_description?: string | null
           total_price?: number | null
           unit?: string | null
           unit_price?: number | null
+          units_per_case?: number | null
         }
         Update: {
+          cost_per_case?: number | null
           created_at?: string
+          deposit?: number | null
+          discount?: number | null
           id?: string
+          inner_layout?: string | null
           invoice_id?: string
           item_number?: string | null
+          list_price?: number | null
           match_status?: string
           matched_item_id?: string | null
           matched_template_id?: string | null
+          oz_per_unit?: number | null
+          pack_size?: string | null
           product_name?: string
           quantity?: number | null
+          raw_description?: string | null
           total_price?: number | null
           unit?: string | null
           unit_price?: number | null
+          units_per_case?: number | null
         }
         Relationships: [
           {
@@ -13891,11 +13927,15 @@ export type Database = {
           invoice_number: string | null
           location_id: string
           parsed_at: string | null
+          profile: string | null
+          review_status: string | null
+          self_checks: Json | null
           status: string
           total_amount: number | null
           updated_at: string
           uploaded_by: string | null
           vendor_name: string
+          vendor_name_normalized: string | null
         }
         Insert: {
           created_at?: string
@@ -13907,11 +13947,15 @@ export type Database = {
           invoice_number?: string | null
           location_id: string
           parsed_at?: string | null
+          profile?: string | null
+          review_status?: string | null
+          self_checks?: Json | null
           status?: string
           total_amount?: number | null
           updated_at?: string
           uploaded_by?: string | null
           vendor_name: string
+          vendor_name_normalized?: string | null
         }
         Update: {
           created_at?: string
@@ -13923,11 +13967,15 @@ export type Database = {
           invoice_number?: string | null
           location_id?: string
           parsed_at?: string | null
+          profile?: string | null
+          review_status?: string | null
+          self_checks?: Json | null
           status?: string
           total_amount?: number | null
           updated_at?: string
           uploaded_by?: string | null
           vendor_name?: string
+          vendor_name_normalized?: string | null
         }
         Relationships: [
           {
@@ -15156,6 +15204,19 @@ export type Database = {
         Returns: {
           est_savings: number
           total_minutes: number
+        }[]
+      }
+      get_gap_price_evidence: {
+        Args: { _brand_id: string }
+        Returns: {
+          gap_id: string
+          kind: string
+          location_id: string
+          pack_size: string
+          price: number
+          ref: string
+          seen_on: string
+          source: string
         }[]
       }
       get_labor_totals_for_dates: {
