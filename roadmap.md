@@ -141,7 +141,7 @@
 
 ## Heimark beer invoices — 2026-10-06 (done)
 - Live: upload reader picks a vendor profile (default unchanged; Heimark = copy columns, pack/cost worked out in code, every check must pass).
-- Re-read 7 of 8 stored Heimark invoices; #221832 (PS Aug 10) still fails (footer total misread, then server limits). Re-shoot or re-upload it.
+- Re-read 7 of 8 stored Heimark invoices; #221832 (PS Aug 10) not re-read. Jordan: old invoices are history, no rescan needed. Closed.
 - #200019 PD: kept 0694ed82 (the ticked one), deleted the 2 copies.
 - Extra numbers on same brand items: Estrella 13631, Stella 37744/37743, Firestone 70939 (own can configs). PD items carry the number they buy.
 - Beer configs count by the can, no Cases box; past beer count lines frozen (values unchanged).
