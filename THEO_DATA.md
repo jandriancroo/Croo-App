@@ -1,10 +1,11 @@
 # THEO_DATA.md — where Theo's answers come from
 
-Last updated: 2026-10-01. Owner: Jordan. Written by Claude from a read-only audit by Lovable (saved at `.lovable/plan/theo-data-audit-read-only-nothing-changed-2026-10-02.md`) plus Claude's own read of `supabase/functions/ai-assistant/index.ts`.
+Last updated: 2026-10-05. Owner: Jordan. Written by Claude from a read-only audit by Lovable (saved at `.lovable/plan/theo-data-audit-read-only-nothing-changed-2026-10-02.md`) plus Claude's own read of `supabase/functions/ai-assistant/index.ts`.
 
 ## How to use this file
 
 - This is the map of what Theo knows and how far to trust it. It is the companion to `THEO_ABILITIES.md` (what Theo can do).
+- `THEO_ABILITIES.md` is referenced but does not exist in the repo yet. Until it does, Theo's actions are summarized in "What Theo can do today" below.
 - Claude edits this file. Lovable builds from it and updates a row's Status only when a build changes it. Jordan approves changes.
 - Before any Theo build, check the area's row here. If the row says the source is wrong, fix the source first.
 - Inventory is out of scope for Theo for now. See `THEO_INVENTORY.md`. The one exception is item sales (top items and the promo tracker), which is sales data and stays in play.
@@ -22,6 +23,32 @@ If a screen in the app shows a number, Theo must get that number from the same f
 | Published vs draft | Crew-facing answers use published schedules only | `schedules.is_published` | OK (Round 1): every schedule read filters published; no published week returns a marker (managers also get the draft count) |
 | Local times and weekdays | Every time and date a manager reads is store-local with its weekday | every tool result | Every UTC timestamp in a tool result gets a `*_local` twin ("Thu Oct 1, 8:04 PM"), every date a `*_weekday`; the opening summary and system prompt show weekdays | OK (2026-10-02) | None |
 | Role privacy | Wages and per-person pay only for manager and above | role check in `ai-assistant` | OK |
+
+## What Theo can do today (actions)
+
+All actions below are available in typed chat and voice. "Managers and up" means only `manager`, `admin`, `org_admin` and `super_admin`, AND `has_location_access` for this store. Shift managers, shift managers in training, team members and brand admins get no actions.
+
+Theo only builds a preview card. Nothing saves until the manager taps that card's save button; saying "yes" does not save. The tap is rechecked, `cancel_pending_action` drops an open preview, and the wizard logs previews and saved actions in `theo_action_log`.
+
+| Action | Who (role) | How it saves | Notes |
+|---|---|---|---|
+| `create_task` (quick task) | Managers and up, with store access | Preview → tap Create task → recheck → shared quick-task save | Standard quick task for a person or role |
+| `create_event` | Managers and up, with store access | Preview → tap Add event → recheck → shared event save | One-time or recurring; categories, notes, role tags, daily-task and meeting flags |
+| `cover_shift` | Managers and up, with store access | Preview → tap Confirm change → recheck → shared schedule save | Checked cover candidates; published weeks also run Update |
+| `add_shift` | Managers and up, with store access | Preview → tap Add shift → recheck → shared schedule save | Checked day preview; a new week starts as a draft |
+| `delete_shift` | Managers and up, with store access | Preview → tap Delete shift → recheck → shared schedule save | Refuses protected shifts; published weeks also run Update |
+| `swap_shift` | Managers and up, with store access | Preview → tap Swap shifts → recheck → shared schedule save | Checks both shifts and people |
+| `change_shift` | Managers and up, with store access | Preview → tap Change hours → recheck → shared schedule save | Checks the changed hours and conflicts |
+| `send_message` (reply / new DM, build 6A) | Managers and up, with store access | Preview → tap Send → recheck → `src/lib/chatMessages.ts` | Replies can quote a message; new DMs reuse an existing DM; sensitive pay/discipline topics are blocked |
+| `clock_punch` (build 6C) | Managers and up, with store access | Preview → tap Confirm → recheck → shared punch save; Undo available | Clock ONE named crew member in or out at this store, e.g. "clock in Cheyenne at 8:30"; never crew self clock-in through Theo |
+
+For `clock_punch`, Theo checks the person's punches, scheduled shift and meetings using `_shared/punchPlan.ts`, and shows the real clock-in time when clocking out. Only the manager's Confirm tap writes the punch. No scheduled shift is a plain warning that confirming also adds a placeholder shift; Undo removes it only when verified safe. The separate QuickPunchDialog in Schedule/Time Clock is the manager's manual quick-punch screen, not Theo.
+
+Voice uses the same `ask_theo` lookups and the same actions as typed chat. `theo-voice` must never claim it saved something; it tells the manager to "tap ... to save".
+
+Read-only tools also offered today that the data table does not list by name: `query_my_chats`, `find_chats` and `read_chat` (managers only, only chats the asking person belongs to, scoped to this store; no hiring or support chats), `query_labor_intelligence`, `query_callout_patterns`, `find_crew`, `find_shifts` and `cover_candidates`. Shift managers can still ask who is working; that is a read, not an action.
+
+Source of truth: `_shared/theoActions.ts` (`actionsFor` / `theoActionsAt`), `supabase/functions/ai-assistant/{index,cover,shifts,events,messages,punches}.ts`, `src/components/ai/theoWizard.tsx` and `supabase/functions/theo-voice/index.ts`.
 
 ## Data areas (inventory excluded)
 
@@ -48,19 +75,19 @@ Status key: OK = Theo reads the right place. FIX = Theo reads the wrong place or
 | Store hours | Settings | `location_hours` | `location_hours` | OK | 15 of 18 stores have hours (audit) |
 | Certifications | Employee records | `certifications` | `certifications` | OK | Cutoff date uses UTC; move to store date |
 | Employee notes, catering | Employee records, catering | `employee_notes`, `catering_orders` | Same | OK but nearly empty | 5 and 7 rows (audit). Theo should not imply he has history here |
-| Training library | n/a | `opus_resource_index` | `opus_resource_index` | DEAD | 0 rows; the LMS is archived (audit). Stop offering the tool or re-point it |
+| Training library | n/a | `opus_resource_index` | `opus_resource_index` | DEAD | 0 rows; the LMS is archived (audit). `fetch_resource_content` is still offered to the model today; only `query_inventory` is filtered out of `THEO_TOOLS`. Stop offering the training tool or re-point it — still open |
 | Pinned knowledge | Theo chat (Pin) | `theo_knowledge` | `theo_knowledge` | OK but stale | Newest entry Apr 9, 2026 (audit) |
 
 ## What Theo cannot see yet (non-inventory)
 
 In rough priority order for a manager's day:
 
-1. Cash and deposits (`croo_cash_transactions`, drawer counts). Needed for the cash-variance questions Jordan demos.
+1. Cash transactions and deposit reconciliation (`croo_cash_transactions`). Drawer and safe counts ARE readable through `query_logbook` (Drawer Count / Safe Count entries); the missing part is the cash transactions and deposit reconciliation needed for Jordan's cash-variance questions.
 2. His own past briefings (`croo_ai_briefings`), so he can answer "what did you tell me this morning".
 3. Promo tracker rankings (see table above).
 4. Sales comparisons (see table above).
 5. Temperature and food-safety logs beyond what checklists hold.
-6. Activity feed and announcements.
+6. Team Feed posts (`announcement_posts`). Old-style announcement chats are searchable through `query_my_chats` for managers, within the same membership and store checks.
 7. Coop's Toast shifts (read-only Toast punches).
 8. Hiring, write-ups and reviews, payroll: leave out unless Jordan decides otherwise (privacy).
 
@@ -86,3 +113,4 @@ In rough priority order for a manager's day:
 - 2026-10-02: Round 1 built in `ai-assistant`: store time zone and business date, business-day windows, published-only schedules, labor from `get_store_labor` as the signed-in user, inventory tool switched off.
 - 2026-10-02: Pace now comes from `sales_cache.pace_adjusted_projection` (never the goal) with the dashboard's status thresholds, today and week.
 - 2026-10-02: Lookup fixes from the model bake-off: local times and weekdays on every tool result, lateness flag in `query_punch_patterns`, time-off counts, a review summary for the asked window, top items in the dashboard's net-sales order with `price_zero`.
+- 2026-10-05: Doc review against code (Ryan): added actions summary (incl. clock_punch build 6C), push-tap routing, 9948aa6 Time Tracking day bucketing note; training-library tool still offered; drawer/safe counts via logbook.
