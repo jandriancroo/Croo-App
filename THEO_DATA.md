@@ -33,7 +33,7 @@ Theo only builds a preview card. Nothing saves until the manager taps that card'
 | Action | Who (role) | How it saves | Notes |
 |---|---|---|---|
 | `create_task` (quick task) | Managers and up, with store access | Preview → tap Create task → recheck → shared quick-task save | Standard quick task for a person or role |
-| `create_event` | Managers and up, with store access | Preview → tap Add event → recheck → shared event save | One-time or recurring; categories, notes, role tags, daily-task and meeting flags |
+| `create_event` | Managers and up, with store access | Preview → tap Add event → recheck → shared event save | One-time or recurring; categories, notes, role tags, daily-task and meeting flags. Creating a new category requires admin or above; managers can use existing categories |
 | `cover_shift` | Managers and up, with store access | Preview → tap Confirm change → recheck → shared schedule save | Checked cover candidates; published weeks also run Update |
 | `add_shift` | Managers and up, with store access | Preview → tap Add shift → recheck → shared schedule save | Checked day preview; a new week starts as a draft |
 | `delete_shift` | Managers and up, with store access | Preview → tap Delete shift → recheck → shared schedule save | Refuses protected shifts; published weeks also run Update |
@@ -49,6 +49,17 @@ Voice uses the same `ask_theo` lookups and the same actions as typed chat. `theo
 Read-only tools also offered today that the data table does not list by name: `query_my_chats`, `find_chats` and `read_chat` (managers only, only chats the asking person belongs to, scoped to this store; no hiring or support chats), `query_labor_intelligence`, `query_callout_patterns`, `find_crew`, `find_shifts` and `cover_candidates`. Shift managers can still ask who is working; that is a read, not an action.
 
 Source of truth: `_shared/theoActions.ts` (`actionsFor` / `theoActionsAt`), `supabase/functions/ai-assistant/{index,cover,shifts,events,messages,punches}.ts`, `src/components/ai/theoWizard.tsx` and `supabase/functions/theo-voice/index.ts`.
+
+## What people see after Theo acts (push taps, as of 2026-10-05)
+
+Push-tap routing lives in `src/lib/pushRouting.ts` and its matching copy in `public/sw-push.js`. These rules also apply to pushes from the rest of the app, not just Theo.
+
+- Theo sends a message → the recipient's push opens that DM (or the group chat for a group reply). Chats refresh when the app opens or comes back to the front, so the new message shows without force-quitting.
+- Team Feed / announcement push → opens Chats, scrolled to that post with a brief highlight. Feed pushes now carry a link to the post, added in `send-push-notification`. If the post is unavailable after the refresh, the feed stays open without an error.
+- Checklist pushes (overdue, monthly, training approvals) → open the dashboard only, never the checklist itself (Jordan's call).
+- Hiring: new application → Hiring page; interview reply → that applicant's hiring chat. Hiring chat messages are unchanged.
+- Quick task pushes → dashboard alert card (unchanged). Schedule pushes (published / updated / shift approval / reminder) → just open or resume the app, with no deep link. Late arrival → Alerts.
+- The native App Store app gets this tap routing only after its next rebuild. The home-screen web app gets it from the published web update; this source review alone does not verify what is currently published.
 
 ## Data areas (inventory excluded)
 
@@ -68,7 +79,7 @@ Status key: OK = Theo reads the right place. FIX = Theo reads the wrong place or
 | Shift marketplace | Activity feed, marketplace | `shift_offers` | `shift_offers` | OK (status filter unverified) | Confirm Theo includes the same statuses as the feed |
 | Checklist completion | Dashboard Checklists card | `checklist_items` + `checklist_responses`, scored in `useChecklistCompletion.ts` (business-day window, archive rules) | `checklist_submissions` (counts submitted forms) | FIX | Report completed vs expected items the way the dashboard does |
 | Tasks | Dashboard Quick Tasks | `temporary_tasks` and related tables | Same | OK | Apply the business-day window |
-| Punches, lateness, call-outs, crew performance | Time Tracking, labor screens | Shift pairing in `_labor_pair_shifts` | Business-day windows (Round 1). Lateness: `query_punch_patterns` returns per person per day scheduled start, first clock-in, minutes late and a `late` flag (7-minute grace), plus `late_count`; the model never judges lateness. Pairing still rebuilt by hand | FIX (pairing) | Use the shared pairing |
+| Punches, lateness, call-outs, crew performance | Time Tracking, labor screens | Shift pairing in `_labor_pair_shifts` | Business-day windows (Round 1). Lateness: `query_punch_patterns` returns per person per day scheduled start, first clock-in, minutes late and a `late` flag (7-minute grace), plus `late_count`; the model never judges lateness. Pairing still rebuilt by hand | FIX (pairing) | Use the shared pairing. As of commit `9948aa6` (Oct 5), Time Tracking, pay-period cards and personal pay use ONE helper, `src/utils/payrollDayBucketing.ts`, that mirrors `_labor_pair_shifts` + `business_date`: split and overnight shifts are filed under each shift's clock-in business day; duplicate clock-ins within 5 minutes are ignored (a clock-in ending a break is not a duplicate). Server `payroll_hours` remains the source of truth for paid hours. Theo still groups punches by hand, by shift ID or person/business day, so it can disagree with these screens on split/overnight shifts. It is the remaining separate pairing path among those compared here, not a verified claim about every screen in the app |
 | Logbook | Logbook | `logbook_entries`, `logbook_categories` | Same | OK | None |
 | Tips | Tip distribution screen | `daily_tips` | `daily_tips` | OK (totals unverified) | None. 6 stores have no tips (audit) |
 | Guest reviews | Ovation review card | Ovation API | Ovation API, filtered to the asked window by store-local date; returns a `summary` (window start/end, review count, average rating) the model quotes, never recounts | OK (2026-10-02) | Only stores mapped to Ovation |
