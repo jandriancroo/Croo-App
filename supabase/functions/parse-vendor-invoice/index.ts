@@ -73,6 +73,10 @@ serve(async (req) => {
       }
     }
 
+    // A record made by this upload (or pre-inserted by the app and not yet
+    // read) may merge into an existing record for the same invoice number.
+    // Re-reading an existing record never merges or deletes it.
+    let freshRecord = false;
     // Allow client to skip pre-inserting vendor_invoices row (bypasses RLS friction on stale sessions).
     if (!invoiceId && storagePath && locationId) {
       const { data: created, error: createErr } = await admin
@@ -89,6 +93,7 @@ serve(async (req) => {
         .single();
       if (createErr || !created) throw new Error("Failed to create invoice record: " + (createErr?.message || "unknown"));
       invoiceId = created.id;
+      freshRecord = true;
     }
 
     if (!invoiceId) {
@@ -223,6 +228,16 @@ serve(async (req) => {
       parsed.total_amount = (raw.footer?.invoice_total ?? parsed.total_amount) as number | undefined;
       if (!reading.ok) {
         // A failed check: keep the record, save NO lines, prices or gaps.
+        // Re-reading an already-saved invoice only records the failed checks;
+        // its saved lines and period ticks stay exactly as they were.
+        if (invoice.status !== "pending" && invoice.status !== "needs_review" && invoice.parsed_at) {
+          await admin.from("vendor_invoices").update({ review_status: "needs_review", profile, self_checks: selfChecks }).eq("id", invoiceId);
+          return new Response(JSON.stringify({
+            success: false, needs_review: true, invoice_id: invoiceId, reread: true,
+            error: "Re-read didn't add up; the saved invoice was left as it was.",
+            failed_checks: reading.checks.filter((c) => !c.ok),
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
         await admin.from("vendor_invoices").update({
           vendor_name: parsed.vendor_name,
           vendor_name_normalized: normalizeVendorName(parsed.vendor_name),
@@ -259,7 +274,8 @@ serve(async (req) => {
     // ── One invoice number = one record (store + vendor + number) ────────────
     const vendorNormalized = normalizeVendorName(parsed.vendor_name || invoice.vendor_name) || null;
     const invoiceNumber = (parsed.invoice_number || invoice.invoice_number || "").trim() || null;
-    if (vendorNormalized && invoiceNumber) {
+    if (invoice.status === "pending") freshRecord = true;
+    if (freshRecord && vendorNormalized && invoiceNumber) {
       const { data: same } = await admin
         .from("vendor_invoices")
         .select("id, vendor_name, vendor_name_normalized, inventory_count_id, created_at")
@@ -533,7 +549,8 @@ serve(async (req) => {
       insertItems.push(itemRow);
     }
 
-    // Insert parsed line items
+    // Insert parsed line items. A re-read replaces this record's own lines.
+    await admin.from("vendor_invoice_items").delete().eq("invoice_id", invoiceId);
     if (insertItems.length > 0) {
       const { error: itemsErr } = await admin
         .from("vendor_invoice_items")

@@ -138,3 +138,15 @@
 - [x] Step 2 (built, not deployed): Vendor reading profiles (default byte-identical, Heimark), schema, one-record-per-invoice, gap writer, reopen ignored, price-chase invoice source OFF
 - [x] Step 3 (8 of 10 read; 2 stalled): Dry run of 10 Heimark invoices + price table + #200019 proposal + beer configs + gap preview + COGS period answer
 - [ ] Step 4+: wait for Jordan's approval of dry run
+
+## Heimark beer invoices — 2026-10-06 (done)
+- Live: upload reader picks a vendor profile (default unchanged; Heimark = copy columns, pack/cost worked out in code, every check must pass).
+- Re-read 7 of 8 stored Heimark invoices; #221832 (PS Aug 10) still fails (footer total misread, then server limits). Re-shoot or re-upload it.
+- #200019 PD: kept 0694ed82 (the ticked one), deleted the 2 copies.
+- Extra numbers on same brand items: Estrella 13631, Stella 37744/37743, Firestone 70939 (own can configs). PD items carry the number they buy.
+- Beer configs count by the can, no Cases box; past beer count lines frozen (values unchanged).
+- Invoice price source ON (vendorPriceChase NON_PFG_INVOICE_PRICES_ENABLED): beer priced per case paid.
+- #235013 (PS Sep 28) saved and ticked into PS September: purchases 19,118.33 -> 19,471.08.
+- Open (Jordan): create brand items for Mich Ultra 24/16 #11451 and the other new beers; then fix PD "Michelob Ultra 12oz" (priced from 24/16 product, left at 33.50).
+- Open: HEIC photos too heavy for the server converter on big images; app-side photo conversion would fix it.
+- Don't touch: frozen past count costs; the profile rules file without re-running src/lib/heimarkProfile.test.ts.
