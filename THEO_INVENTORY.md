@@ -19,7 +19,7 @@ Theo's `query_inventory` tool in `supabase/functions/ai-assistant/index.ts` read
 `query_inventory` is still parked: it is filtered out of the tools offered to the model (`THEO_TOOLS`, lines 914-915). Its code is kept for later, not offered to Theo today.
 
 - It never calls the per-store pack rule (`get_store_pack_lens` / `v_store_pack_lens`).
-- Its copy of the valuation math can fall back to the retired `inventory_items.pack_quantity_override` (fallback at lines 119-120; selected at lines 1727 and 1841). For ordinary items, a count's frozen pack size (`pack_quantity_at_count`) wins. Recipe items use the item's pack size instead, so the retired field can still win there even when the count has a frozen value.
+- Its copy of the valuation math can fall back to the retired `inventory_items.pack_quantity_override` (fallback at lines 119-120; selected at lines 1727 and 1841). A count that has a frozen pack size (`pack_quantity_at_count`) always wins, so the retired field is only used when a count has no frozen value. Even a request for live data cannot override a saved snapshot (lines 60-63).
 - COGS is calculated from order totals, not vendor invoices.
 - Lite inventory, transfers, waste logs and spot counts are ignored.
 - The valuation math is a copy of `src/utils/countItemValue.ts`, so the two can drift.
