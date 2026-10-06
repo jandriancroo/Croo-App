@@ -59,6 +59,7 @@ export async function extractHeimarkInvoice(
   const head = atob(base64Image.slice(0, 24));
   const isHeic = /hei[cf]/i.test(contentType) || (head.slice(4, 8) === "ftyp" && /hei|mif1|msf1|hevc/.test(head.slice(8, 12)));
   if (isHeic) {
+    // @ts-ignore npm specifier resolves in the edge runtime only
     const { default: convert } = await import("npm:heic-convert@2.1.0");
     const bin = Uint8Array.from(atob(base64Image), (c) => c.charCodeAt(0));
     const jpg = new Uint8Array(await convert({ buffer: bin, format: "JPEG", quality: 0.9 }));
