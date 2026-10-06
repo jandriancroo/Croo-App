@@ -6,6 +6,8 @@ import {
   AiRateLimitedError,
   AiCreditsExhaustedError,
 } from "../_shared/invoice-ai.ts";
+import { chooseProfile, normalizeVendorName, PROFILE_DISPLAY_NAME } from "../_shared/invoiceProfiles/index.ts";
+import { extractHeimarkInvoice, interpretHeimark, type HeimarkLine } from "../_shared/invoiceProfiles/heimark.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -196,7 +198,96 @@ serve(async (req) => {
       parsed.vendor_name = invoice.vendor_name && invoice.vendor_name !== "Unknown" ? invoice.vendor_name : undefined;
     }
 
+    // ── Reading profile ─────────────────────────────────────────────────────
+    // The default read above is unchanged for every vendor. Only when the
+    // vendor on the invoice is one with its own profile (today: Heimark) is the
+    // same image read a second time with that vendor's rules.
+    const profile = chooseProfile(parsed.vendor_name || invoice.vendor_name);
+    let heimarkLines: HeimarkLine[] | null = null;
+    let selfChecks: unknown = null;
+    if (profile === "heimark") {
+      let raw;
+      try {
+        raw = await extractHeimarkInvoice(base64Image, contentType, lovableApiKey);
+      } catch (e: any) {
+        if (e?.status === 429) return new Response(JSON.stringify({ error: "Rate limited, please try again shortly" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (e?.status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw e;
+      }
+      const reading = interpretHeimark(raw);
+      selfChecks = reading.checks;
+      parsed.vendor_name = PROFILE_DISPLAY_NAME.heimark!;
+      parsed.invoice_number = raw.invoice_number || parsed.invoice_number;
+      parsed.invoice_date = raw.invoice_date || parsed.invoice_date;
+      parsed.delivery_date = raw.delivery_date || parsed.delivery_date;
+      parsed.total_amount = (raw.footer?.invoice_total ?? parsed.total_amount) as number | undefined;
+      if (!reading.ok) {
+        // A failed check: keep the record, save NO lines, prices or gaps.
+        await admin.from("vendor_invoices").update({
+          vendor_name: parsed.vendor_name,
+          vendor_name_normalized: normalizeVendorName(parsed.vendor_name),
+          invoice_number: parsed.invoice_number || invoice.invoice_number,
+          invoice_date: parsed.invoice_date || null,
+          delivery_date: parsed.delivery_date || parsed.invoice_date || null,
+          total_amount: parsed.total_amount || null,
+          parsed_at: new Date().toISOString(),
+          status: "needs_review",
+          review_status: "needs_review",
+          profile,
+          self_checks: selfChecks,
+        }).eq("id", invoiceId);
+        return new Response(JSON.stringify({
+          success: false,
+          needs_review: true,
+          invoice_id: invoiceId,
+          error: "This invoice didn't add up when we checked it. Please re-take the photo (whole receipt, flat, in focus). Nothing was saved.",
+          failed_checks: reading.checks.filter((c) => !c.ok),
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      heimarkLines = reading.lines;
+      parsed.line_items = reading.lines.map((l) => ({
+        product_name: l.raw_description,
+        item_number: l.item_number,
+        pack_size: l.pack.pack_size ?? undefined,
+        quantity: l.quantity,
+        unit: "case",
+        unit_price: l.cost_per_case ?? undefined,
+        total_price: l.amount,
+      }));
+    }
+
+    // ── One invoice number = one record (store + vendor + number) ────────────
+    const vendorNormalized = normalizeVendorName(parsed.vendor_name || invoice.vendor_name) || null;
+    const invoiceNumber = (parsed.invoice_number || invoice.invoice_number || "").trim() || null;
+    if (vendorNormalized && invoiceNumber) {
+      const { data: same } = await admin
+        .from("vendor_invoices")
+        .select("id, vendor_name, vendor_name_normalized, inventory_count_id, created_at")
+        .eq("location_id", invoice.location_id)
+        .eq("invoice_number", invoiceNumber)
+        .neq("id", invoiceId)
+        .order("created_at", { ascending: true });
+      const matches = (same || []).filter((r: any) => (r.vendor_name_normalized || normalizeVendorName(r.vendor_name)) === vendorNormalized);
+      const target: any = matches.find((r: any) => r.vendor_name_normalized === vendorNormalized) || matches[0];
+      if (target) {
+        // Re-upload: the existing record is updated and its lines replaced;
+        // the row made for this upload is removed.
+        await admin.from("vendor_invoice_items").delete().eq("invoice_id", target.id);
+        await admin.from("vendor_invoices").update({
+          image_url: invoice.image_url,
+          inventory_count_id: target.inventory_count_id || invoice.inventory_count_id || null,
+        }).eq("id", target.id);
+        await admin.from("vendor_invoice_items").delete().eq("invoice_id", invoiceId);
+        await admin.from("vendor_invoices").delete().eq("id", invoiceId);
+        invoiceId = target.id;
+      }
+    }
+
     await admin.from("vendor_invoices").update({
+      vendor_name_normalized: vendorNormalized,
+      profile,
+      review_status: "ok",
+      self_checks: selfChecks,
       vendor_name: parsed.vendor_name || invoice.vendor_name,
       invoice_number: parsed.invoice_number || invoice.invoice_number,
       invoice_date: parsed.invoice_date || null,
@@ -400,14 +491,30 @@ serve(async (req) => {
         matched_item_id: match?.id || null,
         matched_template_id: matchedTemplateId,
       };
+      const hl = heimarkLines?.find((h) => h.item_number === String(li.item_number ?? "").trim());
+      if (hl) {
+        Object.assign(itemRow, {
+          raw_description: hl.raw_description,
+          pack_size: hl.pack.pack_size,
+          units_per_case: hl.pack.units_per_case,
+          oz_per_unit: hl.pack.oz_per_unit,
+          inner_layout: hl.pack.inner_layout,
+          list_price: hl.list_price,
+          discount: hl.discount,
+          deposit: hl.deposit,
+          cost_per_case: hl.cost_per_case,
+        });
+      }
 
-      if (match && li.unit_price && li.unit_price > 0) {
+      // Profiled vendors (Heimark) don't touch store items yet: no pack or price
+      // write-back until Jordan approves the dry run.
+      if (!heimarkLines && match && li.unit_price && li.unit_price > 0) {
         matchedItemIds.add(match.id);
         const packSize = (li as any).pack_size || li.unit || null;
         if (packSize) packUpdates.push({ id: match.id, pack_size: String(packSize) });
       }
 
-      if (!match && !matchedTemplateId && brandId && li.product_name) {
+      if (!heimarkLines && !match && !matchedTemplateId && brandId && li.product_name) {
         const fallbackGapId = paProductId || li.item_number || generateItemId(parsed.vendor_name || "", li.product_name);
         if (!templateByName.get(normalizeKey(li.product_name))) {
           newGapAlerts.push({
@@ -447,7 +554,7 @@ serve(async (req) => {
     // a PFG/PA sync match does (same window rules, same unpriced_since /
     // last_ordered_at stamping, same activation rule).
     let priceSweep: any = null;
-    if (matchedItemIds.size > 0) {
+    if (!heimarkLines && matchedItemIds.size > 0) {
       try {
         const sweepResp = await fetch(`${supabaseUrl}/functions/v1/vendor-price-chase`, {
           method: "POST",
@@ -466,6 +573,54 @@ serve(async (req) => {
         if (!sweepResp.ok) console.error("price chase failed:", sweepResp.status, priceSweep);
       } catch (e) {
         console.error("price chase invoke failed:", e instanceof Error ? e.message : String(e));
+      }
+    }
+
+    // Heimark gaps: vendor, parsed pack, reporting store. An ignored number
+    // that shows up on a new invoice is reopened with a note.
+    if (heimarkLines && brandId) {
+      const storeRef = { id: invoice.location_id, name: locationRow?.name ?? "" };
+      for (const row of insertItems) {
+        if (row.match_status !== "unmatched" || !row.item_number) continue;
+        const { data: existing } = await admin
+          .from("vendor_gap_alerts")
+          .select("id, status, reported_by_locations, notes")
+          .eq("brand_id", brandId)
+          .eq("item_number", row.item_number)
+          .in("vendor_source", ["heimark", "invoice"])
+          .ilike("vendor_name", "%heimark%")
+          .limit(1)
+          .maybeSingle();
+        const seenNote = `Seen again on invoice ${invoiceNumber ?? "?"} (${parsed.invoice_date ?? "no date"}) at ${storeRef.name}`;
+        if (!existing) {
+          await admin.from("vendor_gap_alerts").insert({
+            brand_id: brandId,
+            item_number: row.item_number,
+            vendor_name: PROFILE_DISPLAY_NAME.heimark,
+            vendor_description: row.raw_description ?? row.product_name,
+            vendor_source: "heimark",
+            pack_size: row.pack_size,
+            reported_by_locations: [storeRef],
+            last_seen_invoice_id: invoiceId,
+            last_seen_at: new Date().toISOString(),
+            status: "new",
+          });
+          continue;
+        }
+        const locs = Array.isArray((existing as any).reported_by_locations) ? (existing as any).reported_by_locations : [];
+        const patch: Record<string, unknown> = {
+          pack_size: row.pack_size,
+          vendor_name: PROFILE_DISPLAY_NAME.heimark,
+          reported_by_locations: locs.some((l: any) => l?.id === storeRef.id) ? locs : [...locs, storeRef],
+          last_seen_invoice_id: invoiceId,
+          last_seen_at: new Date().toISOString(),
+        };
+        if ((existing as any).status === "ignored" || (existing as any).status === "dismissed") {
+          patch.status = "new";
+          patch.resolved_at = null;
+          patch.notes = [(existing as any).notes, seenNote].filter(Boolean).join("\n");
+        }
+        await admin.from("vendor_gap_alerts").update(patch).eq("id", (existing as any).id);
       }
     }
 
