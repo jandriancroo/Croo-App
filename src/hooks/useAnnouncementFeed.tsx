@@ -253,7 +253,7 @@ export function useAnnouncementFeed(
   useEffect(() => {
     if (!locationId) return;
     const channel = supabase
-      .channel(`ann-feed-${locationId}`)
+      .channel(`ann-feed-${locationId}-${resumeNonce}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcement_posts', filter: `location_id=eq.${locationId}` }, () => {
         queryClient.invalidateQueries({ queryKey: POSTS_KEY(locationId) });
       })
@@ -439,6 +439,7 @@ export function useAnnouncementFeed(
     channels: channelsQuery.data ?? [],
     badges: badgesQuery.data ?? [],
     isLoading: postsQuery.isLoading,
+    isFetching: postsQuery.isFetching,
     refetch: postsQuery.refetch,
     markSeen,
     toggleReaction: (postId: string, emoji: string, mine: boolean) => toggleReaction.mutate({ postId, emoji, mine }),
