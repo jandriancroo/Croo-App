@@ -134,7 +134,7 @@
 - [ ] Thermometer reader: better dial instructions (Jordan's blue/red zone pattern), test Luna; keep current model unless proven
 
 ## Heimark invoices (Oct 6)
-- [ ] Step 1: Gaps screen shows pack + price + source + date from the same line (order > list > invoice)
-- [ ] Step 2: Vendor reading profiles (default byte-identical, Heimark), schema, one-record-per-invoice, gap writer, reopen ignored, price-chase invoice source OFF
-- [ ] Step 3: Dry run of 10 Heimark invoices + price table + #200019 proposal + beer configs + gap preview + COGS period answer
+- [x] Step 1: Gaps screen shows pack + price + source + date from the same line (order > list > invoice)
+- [x] Step 2 (built, not deployed): Vendor reading profiles (default byte-identical, Heimark), schema, one-record-per-invoice, gap writer, reopen ignored, price-chase invoice source OFF
+- [x] Step 3 (8 of 10 read; 2 stalled): Dry run of 10 Heimark invoices + price table + #200019 proposal + beer configs + gap preview + COGS period answer
 - [ ] Step 4+: wait for Jordan's approval of dry run
