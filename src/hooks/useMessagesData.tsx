@@ -341,7 +341,7 @@ export function useMessagesData() {
     }
 
     const channel = supabase
-      .channel('messages-changes')
+      .channel(`messages-changes-${resumeNonce}`)
       .on(
         'postgres_changes',
         {

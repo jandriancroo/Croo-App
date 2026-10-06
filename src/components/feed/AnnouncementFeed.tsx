@@ -60,7 +60,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
   const [activeBadge, setActiveBadge] = useState<string | 'all'>('all');
 
   const {
-    posts, badges, channels, isLoading, toggleReaction, createPost, createBadge, deletePost, updatePost, markSeen,
+    posts, badges, channels, isLoading, isFetching, toggleReaction, createPost, createBadge, deletePost, updatePost, markSeen,
   } = useAnnouncementFeed('all', activeBadge);
   const composerChannels = useMemo(
     () => channels.filter(c => c.audience_type === 'everyone' || isShiftManager),
@@ -74,16 +74,21 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
     if (focusPostId && activeBadge !== 'all') setActiveBadge('all');
   }, [focusPostId, activeBadge]);
   useEffect(() => {
-    if (!focusPostId || isLoading || activeBadge !== 'all') return;
+    if (!focusPostId || activeBadge !== 'all') return;
     const el = document.getElementById(`post-${focusPostId}`);
     if (el) {
       el.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'ring-offset-background');
       setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'ring-offset-background'), 2000);
+      onFocusPostHandled?.();
+      return;
     }
-    onFocusPostHandled?.();
+    // Post not in the list yet. Cached posts can be showing while the refetch is still
+    // in flight (the normal case right after a push), so only give up once the load
+    // has truly finished — otherwise ?post is cleared before the post ever appears.
+    if (!isLoading && !isFetching) onFocusPostHandled?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusPostId, isLoading, activeBadge, posts]);
+  }, [focusPostId, isLoading, isFetching, activeBadge, posts]);
 
   const pinnedPosts = useMemo(() => posts.filter(p => p.pinned), [posts]);
   const regularPosts = useMemo(() => posts.filter(p => !p.pinned), [posts]);

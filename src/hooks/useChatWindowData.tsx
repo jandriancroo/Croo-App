@@ -349,7 +349,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     if (!chatId) return;
 
     const channel = supabase
-      .channel(`messages-${chatId}`)
+      .channel(`messages-${chatId}-${resumeNonce}`)
       .on(
         'postgres_changes',
         {

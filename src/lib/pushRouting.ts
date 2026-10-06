@@ -10,7 +10,7 @@ export function resolvePushRoute(data: Record<string, any> | null | undefined): 
   const url = data.url;
 
   // a. Checklist family always opens the dashboard (never deep-links into a checklist).
-  if (type === 'overdue_checklist' || type === 'overdue_checklists' || type === 'checklist') return '/dashboard';
+  if (type === 'overdue_checklist' || type === 'overdue_checklists' || type === 'checklist' || type === 'monthly_checklist') return '/dashboard';
   if (typeof url === 'string' && url.startsWith('/complete')) return '/dashboard';
 
   // b. Quick tasks -> visual alert stack on the dashboard.
