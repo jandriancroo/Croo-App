@@ -14,10 +14,15 @@ const keyOf = (t: string) => {
   return `${double ? 2 : 1}:${name}`;
 };
 
+// Legacy aliases: a stored {checklist} is the Item field forever (kept as written).
+const ALIASES: Record<string, string> = { '1:checklist': '1:item' };
+
 export function findField(raw: string, fields: SmartField[]): SmartField | undefined {
-  const k = keyOf(raw);
+  const k0 = keyOf(raw);
+  const k = ALIASES[k0] ?? k0;
   return fields.find((f) => keyOf(f.token) === k);
 }
+
 
 export function parseTokens(text: string, fields: SmartField[]): Segment[] {
   const out: Segment[] = [];
@@ -48,7 +53,9 @@ export function serializeSegments(segments: Segment[]): string {
 export const NUDGE_FIELDS: SmartField[] = [
   { token: '{sender_first_name}', label: 'Your name' },
   { token: '{recipient_first_name}', label: 'Crew member name' },
-  { token: '{checklist}', label: 'Checklist' },
+  { token: '{item}', label: 'Item' },
+  { token: '{item_type}', label: 'Item type' },
+  { token: '{event_time}', label: 'Event time' },
   { token: '{done}', label: 'Done' },
   { token: '{total}', label: 'Total' },
 ];

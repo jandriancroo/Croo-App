@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -24,6 +25,11 @@ interface AssignedTemporaryTasksProps {
   compact?: boolean;
   /** Content to render between events and tasks in compact mode */
   afterEventsContent?: React.ReactNode;
+  /** Quick Nudge (managers and up): badge on nudgeable task and event pills */
+  canNudge?: boolean;
+  onNudge?: (t: { type: 'task' | 'event'; id: string; title: string }) => void;
+  /** 'task:<id>' / 'event:<id>' -> minutes since the last nudge (last hour) */
+  recentlyNudged?: Record<string, number>;
 }
 
 interface CateringOrder {
@@ -43,6 +49,7 @@ interface EventTask {
   id: string;
   event_name: string;
   event_time: string;
+  event_end_time?: string | null;
   category_id: string | null;
   category?: {
     name: string;
@@ -58,6 +65,9 @@ export function AssignedTemporaryTasks({
   includeEventTasks = false,
   compact = false,
   afterEventsContent,
+  canNudge = false,
+  onNudge,
+  recentlyNudged,
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -73,7 +83,7 @@ export function AssignedTemporaryTasks({
   const userRoleForFilter = isAdmin ? 'admin' : isGeneralManager ? 'general_manager' : isManager ? 'manager' : isShiftManager ? 'shift_manager' : 'team_member';
 
   // Fetch assigned temporary tasks (both completed and incomplete for today)
-  const { data: tasks = [], refetch } = useQuery({
+  const { data: tasks = [], refetch, isFetched: tasksFetched } = useQuery({
     queryKey: ["assigned-temp-tasks", currentLocation?.id, user?.id, userRoleForFilter, showCompleted],
     queryFn: async () => {
       if (!currentLocation?.id || !user?.id) return [];
@@ -211,14 +221,14 @@ export function AssignedTemporaryTasks({
   const today = getTodayInTimezone();
   const todayDayOfWeek = getDayOfWeekInTimezone();
 
-  const { data: eventTasks = [], refetch: refetchEvents } = useQuery({
+  const { data: eventTasks = [], refetch: refetchEvents, isFetched: eventsFetched } = useQuery({
     queryKey: ["today-event-tasks", currentLocation?.id, includeEventTasks, role],
     queryFn: async () => {
       if (!currentLocation?.id || !includeEventTasks) return [];
 
       const { data: eventsData, error: eventsError } = await supabase
         .from("schedule_events")
-        .select(`id, event_name, event_time, day_of_week, days_of_week, category_id, tagged_roles, event_categories(name, color)`)
+        .select(`id, event_name, event_time, event_end_time, day_of_week, days_of_week, category_id, tagged_roles, event_categories(name, color)`)
         .eq("location_id", currentLocation.id)
         .eq("is_daily_task", true)
         .eq("is_recurring", true);
@@ -234,6 +244,7 @@ export function AssignedTemporaryTasks({
         id: event.id,
         event_name: event.event_name,
         event_time: event.event_time,
+        event_end_time: event.event_end_time,
         category_id: event.category_id,
         category: event.event_categories,
         tagged_roles: event.tagged_roles as string[] | null,
@@ -278,6 +289,45 @@ export function AssignedTemporaryTasks({
   const isEventCompleted = (taskId: string) => eventCompletions.some(c => c.event_id === taskId);
   const incompleteEventTasks = eventTasks.filter(t => !isEventCompleted(t.id));
   const completedEventTasks = eventTasks.filter(t => isEventCompleted(t.id));
+
+  // Quick Nudge: client-side "can this pill be nudged" (the server re-checks everything).
+  const nowLocalHHMM = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+  const taskNudge = (task: any) => {
+    if (!canNudge || !onNudge) return undefined;
+    if (task.completed_at || task.write_up_id || task.icon_name === "opus_logo") return undefined;
+    if (task.expires_at && new Date(task.expires_at).getTime() <= Date.now()) return undefined;
+    if (task.task_style === "alarm" && !task.last_triggered_at) return undefined;
+    return { onClick: () => onNudge({ type: "task", id: task.id, title: task.title }), minutesAgo: recentlyNudged?.[`task:${task.id}`] };
+  };
+  const eventNudge = (ev: EventTask) => {
+    if (!canNudge || !onNudge || isEventCompleted(ev.id)) return undefined;
+    if (ev.event_end_time && nowLocalHHMM > ev.event_end_time.slice(0, 5)) return undefined;
+    return { onClick: () => onNudge({ type: "event", id: ev.id, title: ev.event_name }), minutesAgo: recentlyNudged?.[`event:${ev.id}`] };
+  };
+
+  // Deep links from a nudge card: ?task=<id> opens that task, ?event=<id> highlights that event pill.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pulseEventId, setPulseEventId] = useState<string | null>(null);
+  const wantTask = searchParams.get("task");
+  const wantEvent = searchParams.get("event");
+  const tasksLoaded = tasksFetched;
+  useEffect(() => {
+    if (!wantTask || !tasksLoaded) return;
+    const t = tasks.find((x: any) => x.id === wantTask);
+    if (t) setSelectedTask(t); else toast.error("That task isn't on your list.");
+    const next = new URLSearchParams(searchParams); next.delete("task"); setSearchParams(next, { replace: true });
+  }, [wantTask, tasksLoaded, tasks, searchParams, setSearchParams]);
+  useEffect(() => {
+    if (!wantEvent || !eventsFetched) return;
+    setPulseEventId(wantEvent);
+    requestAnimationFrame(() => document.querySelector(`[data-nudge-event="${wantEvent}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    const t = setTimeout(() => setPulseEventId(null), 2000);
+    const next = new URLSearchParams(searchParams); next.delete("event"); setSearchParams(next, { replace: true });
+    return () => clearTimeout(t);
+  }, [wantEvent, eventsFetched, searchParams, setSearchParams]);
+  const pulseWrap = (id: string, node: React.ReactNode) => (
+    <div key={`wrap-${id}`} data-nudge-event={id} className={pulseEventId === id ? "rounded-xl ring-2 ring-primary animate-pulse" : undefined}>{node}</div>
+  );
 
   const handleTaskComplete = () => {
     refetch();
@@ -377,6 +427,8 @@ export function AssignedTemporaryTasks({
       icon: any;
       subtasksCompleted?: number;
       subtasksTotal?: number;
+      nudge?: { onClick: () => void; minutesAgo?: number };
+      eventId?: string;
     }[] = [];
 
     // Events first, sorted by earliest time
@@ -392,6 +444,8 @@ export function AssignedTemporaryTasks({
         onClick: () => handleEventTaskComplete(task.id),
         isEvent: true,
         icon: CalendarDays,
+        nudge: eventNudge(task),
+        eventId: task.id,
       });
     });
 
@@ -406,6 +460,7 @@ export function AssignedTemporaryTasks({
         icon: getIconComponent(task.icon_name || "ClipboardList"),
         subtasksCompleted: counts?.completed,
         subtasksTotal: counts?.total,
+        nudge: taskNudge(task),
       });
     });
 
@@ -428,7 +483,8 @@ export function AssignedTemporaryTasks({
     const beforeContent = eventItems;
     const afterContent = otherItems;
 
-    const renderPill = (item: typeof badgeItems[0]) => (
+    const renderPill = (item: typeof badgeItems[0]) => {
+      const pill = (
       <TemporaryTaskCard
         key={item.id}
         id={item.id}
@@ -440,8 +496,11 @@ export function AssignedTemporaryTasks({
         subtasksCompleted={item.subtasksCompleted}
         subtasksTotal={item.subtasksTotal}
         badge={item.progress ? { label: item.progress } : undefined}
+        nudge={item.nudge}
       />
-    );
+      );
+      return item.eventId ? pulseWrap(item.eventId, pill) : pill;
+    };
 
 
     return (
@@ -505,7 +564,7 @@ export function AssignedTemporaryTasks({
   return (
     <>
       {/* Event tasks — prioritized to top */}
-      {incompleteEventTasks.map((task) => (
+      {incompleteEventTasks.map((task) => pulseWrap(task.id,
         <TemporaryTaskCard
           key={`event-${task.id}`}
           id={task.id}
@@ -518,6 +577,7 @@ export function AssignedTemporaryTasks({
           isLoading={completingEventTask === task.id}
           iconStyle="minimal"
           badge={{ label: "EVENT", color: task.category?.color || "#6366f1" }}
+          nudge={eventNudge(task)}
         />
       ))}
 
@@ -541,6 +601,7 @@ export function AssignedTemporaryTasks({
             subtasksCompleted={counts?.completed}
             subtasksTotal={counts?.total}
             isOpusTask={task.icon_name === "opus_logo"}
+            nudge={taskNudge(task)}
           />
         );
       })}

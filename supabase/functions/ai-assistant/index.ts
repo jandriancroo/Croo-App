@@ -3238,11 +3238,11 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
     // Voice screen and typed chat, never in the bake-off.
     const theoActions = !bakeoff && (usageSource === "voice" || usageSource === "chat") ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
-    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift || theoActions.create_event || theoActions.send_message || theoActions.clock_punch || theoActions.nudge_checklist;
+    const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift || theoActions.create_event || theoActions.send_message || theoActions.clock_punch || theoActions.quick_nudge;
     // Build 6C: clock someone in / out (one switch).
     const punchOn = theoActions.clock_punch;
-    // Quick Nudge (checklists): preview only; the Send nudge tap sends through checklist-nudge.
-    const nudgeOn = theoActions.nudge_checklist;
+    // Quick Nudge (checklists, tasks, events): preview only; the Send nudge tap sends through quick-nudge.
+    const nudgeOn = theoActions.quick_nudge;
     const eventOn = theoActions.create_event;
     // Build 6A: read my chats, reply, new DM (one switch). Off -> Theo can't read chats at all (query_my_chats included).
     const msgOn = theoActions.send_message;
@@ -3304,8 +3304,8 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       kind: pending_action.kind === "out" ? "out" : "in", employee_id: String(pending_action.employee?.id || "").slice(0, 36),
       employee: String(pending_action.employee?.name || "").slice(0, 80), time: String(pending_action.time_label || "").slice(0, 20), date: String(pending_action.date_label || "").slice(0, 30),
     } : null;
-    const pendingNudge = nudgeOn && pending_action && typeof pending_action === "object" && pending_action.action === "nudge_checklist" ? {
-      checklist: String(pending_action.checklist?.title || "").slice(0, 120), message: String(pending_action.message || "").slice(0, 300),
+    const pendingNudge = nudgeOn && pending_action && typeof pending_action === "object" && pending_action.action === "quick_nudge" ? {
+      target: String(pending_action.target?.title || "").slice(0, 120), type: String(pending_action.target?.type || "").slice(0, 10), message: String(pending_action.message || "").slice(0, 300),
       recipients: Array.isArray(pending_action.recipients) ? pending_action.recipients.length : 0,
     } : null;
     // A template list on screen (add a shift): the draft it belongs to.
@@ -3535,11 +3535,11 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 - Examples of meaning: "clock in Cheyenne at 8:30", "clock Cheyenne in", "clock out Cheyenne at 4", "punch Alle in at 9". Resolve the person with find_crew (several: ask which one, naming them; none: say you can't find them at this store), then call propose_punch with kind in or out, employee_id and the time as said (leave time out for now).
 - The app does every check (already in, not in, on a break, future time, flags). Follow its "next" exactly. When it returns preview_shown, your whole reply must be exactly: "Here's the punch. Does this look right to you?" Never say anyone was clocked in or out.
 - Breaks, editing or deleting an existing punch, and clocking several people at once are not built: say to use the Time Clock page.
-` : ""}${nudgeOn ? `CHECKLIST NUDGE (a push in the manager's name asking the crew to finish a checklist):
-- Examples of meaning: "nudge the crew about the AM line check", "remind Maria to finish the closing checklist", "poke them about deep cleaning". Call propose_nudge with the checklist as said and named_person if someone was named.
+` : ""}${nudgeOn ? `QUICK NUDGE (a push in the manager's name about a checklist, task or event):
+- Works for checklists, tasks and today's events. Examples of meaning: "nudge the crew about the AM line check", "nudge the crew about the catering order", "remind Maria to finish the closing checklist", "give everyone a heads-up about the staff meeting". Call propose_nudge with target as said and named_person if someone was named.
 - Nudges always go to everyone on the clock at this store. Never promise it goes to one person alone.
-- When it returns preview_shown, your whole reply must be exactly: "Here's the nudge. Does this look right to you?" Never say a nudge was sent.
-- Word changes ("say it nicer", "use the Before close one"): call propose_nudge again with text (the manager's own first-person words) or template.
+- Preview only. When it returns preview_shown, your whole reply must be exactly: "Here's the nudge. Does this look right to you?" Never say a nudge was sent.
+- Word changes ("say it nicer", "use the Before close one"): call propose_nudge again with the same target and text (the manager's own first-person words) or template.
 ` : ""}NOT BUILT YET (propose nothing, say it's not something you can do yet and where in the app to do it by hand): alarm, team or QR tasks (Tasks page); editing or deleting a task (Tasks page); ${nudgeOn ? "creating, editing or completing checklists (Checklists page)" : "checklists (Checklists page)"}; time off, including giving someone a day off (Availability page); moving a shift to another day, changing a shift's position, swapping more than two people, posting a shift offer, or adding or deleting more than one shift at a time (Schedule page)${eventOn ? "; editing or deleting a schedule event, adding meeting attendees, or copying event categories from another store (Schedule page)" : ""}. For these, do not look anything up first (no find_shifts): just say it's not something you can do yet and to use that page. Example of meaning: "Move Alle's shift to Tuesday" = moving a shift to another day, not built.
 - ACTION RULE (strict): Call propose_action ONLY when you are actually proposing the change in this reply. If you ask a question or say you can't, propose nothing. Your words and your tool calls must agree.${listShift ? `
 
@@ -3589,8 +3589,8 @@ A CLOCK ${pendingPunch.kind.toUpperCase()} PREVIEW IS ON SCREEN RIGHT NOW (not s
 - If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that punch."
 - If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Confirm to save it."` : ""}${pendingNudge ? `
 
-A CHECKLIST NUDGE PREVIEW IS ON SCREEN RIGHT NOW (not sent): ${JSON.stringify(pendingNudge)}
-- If the manager changes the words or template, call propose_nudge again with the same checklist and the new text or template.
+A NUDGE PREVIEW IS ON SCREEN RIGHT NOW (not sent): ${JSON.stringify(pendingNudge)}
+- If the manager changes the words or template, call propose_nudge again with the same target and the new text or template.
 - If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that nudge."
 - If the manager agrees (yes / send it / looks good), do NOT call any tool. Reply exactly: "Tap Send nudge to send it."` : ""}${listDraft ? `
 
@@ -3857,7 +3857,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
         if (saysNo) console.log("action guard dropped proposal");
         else {
           out.proposal = liveProposal;
-          out.content = liveProposal.action === "create_task" ? "Here's the task. Does this look right to you?" : liveProposal.action === "clock_punch" ? "Here's the punch. Does this look right to you?" : liveProposal.action === "nudge_checklist" ? "Here's the nudge. Does this look right to you?" : liveProposal.action === "send_message" ? "Here's the message. Does this look right to you?" : liveProposal.action === "create_event" ? "Here's the event. Does this look right to you?" : liveProposal.action === "add_shift" ? "Here's the shift. Does this look right to you?" : "Here's the change. Does this look right to you?";
+          out.content = liveProposal.action === "create_task" ? "Here's the task. Does this look right to you?" : liveProposal.action === "clock_punch" ? "Here's the punch. Does this look right to you?" : liveProposal.action === "quick_nudge" ? "Here's the nudge. Does this look right to you?" : liveProposal.action === "send_message" ? "Here's the message. Does this look right to you?" : liveProposal.action === "create_event" ? "Here's the event. Does this look right to you?" : liveProposal.action === "add_shift" ? "Here's the shift. Does this look right to you?" : "Here's the change. Does this look right to you?";
         }
       } else if (cancelPending) out.cancel_pending = true;
       else if (coverScreen && !declineLine) out.screen = coverScreen;

@@ -28,7 +28,8 @@ import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
-import { ChecklistNudgeSheet } from '@/components/dashboard/ChecklistNudgeSheet';
+import { QuickNudgeSheet } from '@/components/dashboard/QuickNudgeSheet';
+import type { TargetType } from '@/lib/quickNudges';
 import { TrainingAssignmentsSection } from '@/components/dashboard/TrainingAssignmentsSection';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
@@ -514,40 +515,42 @@ export default function Dashboard() {
   const trainingTotal = trainingRowsFlat.filter(a => a.expected > 0).length;
   const trainingRemaining = trainingRowsFlat.filter(a => a.expected > 0 && a.completed < a.expected).length;
 
-  const quickTasksContent = (
-    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
-  );
-
   // Quick Nudge (managers and up): the sheet target and any nudge for a checklist at this store in the last hour.
   const canNudge = isManager;
-  const [nudgeTarget, setNudgeTarget] = useState<{ id: string; title: string } | null>(null);
+  const [nudgeTarget, setNudgeTarget] = useState<{ type: TargetType; id: string; title: string } | null>(null);
+  const onNudge = useCallback((t: { type: TargetType; id: string; title: string }) => setNudgeTarget(t), []);
   const { data: recentlyNudged } = useQuery({
-    queryKey: ['checklist-nudges-recent', currentLocation?.id],
+    queryKey: ['quick-nudges-recent', currentLocation?.id],
     enabled: canNudge && !!currentLocation?.id,
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
     queryFn: async () => {
       const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const { data } = await supabase
-        .from('checklist_nudge_log')
-        .select('checklist_id, created_at')
+        .from('nudge_log')
+        .select('target_type, target_id, created_at')
         .eq('location_id', currentLocation!.id)
         .gte('created_at', since)
         .order('created_at', { ascending: false })
         .limit(200);
       const out: Record<string, number> = {};
       for (const r of data || []) {
-        if (out[r.checklist_id] == null) out[r.checklist_id] = Math.max(0, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 60000));
+        const k = `${r.target_type}:${r.target_id}`;
+        if (out[k] == null) out[k] = Math.max(0, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 60000));
       }
       return out;
     },
   });
 
+  const quickTasksContent = (
+    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} canNudge={canNudge} onNudge={onNudge} recentlyNudged={recentlyNudged} />
+  );
+
   const checklistsGridContent = (
     <>
     <ChecklistsGrid
       canNudge={canNudge}
-      onNudge={setNudgeTarget}
+      onNudge={(c) => onNudge({ type: 'checklist', ...c })}
       recentlyNudged={recentlyNudged}
       checklists={checklists}
       getCompletionData={getCompletionData}
@@ -564,10 +567,12 @@ export default function Dashboard() {
       }
     />
     {canNudge && (
-      <ChecklistNudgeSheet
-        target={nudgeTarget}
+      <QuickNudgeSheet
+        targetType={nudgeTarget?.type ?? null}
+        targetId={nudgeTarget?.id ?? null}
+        title={nudgeTarget?.title ?? ''}
         onClose={() => setNudgeTarget(null)}
-        onSent={() => queryClient.invalidateQueries({ queryKey: ['checklist-nudges-recent', currentLocation?.id] })}
+        onSent={() => queryClient.invalidateQueries({ queryKey: ['quick-nudges-recent', currentLocation?.id] })}
       />
     )}
     </>

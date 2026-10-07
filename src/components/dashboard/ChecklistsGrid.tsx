@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { NUDGE_ICON } from '@/lib/checklistNudges';
+import { NudgeBadge } from '@/components/dashboard/NudgeBadge';
 
 interface ChecklistItem {
   id: string;
@@ -29,7 +29,7 @@ interface ChecklistsGridProps {
   /** Managers and up: show the nudge badge on unfinished, open rows */
   canNudge?: boolean;
   onNudge?: (checklist: { id: string; title: string }) => void;
-  /** checklist id -> minutes since the last nudge at this store (last hour only) */
+  /** 'checklist:<id>' -> minutes since the last nudge at this store (last hour only) */
   recentlyNudged?: Record<string, number>;
 }
 
@@ -44,7 +44,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   onNudge,
   recentlyNudged,
 }: ChecklistsGridProps) {
-  const NudgeIcon = NUDGE_ICON;
   const navigate = useNavigate();
   const { getBusinessDateInTimezone } = useLocationTimezone();
 
@@ -186,7 +185,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
           })();
 
           const showNudge = canNudge && !!onNudge && !isLocked && expected > 0 && completed < expected;
-          const nudgedAgo = recentlyNudged?.[checklist.id];
+          const nudgedAgo = recentlyNudged?.[`checklist:${checklist.id}`];
           const cooling = nudgedAgo != null;
 
           return (
@@ -200,29 +199,11 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
               )}
             >
               {showNudge && (
-                <button
-                  type="button"
-                  aria-label={cooling ? `Nudge crew (nudged ${nudgedAgo}m ago)` : 'Nudge crew'}
-                  onClick={(e) => { e.stopPropagation(); onNudge!({ id: checklist.id, title: checklist.title }); }}
-                  className="absolute z-20 flex h-10 w-10 items-center justify-center"
+                <NudgeBadge
+                  onClick={() => onNudge!({ id: checklist.id, title: checklist.title })}
+                  minutesAgo={nudgedAgo}
                   style={{ top: -20, right: -1 }}
-                >
-                  {cooling && (
-                    <span className="absolute right-[34px] rounded-full bg-card px-1 text-[9px] font-bold leading-[14px] text-muted-foreground ring-1 ring-border">
-                      {nudgedAgo}m
-                    </span>
-                  )}
-                  <span
-                    className={cn(
-                      'flex h-[26px] w-[26px] items-center justify-center rounded-full ring-2 ring-card',
-                      cooling
-                        ? 'bg-muted text-muted-foreground shadow-sm'
-                        : 'bg-primary text-primary-foreground outline outline-1 outline-primary/25 shadow-[0_2px_6px_hsl(190_54%_25%/.35)]'
-                    )}
-                  >
-                    <NudgeIcon className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  </span>
-                </button>
+                />
               )}
 
               {renderPieGlyph(isLocked, completed, expected)}

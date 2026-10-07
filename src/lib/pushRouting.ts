@@ -9,8 +9,14 @@ export function resolvePushRoute(data: Record<string, any> | null | undefined): 
   const type = data.type || data.notification_type;
   const url = data.url;
 
-  // a0. A manager's checklist nudge opens that checklist (the one exception to rule a).
-  if (type === 'checklist_nudge' && typeof data.checklist_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.checklist_id)) return '/complete/' + data.checklist_id;
+  // a0. A manager's nudge: checklist -> that checklist (the one exception to rule a); task/event -> its alert card.
+  if (type === 'quick_nudge' || type === 'checklist_nudge') {
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const nid = data.notification_id;
+    const cid = data.target_type === 'checklist' ? data.target_id : data.checklist_id;
+    if ((data.target_type === 'checklist' || data.checklist_id) && typeof cid === 'string' && uuid.test(cid)) return '/complete/' + cid;
+    if ((data.target_type === 'task' || data.target_type === 'event') && nid) return `/?alert=${encodeURIComponent(nid)}`;
+  }
   // a. Checklist family always opens the dashboard (never deep-links into a checklist).
   if (type === 'overdue_checklist' || type === 'overdue_checklists' || type === 'checklist' || type === 'monthly_checklist') return '/dashboard';
   if (typeof url === 'string' && url.startsWith('/complete')) return '/dashboard';

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronRight, LucideIcon, Send } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
 import opusLogo from "@/assets/opus-logo.png";
+import { NudgeBadge } from "./NudgeBadge";
 
 export interface TemporaryTaskCardProps {
   id: string;
@@ -29,6 +30,8 @@ export interface TemporaryTaskCardProps {
   subtasksCompleted?: number;
   subtasksTotal?: number;
   isOpusTask?: boolean;
+  /** Quick Nudge badge on the pill's top-right corner (managers and up). */
+  nudge?: { onClick: () => void; minutesAgo?: number };
 }
 
 /** Parse a #rrggbb / #rgb hex string to [r,g,b]. Returns null on failure. */
@@ -62,6 +65,7 @@ export function TemporaryTaskCard({
   subtasksCompleted,
   subtasksTotal,
   isOpusTask = false,
+  nudge,
 }: TemporaryTaskCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
@@ -90,12 +94,14 @@ export function TemporaryTaskCard({
 
   return (
     <>
+      <div className="relative">
+      {nudge && <NudgeBadge onClick={nudge.onClick} minutesAgo={nudge.minutesAgo} style={{ top: -13 - 7, right: -6 - 7 }} />}
       <div
         className="quick-task-card group flex items-center gap-2 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
         style={{
           backgroundColor: bg,
           borderRadius: 12,
-          padding: "8px 10px",
+          padding: nudge ? "8px 18px 8px 10px" : "8px 10px",
           boxShadow: `0 1px 2px ${shadowColor}, inset 0 1px 0 rgba(255,255,255,0.12)`,
         }}
 
@@ -175,6 +181,7 @@ export function TemporaryTaskCard({
           style={{ width: 14, height: 14, color: countColor, opacity: 0.85 }}
           aria-hidden
         />
+      </div>
       </div>
 
 
