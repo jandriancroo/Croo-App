@@ -515,10 +515,6 @@ export default function Dashboard() {
   const trainingTotal = trainingRowsFlat.filter(a => a.expected > 0).length;
   const trainingRemaining = trainingRowsFlat.filter(a => a.expected > 0 && a.completed < a.expected).length;
 
-  const quickTasksContent = (
-    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} canNudge={canNudge} onNudge={onNudge} recentlyNudged={recentlyNudged} />
-  );
-
   // Quick Nudge (managers and up): the sheet target and any nudge for a checklist at this store in the last hour.
   const canNudge = isManager;
   const [nudgeTarget, setNudgeTarget] = useState<{ type: TargetType; id: string; title: string } | null>(null);
@@ -545,6 +541,10 @@ export default function Dashboard() {
       return out;
     },
   });
+
+  const quickTasksContent = (
+    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} canNudge={canNudge} onNudge={onNudge} recentlyNudged={recentlyNudged} />
+  );
 
   const checklistsGridContent = (
     <>
