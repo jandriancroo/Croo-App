@@ -67,7 +67,7 @@ export function ChecklistNudgeSheet({ target, onClose, onSent }: Props) {
     const tpl = templates[templateIdx];
     const res = await sendChecklistNudge({ checklistId: target.id, message, templateId: tpl?.id ?? null, source: 'dashboard' });
     setSending(false);
-    if (!res.ok) { toast.error(res.error); return; }
+    if (res.ok !== true) { toast.error((res as { error: string }).error); return; }
     toast.success(`Nudged ${nameList(res.sent.map((p) => p.name.split(' ')[0]))}`);
     onSent?.();
     onClose();

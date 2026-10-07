@@ -523,7 +523,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
       const res = await sendChecklistNudge({ checklistId: p.checklist.id, message: p.message, templateId: p.template_id, source: ownerRef.current === 'voice' ? 'theo_voice' : 'theo_chat', theoProposalId: p.id });
-      if (!res.ok) { logAction(a.logId, { status: 'failed' }); setAction({ ...a, stage: 'preview', error: `Not sent: ${res.error}` }); return; }
+      if (res.ok !== true) { logAction(a.logId, { status: 'failed' }); setAction({ ...a, stage: 'preview', error: `Not sent: ${(res as { error: string }).error}` }); return; }
       logAction(a.logId, { status: 'confirmed', record_id: res.batch_id });
       const names = nameList(res.sent.map((x) => firstName(x.name)));
       onRecord?.(`Nudged ${names} about ${p.checklist.title}`);
