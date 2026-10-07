@@ -44,7 +44,13 @@ function crooResolvePushRoute(data) {
   if (!data) return null;
   var type = data.type || data.notification_type;
   var url = data.url;
-  if (type === 'checklist_nudge' && typeof data.checklist_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.checklist_id)) return '/complete/' + data.checklist_id;
+  if (type === 'quick_nudge' || type === 'checklist_nudge') {
+    var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    var nid = data.notification_id;
+    var cid = data.target_type === 'checklist' ? data.target_id : data.checklist_id;
+    if ((data.target_type === 'checklist' || data.checklist_id) && typeof cid === 'string' && uuid.test(cid)) return '/complete/' + cid;
+    if ((data.target_type === 'task' || data.target_type === 'event') && nid) return '/?alert=' + encodeURIComponent(nid);
+  }
   if (type === 'overdue_checklist' || type === 'overdue_checklists' || type === 'checklist' || type === 'monthly_checklist') return '/dashboard';
   if (typeof url === 'string' && url.indexOf('/complete') === 0) return '/dashboard';
   var alertId = data.notification_id || data.visual_alert_id;

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ClipboardList, X, Zap } from "lucide-react";
 import type { VisualAlert } from "@/hooks/useVisualAlerts";
 import { useNavigate } from "react-router-dom";
-import { NUDGE_ICON } from "@/lib/checklistNudges";
+import { NUDGE_ICON } from "@/lib/quickNudges";
 
 interface Props {
   alert: VisualAlert;
@@ -15,7 +15,12 @@ interface Props {
 export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }: Props) {
   const navigate = useNavigate();
   const isChecklist = alert.alert_type === "overdue_checklist";
-  const isNudge = alert.alert_type === "checklist_nudge";
+  const isNudge = alert.alert_type === "checklist_nudge" || alert.alert_type === "quick_nudge";
+  // notification_id = "nudge:<type>:<batch>" (older checklist nudges: "nudge:<batch>")
+  const nudgeType = isNudge ? (/^nudge:(task|event):/.exec(alert.notification_id)?.[1] ?? "checklist") : null;
+  const nudgeLabel = nudgeType === "task" ? "Task nudge" : nudgeType === "event" ? "Event heads-up" : "Checklist nudge";
+  const nudgeAction = nudgeType === "task" ? "Open task" : nudgeType === "event" ? "Go to dashboard" : "Open checklist";
+  const nudgePath = nudgeType === "task" ? `/dashboard?task=${alert.ref_id}` : nudgeType === "event" ? `/dashboard?event=${alert.ref_id}` : `/complete/${alert.ref_id}`;
   const Icon = isNudge ? NUDGE_ICON : isChecklist ? ClipboardList : Zap;
 
   return (
@@ -41,7 +46,7 @@ export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-            {isNudge ? "Checklist nudge" : isChecklist ? "Overdue Checklist" : "Quick Task"}
+            {isNudge ? nudgeLabel : isChecklist ? "Overdue Checklist" : "Quick Task"}
           </div>
           <h2 className="text-lg font-semibold leading-tight mt-0.5 line-clamp-2">
             {alert.title}
@@ -58,11 +63,11 @@ export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }
       {isNudge ? (
         <div className="space-y-2">
           <Button
-            onClick={() => { onNext(); navigate(`/complete/${alert.ref_id}`); }}
+            onClick={() => { onNext(); navigate(nudgePath); }}
             className="w-full h-12 text-base font-semibold gap-2"
             size="lg"
           >
-            Open checklist
+            {nudgeAction}
           </Button>
           <Button onClick={onNext} variant="ghost" className="w-full">
             Later
