@@ -520,7 +520,7 @@ export default function Dashboard() {
   const [nudgeTarget, setNudgeTarget] = useState<{ type: TargetType; id: string; title: string } | null>(null);
   const onNudge = useCallback((t: { type: TargetType; id: string; title: string }) => setNudgeTarget(t), []);
   const { data: recentlyNudged } = useQuery({
-    queryKey: ['checklist-nudges-recent', currentLocation?.id],
+    queryKey: ['quick-nudges-recent', currentLocation?.id],
     enabled: canNudge && !!currentLocation?.id,
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
@@ -572,7 +572,7 @@ export default function Dashboard() {
         targetId={nudgeTarget?.id ?? null}
         title={nudgeTarget?.title ?? ''}
         onClose={() => setNudgeTarget(null)}
-        onSent={() => queryClient.invalidateQueries({ queryKey: ['checklist-nudges-recent', currentLocation?.id] })}
+        onSent={() => queryClient.invalidateQueries({ queryKey: ['quick-nudges-recent', currentLocation?.id] })}
       />
     )}
     </>

@@ -37,7 +37,7 @@ export const CREATE_EVENT_ROLES = CREATE_TASK_ROLES;
 export const MESSAGE_ROLES = CREATE_TASK_ROLES;
 // CLOCK IN / OUT SWITCH (build 6C): the SAME list as CREATE_TASK_ROLES (manager and up; shift managers don't get it). Change this one line.
 export const PUNCH_ROLES = CREATE_TASK_ROLES;
-// QUICK NUDGE (checklists, tasks, events): manager and up INCLUDING brand admins. Same list as src/lib/checklistNudges.ts NUDGE_ROLES_CLIENT.
+// QUICK NUDGE (checklists, tasks, events): manager and up INCLUDING brand admins. Same list as src/lib/quickNudges.ts NUDGE_ROLES_CLIENT.
 export const NUDGE_ROLES = ["manager", "admin", "org_admin", "brand_admin", "super_admin"];
 
 export type TheoActions = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; send_message: boolean; create_event: boolean; clock_punch: boolean; quick_nudge: boolean };

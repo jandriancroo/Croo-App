@@ -514,7 +514,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       setAction({ ...a, stage: 'done', error: "Couldn't unsend the message. Try again." });
     }
   };
-  // Nudge: the ONE send path (src/lib/checklistNudges.ts); the server re-checks everything and picks the recipients. No Undo.
+  // Nudge: the ONE send path (src/lib/quickNudges.ts); the server re-checks everything and picks the recipients. No Undo.
   const confirmNudge = async () => {
     const a = actionRef.current;
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'quick_nudge' || !currentLocation?.id) return;
