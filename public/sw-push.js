@@ -44,6 +44,7 @@ function crooResolvePushRoute(data) {
   if (!data) return null;
   var type = data.type || data.notification_type;
   var url = data.url;
+  if (type === 'checklist_nudge' && typeof data.checklist_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.checklist_id)) return '/complete/' + data.checklist_id;
   if (type === 'overdue_checklist' || type === 'overdue_checklists' || type === 'checklist' || type === 'monthly_checklist') return '/dashboard';
   if (typeof url === 'string' && url.indexOf('/complete') === 0) return '/dashboard';
   var alertId = data.notification_id || data.visual_alert_id;

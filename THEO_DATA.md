@@ -50,6 +50,8 @@ Read-only tools also offered today that the data table does not list by name: `q
 
 Source of truth: `_shared/theoActions.ts` (`actionsFor` / `theoActionsAt`), `supabase/functions/ai-assistant/{index,cover,shifts,events,messages,punches}.ts`, `src/components/ai/theoWizard.tsx` and `supabase/functions/theo-voice/index.ts`.
 
+- **nudge_checklist** (managers and up incl. brand admins, voice + chat): previews a checklist nudge; the Send nudge tap sends it through `checklist-nudge` (via `src/lib/checklistNudges.ts`) to everyone on the clock at the store, minus the sender and anyone nudged about that checklist in the last hour. Rules in `_shared/nudgePlan.ts` + `checklist_nudge_status`; log in `checklist_nudge_log`. No Undo.
+
 ## What people see after Theo acts (push taps, as of 2026-10-05)
 
 Push-tap routing lives in `src/lib/pushRouting.ts` and its matching copy in `public/sw-push.js`. These rules also apply to pushes from the rest of the app, not just Theo.
@@ -57,6 +59,7 @@ Push-tap routing lives in `src/lib/pushRouting.ts` and its matching copy in `pub
 - Theo sends a message → the recipient's push opens that DM (or the group chat for a group reply). Chats refresh when the app opens or comes back to the front, so the new message shows without force-quitting.
 - Team Feed / announcement push → opens Chats, scrolled to that post with a brief highlight. Feed pushes now carry a link to the post, added in `send-push-notification`. If the post is unavailable after the refresh, the feed stays open without an error.
 - Checklist pushes (overdue, monthly, training approvals) → open the dashboard only, never the checklist itself (Jordan's call).
+- Exception: a manager's checklist nudge (`checklist_nudge`) opens that checklist (`/complete/<id>`).
 - Hiring: new application → Hiring page; interview reply → that applicant's hiring chat. Hiring chat messages are unchanged.
 - Quick task pushes → dashboard alert card (unchanged). Schedule pushes (published / updated / shift approval / reminder) → just open or resume the app, with no deep link. Late arrival → Alerts.
 - The native App Store app gets this tap routing only after its next rebuild. The home-screen web app gets it from the published web update; this source review alone does not verify what is currently published.
@@ -118,6 +121,7 @@ In rough priority order for a manager's day:
 - The labor RPCs line by line (Lovable's database access could not run them).
 
 ## Change log
+- 2026-10-07: Quick Nudge v1 (checklists only): nudge_checklist action, dashboard nudge badge + sheet, Settings > Nudge Templates, checklist_nudge push opens the checklist.
 
 - 2026-10-01: First version from the read-only audit. Inventory moved to `THEO_INVENTORY.md`.
 - 2026-10-01: Round 1 gate corrected the labor source to get_store_labor and the time zone source to location_settings.

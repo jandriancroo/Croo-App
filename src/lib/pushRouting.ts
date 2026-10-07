@@ -9,6 +9,8 @@ export function resolvePushRoute(data: Record<string, any> | null | undefined): 
   const type = data.type || data.notification_type;
   const url = data.url;
 
+  // a0. A manager's checklist nudge opens that checklist (the one exception to rule a).
+  if (type === 'checklist_nudge' && typeof data.checklist_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.checklist_id)) return '/complete/' + data.checklist_id;
   // a. Checklist family always opens the dashboard (never deep-links into a checklist).
   if (type === 'overdue_checklist' || type === 'overdue_checklists' || type === 'checklist' || type === 'monthly_checklist') return '/dashboard';
   if (typeof url === 'string' && url.startsWith('/complete')) return '/dashboard';
