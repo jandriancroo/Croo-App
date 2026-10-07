@@ -140,7 +140,7 @@ export function splitCooldown<T extends { id: string }>(people: T[], lastSent: R
   return { going, recently };
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/\b(checklist|task|event)\b/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+const norm = (s: string) => s.toLowerCase().replace(/\b(the|checklist|task|event)\b/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 
 /** Exact title first, then contains (case-insensitive), across checklists, tasks and events. */
 export function matchTarget<T extends { title: string }>(said: string, rows: T[]): { one: T } | { several: T[] } | { none: true } {
