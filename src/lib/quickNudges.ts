@@ -58,13 +58,11 @@ export async function sendQuickNudge(args: { targetType: TargetType; targetId: s
 export const nameList = (names: string[]) =>
   names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
-/** Which item types a template body works for, from the fields it uses. */
+/** Which item types a template body works for, from the fields it uses (tasks: done/total only when they have subtasks). */
 export function worksFor(body: string): TargetType[] {
   const uses = (f: string) => new RegExp(`\\{${f}\\}`, 'i').test(body);
   const out: TargetType[] = [];
-  if (!uses('event_time')) out.push('checklist');
-  if (!uses('event_time') && !uses('done') && !uses('total')) out.push('task');
-  else if (!uses('event_time')) out.push('task'); // tasks with subtasks have done/total
+  if (!uses('event_time')) out.push('checklist', 'task');
   if (!uses('done') && !uses('total')) out.push('event');
   return out;
 }
