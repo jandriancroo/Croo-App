@@ -1010,7 +1010,6 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
   }
   function renderNudge(a: ActionCard, p: NudgeProposal, c: Colors) {
     const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
-    const Icon = NUDGE_ICON;
     if (a.stage === 'done') {
       return (
         <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px]">
