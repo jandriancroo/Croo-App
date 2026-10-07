@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { SmartFieldEditor, SmartFieldPreview } from '@/components/templates/SmartFieldEditor';
 import { NUDGE_FIELDS } from '@/lib/smartFields';
-import { DEFAULT_NUDGE_TEMPLATES, NUDGE_MAX_MESSAGE, NUDGE_MAX_TEMPLATES, renderNudgeText } from '@/lib/checklistNudges';
+import { DEFAULT_NUDGE_TEMPLATES, NUDGE_MAX_MESSAGE, NUDGE_MAX_TEMPLATES, renderNudgeText, worksFor } from '@/lib/quickNudges';
 
 type Row = { id: string | null; name: string; body: string; is_default: boolean; sort_order: number };
 type Draft = { index: number | 'new'; name: string; body: string; is_default: boolean };
@@ -47,7 +47,7 @@ export function NudgeTemplatesSection({ locationId }: { locationId: string }) {
   const [saving, setSaving] = useState(false);
 
   const sample = (text: string) =>
-    renderNudgeText(text, { sender_first_name: me || 'Jordan', recipient_first_name: 'Maria', checklist: 'AM Line Check', done: 5, total: 12 });
+    renderNudgeText(text, { sender_first_name: me || 'Jordan', recipient_first_name: 'Maria', item: 'Closing Checklist', item_type: 'checklist', event_time: '6:00 PM', done: 5, total: 12 });
 
   // First save at a store that still uses CrooHQ defaults: write the defaults so they can be customized.
   const ensureStored = async (): Promise<Row[]> => {
@@ -104,7 +104,7 @@ export function NudgeTemplatesSection({ locationId }: { locationId: string }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Write them in your own voice; the push shows the sender's name.</p>
+      <p className="text-sm text-muted-foreground">Write them in your own voice; the push shows the sender's name. Used for checklists, tasks and events.</p>
       {usingDefaults && <p className="text-xs text-muted-foreground">Using CrooHQ defaults. Save to customize.</p>}
 
       <div className="space-y-2">
@@ -131,6 +131,9 @@ export function NudgeTemplatesSection({ locationId }: { locationId: string }) {
               </div>
               <div className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                 <SmartFieldPreview text={r.body} fields={NUDGE_FIELDS} />
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                Works for: {worksFor(r.body).map((t) => `${t}s`).join(' · ') || 'nothing (uses fields that never go together)'}
               </div>
             </div>
           )

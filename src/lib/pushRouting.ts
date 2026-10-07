@@ -9,7 +9,7 @@ export function resolvePushRoute(data: Record<string, any> | null | undefined): 
   const type = data.type || data.notification_type;
   const url = data.url;
 
-  // a0. A manager's checklist nudge opens that checklist (the one exception to rule a).
+  // a0. A manager's nudge: checklist -> that checklist (the one exception to rule a); task/event -> its alert card.
   if (type === 'quick_nudge' || type === 'checklist_nudge') {
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const nid = data.notification_id;
