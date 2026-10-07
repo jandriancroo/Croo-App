@@ -95,7 +95,7 @@ export function TemporaryTaskCard({
   return (
     <>
       <div className="relative">
-      {nudge && <NudgeBadge onClick={nudge.onClick} minutesAgo={nudge.minutesAgo} style={{ top: -13 - 7, right: -6 - 7 }} />}
+      {nudge && <NudgeBadge onClick={nudge.onClick} minutesAgo={nudge.minutesAgo} style={{ top: -20, right: -20 }} />}
       <div
         className="quick-task-card group flex items-center gap-2 cursor-pointer transition-all hover:brightness-[1.06] active:brightness-95 active:scale-[0.995]"
         style={{

@@ -22,7 +22,6 @@ interface Props {
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
 
 export function QuickNudgeSheet({ targetType, targetId, title, onClose, onSent }: Props) {
-  const NudgeIcon = NUDGE_ICON;
   const open = !!targetType && !!targetId;
   const { data, isLoading, error } = useQuery({
     queryKey: ['quick-nudge-options', targetType, targetId],
@@ -102,7 +101,7 @@ export function QuickNudgeSheet({ targetType, targetId, title, onClose, onSent }
         <div className="mx-auto w-full max-w-lg overflow-y-auto">
           <DrawerHeader className="text-left">
             <DrawerTitle className="flex items-center gap-2">
-              <NudgeIcon className="h-5 w-5 text-primary" /> Nudge the crew
+              <NUDGE_ICON size={20} /> Nudge the crew
             </DrawerTitle>
             <DrawerDescription>{subtitle}</DrawerDescription>
           </DrawerHeader>
@@ -191,7 +190,7 @@ export function QuickNudgeSheet({ targetType, targetId, title, onClose, onSent }
           <DrawerFooter>
             {data?.allowed ? (
               <Button onClick={send} disabled={sending || empty || tooLong || missing.length > 0} className="h-12 gap-2 text-base font-semibold">
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <NudgeIcon className="h-4 w-4" />}
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <NUDGE_ICON size={16} />}
                 Send nudge to {data.going.length}
               </Button>
             ) : (

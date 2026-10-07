@@ -4,7 +4,6 @@ import { NUDGE_ICON } from '@/lib/quickNudges';
 
 /** The one Quick Nudge badge (checklist rows + quick task pills). Position is set by the parent. */
 export function NudgeBadge({ onClick, minutesAgo, style }: { onClick: () => void; minutesAgo?: number; style: CSSProperties }) {
-  const Icon = NUDGE_ICON;
   const cooling = minutesAgo != null;
   return (
     <button
@@ -22,13 +21,13 @@ export function NudgeBadge({ onClick, minutesAgo, style }: { onClick: () => void
       )}
       <span
         className={cn(
-          'flex h-[26px] w-[26px] items-center justify-center rounded-full ring-2 ring-card',
+          'flex h-[30px] w-[30px] items-center justify-center rounded-full ring-2 ring-card',
           cooling
             ? 'bg-muted text-muted-foreground shadow-sm'
             : 'bg-primary text-primary-foreground outline outline-1 outline-primary/25 shadow-[0_2px_6px_hsl(190_54%_25%/.35)]'
         )}
       >
-        <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+        {cooling ? <NUDGE_ICON size={21} muted /> : <NUDGE_ICON size={21} />}
       </span>
     </button>
   );

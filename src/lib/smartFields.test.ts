@@ -17,6 +17,16 @@ describe('smart fields round-trip', () => {
     const seg = parseTokens('{{First_Name}}', HIRING_FIELDS);
     expect(seg).toEqual([{ type: 'field', token: '{{first_name}}', raw: '{{First_Name}}', label: 'Applicant first name' }]);
   });
+  it('double braces with inner spaces stay plain text and round-trip unchanged', () => {
+    const text = '{{ name }}';
+    expect(parseTokens(text, HIRING_FIELDS)).toEqual([{ type: 'text', text }]);
+    expect(round(text)).toBe(text);
+  });
+  it('mixed-case Name stays a pill with its exact raw text', () => {
+    const text = '{{Name}}';
+    expect(parseTokens(text, HIRING_FIELDS)).toEqual([{ type: 'field', token: '{{name}}', raw: text, label: 'Applicant name' }]);
+    expect(round(text)).toBe(text);
+  });
   it('unknown tokens stay literal text', () => expect(parseTokens('{{x}} {y}', HIRING_FIELDS)).toEqual([{ type: 'text', text: '{{x}} {y}' }]));
   it('brace style must match the field', () => {
     expect(parseTokens('{first_name}', HIRING_FIELDS)[0].type).toBe('text');

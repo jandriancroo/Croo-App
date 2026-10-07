@@ -1030,7 +1030,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
         <p className={`mt-3 text-center text-[22px] font-extrabold ${c.fg}`}>Does this look right?</p>
         <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px]">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-[18px] font-extrabold"><Icon className="h-5 w-5 text-primary" />Nudge</span>
+            <span className="flex items-center gap-2 text-[18px] font-extrabold"><NUDGE_ICON size={16} />Nudge</span>
             {amberTag('Preview · not sent')}
           </div>
           <div>
