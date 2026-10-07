@@ -6,6 +6,8 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   fields: SmartField[];
+  /** Fields recognised as pills (default = fields). Pills not in `fields` show red: this target lacks them. */
+  parseFields?: SmartField[];
   multiline?: boolean;
   maxLength?: number;
   placeholder?: string;
@@ -15,14 +17,16 @@ interface Props {
 }
 
 const PILL_CLASS = 'inline-block rounded-full bg-primary/10 text-primary px-1.5 font-semibold mx-px select-none';
+const BAD_PILL_CLASS = 'inline-block rounded-full bg-destructive/10 text-destructive px-1.5 font-semibold mx-px select-none';
 
-function makePill(raw: string, label: string) {
+function makePill(raw: string, label: string, bad = false) {
   const s = document.createElement('span');
   s.contentEditable = 'false';
   s.dataset.token = raw;
   s.dataset.raw = raw;
-  s.className = PILL_CLASS;
+  s.className = bad ? BAD_PILL_CLASS : PILL_CLASS;
   s.textContent = label;
+  if (bad) s.title = `This item doesn't have ${label}. Remove it.`;
   return s;
 }
 
@@ -44,27 +48,29 @@ function serializeNode(root: Node): string {
   return out;
 }
 
-function renderInto(el: HTMLElement, text: string, fields: SmartField[]) {
+function renderInto(el: HTMLElement, text: string, parse: SmartField[], allowed: SmartField[]) {
   el.innerHTML = '';
-  for (const seg of parseTokens(text, fields)) {
+  for (const seg of parseTokens(text, parse)) {
     if (seg.type === 'text') el.appendChild(document.createTextNode(seg.text));
-    else el.appendChild(makePill(seg.raw, seg.label));
+    else el.appendChild(makePill(seg.raw, seg.label, !allowed.some((f) => f.token === seg.token)));
   }
 }
 
-export function SmartFieldEditor({ value, onChange, fields, multiline = false, maxLength, placeholder, ariaLabel, id, className }: Props) {
+export function SmartFieldEditor({ value, onChange, fields, parseFields, multiline = false, maxLength, placeholder, ariaLabel, id, className }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const lastEmitted = useRef<string | null>(null);
   const savedRange = useRef<Range | null>(null);
+  const parse = parseFields ?? fields;
 
   // Re-render only when the value changed from outside (keeps the caret steady while typing).
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (value === lastEmitted.current) return;
-    renderInto(el, value, fields);
+    if (value === lastEmitted.current && el.dataset.allowed === fields.map((f) => f.token).join()) return;
+    renderInto(el, value, parse, fields);
+    el.dataset.allowed = fields.map((f) => f.token).join();
     lastEmitted.current = value;
-  }, [value, fields]);
+  }, [value, fields, parse]);
 
   useEffect(() => {
     const onSel = () => {
@@ -119,7 +125,7 @@ export function SmartFieldEditor({ value, onChange, fields, multiline = false, m
   };
 
   const nodesFromText = (text: string): Node[] =>
-    parseTokens(text, fields).map((seg) => (seg.type === 'text' ? document.createTextNode(seg.text) : makePill(seg.raw, seg.label)));
+    parseTokens(text, parse).map((seg) => (seg.type === 'text' ? document.createTextNode(seg.text) : makePill(seg.raw, seg.label, !fields.some((f) => f.token === seg.token))));
 
   const insertField = (f: SmartField) => insertNodes([makePill(f.token, f.label)]);
 

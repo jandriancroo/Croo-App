@@ -23,8 +23,6 @@ export function findField(raw: string, fields: SmartField[]): SmartField | undef
   return fields.find((f) => keyOf(f.token) === k);
 }
 
-/** Every known nudge field (for spotting fields a target doesn't have). */
-export const ALL_NUDGE_FIELD_TOKENS = () => NUDGE_FIELDS;
 
 export function parseTokens(text: string, fields: SmartField[]): Segment[] {
   const out: Segment[] = [];
