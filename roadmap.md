@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Quick Nudge final review (Oct 7)
-- [ ] Add Jordan's exact glove icon and sizes; restore Theo messages rule; restrict smart fields to tokens without inner whitespace; verify without publishing.
+- [x] Add Jordan's exact glove icon and sizes; restore Theo messages rule; restrict smart fields to tokens without inner whitespace; 68 tests passed, desktop/mobile browser badge and sheet checked; no publish or nudge sent.
 
 ## In progress
 - [ ] Per-till expected cash fix: fetch individual QU till rows (AM/PM), match to the count instead of summing the day; keep live fallbacks; never $0.
