@@ -8753,6 +8753,74 @@ export type Database = {
         }
         Relationships: []
       }
+      nudge_log: {
+        Row: {
+          batch_id: string
+          business_date: string
+          created_at: string
+          id: string
+          location_id: string
+          message_raw: string
+          message_sent: string
+          organization_id: string | null
+          push_status: string
+          recipient_id: string
+          sender_id: string
+          source: string
+          target_family_id: string
+          target_id: string
+          target_title: string
+          target_type: string
+          template_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          business_date: string
+          created_at?: string
+          id?: string
+          location_id: string
+          message_raw: string
+          message_sent: string
+          organization_id?: string | null
+          push_status?: string
+          recipient_id: string
+          sender_id: string
+          source: string
+          target_family_id: string
+          target_id: string
+          target_title: string
+          target_type: string
+          template_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          business_date?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          message_raw?: string
+          message_sent?: string
+          organization_id?: string | null
+          push_status?: string
+          recipient_id?: string
+          sender_id?: string
+          source?: string
+          target_family_id?: string
+          target_id?: string
+          target_title?: string
+          target_type?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nudge_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_completions: {
         Row: {
           completed_at: string
@@ -15246,6 +15314,18 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      event_nudge_status: {
+        Args: { _event_id?: string; _location_id: string }
+        Returns: {
+          completed_today: boolean
+          event_end_time: string
+          event_id: string
+          event_time: string
+          is_today: boolean
+          tagged_roles: Json
+          title: string
+        }[]
+      }
       feed_channel_audience_recipients: {
         Args: { _channel_id: string; _location_id: string }
         Returns: {
@@ -15754,11 +15834,10 @@ export type Database = {
         }[]
       }
       reconcile_brand_deploy_log: { Args: never; Returns: number }
-      record_checklist_nudges: {
+      record_nudges: {
         Args: {
           _batch: string
           _business_date: string
-          _checklist: string
           _cooldown_min?: number
           _family: string
           _location: string
@@ -15767,6 +15846,8 @@ export type Database = {
           _recipients: Json
           _sender: string
           _source: string
+          _target_id: string
+          _target_type: string
           _template_id: string
           _title: string
         }
@@ -15828,6 +15909,24 @@ export type Database = {
       start_fresh_sandbox_count: {
         Args: { _source_location_id: string }
         Returns: string
+      }
+      task_nudge_status: {
+        Args: { _location_id: string; _task_id?: string }
+        Returns: {
+          alarm_done_this_interval: boolean
+          completed_at: string
+          expires_at: string
+          icon_name: string
+          is_active: boolean
+          last_triggered_at: string
+          show_on_dashboard: boolean
+          subtasks_done: number
+          subtasks_total: number
+          task_id: string
+          task_style: string
+          title: string
+          write_up_id: string
+        }[]
       }
       toast_push_wage_to_profile: {
         Args: { _location_id: string; _toast_user_id: string }
@@ -15921,7 +16020,11 @@ export type Database = {
         | "other"
       support_ticket_status: "open" | "in_progress" | "resolved"
       vendor_sku_status: "active" | "stale" | "discontinued" | "needs_review"
-      visual_alert_type: "quick_task" | "overdue_checklist" | "checklist_nudge"
+      visual_alert_type:
+        | "quick_task"
+        | "overdue_checklist"
+        | "checklist_nudge"
+        | "quick_nudge"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -16088,7 +16191,12 @@ export const Constants = {
       ],
       support_ticket_status: ["open", "in_progress", "resolved"],
       vendor_sku_status: ["active", "stale", "discontinued", "needs_review"],
-      visual_alert_type: ["quick_task", "overdue_checklist", "checklist_nudge"],
+      visual_alert_type: [
+        "quick_task",
+        "overdue_checklist",
+        "checklist_nudge",
+        "quick_nudge",
+      ],
     },
   },
 } as const

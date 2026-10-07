@@ -8,6 +8,13 @@
       "when": 1791403852808,
       "tag": "0000_quick_nudge_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791404729586,
+      "tag": "0001_quick_nudge_generic_targets",
+      "breakpoints": true
     }
   ]
 }
