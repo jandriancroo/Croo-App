@@ -1,11 +1,11 @@
 // THE only client path that sends a Quick Nudge (checklists, tasks, events): the dashboard sheet and Theo's Send nudge tap.
 // The server (quick-nudge) decides who gets it: everyone on the clock at the store, minus the sender, minus cooldown.
-import { BellRing } from 'lucide-react';
+import { NudgeTapIcon } from '@/components/icons/NudgeTapIcon';
 import { supabase } from '@/integrations/supabase/client';
 import type { TargetType } from '../../supabase/functions/_shared/nudgePlan';
 
 /** One swappable icon for the badges, the sheet button and the alert card. */
-export const NUDGE_ICON = BellRing;
+export const NUDGE_ICON = NudgeTapIcon;
 
 // Must equal NUDGE_ROLES in supabase/functions/_shared/theoActions.ts (checked by src/lib/nudgePlan.test.ts).
 export const NUDGE_ROLES_CLIENT = ['manager', 'admin', 'org_admin', 'brand_admin', 'super_admin'];

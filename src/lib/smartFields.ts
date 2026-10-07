@@ -6,7 +6,7 @@ export type Segment =
   | { type: 'text'; text: string }
   | { type: 'field'; token: string; raw: string; label: string };
 
-const TOKEN_RE = /\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}|\{[A-Za-z_][A-Za-z0-9_]*\}/g;
+const TOKEN_RE = /\{\{[A-Za-z_][A-Za-z0-9_]*\}\}|\{[A-Za-z_][A-Za-z0-9_]*\}/g;
 
 const keyOf = (t: string) => {
   const double = t.startsWith('{{');

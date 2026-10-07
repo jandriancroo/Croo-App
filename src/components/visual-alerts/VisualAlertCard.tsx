@@ -21,7 +21,7 @@ export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }
   const nudgeLabel = nudgeType === "task" ? "Task nudge" : nudgeType === "event" ? "Event heads-up" : "Checklist nudge";
   const nudgeAction = nudgeType === "task" ? "Open task" : nudgeType === "event" ? "Go to dashboard" : "Open checklist";
   const nudgePath = nudgeType === "task" ? `/dashboard?task=${alert.ref_id}` : nudgeType === "event" ? `/dashboard?event=${alert.ref_id}` : `/complete/${alert.ref_id}`;
-  const Icon = isNudge ? NUDGE_ICON : isChecklist ? ClipboardList : Zap;
+  const Icon = isChecklist ? ClipboardList : Zap;
 
   return (
     <div className="relative w-full max-w-sm rounded-2xl bg-card border border-border/40 shadow-2xl p-6 animate-scale-in">
@@ -42,7 +42,7 @@ export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }
 
       <div className="flex items-start gap-3 mb-4">
         <div className={`p-2.5 rounded-xl ${isChecklist ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-primary/15 text-primary"}`}>
-          <Icon className="h-6 w-6" />
+          {isNudge ? <NUDGE_ICON size={20} /> : <Icon className="h-6 w-6" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
