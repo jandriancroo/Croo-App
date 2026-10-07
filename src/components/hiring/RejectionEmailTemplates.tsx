@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Loader2, Mail } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { SmartFieldEditor } from '@/components/templates/SmartFieldEditor';
+import { HIRING_FIELDS } from '@/lib/smartFields';
 
 interface RejectionEmailTemplatesProps {
   organizationId: string;
@@ -246,7 +248,7 @@ The {{organization}} Team`);
               {editingTemplate ? 'Edit Rejection Template' : 'New Rejection Template'}
             </DialogTitle>
             <DialogDescription>
-              Use placeholders: {"{{name}}"}, {"{{first_name}}"}, {"{{organization}}"}
+              Tap a field to insert it.
             </DialogDescription>
           </DialogHeader>
 
@@ -263,23 +265,27 @@ The {{organization}} Team`);
 
             <div className="space-y-2">
               <Label htmlFor="subject">Email Subject *</Label>
-              <Input
+              <SmartFieldEditor
                 id="subject"
                 value={subject}
-                onChange={e => setSubject(e.target.value)}
+                onChange={setSubject}
+                fields={HIRING_FIELDS}
+                multiline={false}
+                ariaLabel="Email subject"
                 placeholder="e.g., Thank you for your application"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="body">Email Body *</Label>
-              <Textarea
+              <SmartFieldEditor
                 id="body"
                 value={body}
-                onChange={e => setBody(e.target.value)}
+                onChange={setBody}
+                fields={HIRING_FIELDS}
+                multiline
+                ariaLabel="Email body"
                 placeholder="Write your rejection email here..."
-                rows={10}
-                className="font-mono text-sm"
               />
             </div>
 
