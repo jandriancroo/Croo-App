@@ -3589,7 +3589,7 @@ A CLOCK ${pendingPunch.kind.toUpperCase()} PREVIEW IS ON SCREEN RIGHT NOW (not s
 - If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that punch."
 - If the manager agrees (yes / do it / confirm / looks good), do NOT call any tool. Reply exactly: "Tap Confirm to save it."` : ""}${pendingNudge ? `
 
-A CHECKLIST NUDGE PREVIEW IS ON SCREEN RIGHT NOW (not sent): ${JSON.stringify(pendingNudge)}
+A NUDGE PREVIEW IS ON SCREEN RIGHT NOW (not sent): ${JSON.stringify(pendingNudge)}
 - If the manager changes the words or template, call propose_nudge again with the same target and the new text or template.
 - If the manager wants to drop it, call cancel_pending_action and say "Okay, I dropped that nudge."
 - If the manager agrees (yes / send it / looks good), do NOT call any tool. Reply exactly: "Tap Send nudge to send it."` : ""}${listDraft ? `

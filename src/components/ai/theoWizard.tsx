@@ -10,7 +10,7 @@ import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift
 import { countPendingChanges } from '@/lib/scheduleDiff';
 import { savePunchReturning, deletePunch, deletePlaceholderShift } from '@/lib/punches';
 import { sendChatMessage, findOrCreateDm, unsendMessage } from '@/lib/chatMessages';
-import { sendChecklistNudge, nameList, NUDGE_ICON } from '@/lib/checklistNudges';
+import { sendQuickNudge, nameList, NUDGE_ICON } from '@/lib/quickNudges';
 import { createScheduleEvent, deleteScheduleEvent, createEventCategory, deleteEventCategory } from '@/lib/scheduleEvents';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,19 +74,19 @@ export type PunchProposal = {
   id: string; action: 'clock_punch'; kind: 'in' | 'out'; employee: { id: string; name: string }; punch_time: string; time_label: string; date_label: string;
   store: string; location_id: string; shift_id: string | null; open_clock_in_id: string | null; clock_in_label: string | null; notes: string; flags: string[];
 };
-// Quick Nudge: a push to everyone on the clock about one checklist. Sent only by the Send nudge tap (checklist-nudge).
+// Quick Nudge: a push to everyone on the clock about one checklist, task or event. Sent only by the Send nudge tap (quick-nudge).
 export type NudgeProposal = {
-  id: string; action: 'nudge_checklist'; checklist: { id: string; title: string; done: number; total: number };
+  id: string; action: 'quick_nudge'; target: { type: 'checklist' | 'task' | 'event'; id: string; title: string; done: number | null; total: number | null; event_time: string | null };
   recipients: { id: string; name: string }[]; recently: { name: string; minutes_ago: number }[]; template_id: string | null; message: string;
   preview_for: { name: string; text: string }; store: string; location_id: string; warnings: string[];
 };
 export type ShiftProposal = CoverProposal | AddProposal | DeleteProposal | SwapProposal | ChangeProposal;
 export type AnyProposal = TaskProposal | ShiftProposal | EventProposal | MessageProposal | PunchProposal | NudgeProposal;
 export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null; messageId?: string; punchId?: string; placeholderAdded?: boolean };
-export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean; send_message: boolean; clock_punch: boolean; nudge_checklist: boolean };
-export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false, nudge_checklist: false };
+export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean; send_message: boolean; clock_punch: boolean; quick_nudge: boolean };
+export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false, quick_nudge: false };
 /** The server's actions answer, read strictly (anything not exactly true is off). */
-export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true, send_message: a?.send_message === true, clock_punch: a?.clock_punch === true, nudge_checklist: a?.nudge_checklist === true });
+export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true, send_message: a?.send_message === true, clock_punch: a?.clock_punch === true, quick_nudge: a?.quick_nudge === true });
 export const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift' || p.action === 'swap_shift' || p.action === 'change_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 export type CoverScreen =
@@ -382,7 +382,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     if (a?.proposal.action === 'create_event') return confirmEvent();
     if (a?.proposal.action === 'send_message') return confirmMessage();
     if (a?.proposal.action === 'clock_punch') return confirmPunch();
-    if (a?.proposal.action === 'nudge_checklist') return confirmNudge();
+    if (a?.proposal.action === 'quick_nudge') return confirmNudge();
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_task' || !user?.id || !currentLocation?.id) return;
     setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
     try {
@@ -517,16 +517,16 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
   // Nudge: the ONE send path (src/lib/checklistNudges.ts); the server re-checks everything and picks the recipients. No Undo.
   const confirmNudge = async () => {
     const a = actionRef.current;
-    if (!a || a.stage !== 'preview' || a.proposal.action !== 'nudge_checklist' || !currentLocation?.id) return;
+    if (!a || a.stage !== 'preview' || a.proposal.action !== 'quick_nudge' || !currentLocation?.id) return;
     const p = a.proposal;
     if (p.location_id !== currentLocation.id) { setAction({ ...a, error: 'Not sent. You switched stores.' }); return; }
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
-      const res = await sendChecklistNudge({ checklistId: p.checklist.id, message: p.message, templateId: p.template_id, source: ownerRef.current === 'voice' ? 'theo_voice' : 'theo_chat', theoProposalId: p.id });
+      const res = await sendQuickNudge({ targetType: p.target.type, targetId: p.target.id, message: p.message, templateId: p.template_id, source: ownerRef.current === 'voice' ? 'theo_voice' : 'theo_chat', theoProposalId: p.id });
       if (res.ok !== true) { logAction(a.logId, { status: 'failed' }); setAction({ ...a, stage: 'preview', error: `Not sent: ${(res as { error: string }).error}` }); return; }
       logAction(a.logId, { status: 'confirmed', record_id: res.batch_id });
       const names = nameList(res.sent.map((x) => firstName(x.name)));
-      onRecord?.(`Nudged ${names} about ${p.checklist.title}`);
+      onRecord?.(`Nudged ${names} about ${p.target.title}`);
       const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       setAction({ ...a, stage: 'done', savedAt, error: `Nudged ${names}` });
     } catch (err: any) {
@@ -1019,7 +1019,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
             <div><div className="text-[18px] font-extrabold">Nudge sent</div><div className="text-[13px] text-muted-foreground">Sent at {a.savedAt}</div></div>
           </div>
           <p className="text-[17px] font-extrabold">{a.error}.</p>
-          <p className="text-[14px] text-muted-foreground">{p.checklist.title} · {p.store}</p>
+          <p className="text-[14px] text-muted-foreground">{p.target.title} · {p.store}</p>
           <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
         </div>
       );
@@ -1033,7 +1033,11 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
             <span className="flex items-center gap-2 text-[18px] font-extrabold"><Icon className="h-5 w-5 text-primary" />Nudge</span>
             {amberTag('Preview · not sent')}
           </div>
-          <div><div className={label}>Checklist</div><div className="text-[17px] font-extrabold">{p.checklist.title}</div><div className="text-[13px] text-muted-foreground">{p.checklist.done} of {p.checklist.total} done</div></div>
+          <div>
+            <div className={label}>{p.target.type === 'checklist' ? 'Checklist' : p.target.type === 'task' ? 'Task' : `Event${p.target.event_time ? ` at ${p.target.event_time}` : ''}`}</div>
+            <div className="text-[17px] font-extrabold">{p.target.title}</div>
+            {p.target.total != null && p.target.total > 0 && <div className="text-[13px] text-muted-foreground">{p.target.done ?? 0} of {p.target.total} done</div>}
+          </div>
           <div>
             <div className={label}>Going to (everyone on the clock)</div>
             <div className="mt-1 flex flex-wrap gap-1.5">{p.recipients.map((r) => <span key={r.id} className="rounded-full bg-muted px-2 py-1 text-[13px] font-semibold">{r.name}</span>)}</div>
@@ -1059,7 +1063,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     );
   }
   function renderAction(a: ActionCard, c: Colors = VOICE_COLORS) {
-    if (a.proposal.action === 'nudge_checklist') return renderNudge(a, a.proposal, c);
+    if (a.proposal.action === 'quick_nudge') return renderNudge(a, a.proposal, c);
     if (isShiftAction(a.proposal)) return renderShift(a, a.proposal, c);
     if (a.proposal.action === 'send_message') return renderMessage(a, a.proposal, c);
     if (a.proposal.action === 'clock_punch') return renderPunch(a, a.proposal, c);
