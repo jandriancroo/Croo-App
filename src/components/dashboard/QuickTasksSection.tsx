@@ -14,11 +14,17 @@ import { FEATURE_FLAGS } from '@/config/featureFlags';
 interface QuickTasksSectionProps {
   locationSettings: { hours_open: string; hours_close: string } | null | undefined;
   timezone: string;
+  canNudge?: boolean;
+  onNudge?: (t: { type: 'task' | 'event'; id: string; title: string }) => void;
+  recentlyNudged?: Record<string, number>;
 }
 
 export const QuickTasksSection = React.memo(function QuickTasksSection({
   locationSettings,
   timezone,
+  canNudge,
+  onNudge,
+  recentlyNudged,
 }: QuickTasksSectionProps) {
   return (
     <div className="quick-task-section flex flex-col gap-1 w-full">
@@ -34,6 +40,9 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
         <AssignedTemporaryTasks
           compact
           includeEventTasks
+          canNudge={canNudge}
+          onNudge={onNudge}
+          recentlyNudged={recentlyNudged}
           afterEventsContent={
             <>
               <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
