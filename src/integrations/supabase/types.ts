@@ -6504,10 +6504,19 @@ export type Database = {
           daily_double_time_threshold: number
           daily_overtime_threshold: number
           double_time_multiplier: number
+          flag_rest_breaks: boolean
           id: string
           is_system: boolean
+          long_break_grace_minutes: number
+          long_shift_hours: number
           meal_break_duration: number | null
           meal_break_hours: number | null
+          meal_break_paid: boolean
+          meal_deadline_hours: number | null
+          meal_rule_basis: string
+          meal_waiver_max_hours: number | null
+          min_hours_between_shifts: number | null
+          minor_rules: Json | null
           overtime_multiplier: number
           preset_name: string
           reporting_time_enabled: boolean
@@ -6515,6 +6524,11 @@ export type Database = {
           reporting_time_min_hours: number | null
           rest_break_duration: number | null
           rest_break_hours: number | null
+          rest_break_paid: boolean
+          second_meal_break_hours: number | null
+          second_meal_waiver_max_hours: number | null
+          split_shift_enabled: boolean
+          split_shift_gap_minutes: number | null
           state_code: string
           updated_at: string
           weekly_overtime_threshold: number
@@ -6524,10 +6538,19 @@ export type Database = {
           daily_double_time_threshold?: number
           daily_overtime_threshold?: number
           double_time_multiplier?: number
+          flag_rest_breaks?: boolean
           id?: string
           is_system?: boolean
+          long_break_grace_minutes?: number
+          long_shift_hours?: number
           meal_break_duration?: number | null
           meal_break_hours?: number | null
+          meal_break_paid?: boolean
+          meal_deadline_hours?: number | null
+          meal_rule_basis?: string
+          meal_waiver_max_hours?: number | null
+          min_hours_between_shifts?: number | null
+          minor_rules?: Json | null
           overtime_multiplier?: number
           preset_name: string
           reporting_time_enabled?: boolean
@@ -6535,6 +6558,11 @@ export type Database = {
           reporting_time_min_hours?: number | null
           rest_break_duration?: number | null
           rest_break_hours?: number | null
+          rest_break_paid?: boolean
+          second_meal_break_hours?: number | null
+          second_meal_waiver_max_hours?: number | null
+          split_shift_enabled?: boolean
+          split_shift_gap_minutes?: number | null
           state_code: string
           updated_at?: string
           weekly_overtime_threshold?: number
@@ -6544,10 +6572,19 @@ export type Database = {
           daily_double_time_threshold?: number
           daily_overtime_threshold?: number
           double_time_multiplier?: number
+          flag_rest_breaks?: boolean
           id?: string
           is_system?: boolean
+          long_break_grace_minutes?: number
+          long_shift_hours?: number
           meal_break_duration?: number | null
           meal_break_hours?: number | null
+          meal_break_paid?: boolean
+          meal_deadline_hours?: number | null
+          meal_rule_basis?: string
+          meal_waiver_max_hours?: number | null
+          min_hours_between_shifts?: number | null
+          minor_rules?: Json | null
           overtime_multiplier?: number
           preset_name?: string
           reporting_time_enabled?: boolean
@@ -6555,6 +6592,11 @@ export type Database = {
           reporting_time_min_hours?: number | null
           rest_break_duration?: number | null
           rest_break_hours?: number | null
+          rest_break_paid?: boolean
+          second_meal_break_hours?: number | null
+          second_meal_waiver_max_hours?: number | null
+          split_shift_enabled?: boolean
+          split_shift_gap_minutes?: number | null
           state_code?: string
           updated_at?: string
           weekly_overtime_threshold?: number
@@ -6575,11 +6617,22 @@ export type Database = {
           double_time_multiplier: number | null
           duplicate_tap_minutes: number
           early_clock_in_minutes: number
+          field_sources: Json
+          flag_rest_breaks: boolean
           id: string
+          laws_checked_at: string | null
           location_id: string
+          long_break_grace_minutes: number
+          long_shift_hours: number
           max_open_shift_hours: number
           meal_break_duration: number | null
           meal_break_hours: number | null
+          meal_break_paid: boolean
+          meal_deadline_hours: number | null
+          meal_rule_basis: string
+          meal_waiver_max_hours: number | null
+          min_hours_between_shifts: number | null
+          minor_rules: Json | null
           overtime_multiplier: number | null
           pay_period_start_date: string | null
           pay_period_type: string
@@ -6588,8 +6641,15 @@ export type Database = {
           reporting_time_min_hours: number | null
           rest_break_duration: number | null
           rest_break_hours: number | null
+          rest_break_paid: boolean
           rule_name: string
+          rules_reviewed_at: string | null
+          rules_reviewed_by: string | null
+          second_meal_break_hours: number | null
+          second_meal_waiver_max_hours: number | null
           seventh_day_rule: boolean
+          split_shift_enabled: boolean
+          split_shift_gap_minutes: number | null
           state_code: string | null
           unpaid_break_min_minutes: number
           updated_at: string | null
@@ -6609,11 +6669,22 @@ export type Database = {
           double_time_multiplier?: number | null
           duplicate_tap_minutes?: number
           early_clock_in_minutes?: number
+          field_sources?: Json
+          flag_rest_breaks?: boolean
           id?: string
+          laws_checked_at?: string | null
           location_id: string
+          long_break_grace_minutes?: number
+          long_shift_hours?: number
           max_open_shift_hours?: number
           meal_break_duration?: number | null
           meal_break_hours?: number | null
+          meal_break_paid?: boolean
+          meal_deadline_hours?: number | null
+          meal_rule_basis?: string
+          meal_waiver_max_hours?: number | null
+          min_hours_between_shifts?: number | null
+          minor_rules?: Json | null
           overtime_multiplier?: number | null
           pay_period_start_date?: string | null
           pay_period_type?: string
@@ -6622,8 +6693,15 @@ export type Database = {
           reporting_time_min_hours?: number | null
           rest_break_duration?: number | null
           rest_break_hours?: number | null
+          rest_break_paid?: boolean
           rule_name: string
+          rules_reviewed_at?: string | null
+          rules_reviewed_by?: string | null
+          second_meal_break_hours?: number | null
+          second_meal_waiver_max_hours?: number | null
           seventh_day_rule?: boolean
+          split_shift_enabled?: boolean
+          split_shift_gap_minutes?: number | null
           state_code?: string | null
           unpaid_break_min_minutes?: number
           updated_at?: string | null
@@ -6643,11 +6721,22 @@ export type Database = {
           double_time_multiplier?: number | null
           duplicate_tap_minutes?: number
           early_clock_in_minutes?: number
+          field_sources?: Json
+          flag_rest_breaks?: boolean
           id?: string
+          laws_checked_at?: string | null
           location_id?: string
+          long_break_grace_minutes?: number
+          long_shift_hours?: number
           max_open_shift_hours?: number
           meal_break_duration?: number | null
           meal_break_hours?: number | null
+          meal_break_paid?: boolean
+          meal_deadline_hours?: number | null
+          meal_rule_basis?: string
+          meal_waiver_max_hours?: number | null
+          min_hours_between_shifts?: number | null
+          minor_rules?: Json | null
           overtime_multiplier?: number | null
           pay_period_start_date?: string | null
           pay_period_type?: string
@@ -6656,8 +6745,15 @@ export type Database = {
           reporting_time_min_hours?: number | null
           rest_break_duration?: number | null
           rest_break_hours?: number | null
+          rest_break_paid?: boolean
           rule_name?: string
+          rules_reviewed_at?: string | null
+          rules_reviewed_by?: string | null
+          second_meal_break_hours?: number | null
+          second_meal_waiver_max_hours?: number | null
           seventh_day_rule?: boolean
+          split_shift_enabled?: boolean
+          split_shift_gap_minutes?: number | null
           state_code?: string | null
           unpaid_break_min_minutes?: number
           updated_at?: string | null
@@ -6667,6 +6763,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "labor_rules_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      labor_rules_history: {
+        Row: {
+          after: Json | null
+          before: Json | null
+          changed_at: string
+          changed_by: string | null
+          id: string
+          location_id: string
+          note: string | null
+          proposal_id: string | null
+          source: string
+        }
+        Insert: {
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          location_id: string
+          note?: string | null
+          proposal_id?: string | null
+          source: string
+        }
+        Update: {
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          location_id?: string
+          note?: string | null
+          proposal_id?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_rules_history_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
