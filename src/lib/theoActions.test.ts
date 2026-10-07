@@ -32,9 +32,9 @@ describe('actionsFor (role x action)', () => {
     ['super_admin', true, true, true],
   ];
   for (const [role, task, cover, nudge] of table) {
-    it(`${role}: create_task ${task}, create_event ${task}, cover/add/delete/swap/change shift ${cover}`, () => expect(actionsFor(role, true)).toEqual({ create_task: task, cover_shift: cover, add_shift: cover, delete_shift: cover, swap_shift: cover, change_shift: cover, create_event: task, send_message: task, clock_punch: task, nudge_checklist: nudge }));
+    it(`${role}: create_task ${task}, create_event ${task}, cover/add/delete/swap/change shift ${cover}`, () => expect(actionsFor(role, true)).toEqual({ create_task: task, cover_shift: cover, add_shift: cover, delete_shift: cover, swap_shift: cover, change_shift: cover, create_event: task, send_message: task, clock_punch: task, quick_nudge: nudge }));
   }
-  it('no store access -> nothing, even super admin', () => expect(actionsFor('super_admin', false)).toEqual({ create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false, nudge_checklist: false }));
+  it('no store access -> nothing, even super admin', () => expect(actionsFor('super_admin', false)).toEqual({ create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false, quick_nudge: false }));
   it('CREATE_EVENT_ROLES is the CREATE_TASK_ROLES list', () => expect(CREATE_EVENT_ROLES).toBe(CREATE_TASK_ROLES));
   it('PUNCH_ROLES is the CREATE_TASK_ROLES list', () => expect(PUNCH_ROLES).toBe(CREATE_TASK_ROLES));
   it('every schedule switch is the CREATE_TASK_ROLES list', () => { for (const l of [COVER_SHIFT_ROLES, ADD_SHIFT_ROLES, DELETE_SHIFT_ROLES, SWAP_SHIFT_ROLES, CHANGE_SHIFT_ROLES]) expect(l).toBe(CREATE_TASK_ROLES); });

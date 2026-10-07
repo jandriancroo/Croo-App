@@ -22,6 +22,13 @@ describe('smart fields round-trip', () => {
     expect(parseTokens('{first_name}', HIRING_FIELDS)[0].type).toBe('text');
     expect(parseTokens('{{checklist}}', NUDGE_FIELDS)[0].type).toBe('text');
     expect(parseTokens('{Checklist}', NUDGE_FIELDS)[0].type).toBe('field');
+    expect(parseTokens('{Event_Time}', NUDGE_FIELDS)[0].type).toBe('field');
+  });
+  it('{checklist} parses to the Item pill and round-trips byte-identical', () => {
+    const t = 'The {checklist} and {Checklist} and {item}';
+    const seg = parseTokens(t, NUDGE_FIELDS);
+    expect(seg.filter((x) => x.type === 'field').map((x: any) => [x.label, x.raw])).toEqual([['Item', '{checklist}'], ['Item', '{Checklist}'], ['Item', '{item}']]);
+    expect(round(t, NUDGE_FIELDS)).toBe(t);
   });
   it('nudge round-trip', () => { const t = "Hey {recipient_first_name}, {sender_first_name} here. {done}/{total}"; expect(round(t, NUDGE_FIELDS)).toBe(t); });
   it('hiring default template round-trips unchanged', () => {
