@@ -2202,6 +2202,71 @@ export type Database = {
           },
         ]
       }
+      checklist_nudge_log: {
+        Row: {
+          batch_id: string
+          business_date: string
+          checklist_family_id: string
+          checklist_id: string
+          checklist_title: string
+          created_at: string
+          id: string
+          location_id: string
+          message_raw: string
+          message_sent: string
+          organization_id: string | null
+          push_status: string
+          recipient_id: string
+          sender_id: string
+          source: string
+          template_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          business_date: string
+          checklist_family_id: string
+          checklist_id: string
+          checklist_title: string
+          created_at?: string
+          id?: string
+          location_id: string
+          message_raw: string
+          message_sent: string
+          organization_id?: string | null
+          push_status?: string
+          recipient_id: string
+          sender_id: string
+          source: string
+          template_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          business_date?: string
+          checklist_family_id?: string
+          checklist_id?: string
+          checklist_title?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          message_raw?: string
+          message_sent?: string
+          organization_id?: string | null
+          push_status?: string
+          recipient_id?: string
+          sender_id?: string
+          source?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_nudge_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_photo_archive_log: {
         Row: {
           action: string
@@ -7543,6 +7608,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "location_integrations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_nudge_templates: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          location_id: string
+          name: string
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          location_id: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          location_id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_nudge_templates_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -15035,6 +15147,21 @@ export type Database = {
       can_see_admin_locations: { Args: { _user_id: string }; Returns: boolean }
       check_alerts_sql: { Args: never; Returns: undefined }
       check_weekly_checklist_alerts_sql: { Args: never; Returns: undefined }
+      checklist_nudge_status: {
+        Args: { _checklist_id?: string; _location_id: string }
+        Returns: {
+          checklist_id: string
+          completed_items: number
+          family_id: string
+          frequency: string
+          is_complete: boolean
+          is_locked: boolean
+          lock_until_time: string
+          template_type: string
+          title: string
+          total_items: number
+        }[]
+      }
       claim_checklist_photo: {
         Args: {
           _item_id: string
@@ -15627,6 +15754,29 @@ export type Database = {
         }[]
       }
       reconcile_brand_deploy_log: { Args: never; Returns: number }
+      record_checklist_nudges: {
+        Args: {
+          _batch: string
+          _business_date: string
+          _checklist: string
+          _cooldown_min?: number
+          _family: string
+          _location: string
+          _message_raw: string
+          _org: string
+          _recipients: Json
+          _sender: string
+          _source: string
+          _template_id: string
+          _title: string
+        }
+        Returns: {
+          last_sent_at: string
+          log_id: string
+          recipient_id: string
+          status: string
+        }[]
+      }
       refresh_all_pfg_tokens: { Args: never; Returns: undefined }
       resolve_goal: {
         Args: { _date: string; _location_id: string }
@@ -15655,6 +15805,10 @@ export type Database = {
           similarity: number
           topic: string
         }[]
+      }
+      seed_location_nudge_templates: {
+        Args: { _location_id: string }
+        Returns: undefined
       }
       seed_org_role_settings: { Args: { _org: string }; Returns: undefined }
       send_day_part_pulse: { Args: never; Returns: undefined }
@@ -15767,7 +15921,7 @@ export type Database = {
         | "other"
       support_ticket_status: "open" | "in_progress" | "resolved"
       vendor_sku_status: "active" | "stale" | "discontinued" | "needs_review"
-      visual_alert_type: "quick_task" | "overdue_checklist"
+      visual_alert_type: "quick_task" | "overdue_checklist" | "checklist_nudge"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -15934,7 +16088,7 @@ export const Constants = {
       ],
       support_ticket_status: ["open", "in_progress", "resolved"],
       vendor_sku_status: ["active", "stale", "discontinued", "needs_review"],
-      visual_alert_type: ["quick_task", "overdue_checklist"],
+      visual_alert_type: ["quick_task", "overdue_checklist", "checklist_nudge"],
     },
   },
 } as const

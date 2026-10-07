@@ -17,7 +17,8 @@ import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TheoUsageSection } from '@/components/settings/TheoUsageSection';
-import { BarChart3, AudioLines } from 'lucide-react';
+import { BarChart3, AudioLines, BellRing } from 'lucide-react';
+import { NudgeTemplatesSection } from '@/components/settings/NudgeTemplatesSection';
 import { TheoVoiceSection } from '@/components/settings/TheoVoiceSection';
 import { syncChromeColor } from '@/utils/syncChrome';
 
@@ -80,7 +81,7 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['theme', 'theo-voice', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock', 'kds-board', 'location-profile'];
+const LOCATION_SECTIONS = ['theme', 'theo-voice', 'notifications', 'nudge-templates', 'food-safety-audits', 'inventory', 'punch-clock', 'kds-board', 'location-profile'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
@@ -93,6 +94,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   reporting: { title: 'Reporting', icon: <FileText className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
+  'nudge-templates': { title: 'Nudge Templates', icon: <BellRing className="h-4 w-4" /> },
   'food-safety-audits': { title: 'Audit Results', icon: <ShieldCheck className="h-4 w-4" /> },
   'location-profile': { title: 'Edit Location Settings', icon: <Building2 className="h-4 w-4" /> },
   inventory: { title: 'Inventory', icon: <Package className="h-4 w-4" /> },
@@ -304,6 +306,10 @@ export default function Settings() {
       case 'notifications':
         return <UnifiedNotificationSettings />;
 
+      case 'nudge-templates':
+        if (!currentLocation || !isManager) return null;
+        return <NudgeTemplatesSection locationId={currentLocation.id} />;
+
       case 'clone-settings':
         if (!isSuperAdmin) return null;
         return <CloneLocationSettings />;
@@ -489,6 +495,7 @@ export default function Settings() {
 
     return pool.filter(id => {
       if (id === 'theo-voice') return isShiftManager;
+      if (id === 'nudge-templates') return !!currentLocation && isManager;
       if (id === 'food-safety-audits') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'location-profile') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'inventory') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_inventory'));

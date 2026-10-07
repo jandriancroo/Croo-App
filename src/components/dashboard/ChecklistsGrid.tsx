@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { NUDGE_ICON } from '@/lib/checklistNudges';
 
 interface ChecklistItem {
   id: string;
@@ -25,6 +26,11 @@ interface ChecklistsGridProps {
   trainingRemaining?: number;
   /** Total trainee rows — added to the header's total */
   trainingTotal?: number;
+  /** Managers and up: show the nudge badge on unfinished, open rows */
+  canNudge?: boolean;
+  onNudge?: (checklist: { id: string; title: string }) => void;
+  /** checklist id -> minutes since the last nudge at this store (last hour only) */
+  recentlyNudged?: Record<string, number>;
 }
 
 export const ChecklistsGrid = React.memo(function ChecklistsGrid({
@@ -34,7 +40,11 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   trainingRows,
   trainingRemaining = 0,
   trainingTotal = 0,
+  canNudge = false,
+  onNudge,
+  recentlyNudged,
 }: ChecklistsGridProps) {
+  const NudgeIcon = NUDGE_ICON;
   const navigate = useNavigate();
   const { getBusinessDateInTimezone } = useLocationTimezone();
 
@@ -148,6 +158,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   return (
     <div className="flex flex-col gap-1 w-full">
       <DashSectionTitle
+        className="mb-2"
         action={
           totalCount === 0
             ? undefined
@@ -160,7 +171,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       </DashSectionTitle>
 
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-visible">
         {checklists.map((checklist, idx) => {
           const { expected, completed } = getCompletionData(checklist.id);
 
@@ -174,22 +185,57 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
             return nowSeconds > dH * 3600 + dM * 60 + (dS || 0);
           })();
 
+          const showNudge = canNudge && !!onNudge && !isLocked && expected > 0 && completed < expected;
+          const nudgedAgo = recentlyNudged?.[checklist.id];
+          const cooling = nudgedAgo != null;
+
           return (
             <div
               key={checklist.id}
               onClick={() => { if (!isLocked) navigate(`/complete/${checklist.id}`); }}
               className={cn(
-                'flex items-center gap-3 px-[14px] py-[11px] transition-colors duration-150',
+                'relative flex items-center gap-3 px-[14px] py-[11px] transition-colors duration-150 first:rounded-t-xl last:rounded-b-xl',
                 idx > 0 && 'border-t border-border',
                 isLocked ? 'opacity-60' : 'cursor-pointer hover:bg-muted/40'
               )}
             >
+              {showNudge && (
+                <button
+                  type="button"
+                  aria-label={cooling ? `Nudge crew (nudged ${nudgedAgo}m ago)` : 'Nudge crew'}
+                  onClick={(e) => { e.stopPropagation(); onNudge!({ id: checklist.id, title: checklist.title }); }}
+                  className="absolute z-20 flex h-10 w-10 items-center justify-center"
+                  style={{ top: -20, right: -1 }}
+                >
+                  {cooling && (
+                    <span className="absolute right-[34px] rounded-full bg-card px-1 text-[9px] font-bold leading-[14px] text-muted-foreground ring-1 ring-border">
+                      {nudgedAgo}m
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      'flex h-[26px] w-[26px] items-center justify-center rounded-full ring-2 ring-card',
+                      cooling
+                        ? 'bg-muted text-muted-foreground shadow-sm'
+                        : 'bg-primary text-primary-foreground outline outline-1 outline-primary/25 shadow-[0_2px_6px_hsl(190_54%_25%/.35)]'
+                    )}
+                  >
+                    <NudgeIcon className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  </span>
+                </button>
+              )}
+
               {renderPieGlyph(isLocked, completed, expected)}
 
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="min-w-0 truncate text-[15px] font-medium tracking-[-0.01em] text-foreground">
-                  {checklist.title}
-                </span>
+                <div className="flex min-w-0 flex-col">
+                  <span className="min-w-0 truncate text-[15px] font-medium tracking-[-0.01em] text-foreground">
+                    {checklist.title}
+                  </span>
+                  {showNudge && cooling && (
+                    <span className="text-[11px] text-muted-foreground">Nudged {nudgedAgo}m ago</span>
+                  )}
+                </div>
                 {isOverdue && (
                   <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 shrink-0 gap-0.5">
                     <AlertCircle className="h-2.5 w-2.5" />

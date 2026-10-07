@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { ClipboardList, X, Zap } from "lucide-react";
 import type { VisualAlert } from "@/hooks/useVisualAlerts";
+import { useNavigate } from "react-router-dom";
+import { NUDGE_ICON } from "@/lib/checklistNudges";
 
 interface Props {
   alert: VisualAlert;
@@ -11,8 +13,10 @@ interface Props {
 }
 
 export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }: Props) {
+  const navigate = useNavigate();
   const isChecklist = alert.alert_type === "overdue_checklist";
-  const Icon = isChecklist ? ClipboardList : Zap;
+  const isNudge = alert.alert_type === "checklist_nudge";
+  const Icon = isNudge ? NUDGE_ICON : isChecklist ? ClipboardList : Zap;
 
   return (
     <div className="relative w-full max-w-sm rounded-2xl bg-card border border-border/40 shadow-2xl p-6 animate-scale-in">
@@ -37,7 +41,7 @@ export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-            {isChecklist ? "Overdue Checklist" : "Quick Task"}
+            {isNudge ? "Checklist nudge" : isChecklist ? "Overdue Checklist" : "Quick Task"}
           </div>
           <h2 className="text-lg font-semibold leading-tight mt-0.5 line-clamp-2">
             {alert.title}
@@ -51,13 +55,28 @@ export function VisualAlertCard({ alert, remaining, isLast, onNext, onCloseAll }
         </p>
       )}
 
-      <Button
-        onClick={onNext}
-        className="w-full h-12 text-base font-semibold gap-2"
-        size="lg"
-      >
-        {isLast ? "Done" : "Next"}
-      </Button>
+      {isNudge ? (
+        <div className="space-y-2">
+          <Button
+            onClick={() => { onNext(); navigate(`/complete/${alert.ref_id}`); }}
+            className="w-full h-12 text-base font-semibold gap-2"
+            size="lg"
+          >
+            Open checklist
+          </Button>
+          <Button onClick={onNext} variant="ghost" className="w-full">
+            Later
+          </Button>
+        </div>
+      ) : (
+        <Button
+          onClick={onNext}
+          className="w-full h-12 text-base font-semibold gap-2"
+          size="lg"
+        >
+          {isLast ? "Done" : "Next"}
+        </Button>
+      )}
     </div>
   );
 }

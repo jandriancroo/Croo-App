@@ -160,3 +160,6 @@ verify_jwt = false
 
 [functions.interview-calendar]
 verify_jwt = false
+
+[functions.checklist-nudge]
+verify_jwt = true
