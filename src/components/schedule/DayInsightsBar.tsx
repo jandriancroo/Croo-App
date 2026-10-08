@@ -10,6 +10,7 @@ import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
+import { useLaborGoals, laborGoalTone } from '@/hooks/useLaborGoals';
 
 type SalesSource = 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
 
@@ -68,6 +69,7 @@ export function DayInsightsBar({
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const laborGoals = useLaborGoals(locationId);
   const [sales, setSales] = useState(0);
   const [salesSource, setSalesSource] = useState<SalesSource | undefined>(undefined);
 
@@ -341,11 +343,13 @@ export function DayInsightsBar({
 
   const laborPct = sales > 0 ? (labor.cost / sales) * 100 : 0;
   const salesPerLH = labor.hours > 0 ? sales / labor.hours : 0;
+  const laborGoal = laborGoals.forDate(dateStr);
+  const laborTone = laborGoalTone(laborPct, laborGoal);
   const laborPctColor = laborPct === 0
     ? 'text-slate-300'
-    : laborPct <= 30
+    : laborTone === 'good'
       ? 'text-green-400'
-      : laborPct <= 35
+      : laborTone === 'warn'
         ? 'text-yellow-400'
         : 'text-red-400';
 
@@ -413,6 +417,7 @@ export function DayInsightsBar({
             <div className="rounded-lg bg-white/[0.04] px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">Labor %</p>
               <p className={`text-lg font-bold ${laborPctColor}`}>{laborPct.toFixed(1)}%</p>
+              <p className="text-[10px] text-slate-400">goal {laborGoal}%</p>
             </div>
             <div className="rounded-lg bg-white/[0.04] px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">$/LH</p>
