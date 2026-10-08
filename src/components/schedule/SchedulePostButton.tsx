@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { approvalErrorText, laborCheckOverGoal, OVER_GOAL_NEEDS_APPROVAL, type useScheduleApproval } from "@/hooks/useScheduleApproval";
+import { approvalErrorText, laborCheckOverGoal, needsApprovalReason, type useScheduleApproval } from "@/hooks/useScheduleApproval";
 import { laborCheckIssues } from "./laborCheckIssues";
 
 type Approval = ReturnType<typeof useScheduleApproval>;
@@ -24,7 +24,7 @@ interface SchedulePostButtonProps {
 export function SchedulePostButton({ approval, onPost, isPublishing = false, onChanged, className, size = "default", compact }: SchedulePostButtonProps) {
   const mode = approval?.mode ?? "direct";
   const [checking, setChecking] = useState(false);
-  const [confirm, setConfirm] = useState<{ lines: string[]; go: () => void } | null>(null);
+  const [confirm, setConfirm] = useState<{ lines: string[]; reason: string; go: () => void } | null>(null);
   const busy = isPublishing || !!approval?.busy || checking;
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
@@ -42,7 +42,7 @@ export function SchedulePostButton({ approval, onPost, isPublishing = false, onC
     const lc = await approval.checkLabor();
     setChecking(false);
     if (!laborCheckOverGoal(lc)) return go();
-    setConfirm({ lines: laborCheckIssues(lc), go });
+    setConfirm({ lines: laborCheckIssues(lc), reason: needsApprovalReason(lc), go });
   };
 
   const dialog = (
@@ -52,9 +52,9 @@ export function SchedulePostButton({ approval, onPost, isPublishing = false, onC
           <AlertDialogTitle>Over the labor goal</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-2 text-sm">
-              {needsGoalApproval && <p>{OVER_GOAL_NEEDS_APPROVAL}</p>}
+              {needsGoalApproval && confirm && <p>{confirm.reason}</p>}
               <ul className="list-disc space-y-0.5 pl-5 text-foreground">
-                {confirm?.lines.map((l) => <li key={l}>{l}</li>)}
+                {confirm?.lines.map((l, i) => <li key={i}>{l}</li>)}
               </ul>
             </div>
           </AlertDialogDescription>
