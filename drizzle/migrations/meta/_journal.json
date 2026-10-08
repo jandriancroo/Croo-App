@@ -190,6 +190,13 @@
       "when": 1791484043802,
       "tag": "0026_labor_week_pay_all_rules_body",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791484685102,
+      "tag": "0027_labor_meal_premiums_ca_only",
+      "breakpoints": true
     }
   ]
 }
