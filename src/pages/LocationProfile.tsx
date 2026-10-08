@@ -280,6 +280,12 @@ export default function LocationProfile() {
           });
         }
 
+        // Labor rules: seeded on the server from the state preset for this address.
+        if (newLocation) {
+          const { error: seedErr } = await supabase.rpc('seed_labor_rules_from_preset' as any, { _location_id: newLocation.id });
+          if (seedErr) console.error('Seed labor rules error:', seedErr);
+        }
+
         toast.success('Location created successfully');
         navigate(`/location/${newLocation.id}`);
       } else {

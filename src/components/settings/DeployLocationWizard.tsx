@@ -14,6 +14,7 @@ import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket, Truck, XCircle
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LaborRulesWizard } from './LaborRulesWizard';
 
 const TIMEZONES = [
   { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
@@ -101,6 +102,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const [step, setStep] = useState(0);
   const [deploying, setDeploying] = useState(false);
   const [deployComplete, setDeployComplete] = useState(false);
+  const [seededLocationId, setSeededLocationId] = useState<string | null>(null);
+  const [rulesWizardOpen, setRulesWizardOpen] = useState(false);
 
   // Step 1: Basics
   const [name, setName] = useState('');
@@ -173,6 +176,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setStep(0);
       setDeploying(false);
       setDeployComplete(false);
+      setSeededLocationId(null);
       setName('');
       setAddress('');
       setStoreNumber('');
@@ -402,43 +406,13 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         console.error('Auto-deploy event categories error:', autoDeployError);
       }
 
-      // 5. Auto-apply labor rule preset
+      // 5. Labor rules: the server seeds them from the state preset for this address.
       try {
-        const stateMatch = address.match(/\b([A-Z]{2})\s*\.?\s*\d{5}/i)
-          || address.match(/,\s*([A-Z]{2})\s*$/i)
-          || address.match(/,\s*([A-Z]{2})\s+/i);
-
-        if (stateMatch) {
-          const stateCode = stateMatch[1].toUpperCase();
-          const { data: preset } = await supabase
-            .from('labor_rule_presets')
-            .select('*')
-            .eq('state_code', stateCode)
-            .limit(1)
-            .maybeSingle();
-
-          if (preset) {
-            await supabase.from('labor_rules').insert({
-              location_id: locationId,
-              rule_name: preset.preset_name,
-              state_code: preset.state_code,
-              daily_overtime_threshold: preset.daily_overtime_threshold,
-              daily_double_time_threshold: preset.daily_double_time_threshold,
-              weekly_overtime_threshold: preset.weekly_overtime_threshold,
-              overtime_multiplier: preset.overtime_multiplier,
-              double_time_multiplier: preset.double_time_multiplier,
-              meal_break_hours: preset.meal_break_hours,
-              meal_break_duration: preset.meal_break_duration,
-              rest_break_hours: preset.rest_break_hours,
-              rest_break_duration: preset.rest_break_duration,
-              reporting_time_enabled: preset.reporting_time_enabled,
-              reporting_time_min_hours: preset.reporting_time_min_hours,
-              reporting_time_max_hours: preset.reporting_time_max_hours,
-            });
-          }
-        }
+        const { error: seedErr } = await supabase.rpc('seed_labor_rules_from_preset' as any, { _location_id: locationId });
+        if (seedErr) throw seedErr;
+        setSeededLocationId(locationId);
       } catch (laborPresetError) {
-        console.error('Auto-apply labor preset error:', laborPresetError);
+        console.error('Seed labor rules error:', laborPresetError);
       }
 
       // 6. Auto-deploy brand inventory
@@ -636,7 +610,12 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                 )}
               </div>
 
-              <Button onClick={handleClose} className="mt-2">Done</Button>
+              <div className="flex gap-2 mt-2">
+                {seededLocationId && (
+                  <Button variant="outline" onClick={() => setRulesWizardOpen(true)}>Review labor rules</Button>
+                )}
+                <Button onClick={handleClose}>Done</Button>
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -951,6 +930,9 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           </DialogFooter>
         )}
       </DialogContent>
+      {seededLocationId && (
+        <LaborRulesWizard locationId={seededLocationId} open={rulesWizardOpen} onOpenChange={setRulesWizardOpen} />
+      )}
     </Dialog>
   );
 }
