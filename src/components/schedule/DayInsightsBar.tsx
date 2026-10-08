@@ -405,9 +405,9 @@ export function DayInsightsBar({
                 <div className="mt-1">
                   <LaborGoalPopover dow={dowFromDate(dateStr)} projectedSales={sales} canEdit={canEdit}>
                     <InsightField
-                      plain={!canEdit}
+                      showPencil={canEdit}
                       className="h-7"
-                      aria-label={`Edit ${format(parseISO(dateStr), 'EEE')} labor goal`}
+                      aria-label="Edit labor goal"
                       value={<span className="text-[11px] text-slate-300">goal <span className="font-semibold text-slate-100">{laborGoal}%</span></span>}
                     />
                   </LaborGoalPopover>
