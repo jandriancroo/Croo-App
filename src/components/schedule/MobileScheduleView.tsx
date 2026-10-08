@@ -76,6 +76,9 @@ interface Event {
     color: string;
   } | null;
 }
+import { SchedulePostButton } from "./SchedulePostButton";
+import { ScheduleApprovalBanner } from "./ScheduleApprovalBanner";
+import type { useScheduleApproval } from "@/hooks/useScheduleApproval";
 
 interface MobileScheduleViewProps {
   currentWeekStart: Date;
@@ -101,6 +104,8 @@ interface MobileScheduleViewProps {
   onOpenHistory?: () => void;
   onRestored?: () => void;
   isPublishing?: boolean;
+  approval?: ReturnType<typeof useScheduleApproval> | null;
+  onApprovalChanged?: () => void;
   hasPendingChanges?: boolean;
   isLoading?: boolean; // Show skeleton cards while loading
   locationSettings?: { hours_open?: string; hours_close?: string; break_coverage_enabled?: boolean } | null;
@@ -150,6 +155,8 @@ export function MobileScheduleView({
   onOpenHistory,
   onRestored,
   isPublishing = false,
+  approval,
+  onApprovalChanged,
   hasPendingChanges = false,
   isLoading = false,
   locationSettings = null,
@@ -938,14 +945,7 @@ export function MobileScheduleView({
               <ScheduleUndoButton scheduleId={scheduleId} isPublished={isPublished} version={shifts} onChanged={onRestored} />
               {/* Publish/Update Button - styled like desktop */}
               {scheduleId && (!isPublished ? (
-                <Button 
-                  size="sm"
-                  className="h-7 px-3 text-xs"
-                  onClick={onGoLive}
-                  disabled={isPublishing}
-                >
-                  {isPublishing ? 'Publishing...' : 'Go Live'}
-                </Button>
+                <SchedulePostButton size="sm" className="h-7 px-3 text-xs" approval={approval} onPost={onGoLive} isPublishing={isPublishing} onChanged={onApprovalChanged} compact />
               ) : hasPendingChanges ? (
                 <Button 
                   variant="outline"
@@ -1226,9 +1226,7 @@ export function MobileScheduleView({
                         {(isAdmin || isManager) && scheduleId && (
                           <div className="ml-auto">
                             {!isPublished ? (
-                              <Button size="sm" className="h-6 px-2.5 text-[10px]" onClick={onGoLive} disabled={isPublishing}>
-                                {isPublishing ? '...' : 'Go Live'}
-                              </Button>
+                              <SchedulePostButton size="sm" className="h-6 px-2.5 text-[10px]" approval={approval} onPost={onGoLive} isPublishing={isPublishing} onChanged={onApprovalChanged} compact />
                             ) : hasPendingChanges ? (
                               <button
                                 type="button"
@@ -1459,9 +1457,7 @@ export function MobileScheduleView({
                       {(isAdmin || isManager) && scheduleId && (
                         <>
                           {!isPublished ? (
-                            <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
-                              {isPublishing ? 'Publishing...' : 'Go Live'}
-                            </Button>
+                            <SchedulePostButton size="sm" className="h-7 px-3 text-xs" approval={approval} onPost={onGoLive} isPublishing={isPublishing} onChanged={onApprovalChanged} compact />
                           ) : hasPendingChanges ? (
                             <Button
                               variant="outline"

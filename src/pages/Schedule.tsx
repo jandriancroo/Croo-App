@@ -84,7 +84,8 @@ export default function Schedule() {
     appliedLinkRef.current = key;
   }, [searchParams, currentLocation?.id, locations, setCurrentLocation, setCurrentWeekStart]);
 
-  const approval = useScheduleApproval(scheduleId, currentLocation?.id, isPublished, shifts);
+  const shiftsSig = useMemo(() => shifts.map((s: any) => `${s.id}${s.user_id}${s.start_time}${s.end_time}${s.is_time_off ? 1 : 0}`).join("|"), [shifts]);
+  const approval = useScheduleApproval(scheduleId, currentLocation?.id, isPublished, shiftsSig);
   const onApprovalChanged = () => { fetchScheduleData(false); };
 
   // Local UI state
