@@ -79,6 +79,7 @@ export function useLaborGoals(locationIdOverride?: string | null) {
     onSuccess: (data) => {
       qc.setQueryData(laborGoalsKey(locationId), data);
       qc.invalidateQueries({ queryKey: laborGoalsKey(locationId) });
+      qc.invalidateQueries({ queryKey: ['labor-goal-display'] });
     },
   });
 
