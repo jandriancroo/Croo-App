@@ -778,7 +778,8 @@ export function LaborTotals({
                   value={weeklyTotals.sales > 0 ? <span className={`text-[15px] font-bold ${toneClass(laborGoalTone(weeklyTotals.laborPercent, laborGoals.weekly))}`}>
                       {weeklyTotals.laborPercent.toFixed(1)}%
                     </span> : <span className="text-xs text-slate-500">-</span>}
-                  suffix={laborGoals.weekly != null ? <>/ <span className="text-slate-300">{laborGoals.weekly}%</span> weekly goal</> : undefined}
+                  suffix={laborGoals.weekly != null ? <>/ <span className="text-slate-300">{laborGoals.weekly}%</span></> : undefined}
+                  suffixExtra={laborGoals.weekly != null ? '\u00a0weekly goal' : undefined}
                   tooltip={<><p>Edit weekly labor goal</p>{laborGoals.weekly != null && <p className="text-xs opacity-70">Currently {laborGoals.weekly}%</p>}</>}
                 />
               </LaborGoalPopover></div>
