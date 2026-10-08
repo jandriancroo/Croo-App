@@ -56,7 +56,7 @@ export function LaborRulesDiff({ rows, checked, onToggle }: Props) {
                   {r.citation.quote && <p className="italic line-clamp-3">“{r.citation.quote}”</p>}
                 </div>
               )}
-              {r.hint && <p className="text-xs text-warning">{r.hint}</p>}
+              {r.hint && <p className="text-xs text-amber-600 dark:text-amber-400">{r.hint}</p>}
             </div>
           </div>
         );
