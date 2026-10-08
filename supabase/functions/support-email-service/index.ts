@@ -474,7 +474,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("sales_cache").select("net_sales, guest_count, pizza_count, avg_ticket, projected_sales, override_projection, living_projection, initial_projection, product_mix, yoy_net_sales").eq("location_id", location_id).eq("sale_date", entry_date).maybeSingle(),
     supabase.from("sales_cache").select("sale_date, net_sales").eq("location_id", location_id).in("sale_date", [lwStr, lyStr]),
     supabase.from("labor_cache").select("labor_hours, labor_cost").eq("location_id", location_id).eq("labor_date", entry_date),
-    supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
+    supabase.rpc("labor_goal_pct", { _location_id: location_id, _date: entry_date }),
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
     // Use business day boundaries matching app's getBusinessDayRangeInTimezone
     supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", businessDayStartUTC).lt("submitted_at", businessDayEndUTC),
@@ -588,7 +588,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const totalLaborHours = laborData?.reduce((sum: number, l: any) => sum + (l.labor_hours || 0), 0) || 0;
   const totalLaborCost = laborData?.reduce((sum: number, l: any) => sum + (l.labor_cost || 0), 0) || 0;
   const laborPercent = netSales > 0 ? (totalLaborCost / netSales * 100) : 0;
-  const laborGoal = locationSettings?.labor_percentage_target || 25;
+  const laborGoal = locationSettings != null ? Number(locationSettings) : 25; // labor_goal_pct (store-goal Weekly Template)
   const laborGoalDollars = netSales * (laborGoal / 100);
   const laborOverUnder = totalLaborCost - laborGoalDollars;
   const laborColor = laborPercent <= laborGoal ? "#22c55e" : "#ef4444";
@@ -1112,7 +1112,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
     supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, projected_sales, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
     supabase.from("labor_cache").select("labor_date, labor_hours, labor_cost").eq("location_id", location_id).gte("labor_date", week_start).lte("labor_date", week_end),
-    supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
+    supabase.rpc("labor_goal_pct", { _location_id: location_id, _date: null }),
     supabase.from("checklists").select("id, title, frequency, template_type, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
     supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
   ]);
@@ -1168,7 +1168,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   const totalLaborHours = (laborRows || []).reduce((sum: number, l: any) => sum + (l.labor_hours || 0), 0);
   const totalLaborCost = (laborRows || []).reduce((sum: number, l: any) => sum + (l.labor_cost || 0), 0);
   const laborPercent = totalSales > 0 ? (totalLaborCost / totalSales * 100) : 0;
-  const laborGoal = locationSettings?.labor_percentage_target || 25;
+  const laborGoal = locationSettings != null ? Number(locationSettings) : 25; // labor_goal_pct (store-goal Weekly Template)
   const laborGoalDollars = totalSales * (laborGoal / 100);
   const laborOverUnder = totalLaborCost - laborGoalDollars;
   const laborColor = laborPercent <= laborGoal ? "#22c55e" : "#ef4444";
