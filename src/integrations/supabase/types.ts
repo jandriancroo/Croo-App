@@ -12096,39 +12096,70 @@ export type Database = {
       }
       schedule_change_log: {
         Row: {
+          batch_id: string | null
           change_type: string
           changed_by: string | null
           created_at: string
           id: string
           is_draft: boolean
           new_shift_data: Json | null
+          note: string | null
           old_shift_data: Json | null
+          reverts_log_id: string | null
           schedule_id: string
-          user_id: string
+          shift_id: string | null
+          source: string
+          undone_at: string | null
+          undone_by: string | null
+          user_id: string | null
+          week_live: boolean
         }
         Insert: {
+          batch_id?: string | null
           change_type: string
           changed_by?: string | null
           created_at?: string
           id?: string
           is_draft?: boolean
           new_shift_data?: Json | null
+          note?: string | null
           old_shift_data?: Json | null
+          reverts_log_id?: string | null
           schedule_id: string
-          user_id: string
+          shift_id?: string | null
+          source?: string
+          undone_at?: string | null
+          undone_by?: string | null
+          user_id?: string | null
+          week_live?: boolean
         }
         Update: {
+          batch_id?: string | null
           change_type?: string
           changed_by?: string | null
           created_at?: string
           id?: string
           is_draft?: boolean
           new_shift_data?: Json | null
+          note?: string | null
           old_shift_data?: Json | null
+          reverts_log_id?: string | null
           schedule_id?: string
-          user_id?: string
+          shift_id?: string | null
+          source?: string
+          undone_at?: string | null
+          undone_by?: string | null
+          user_id?: string | null
+          week_live?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "schedule_change_log_reverts_log_id_fkey"
+            columns: ["reverts_log_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_change_log"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "schedule_change_log_schedule_id_fkey"
             columns: ["schedule_id"]
@@ -12351,6 +12382,10 @@ export type Database = {
           last_status_changed_at: string | null
           last_status_changed_by: string | null
           location_id: string | null
+          original_published_at: string | null
+          original_published_by: string | null
+          original_replace_on_next_post: boolean
+          original_shifts_snapshot: Json | null
           published_shifts_snapshot: Json | null
           published_snapshot: Json | null
           updated_at: string | null
@@ -12366,6 +12401,10 @@ export type Database = {
           last_status_changed_at?: string | null
           last_status_changed_by?: string | null
           location_id?: string | null
+          original_published_at?: string | null
+          original_published_by?: string | null
+          original_replace_on_next_post?: boolean
+          original_shifts_snapshot?: Json | null
           published_shifts_snapshot?: Json | null
           published_snapshot?: Json | null
           updated_at?: string | null
@@ -12381,6 +12420,10 @@ export type Database = {
           last_status_changed_at?: string | null
           last_status_changed_by?: string | null
           location_id?: string | null
+          original_published_at?: string | null
+          original_published_by?: string | null
+          original_replace_on_next_post?: boolean
+          original_shifts_snapshot?: Json | null
           published_shifts_snapshot?: Json | null
           published_snapshot?: Json | null
           updated_at?: string | null
@@ -15122,13 +15165,35 @@ export type Database = {
       }
     }
     Functions: {
+      _apply_schedule_state: {
+        Args: {
+          _batch: string
+          _dry_run: boolean
+          _reverts?: string
+          _schedule_id: string
+          _source: string
+          _target: Json
+        }
+        Returns: Json
+      }
       _can_approve_labor_rules: {
+        Args: { _location_id: string; _user: string }
+        Returns: boolean
+      }
+      _can_edit_schedule: {
         Args: { _location_id: string; _user: string }
         Returns: boolean
       }
       _can_manage_labor_rules: {
         Args: { _location_id: string; _user: string }
         Returns: boolean
+      }
+      _invert_log_rows: {
+        Args: {
+          _rows: Database["public"]["Tables"]["schedule_change_log"]["Row"][]
+          _state: Json
+        }
+        Returns: Json
       }
       _labor_cache_refresh_from: {
         Args: { _from: string; _location_id: string }
@@ -15305,6 +15370,11 @@ export type Database = {
         Args: { _location_id: string; _min_role: string }
         Returns: boolean
       }
+      _shift_change_desc: {
+        Args: { _r: Database["public"]["Tables"]["schedule_change_log"]["Row"] }
+        Returns: string
+      }
+      _shift_cmp: { Args: { _s: Json }; Returns: Json }
       _shift_flags: {
         Args: { _end: string; _location_id: string; _start: string }
         Returns: {
@@ -16293,6 +16363,10 @@ export type Database = {
         Args: { _date: string; _location_id: string }
         Returns: number
       }
+      restore_schedule: {
+        Args: { _dry_run?: boolean; _schedule_id: string; _target: string }
+        Returns: Json
+      }
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
@@ -16510,6 +16584,10 @@ export type Database = {
         Returns: boolean
       }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
+      undo_schedule_change: {
+        Args: { _dry_run?: boolean; _schedule_id: string }
+        Returns: Json
+      }
       update_dashboard_widget: {
         Args: {
           _accent_color?: string
