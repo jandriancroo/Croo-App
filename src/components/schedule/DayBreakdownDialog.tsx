@@ -11,6 +11,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { Sparkles, Loader2, User, Printer } from "lucide-react";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
+import { useLaborGoals, laborGoalTone } from "@/hooks/useLaborGoals";
 import { exportDayTimelineToPrint } from "@/utils/exportDayTimelinePrint";
 import { normalizeBreaks } from "@/types/shiftBreak";
 import type { LocationStation } from "@/hooks/useLocationStations";
@@ -30,6 +31,14 @@ interface DayBreakdownDialogProps {
   stationAssignments?: Record<string, string | null>;
 }
 
+/** ≤ goal green, ≤ goal+3 yellow, above red — the one rule in laborGoalTone. */
+function laborPctClass(pct: number, goal: number) {
+  const tone = laborGoalTone(pct, goal);
+  if (tone === "good") return "text-green-600";
+  if (tone === "warn") return "text-yellow-600";
+  return "text-red-600";
+}
+
 export function DayBreakdownDialog({
   open,
   onOpenChange,
@@ -44,6 +53,8 @@ export function DayBreakdownDialog({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  const laborGoals = useLaborGoals();
+  const dayGoal = laborGoals.forDate(dateStr);
   
   // Sales data state
   const [salesData, setSalesData] = useState<{
@@ -675,7 +686,7 @@ export function DayBreakdownDialog({
                   </div>
                   {totalCost > 0 && salesData.daily > 0 && (
                     <div className="text-sm text-muted-foreground mt-1">
-                      Labor %: <span className={`font-semibold ${(totalCost / salesData.daily * 100) <= 30 ? 'text-green-600' : (totalCost / salesData.daily * 100) <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      Labor %: <span className={`font-semibold ${laborPctClass(totalCost / salesData.daily * 100, dayGoal)}`}>
                         {(totalCost / salesData.daily * 100).toFixed(1)}%
                       </span>
                     </div>
@@ -729,7 +740,7 @@ export function DayBreakdownDialog({
                           <td className="p-2 text-right">
                             {hourlySales > 0 ? formatCurrency(hourlySales) : '-'}
                           </td>
-                          <td className={`p-2 text-right font-medium ${laborPercent > 0 && laborPercent <= 30 ? 'text-green-600' : laborPercent > 30 && laborPercent <= 35 ? 'text-yellow-600' : laborPercent > 35 ? 'text-red-600' : ''}`}>
+                          <td className={`p-2 text-right font-medium ${hourlySales > 0 ? laborPctClass(laborPercent, dayGoal) : ''}`}>
                             {hourlySales > 0 ? `${laborPercent.toFixed(1)}%` : '-'}
                           </td>
                         </tr>
@@ -743,7 +754,7 @@ export function DayBreakdownDialog({
                       <td className="p-2 text-right">{totalHours.toFixed(2)} Hrs</td>
                       <td className="p-2 text-right">{formatCurrency(totalCost)}</td>
                       <td className="p-2 text-right">{salesData?.daily ? formatCurrency(salesData.daily) : '-'}</td>
-                      <td className={`p-2 text-right ${salesData?.daily && (totalCost / salesData.daily * 100) <= 30 ? 'text-green-600' : salesData?.daily && (totalCost / salesData.daily * 100) <= 35 ? 'text-yellow-600' : salesData?.daily ? 'text-red-600' : ''}`}>
+                      <td className={`p-2 text-right ${salesData?.daily ? laborPctClass(totalCost / salesData.daily * 100, dayGoal) : ''}`}>
                         {salesData?.daily ? `${(totalCost / salesData.daily * 100).toFixed(1)}%` : '-'}
                       </td>
                     </tr>
