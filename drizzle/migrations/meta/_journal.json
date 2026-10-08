@@ -141,6 +141,13 @@
       "when": 1791438842920,
       "tag": "0019_schedule_approval_revoke_helpers",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791439745911,
+      "tag": "0020_security_fix_a_caller_checks",
+      "breakpoints": true
     }
   ]
 }
