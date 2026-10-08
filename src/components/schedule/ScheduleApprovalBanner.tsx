@@ -9,7 +9,7 @@ import { laborCheckIssues } from "./laborCheckIssues";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { approvalErrorText, OVER_GOAL_NEEDS_APPROVAL, type useScheduleApproval } from "@/hooks/useScheduleApproval";
+import { approvalErrorText, needsApprovalReason, type useScheduleApproval } from "@/hooks/useScheduleApproval";
 
 type Approval = ReturnType<typeof useScheduleApproval>;
 
@@ -92,7 +92,7 @@ export function ScheduleApprovalBanner({ approval, isPublished, onChanged }: { a
     return (
       <div className="mx-2 my-2 flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-foreground">
         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-        <p>{OVER_GOAL_NEEDS_APPROVAL}</p>
+        <p>{needsApprovalReason(lc)}</p>
       </div>
     );
   }
@@ -112,7 +112,7 @@ function ApproverIssues({ issues }: { issues: string[] }) {
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-foreground">
-          {issues.map((l) => <li key={l}>{l}</li>)}
+          {issues.map((l, i) => <li key={i}>{l}</li>)}
         </ul>
       </CollapsibleContent>
     </Collapsible>
