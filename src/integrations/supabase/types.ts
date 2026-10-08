@@ -8092,6 +8092,9 @@ export type Database = {
           punch_clock_text_shadow: boolean | null
           safe_count_notifications_enabled: boolean
           safe_target: number
+          schedule_approval_enabled: boolean
+          schedule_approval_mode: string
+          schedule_approval_roles: Database["public"]["Enums"]["app_role"][]
           stations_enabled: boolean
           team_member_sales_view_enabled: boolean
           time_off_cutoff_day: number
@@ -8127,6 +8130,9 @@ export type Database = {
           punch_clock_text_shadow?: boolean | null
           safe_count_notifications_enabled?: boolean
           safe_target?: number
+          schedule_approval_enabled?: boolean
+          schedule_approval_mode?: string
+          schedule_approval_roles?: Database["public"]["Enums"]["app_role"][]
           stations_enabled?: boolean
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
@@ -8162,6 +8168,9 @@ export type Database = {
           punch_clock_text_shadow?: boolean | null
           safe_count_notifications_enabled?: boolean
           safe_target?: number
+          schedule_approval_enabled?: boolean
+          schedule_approval_mode?: string
+          schedule_approval_roles?: Database["public"]["Enums"]["app_role"][]
           stations_enabled?: boolean
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
@@ -12374,6 +12383,12 @@ export type Database = {
       }
       schedules: {
         Row: {
+          approval_decided_at: string | null
+          approval_decided_by: string | null
+          approval_message: string | null
+          approval_requested_at: string | null
+          approval_requested_by: string | null
+          approval_status: string | null
           created_at: string | null
           created_by: string | null
           id: string
@@ -12393,6 +12408,12 @@ export type Database = {
           week_start_date: string
         }
         Insert: {
+          approval_decided_at?: string | null
+          approval_decided_by?: string | null
+          approval_message?: string | null
+          approval_requested_at?: string | null
+          approval_requested_by?: string | null
+          approval_status?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -12412,6 +12433,12 @@ export type Database = {
           week_start_date: string
         }
         Update: {
+          approval_decided_at?: string | null
+          approval_decided_by?: string | null
+          approval_message?: string | null
+          approval_requested_at?: string | null
+          approval_requested_by?: string | null
+          approval_status?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -12979,6 +13006,7 @@ export type Database = {
           qr_code: string | null
           qr_issue_options: Json | null
           qr_notify_punch_clock: boolean | null
+          schedule_id: string | null
           shareable: boolean
           show_on_dashboard: boolean
           show_on_punch_clock: boolean | null
@@ -13016,6 +13044,7 @@ export type Database = {
           qr_code?: string | null
           qr_issue_options?: Json | null
           qr_notify_punch_clock?: boolean | null
+          schedule_id?: string | null
           shareable?: boolean
           show_on_dashboard?: boolean
           show_on_punch_clock?: boolean | null
@@ -13053,6 +13082,7 @@ export type Database = {
           qr_code?: string | null
           qr_issue_options?: Json | null
           qr_notify_punch_clock?: boolean | null
+          schedule_id?: string | null
           shareable?: boolean
           show_on_dashboard?: boolean
           show_on_punch_clock?: boolean | null
@@ -13087,6 +13117,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_tasks_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
             referencedColumns: ["id"]
           },
           {
@@ -15346,6 +15383,10 @@ export type Database = {
         Args: { _rules: Json; _shifts: Json; _wage: number }
         Returns: Json
       }
+      _publish_schedule: {
+        Args: { _by: string; _schedule_id: string }
+        Returns: number
+      }
       _rc_batch: {
         Args: { _bp_id: string; _location_id: string; _visited?: string[] }
         Returns: Json
@@ -15380,6 +15421,18 @@ export type Database = {
       _sales_caller_ok: {
         Args: { _location_id: string; _min_role: string }
         Returns: boolean
+      }
+      _schedule_approval_required: {
+        Args: { _location: string; _schedule: string; _user: string }
+        Returns: boolean
+      }
+      _schedule_approvers: {
+        Args: { _exclude: string; _location: string }
+        Returns: string[]
+      }
+      _schedule_decider_check: {
+        Args: { _sc: Database["public"]["Tables"]["schedules"]["Row"] }
+        Returns: undefined
       }
       _shift_change_desc: {
         Args: { _r: Database["public"]["Tables"]["schedule_change_log"]["Row"] }
@@ -15542,6 +15595,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      approve_schedule: { Args: { _schedule_id: string }; Returns: number }
       assign_user_to_location: {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
@@ -16312,6 +16366,7 @@ export type Database = {
         Returns: number
       }
       prune_visual_alert_queue: { Args: never; Returns: undefined }
+      publish_schedule: { Args: { _schedule_id: string }; Returns: number }
       punch_clock_get_role: { Args: { _user_id: string }; Returns: string }
       punch_clock_lookup_pin: {
         Args: { _location_id: string; _pin: string }
@@ -16483,6 +16538,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      schedule_week_labor_check: {
+        Args: { _schedule_id: string }
+        Returns: Json
+      }
       search_theo_knowledge: {
         Args: { p_embedding: string; p_limit?: number; p_location_id: string }
         Returns: {
@@ -16558,6 +16617,10 @@ export type Database = {
         Returns: undefined
       }
       seed_org_role_settings: { Args: { _org: string }; Returns: undefined }
+      send_back_schedule: {
+        Args: { _message: string; _schedule_id: string }
+        Returns: undefined
+      }
       send_day_part_pulse: { Args: never; Returns: undefined }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       send_shift_overstay_alerts: { Args: never; Returns: undefined }
@@ -16569,6 +16632,15 @@ export type Database = {
       set_register_labor: {
         Args: { _integration_type: string; _location_id: string; _on: boolean }
         Returns: boolean
+      }
+      set_schedule_approval_settings: {
+        Args: {
+          _enabled?: boolean
+          _location_id: string
+          _mode?: string
+          _roles?: Database["public"]["Enums"]["app_role"][]
+        }
+        Returns: Json
       }
       set_store_goal_template: { Args: { _template_id: string }; Returns: Json }
       shift_flags: {
@@ -16594,6 +16666,10 @@ export type Database = {
       start_fresh_sandbox_count: {
         Args: { _source_location_id: string }
         Returns: string
+      }
+      submit_schedule_for_approval: {
+        Args: { _schedule_id: string }
+        Returns: Json
       }
       task_nudge_status: {
         Args: { _location_id: string; _task_id?: string }
