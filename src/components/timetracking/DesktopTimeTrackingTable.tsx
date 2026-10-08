@@ -13,6 +13,7 @@ import {
   type PunchBreakInfo,
   type PunchFlag,
 } from './PunchApprovalRow';
+import { breaksFromDetails, chipsFor, type ShiftFlagRow } from '@/lib/timeTracking/shiftFlags';
 import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
 
 interface DesktopTimeTrackingTableProps {
@@ -23,12 +24,11 @@ interface DesktopTimeTrackingTableProps {
   onUnapproveDay: (dayPunches: any[]) => void;
   onEditShift: (shiftInfo: { dayPunches: any[], userId: string, locationId: string, shiftDate: string }) => void;
   calculateDayHours: (dayPunches: any[]) => number;
-  hasDayIssues: (dayPunches: any[]) => boolean;
   sortPunches: (punches: any[]) => any[];
   groupPunchesByWeek: (punchesByDay: { [key: string]: any[] }) => [string, { start: Date; end: Date; days: { [day: string]: any[] } }][];
   currentLocationId: string;
   approvingPunchIds: Set<string>;
-  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasOpenShift: boolean; hasAnyFlag: boolean };
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasOpenShift: boolean; hasAnyFlag: boolean; flags: ShiftFlagRow[] };
 }
 
 export function DesktopTimeTrackingTable({
@@ -39,7 +39,6 @@ export function DesktopTimeTrackingTable({
   onUnapproveDay,
   onEditShift,
   calculateDayHours,
-  hasDayIssues: _hasDayIssues,
   sortPunches,
   groupPunchesByWeek,
   currentLocationId,
@@ -105,33 +104,14 @@ export function DesktopTimeTrackingTable({
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
   };
 
-  const buildBreaks = (dayPunches: any[]): PunchBreakInfo[] => {
-    const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
-    return breakStarts.map((breakStart: any) => {
-      let breakEnd = dayPunches.find((p: any) =>
-        p.punch_type === 'break_end' &&
-        new Date(p.punch_time) > new Date(breakStart.punch_time)
-      );
-      if (!breakEnd) {
-        breakEnd = dayPunches.find((p: any) =>
-          p.punch_type === 'clock_in' &&
-          new Date(p.punch_time) > new Date(breakStart.punch_time)
-        );
-      }
-      const scheduledLabel = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
-      let minutes = 0;
-      if (breakEnd) {
-        minutes = Math.round((new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000);
-      }
-      return {
-        scheduledLabel,
-        start: formatTimeDisplay(breakStart.punch_time, timezone),
-        end: breakEnd ? formatTimeDisplay(breakEnd.punch_time, timezone) : null,
-        minutes,
-        isLong: !!breakEnd && minutes > 35,
-      };
-    });
-  };
+  const breaksFor = (rows: ShiftFlagRow[]): PunchBreakInfo[] =>
+    rows.flatMap((r) => breaksFromDetails(r.details)).map((b) => ({
+      scheduledLabel: 'Break',
+      start: formatTimeDisplay(b.start, timezone),
+      end: b.end ? formatTimeDisplay(b.end, timezone) : null,
+      minutes: b.minutes,
+      isLong: b.isLong,
+    }));
 
   return (
     <div className="space-y-4">
@@ -185,11 +165,7 @@ export function DesktopTimeTrackingTable({
                   const dayFlags = getDayFlags(dayPunches);
                   const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
 
-                  const flags: PunchFlag[] = [];
-                  if (dayFlags.hasBreakViolation) flags.push({ label: 'No Break', tone: 'warning' });
-                  if (dayFlags.hasAutoClockOut) flags.push({ label: 'Auto Out', tone: 'warning' });
-                  if (dayFlags.hasOpenShift) flags.push({ label: 'Open', tone: 'danger' });
-                  if (dayHours > 10) flags.push({ label: `Long Shift ${dayHours.toFixed(1)}h`, tone: 'warning' });
+                  const flags: PunchFlag[] = chipsFor(dayFlags.flags);
 
                   return (
                     <PunchRow
@@ -205,7 +181,7 @@ export function DesktopTimeTrackingTable({
                         clockIn: s.clockIn ? formatTimeDisplay(s.clockIn.punch_time, timezone) : null,
                         clockOut: s.clockOut ? formatTimeDisplay(s.clockOut.punch_time, timezone) : null,
                       }))}
-                      breaks={buildBreaks(dayPunches)}
+                      breaks={breaksFor(dayFlags.flags)}
                       flags={flags}
                       hours={dayHours}
                       state={dayFlags.hasOpenShift ? 'open' : isApproved ? 'approved' : 'pending'}

@@ -262,7 +262,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
       'checklists', 'inventory', 'user-data-cubes', 'sales-cache-today',
       'sales-cache-wtd', 'location-hours-today', 'org-logo', 'time-tracking',
-      'time-punches', 'payroll', 'temporary-tasks', 'logbook', 'catering',
+      'time-punches', 'shift-flags', 'payroll', 'temporary-tasks', 'logbook', 'catering',
       'certifications', 'holidays', 'events', 'availability', 'user-checklists',
       'checklist-submissions', 'labor-cache', 'shift-templates', 'hiring',
       'completion-history', 'submission-stats', 'completed-temp-tasks',

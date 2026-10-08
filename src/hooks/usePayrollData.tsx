@@ -8,6 +8,9 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useShiftFlags, invalidateShiftFlags } from '@/hooks/useShiftFlags';
+import { FLAG_META, flagsForDay, hasCode, indexByClockIn, labelFor } from '@/lib/timeTracking/shiftFlags';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { usePayrollHours } from '@/hooks/usePayrollHours';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +60,9 @@ export function usePayrollData() {
   const [ptoData, setPtoData] = useState<Record<string, number>>({});
   const payrollHoursQuery = usePayrollHours(currentLocation?.id, selectedPeriod?.startDate, selectedPeriod?.endDate);
   const refetchPayrollHours = payrollHoursQuery.refetch;
+  const queryClient = useQueryClient();
+  const shiftFlagsQuery = useShiftFlags(currentLocation?.id, selectedPeriod?.startDate, selectedPeriod?.endDate);
+  const flagIndex = useMemo(() => indexByClockIn(shiftFlagsQuery.data), [shiftFlagsQuery.data]);
 
   // Cache guard: skip refetch if data was loaded within STALE_MS for same period+location
   const STALE_MS = 5 * 60 * 1000; // 5 minutes
@@ -611,110 +617,39 @@ export function usePayrollData() {
     return totalHours;
   };
 
-  // Shared flag detection
+  // Flags come only from the server's shift_flags (one source of truth).
   const getDayFlags = (dayPunches: any[]) => {
-    const sortedPunches = sortPunches(dayPunches);
-
-    const shiftStartClockIns: any[] = findShiftStartClockIns(sortedPunches);
-
-    const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
-    const unpaidBreakStarts = sortedPunches.filter((p: any) => {
-      if (p.punch_type !== 'break_start') return false;
-      const notes = String(p.notes || '').toLowerCase();
-      return notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid');
-    });
-
-    let hasAutoClockOut = false;
-    let hasBreakViolation = false;
-    let hasOpenShift = false;
-    const usedClockOutIds = new Set<string>();
-    const earliestClockInTime = shiftStartClockIns.length > 0 
-      ? new Date(shiftStartClockIns[0].punch_time).getTime() 
-      : Infinity;
-
-    shiftStartClockIns.forEach((clockIn: any, idx: number) => {
-      const clockInMs = new Date(clockIn.punch_time).getTime();
-      const nextStart = shiftStartClockIns[idx + 1];
-      const nextStartMs = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
-
-      const shiftClockOuts = clockOuts.filter((co: any) => {
-        const coMs = new Date(co.punch_time).getTime();
-        return coMs > clockInMs && coMs < nextStartMs && !usedClockOutIds.has(co.id) && coMs > earliestClockInTime;
-      });
-      const clockOut = shiftClockOuts.length ? shiftClockOuts[0] : null;
-      
-      if (clockOut) {
-        usedClockOutIds.add(clockOut.id);
-        if (clockOut.is_auto_punched_out) {
-          hasAutoClockOut = true;
-        }
-        
-        const clockOutMs = new Date(clockOut.punch_time).getTime();
-        const shiftHours = (clockOutMs - clockInMs) / 3600000;
-        if (shiftHours > 5) {
-          const hasMealBreak = unpaidBreakStarts.some((b: any) => {
-            const bMs = new Date(b.punch_time).getTime();
-            return bMs > clockInMs && bMs < clockOutMs;
-          });
-          if (!hasMealBreak) hasBreakViolation = true;
-        }
-      } else {
-        hasOpenShift = true;
-      }
-    });
-
+    const flags = flagsForDay(dayPunches, flagIndex);
+    const hasAutoClockOut = hasCode(flags, 'auto_clock_out');
+    const hasBreakViolation = hasCode(flags, 'no_meal_break') || hasCode(flags, 'second_meal_missing');
+    const hasOpenShift = hasCode(flags, 'missing_clock_out');
     return {
       hasAutoClockOut,
       hasBreakViolation,
       hasOpenShift,
-      hasAnyFlag: hasAutoClockOut || hasBreakViolation || hasOpenShift,
+      hasAnyFlag: flags.some((r) => (r.flags || []).length > 0),
+      flags,
     };
   };
 
-  const hasDayIssues = (dayPunches: any[]) => {
-    const sortedPunches = sortPunches(dayPunches);
-    
-    const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
-    const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
-    const mealBreaks = sortedPunches.filter(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-    
-    const earliestClockInTime = clockIns.length > 0 ? new Date(clockIns[0].punch_time).getTime() : Infinity;
-    const validClockOuts = clockOuts.filter(co => new Date(co.punch_time).getTime() > earliestClockInTime);
-    
-    if (clockIns.length > validClockOuts.length) return true;
-    
-    const usedClockOutIds = new Set<string>();
-    
-    for (const clockIn of clockIns) {
-      const clockInTime = new Date(clockIn.punch_time).getTime();
-      
-      const clockOut = validClockOuts.find(co => {
-        const coTime = new Date(co.punch_time).getTime();
-        return coTime > clockInTime && !usedClockOutIds.has(co.id);
-      });
-      
-      if (!clockOut) return true;
-      
-      usedClockOutIds.add(clockOut.id);
-      const clockOutTime = new Date(clockOut.punch_time).getTime();
-      
-      let hours = (clockOutTime - clockInTime) / 3600000;
-      if (hours < 0) hours += 24;
-      
-      const hasMealBreak = mealBreaks.some(mb => {
-        const mbTime = new Date(mb.punch_time).getTime();
-        return mbTime > clockInTime && mbTime < clockOutTime;
-      });
-      
-      if (hours > 5 && !hasMealBreak) return true;
-    }
-    
-    return false;
+  /** Labels that need a look before approving (info-only codes except OT are skipped). */
+  const reviewLabelsFor = (dayPunches: any[]) => {
+    const rows = getDayFlags(dayPunches).flags;
+    const labels: string[] = [];
+    rows.forEach((r) => (r.flags || []).forEach((code) => {
+      if (code === 'missing_clock_out') return;
+      const meta = FLAG_META[code];
+      if (!meta || (meta.tone === 'info' && code !== 'overtime')) return;
+      const l = labelFor(code, r.details);
+      if (!labels.includes(l)) labels.push(l);
+    }));
+    return labels;
   };
 
   // ─── Fetch Time Cards ─────────────────────────────────────────────
   const fetchTimeCards = async () => {
     if (!selectedPeriod || !currentLocation || !timezone) return;
+    invalidateShiftFlags(queryClient);
 
     const punchQueryStart = new Date(selectedPeriod.start.getTime() - 24 * 60 * 60 * 1000);
     const punchQueryEnd = new Date(selectedPeriod.end.getTime() + 24 * 60 * 60 * 1000);
@@ -862,51 +797,6 @@ export function usePayrollData() {
           });
         });
 
-        const issues: string[] = [];
-        
-        Object.entries(punchesByDay).forEach(([day, dayPunches]) => {
-          const sortedPunches = [...dayPunches].sort((a, b) => 
-            new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
-          );
-          
-          const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
-          const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
-          const usedClockOutIds = new Set<string>();
-          
-          clockIns.forEach((clockIn, shiftIndex) => {
-            const clockInTime = new Date(clockIn.punch_time).getTime();
-            const nextClockIn = clockIns[shiftIndex + 1];
-            const nextClockInTime = nextClockIn ? new Date(nextClockIn.punch_time).getTime() : Infinity;
-            
-            const clockOut = clockOuts.find(co => {
-              const coTime = new Date(co.punch_time).getTime();
-              return coTime > clockInTime && coTime < nextClockInTime && !usedClockOutIds.has(co.id);
-            });
-            
-            if (!clockOut) {
-              issues.push(`${day}: Missing clock out${clockIns.length > 1 ? ` (shift ${shiftIndex + 1})` : ''}`);
-              return;
-            }
-            
-            usedClockOutIds.add(clockOut.id);
-            const clockOutTime = new Date(clockOut.punch_time).getTime();
-            
-            let hours = (clockOutTime - clockInTime) / 3600000;
-            if (hours < 0) hours += 24;
-            
-            const shiftBreaks = sortedPunches.filter(p => 
-              p.punch_type === 'break_start' && 
-              p.notes?.includes('30 minute') &&
-              new Date(p.punch_time).getTime() > clockInTime &&
-              new Date(p.punch_time).getTime() < clockOutTime
-            );
-            
-            if (hours > 5 && shiftBreaks.length === 0) {
-              issues.push(`${day}: Missing required meal break${clockIns.length > 1 ? ` (shift ${shiftIndex + 1})` : ''}`);
-            }
-          });
-        });
-
         const totalHours = Object.values(punchesByDay).reduce((sum: number, dayPunches: any[]) => {
           return sum + calculateDayHours(dayPunches, false);
         }, 0);
@@ -920,7 +810,6 @@ export function usePayrollData() {
           punchesByDay,
           shiftsByDate,
           totalHours,
-          issues
         };
       })
       // Roster visibility rules:
@@ -1116,29 +1005,19 @@ export function usePayrollData() {
           fetchTimeCards();
         } else {
           setApprovalWarning(null);
+          invalidateShiftFlags(queryClient);
         }
       });
   };
 
   const handleApproveDay = async (dayPunches: any[]) => {
-    const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
-    const hasOvertime = dayPunches.some((p: any) => p.has_overtime);
-    const hasExtendedBreak = dayPunches.some((p: any) => p.has_extended_break);
-    
-    const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
-    const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
-    const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-    
-    let hasBreakViolation = false;
-    if (clockIn && clockOut) {
-      let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
-      if (hours < 0) hours += 24;
-      if (hours > 5 && !mealBreakStart) {
-        hasBreakViolation = true;
-      }
-    }
-    
-    if (hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak) {
+    const dayFlagRows = getDayFlags(dayPunches).flags;
+    const hasAutoClockOut = hasCode(dayFlagRows, 'auto_clock_out');
+    const hasOvertime = hasCode(dayFlagRows, 'overtime');
+    const hasExtendedBreak = hasCode(dayFlagRows, 'long_break');
+    const hasBreakViolation = hasCode(dayFlagRows, 'no_meal_break') || hasCode(dayFlagRows, 'second_meal_missing');
+
+    if (reviewLabelsFor(dayPunches).length > 0) {
       const shiftClockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
       const shiftDate = shiftClockIn ? getDateInTimezone(new Date(shiftClockIn.punch_time), timezone) : '';
       const userId = shiftClockIn?.user_id || '';
@@ -1239,7 +1118,7 @@ export function usePayrollData() {
     }
 
     return cards;
-  }, [timeCards, filterEmployee, filterDay, filterFlag]);
+  }, [timeCards, filterEmployee, filterDay, filterFlag, flagIndex]);
 
   const countShiftsAwaitingApproval = (cards: typeof timeCards) => {
     return cards.reduce((sum, card) => {
@@ -1262,6 +1141,7 @@ export function usePayrollData() {
     const cleanPunchIds: string[] = [];
     const flaggedShifts: { employeeName: string, date: string, flags: string[] }[] = [];
     let hasAnyFlags = false;
+    const flaggedCodes = new Set<string>();
     
     filteredCards.forEach(card => {
       Object.entries(card.punchesByDay).forEach(([day, dayPunches]: [string, any]) => {
@@ -1271,34 +1151,12 @@ export function usePayrollData() {
         const dayFlags = getDayFlags(dayPunches);
         if (dayFlags.hasOpenShift) return;
         
-        const flags: string[] = [];
-        
-        if (dayPunches.some((p: any) => p.is_auto_punched_out)) {
-          flags.push('Auto Clock-Out');
-        }
-        
-        if (dayPunches.some((p: any) => p.has_overtime)) {
-          flags.push('Overtime');
-        }
-        
-        if (dayPunches.some((p: any) => p.has_extended_break)) {
-          flags.push('Extended Break');
-        }
-        
-        const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
-        const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
-        const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-        
-        if (clockIn && clockOut) {
-          let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
-          if (hours < 0) hours += 24;
-          if (hours > 5 && !mealBreakStart) {
-            flags.push('Missing Meal Break');
-          }
-        }
+        const flags = reviewLabelsFor(dayPunches);
+        const codes = dayFlags.flags.flatMap((r) => r.flags || []);
         
         if (flags.length > 0) {
           hasAnyFlags = true;
+          codes.forEach((c) => flaggedCodes.add(c));
           flaggedShifts.push({
             employeeName: card.profile.full_name,
             date: day,
@@ -1323,10 +1181,10 @@ export function usePayrollData() {
         type: 'all', 
         flaggedShifts,
         cleanPunchIds,
-        hasAutoClockOut: flaggedShifts.some(s => s.flags.includes('Auto Clock-Out')),
-        hasBreakViolation: flaggedShifts.some(s => s.flags.includes('Missing Meal Break')),
-        hasOvertime: flaggedShifts.some(s => s.flags.includes('Overtime')),
-        hasExtendedBreak: flaggedShifts.some(s => s.flags.includes('Extended Break'))
+        hasAutoClockOut: flaggedCodes.has('auto_clock_out'),
+        hasBreakViolation: flaggedCodes.has('no_meal_break') || flaggedCodes.has('second_meal_missing'),
+        hasOvertime: flaggedCodes.has('overtime'),
+        hasExtendedBreak: flaggedCodes.has('long_break')
       });
       return;
     }
@@ -1777,7 +1635,7 @@ export function usePayrollData() {
     calculateDayHours,
     sortPunches,
     getDayFlags,
-    hasDayIssues,
+    shiftFlagsLoading: shiftFlagsQuery.isLoading,
     groupPunchesByWeek,
 
     // Payroll summary & exports

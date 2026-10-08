@@ -62,15 +62,17 @@ Deno.serve(async (req) => {
 async function buildFacts(db: any, locationId: string, day: string, tz: string): Promise<Fact[]> {
   const start = DateTime.fromFormat(day, "yyyy-MM-dd", { zone: tz }).set({ hour: 4 });
   const end = start.plus({ days: 1 });
-  const [{ data: punches }, { data: sales }, { data: sched }, { data: profiles }, { data: rules }] = await Promise.all([
-    db.from("time_punches").select("user_id, punch_type, punch_time, notes, break_type")
+  const [{ data: punches }, { data: sales }, { data: sched }, { data: profiles }, { data: rules }, { data: flagRows }] = await Promise.all([
+    db.from("time_punches").select("user_id, punch_type, punch_time")
       .eq("location_id", locationId).gte("punch_time", start.toUTC().toISO()).lt("punch_time", end.toUTC().toISO()).order("punch_time"),
     db.from("sales_cache").select("net_sales, yoy_net_sales, hourly_data").eq("location_id", locationId).eq("sale_date", day).maybeSingle(),
     db.from("scheduled_shifts").select("user_id, start_time, end_time, is_time_off, is_phantom, schedules!inner(location_id)")
       .eq("schedules.location_id", locationId).eq("shift_date", day),
     db.from("profiles").select("id, full_name, nickname"),
-    db.from("labor_rules").select("state_code, meal_break_hours").eq("location_id", locationId).maybeSingle(),
+    db.rpc("effective_labor_rules", { _location_id: locationId }),
+    db.rpc("_shift_flags", { _location_id: locationId, _start: day, _end: day }),
   ]);
+  // Rules + break flags come only from the server (effective_labor_rules / _shift_flags).
   // No meal-break rule for the store (e.g. Texas) → Theo says nothing about meal breaks.
   const stateCode: string | null = rules?.state_code ?? null;
   const mealHours: number | null = rules?.meal_break_hours != null ? Number(rules.meal_break_hours) : null;
@@ -81,17 +83,16 @@ async function buildFacts(db: any, locationId: string, day: string, tz: string):
 
   // Pair punches into on-clock intervals per person.
   type Iv = { s: DateTime; e: DateTime };
-  const byUser = new Map<string, { ivs: Iv[]; meal: boolean; firstIn?: DateTime }>();
+  const byUser = new Map<string, { ivs: Iv[]; firstIn?: DateTime }>();
   const open = new Map<string, DateTime>();
   for (const p of punches ?? []) {
     const t = DateTime.fromISO(p.punch_time).setZone(tz);
-    const u = byUser.get(p.user_id) ?? { ivs: [], meal: false };
+    const u = byUser.get(p.user_id) ?? { ivs: [] };
     byUser.set(p.user_id, u);
     if (p.punch_type === "clock_in" || p.punch_type === "break_end") { open.set(p.user_id, t); if (p.punch_type === "clock_in" && !u.firstIn) u.firstIn = t; }
     if ((p.punch_type === "clock_out" || p.punch_type === "break_start") && open.has(p.user_id)) {
       u.ivs.push({ s: open.get(p.user_id)!, e: t }); open.delete(p.user_id);
     }
-    if (p.punch_type === "break_start" && (p.notes?.includes("30 minute") || p.break_type === "meal")) u.meal = true;
   }
   const hrs = (ivs: Iv[]) => ivs.reduce((a, i) => a + i.e.diff(i.s, "minutes").minutes, 0) / 60;
   const facts: Fact[] = [];
@@ -111,10 +112,8 @@ async function buildFacts(db: any, locationId: string, day: string, tz: string):
         if (diff >= 15 && diff < 240) { early.push(name(uid)); earlyMin += diff; }
       }
     }
-    // Meal-break rules come only from this store's own labor rules (state).
-    if (mealHours != null && w > mealHours && !u.meal) facts.push({ kind: "break", score: 0, text: name(uid) });
   }
-  const noBreak = facts.splice(0).map((f) => f.text);
+  const noBreak = (flagRows ?? []).filter((r: any) => (r.flags ?? []).includes("no_meal_break")).map((r: any) => name(r.user_id));
   if (noBreak.length && mealHours != null) {
     const who = `${noBreak.length} ${noBreak.length === 1 ? "person" : "people"} (${noBreak.join(", ")})`;
     const text = stateCode === "CA"
@@ -173,10 +172,14 @@ async function buildFacts(db: any, locationId: string, day: string, tz: string):
     }
   }
 
-  // Overtime risk this week (Mon-start workweek approximation).
-  const weekStart = DateTime.fromFormat(day, "yyyy-MM-dd", { zone: tz }).startOf("week").set({ hour: 4 });
-  const dow = DateTime.fromFormat(day, "yyyy-MM-dd", { zone: tz }).weekday;
-  if (dow < 7) {
+  // Overtime risk this week, using the store's workweek start and weekly threshold.
+  const weeklyOt = rules?.weekly_overtime_threshold != null ? Number(rules.weekly_overtime_threshold) : 40;
+  const wsdow = rules?.workweek_start_dow != null ? Number(rules.workweek_start_dow) : 1; // 0 = Sunday
+  const dayDt = DateTime.fromFormat(day, "yyyy-MM-dd", { zone: tz });
+  const intoWeek = ((dayDt.weekday % 7) - wsdow + 7) % 7;
+  const weekStart = dayDt.minus({ days: intoWeek }).set({ hour: 4 });
+  const daysLeft = 6 - intoWeek;
+  if (daysLeft > 0 && weeklyOt > 0) {
     const { data: wk } = await db.from("time_punches").select("user_id, punch_type, punch_time")
       .eq("location_id", locationId).gte("punch_time", weekStart.toUTC().toISO()).lt("punch_time", end.toUTC().toISO()).order("punch_time");
     const tot = new Map<string, number>(); const o = new Map<string, number>();
@@ -185,9 +188,9 @@ async function buildFacts(db: any, locationId: string, day: string, tz: string):
       if (p.punch_type === "clock_in" || p.punch_type === "break_end") o.set(p.user_id, t);
       else if (o.has(p.user_id)) { tot.set(p.user_id, (tot.get(p.user_id) ?? 0) + (t - o.get(p.user_id)!) / 3600000); o.delete(p.user_id); }
     }
-    const risk = [...tot.entries()].filter(([, h]) => h >= 34 && h < 40).sort((a, b) => b[1] - a[1]);
+    const risk = [...tot.entries()].filter(([, h]) => h >= weeklyOt - 6 && h < weeklyOt).sort((a, b) => b[1] - a[1]);
     if (risk.length) facts.push({ kind: "ot", score: 12 + risk.length * 2,
-      text: `${name(risk[0][0])} is at ${risk[0][1].toFixed(1)} hours this week with ${7 - dow} day${7 - dow === 1 ? "" : "s"} left. Watch for overtime.` });
+      text: `${name(risk[0][0])} is at ${risk[0][1].toFixed(1)} hours this week with ${daysLeft} day${daysLeft === 1 ? "" : "s"} left. Watch for overtime.` });
   }
 
   // Positive note when nothing else stands out.
