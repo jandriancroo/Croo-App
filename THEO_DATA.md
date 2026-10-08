@@ -51,6 +51,7 @@ Read-only tools also offered today that the data table does not list by name: `q
 Source of truth: `_shared/theoActions.ts` (`actionsFor` / `theoActionsAt`), `supabase/functions/ai-assistant/{index,cover,shifts,events,messages,punches}.ts`, `src/components/ai/theoWizard.tsx` and `supabase/functions/theo-voice/index.ts`.
 
 - **quick_nudge** — Nudge everyone on the clock about a checklist, task or event (manager+, incl. brand admins; voice + chat). Theo previews; the Send nudge tap sends through `quick-nudge` (via `src/lib/quickNudges.ts`) to everyone on the clock at the store, minus the sender and anyone nudged about that item in the last hour. Rules in `_shared/nudgePlan.ts` + `checklist_nudge_status` / `task_nudge_status` / `event_nudge_status`; log in `nudge_log`. No Undo.
+- **post_announcement** — Post a text announcement to the store's Team Feed (manager+ = CREATE_TASK_ROLES; shift managers excluded; voice + chat). Theo previews (`ai-assistant/announcements.ts`: channel by name, default everyone; recipient count from `feed_channel_audience_recipients`; pay/discipline guard; subject ≤120, body ≤2000; no media/pin/badge/scheduling). The Post announcement tap re-checks against the logged preview, then saves through `src/lib/feedPosts.ts` createFeedPost (same insert + push as the feed composer). Undo for 10 minutes deletes the post; the push already went out.
 
 ## What people see after Theo acts (push taps, as of 2026-10-05)
 
@@ -122,6 +123,7 @@ In rough priority order for a manager's day:
 - The labor RPCs line by line (Lovable's database access could not run them).
 
 ## Change log
+- 2026-10-08: Theo can post Team Feed announcements (post_announcement), preview + tap only.
 - 2026-10-07: Quick Nudge now covers tasks and events too (action renamed quick_nudge; function quick-nudge; log nudge_log).
 - 2026-10-07: Quick Nudge v1 (checklists only): nudge_checklist action, dashboard nudge badge + sheet, Settings > Nudge Templates, checklist_nudge push opens the checklist.
 
