@@ -14,7 +14,7 @@ const json = (b: unknown, status = 200) =>
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-3.5-flash";
 const PPLX_URL = "https://connector-gateway.lovable.dev/perplexity/search";
 
 const STATE_NAMES: Record<string, string> = {
