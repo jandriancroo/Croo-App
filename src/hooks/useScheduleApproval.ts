@@ -21,7 +21,7 @@ export interface ScheduleLaborCheck {
   reason: string | null;
   week_over_goal?: boolean;
   days?: { date: string; projected_sales: number | null; target_pct: number | null; scheduled_hours: number; scheduled_cost: number; labor_pct: number | null; over_goal: boolean }[];
-  people?: { user_id: string; name: string | null; week_hours: number; over_weekly: boolean; weekly_threshold: number | null; days_over_daily: { date: string; hours: number }[]; seventh_day?: string | null; meal_premium_days?: string[] }[];
+  people?: { user_id: string; name: string | null; week_hours: number; over_weekly: boolean; weekly_threshold: number | null; days_over_daily: { date: string; hours: number }[]; seventh_day?: string | null}[];
 }
 
 export interface ApprovalSettings {

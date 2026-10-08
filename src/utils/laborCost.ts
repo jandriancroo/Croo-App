@@ -7,12 +7,12 @@
  *  b. 7th day (seventh_day_rule, paid hours on all 7 days): 7th day regular 0, ot = min(H,8), dt = rest.
  *  c. Daily OT on when daily_overtime_threshold > 0 and not (daily_ot_max_wage > 0 and wage >= it).
  *  d. Weekly OT: only regular hours count toward weekly_overtime_threshold; regular past it -> weekly_ot.
- *  e. California only (state_code 'CA', basis 'law', unpaid meals): 1 hr meal premium
- *     at the day's wage when fewer meals fit than required. Other states keep deductions, no premium.
- *  g. cost = (regular + (ot + weekly_ot) * otm + dt * dtm) * wage + meal_premium.
+ *  e. Meal premiums are NOT counted in scheduled cost (meal_premium is always 0);
+ *     meal deductions and waivers still reduce paid hours.
+ *  g. cost = (regular + (ot + weekly_ot) * otm + dt * dtm) * wage.
  * Open shifts, time off and phantom shifts are skipped. Missing wage = $15.
  */
-import { grossShiftHours, mealBreakMinutes, mealLength, paidShiftHours } from './shiftUtils';
+import { paidShiftHours } from './shiftUtils';
 import type { ScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
 
 export const DEFAULT_WAGE = 15;
@@ -41,42 +41,6 @@ export interface WeekPay {
 }
 
 const num = (v: unknown) => Number(v ?? 0) || 0;
-const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-
-/** Meals that fit on one employee-day: deducted meals + same-day gaps long enough for a meal. */
-function mealsThatFit(shifts: PayShift[], rules: PayRules): number {
-  const len = mealLength(rules);
-  let fit = 0;
-  for (const s of shifts) fit += mealBreakMinutes(grossShiftHours(s.start_time, s.end_time), rules) / len;
-  const deadline = num(rules.meal_deadline_hours) > 0 ? num(rules.meal_deadline_hours) : num(rules.meal_break_hours);
-  const sorted = [...shifts].sort((a, b) => toMin(a.start_time) - toMin(b.start_time));
-  let worked = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const s = sorted[i];
-    const start = toMin(s.start_time);
-    let end = toMin(s.end_time); if (end <= start) end += 1440;
-    worked += (end - start) / 60;
-    const next = sorted[i + 1];
-    if (!next) break;
-    const gap = toMin(next.start_time) - end;
-    if (gap >= len) {
-      if (fit === 0) { if (worked <= deadline) fit += 1; }
-      else fit += 1;
-    }
-  }
-  return fit;
-}
-
-function mealsRequired(gross: number, rules: PayRules): number {
-  const first = num(rules.meal_break_hours);
-  const w1 = num(rules.meal_waiver_max_hours);
-  const second = num(rules.second_meal_break_hours);
-  const w2 = num(rules.second_meal_waiver_max_hours);
-  if (!(gross > first) || (w1 > 0 && gross <= w1)) return 0;
-  if (second > 0 && gross > second && !(w2 > 0 && gross <= w2)) return 2;
-  return 1;
-}
-
 export function weekLaborCost(shifts: PayShift[], rules: PayRules | null | undefined): WeekPay {
   const r: PayRules = rules ?? {};
   const OT = num(r.daily_overtime_threshold);
@@ -85,7 +49,6 @@ export function weekLaborCost(shifts: PayShift[], rules: PayRules | null | undef
   const dtm = r.double_time_multiplier ?? 2;
   const W = num(r.weekly_overtime_threshold);
   const maxWage = num(r.daily_ot_max_wage);
-  const law = !!rules && r.state_code === 'CA' && r.meal_rule_basis === 'law' && r.meal_break_paid !== true && num(r.meal_break_hours) > 0;
 
   const byUser = new Map<string, Map<string, PayShift[]>>();
   for (const s of shifts) {
@@ -104,9 +67,8 @@ export function weekLaborCost(shifts: PayShift[], rules: PayRules | null | undef
     const base = dates.map((date) => {
       const ds = daysMap.get(date)!;
       return {
-        date, ds,
+        date,
         H: ds.reduce((t, s) => t + paidShiftHours(s.start_time, s.end_time, rules), 0),
-        G: ds.reduce((t, s) => t + grossShiftHours(s.start_time, s.end_time), 0),
         wage: Math.max(...ds.map((s) => (s.wage ?? DEFAULT_WAGE))),
       };
     });
@@ -130,8 +92,8 @@ export function weekLaborCost(shifts: PayShift[], rules: PayRules | null | undef
         weekly_ot = Math.max(regular - avail, 0);
         regular -= weekly_ot;
       }
-      const meal_premium = law && mealsThatFit(b.ds, r) < mealsRequired(b.G, r) ? b.wage : 0;
-      const cost = (regular + (ot + weekly_ot) * otm + dt * dtm) * b.wage + meal_premium;
+      const meal_premium = 0;
+      const cost = (regular + (ot + weekly_ot) * otm + dt * dtm) * b.wage;
       out.push({ date: b.date, hours: b.H, regular, ot, dt, weekly_ot, seventh_day: isSeventh, meal_premium, cost });
       const dt0 = dayTotals.get(b.date) ?? { hours: 0, cost: 0 };
       dt0.hours += b.H; dt0.cost += cost; dayTotals.set(b.date, dt0);
