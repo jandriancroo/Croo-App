@@ -408,7 +408,7 @@ export default function WeekTemplateBuilder() {
 
   useEffect(() => {
     if (!roleLoading && !isAdmin && !isManager) {
-      navigate('/schedule-templates');
+      navigate('/schedule-settings');
       toast.error('Access denied');
     }
   }, [isAdmin, isManager, roleLoading, navigate]);
@@ -447,7 +447,7 @@ export default function WeekTemplateBuilder() {
         
         // Redirect to templates list if template belongs to different location
         if (weekTemplate.location_id !== currentLocation.id) {
-          navigate('/schedule-templates?tab=weeks');
+          navigate('/schedule-settings?tab=weeks');
           return;
         }
         
@@ -1001,7 +1001,7 @@ export default function WeekTemplateBuilder() {
       }
 
       toast.success(isNew ? 'Week template created!' : 'Week template updated!');
-      navigate('/schedule-templates?tab=weeks');
+      navigate('/schedule-settings?tab=weeks');
     } catch (error) {
       console.error('Error saving template:', error);
       toast.error('Failed to save template');
@@ -1026,7 +1026,7 @@ export default function WeekTemplateBuilder() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate('/schedule-templates?tab=weeks')}>
+            <Button variant="outline" onClick={() => navigate('/schedule-settings?tab=weeks')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
