@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public._publish_schedule(uuid,uuid), public._schedule_decider_check(public.schedules), public._schedule_approvers(uuid,uuid), public._schedule_approval_required(uuid,uuid,uuid) FROM authenticated, anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION public._publish_schedule(uuid,uuid), public._schedule_decider_check(public.schedules), public._schedule_approvers(uuid,uuid), public._schedule_approval_required(uuid,uuid,uuid) TO service_role;
