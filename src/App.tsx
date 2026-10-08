@@ -6,7 +6,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation as useRouterLocation } from "react-router-dom";
+
+// /schedule-templates → /schedule-settings (keeps ?tab). Delete after Nov 7 2026.
+function OldScheduleTemplatesRedirect() {
+  const { search } = useRouterLocation();
+  return <Navigate to={`/schedule-settings${search}`} replace />;
+}
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { isPunchDeviceUser, isPaired, isPairingDead, isKioskExitActive } from "@/lib/punchDevicePairing";
 import { LocationProvider, useLocation as useAppLocation } from "@/hooks/useLocation";
@@ -41,7 +47,7 @@ const UserManagement = lazyWithRetry(() => import("./pages/UserManagement"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
 const Schedule = lazyWithRetry(() => import("./pages/Schedule"));
 const ShiftTemplates = lazyWithRetry(() => import("./pages/ShiftTemplates"));
-const ScheduleTemplates = lazyWithRetry(() => import("./pages/ScheduleTemplates"));
+const ScheduleSettings = lazyWithRetry(() => import("./pages/ScheduleSettings"));
 const WeekTemplateBuilder = lazyWithRetry(() => import("./pages/WeekTemplateBuilder"));
 const TestingChecklist = lazyWithRetry(() => import("./pages/TestingChecklist"));
 const Availability = lazyWithRetry(() => import("./pages/Availability"));
@@ -227,7 +233,9 @@ const AppContent = () => {
         <Route path="/my-team" element={<ProtectedRoute><MyTeam /></ProtectedRoute>} />
         <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
         <Route path="/shift-templates" element={<ProtectedRoute><ShiftTemplates /></ProtectedRoute>} />
-        <Route path="/schedule-templates" element={<ProtectedRoute><ScheduleTemplates /></ProtectedRoute>} />
+        <Route path="/schedule-settings" element={<ProtectedRoute><ScheduleSettings /></ProtectedRoute>} />
+        {/* Old address; delete this redirect after Nov 7 2026. */}
+        <Route path="/schedule-templates" element={<OldScheduleTemplatesRedirect />} />
         <Route path="/week-template/:id" element={<ProtectedRoute><WeekTemplateBuilder /></ProtectedRoute>} />
         <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />

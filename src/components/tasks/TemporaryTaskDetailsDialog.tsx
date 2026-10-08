@@ -532,6 +532,8 @@ export function TemporaryTaskDetailsDialog({
             <ExternalLink className="h-4 w-4" />
             GO — Open OPUS
           </Button>
+        ) : (task as any)?.schedule_id ? (
+          <p className="text-center text-sm text-muted-foreground">Open the schedule to review this week. This task closes on its own.</p>
         ) : (
           <Button 
             onClick={handleCompleteTask}

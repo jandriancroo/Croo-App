@@ -977,7 +977,7 @@ export default function EditChecklist() {
               </label>
             </div>
             {positionFilteringEnabled && availablePositions.length === 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">No positions found. Create positions in Schedule Templates first.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">No positions found. Create positions in Schedule Settings first.</p>
             )}
           </CardContent>
         </Card>

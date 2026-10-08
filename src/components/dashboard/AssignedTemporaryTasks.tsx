@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -292,9 +292,17 @@ export function AssignedTemporaryTasks({
 
   // Quick Nudge: client-side "can this pill be nudged" (the server re-checks everything).
   const nowLocalHHMM = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+  // Schedule approval tasks open the week on the Schedule page instead of the task dialog.
+  const navigate = useNavigate();
+  const openTask = async (task: any) => {
+    if (!task.schedule_id) { setSelectedTask(task); return; }
+    const { data } = await supabase.from("schedules").select("week_start_date, location_id").eq("id", task.schedule_id).maybeSingle();
+    if (!data) { toast.error("That schedule is no longer available."); return; }
+    navigate(`/schedule?location=${data.location_id ?? task.location_id}&week=${data.week_start_date}`);
+  };
   const taskNudge = (task: any) => {
     if (!canNudge || !onNudge) return undefined;
-    if (task.completed_at || task.write_up_id || task.icon_name === "opus_logo") return undefined;
+    if (task.completed_at || task.write_up_id || task.schedule_id || task.icon_name === "opus_logo") return undefined;
     if (task.expires_at && new Date(task.expires_at).getTime() <= Date.now()) return undefined;
     if (task.task_style === "alarm" && !task.last_triggered_at) return undefined;
     return { onClick: () => onNudge({ type: "task", id: task.id, title: task.title }), minutesAgo: recentlyNudged?.[`task:${task.id}`] };
@@ -456,7 +464,7 @@ export function AssignedTemporaryTasks({
         label: task.title,
         color: task.accent_color || '#8B5CF6',
         variant: 'user' as const,
-        onClick: () => setSelectedTask(task),
+        onClick: () => openTask(task),
         icon: getIconComponent(task.icon_name || "ClipboardList"),
         subtasksCompleted: counts?.completed,
         subtasksTotal: counts?.total,
@@ -594,8 +602,8 @@ export function AssignedTemporaryTasks({
             icon={getIconComponent(task.icon_name === "opus_logo" ? "GraduationCap" : (task.icon_name || "ClipboardList"))}
             accentColor={task.accent_color || "#8B5CF6"}
             variant="user"
-            buttonLabel={task.write_up_id ? "Sign" : undefined}
-            onAction={() => setSelectedTask(task)}
+            buttonLabel={task.write_up_id ? "Sign" : task.schedule_id ? "Review" : undefined}
+            onAction={() => openTask(task)}
             taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
             showShare={!!task.shareable}
             subtasksCompleted={counts?.completed}

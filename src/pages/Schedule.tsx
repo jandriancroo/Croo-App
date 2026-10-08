@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useScheduleApproval } from "@/hooks/useScheduleApproval";
+import { ScheduleApprovalBanner } from "@/components/schedule/ScheduleApprovalBanner";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -21,7 +24,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { format, endOfWeek, addWeeks } from "date-fns";
+import { format, endOfWeek, addWeeks, startOfWeek } from "date-fns";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { ShiftCard } from "@/components/schedule/ShiftCard";
@@ -58,6 +61,33 @@ export default function Schedule() {
     getWeekLabel, isCurrentWeek, queryClient, scheduleQueryKey, getTodayInTimezone,
     lastStatusChangedAt,
   } = data;
+
+  // Deep link (?location=&week=): read once per link, switch store if needed, then jump to the week.
+  const [searchParams] = useSearchParams();
+  const { locations, setCurrentLocation } = useAppLocation();
+  const appliedLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    const loc = searchParams.get("location");
+    const week = searchParams.get("week");
+    const key = `${loc ?? ""}|${week ?? ""}`;
+    if ((!loc && !week) || appliedLinkRef.current === key) return;
+    if (loc && currentLocation?.id !== loc) {
+      const target = locations.find(l => l.id === loc);
+      if (!target) return; // wait for the store list
+      // Keep the deep link as the destination (the store switch otherwise goes to the dashboard).
+      setCurrentLocation(target, `/schedule?${searchParams.toString()}`);
+      return; // re-runs once the store has switched
+    }
+    if (week && /^\d{4}-\d{2}-\d{2}$/.test(week)) {
+      const [y, m, d] = week.split("-").map(Number);
+      setCurrentWeekStart(startOfWeek(new Date(y, m - 1, d), { weekStartsOn: 1 }));
+    }
+    appliedLinkRef.current = key;
+  }, [searchParams, currentLocation?.id, locations, setCurrentLocation, setCurrentWeekStart]);
+
+  const shiftsSig = useMemo(() => shifts.map((s: any) => `${s.id}${s.user_id}${s.start_time}${s.end_time}${s.is_time_off ? 1 : 0}`).join("|"), [shifts]);
+  const approval = useScheduleApproval(scheduleId, currentLocation?.id, isPublished, shiftsSig);
+  const onApprovalChanged = () => { fetchScheduleData(false); };
 
   // Local UI state
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
@@ -280,6 +310,8 @@ export default function Schedule() {
           onSendUpdate={requestUpdate}
           onOpenHistory={() => setHistoryOpen(true)}
           onRestored={() => fetchScheduleData(false)}
+          approval={approval}
+          onApprovalChanged={onApprovalChanged}
           isPublishing={isPublishing}
           hasPendingChanges={hasPendingChanges}
           isLoading={loading}
@@ -289,6 +321,7 @@ export default function Schedule() {
         />
       ) : (
         <div className="pb-56 -mx-2">
+        {(isAdmin || isManager) && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
         <DndContext
           sensors={activeSensors}
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart}
@@ -351,8 +384,8 @@ export default function Schedule() {
                       <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
                         <Calendar className="h-4 w-4" />View Availability
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
-                        <Settings className="h-4 w-4" />Manage Templates
+                      <DropdownMenuItem onClick={() => navigate("/schedule-settings")} className="gap-2 cursor-pointer">
+                        <Settings className="h-4 w-4" />Schedule Settings
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
                         <Copy className="h-4 w-4" />Copy Schedule to Future Week
@@ -391,7 +424,8 @@ export default function Schedule() {
                       lastStatusAction={lastStatusAction}
                       scheduleId={scheduleId}
                       shiftsVersion={shifts}
-                      onRestored={() => fetchScheduleData(false)}
+                      onRestored={onApprovalChanged}
+                      approval={approval}
                     />
                   )}
                 </div>
