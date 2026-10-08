@@ -31,6 +31,14 @@ interface DayBreakdownDialogProps {
   stationAssignments?: Record<string, string | null>;
 }
 
+/** ≤ goal green, ≤ goal+3 yellow, above red — the one rule in laborGoalTone. */
+function laborPctClass(pct: number, goal: number) {
+  const tone = laborGoalTone(pct, goal);
+  if (tone === "good") return "text-green-600";
+  if (tone === "warn") return "text-yellow-600";
+  return "text-red-600";
+}
+
 export function DayBreakdownDialog({
   open,
   onOpenChange,
@@ -45,6 +53,8 @@ export function DayBreakdownDialog({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  const laborGoals = useLaborGoals();
+  const dayGoal = laborGoals.forDate(dateStr);
   
   // Sales data state
   const [salesData, setSalesData] = useState<{
