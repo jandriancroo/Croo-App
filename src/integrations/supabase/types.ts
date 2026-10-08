@@ -15054,6 +15054,10 @@ export type Database = {
       }
     }
     Functions: {
+      _can_manage_labor_rules: {
+        Args: { _location_id: string; _user: string }
+        Returns: boolean
+      }
       _labor_cache_refresh_from: {
         Args: { _from: string; _location_id: string }
         Returns: undefined
@@ -15224,6 +15228,39 @@ export type Database = {
       _sales_caller_ok: {
         Args: { _location_id: string; _min_role: string }
         Returns: boolean
+      }
+      _shift_flags: {
+        Args: { _end: string; _location_id: string; _start: string }
+        Returns: {
+          business_date: string
+          clock_in: string
+          clock_in_punch_id: string
+          clock_out: string
+          clock_out_punch_id: string
+          details: Json
+          flags: string[]
+          paid_min: number
+          user_id: string
+        }[]
+      }
+      _shift_flags_with_rules: {
+        Args: {
+          _end: string
+          _location_id: string
+          _rules: Json
+          _start: string
+        }
+        Returns: {
+          business_date: string
+          clock_in: string
+          clock_in_punch_id: string
+          clock_out: string
+          clock_out_punch_id: string
+          details: Json
+          flags: string[]
+          paid_min: number
+          user_id: string
+        }[]
       }
       _shift_offer_push: {
         Args: {
@@ -15448,6 +15485,7 @@ export type Database = {
         Args: { _activation_at?: string; _source_id: string }
         Returns: string
       }
+      effective_labor_rules: { Args: { _location_id: string }; Returns: Json }
       email_queue_dispatch: { Args: never; Returns: undefined }
       end_promo_tracker_by_title: { Args: { _title: string }; Returns: number }
       enqueue_email: {
@@ -15929,6 +15967,18 @@ export type Database = {
         Args: { p_integration_id: string; p_new_credentials: Json }
         Returns: boolean
       }
+      preview_shift_flags: {
+        Args: {
+          _end: string
+          _location_id: string
+          _rules: Json
+          _start: string
+        }
+        Returns: {
+          flag: string
+          n: number
+        }[]
+      }
       profile_at_punch_device_location: {
         Args: { _device_user_id: string; _profile_id: string }
         Returns: boolean
@@ -16018,6 +16068,73 @@ export type Database = {
         }
         Returns: Json
       }
+      save_labor_rules: {
+        Args: {
+          _location_id: string
+          _note?: string
+          _patch: Json
+          _proposal_id?: string
+          _source: string
+        }
+        Returns: {
+          allow_early_clock_in: boolean
+          allow_unscheduled_clock_in: boolean
+          auto_clock_out_after_close_min: number
+          auto_punch_out_time: string | null
+          created_at: string | null
+          daily_double_time_threshold: number | null
+          daily_ot_max_wage: number | null
+          daily_ot_window: string
+          daily_overtime_threshold: number | null
+          double_time_multiplier: number | null
+          duplicate_tap_minutes: number
+          early_clock_in_minutes: number
+          field_sources: Json
+          flag_rest_breaks: boolean
+          id: string
+          laws_checked_at: string | null
+          location_id: string
+          long_break_grace_minutes: number
+          long_shift_hours: number
+          max_open_shift_hours: number
+          meal_break_duration: number | null
+          meal_break_hours: number | null
+          meal_break_paid: boolean
+          meal_deadline_hours: number | null
+          meal_rule_basis: string
+          meal_waiver_max_hours: number | null
+          min_hours_between_shifts: number | null
+          minor_rules: Json | null
+          overtime_multiplier: number | null
+          pay_period_start_date: string | null
+          pay_period_type: string
+          reporting_time_enabled: boolean
+          reporting_time_max_hours: number | null
+          reporting_time_min_hours: number | null
+          rest_break_duration: number | null
+          rest_break_hours: number | null
+          rest_break_paid: boolean
+          rule_name: string
+          rules_reviewed_at: string | null
+          rules_reviewed_by: string | null
+          second_meal_break_hours: number | null
+          second_meal_waiver_max_hours: number | null
+          seventh_day_rule: boolean
+          split_shift_enabled: boolean
+          split_shift_gap_minutes: number | null
+          state_code: string | null
+          unpaid_break_min_minutes: number
+          updated_at: string | null
+          weekly_overtime_threshold: number | null
+          workweek_start_dow: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "labor_rules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       search_theo_knowledge: {
         Args: { p_embedding: string; p_limit?: number; p_location_id: string }
         Returns: {
@@ -16026,6 +16143,67 @@ export type Database = {
           similarity: number
           topic: string
         }[]
+      }
+      seed_labor_rules_from_preset: {
+        Args: { _location_id: string }
+        Returns: {
+          allow_early_clock_in: boolean
+          allow_unscheduled_clock_in: boolean
+          auto_clock_out_after_close_min: number
+          auto_punch_out_time: string | null
+          created_at: string | null
+          daily_double_time_threshold: number | null
+          daily_ot_max_wage: number | null
+          daily_ot_window: string
+          daily_overtime_threshold: number | null
+          double_time_multiplier: number | null
+          duplicate_tap_minutes: number
+          early_clock_in_minutes: number
+          field_sources: Json
+          flag_rest_breaks: boolean
+          id: string
+          laws_checked_at: string | null
+          location_id: string
+          long_break_grace_minutes: number
+          long_shift_hours: number
+          max_open_shift_hours: number
+          meal_break_duration: number | null
+          meal_break_hours: number | null
+          meal_break_paid: boolean
+          meal_deadline_hours: number | null
+          meal_rule_basis: string
+          meal_waiver_max_hours: number | null
+          min_hours_between_shifts: number | null
+          minor_rules: Json | null
+          overtime_multiplier: number | null
+          pay_period_start_date: string | null
+          pay_period_type: string
+          reporting_time_enabled: boolean
+          reporting_time_max_hours: number | null
+          reporting_time_min_hours: number | null
+          rest_break_duration: number | null
+          rest_break_hours: number | null
+          rest_break_paid: boolean
+          rule_name: string
+          rules_reviewed_at: string | null
+          rules_reviewed_by: string | null
+          second_meal_break_hours: number | null
+          second_meal_waiver_max_hours: number | null
+          seventh_day_rule: boolean
+          split_shift_enabled: boolean
+          split_shift_gap_minutes: number | null
+          state_code: string | null
+          unpaid_break_min_minutes: number
+          updated_at: string | null
+          weekly_overtime_threshold: number | null
+          workweek_start_dow: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "labor_rules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       seed_location_nudge_templates: {
         Args: { _location_id: string }
@@ -16039,6 +16217,20 @@ export type Database = {
       set_register_labor: {
         Args: { _integration_type: string; _location_id: string; _on: boolean }
         Returns: boolean
+      }
+      shift_flags: {
+        Args: { _end: string; _location_id: string; _start: string }
+        Returns: {
+          business_date: string
+          clock_in: string
+          clock_in_punch_id: string
+          clock_out: string
+          clock_out_punch_id: string
+          details: Json
+          flags: string[]
+          paid_min: number
+          user_id: string
+        }[]
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
