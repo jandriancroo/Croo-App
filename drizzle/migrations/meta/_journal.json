@@ -148,6 +148,13 @@
       "when": 1791439745911,
       "tag": "0020_security_fix_a_caller_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791442314473,
+      "tag": "0021_0021_labor_goal_display",
+      "breakpoints": true
     }
   ]
 }

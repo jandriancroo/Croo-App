@@ -15262,6 +15262,7 @@ export type Database = {
         Args: { _location_id: string }
         Returns: boolean
       }
+      _labor_goals_resolve: { Args: { _location_id: string }; Returns: Json }
       _labor_ot_rule: {
         Args: { _date: string; _location_id: string }
         Returns: {
@@ -16200,6 +16201,10 @@ export type Database = {
       labor_estimated_end: {
         Args: { _clock_in_punch_id: string }
         Returns: string
+      }
+      labor_goal_display: {
+        Args: { _date?: string; _location_id: string }
+        Returns: Json
       }
       labor_goal_pct: {
         Args: { _date?: string; _location_id: string }
