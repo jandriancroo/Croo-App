@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { MealRules } from '@/utils/shiftUtils';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { grossShiftHours, mealBreakLabel, shiftHasMeal, type MealRules } from '@/utils/shiftUtils';
 
 export interface ScheduleLaborRules extends MealRules {
   daily_overtime_threshold: number | null;
@@ -26,4 +27,12 @@ export function useScheduleLaborRules(locationId: string | null | undefined) {
       return (data as ScheduleLaborRules | null) ?? null;
     },
   });
+}
+
+/** Coffee-hint text for one shift from the store's rules; null = no unpaid meal (hide the icon). */
+export function useShiftMealHint(start: string | null | undefined, end: string | null | undefined, locationId?: string | null): string | null {
+  const { currentLocation } = useAppLocation();
+  const { data: rules } = useScheduleLaborRules(locationId || currentLocation?.id);
+  if (!shiftHasMeal(start, end, rules)) return null;
+  return mealBreakLabel(rules, grossShiftHours(start, end));
 }

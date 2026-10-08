@@ -452,10 +452,10 @@ export function MobileShiftDialog({
               </div>
 
               {/* Break hint chip */}
-              {shiftHasBreak(startTime, endTime) && (
+              {editMealHint && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Coffee className="h-3.5 w-3.5 text-amber-600" />
-                  <span>30-min unpaid break (shift &gt; 5 hrs)</span>
+                  <span>{editMealHint}</span>
                 </div>
               )}
             </>
@@ -469,8 +469,8 @@ export function MobileShiftDialog({
                 <Label className="text-muted-foreground text-xs">Time</Label>
                 <div className="flex items-center gap-1.5">
                   <p className="font-medium">{formatTime(shift.start_time)} - {formatTime(shift.end_time)}</p>
-                  {shiftHasBreak(shift.start_time, shift.end_time) && (
-                    <BreakIndicator hasBreak={true} size="sm" />
+                  {viewMealHint && (
+                    <BreakIndicator hasBreak={true} size="sm" title={viewMealHint} />
                   )}
                 </div>
               </div>
