@@ -17,6 +17,10 @@ import { useAuth } from '@/lib/auth';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
+import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
+import { useLaborGoals, laborGoalTone, dowFromDate } from '@/hooks/useLaborGoals';
+
+const toneClass = (t: 'good' | 'warn' | 'bad') => (t === 'good' ? 'text-green-400' : t === 'warn' ? 'text-yellow-400' : 'text-red-400');
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
@@ -76,6 +80,7 @@ export function LaborTotals({
   const { canSeeSales } = useTeamSalesVisibility();
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  const laborGoals = useLaborGoals();
   const getTodayPST = () => getTodayInTZ(timezone);
   const weekDays = Array.from({
     length: 7
@@ -762,25 +767,29 @@ export function LaborTotals({
             })}
           </div>
 
-          {/* Labor % row */}
+          {/* Labor % row — colored against the store labor goal (useLaborGoals) */}
           <div className={`${insightGrid} border-b border-slate-700/40`}>
             <div className="px-3 py-2 bg-blue-950/40 flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Labor %</span>
-              {weeklyTotals.sales > 0 ? <span className={`text-sm font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-400' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-400' : 'text-red-400'}`}>
-                  {weeklyTotals.laborPercent.toFixed(1)}%
-                </span> : <span className="text-xs text-slate-500">-</span>}
+              <LaborGoalPopover dow={null} projectedSales={weeklyTotals.sales} canEdit={isEditable}>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Labor %</span>
+                {weeklyTotals.sales > 0 ? <span className={`text-sm font-bold ${toneClass(laborGoalTone(weeklyTotals.laborPercent, laborGoals.weekly))}`}>
+                    {weeklyTotals.laborPercent.toFixed(1)}%
+                  </span> : <span className="text-xs text-slate-500">-</span>}
+                <span className="text-[10px] text-slate-500">goal {laborGoals.weekly}%</span>
+              </LaborGoalPopover>
             </div>
             {dailyTotals.map((day, index) => {
               const phase = getDayPhase(index);
               const sales = projectedSales[index] || 0;
               const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
-              const isGood = laborPercent > 0 && laborPercent <= 30;
-              const isWarning = laborPercent > 30 && laborPercent <= 35;
-              const isBad = laborPercent > 35;
+              const dow = dowFromDate(format(weekDays[index], 'yyyy-MM-dd'));
+              const goal = laborGoals.forDow(dow);
               return <div key={index} className={`px-2 py-2 border-r border-slate-700/30 last:border-r-0 text-center flex items-center justify-center ${phase === 'completed' ? 'bg-white/[0.03]' : phase === 'today' ? 'bg-blue-500/10' : ''}`}>
-                    {isLoadingSales ? <span className="text-xs text-slate-500">...</span> : sales > 0 ? <span className={`text-sm font-bold ${isGood ? 'text-green-400' : isWarning ? 'text-yellow-400' : isBad ? 'text-red-400' : 'text-slate-100'}`}>
-                        {laborPercent.toFixed(1)}%
-                      </span> : <span className="text-xs text-slate-500">-</span>}
+                    <LaborGoalPopover dow={dow} projectedSales={sales} canEdit={isEditable}>
+                      {isLoadingSales ? <span className="text-xs text-slate-500">...</span> : sales > 0 ? <span className={`text-sm font-bold ${laborPercent > 0 ? toneClass(laborGoalTone(laborPercent, goal)) : 'text-slate-100'}`}>
+                          {laborPercent.toFixed(1)}%
+                        </span> : <span className="text-xs text-slate-500">-</span>}
+                    </LaborGoalPopover>
                   </div>;
             })}
           </div>

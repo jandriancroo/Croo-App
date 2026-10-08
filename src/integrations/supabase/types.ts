@@ -14979,30 +14979,36 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          is_store_goal: boolean
           location_id: string | null
           target_weekly_hours: number | null
           template_name: string
           updated_at: string
+          weekly_labor_percentage_target: number | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
+          is_store_goal?: boolean
           location_id?: string | null
           target_weekly_hours?: number | null
           template_name: string
           updated_at?: string
+          weekly_labor_percentage_target?: number | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
+          is_store_goal?: boolean
           location_id?: string | null
           target_weekly_hours?: number | null
           template_name?: string
           updated_at?: string
+          weekly_labor_percentage_target?: number | null
         }
         Relationships: [
           {
@@ -15214,6 +15220,10 @@ export type Database = {
           tz: string
           uncapped_end: string
         }[]
+      }
+      _labor_goal_caller_ok: {
+        Args: { _location_id: string }
+        Returns: boolean
       }
       _labor_ot_rule: {
         Args: { _date: string; _location_id: string }
@@ -16137,6 +16147,11 @@ export type Database = {
         Args: { _clock_in_punch_id: string }
         Returns: string
       }
+      labor_goal_pct: {
+        Args: { _date?: string; _location_id: string }
+        Returns: number
+      }
+      labor_goals: { Args: { _location_id: string }; Returns: Json }
       labor_new_rule_start: { Args: never; Returns: string }
       labor_rule_check_allowed: {
         Args: { _kind: string; _location_id: string }
@@ -16546,11 +16561,16 @@ export type Database = {
       send_day_part_pulse: { Args: never; Returns: undefined }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       send_shift_overstay_alerts: { Args: never; Returns: undefined }
+      set_labor_goal: {
+        Args: { _day_of_week?: number; _location_id: string; _pct?: number }
+        Returns: Json
+      }
       set_pending_punch_pin: { Args: { p_pin: string }; Returns: Json }
       set_register_labor: {
         Args: { _integration_type: string; _location_id: string; _on: boolean }
         Returns: boolean
       }
+      set_store_goal_template: { Args: { _template_id: string }; Returns: Json }
       shift_flags: {
         Args: { _end: string; _location_id: string; _start: string }
         Returns: {

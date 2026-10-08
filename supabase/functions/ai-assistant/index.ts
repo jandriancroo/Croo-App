@@ -277,7 +277,21 @@ async function fetchStoreLaborRows(userClient: any, locationId: string, start: s
 }
 const LABOR_UNAVAILABLE = { labor_unavailable: true, message: "Theo can't see labor for this store right now." };
 /** One entry per business date; missing days get an explicit marker (never 0%). */
-function laborByDay(rows: any[], start: string, end: string) {
+/** Labor goal per date ONLY from labor_goal_pct (store-goal Weekly Template). One call per weekday. */
+async function fetchLaborGoals(userClient: any, locationId: string, start: string, end: string): Promise<Record<string, number | null>> {
+  const out: Record<string, number | null> = {};
+  const dates = datesBetween(start, end);
+  const byDow: Record<number, string> = {};
+  for (const d of dates) byDow[new Date(d + "T12:00:00Z").getUTCDay()] ??= d;
+  const res: Record<number, number | null> = {};
+  await Promise.all(Object.entries(byDow).map(async ([dow, d]) => {
+    const { data, error } = await userClient.rpc("labor_goal_pct", { _location_id: locationId, _date: d });
+    res[Number(dow)] = error || data == null ? null : Number(data);
+  }));
+  for (const d of dates) out[d] = res[new Date(d + "T12:00:00Z").getUTCDay()] ?? null;
+  return out;
+}
+function laborByDay(rows: any[], start: string, end: string, goals: Record<string, number | null> = {}) {
   const map: Record<string, any> = {};
   for (const r of rows) map[String(r.date).slice(0, 10)] = r;
   return datesBetween(start, end).map((d) => {
@@ -291,6 +305,7 @@ function laborByDay(rows: any[], start: string, end: string) {
       labor_cost: Number(r.cost),
       net_sales: r.net_sales == null ? null : Number(r.net_sales),
       labor_pct: r.labor_pct == null ? null : Number(r.labor_pct),
+      labor_goal_pct: goals[d] ?? null,
       ...(r.labor_pct == null ? { labor_pct_note: "No sales for this day, so no labor %." } : {}),
       is_live: !!r.is_live,
       source: r.source,
@@ -512,10 +527,11 @@ async function buildLaborLines(userClient: any, locationId: string, yesterday: s
   if (!locationId) return "";
   const { rows, error } = await fetchStoreLaborRows(userClient, locationId, yesterday, today);
   if (error || !rows) return "Labor: Theo can't see labor for this store right now.";
-  return laborByDay(rows, yesterday, today).map((d: any) => {
+  const goals = await fetchLaborGoals(userClient, locationId, yesterday, today);
+  return laborByDay(rows, yesterday, today, goals).map((d: any) => {
     const label = d.date === today ? `Labor today so far (${d.date})` : `Labor yesterday (${d.date})`;
     if (d.no_labor_data) return `${label}: no labor data yet — skip labor, never say 0% or a grade.`;
-    return `${label}: $${Math.round(d.labor_cost).toLocaleString()} | ${d.labor_hours.toFixed(1)} hrs | ${d.labor_pct == null ? "labor % n/a (no sales)" : `${d.labor_pct.toFixed(1)}%`}${d.is_live ? " (live)" : ""}`;
+    return `${label}: $${Math.round(d.labor_cost).toLocaleString()} | ${d.labor_hours.toFixed(1)} hrs | ${d.labor_pct == null ? "labor % n/a (no sales)" : `${d.labor_pct.toFixed(1)}%${d.labor_goal_pct != null ? ` vs goal ${d.labor_goal_pct}%` : ""}`}${d.is_live ? " (live)" : ""}`;
   }).join("\n");
 }
 
@@ -1234,7 +1250,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         if (storeErr || !storeRows) {
           result.labor_summary = LABOR_UNAVAILABLE;
         } else {
-          result.labor_summary = laborByDay(storeRows, args.start_date, endDate);
+          const laborGoals = await fetchLaborGoals(ctx.userClient, args.location_id, args.start_date, endDate);
+          result.labor_summary = laborByDay(storeRows, args.start_date, endDate, laborGoals);
           // Per-employee breakdown (manager+ only) may still come from labor_cache, but only
           // from the row whose source matches the one get_store_labor used for that day.
           if (canSeeWages) {
@@ -3526,6 +3543,7 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 - Meeting attendees are added on the Schedule page after saving; you can't add them.
 - Changing an EXISTING event is not built (examples of meaning: "edit the Friday meeting", "move the staff meeting to 3", "rename the produce order", "delete the ice machine check"): call no tool and say exactly "I can't edit or delete events yet. Use the Schedule page." Only a request for a NEW event is an add.
 ` : ""}${msgOn ? `MESSAGES (only the manager's OWN chats at this store exist for you; you never see anyone else's):
+- Labor goal = labor_goal_pct (Weekly Template; store default 25% when unset). Say "X% vs goal Y%". Never invent a goal.
 - Reading: use find_chats (unread, a person's DM, a group by title) and read_chat. Answer short: who, what, when. Never invent or guess a message. If there's no chat, say so ("You don't have a chat with Ryan here."). Never repeat a private message to anyone else on your own.
 - Replying or messaging someone: call propose_message (to_person or to_group, text, reply). The app finds the chat, checks everything and shows the exact words. When it returns preview_shown, your whole reply must be exactly: "Here's the message. Does this look right to you?" Never say a message was sent.
 - The words: the manager's own words when given ("message Ryan: can you come in at 4?" -> text "Can you come in at 4?"). Given only the idea ("tell Alle thanks for covering") write one or two short sentences, plain manager voice, ONLY what they said or clearly meant: never add times, names, promises, numbers, emojis or sign-offs.

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLaborGoals } from "@/hooks/useLaborGoals";
 import { toast } from "sonner";
 import { ArrowLeft, Save, GripVertical, ChevronLeft, ChevronRight, Clock, Percent, DollarSign, RefreshCw, Users } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
@@ -174,6 +175,9 @@ function DroppableDay({
   isLast,
   onDayNameClick,
   hasCoverageSet,
+  laborValue,
+  laborEditable,
+  onLaborCommit,
 }: { 
   dayIndex: number; 
   dayName: string; 
@@ -189,7 +193,13 @@ function DroppableDay({
   isLast: boolean;
   onDayNameClick: () => void;
   hasCoverageSet: boolean;
+  /** Store labor goal for this weekday (from useLaborGoals) */
+  laborValue: number | null;
+  laborEditable: boolean;
+  onLaborCommit: (value: string) => void;
 }) {
+  const [laborDraft, setLaborDraft] = useState(laborValue != null ? String(laborValue) : '');
+  useEffect(() => { setLaborDraft(laborValue != null ? String(laborValue) : ''); }, [laborValue]);
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
     data: { dayIndex },
@@ -197,7 +207,7 @@ function DroppableDay({
 
   // Calculate target labor cost based on projected sales and labor %
   const projectedSales = parseFloat(daySettings.projectedSales) || 0;
-  const laborPercent = parseFloat(daySettings.laborPercent) || 0;
+  const laborPercent = laborValue ?? 0;
   const targetLaborCost = projectedSales * (laborPercent / 100);
 
   return (
@@ -245,10 +255,14 @@ function DroppableDay({
           <Percent className="h-3 w-3 text-muted-foreground" />
           <Input
             type="number"
-            value={daySettings.laborPercent}
-            onChange={(e) => onDaySettingsChange('laborPercent', e.target.value)}
+            value={laborDraft}
+            onChange={(e) => setLaborDraft(e.target.value)}
+            onBlur={() => { if (laborDraft !== (laborValue != null ? String(laborValue) : '')) onLaborCommit(laborDraft); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            disabled={!laborEditable}
+            title={laborEditable ? 'Labor goal for this weekday (store goal)' : 'Labor goals live on the store goal template'}
             className="h-7 text-xs flex-1"
-            placeholder="Labor %"
+            placeholder="Weekly goal"
             min="0"
             max="100"
             step="0.5"
@@ -341,6 +355,23 @@ export default function WeekTemplateBuilder() {
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const isNew = id === 'new';
+  const laborGoals = useLaborGoals(templateLocationId || currentLocation?.id);
+  const isStoreGoal = !isNew && !!id && laborGoals.templateId === id;
+  const [weeklyDraft, setWeeklyDraft] = useState('');
+  useEffect(() => {
+    setWeeklyDraft(laborGoals.weeklySource === 'weekly_goal' ? String(laborGoals.weekly) : '');
+  }, [laborGoals.weekly, laborGoals.weeklySource]);
+
+  const commitLaborGoal = async (dow: number | null, raw: string) => {
+    const pct = raw.trim() === '' ? null : parseFloat(raw);
+    if (pct != null && !(pct > 0 && pct <= 100)) { toast.error('Labor goal must be between 0 and 100%'); return; }
+    try {
+      await laborGoals.setGoal(dow, pct);
+      toast.success(pct == null ? 'Labor goal cleared' : 'Labor goal saved');
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not save labor goal');
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -777,12 +808,18 @@ export default function WeekTemplateBuilder() {
       return newMap;
     });
 
-    // Copy only labor percent, not sales (will be auto-generated)
+    // Sales will be auto-generated; the labor goal is copied through the one labor-goal writer.
     setDaySettingsMap(prev => {
       const newMap = new Map(prev);
       newMap.set(targetDay, { laborPercent: sourceSettings.laborPercent, projectedSales: '' });
       return newMap;
     });
+    if (isStoreGoal) {
+      const srcGoal = laborGoals.dayValue(copyFromDay);
+      if (srcGoal !== laborGoals.dayValue(targetDay)) {
+        laborGoals.setGoal(targetDay, srcGoal).catch(() => toast.error('Could not copy labor goal'));
+      }
+    }
 
     // Copy min_staff hourly coverage from source to target day (if template already saved)
     if (id) {
@@ -939,16 +976,21 @@ export default function WeekTemplateBuilder() {
         projected_sales: number | null;
       }[] = [];
 
-      daySettingsMap.forEach((settings, dayIndex) => {
-        if (settings.laborPercent || settings.projectedSales) {
+      // Labor goals are written only by set_labor_goal; here we just preserve what's stored.
+      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        const settings = daySettingsMap.get(dayIndex) || { laborPercent: '', projectedSales: '' };
+        const keptLabor = isStoreGoal
+          ? laborGoals.dayValue(dayIndex)
+          : (settings.laborPercent ? parseFloat(settings.laborPercent) : null);
+        if (keptLabor != null || settings.projectedSales) {
           daySettingsRows.push({
             week_template_id: weekTemplateId!,
             day_of_week: dayIndex,
-            labor_percentage_target: settings.laborPercent ? parseFloat(settings.laborPercent) : null,
+            labor_percentage_target: keptLabor,
             projected_sales: settings.projectedSales ? parseFloat(settings.projectedSales) : null,
           });
         }
-      });
+      }
 
       if (daySettingsRows.length > 0) {
         const { error: settingsError } = await supabase
@@ -1031,6 +1073,60 @@ export default function WeekTemplateBuilder() {
           </div>
         </Card>
 
+        {/* Store labor goal (one source: the store-goal Weekly Template) */}
+        <Card className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Label htmlFor="weekly-labor-goal" className="flex items-center gap-1">
+              <Percent className="h-4 w-4 text-muted-foreground" /> Weekly labor goal %
+            </Label>
+            <Input
+              id="weekly-labor-goal"
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              className="w-28"
+              value={weeklyDraft}
+              placeholder={`${laborGoals.storeDefault}% default`}
+              disabled={!isStoreGoal}
+              onChange={(e) => setWeeklyDraft(e.target.value)}
+              onBlur={() => {
+                const cur = laborGoals.weeklySource === 'weekly_goal' ? String(laborGoals.weekly) : '';
+                if (weeklyDraft !== cur) commitLaborGoal(null, weeklyDraft);
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            />
+            <span className="text-xs text-muted-foreground">
+              Days left blank use this; blank here uses the store default ({laborGoals.storeDefault}%).
+            </span>
+          </div>
+          {!isStoreGoal && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>Labor goals live on {laborGoals.templateName ? `"${laborGoals.templateName}"` : 'the store goal template'}</span>
+              {!isNew && id && (
+                <>
+                  <span>·</span>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={async () => {
+                      try {
+                        await laborGoals.makeStoreGoalTemplate(id);
+                        toast.success("This is now the store's goal template");
+                      } catch (e: any) {
+                        toast.error(e?.message || 'Could not change the goal template');
+                      }
+                    }}
+                  >
+                    Make this the store's goal template
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </Card>
+
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
@@ -1082,6 +1178,9 @@ export default function WeekTemplateBuilder() {
                     isLast={index === 6}
                     onDayNameClick={() => handleDayNameClick(index)}
                     hasCoverageSet={hourlyCoverageByDay.get(index) || false}
+                    laborValue={laborGoals.dayValue(index)}
+                    laborEditable={isStoreGoal}
+                    onLaborCommit={(v) => commitLaborGoal(index, v)}
                   />
                 ))}
               </div>
@@ -1106,6 +1205,9 @@ export default function WeekTemplateBuilder() {
                       isLast={index === 6}
                       onDayNameClick={() => handleDayNameClick(index)}
                       hasCoverageSet={hourlyCoverageByDay.get(index) || false}
+                    laborValue={laborGoals.dayValue(index)}
+                    laborEditable={isStoreGoal}
+                    onLaborCommit={(v) => commitLaborGoal(index, v)}
                     />
                   );
                 })}

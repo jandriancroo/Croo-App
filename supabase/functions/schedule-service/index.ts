@@ -525,7 +525,6 @@ async function handleOptimizeLabor(req: Request, supabase: any) {
     week_start, 
     template_id, 
     generated_shifts,
-    labor_percentage_target,
     action // 'analyze' or 'optimize'
   } = await req.json();
 
@@ -616,24 +615,28 @@ async function handleOptimizeLabor(req: Request, supabase: any) {
   });
   console.log("Location closing times:", closingTimes);
 
+  // Template supplies projected sales; labor goal comes ONLY from labor_goal_pct (store-goal Weekly Template).
   const dailySettings: Record<number, { laborTarget: number; projectedSales: number }> = {};
+  for (let i = 0; i < 7; i++) dailySettings[i] = { laborTarget: 25, projectedSales: 0 };
   if (template_id) {
     const { data: daySettingsData, error: daySettingsError } = await supabase
       .from("week_template_day_settings")
-      .select("day_of_week, labor_percentage_target, projected_sales")
+      .select("day_of_week, projected_sales")
       .eq("week_template_id", template_id);
-
     if (daySettingsError) {
       console.log("No day settings found, will use defaults:", daySettingsError.message);
     }
-
     (daySettingsData || []).forEach((ds: any) => {
-      dailySettings[ds.day_of_week] = {
-        laborTarget: ds.labor_percentage_target || 25,
-        projectedSales: ds.projected_sales || 0,
-      };
+      if (dailySettings[ds.day_of_week]) dailySettings[ds.day_of_week].projectedSales = ds.projected_sales || 0;
     });
   }
+  await Promise.all(Array.from({ length: 7 }, async (_, i) => {
+    const d = new Date(weekStartDate.getTime() + i * 86400000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dow = (d.getUTCDay() + 6) % 7; // 0 = Monday
+    const { data: goal } = await supabase.rpc("labor_goal_pct", { _location_id: location_id, _date: dateStr });
+    if (goal != null) dailySettings[dow].laborTarget = Number(goal);
+  }));
 
   const { data: salesData } = await supabase
     .from("week_template_hourly_coverage")
