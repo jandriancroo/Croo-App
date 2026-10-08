@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { useScheduleLaborRules } from "@/hooks/useScheduleLaborRules";
+import { paidShiftHours } from "@/utils/shiftUtils";
 import { Sparkles, Loader2, User, Printer } from "lucide-react";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
@@ -54,6 +56,7 @@ export function DayBreakdownDialog({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  const { data: laborRules } = useScheduleLaborRules(currentLocation?.id);
   const laborGoals = useLaborGoals();
   const dayGoal = laborGoals.forDate(dateStr);
   
@@ -291,8 +294,6 @@ export function DayBreakdownDialog({
         endTime += 24;
       }
       const totalHours = endTime - startTime;
-      const hasBreak = totalHours > 5;
-      const workedHours = hasBreak ? totalHours - 0.5 : totalHours;
 
       const profile = getProfileForShift(shift);
       const wage = profile?.hourly_wage ?? 0;
@@ -320,27 +321,14 @@ export function DayBreakdownDialog({
   const hourlyBreakdown = calculateHourlyBreakdown();
 
   // Calculate totals
-  const totalHours = dayShifts.reduce((sum: number, shift: any) => {
-    if (shift.is_time_off) return sum;
-    const [startHour, startMin] = shift.start_time.split(":").map(Number);
-    const [endHour, endMin] = shift.end_time.split(":").map(Number);
-    let hours = endHour + endMin / 60 - (startHour + startMin / 60);
-    // Handle midnight crossover (e.g., 6pm-12am)
-    if (hours < 0) hours += 24;
-    return sum + (hours > 5 ? hours - 0.5 : hours);
-  }, 0);
+  const totalHours = dayShifts.reduce((sum: number, shift: any) =>
+    shift.is_time_off ? sum : sum + paidShiftHours(shift.start_time, shift.end_time, laborRules), 0);
 
   const totalCost = dayShifts.reduce((sum: number, shift: any) => {
     if (shift.is_time_off) return sum;
-    const [startHour, startMin] = shift.start_time.split(":").map(Number);
-    const [endHour, endMin] = shift.end_time.split(":").map(Number);
-    let hours = endHour + endMin / 60 - (startHour + startMin / 60);
-    // Handle midnight crossover (e.g., 6pm-12am)
-    if (hours < 0) hours += 24;
-    const workedHours = hours > 5 ? hours - 0.5 : hours;
     const profile = getProfileForShift(shift);
     const wage = profile?.hourly_wage ?? 0;
-    return sum + workedHours * wage;
+    return sum + paidShiftHours(shift.start_time, shift.end_time, laborRules) * wage;
   }, 0);
 
   const formatCurrency = (amount: number) => {
@@ -779,8 +767,7 @@ export function DayBreakdownDialog({
                   if (endTime < startTime) {
                     endTime += 24;
                   }
-                  const hours = endTime - startTime;
-                  const workedHours = hours > 5 ? hours - 0.5 : hours;
+                  const workedHours = paidShiftHours(shift.start_time, shift.end_time, laborRules);
                   const profile = getProfileForShift(shift);
                   const wage = profile?.hourly_wage ?? 0;
                   const cost = workedHours * wage;
