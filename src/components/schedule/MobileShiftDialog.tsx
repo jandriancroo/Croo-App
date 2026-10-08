@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
-import { shiftHasBreak } from '@/utils/shiftUtils';
+import { useShiftMealHint } from '@/hooks/useScheduleLaborRules';
 import { Trash2, ArrowUp, ArrowRightLeft, CalendarClock, ChevronLeft, ChevronRight, Coffee } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
 import { format, addDays, subDays } from 'date-fns';
@@ -80,6 +80,8 @@ export function MobileShiftDialog({
   const { timezone } = useLocationTimezone();
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const editMealHint = useShiftMealHint(startTime, endTime, locationId || currentLocation?.id);
+  const viewMealHint = useShiftMealHint(shift?.start_time, shift?.end_time, locationId || currentLocation?.id);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [shiftDate, setShiftDate] = useState('');

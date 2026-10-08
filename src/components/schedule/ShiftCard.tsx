@@ -41,6 +41,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
 
 
   const shiftData = shift.isTemplate ? shift.template : shift;
+  const mealHint = useShiftMealHint(shiftData?.start_time, shiftData?.end_time);
   const template = shift.template;
   const bgColor = template?.color || shiftData.color || "#ef4444";
   const position = template?.position || template?.template_name;
