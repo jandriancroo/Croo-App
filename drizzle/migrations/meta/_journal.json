@@ -50,6 +50,13 @@
       "when": 1791433561452,
       "tag": "0006_labor_rule_proposals_phase_b",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791433582163,
+      "tag": "0007_labor_rule_check_build_ignore_failed",
+      "breakpoints": true
     }
   ]
 }
