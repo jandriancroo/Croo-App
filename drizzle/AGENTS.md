@@ -1,2 +1,3 @@
 - AI law checks only write pending labor_rule_proposals; org/super admin approval applies via save_labor_rules. Why: no unapproved AI change.
 - Croo Cash is retired and archived (docs/archive/croo-cash.md). Never read, write, display or reintroduce croo_cash_balance, croo_cash_transactions or increment_croo_cash, even though they still appear in types.ts.
+- original_shift_changes(location, from, to, user?): per-employee outcome (kept / gave away / moved off / removed) of shifts in schedules.original_shifts_snapshot, judged by final state + latest not-undone schedule_change_log row; admin/manager with store access only; sole caller src/hooks/useOriginalShiftStats.ts.
