@@ -23,9 +23,11 @@ export function LaborGoalPopover({ dow, projectedSales, canEdit, children }: Pro
   const current = dow == null ? goals.weekly : goals.forDow(dow);
   const source = dow == null ? goals.weeklySource : goals.sourceForDow(dow);
   const [value, setValue] = useState('');
+  // No goal visible (staff, or not loaded): no popover, just the content.
+  const hidden = !goals.available;
 
   useEffect(() => {
-    if (open) setValue(String(current));
+    if (open) setValue(current == null ? '' : String(current));
   }, [open, current]);
 
   const save = async (pct: number | null) => {
@@ -44,6 +46,10 @@ export function LaborGoalPopover({ dow, projectedSales, canEdit, children }: Pro
 
   const pctNum = parseFloat(value);
   const implied = projectedSales > 0 && pctNum > 0 ? projectedSales * (pctNum / 100) : null;
+
+  if (hidden) {
+    return <div className="w-full h-full flex items-center justify-center gap-2">{children}</div>;
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -87,7 +93,7 @@ export function LaborGoalPopover({ dow, projectedSales, canEdit, children }: Pro
               </Button>
             </div>
             <Button size="sm" variant="ghost" className="w-full text-xs" disabled={goals.saving} onClick={() => save(null)}>
-              {dow == null ? `Clear (use store default ${goals.storeDefault}%)` : 'Clear (use weekly goal)'}
+              {dow == null ? `Clear (use store default${goals.storeDefault != null ? ` ${goals.storeDefault}%` : ""})` : 'Clear (use weekly goal)'}
             </Button>
           </>
         ) : (

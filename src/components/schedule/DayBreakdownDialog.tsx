@@ -32,8 +32,9 @@ interface DayBreakdownDialogProps {
 }
 
 /** ≤ goal green, ≤ goal+3 yellow, above red — the one rule in laborGoalTone. */
-function laborPctClass(pct: number, goal: number) {
+function laborPctClass(pct: number, goal: number | null) {
   const tone = laborGoalTone(pct, goal);
+  if (tone === "neutral") return "";
   if (tone === "good") return "text-green-600";
   if (tone === "warn") return "text-yellow-600";
   return "text-red-600";

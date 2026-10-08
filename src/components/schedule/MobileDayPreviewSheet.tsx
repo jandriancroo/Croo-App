@@ -47,9 +47,10 @@ function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
 
-function laborPctClass(pct: number, goal: number) {
+function laborPctClass(pct: number, goal: number | null) {
   if (pct <= 0) return "text-muted-foreground";
   const tone = laborGoalTone(pct, goal);
+  if (tone === "neutral") return "text-foreground";
   if (tone === "good") return "text-emerald-600 dark:text-emerald-400";
   if (tone === "warn") return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
