@@ -36,6 +36,7 @@ import { getBusinessDateInTimezone } from '@/utils/timezoneUtils';
 import { useAuth } from '@/lib/auth';
 import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
 import { summarizeCuts } from '@/utils/cutSavingsSummary';
+import { useLaborGoalDisplay } from '@/hooks/useLaborGoalDisplay';
 
 // Swipe-up panel palette. "Ink" = theme primary darkened for text on the light
 // page background; dark themes lighten it instead so it stays readable.
@@ -280,6 +281,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     enabled: !!locationId && isExpanded,
   });
 
+  // Store labor goal (week template + day goals), same source as the rest of the app.
+  const goal = useLaborGoalDisplay(locationId, todayStr, isExpanded);
+
   // Fetch active shifts (same logic as manager dash)
   const { data: activeShifts = [] } = useQuery({
     queryKey: ['compact-dash-shifts', locationId, todayStr],
@@ -503,7 +507,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   
   // Labor calculations
   const laborCost = laborData?.labor_cost || 0;
-  const laborTarget = locationSettings?.labor_percentage_target || 25;
+  const laborTarget = goal?.day ?? goal?.weekly ?? (locationSettings?.labor_percentage_target || 25);
   const laborPercentage = totalSales > 0 ? (laborCost / totalSales) * 100 : 0;
   const laborDiff = laborPercentage - laborTarget;
   
