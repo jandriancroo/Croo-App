@@ -12,8 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DesktopTimeTrackingTable } from '@/components/timetracking/DesktopTimeTrackingTable';
 import { DayByDayView } from '@/components/timetracking/DayByDayView';
-import { MobileTimeTrackingCard } from '@/components/timetracking/MobileTimeTrackingCard';
-import { MobileDayByDayCard } from '@/components/timetracking/MobileDayByDayCard';
+import { labelFor } from '@/lib/timeTracking/shiftFlags';
 import { EditShiftForm } from '@/components/timetracking/EditShiftForm';
 import { Users, CalendarDays, Flag } from 'lucide-react';
 import { usePayrollData } from '@/hooks/usePayrollData';
@@ -77,7 +76,6 @@ export default function PayrollReview() {
     calculateDayHours,
     sortPunches,
     getDayFlags,
-    hasDayIssues,
     groupPunchesByWeek,
     calculatePayrollSummary,
     exportToCSV,
@@ -103,10 +101,11 @@ export default function PayrollReview() {
       const lastOut = [...sorted].reverse().find((p: any) => p.punch_type === 'clock_out');
       const t = (p: any) => p ? formatDateTimeInTimezone(new Date(p.punch_time), timezone, { hour: 'numeric', minute: '2-digit' }) : '—';
       const issues: string[] = [];
-      if (f.hasAutoClockOut) issues.push('Auto Out');
-      if (f.hasBreakViolation) issues.push('No Break');
-      if (hours > 10) issues.push(`Long Shift ${hours.toFixed(1)}h`);
-      if (dayPunches.some((p: any) => p.has_extended_break)) issues.push('Long Break');
+      f.flags.forEach((r) => (r.flags || []).forEach((code) => {
+        if (code === 'missing_clock_out') return;
+        const l = labelFor(code, r.details);
+        if (!issues.includes(l)) issues.push(l);
+      }));
       if (dayPunches.some((p: any) => p.edited_by || p.notes === 'Manual entry by manager')) issues.push('Edited');
       unapprovedShifts.push({
         key: `${c.profile?.id}_${d}`,
@@ -433,7 +432,6 @@ export default function PayrollReview() {
                        onUnapproveDay={handleUnapproveDay}
                        onEditShift={setEditingShift}
                        calculateDayHours={calculateDayHours}
-                       hasDayIssues={hasDayIssues}
                        sortPunches={sortPunches}
                        groupPunchesByWeek={groupPunchesByWeek}
                        currentLocationId={currentLocation?.id || ''}
@@ -461,7 +459,7 @@ export default function PayrollReview() {
                  {/* Mobile/Tablet Cards View - below lg */}
                  <div className="block lg:hidden">
                    {viewMode === 'employee' ? (
-                     <MobileTimeTrackingCard
+                     <DesktopTimeTrackingTable
                        filteredCards={filteredCards}
                        timezone={timezone}
                        includeApproved={includeApproved}
@@ -469,7 +467,6 @@ export default function PayrollReview() {
                        onUnapproveDay={handleUnapproveDay}
                        onEditShift={setEditingShift}
                        calculateDayHours={calculateDayHours}
-                       hasDayIssues={hasDayIssues}
                        sortPunches={sortPunches}
                        groupPunchesByWeek={groupPunchesByWeek}
                        currentLocationId={currentLocation?.id || ''}
@@ -477,7 +474,7 @@ export default function PayrollReview() {
                        getDayFlags={getDayFlags}
                      />
                    ) : (
-                     <MobileDayByDayCard
+                     <DayByDayView
                        filteredCards={filteredCards}
                        timezone={timezone}
                        includeApproved={includeApproved}

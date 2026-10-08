@@ -12,6 +12,7 @@ import {
   type PunchFlag,
 } from './PunchApprovalRow';
 import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
+import { breaksFromDetails, chipsFor, type ShiftFlagRow } from '@/lib/timeTracking/shiftFlags';
 import { TheoDayLine, useTheoDayInsights } from './TheoDayLine';
 
 interface DayByDayViewProps {
@@ -26,7 +27,7 @@ interface DayByDayViewProps {
   currentLocationId: string;
   approvingPunchIds: Set<string>;
   periodDates?: { value: string; label: string }[];
-  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasOpenShift: boolean; hasAnyFlag: boolean };
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasOpenShift: boolean; hasAnyFlag: boolean; flags: ShiftFlagRow[] };
 }
 
 export function DayByDayView({
@@ -52,6 +53,7 @@ export function DayByDayView({
     hasAutoClockOut: boolean;
     hasBreakViolation: boolean;
     hasOpenShift: boolean;
+    flagRows: ShiftFlagRow[];
     hasManualEdit: boolean;
     editedByName: string | null;
     scheduledShift: any;
@@ -109,6 +111,7 @@ export function DayByDayView({
         hasAutoClockOut,
         hasBreakViolation,
         hasOpenShift,
+        flagRows: flags.flags,
         hasManualEdit,
         editedByName,
         scheduledShift,
@@ -142,33 +145,14 @@ export function DayByDayView({
     return entries.reduce((sum, entry) => sum + (entry.dayHours || 0), 0);
   };
 
-  const buildBreaks = (dayPunches: any[]): PunchBreakInfo[] => {
-    const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
-    return breakStarts.map((breakStart: any) => {
-      let breakEnd = dayPunches.find((p: any) =>
-        p.punch_type === 'break_end' &&
-        new Date(p.punch_time) > new Date(breakStart.punch_time)
-      );
-      if (!breakEnd) {
-        breakEnd = dayPunches.find((p: any) =>
-          p.punch_type === 'clock_in' &&
-          new Date(p.punch_time) > new Date(breakStart.punch_time)
-        );
-      }
-      const scheduledLabel = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
-      let minutes = 0;
-      if (breakEnd) {
-        minutes = Math.round((new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000);
-      }
-      return {
-        scheduledLabel,
-        start: formatTimeDisplay(breakStart.punch_time, timezone),
-        end: breakEnd ? formatTimeDisplay(breakEnd.punch_time, timezone) : null,
-        minutes,
-        isLong: !!breakEnd && minutes > 35,
-      };
-    });
-  };
+  const breaksFor = (rows: ShiftFlagRow[]): PunchBreakInfo[] =>
+    rows.flatMap((r) => breaksFromDetails(r.details)).map((b) => ({
+      scheduledLabel: 'Break',
+      start: formatTimeDisplay(b.start, timezone),
+      end: b.end ? formatTimeDisplay(b.end, timezone) : null,
+      minutes: b.minutes,
+      isLong: b.isLong,
+    }));
 
   return (
     <div className="space-y-4">
@@ -213,12 +197,7 @@ export function DayByDayView({
             <TheoDayLine lines={theo?.[day]} />
             {sortedEntries.map((entry) => {
               const isApproving = entry.dayPunches.some((p: any) => approvingPunchIds.has(p.id));
-              const flags: PunchFlag[] = [];
-              if (entry.hasBreakViolation) flags.push({ label: 'No Break', tone: 'warning' });
-              if (entry.hasAutoClockOut) flags.push({ label: 'Auto Out', tone: 'warning' });
-              if (entry.hasOpenShift) flags.push({ label: 'Open', tone: 'danger' });
-              if ((entry.dayHours || 0) > 10) flags.push({ label: `Long Shift ${(entry.dayHours || 0).toFixed(1)}h`, tone: 'warning' });
-              if (buildBreaks(entry.dayPunches).some((b) => b.isLong)) flags.push({ label: 'Long Break', tone: 'warning' });
+              const flags: PunchFlag[] = chipsFor(entry.flagRows);
               if (entry.hasManualEdit) flags.push({ label: `Edited${entry.editedByName ? ` by ${entry.editedByName}` : ''}`, tone: 'info' });
 
               return (
@@ -234,7 +213,7 @@ export function DayByDayView({
                     clockIn: s.clockIn ? formatTimeDisplay(s.clockIn.punch_time, timezone) : null,
                     clockOut: s.clockOut ? formatTimeDisplay(s.clockOut.punch_time, timezone) : null,
                   }))}
-                  breaks={buildBreaks(entry.dayPunches)}
+                  breaks={breaksFor(entry.flagRows)}
                   flags={flags}
                   hours={entry.dayHours || 0}
                   state={entry.hasOpenShift ? 'open' : entry.isApproved ? 'approved' : 'pending'}
