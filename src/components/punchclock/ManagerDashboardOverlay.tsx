@@ -53,6 +53,7 @@ import { getBusinessDateInTimezone, getDayOfWeekInTimezone, getTimezoneOffset, p
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { fetchLiveLaborForToday } from '@/utils/liveLabor';
 import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
+import { useLaborGoalDisplay } from '@/hooks/useLaborGoalDisplay';
 import { summarizeCuts } from '@/utils/cutSavingsSummary';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
@@ -272,6 +273,7 @@ export function ManagerDashboardOverlay({
   const currentTime = useClock(1000);
 
   const todayStr = useMemo(() => getBusinessDateInTimezone(timezone, closeTime), [timezone, closeTime]);
+  const goal = useLaborGoalDisplay(locationId, todayStr);
 
   // Fetch sales data from sales_cache — shared key with CompactDashboard + prefetch
   const { data: salesData } = useQuery({
@@ -859,7 +861,7 @@ export function ManagerDashboardOverlay({
 
   // Calculate labor percentage
   const laborPercentage = totalSales > 0 ? ((laborData?.laborCost || 0) / totalSales) * 100 : 0;
-  const laborTarget = locationSettings?.labor_percentage_target || 25;
+  const laborTarget = goal?.day ?? goal?.weekly ?? (locationSettings?.labor_percentage_target || 25);
   const laborStatus = laborPercentage <= laborTarget ? 'good' : laborPercentage <= laborTarget + 3 ? 'warning' : 'bad';
 
   const formatTimeDisplay = (time: Date) => {
