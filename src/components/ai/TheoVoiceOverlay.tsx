@@ -362,7 +362,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     setLongAnswer(false);
     const acts = actionsRef.current;
     const schedAct = acts.cover_shift || acts.add_shift || acts.delete_shift || acts.swap_shift || acts.change_shift;
-    const canAct = acts.create_task || schedAct || acts.create_event || acts.send_message || acts.clock_punch || acts.quick_nudge;
+    const canAct = acts.create_task || schedAct || acts.create_event || acts.send_message || acts.clock_punch || acts.quick_nudge || acts.post_announcement;
     const sc = screenRef.current;
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
