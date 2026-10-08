@@ -15317,6 +15317,7 @@ export type Database = {
         Args: { _key: string; _location_id: string; _role: string }
         Returns: boolean
       }
+      _osc_caller_ok: { Args: { _location_id: string }; Returns: boolean }
       _pay_period_open_issues: {
         Args: { _end: string; _start: string; _user: string }
         Returns: {
@@ -16201,6 +16202,23 @@ export type Database = {
       my_labor_rules_access: { Args: { _location_id: string }; Returns: Json }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
       oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
+      original_shift_changes: {
+        Args: {
+          _from: string
+          _location_id: string
+          _to: string
+          _user_id?: string
+        }
+        Returns: {
+          details: Json
+          gave_away: number
+          kept: number
+          moved_off: number
+          og_shifts: number
+          removed: number
+          user_id: string
+        }[]
+      }
       pay_period_open_issues: {
         Args: { _period_id: string }
         Returns: {

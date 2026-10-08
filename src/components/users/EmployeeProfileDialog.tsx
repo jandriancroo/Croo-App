@@ -25,6 +25,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getTodayInPST } from '@/utils/dateUtils';
+import { DateTime } from 'luxon';
+import { useOriginalShiftStats, type OriginalShiftOutcome } from '@/hooks/useOriginalShiftStats';
 import {
   Camera,
   CalendarIcon,
@@ -669,6 +671,11 @@ export function EmployeeProfileDialog({
                 </div>
               </div>
 
+              {isManager && currentLocationId && (
+                <OriginalShiftsTile userId={user.id} locationId={currentLocationId} />
+              )}
+
+
 
               {/* Admin Actions */}
               {isAdmin && (
@@ -892,5 +899,64 @@ export function EmployeeProfileDialog({
         />
       )}
     </>
+  );
+}
+
+const OUTCOME_LABEL: Record<OriginalShiftOutcome, string> = {
+  kept: 'Kept',
+  gave_away: 'Gave away',
+  moved_off: 'Moved off',
+  removed: 'Removed',
+};
+
+function fmtTime(t: string | null) {
+  if (!t) return '';
+  const d = DateTime.fromFormat(t.slice(0, 5), 'HH:mm');
+  return d.isValid ? d.toFormat('h:mma').toLowerCase() : t;
+}
+
+function OriginalShiftsTile({ userId, locationId }: { userId: string; locationId: string }) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading, isError } = useOriginalShiftStats(userId, locationId);
+  if (isError) return null;
+  return (
+    <div className="p-3 rounded-lg bg-muted/50 border border-border">
+      <Label className="text-xs text-muted-foreground">Original shifts (last 90 days + upcoming)</Label>
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : !data || data.og_shifts === 0 ? (
+        <p className="text-sm text-muted-foreground">No original schedule data yet</p>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            className="w-full text-left text-sm font-semibold text-foreground flex items-center justify-between gap-2"
+            aria-expanded={open}
+          >
+            <span>
+              Kept {data.kept} of {data.og_shifts} · Gave away {data.gave_away} · Moved off {data.moved_off} · Removed {data.removed}
+            </span>
+            <span className="text-xs text-muted-foreground shrink-0">{open ? 'Hide' : 'Details'}</span>
+          </button>
+          {open && (
+            <ul className="mt-2 space-y-1 max-h-60 overflow-y-auto">
+              {data.details.map((d, i) => (
+                <li key={i} className="text-xs text-foreground flex justify-between gap-2 border-t border-border pt-1">
+                  <span>
+                    {DateTime.fromFormat(d.shift_date, 'yyyy-MM-dd').toFormat('EEE MMM d')} {fmtTime(d.start_time)}–{fmtTime(d.end_time)}
+                  </span>
+                  <span className="text-muted-foreground text-right">
+                    {OUTCOME_LABEL[d.outcome]}
+                    {d.to_user_name ? ` → ${d.to_user_name}` : ''}
+                    {d.changed_by_name ? ` (by ${d.changed_by_name})` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
   );
 }
