@@ -54,3 +54,10 @@ export function stateFromAddress(address: string | null | undefined): string | n
   const m = /,\s*([A-Z]{2})\s*\d{5}/.exec(address || '');
   return m ? m[1] : null;
 }
+
+/** Store setup: start the build check without blocking; failures only warn. */
+export function startBuildLawCheck(locationId: string): void {
+  requestLaborLawCheck(locationId, 'build')
+    .then((r) => { if (r?.status === 'failed' || r?.status === 'not_connected') console.warn('Labor law check:', r.error); })
+    .catch((e) => console.warn('Labor law check failed:', e?.message || e));
+}
