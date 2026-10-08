@@ -12,7 +12,8 @@ import {
   type PunchFlag,
 } from './PunchApprovalRow';
 import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
-import { breaksFromDetails, chipsFor, type ShiftFlagRow } from '@/lib/timeTracking/shiftFlags';
+import { buildBreaksFromPunches } from '@/lib/timeTracking/punchBreaks';
+import { chipsFor, type ShiftFlagRow } from '@/lib/timeTracking/shiftFlags';
 import { TheoDayLine, useTheoDayInsights } from './TheoDayLine';
 
 interface DayByDayViewProps {
@@ -145,8 +146,8 @@ export function DayByDayView({
     return entries.reduce((sum, entry) => sum + (entry.dayHours || 0), 0);
   };
 
-  const breaksFor = (rows: ShiftFlagRow[]): PunchBreakInfo[] =>
-    rows.flatMap((r) => breaksFromDetails(r.details)).map((b) => ({
+  const buildBreaks = (dayPunches: any[]): PunchBreakInfo[] =>
+    buildBreaksFromPunches(dayPunches).map((b) => ({
       scheduledLabel: 'Break',
       start: formatTimeDisplay(b.start, timezone),
       end: b.end ? formatTimeDisplay(b.end, timezone) : null,
@@ -213,7 +214,7 @@ export function DayByDayView({
                     clockIn: s.clockIn ? formatTimeDisplay(s.clockIn.punch_time, timezone) : null,
                     clockOut: s.clockOut ? formatTimeDisplay(s.clockOut.punch_time, timezone) : null,
                   }))}
-                  breaks={breaksFor(entry.flagRows)}
+                  breaks={buildBreaks(entry.dayPunches)}
                   flags={flags}
                   hours={entry.dayHours || 0}
                   state={entry.hasOpenShift ? 'open' : entry.isApproved ? 'approved' : 'pending'}

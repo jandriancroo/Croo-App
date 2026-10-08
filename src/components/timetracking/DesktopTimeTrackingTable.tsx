@@ -13,8 +13,9 @@ import {
   type PunchBreakInfo,
   type PunchFlag,
 } from './PunchApprovalRow';
-import { breaksFromDetails, chipsFor, type ShiftFlagRow } from '@/lib/timeTracking/shiftFlags';
+import { chipsFor, type ShiftFlagRow } from '@/lib/timeTracking/shiftFlags';
 import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
+import { buildBreaksFromPunches } from '@/lib/timeTracking/punchBreaks';
 
 interface DesktopTimeTrackingTableProps {
   filteredCards: any[];
@@ -104,8 +105,8 @@ export function DesktopTimeTrackingTable({
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
   };
 
-  const breaksFor = (rows: ShiftFlagRow[]): PunchBreakInfo[] =>
-    rows.flatMap((r) => breaksFromDetails(r.details)).map((b) => ({
+  const buildBreaks = (dayPunches: any[]): PunchBreakInfo[] =>
+    buildBreaksFromPunches(dayPunches).map((b) => ({
       scheduledLabel: 'Break',
       start: formatTimeDisplay(b.start, timezone),
       end: b.end ? formatTimeDisplay(b.end, timezone) : null,
@@ -181,7 +182,7 @@ export function DesktopTimeTrackingTable({
                         clockIn: s.clockIn ? formatTimeDisplay(s.clockIn.punch_time, timezone) : null,
                         clockOut: s.clockOut ? formatTimeDisplay(s.clockOut.punch_time, timezone) : null,
                       }))}
-                      breaks={breaksFor(dayFlags.flags)}
+                      breaks={buildBreaks(dayPunches)}
                       flags={flags}
                       hours={dayHours}
                       state={dayFlags.hasOpenShift ? 'open' : isApproved ? 'approved' : 'pending'}
