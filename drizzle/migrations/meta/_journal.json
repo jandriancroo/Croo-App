@@ -64,6 +64,13 @@
       "when": 1791433600814,
       "tag": "0008_labor_rule_proposals_tighten_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791433931891,
+      "tag": "0009_labor_rule_proposal_alerts",
+      "breakpoints": true
     }
   ]
 }
