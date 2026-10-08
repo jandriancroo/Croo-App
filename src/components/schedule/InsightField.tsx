@@ -15,6 +15,8 @@ interface Props {
   leftIcon?: ReactNode;
   value: ReactNode;
   suffix?: ReactNode;
+  /** Trailing words that may truncate/drop when narrow; suffix never does. */
+  suffixExtra?: ReactNode;
   tooltip?: ReactNode;
   onClick?: () => void;
   plain?: boolean;
@@ -37,7 +39,7 @@ const tones = {
 };
 
 export const InsightField = forwardRef<HTMLElement, Props>(function InsightField(
-  { tone = 'neutral', leftIcon, value, suffix, tooltip, onClick, plain, showPencil = true, className, ...rest },
+  { tone = 'neutral', leftIcon, value, suffix, suffixExtra, tooltip, onClick, plain, showPencil = true, className, ...rest },
   ref,
 ) {
   if (plain) return <span className="inline-flex items-center gap-1">{value}{suffix}</span>;
@@ -46,7 +48,8 @@ export const InsightField = forwardRef<HTMLElement, Props>(function InsightField
     <>
       {leftIcon && <span className="shrink-0 flex items-center">{leftIcon}</span>}
       <span className="shrink-0">{value}</span>
-      {suffix && <span className="min-w-0 truncate text-[11px] text-slate-400">{suffix}</span>}
+      {suffix && <span className="shrink-0 whitespace-nowrap text-[11px] text-slate-400">{suffix}</span>}
+      {suffixExtra && <span className="min-w-0 truncate text-[11px] text-slate-400">{suffixExtra}</span>}
       <span className="flex-1 min-w-0" />
       {showPencil && (
         <Pencil
