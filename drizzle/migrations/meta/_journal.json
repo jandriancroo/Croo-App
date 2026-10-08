@@ -120,6 +120,13 @@
       "when": 1791437496317,
       "tag": "0016_labor_goal_single_source",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791437771192,
+      "tag": "0017_labor_goal_caller_fix",
+      "breakpoints": true
     }
   ]
 }
