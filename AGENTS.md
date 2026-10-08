@@ -19,3 +19,6 @@
 - Theo messages (read my chats, reply, new DM): all chat reading goes through the asking person's own access plus the one store/membership filter (_shared/messagePlan.ts scopeChats), and the only sends are src/lib/chatMessages.ts (sendChatMessage with its push, findOrCreateDm for Theo only, unsendMessage), shared with the chat window. Why: Theo must never see a chat the person isn't in, and a message must send one way.
 - Theo clock in/out: rules only in _shared/punchPlan.ts (preview, tap, Undo); every punch insert goes through src/lib/punches.ts; clock-out never sends a shift_id. Why: one rule, one save, and in/out stay on the same shift.
 - Quick Nudge: _shared/nudgePlan.ts + *_nudge_status; on-clock recipients server-side; send only quickNudges.ts → quick-nudge; log nudge_log; icons via NUDGE_ICON. Why: one path.
+- Server code gets the POS list only from supabase/functions/_shared/posSources.ts; the client only from src/lib/pos/liveSales.ts. Why: a store left off one list gets skipped or mislabeled.
+- Any new data point, or a new POS source for one, adds or updates its data_point_registry row in the same migration. Why: the registry stays the true map of who writes what.
+- Never hard-code 'qubeyond' (or any vendor) as a fallback POS; unknown means null. Why: a fallback mislabeled Hayward's Toast forecasts.
