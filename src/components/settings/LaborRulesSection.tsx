@@ -5,16 +5,19 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Scale, Settings2, History, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, Scale, Settings2, History, RotateCcw, Loader2, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useLaborRules, type LaborRulesHistoryRow } from '@/hooks/useLaborRules';
+import { useLaborRules, type LaborRulesHistoryRow, type LaborRuleProposal } from '@/hooks/useLaborRules';
 import { toForm } from '@/lib/laborRules/schema';
+import { formatPT } from '@/lib/laborRules/lawCheck';
 import { LaborRulesWizard } from './LaborRulesWizard';
+import { LaborRuleProposalDialog } from './LaborRuleProposalDialog';
 
 interface LaborRulesSectionProps {
   locationId?: string;
@@ -107,10 +110,16 @@ const presetFields = (p: any): Omit<LaborRulePreset, 'id'> => {
 const SOURCE_LABEL: Record<string, string> = { manual: 'Manual', preset: 'Preset', migration: 'Migration', ai: 'AI' };
 
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
-  const { rules, presets, history, canEdit, save, refetchPresets } = useLaborRules(locationId);
+  const {
+    rules, presets, history, canEdit, access, proposals, pendingProposal, lastChecked, checkAllowed,
+    save, refetchPresets, runCheck,
+  } = useLaborRules(locationId);
   const { isSuperAdmin } = useUserRole();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardInitial, setWizardInitial] = useState<{ values: any; source: 'manual' | 'preset' } | null>(null);
+  const [openProposal, setOpenProposal] = useState<LaborRuleProposal | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Preset management state
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
@@ -127,6 +136,69 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
       return data?.full_name as string | undefined;
     },
   });
+
+  // Names for history (AI approvals) and the law-check list.
+  const peopleIds = Array.from(new Set([
+    ...history.filter((h) => h.source === 'ai').map((h) => h.changed_by),
+    ...proposals.map((p) => p.decided_by),
+  ].filter(Boolean))) as string[];
+  const peopleQ = useQuery({
+    queryKey: ['labor-rules', 'people', peopleIds.sort().join(',')],
+    enabled: peopleIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', peopleIds);
+      return Object.fromEntries((data || []).map((p: any) => [p.id, p.full_name as string]));
+    },
+  });
+  const nameOf = (id: string | null) => (id && peopleQ.data?.[id]) || null;
+
+  // Deep link from the alert: ?proposal=<id>
+  const proposalParam = searchParams.get('proposal');
+  useEffect(() => {
+    if (!proposalParam) return;
+    const p = proposals.find((x) => x.id === proposalParam);
+    if (p) {
+      setOpenProposal(p);
+      const next = new URLSearchParams(searchParams);
+      next.delete('proposal');
+      setSearchParams(next, { replace: true });
+    } else if (proposals.length > 0) {
+      (async () => {
+        const { data } = await supabase.from('labor_rule_proposals').select('*').eq('id', proposalParam).maybeSingle();
+        if (data) setOpenProposal(data as any);
+        const next = new URLSearchParams(searchParams);
+        next.delete('proposal');
+        setSearchParams(next, { replace: true });
+      })();
+    }
+  }, [proposalParam, proposals]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep an open dialog in sync after approve/decline refetches.
+  useEffect(() => {
+    if (!openProposal) return;
+    const fresh = proposals.find((p) => p.id === openProposal.id);
+    if (fresh && fresh.status !== openProposal.status) setOpenProposal(fresh);
+  }, [proposals]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stateName = rules?.state_code || pendingProposal?.state_code || 'state';
+
+  const handleCheck = async () => {
+    setChecking(true);
+    try {
+      const r = await runCheck('recheck');
+      if (r.status === 'pending' && r.proposal_id) {
+        const { data } = await supabase.from('labor_rule_proposals').select('*').eq('id', r.proposal_id).maybeSingle();
+        toast.success(`${r.changes} suggested change${r.changes === 1 ? '' : 's'} found`);
+        if (data) setOpenProposal(data as any);
+      } else if (r.status === 'no_changes') toast.success(`No changes found for ${r.state || stateName}`);
+      else if (r.status === 'rate_limited') toast.info(r.reason || 'Try again later');
+      else toast.error(r.error || 'Law check failed');
+    } catch (e: any) {
+      toast.error(e?.message || 'Law check failed');
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const openWizard = (initial?: { values: any; source: 'manual' | 'preset' } | null) => {
     setWizardInitial(initial ?? null);
@@ -456,14 +528,34 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </DialogContent>
               </Dialog>
             )}
+            {access.can_check && (
+              <Button size="sm" variant="outline" onClick={handleCheck} disabled={checking || checkAllowed?.allowed === false}>
+                {checking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                {checking ? `Checking ${stateName} sources…` : 'Check for law changes'}
+              </Button>
+            )}
             <Button size="sm" onClick={() => openWizard(null)}>
               <Edit className="h-4 w-4 mr-2" />
               {canEdit ? 'Edit rules' : 'View rules'}
             </Button>
           </div>
         </div>
+        <div className="text-xs text-muted-foreground space-y-0.5">
+          <p>Laws last checked: {lastChecked ? formatPT(lastChecked) : 'Never'}</p>
+          {access.can_check && checkAllowed?.allowed === false && (
+            <p>{checkAllowed.next_at ? `Next check available ${formatPT(checkAllowed.next_at)}` : checkAllowed.reason}</p>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {pendingProposal && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3">
+            <p className="text-sm">
+              {pendingProposal.diff.length} suggested law change{pendingProposal.diff.length === 1 ? '' : 's'} waiting for org admin approval
+            </p>
+            <Button size="sm" onClick={() => setOpenProposal(pendingProposal)}>Review</Button>
+          </div>
+        )}
         {!rules ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             No labor rules yet for this store.{canEdit ? ' Use Edit rules to set them up.' : ''}
@@ -522,7 +614,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                     <div className="min-w-0">
                       <div>
                         {format(new Date(h.changed_at), 'MMM d, yyyy h:mm a')}{' '}
-                        <Badge variant="outline" className="text-[10px] ml-1">{SOURCE_LABEL[h.source] || h.source}</Badge>
+                        <Badge variant="outline" className="text-[10px] ml-1">
+                          {h.source === 'ai' ? `AI${nameOf(h.changed_by) ? ` (approved by ${nameOf(h.changed_by)})` : ' (approved)'}` : SOURCE_LABEL[h.source] || h.source}
+                        </Badge>
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
                         {h.note || (h.before ? `${changed.length} field${changed.length === 1 ? '' : 's'} changed` : 'Created')}
@@ -539,9 +633,32 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             </div>
           </div>
         )}
+
+        {proposals.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2"><Scale className="h-4 w-4" /> Law checks</h4>
+            <div className="rounded-lg border divide-y">
+              {proposals.map((p) => (
+                <button key={p.id} type="button" onClick={() => setOpenProposal(p)}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent/50">
+                  <span className="min-w-0">
+                    {formatPT(p.created_at, 'MMM d, yyyy')}{' '}
+                    <span className="text-muted-foreground">· {p.kind === 'build' ? 'New store' : 'Re-check'}</span>
+                    {nameOf(p.decided_by) && <span className="text-muted-foreground"> · {nameOf(p.decided_by)}</span>}
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">{p.diff.length} change{p.diff.length === 1 ? '' : 's'}</span>
+                    <Badge variant={p.status === 'pending' ? 'default' : 'outline'} className="text-[10px]">{p.status.replace('_', ' ')}</Badge>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
 
       <LaborRulesWizard locationId={locationId} open={wizardOpen} onOpenChange={setWizardOpen} initial={wizardInitial} />
+      <LaborRuleProposalDialog locationId={locationId} proposal={openProposal} onOpenChange={(o) => !o && setOpenProposal(null)} />
     </Card>
   );
 };
