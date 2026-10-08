@@ -17,7 +17,7 @@ export function chatKind(c: Pick<ChatRow, "title" | "is_group" | "is_announcemen
 /** Theo may read any chat the person is in at this store; reply and new DM only into ordinary DMs and groups. */
 export const canReplyInto = (k: ChatKind) => k === "dm" || k === "group";
 export const REPLY_REFUSAL: Record<"announcement" | "marketplace", string> = {
-  announcement: "I can't post in announcements yet. That's coming next.",
+  announcement: "To post to the whole team, ask me to make an announcement for the Team Feed.",
   marketplace: "Shift offers are handled in the Shift Marketplace itself, so I won't post there.",
 };
 

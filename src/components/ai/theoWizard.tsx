@@ -1,6 +1,6 @@
 // THE ONE Theo action wizard (previews, tappable lists, Confirm, Undo, the action log), shared by the
 // voice screen and the typed chat. The chat bubble owns the one copy, so only one preview is ever open.
-// Theo never writes: every save below is the manager's tap, through src/lib/scheduleActions.ts or src/lib/quickTasks.ts.
+// Theo never writes: every save below is the manager's tap, through src/lib/scheduleActions.ts, src/lib/quickTasks.ts, src/lib/feedPosts.ts and the other shared save files.
 import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, Check, AlertTriangle, ChevronRight } from 'lucide-react';
@@ -10,6 +10,7 @@ import { reassignAndNotify, applyThenUpdate, addShift, deleteShift, restoreShift
 import { countPendingChanges } from '@/lib/scheduleDiff';
 import { savePunchReturning, deletePunch, deletePlaceholderShift } from '@/lib/punches';
 import { sendChatMessage, findOrCreateDm, unsendMessage } from '@/lib/chatMessages';
+import { createFeedPost, deleteFeedPost } from '@/lib/feedPosts';
 import { sendQuickNudge, nameList, NUDGE_ICON } from '@/lib/quickNudges';
 import { createScheduleEvent, deleteScheduleEvent, createEventCategory, deleteEventCategory } from '@/lib/scheduleEvents';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -80,13 +81,18 @@ export type NudgeProposal = {
   recipients: { id: string; name: string }[]; recently: { name: string; minutes_ago: number }[]; template_id: string | null; message: string;
   preview_for: { name: string; text: string }; store: string; location_id: string; warnings: string[];
 };
+// Team Feed announcement. Posted only by the Post announcement tap (src/lib/feedPosts.ts createFeedPost).
+export type AnnouncementProposal = {
+  id: string; action: 'post_announcement'; subject: string | null; body: string; channel: { id: string | null; name: string };
+  recipients: number; store: string; location_id: string;
+};
 export type ShiftProposal = CoverProposal | AddProposal | DeleteProposal | SwapProposal | ChangeProposal;
-export type AnyProposal = TaskProposal | ShiftProposal | EventProposal | MessageProposal | PunchProposal | NudgeProposal;
-export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null; messageId?: string; punchId?: string; placeholderAdded?: boolean };
-export type Acts = { create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean; send_message: boolean; clock_punch: boolean; quick_nudge: boolean };
-export const NO_ACTS: Acts = { create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false, quick_nudge: false };
+export type AnyProposal = TaskProposal | ShiftProposal | EventProposal | MessageProposal | PunchProposal | NudgeProposal | AnnouncementProposal;
+export type ActionCard = { stage: 'preview' | 'saving' | 'done' | 'undoing' | 'undone'; proposal: AnyProposal; logId: Promise<string | null>; error?: string; taskId?: string; savedAt?: string; undoOpen?: boolean; otherChanges?: number; notified?: boolean; newShiftId?: string; scheduleId?: string; removedRow?: Record<string, any>; eventId?: string; newCategoryId?: string | null; messageId?: string; punchId?: string; placeholderAdded?: boolean; postId?: string; notifiedCount?: number };
+export type Acts = { post_announcement: boolean; create_task: boolean; cover_shift: boolean; add_shift: boolean; delete_shift: boolean; swap_shift: boolean; change_shift: boolean; create_event: boolean; send_message: boolean; clock_punch: boolean; quick_nudge: boolean };
+export const NO_ACTS: Acts = { post_announcement: false, create_task: false, cover_shift: false, add_shift: false, delete_shift: false, swap_shift: false, change_shift: false, create_event: false, send_message: false, clock_punch: false, quick_nudge: false };
 /** The server's actions answer, read strictly (anything not exactly true is off). */
-export const readActs = (a: any): Acts => ({ create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true, send_message: a?.send_message === true, clock_punch: a?.clock_punch === true, quick_nudge: a?.quick_nudge === true });
+export const readActs = (a: any): Acts => ({ post_announcement: a?.post_announcement === true, create_task: a?.create_task === true, cover_shift: a?.cover_shift === true, add_shift: a?.add_shift === true, delete_shift: a?.delete_shift === true, swap_shift: a?.swap_shift === true, change_shift: a?.change_shift === true, create_event: a?.create_event === true, send_message: a?.send_message === true, clock_punch: a?.clock_punch === true, quick_nudge: a?.quick_nudge === true });
 export const isShiftAction = (p: AnyProposal): p is ShiftProposal => p.action === 'cover_shift' || p.action === 'add_shift' || p.action === 'delete_shift' || p.action === 'swap_shift' || p.action === 'change_shift';
 type ScreenRow = { employee_id: string; name: string; line: string; tag: string | null };
 export type CoverScreen =
@@ -383,6 +389,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     if (a?.proposal.action === 'send_message') return confirmMessage();
     if (a?.proposal.action === 'clock_punch') return confirmPunch();
     if (a?.proposal.action === 'quick_nudge') return confirmNudge();
+    if (a?.proposal.action === 'post_announcement') return confirmAnnouncement();
     if (!a || a.stage !== 'preview' || a.proposal.action !== 'create_task' || !user?.id || !currentLocation?.id) return;
     setAction({ ...a, stage: 'saving', error: undefined }); // disables the button: no double save
     try {
@@ -512,6 +519,46 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       setAction({ ...a, stage: 'undone' });
     } catch {
       setAction({ ...a, stage: 'done', error: "Couldn't unsend the message. Try again." });
+    }
+  };
+  // Announcement: re-check at the tap, then the ONE Team Feed save (src/lib/feedPosts.ts) as the signed-in manager.
+  const confirmAnnouncement = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'preview' || a.proposal.action !== 'post_announcement' || !user?.id || !currentLocation?.id) return;
+    const p = a.proposal;
+    if (p.location_id !== currentLocation.id) { setAction({ ...a, error: 'Not posted. You switched stores.' }); return; }
+    setAction({ ...a, stage: 'saving', error: undefined });
+    try {
+      await a.logId; // the re-check compares against the logged preview
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+        body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
+      });
+      if (ce || !chk?.recheck) throw new Error('Could not re-check the announcement.');
+      if (!chk.recheck.ok) { logAction(a.logId, { status: 'failed' }); setAction({ ...a, stage: 'preview', error: `Not posted. Something changed: ${chk.recheck.changed}` }); return; }
+      const { post, notified } = await createFeedPost({ user, locationId: currentLocation.id, body: p.body, subject: p.subject, channelId: p.channel.id, isAnnouncement: true });
+      queryClient.invalidateQueries({ predicate: (q) => /feed|announcement/i.test(JSON.stringify(q.queryKey)) });
+      logAction(a.logId, { status: 'confirmed', record_id: post.id });
+      onRecord?.(`Posted announcement to ${p.channel.name}: ${p.subject || p.body.slice(0, 60)}`);
+      const savedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      setAction({ ...a, stage: 'done', savedAt, postId: post.id, notifiedCount: notified, undoOpen: true });
+      setTimeout(() => { const c = actionRef.current; if (c?.postId === post.id && c.stage === 'done') setAction({ ...c, undoOpen: false }); }, UNDO_MS);
+    } catch (err: any) {
+      logAction(a.logId, { status: 'failed' });
+      setAction({ ...a, stage: 'preview', error: `Not posted: ${err?.message || 'try again.'}` });
+    }
+  };
+  const undoAnnouncement = async () => {
+    const a = actionRef.current;
+    if (!a || a.stage !== 'done' || a.proposal.action !== 'post_announcement' || !a.postId) return;
+    setAction({ ...a, stage: 'undoing', error: undefined });
+    try {
+      await deleteFeedPost(a.postId);
+      queryClient.invalidateQueries({ predicate: (q) => /feed|announcement/i.test(JSON.stringify(q.queryKey)) });
+      logAction(a.logId, { status: 'undone' });
+      onRecord?.('Deleted the announcement');
+      setAction({ ...a, stage: 'undone' });
+    } catch {
+      setAction({ ...a, stage: 'done', error: "Couldn't delete the post. Try again." });
     }
   };
   // Nudge: the ONE send path (src/lib/quickNudges.ts); the server re-checks everything and picks the recipients. No Undo.
@@ -1008,6 +1055,66 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
       </>
     );
   }
+  function renderAnnouncement(a: ActionCard, p: AnnouncementProposal, c: Colors) {
+    const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+    const head = `📢 Announcement to ${p.channel.name} at ${p.store} (${p.recipients} ${p.recipients === 1 ? 'person' : 'people'})`;
+    const content = (
+      <>
+        {p.subject && <div><div className={label}>Subject</div><div className="text-[17px] font-extrabold">{p.subject}</div></div>}
+        <div><div className={label}>Message</div><p className="whitespace-pre-wrap text-[15px]">{p.body}</p></div>
+      </>
+    );
+    if (a.stage === 'done' || a.stage === 'undoing' || a.stage === 'undone') {
+      const undone = a.stage === 'undone';
+      const n = a.notifiedCount ?? p.recipients;
+      return (
+        <div className="mt-4 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px]">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full text-primary-foreground" style={{ background: undone ? 'hsl(var(--muted-foreground))' : NEW_GREEN }}>
+              {undone ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" strokeWidth={3} />}
+            </span>
+            <div>
+              <div className="text-[18px] font-extrabold">{undone ? 'Post deleted' : `Posted. ${n} ${n === 1 ? 'person' : 'people'} notified.`}</div>
+              {!undone && <div className="text-[13px] text-muted-foreground">Posted at {a.savedAt} · {p.channel.name}</div>}
+            </div>
+          </div>
+          {content}
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          {!undone && a.undoOpen && (
+            <div className="flex flex-col gap-1">
+              <button onClick={undoAnnouncement} disabled={a.stage === 'undoing'} className="h-12 w-full rounded-full border-2 border-border text-[15px] font-bold disabled:opacity-60">
+                {a.stage === 'undoing' ? 'Deleting…' : 'Undo (delete post)'}
+              </button>
+              <p className="text-center text-[12px] text-muted-foreground">Undo is available for 10 minutes. The notification already went out.</p>
+            </div>
+          )}
+          <button onClick={() => setAction(null)} className="h-11 w-full text-[14px] font-semibold text-muted-foreground">Done</button>
+        </div>
+      );
+    }
+    const saving = a.stage === 'saving';
+    return (
+      <>
+        <p className={`mt-3 text-center text-[22px] font-extrabold ${c.fg}`}>Does this look right?</p>
+        <div className="mt-3 w-full max-w-[420px] rounded-[20px] bg-card p-4 text-foreground flex flex-col gap-[14px]">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-[16px] font-extrabold">{head}</span>
+            {amberTag('Preview · not posted')}
+          </div>
+          {content}
+          {a.error && <p className="text-[13px] font-semibold text-destructive">{a.error}</p>}
+          <div className="flex items-center gap-2">
+            <button onClick={cancelTask} disabled={saving} className="h-[52px] min-w-[96px] px-4 text-[15px] font-semibold text-muted-foreground">Cancel</button>
+            <button onClick={confirmTask} disabled={saving}
+              className="h-[52px] flex-1 rounded-full text-[16px] font-extrabold text-primary-foreground disabled:opacity-70" style={{ background: NEW_GREEN }}>
+              {saving ? 'Posting…' : 'Post announcement'}
+            </button>
+          </div>
+        </div>
+        <p className={`mt-3 text-center text-[13px] ${c.dim}`}>Or tell Theo what to change.</p>
+      </>
+    );
+  }
   function renderNudge(a: ActionCard, p: NudgeProposal, c: Colors) {
     const label = 'text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
     if (a.stage === 'done') {
@@ -1063,6 +1170,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
   }
   function renderAction(a: ActionCard, c: Colors = VOICE_COLORS) {
     if (a.proposal.action === 'quick_nudge') return renderNudge(a, a.proposal, c);
+    if (a.proposal.action === 'post_announcement') return renderAnnouncement(a, a.proposal, c);
     if (isShiftAction(a.proposal)) return renderShift(a, a.proposal, c);
     if (a.proposal.action === 'send_message') return renderMessage(a, a.proposal, c);
     if (a.proposal.action === 'clock_punch') return renderPunch(a, a.proposal, c);
