@@ -13,6 +13,8 @@ import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide
 import { getTodayInPST } from "@/utils/dateUtils";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
+import { useScheduleLaborRules } from "@/hooks/useScheduleLaborRules";
+import { paidShiftHours } from "@/utils/shiftUtils";
 import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from "@/components/ui/popover";
 
 import {
@@ -118,6 +120,7 @@ function EmployeeRowComponent({
   const navigate = useNavigate();
   const { currentLocation } = useAppLocation();
   const { data: storeWeeklyHours } = useLocationWeeklyHours(currentLocation?.id);
+  const { data: laborRules } = useScheduleLaborRules(currentLocation?.id);
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
@@ -138,27 +141,7 @@ function EmployeeRowComponent({
     opacity: isDragging ? 0.5 : 1
   };
   const calculateTotalHours = () => {
-    let totalHours = 0;
-    shifts.forEach(shift => {
-      const [startHour, startMin] = shift.start_time.split(':').map(Number);
-      const [endHour, endMin] = shift.end_time.split(':').map(Number);
-      const startMinutes = startHour * 60 + startMin;
-      const endMinutes = endHour * 60 + endMin;
-      let shiftMinutes = endMinutes - startMinutes;
-
-      // If shift crosses midnight
-      if (shiftMinutes < 0) {
-        shiftMinutes += 24 * 60;
-      }
-      const shiftHours = shiftMinutes / 60;
-
-      // Deduct 30 min for shifts over 5 hours
-      if (shiftHours > 5) {
-        totalHours += shiftHours - 0.5;
-      } else {
-        totalHours += shiftHours;
-      }
-    });
+    const totalHours = shifts.reduce((t, shift) => t + paidShiftHours(shift.start_time, shift.end_time, laborRules), 0);
     return totalHours.toFixed(1);
   };
   const calculateTotalWages = () => {
