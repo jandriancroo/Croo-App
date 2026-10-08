@@ -769,13 +769,17 @@ export function LaborTotals({
 
           {/* Labor % row — colored against the store labor goal (useLaborGoals) */}
           <div className={`${insightGrid} border-b border-slate-700/40`}>
-            <div className="px-3 py-2 bg-blue-950/40 flex items-center gap-2">
+            <div className="px-3 py-1.5 bg-blue-950/40 flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Labor %</span>
               <LaborGoalPopover dow={null} projectedSales={weeklyTotals.sales} canEdit={isEditable}>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Labor %</span>
-                {weeklyTotals.sales > 0 ? <span className={`text-sm font-bold ${toneClass(laborGoalTone(weeklyTotals.laborPercent, laborGoals.weekly))}`}>
-                    {weeklyTotals.laborPercent.toFixed(1)}%
-                  </span> : <span className="text-xs text-slate-500">-</span>}
-                {laborGoals.weekly != null && <span className="text-[10px] text-slate-500">goal {laborGoals.weekly}%</span>}
+                <InsightField
+                  plain={!laborGoals.available}
+                  value={weeklyTotals.sales > 0 ? <span className={`text-[15px] font-bold ${toneClass(laborGoalTone(weeklyTotals.laborPercent, laborGoals.weekly))}`}>
+                      {weeklyTotals.laborPercent.toFixed(1)}%
+                    </span> : <span className="text-xs text-slate-500">-</span>}
+                  suffix={laborGoals.weekly != null ? <>/ <span className="text-slate-300">{laborGoals.weekly}%</span> weekly goal</> : undefined}
+                  tooltip={<><p>Edit weekly labor goal</p>{laborGoals.weekly != null && <p className="text-xs opacity-70">Currently {laborGoals.weekly}%</p>}</>}
+                />
               </LaborGoalPopover>
             </div>
             {dailyTotals.map((day, index) => {
@@ -784,11 +788,16 @@ export function LaborTotals({
               const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
               const dow = dowFromDate(format(weekDays[index], 'yyyy-MM-dd'));
               const goal = laborGoals.forDow(dow);
-              return <div key={index} className={`px-2 py-2 border-r border-slate-700/30 last:border-r-0 text-center flex items-center justify-center ${phase === 'completed' ? 'bg-white/[0.03]' : phase === 'today' ? 'bg-blue-500/10' : ''}`}>
+              return <div key={index} className={`px-1.5 py-1.5 border-r border-slate-700/30 last:border-r-0 text-center flex items-center justify-center ${phase === 'completed' ? 'bg-white/[0.03]' : phase === 'today' ? 'bg-blue-500/10' : ''}`}>
                     <LaborGoalPopover dow={dow} projectedSales={sales} canEdit={isEditable}>
-                      {isLoadingSales ? <span className="text-xs text-slate-500">...</span> : sales > 0 ? <span className={`text-sm font-bold ${laborPercent > 0 ? toneClass(laborGoalTone(laborPercent, goal)) : 'text-slate-100'}`}>
-                          {laborPercent.toFixed(1)}%
-                        </span> : <span className="text-xs text-slate-500">-</span>}
+                      <InsightField
+                        plain={!laborGoals.available}
+                        value={isLoadingSales ? <span className="text-xs text-slate-500">...</span> : sales > 0 ? <span className={`text-sm font-bold ${laborPercent > 0 ? toneClass(laborGoalTone(laborPercent, goal)) : 'text-slate-100'}`}>
+                            {laborPercent.toFixed(1)}%
+                          </span> : <span className="text-xs text-slate-500">-</span>}
+                        suffix={goal != null ? <>/ <span className="text-slate-300">{goal}%</span></> : undefined}
+                        tooltip={<><p>Edit {format(weekDays[index], 'EEE')} labor goal</p>{goal != null && <p className="text-xs opacity-70">Currently {goal}%</p>}</>}
+                      />
                     </LaborGoalPopover>
                   </div>;
             })}
@@ -845,49 +854,19 @@ export function LaborTotals({
                  <div key={index} className={`p-1.5 border-r border-slate-700/30 last:border-r-0 text-center relative ${bgClass}`}>
                   {isEditable ? (
                     <div className="relative flex items-center justify-center gap-1">
-                      <button
-                        type="button"
+                      <InsightField
                         onClick={() => setProjectionDialogDay(index)}
                         data-sales-cell={dayStr}
-                        className={`h-8 flex-1 rounded-lg border text-sm font-bold transition-colors hover:bg-white/5 ${
-                          isLiving ? 'border-blue-400/40 bg-blue-500/10 text-blue-200' :
-                          isInitial ? 'border-blue-400/20 bg-blue-500/5 text-blue-200' :
-                          isOverride ? 'border-amber-500/40 bg-amber-500/10 text-amber-200' :
-                          isHistorical ? 'border-green-500/40 bg-green-500/10 text-green-300' : 'border-slate-600/50 text-slate-100'
-                        }`}
-                      >
-                        {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '$0'}
-                      </button>
-                      {isLiving && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Radio className="h-3 w-3 text-blue-300 animate-pulse shrink-0" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p>Live AI Projection</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      {isInitial && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Sparkles className="h-3 w-3 text-blue-300/60 shrink-0" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p>AI Projection</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      {isHistorical && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p>Actual Sales</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                        tone={isHistorical ? 'actual' : 'neutral'}
+                        className="flex-1 text-sm font-bold"
+                        leftIcon={isLiving ? <Radio className="h-[13px] w-[13px] text-blue-300 animate-pulse" aria-label="Live AI Projection" />
+                          : isInitial ? <Sparkles className="h-[13px] w-[13px] text-blue-300/60" aria-label="AI Projection" />
+                          : isHistorical ? <CheckCircle2 className="h-[13px] w-[13px] text-green-300" aria-label="Actual Sales" />
+                          : undefined}
+                        value={<span className={isHistorical ? 'text-green-200' : isOverride ? 'text-amber-200' : 'text-slate-100'}>
+                          {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '$0'}
+                        </span>}
+                      />
                       {canReload && (
                         <Tooltip>
                           <TooltipTrigger asChild>
