@@ -11,7 +11,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, isSameWeek
 import { formatInTimeZone } from "date-fns-tz";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
-import { reassignShift, addShift, sendScheduleUpdate, detectScheduleChanges as detectScheduleChangesShared } from "@/lib/scheduleActions";
+import { reassignShift, addShift, sendScheduleUpdate, publishSchedule, detectScheduleChanges as detectScheduleChangesShared } from "@/lib/scheduleActions";
 
 // Cache time constants
 const SCHEDULE_STALE_TIME = 15 * 60 * 1000;
@@ -242,7 +242,7 @@ export function useScheduleData() {
 
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
-      const SCHEDULE_COLUMNS = "id, is_published, published_shifts_snapshot, last_status_changed_at, last_status_changed_by, last_status_action, week_start_date, week_end_date, location_id";
+      const SCHEDULE_COLUMNS = "id, is_published, published_shifts_snapshot, last_status_changed_at, last_status_changed_by, last_status_action, week_start_date, week_end_date, location_id, approval_status, approval_requested_by, approval_requested_at, approval_decided_by, approval_decided_at, approval_message";
 
       let { data: schedule, error: scheduleError } = await supabase
         .from("schedules")
@@ -669,48 +669,21 @@ export function useScheduleData() {
   // Detect schedule changes helper (shared with Theo's Confirm change)
   const detectScheduleChanges = useCallback((oldShifts: any[], newShifts: any[]) => detectScheduleChangesShared(oldShifts, newShifts), []);
 
-  // Go Live
+  // Post (direct): server publishes + queues the team push; then the weekly email.
   const handleGoLive = useCallback(async () => {
-    if (!scheduleId) return;
+    if (!scheduleId || !currentLocation?.id) return;
     setIsPublishing(true);
     try {
-      const { data: currentShifts, error: shiftsError } = await supabase.from('scheduled_shifts').select('*').eq('schedule_id', scheduleId);
-      if (shiftsError) throw shiftsError;
-
-      const usersWithShifts = [...new Set((currentShifts || []).filter(s => s.user_id).map(s => s.user_id))];
-      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-      const dateRange = `${formatInTimeZone(currentWeekStart, timezone, "MMM d")} - ${formatInTimeZone(weekEnd, timezone, "MMM d, yyyy")}`;
-
-      if (usersWithShifts.length > 0) {
-        await supabase.functions.invoke('send-push-notification', {
-          body: { user_ids: usersWithShifts, title: 'Weekly Schedule Published', body: `Schedule for ${dateRange} is now live`, notification_type: 'schedule_updates', data: { type: 'schedule_update', schedule_id: scheduleId } }
-        });
-      }
-
-      if (currentLocation?.id) {
-        supabase.functions.invoke('send-weekly-schedule-email', {
-          body: { schedule_id: scheduleId, location_id: currentLocation.id }
-        }).then(response => {
-          if (response.error) console.error('Failed to send schedule emails:', response.error);
-          else console.log('Schedule emails sent:', response.data);
-        });
-      }
-
-      toast.success(`Schedule published! ${usersWithShifts.length} team member(s) notified.`);
-
-      const { error } = await supabase.from('schedules').update({
-        is_published: true, published_shifts_snapshot: currentShifts,
-        last_status_changed_at: new Date().toISOString(), last_status_changed_by: user?.id, last_status_action: 'published'
-      }).eq('id', scheduleId);
-      if (error) throw error;
+      await publishSchedule(scheduleId, currentLocation.id);
+      toast.success("Posted. Team notified shortly.");
       await refetchSchedule();
     } catch (error: any) {
       console.error('Error publishing schedule:', error);
-      toast.error("Failed to publish schedule");
+      toast.error(String(error?.message ?? '').includes('approval_required') ? "This week needs approval before it can be posted." : "Failed to publish schedule");
     } finally {
       setIsPublishing(false);
     }
-  }, [scheduleId, currentWeekStart, currentLocation?.id, user?.id, refetchSchedule]);
+  }, [scheduleId, currentLocation?.id, refetchSchedule]);
 
   // Update schedule
   const handleUpdate = useCallback(async () => {
@@ -743,7 +716,7 @@ export function useScheduleData() {
       }).eq('id', scheduleId);
       if (error) throw error;
       await refetchSchedule();
-      toast.success("Schedule withdrawn. It will no longer be visible to team members until you Go Live again.");
+      toast.success("Schedule withdrawn. It will no longer be visible to team members until you post it again.");
     } catch (error: any) {
       console.error('Error withdrawing schedule:', error);
       toast.error("Failed to withdraw schedule");

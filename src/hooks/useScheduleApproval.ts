@@ -136,7 +136,7 @@ export function useScheduleApproval(scheduleId: string | null, locationId: strin
     await Promise.all([
       qc.invalidateQueries({ queryKey: approvalRowKey(scheduleId) }),
       qc.invalidateQueries({ queryKey: ["schedule-week-labor-check", scheduleId] }),
-      qc.invalidateQueries({ queryKey: ["assigned-temporary-tasks"] }),
+      qc.invalidateQueries({ queryKey: ["assigned-temp-tasks"] }),
     ]);
   }, [qc, scheduleId]);
 
