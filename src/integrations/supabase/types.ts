@@ -6603,6 +6603,74 @@ export type Database = {
         }
         Relationships: []
       }
+      labor_rule_proposals: {
+        Row: {
+          applied_fields: string[] | null
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          diff: Json
+          error: string | null
+          expires_at: string
+          id: string
+          kind: string
+          location_id: string
+          model: string | null
+          notes: string | null
+          sources: Json
+          state_code: string | null
+          status: string
+        }
+        Insert: {
+          applied_fields?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          diff?: Json
+          error?: string | null
+          expires_at?: string
+          id?: string
+          kind: string
+          location_id: string
+          model?: string | null
+          notes?: string | null
+          sources?: Json
+          state_code?: string | null
+          status?: string
+        }
+        Update: {
+          applied_fields?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          diff?: Json
+          error?: string | null
+          expires_at?: string
+          id?: string
+          kind?: string
+          location_id?: string
+          model?: string | null
+          notes?: string | null
+          sources?: Json
+          state_code?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_rule_proposals_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_rules: {
         Row: {
           allow_early_clock_in: boolean
@@ -15054,6 +15122,10 @@ export type Database = {
       }
     }
     Functions: {
+      _can_approve_labor_rules: {
+        Args: { _location_id: string; _user: string }
+        Returns: boolean
+      }
       _can_manage_labor_rules: {
         Args: { _location_id: string; _user: string }
         Returns: boolean
@@ -15119,6 +15191,10 @@ export type Database = {
           user_id: string
           worked_sec: number
         }[]
+      }
+      _labor_rules_validate: {
+        Args: { _row: Database["public"]["Tables"]["labor_rules"]["Row"] }
+        Returns: undefined
       }
       _labor_totals_authorized: {
         Args: { _location_id: string }
@@ -15324,6 +15400,67 @@ export type Database = {
         }[]
       }
       apply_recipe_costs_all_brands: { Args: never; Returns: undefined }
+      approve_labor_rule_proposal: {
+        Args: { _fields: string[]; _note?: string; _proposal_id: string }
+        Returns: {
+          allow_early_clock_in: boolean
+          allow_unscheduled_clock_in: boolean
+          auto_clock_out_after_close_min: number
+          auto_punch_out_time: string | null
+          created_at: string | null
+          daily_double_time_threshold: number | null
+          daily_ot_max_wage: number | null
+          daily_ot_window: string
+          daily_overtime_threshold: number | null
+          double_time_multiplier: number | null
+          duplicate_tap_minutes: number
+          early_clock_in_minutes: number
+          field_sources: Json
+          flag_rest_breaks: boolean
+          id: string
+          laws_checked_at: string | null
+          location_id: string
+          long_break_grace_minutes: number
+          long_shift_hours: number
+          max_open_shift_hours: number
+          meal_break_duration: number | null
+          meal_break_hours: number | null
+          meal_break_paid: boolean
+          meal_deadline_hours: number | null
+          meal_rule_basis: string
+          meal_waiver_max_hours: number | null
+          min_hours_between_shifts: number | null
+          minor_rules: Json | null
+          overtime_multiplier: number | null
+          pay_period_start_date: string | null
+          pay_period_type: string
+          reporting_time_enabled: boolean
+          reporting_time_max_hours: number | null
+          reporting_time_min_hours: number | null
+          rest_break_duration: number | null
+          rest_break_hours: number | null
+          rest_break_paid: boolean
+          rule_name: string
+          rules_reviewed_at: string | null
+          rules_reviewed_by: string | null
+          second_meal_break_hours: number | null
+          second_meal_waiver_max_hours: number | null
+          seventh_day_rule: boolean
+          split_shift_enabled: boolean
+          split_shift_gap_minutes: number | null
+          state_code: string | null
+          unpaid_break_min_minutes: number
+          updated_at: string | null
+          weekly_overtime_threshold: number | null
+          workweek_start_dow: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "labor_rules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       assign_user_to_location: {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
@@ -15465,7 +15602,72 @@ export type Database = {
         }
         Returns: string
       }
+      create_labor_rule_proposal: {
+        Args: {
+          _created_by: string
+          _kind: string
+          _location_id: string
+          _model: string
+          _notes: string
+          _sources: Json
+          _state_code: string
+          _suggested: Json
+        }
+        Returns: {
+          applied_fields: string[] | null
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          diff: Json
+          error: string | null
+          expires_at: string
+          id: string
+          kind: string
+          location_id: string
+          model: string | null
+          notes: string | null
+          sources: Json
+          state_code: string | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "labor_rule_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       cron_edge_headers: { Args: never; Returns: Json }
+      decline_labor_rule_proposal: {
+        Args: { _note?: string; _proposal_id: string }
+        Returns: {
+          applied_fields: string[] | null
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          diff: Json
+          error: string | null
+          expires_at: string
+          id: string
+          kind: string
+          location_id: string
+          model: string | null
+          notes: string | null
+          sources: Json
+          state_code: string | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "labor_rule_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_dashboard_widget: {
         Args: { _widget_id: string }
         Returns: undefined
@@ -15865,6 +16067,10 @@ export type Database = {
         Returns: string
       }
       labor_new_rule_start: { Args: never; Returns: string }
+      labor_rule_check_allowed: {
+        Args: { _kind: string; _location_id: string }
+        Returns: Json
+      }
       labor_shifts: {
         Args: { _end: string; _location_id: string; _start: string }
         Returns: {
@@ -15922,6 +16128,7 @@ export type Database = {
         }
         Returns: number
       }
+      my_labor_rules_access: { Args: { _location_id: string }; Returns: Json }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
       oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
       pay_period_open_issues: {
@@ -16024,6 +16231,39 @@ export type Database = {
         }[]
       }
       reconcile_brand_deploy_log: { Args: never; Returns: number }
+      record_labor_rule_check_failure: {
+        Args: {
+          _created_by: string
+          _error: string
+          _kind: string
+          _location_id: string
+        }
+        Returns: {
+          applied_fields: string[] | null
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          diff: Json
+          error: string | null
+          expires_at: string
+          id: string
+          kind: string
+          location_id: string
+          model: string | null
+          notes: string | null
+          sources: Json
+          state_code: string | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "labor_rule_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_nudges: {
         Args: {
           _batch: string
@@ -16070,6 +16310,7 @@ export type Database = {
       }
       save_labor_rules: {
         Args: {
+          _citations?: Json
           _location_id: string
           _note?: string
           _patch: Json

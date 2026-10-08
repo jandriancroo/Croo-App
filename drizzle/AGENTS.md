@@ -1,0 +1,1 @@
+- AI law checks only write pending labor_rule_proposals; org/super admin approval applies via save_labor_rules. Why: no unapproved AI change.
