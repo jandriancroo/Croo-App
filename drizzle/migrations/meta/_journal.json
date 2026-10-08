@@ -43,6 +43,13 @@
       "when": 1791418970653,
       "tag": "0005_shift_flags_estimated_end",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791433561452,
+      "tag": "0006_labor_rule_proposals_phase_b",
+      "breakpoints": true
     }
   ]
 }
