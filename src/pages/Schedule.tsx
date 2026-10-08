@@ -74,7 +74,8 @@ export default function Schedule() {
     if (loc && currentLocation?.id !== loc) {
       const target = locations.find(l => l.id === loc);
       if (!target) return; // wait for the store list
-      setCurrentLocation(target);
+      // Keep the deep link as the destination (the store switch otherwise goes to the dashboard).
+      setCurrentLocation(target, `/schedule?${searchParams.toString()}`);
       return; // re-runs once the store has switched
     }
     if (week && /^\d{4}-\d{2}-\d{2}$/.test(week)) {
