@@ -166,11 +166,6 @@ export function DesktopTimeTrackingTable({
                   const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
 
                   const flags: PunchFlag[] = chipsFor(dayFlags.flags);
-                  if (dayPunches.some((p: any) => p.edited_by)) {
-                    const ed = dayPunches.find((p: any) => p.edited_by);
-                    const nm = ed?.edited_by_name?.split(' ')[0];
-                    flags.push({ label: `Edited${nm ? ` by ${nm}` : ''}`, tone: 'info' });
-                  }
 
                   return (
                     <PunchRow

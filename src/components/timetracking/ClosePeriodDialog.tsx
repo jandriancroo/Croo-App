@@ -7,7 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useLaborShifts, type LaborShiftRow } from './ShiftReviewPanel';
+import { useShiftFlags, invalidateShiftFlags } from '@/hooks/useShiftFlags';
+import { HEADS_UP_CODES, labelFor, type ShiftFlagRow } from '@/lib/timeTracking/shiftFlags';
+
+type LaborShiftRow = ShiftFlagRow;
 
 export interface UnapprovedShift {
   key: string;
@@ -46,14 +49,14 @@ export function ClosePeriodDialog({
   unapproved, approvingIds, onApprove, onClose, closing, onPunchesChanged,
 }: Props) {
   const qc = useQueryClient();
-  const { data: rows, isLoading, refetch } = useLaborShifts(open ? locationId : undefined, start, end);
+  const { data: rows, isLoading, refetch } = useShiftFlags(open ? locationId : undefined, start, end);
   const [busy, setBusy] = useState(false);
   const [addFor, setAddFor] = useState<LaborShiftRow | null>(null);
   const [addTime, setAddTime] = useState('');
 
-  const mustFix = useMemo(() => (rows || []).filter((r) => r.missing_clock_out && !r.resolved_zero), [rows]);
+  const mustFix = useMemo(() => (rows || []).filter((r) => r.flags.includes('missing_clock_out')), [rows]);
   const headsUp = useMemo(
-    () => (rows || []).filter((r) => !(r.missing_clock_out && !r.resolved_zero) && ((r.auto_clock_out && !r.auto_reviewed) || r.meal_break_missing || r.unclosed_break)),
+    () => (rows || []).filter((r) => !r.flags.includes('missing_clock_out') && r.flags.some((c) => HEADS_UP_CODES.includes(c))),
     [rows],
   );
 
@@ -63,7 +66,7 @@ export function ClosePeriodDialog({
   const nm = (id: string) => names[id] || 'Team member';
 
   const refresh = async () => {
-    await qc.invalidateQueries({ queryKey: ['labor-shifts', locationId] });
+    await invalidateShiftFlags(qc);
     await qc.invalidateQueries({ queryKey: ['store-labor'] });
     refetch();
     onPunchesChanged();
@@ -83,7 +86,7 @@ export function ClosePeriodDialog({
   };
 
   const openAdd = (r: LaborShiftRow) => {
-    const base = r.estimated_end || r.clock_in;
+    const base = r.clock_in;
     setAddTime(DateTime.fromISO(base).setZone(timezone).toFormat("yyyy-MM-dd'T'HH:mm"));
     setAddFor(r);
   };
@@ -192,10 +195,10 @@ export function ClosePeriodDialog({
                   <div className="text-sm">
                     <span className="font-medium">{nm(r.user_id)}</span>{' '}
                     <span className="text-muted-foreground">
-                      {day(r.business_date)} · {r.auto_clock_out && !r.auto_reviewed ? 'Auto Out' : 'No Break'}
+                      {day(r.business_date)} · {r.flags.filter((c) => HEADS_UP_CODES.includes(c)).map((c) => labelFor(c, r.details)).join(' · ')}
                     </span>
                   </div>
-                  {r.auto_clock_out && !r.auto_reviewed && (
+                  {r.flags.includes('auto_clock_out') && (
                     <Button size="sm" variant="ghost" disabled={busy} onClick={() => resolve(r, 'auto_reviewed')}>Mark reviewed</Button>
                   )}
                 </div>
