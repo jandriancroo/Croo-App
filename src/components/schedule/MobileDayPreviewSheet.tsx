@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useLocationStations } from "@/hooks/useLocationStations";
 import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
 import { useQuery } from "@tanstack/react-query";
+import { useLaborGoals, laborGoalTone } from "@/hooks/useLaborGoals";
 
 interface PendingDraft {
   employeeId: string;
@@ -46,10 +47,11 @@ function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
 
-function laborPctClass(pct: number) {
+function laborPctClass(pct: number, goal: number) {
   if (pct <= 0) return "text-muted-foreground";
-  if (pct <= 30) return "text-emerald-600 dark:text-emerald-400";
-  if (pct <= 35) return "text-amber-600 dark:text-amber-400";
+  const tone = laborGoalTone(pct, goal);
+  if (tone === "good") return "text-emerald-600 dark:text-emerald-400";
+  if (tone === "warn") return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 }
 
@@ -66,6 +68,8 @@ export function MobileDayPreviewSheet({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  const laborGoals = useLaborGoals();
+  const dayGoal = laborGoals.forDate(dateStr);
   const [showHourly, setShowHourly] = useState(false);
 
   const [salesData, setSalesData] = useState<{
