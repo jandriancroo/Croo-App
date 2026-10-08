@@ -93,7 +93,7 @@ export function LaborGoalPopover({ dow, projectedSales, canEdit, children }: Pro
               </Button>
             </div>
             <Button size="sm" variant="ghost" className="w-full text-xs" disabled={goals.saving} onClick={() => save(null)}>
-              {dow == null ? `Clear (use store default ${goals.storeDefault}%)` : 'Clear (use weekly goal)'}
+              {dow == null ? `Clear (use store default${goals.storeDefault != null ? ` ${goals.storeDefault}%` : ""})` : 'Clear (use weekly goal)'}
             </Button>
           </>
         ) : (

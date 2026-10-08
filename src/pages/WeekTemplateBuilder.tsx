@@ -1087,7 +1087,7 @@ export default function WeekTemplateBuilder() {
               step="0.5"
               className="w-28"
               value={weeklyDraft}
-              placeholder={`${laborGoals.storeDefault}% default`}
+              placeholder={laborGoals.storeDefault != null ? `${laborGoals.storeDefault}% default` : "default"}
               disabled={!isStoreGoal}
               onChange={(e) => setWeeklyDraft(e.target.value)}
               onBlur={() => {
@@ -1097,7 +1097,7 @@ export default function WeekTemplateBuilder() {
               onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
             />
             <span className="text-xs text-muted-foreground">
-              Days left blank use this; blank here uses the store default ({laborGoals.storeDefault}%).
+              Days left blank use this; blank here uses the store default{laborGoals.storeDefault != null ? ` (${laborGoals.storeDefault}%)` : ""}.
             </span>
           </div>
           {!isStoreGoal && (
