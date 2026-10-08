@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
-import { shiftHasBreak } from '@/utils/shiftUtils';
+import { useShiftMealHint } from '@/hooks/useScheduleLaborRules';
 import { Trash2, ArrowUp, ArrowRightLeft, CalendarClock, ChevronLeft, ChevronRight, Coffee } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
 import { format, addDays, subDays } from 'date-fns';
@@ -80,6 +80,8 @@ export function MobileShiftDialog({
   const { timezone } = useLocationTimezone();
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const editMealHint = useShiftMealHint(startTime, endTime, locationId || currentLocation?.id);
+  const viewMealHint = useShiftMealHint(shift?.start_time, shift?.end_time, locationId || currentLocation?.id);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [shiftDate, setShiftDate] = useState('');
@@ -452,10 +454,10 @@ export function MobileShiftDialog({
               </div>
 
               {/* Break hint chip */}
-              {shiftHasBreak(startTime, endTime) && (
+              {editMealHint && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Coffee className="h-3.5 w-3.5 text-amber-600" />
-                  <span>30-min unpaid break (shift &gt; 5 hrs)</span>
+                  <span>{editMealHint}</span>
                 </div>
               )}
             </>
@@ -469,8 +471,8 @@ export function MobileShiftDialog({
                 <Label className="text-muted-foreground text-xs">Time</Label>
                 <div className="flex items-center gap-1.5">
                   <p className="font-medium">{formatTime(shift.start_time)} - {formatTime(shift.end_time)}</p>
-                  {shiftHasBreak(shift.start_time, shift.end_time) && (
-                    <BreakIndicator hasBreak={true} size="sm" />
+                  {viewMealHint && (
+                    <BreakIndicator hasBreak={true} size="sm" title={viewMealHint} />
                   )}
                 </div>
               </div>

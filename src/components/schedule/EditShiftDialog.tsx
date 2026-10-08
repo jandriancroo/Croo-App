@@ -28,7 +28,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BreakEditor } from "./BreakEditor";
 import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
 import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
-import { shiftHasBreak } from "@/utils/shiftUtils";
+import { useShiftMealHint } from "@/hooks/useScheduleLaborRules";
 
 
 interface EditShiftDialogProps {
@@ -382,7 +382,8 @@ export function EditShiftDialog({
     if (open) setEditDate(shiftDateStr);
   }, [open, shiftDateStr]);
 
-  const hasBreak = shiftHasBreak(startTime, endTime);
+  const mealHint = useShiftMealHint(startTime, endTime, currentLocation?.id);
+  const hasBreak = !!mealHint;
 
   return (
     <>
@@ -522,7 +523,7 @@ export function EditShiftDialog({
             {hasBreak && (
               <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 px-1">
                 <Coffee className="h-3.5 w-3.5" />
-                30-min unpaid break (shift &gt; 5 hrs)
+                {mealHint}
               </div>
             )}
 

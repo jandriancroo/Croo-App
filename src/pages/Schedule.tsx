@@ -42,6 +42,8 @@ const ScheduleHistoryPanel = lazyWithRetry(() => import("@/components/schedule/S
 import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 import { useLocationStations } from "@/hooks/useLocationStations";
 import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
+import { useScheduleLaborRules } from "@/hooks/useScheduleLaborRules";
+import { paidShiftHours } from "@/utils/shiftUtils";
 // StationAssignChip removed — station assignment moved into SmartTap popover
 import { StationGroupSection } from "@/components/schedule/StationGroupSection";
 
@@ -84,6 +86,7 @@ export default function Schedule() {
     }
     appliedLinkRef.current = key;
   }, [searchParams, currentLocation?.id, locations, setCurrentLocation, setCurrentWeekStart]);
+  const { data: scheduleLaborRules } = useScheduleLaborRules(currentLocation?.id);
 
   const shiftsSig = useMemo(() => shifts.map((s: any) => `${s.id}${s.user_id}${s.start_time}${s.end_time}${s.is_time_off ? 1 : 0}`).join("|"), [shifts]);
   const approval = useScheduleApproval(scheduleId, currentLocation?.id, isPublished, shiftsSig);
@@ -553,14 +556,8 @@ export default function Schedule() {
                     manager: 'Managers', shift_manager: 'Shift Managers',
                     shift_manager_in_training: 'Shift Managers in Training', team_member: 'Team Members'
                   };
-                  const calcHours = (list: typeof shifts) => list.reduce((total, shift) => {
-                    const [sh, sm] = shift.start_time.split(':').map(Number);
-                    const [eh, em] = shift.end_time.split(':').map(Number);
-                    let mins = (eh * 60 + em) - (sh * 60 + sm);
-                    if (mins < 0) mins += 24 * 60;
-                    const h = mins / 60;
-                    return total + (h > 5 ? h - 0.5 : h);
-                  }, 0);
+                  const calcHours = (list: typeof shifts) => list.reduce((total, shift) =>
+                    total + paidShiftHours(shift.start_time, shift.end_time, scheduleLaborRules), 0);
 
                   const renderRoleBlock = (scopedProfiles: typeof profiles) => (
                     <>

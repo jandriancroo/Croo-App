@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
+import { paidShiftHours } from '@/utils/shiftUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { DateTime } from 'luxon';
@@ -129,15 +131,6 @@ interface Props {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-function hoursBetween(start: string, end: string): number {
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  let mins = (eh * 60 + em) - (sh * 60 + sm);
-  if (mins < 0) mins += 24 * 60;
-  // Subtract 30-min unpaid break if shift > 5h
-  if (mins > 5 * 60) mins -= 30;
-  return mins / 60;
-}
 
 function fmt12(t: string): string {
   const [h, m] = t.split(':');
@@ -180,6 +173,8 @@ export function MobileAddScheduleSheet({
   availabilityRequests = [],
   onCreated,
 }: Props) {
+  const { data: laborRules } = useScheduleLaborRules(locationId);
+  const hoursBetween = (start: string, end: string) => paidShiftHours(start, end, laborRules);
   const queryClient = useQueryClient();
   const initialTab = lockTab ? defaultTab : 'employee';
   const [tab, setTab] = useState<'shift' | 'employee'>(initialTab);

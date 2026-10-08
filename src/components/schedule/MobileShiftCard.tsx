@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CalendarIcon, Pencil, Coffee, Link2 } from 'lucide-react';
-import { shiftHasBreak } from '@/utils/shiftUtils';
+import { useShiftMealHint } from '@/hooks/useScheduleLaborRules';
 import { formatTime12Hour } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import toastLogo from '@/assets/toast-logo.png.asset.json';
@@ -93,7 +93,8 @@ export function MobileShiftCard({
   };
 
   const leftColor = getLeftEdgeColor();
-  const hasBreak = showBreakIndicator && shiftHasBreak(startTime, endTime);
+  const mealHint = useShiftMealHint(startTime, endTime);
+  const hasBreak = showBreakIndicator && !!mealHint;
 
   // Hours badge color
   const getHoursBadgeColor = () => {
@@ -245,7 +246,7 @@ export function MobileShiftCard({
         <div 
           className="absolute bottom-0 right-0 rounded-tl-lg px-1.5 py-1 flex items-center justify-center"
           style={{ backgroundColor: leftColor || 'hsl(var(--muted-foreground))' }}
-          title="30-minute unpaid break"
+          title={mealHint ?? undefined}
         >
           <Coffee className="h-3.5 w-3.5 text-white" />
         </div>

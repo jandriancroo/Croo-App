@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
 import { Scissors, Coffee, CalendarOff, Clock, AlertCircle } from "lucide-react";
-import { shiftHasBreak } from "@/utils/shiftUtils";
+import { useShiftMealHint } from "@/hooks/useScheduleLaborRules";
 import { formatTime12Hour } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -41,6 +41,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
 
 
   const shiftData = shift.isTemplate ? shift.template : shift;
+  const mealHint = useShiftMealHint(shiftData?.start_time, shiftData?.end_time);
   const template = shift.template;
   const bgColor = template?.color || shiftData.color || "#ef4444";
   const position = template?.position || template?.template_name;
@@ -156,11 +157,11 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           <div className={`text-foreground font-medium text-left ${isCompactMode ? 'text-[8px] leading-none' : 'text-xs lg:text-sm'}`}>TIME OFF</div>
         )}
       </div>
-      {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
+      {!isCompactMode && !shift.isTemplate && mealHint && (
         <div 
           className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-[3px] flex items-center justify-center"
           style={{ backgroundColor: `${bgColor}26` }}
-          title="30-minute unpaid break"
+          title={mealHint}
         >
           <Coffee className="h-2.5 w-2.5" style={{ color: bgColor }} />
         </div>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
+import { paidShiftHours } from '@/utils/shiftUtils';
 import { format, subWeeks } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -35,13 +37,6 @@ interface Props {
   pendingDraft?: PendingDraft | null;
 }
 
-function calcWorkedHours(start: string, end: string): number {
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  let h = (eh + em / 60) - (sh + sm / 60);
-  if (h < 0) h += 24;
-  return h > 5 ? h - 0.5 : h;
-}
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -69,6 +64,8 @@ export function MobileDayPreviewSheet({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  const { data: laborRules } = useScheduleLaborRules(currentLocation?.id);
+  const calcWorkedHours = (start: string, end: string) => paidShiftHours(start, end, laborRules);
   const laborGoals = useLaborGoals();
   const dayGoal = laborGoals.forDate(dateStr);
   const [showHourly, setShowHourly] = useState(false);

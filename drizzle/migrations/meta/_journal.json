@@ -169,6 +169,13 @@
       "when": 1791471546162,
       "tag": "0023_shift_flags_volatile",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791481925027,
+      "tag": "0024_scheduled_paid_hours_and_labor_check",
+      "breakpoints": true
     }
   ]
 }
