@@ -1,5 +1,10 @@
 # Roadmap
 
+## Oct 8 follow-ups
+- [ ] Remove Quick Nudge outer circle/impact lines and enlarge glove (visual only).
+- [ ] California-only scheduled meal premiums, migration 0027, all tests and read-only fixture parity.
+- [ ] Verify preview and publish to croohq.com.
+
 ## Quick Nudge final review (Oct 7)
 - [x] Add Jordan's exact glove icon and sizes; restore Theo messages rule; restrict smart fields to tokens without inner whitespace; 68 tests passed, desktop/mobile browser badge and sheet checked; no publish or nudge sent.
 
