@@ -57,6 +57,13 @@
       "when": 1791433582163,
       "tag": "0007_labor_rule_check_build_ignore_failed",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791433600814,
+      "tag": "0008_labor_rule_proposals_tighten_grants",
+      "breakpoints": true
     }
   ]
 }
