@@ -176,6 +176,13 @@
       "when": 1791481925027,
       "tag": "0024_scheduled_paid_hours_and_labor_check",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791483954689,
+      "tag": "0025_labor_week_pay_all_rules",
+      "breakpoints": true
     }
   ]
 }
