@@ -21,4 +21,4 @@
 - Quick Nudge: _shared/nudgePlan.ts + *_nudge_status; on-clock recipients server-side; quickNudges.ts → quick-nudge; nudge_log; NUDGE_ICON. Why: one path.
 - POS list: server only _shared/posSources.ts, client only src/lib/pos/liveSales.ts; never a hard-coded fallback POS (unknown = null). Why: missing lists mislabeled Hayward.
 - New data/POS source: update data_point_registry in the same migration. Why: one writer map.
-- Schedule pay: weekLaborCost = labor_week_pay, fixture-checked; no meal premiums. Why: one cost.
+- Schedule pay: weekLaborCost=labor_week_pay, fixture-checked, no meal premiums. Why: one cost.
