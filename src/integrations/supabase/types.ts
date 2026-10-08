@@ -16598,6 +16598,7 @@ export type Database = {
         | "overdue_checklist"
         | "checklist_nudge"
         | "quick_nudge"
+        | "labor_rules_proposal"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -16769,6 +16770,7 @@ export const Constants = {
         "overdue_checklist",
         "checklist_nudge",
         "quick_nudge",
+        "labor_rules_proposal",
       ],
     },
   },
