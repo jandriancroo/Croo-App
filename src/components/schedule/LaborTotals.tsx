@@ -20,7 +20,7 @@ import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDial
 import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
 import { useLaborGoals, laborGoalTone, dowFromDate } from '@/hooks/useLaborGoals';
 
-const toneClass = (t: 'good' | 'warn' | 'bad') => (t === 'good' ? 'text-green-400' : t === 'warn' ? 'text-yellow-400' : 'text-red-400');
+const toneClass = (t: 'good' | 'warn' | 'bad' | 'neutral') => (t === 'neutral' ? 'text-slate-100' : t === 'good' ? 'text-green-400' : t === 'warn' ? 'text-yellow-400' : 'text-red-400');
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
@@ -775,7 +775,7 @@ export function LaborTotals({
                 {weeklyTotals.sales > 0 ? <span className={`text-sm font-bold ${toneClass(laborGoalTone(weeklyTotals.laborPercent, laborGoals.weekly))}`}>
                     {weeklyTotals.laborPercent.toFixed(1)}%
                   </span> : <span className="text-xs text-slate-500">-</span>}
-                <span className="text-[10px] text-slate-500">goal {laborGoals.weekly}%</span>
+                {laborGoals.weekly != null && <span className="text-[10px] text-slate-500">goal {laborGoals.weekly}%</span>}
               </LaborGoalPopover>
             </div>
             {dailyTotals.map((day, index) => {

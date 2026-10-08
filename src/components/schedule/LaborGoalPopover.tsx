@@ -23,6 +23,8 @@ export function LaborGoalPopover({ dow, projectedSales, canEdit, children }: Pro
   const current = dow == null ? goals.weekly : goals.forDow(dow);
   const source = dow == null ? goals.weeklySource : goals.sourceForDow(dow);
   const [value, setValue] = useState('');
+  // No goal visible (staff, or not loaded): no popover, just the content.
+  const hidden = !goals.available;
 
   useEffect(() => {
     if (open) setValue(String(current));

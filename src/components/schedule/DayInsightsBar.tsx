@@ -345,7 +345,7 @@ export function DayInsightsBar({
   const salesPerLH = labor.hours > 0 ? sales / labor.hours : 0;
   const laborGoal = laborGoals.forDate(dateStr);
   const laborTone = laborGoalTone(laborPct, laborGoal);
-  const laborPctColor = laborPct === 0
+  const laborPctColor = laborPct === 0 || laborTone === 'neutral'
     ? 'text-slate-300'
     : laborTone === 'good'
       ? 'text-green-400'
