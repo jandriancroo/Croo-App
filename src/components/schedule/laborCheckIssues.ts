@@ -7,7 +7,7 @@ const day = (iso: string) => DateTime.fromISO(iso).toFormat("ccc LLL d");
 const hrs = (v: number) => Number(v.toFixed(2)).toString();
 
 /** The one wording for problems found by schedule_week_labor_check (Post confirm + approver Issues). */
-export function laborCheckIssues(lc: ScheduleLaborCheck | null | undefined, opts: { people?: boolean } = {}): string[] {
+export function laborCheckIssues(lc: ScheduleLaborCheck | null | undefined, opts: { people?: boolean; dailyOt?: number | null } = {}): string[] {
   if (!lc) return [];
   const out: string[] = [];
   if (lc.week_over_goal) out.push(`Week: ${p1(lc.labor_pct)} vs ${goal(lc.target_pct)} goal`);
@@ -18,7 +18,7 @@ export function laborCheckIssues(lc: ScheduleLaborCheck | null | undefined, opts
     for (const p of lc.people ?? []) {
       const name = p.name || "Someone";
       if (p.over_weekly) out.push(`${name}: ${hrs(p.week_hours)} hrs this week (over ${hrs(p.weekly_threshold)})`);
-      for (const o of p.days_over_daily ?? []) out.push(`${name}: ${hrs(o.hours)} hrs on ${day(o.date)} (over daily OT)`);
+      for (const o of p.days_over_daily ?? []) out.push(`${name}: ${hrs(o.hours)} hrs on ${day(o.date)} (over daily OT${opts.dailyOt ? ` ${hrs(Number(opts.dailyOt))}` : ""})`);
     }
   }
   return out;
