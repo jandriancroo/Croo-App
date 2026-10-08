@@ -113,16 +113,21 @@ export function useScheduleApproval(scheduleId: string | null, locationId: strin
   const needCheck = !!scheduleId && !isPublished && !!settings?.enabled &&
     (settings.mode === "over_labor_goal" || row?.approval_status === "pending");
 
-  const checkQ = useQuery({
-    queryKey: ["schedule-week-labor-check", scheduleId, shiftsVersion],
-    enabled: needCheck,
-    staleTime: 30_000,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("schedule_week_labor_check" as any, { _schedule_id: scheduleId });
-      if (error) throw error;
-      return data as unknown as ScheduleLaborCheck;
-    },
-  });
+  const checkKey = ["schedule-week-labor-check", scheduleId, shiftsVersion];
+  const fetchCheck = async () => {
+    const { data, error } = await supabase.rpc("schedule_week_labor_check" as any, { _schedule_id: scheduleId });
+    if (error) throw error;
+    return data as unknown as ScheduleLaborCheck;
+  };
+  const checkQ = useQuery({ queryKey: checkKey, enabled: needCheck, staleTime: 30_000, queryFn: fetchCheck });
+
+  /** Fresh labor check for the Post confirm (works with approval off). Null on failure: never blocks posting. */
+  const checkLabor = useCallback(async (): Promise<ScheduleLaborCheck | null> => {
+    if (!scheduleId) return null;
+    try { return await qc.fetchQuery({ queryKey: checkKey, queryFn: fetchCheck, staleTime: 0 }); }
+    catch (e) { console.warn("schedule_week_labor_check", e); return null; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qc, scheduleId, shiftsVersion]);
   const laborCheck = checkQ.data ?? null;
 
   let mode: ApprovalMode = "direct";
@@ -183,8 +188,16 @@ export function useScheduleApproval(scheduleId: string | null, locationId: strin
     sendBack,
     post,
     refresh,
+    checkLabor,
   };
 }
+
+/** True when the week or any day is over its labor goal. */
+export function laborCheckOverGoal(lc: ScheduleLaborCheck | null | undefined): boolean {
+  return !!lc && (!!lc.week_over_goal || !!lc.days?.some((d) => d.over_goal));
+}
+
+export const OVER_GOAL_NEEDS_APPROVAL = "This week is over the labor goal, so it needs approval before it posts.";
 
 /** Friendly text for server errors from the approval functions. */
 export function approvalErrorText(e: any): string {
