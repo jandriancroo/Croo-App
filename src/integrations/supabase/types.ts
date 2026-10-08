@@ -16599,6 +16599,10 @@ export type Database = {
         Args: { _schedule_id: string }
         Returns: Json
       }
+      scheduled_paid_hours: {
+        Args: { _end: string; _rules: Json; _start: string }
+        Returns: number
+      }
       search_theo_knowledge: {
         Args: { p_embedding: string; p_limit?: number; p_location_id: string }
         Returns: {
