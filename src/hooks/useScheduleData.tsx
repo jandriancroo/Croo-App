@@ -112,7 +112,9 @@ export function useScheduleData() {
     if (didInitWeek.current) return;
     if (!timezone) return;
 
-    const todayStr = getTodayInTimezone();
+    // A deep link (?week=yyyy-MM-dd, e.g. from an approval task) wins over "this week".
+    const weekParam = new URLSearchParams(window.location.search).get('week');
+    const todayStr = weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : getTodayInTimezone();
     const [y, m, d] = todayStr.split('-').map(Number);
     const localDate = new Date(y, m - 1, d);
     setCurrentWeekStart(startOfWeek(localDate, { weekStartsOn: 1 }));
