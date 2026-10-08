@@ -1,4 +1,6 @@
 import { DateTime } from 'luxon';
+import { useScheduleLaborRules } from "@/hooks/useScheduleLaborRules";
+import { paidShiftHours } from "@/utils/shiftUtils";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -50,32 +52,6 @@ interface DaySettings {
   projectedSales: string;
 }
 
-function calculateShiftHours(startTime: string, endTime: string): number {
-  const [startHour, startMin] = startTime.split(':').map(Number);
-  const [endHour, endMin] = endTime.split(':').map(Number);
-  
-  let hours = endHour - startHour;
-  let minutes = endMin - startMin;
-  
-  if (minutes < 0) {
-    hours -= 1;
-    minutes += 60;
-  }
-  
-  // Handle overnight shifts
-  if (hours < 0) {
-    hours += 24;
-  }
-  
-  let totalHours = hours + minutes / 60;
-  
-  // Deduct 30 minutes for shifts over 5 hours
-  if (totalHours > 5) {
-    totalHours -= 0.5;
-  }
-  
-  return Math.max(0, totalHours);
-}
 
 function DraggableShiftTemplate({ template }: { template: ShiftTemplate }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -356,6 +332,7 @@ export default function WeekTemplateBuilder() {
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const isNew = id === 'new';
   const laborGoals = useLaborGoals(templateLocationId || currentLocation?.id);
+  const { data: laborRules } = useScheduleLaborRules(templateLocationId || currentLocation?.id);
   const isStoreGoal = !isNew && !!id && laborGoals.templateId === id;
   const [weeklyDraft, setWeeklyDraft] = useState('');
   useEffect(() => {
@@ -389,13 +366,13 @@ export default function WeekTemplateBuilder() {
       let total = 0;
       assignments.forEach(a => {
         if (a.shift_template) {
-          total += calculateShiftHours(a.shift_template.start_time, a.shift_template.end_time);
+          total += paidShiftHours(a.shift_template.start_time, a.shift_template.end_time, laborRules);
         }
       });
       hours.set(dayIndex, total);
     });
     return hours;
-  }, [assignmentsByDay]);
+  }, [assignmentsByDay, laborRules]);
 
   // Calculate weekly total hours
   const weeklyTotalHours = useMemo(() => {
