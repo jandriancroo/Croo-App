@@ -12,7 +12,9 @@ import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
-import { useLaborGoals, laborGoalTone } from '@/hooks/useLaborGoals';
+import { useLaborGoals, laborGoalTone, dowFromDate } from '@/hooks/useLaborGoals';
+import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
+import { InsightField } from '@/components/schedule/InsightField';
 
 type SalesSource = 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
 
@@ -399,7 +401,18 @@ export function DayInsightsBar({
             <div className="rounded-lg bg-white/[0.04] px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">Labor %</p>
               <p className={`text-lg font-bold ${laborPctColor}`}>{laborPct.toFixed(1)}%</p>
-              <p className="text-[10px] text-slate-400">goal {laborGoal}%</p>
+              {laborGoals.available && laborGoal != null && (
+                <div className="mt-1">
+                  <LaborGoalPopover dow={dowFromDate(dateStr)} projectedSales={sales} canEdit={canEdit}>
+                    <InsightField
+                      plain={!canEdit}
+                      className="h-7"
+                      aria-label={`Edit ${format(parseISO(dateStr), 'EEE')} labor goal`}
+                      value={<span className="text-[11px] text-slate-300">goal <span className="font-semibold text-slate-100">{laborGoal}%</span></span>}
+                    />
+                  </LaborGoalPopover>
+                </div>
+              )}
             </div>
             <div className="rounded-lg bg-white/[0.04] px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">$/LH</p>
