@@ -11,6 +11,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { Sparkles, Loader2, User, Printer } from "lucide-react";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
+import { useLaborGoals, laborGoalTone } from "@/hooks/useLaborGoals";
 import { exportDayTimelineToPrint } from "@/utils/exportDayTimelinePrint";
 import { normalizeBreaks } from "@/types/shiftBreak";
 import type { LocationStation } from "@/hooks/useLocationStations";

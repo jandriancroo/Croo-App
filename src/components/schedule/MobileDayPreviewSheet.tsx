@@ -254,7 +254,7 @@ export function MobileDayPreviewSheet({
             {salesData?.daily ? (
               <div className="mt-2 flex items-center gap-1.5 text-sm">
                 <span className="text-muted-foreground">Labor:</span>
-                <span className={cn("font-bold", laborPctClass(laborPct))}>{laborPct.toFixed(1)}%</span>
+                <span className={cn("font-bold", laborPctClass(laborPct, dayGoal))}>{laborPct.toFixed(1)}%</span>
                 <span className="text-muted-foreground">·</span>
                 <span className="text-muted-foreground">{formatCurrency(totalCost)}</span>
               </div>
@@ -407,7 +407,7 @@ export function MobileDayPreviewSheet({
                         </div>
                         <div className="text-right">
                           <div className="tabular-nums font-medium">{sales > 0 ? formatCurrency(sales) : "—"}</div>
-                          <div className={cn("tabular-nums text-[11px] font-semibold", laborPctClass(pct))}>
+                          <div className={cn("tabular-nums text-[11px] font-semibold", laborPctClass(pct, dayGoal))}>
                             {sales > 0 ? `${pct.toFixed(0)}%` : `${formatCurrency(d.cost)}`}
                           </div>
                         </div>
