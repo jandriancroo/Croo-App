@@ -1,3 +1,5 @@
+import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
+import { paidShiftHours } from '@/utils/shiftUtils';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -77,20 +79,7 @@ export function DayInsightsBar({
     dateStr < todayStr ? 'completed' : dateStr === todayStr ? 'today' : 'future';
 
   // ---- Labor rules (OT/DT) -------------------------------------------------
-  const { data: laborRules } = useQuery({
-    queryKey: ['labor-rules-schedule', locationId],
-    queryFn: async () => {
-      if (!locationId) return null;
-      const { data } = await supabase
-        .from('labor_rules')
-        .select('daily_overtime_threshold, daily_double_time_threshold, overtime_multiplier, double_time_multiplier')
-        .eq('location_id', locationId)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!locationId,
-    staleTime: 30 * 60 * 1000,
-  });
+  const { data: laborRules } = useScheduleLaborRules(locationId);
 
   // ---- Wages for this day's scheduled shifts ------------------------------
   const shiftsKey = shifts.map(s => `${s.id}-${s.user_id}`).join('|');
@@ -148,14 +137,7 @@ export function DayInsightsBar({
 
     shifts.forEach(shift => {
       if (!shift.user_id) return;
-      const [sh, sm] = shift.start_time.split(':').map(Number);
-      const [eh, em] = shift.end_time.split(':').map(Number);
-      let hours = eh - sh;
-      let minutes = em - sm;
-      if (minutes < 0) { hours -= 1; minutes += 60; }
-      if (hours < 0) hours += 24;
-      let shiftHours = hours + minutes / 60;
-      if (shiftHours > 5) shiftHours -= 0.5;
+      const shiftHours = paidShiftHours(shift.start_time, shift.end_time, laborRules);
       totalHours += shiftHours;
 
       const wage = (shiftWages as Record<string, number>)[shift.id]

@@ -1,3 +1,5 @@
+import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
+import { paidShiftHours } from '@/utils/shiftUtils';
 import { useMemo, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, addDays } from 'date-fns';
@@ -94,21 +96,8 @@ export function LaborTotals({
   const [projectionDialogDay, setProjectionDialogDay] = useState<number | null>(null);
   const { user } = useAuth();
 
-  // Fetch labor rules for OT/DT multipliers
-  const { data: laborRules } = useQuery({
-    queryKey: ['labor-rules-schedule', currentLocation?.id],
-    queryFn: async () => {
-      if (!currentLocation?.id) return null;
-      const { data } = await supabase
-        .from('labor_rules')
-        .select('daily_overtime_threshold, daily_double_time_threshold, weekly_overtime_threshold, overtime_multiplier, double_time_multiplier')
-        .eq('location_id', currentLocation.id)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!currentLocation?.id,
-    staleTime: 30 * 60 * 1000,
-  });
+  // The one schedule labor_rules read (meal + OT/DT)
+  const { data: laborRules } = useScheduleLaborRules(currentLocation?.id);
 
   // Compute a stable key for shifts to trigger wage refetch
   const shiftsKey = useMemo(() => {
@@ -626,24 +615,7 @@ export function LaborTotals({
         if (!shift.user_id) return;
         const profile = profiles.find(p => p.id === shift.user_id);
 
-        // Calculate shift duration
-        const [startHour, startMin] = shift.start_time.split(':').map(Number);
-        const [endHour, endMin] = shift.end_time.split(':').map(Number);
-        let hours = endHour - startHour;
-        let minutes = endMin - startMin;
-        if (minutes < 0) {
-          hours -= 1;
-          minutes += 60;
-        }
-        if (hours < 0) {
-          hours += 24;
-        }
-        let shiftHours = hours + minutes / 60;
-
-        // Deduct 30 minutes if shift is over 5 hours
-        if (shiftHours > 5) {
-          shiftHours -= 0.5;
-        }
+        const shiftHours = paidShiftHours(shift.start_time, shift.end_time, laborRules);
         totalHours += shiftHours;
 
         const wage = shiftWages[shift.id] ?? profile?.hourly_wage ?? 0;
