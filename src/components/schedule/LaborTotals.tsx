@@ -18,6 +18,7 @@ import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
 import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
+import { InsightField } from '@/components/schedule/InsightField';
 import { useLaborGoals, laborGoalTone, dowFromDate } from '@/hooks/useLaborGoals';
 
 const toneClass = (t: 'good' | 'warn' | 'bad' | 'neutral') => (t === 'neutral' ? 'text-slate-100' : t === 'good' ? 'text-green-400' : t === 'warn' ? 'text-yellow-400' : 'text-red-400');
