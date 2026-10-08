@@ -200,3 +200,21 @@ export async function updateIfPublished(opts: { scheduleId: string; changedBy: s
   });
   return res.affectedUserIds;
 }
+
+/** The locked weekly schedule email, called exactly as the Schedule page always has (fire and forget). */
+export function sendWeeklyScheduleEmail(scheduleId: string, locationId: string) {
+  supabase.functions.invoke('send-weekly-schedule-email', {
+    body: { schedule_id: scheduleId, location_id: locationId }
+  }).then(response => {
+    if (response.error) console.error('Failed to send schedule emails:', response.error);
+    else console.log('Schedule emails sent:', response.data);
+  });
+}
+
+/** Post a week: the server publishes (and queues the team push), then the weekly email goes out. */
+export async function publishSchedule(scheduleId: string, locationId: string) {
+  const { data, error } = await supabase.rpc('publish_schedule' as any, { _schedule_id: scheduleId });
+  if (error) throw error;
+  sendWeeklyScheduleEmail(scheduleId, locationId);
+  return data as unknown as number;
+}
