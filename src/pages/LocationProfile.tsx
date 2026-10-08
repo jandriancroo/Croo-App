@@ -284,6 +284,7 @@ export default function LocationProfile() {
         if (newLocation) {
           const { error: seedErr } = await supabase.rpc('seed_labor_rules_from_preset' as any, { _location_id: newLocation.id });
           if (seedErr) console.error('Seed labor rules error:', seedErr);
+          else startBuildLawCheck(newLocation.id);
         }
 
         toast.success('Location created successfully');
