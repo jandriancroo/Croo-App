@@ -97,7 +97,7 @@ Status key: OK = Theo reads the right place. FIX = Theo reads the wrong place or
 
 In rough priority order for a manager's day:
 
-1. Cash transactions and deposit reconciliation (`croo_cash_transactions`). Drawer and safe counts ARE readable through `query_logbook` (Drawer Count / Safe Count entries); the missing part is the cash transactions and deposit reconciliation needed for Jordan's cash-variance questions.
+1. Deposit reconciliation (deposits are logbook entries; `croo_cash_transactions` was the retired Croo Cash points ledger, not cash). Drawer and safe counts ARE readable through `query_logbook` (Drawer Count / Safe Count entries); the missing part is the cash transactions and deposit reconciliation needed for Jordan's cash-variance questions.
 2. His own past briefings (`croo_ai_briefings`), so he can answer "what did you tell me this morning".
 3. Promo tracker rankings (see table above).
 4. Sales comparisons (see table above).

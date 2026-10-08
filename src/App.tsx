@@ -12,7 +12,6 @@ import { isPunchDeviceUser, isPaired, isPairingDead, isKioskExitActive } from "@
 import { LocationProvider, useLocation as useAppLocation } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { FEATURE_FLAGS } from "@/config/featureFlags";
-import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import { DockToastProvider } from "@/contexts/DockToastContext";
 import { DiagnosticMode } from "@/components/DiagnosticMode";
 import BreakOverlay from "@/components/BreakOverlay";
@@ -296,7 +295,6 @@ const App = () => (
           <ScrollToTop />
           <AuthProvider>
             <LocationProvider>
-              <CrooCashAnimationProvider>
                 <DockToastProvider>
                   <DiagnosticMode />
                   <BreakOverlay />
@@ -304,7 +302,6 @@ const App = () => (
                   <AppWithSplash />
                   <PinMigrationOverlay />
                 </DockToastProvider>
-              </CrooCashAnimationProvider>
             </LocationProvider>
           </AuthProvider>
         </BrowserRouter>

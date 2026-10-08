@@ -53,7 +53,7 @@ const MyProfile = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, email, phone_number, birthday, profile_photo_url, croo_cash_balance, nickname')
+        .select('full_name, email, phone_number, birthday, profile_photo_url, nickname')
         .eq('id', user!.id)
         .single();
 

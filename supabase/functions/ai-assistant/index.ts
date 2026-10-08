@@ -734,14 +734,14 @@ const tools = [
     type: "function",
     function: {
       name: "query_shift_marketplace",
-      description: "Query shift offers (shift marketplace / shift swap requests). Shows who posted, who claimed, shift details. Use for shift swap and marketplace questions.",
+      description: "Query shift offers (shift marketplace / shift swap requests). Shows who posted, who claimed or picked up, and the shift date/time. Dates filter on the shift date. Use for shift swap, marketplace and 'who picked up shifts' questions.",
       parameters: {
         type: "object",
         properties: {
           location_id: { type: "string", description: "UUID of the location" },
           start_date: { type: "string", description: "Start date YYYY-MM-DD" },
           end_date: { type: "string", description: "End date YYYY-MM-DD" },
-          status: { type: "string", description: "Filter: 'open', 'claimed', 'approved', 'cancelled'" },
+          status: { type: "string", description: "Filter: 'available' (posted, nobody claimed), 'claimed' (awaiting manager approval), 'approved' (picked up and reassigned)" },
         },
         required: ["location_id"],
       },
@@ -2037,27 +2037,28 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       case "query_shift_marketplace": {
         let query = supabase
           .from("shift_offers")
-          .select("id, shift_date, start_time, end_time, status, reason, croo_cash_reward, created_at, profiles!shift_offers_offered_by_fkey(full_name), claimer:profiles!shift_offers_claimed_by_fkey(full_name)")
-          .eq("location_id", args.location_id)
-          .order("shift_date");
+          .select("id, status, created_at, updated_at, offerer:profiles!shift_offers_offered_by_user_id_fkey(full_name), claimer:profiles!shift_offers_claimed_by_user_id_fkey(full_name), shift:scheduled_shifts!inner(shift_date, start_time, end_time, schedule:schedules!inner(location_id))")
+          .eq("shift.schedule.location_id", args.location_id);
 
-        if (args.start_date) query = query.gte("shift_date", args.start_date);
-        if (args.end_date) query = query.lte("shift_date", args.end_date);
+        if (args.start_date) query = query.gte("shift.shift_date", args.start_date);
+        if (args.end_date) query = query.lte("shift.shift_date", args.end_date);
         if (args.status) query = query.eq("status", args.status);
 
-        const { data, error } = await query.limit(50);
+        const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
         if (error) return JSON.stringify({ error: error.message });
 
-        const results = (data || []).map((s: any) => ({
-          date: s.shift_date,
-          start: s.start_time,
-          end: s.end_time,
-          status: s.status,
-          offered_by: s.profiles?.full_name,
-          claimed_by: s.claimer?.full_name,
-          reason: s.reason,
-          croo_cash_reward: s.croo_cash_reward,
-        }));
+        const results = (data || [])
+          .map((s: any) => ({
+            date: s.shift?.shift_date,
+            start: s.shift?.start_time,
+            end: s.shift?.end_time,
+            status: s.status,
+            offered_by: s.offerer?.full_name,
+            claimed_by: s.claimer?.full_name,
+            posted_at: s.created_at,
+            updated_at: s.updated_at,
+          }))
+          .sort((x: any, y: any) => String(x.date || "").localeCompare(String(y.date || "")));
         return JSON.stringify(results.length ? results : { message: "No shift marketplace offers found." });
       }
 

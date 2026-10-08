@@ -32,7 +32,6 @@ export interface UserProfile {
   paid_hours?: number;
   unpaid_hours?: number;
   hourly_wage?: number;
-  croo_cash_balance?: number;
   has_certification?: boolean;
 }
 

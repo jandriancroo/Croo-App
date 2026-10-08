@@ -20,7 +20,7 @@ const corsHeaders = {
 // ============================================================================
 // CONSOLIDATED MAINTENANCE SERVICE
 // Actions: nightly, cleanup-images, backfill-photo-completions, 
-//          backfill-alle-photos, backfill-croo-cash
+//          backfill-alle-photos
 // ============================================================================
 
 Deno.serve(async (req) => {
@@ -70,18 +70,6 @@ Deno.serve(async (req) => {
       
       case "backfill-alle-photos":
         return await handleBackfillAllePhotos(supabase, payload);
-      
-      case "backfill-croo-cash":
-        // Validate cron secret for this action
-        const cronSecret = req.headers.get("x-cron-secret");
-        const expectedSecret = Deno.env.get("CRON_SECRET");
-        if (!expectedSecret || cronSecret !== expectedSecret) {
-          return new Response(JSON.stringify({ error: "Unauthorized" }), {
-            status: 401,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        return await handleBackfillCrooCash(supabase);
       
       case "generate-weekly-summary":
         return await handleGenerateWeeklySummary(supabase, supabaseUrl, supabaseKey, payload);
@@ -696,96 +684,6 @@ async function handleBackfillAllePhotos(supabase: ReturnType<typeof createClient
 
   return new Response(
     JSON.stringify({ success: true, message: "Alle photo backfill complete", updated, failed, checklistId }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-}
-
-// ============================================================================
-// BACKFILL CROO CASH TRANSACTIONS
-// ============================================================================
-async function handleBackfillCrooCash(supabase: ReturnType<typeof createClient>) {
-  console.log("[BACKFILL-CROO-CASH] Starting transaction backfill...");
-
-  const { data: users, error: usersError } = await supabase
-    .from("profiles")
-    .select("id, full_name, croo_cash_balance")
-    .neq("croo_cash_balance", 0);
-
-  if (usersError) throw usersError;
-
-  console.log(`[BACKFILL-CROO-CASH] Found ${users?.length || 0} users with balances`);
-
-  const transactionsToCreate: any[] = [];
-  const today = new Date();
-
-  for (const user of users || []) {
-    const balance = user.croo_cash_balance;
-    const transactionsNeeded = Math.ceil(Math.abs(balance) / 25);
-    let runningTotal = 0;
-
-    for (let i = 0; i < transactionsNeeded && runningTotal !== balance; i++) {
-      const daysAgo = Math.floor(Math.random() * 30);
-      const transactionDate = new Date(today);
-      transactionDate.setDate(transactionDate.getDate() - daysAgo);
-      const dateStr = transactionDate.toISOString().split("T")[0];
-      const isWeekend = transactionDate.getDay() === 0 || transactionDate.getDay() === 6;
-
-      let amount = 0;
-      let transactionType = "";
-      let notes = "";
-
-      if (balance > 0) {
-        if (Math.random() > 0.3) {
-          amount = 25;
-          transactionType = Math.random() > 0.5 ? "take_shift" : "checklist_completion";
-          notes = `${transactionType === "take_shift" ? "Claimed shift" : "Completed checklist"} on ${transactionDate.toLocaleDateString()}`;
-        } else {
-          amount = -25;
-          transactionType = "offer_shift";
-          notes = `Offered shift on ${transactionDate.toLocaleDateString()}`;
-        }
-      } else {
-        if (Math.random() > 0.3) {
-          amount = -25;
-          transactionType = Math.random() > 0.5 ? "offer_shift" : "checklist_incomplete";
-          notes = `${transactionType === "offer_shift" ? "Offered shift" : "Incomplete checklist"} on ${transactionDate.toLocaleDateString()}`;
-        } else {
-          amount = 25;
-          transactionType = "take_shift";
-          notes = `Claimed shift on ${transactionDate.toLocaleDateString()}`;
-        }
-      }
-
-      if ((runningTotal + amount > balance && balance > 0) || (runningTotal + amount < balance && balance < 0)) {
-        amount = balance - runningTotal;
-      }
-
-      runningTotal += amount;
-
-      transactionsToCreate.push({
-        user_id: user.id,
-        amount,
-        transaction_type: transactionType,
-        shift_date: dateStr,
-        is_weekend: isWeekend,
-        notes,
-        created_at: new Date(transactionDate.getTime() + Math.random() * 86400000).toISOString(),
-      });
-    }
-  }
-
-  if (transactionsToCreate.length > 0) {
-    const { error: insertError } = await supabase.from("croo_cash_transactions").insert(transactionsToCreate);
-    if (insertError) throw insertError;
-  }
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      message: `Backfilled ${transactionsToCreate.length} transactions for ${users?.length || 0} users`,
-      usersProcessed: users?.length || 0,
-      transactionsCreated: transactionsToCreate.length,
-    }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }

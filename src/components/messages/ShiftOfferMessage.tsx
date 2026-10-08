@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Clock, Calendar, User, Check, X } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useCrooCashAnimation } from "@/contexts/CrooCashAnimationContext";
 import { getDisplayName } from "@/utils/displayName";
 import {
   Select,
@@ -46,7 +45,6 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
   const [processing, setProcessing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { isAdmin } = useUserRole();
-  const { triggerAnimation } = useCrooCashAnimation();
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -189,12 +187,6 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
         return;
       }
 
-      // Determine if this is a weekend (Friday = 5, Saturday = 6, Sunday = 0)
-      const shiftDate = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
-      const dayOfWeek = shiftDate.weekday % 7;
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
-
       // Create claim record
       const { error: claimError } = await supabase
         .from("shift_offer_claims")
@@ -218,33 +210,6 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
         if (error) throw error;
       }
 
-      // Create Croo Cash transaction for taking shift
-      const { error: transactionError } = await supabase
-        .from("croo_cash_transactions")
-        .insert({
-          user_id: user.id,
-          amount: amount,
-          transaction_type: "take_shift",
-          shift_offer_id: offerId,
-          shift_date: offer.shift.shift_date,
-          is_weekend: isWeekend,
-          notes: `Claimed shift on ${shiftDate.toFormat('M/d/yyyy')}`
-        });
-
-      if (transactionError) throw transactionError;
-
-      // Update claimer's Croo Cash balance
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("croo_cash_balance")
-        .eq("id", user.id)
-        .single();
-      
-      await supabase
-        .from("profiles")
-        .update({ croo_cash_balance: (profile?.croo_cash_balance || 0) + amount })
-        .eq("id", user.id);
-
       toast.success("Shift claimed! Awaiting approval.");
     } catch (error) {
       console.error("Error claiming shift:", error);
@@ -262,12 +227,6 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
 
     setProcessing(true);
     try {
-      // Determine if this is a weekend shift for Croo Cash amount (Fri, Sat, Sun)
-      const shiftDate = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
-      const dayOfWeek = shiftDate.weekday % 7;
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
-
       // Update shift_offers status to approved
       const { error: offerError } = await supabase
         .from("shift_offers")
@@ -287,38 +246,6 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
 
       if (shiftError) throw shiftError;
 
-      // NOW deduct Croo Cash from the offerer (they lose points when claim is approved)
-      const { error: offererTransactionError } = await supabase
-        .from("croo_cash_transactions")
-        .insert({
-          user_id: offer.offered_by.id,
-          amount: -amount,
-          transaction_type: "offer_shift",
-          shift_offer_id: offerId,
-          shift_date: offer.shift.shift_date,
-          is_weekend: isWeekend,
-          notes: `Offered shift on ${shiftDate.toFormat('M/d/yyyy')} - claim approved`
-        });
-
-      if (offererTransactionError) throw offererTransactionError;
-
-      // Update offerer's Croo Cash balance
-      const { data: offererProfile } = await supabase
-        .from("profiles")
-        .select("croo_cash_balance")
-        .eq("id", offer.offered_by.id)
-        .single();
-      
-      await supabase
-        .from("profiles")
-        .update({ croo_cash_balance: (offererProfile?.croo_cash_balance || 0) - amount })
-        .eq("id", offer.offered_by.id);
-
-      // Trigger animation if the current user is the one who got approved
-      if (currentUserId === selectedClaimerId) {
-        triggerAnimation(amount);
-      }
-
       // Phone alerts (claimer + offerer) are sent by the database when the offer is approved.
 
       toast.success("Shift approved and assigned!");
@@ -333,42 +260,6 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
   const handleDeny = async () => {
     setProcessing(true);
     try {
-      // Get all claimers for this shift (Fri, Sat, Sun = weekend)
-      const shiftDate = DateTime.fromFormat(offer.shift.shift_date, 'yyyy-MM-dd');
-      const dayOfWeek = shiftDate.weekday % 7;
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
-
-      // Reverse Croo Cash for all claimers
-      for (const claim of claims) {
-        // Create reversal transaction
-        const { error: transactionError } = await supabase
-          .from("croo_cash_transactions")
-          .insert({
-            user_id: claim.user_id,
-            amount: -amount,
-            transaction_type: "denied_claim",
-            shift_offer_id: offerId,
-            shift_date: offer.shift.shift_date,
-            is_weekend: isWeekend,
-            notes: `Claim denied for shift on ${shiftDate.toFormat('M/d/yyyy')}`
-          });
-
-        if (transactionError) throw transactionError;
-
-        // Update claimer's Croo Cash balance
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("croo_cash_balance")
-          .eq("id", claim.user_id)
-          .single();
-        
-        await supabase
-          .from("profiles")
-          .update({ croo_cash_balance: (profile?.croo_cash_balance || 0) - amount })
-          .eq("id", claim.user_id);
-      }
-
       // Delete all claims
       const { error: deleteClaimsError } = await supabase
         .from("shift_offer_claims")
