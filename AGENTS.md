@@ -18,6 +18,7 @@
 - Theo add/delete shift rules + day preview: only _shared/shiftPlan.ts (checked at preview and tap); writes only in src/lib/scheduleActions.ts. Why: one rule, one save path.
 - Theo messages (read my chats, reply, new DM): all chat reading goes through the asking person's own access plus the one store/membership filter (_shared/messagePlan.ts scopeChats), and the only sends are src/lib/chatMessages.ts (sendChatMessage with its push, findOrCreateDm for Theo only, unsendMessage), shared with the chat window. Why: Theo must never see a chat the person isn't in, and a message must send one way.
 - Theo clock in/out: rules only in _shared/punchPlan.ts (preview, tap, Undo); every punch insert goes through src/lib/punches.ts; clock-out never sends a shift_id. Why: one rule, one save, and in/out stay on the same shift.
-- Quick Nudge: _shared/nudgePlan.ts + *_nudge_status; on-clock recipients server-side; send only quickNudges.ts → quick-nudge; log nudge_log; icons via NUDGE_ICON. Why: one path.
+- Quick Nudge: _shared/nudgePlan.ts + *_nudge_status; on-clock recipients server-side; quickNudges.ts → quick-nudge; nudge_log; NUDGE_ICON. Why: one path.
 - POS list: server only _shared/posSources.ts, client only src/lib/pos/liveSales.ts; never a hard-coded fallback POS (unknown = null). Why: missing lists mislabeled Hayward.
-- New data point or POS source for one: update data_point_registry in the same migration. Why: one map of who writes what.
+- New data/POS source: update data_point_registry in the same migration. Why: one writer map.
+- Schedule pay: weekLaborCost = labor_week_pay, fixture-checked. Why: one cost.

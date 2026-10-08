@@ -4,6 +4,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { grossShiftHours, mealBreakLabel, shiftHasMeal, type MealRules } from '@/utils/shiftUtils';
 
 export interface ScheduleLaborRules extends MealRules {
+  state_code?: string | null;
   daily_overtime_threshold: number | null;
   daily_double_time_threshold: number | null;
   overtime_multiplier: number | null;
@@ -23,7 +24,7 @@ export function useScheduleLaborRules(locationId: string | null | undefined) {
     queryFn: async (): Promise<ScheduleLaborRules | null> => {
       const { data, error } = await supabase
         .from('labor_rules')
-        .select('daily_overtime_threshold, daily_double_time_threshold, overtime_multiplier, double_time_multiplier, weekly_overtime_threshold, meal_rule_basis, meal_break_paid, meal_break_hours, meal_break_duration, unpaid_break_min_minutes, second_meal_break_hours, seventh_day_rule, daily_ot_max_wage, meal_deadline_hours, meal_waiver_max_hours, second_meal_waiver_max_hours')
+        .select('state_code, daily_overtime_threshold, daily_double_time_threshold, overtime_multiplier, double_time_multiplier, weekly_overtime_threshold, meal_rule_basis, meal_break_paid, meal_break_hours, meal_break_duration, unpaid_break_min_minutes, second_meal_break_hours, seventh_day_rule, daily_ot_max_wage, meal_deadline_hours, meal_waiver_max_hours, second_meal_waiver_max_hours')
         .eq('location_id', locationId!)
         .maybeSingle();
       if (error) { console.warn('labor-rules-schedule', error.code, error.message); return null; }
