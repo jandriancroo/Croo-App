@@ -17,8 +17,10 @@ export function laborCheckIssues(lc: ScheduleLaborCheck | null | undefined, opts
   if (opts.people) {
     for (const p of lc.people ?? []) {
       const name = p.name || "Someone";
-      if (p.over_weekly) out.push(`${name}: ${hrs(p.week_hours)} hrs this week (over ${hrs(p.weekly_threshold)})`);
+      if (p.over_weekly && p.weekly_threshold != null) out.push(`${name}: ${hrs(p.week_hours)} hrs this week (over ${hrs(p.weekly_threshold)})`);
       for (const o of p.days_over_daily ?? []) out.push(`${name}: ${hrs(o.hours)} hrs on ${day(o.date)} (over daily OT${opts.dailyOt ? ` ${hrs(Number(opts.dailyOt))}` : ""})`);
+      if (p.seventh_day) out.push(`${name}: 7th day in a row on ${day(p.seventh_day)} (OT pay)`);
+      for (const d of p.meal_premium_days ?? []) out.push(`${name}: no room for a meal on ${day(d)} (+1 hr premium)`);
     }
   }
   return out;

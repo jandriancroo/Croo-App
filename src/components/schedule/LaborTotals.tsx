@@ -1,7 +1,6 @@
-import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
-import { paidShiftHours } from '@/utils/shiftUtils';
+import { useWeekLaborCost } from '@/hooks/useWeekLaborCost';
+import { dayPay } from '@/utils/laborCost';
 import { useMemo, useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -47,6 +46,8 @@ interface ScheduledShift {
   start_time: string;
   end_time: string;
   shift_date: string;
+  is_time_off?: boolean | null;
+  is_phantom?: boolean | null;
 }
 interface LaborTotalsProps {
   shifts: ScheduledShift[];
@@ -54,22 +55,6 @@ interface LaborTotalsProps {
   currentWeekStart: Date;
   scheduleId?: string | null;
   isEditable?: boolean;
-}
-
-// Fetch wages for a specific user+date combo
-async function fetchWageForShift(userId: string, shiftDate: string): Promise<number | null> {
-  try {
-    const { data, error } = await supabase.rpc('get_current_wage', {
-      p_user_id: userId,
-      p_date: shiftDate
-    });
-    if (!error && data !== null) {
-      return data;
-    }
-  } catch (error) {
-    console.error('Error fetching wage:', error);
-  }
-  return null;
 }
 
 export function LaborTotals({
@@ -96,51 +81,8 @@ export function LaborTotals({
   const [projectionDialogDay, setProjectionDialogDay] = useState<number | null>(null);
   const { user } = useAuth();
 
-  // The one schedule labor_rules read (meal + OT/DT)
-  const { data: laborRules } = useScheduleLaborRules(currentLocation?.id);
-
-  // Compute a stable key for shifts to trigger wage refetch
-  const shiftsKey = useMemo(() => {
-    return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}-${s.start_time}-${s.end_time}`).join('|');
-  }, [shifts]);
-
-  // Use React Query for wage fetching with staleTime
-  const { data: shiftWages = {}, isLoading: isLoadingWages } = useQuery({
-    queryKey: ['shift-wages', shiftsKey],
-    queryFn: async () => {
-      const wages: Record<string, number> = {};
-      
-      // Group shifts by user to reduce queries
-      const shiftsByUser = shifts.reduce((acc, shift) => {
-        if (!shift.user_id) return acc;
-        if (!acc[shift.user_id]) acc[shift.user_id] = [];
-        acc[shift.user_id].push(shift);
-        return acc;
-      }, {} as Record<string, ScheduledShift[]>);
-
-      // Fetch wages for all users in parallel
-      await Promise.all(Object.entries(shiftsByUser).map(async ([userId, userShifts]) => {
-        const uniqueDates = [...new Set(userShifts.map(s => s.shift_date))];
-        
-        const userWages = await Promise.all(uniqueDates.map(async date => {
-          const wage = await fetchWageForShift(userId, date);
-          return wage !== null ? { date, wage } : null;
-        }));
-
-        userShifts.forEach(shift => {
-          const wageData = userWages.find(w => w?.date === shift.shift_date);
-          if (wageData) {
-            wages[shift.id] = wageData.wage;
-          }
-        });
-      }));
-      
-      return wages;
-    },
-    enabled: shifts.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes - wages don't change often
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
-  });
+  // The ONE scheduled pay read (wages on shift date + store rules -> weekLaborCost)
+  const { pay: weekPay } = useWeekLaborCost(shifts, profiles, currentLocation?.id);
 
   // Fetch saved projected sales first
   useEffect(() => {
@@ -594,62 +536,11 @@ export function LaborTotals({
         };
       }
       
-      // For today and future: calculate from scheduled shifts with OT/DT
-      const dayShifts = shifts.filter(s => s.shift_date === dayStr);
-      let totalHours = 0;
-      let totalWages = 0;
-
-      // A 0/null daily threshold means the state has NO daily OT/DT rule (e.g. TX, GA, IN).
-      // Treat it as disabled — otherwise every scheduled hour lands in double time.
-      const rawDailyOT = laborRules?.daily_overtime_threshold;
-      const rawDailyDT = laborRules?.daily_double_time_threshold;
-      const dailyOT = rawDailyOT && rawDailyOT > 0 ? rawDailyOT : Infinity;
-      const dailyDT = rawDailyDT && rawDailyDT > 0 ? rawDailyDT : Infinity;
-      const otMult = laborRules?.overtime_multiplier ?? 1.5;
-      const dtMult = laborRules?.double_time_multiplier ?? 2.0;
-
-      // Group shifts by employee to calculate per-employee daily OT/DT
-      const hoursByEmployee: Record<string, { hours: number; wage: number }> = {};
-
-      dayShifts.forEach(shift => {
-        if (!shift.user_id) return;
-        const profile = profiles.find(p => p.id === shift.user_id);
-
-        const shiftHours = paidShiftHours(shift.start_time, shift.end_time, laborRules);
-        totalHours += shiftHours;
-
-        const wage = shiftWages[shift.id] ?? profile?.hourly_wage ?? 0;
-
-        if (!hoursByEmployee[shift.user_id]) {
-          hoursByEmployee[shift.user_id] = { hours: 0, wage };
-        }
-        hoursByEmployee[shift.user_id].hours += shiftHours;
-        // Use the latest wage found for this employee
-        hoursByEmployee[shift.user_id].wage = wage;
-      });
-
-      // Calculate wages with OT/DT multipliers per employee
-      Object.values(hoursByEmployee).forEach(({ hours: empHours, wage }) => {
-        if (empHours <= dailyOT) {
-          totalWages += empHours * wage;
-        } else if (empHours <= dailyDT) {
-          totalWages += dailyOT * wage;
-          totalWages += (empHours - dailyOT) * wage * otMult;
-        } else {
-          totalWages += dailyOT * wage;
-          totalWages += (dailyDT - dailyOT) * wage * otMult;
-          totalWages += (empHours - dailyDT) * wage * dtMult;
-        }
-      });
-
-      return {
-        date: format(day, 'EEE'),
-        hours: totalHours,
-        wages: totalWages,
-        isActual: false
-      };
+      // Today and future: the ONE week-pay calculation (weekly OT, 7th day, meal premiums)
+      const d = dayPay(weekPay, dayStr);
+      return { date: format(day, 'EEE'), hours: d.hours, wages: d.cost, isActual: false };
     });
-  }, [shifts, profiles, weekDays, shiftWages, actualLabor, laborRules]);
+  }, [weekDays, actualLabor, weekPay]);
   const weeklyTotals = useMemo(() => {
     const totalHours = dailyTotals.reduce((sum, day) => sum + day.hours, 0);
     const totalWages = dailyTotals.reduce((sum, day) => sum + day.wages, 0);

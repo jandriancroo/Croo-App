@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useWeekLaborCost } from "@/hooks/useWeekLaborCost";
+import { dayPay } from "@/utils/laborCost";
 import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
 import { paidShiftHours } from '@/utils/shiftUtils';
 import { format, subWeeks } from "date-fns";
@@ -171,10 +173,15 @@ export function MobileDayPreviewSheet({
   const pendingCost = pendingHours * pendingWage;
 
   const totalHours = dayShifts.reduce((s, sh) => s + calcWorkedHours(sh.start_time, sh.end_time), 0) + pendingHours;
-  const totalCost = dayShifts.reduce((s, sh) => {
-    const p = profileFor(sh.user_id);
-    return s + calcWorkedHours(sh.start_time, sh.end_time) * (p?.hourly_wage ?? 0);
-  }, 0) + pendingCost;
+  // Total cost: the ONE week-pay calculation over this schedule's week (+ the draft being added)
+  const weekShifts = useMemo(() => {
+    const own = (shifts || []).filter((s) => s.schedule_id === scheduleId);
+    return pendingDraft
+      ? [...own, { id: "pending-draft", user_id: pendingDraft.employeeId, shift_date: dateStr, start_time: pendingDraft.start, end_time: pendingDraft.end }]
+      : own;
+  }, [shifts, scheduleId, pendingDraft, dateStr]);
+  const { pay: weekPay } = useWeekLaborCost(weekShifts, profiles, currentLocation?.id);
+  const totalCost = dayPay(weekPay, dateStr).cost;
   const laborPct = salesData?.daily ? (totalCost / salesData.daily) * 100 : 0;
 
   // hourly breakdown

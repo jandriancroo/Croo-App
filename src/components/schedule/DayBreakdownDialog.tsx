@@ -8,8 +8,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { useScheduleLaborRules } from "@/hooks/useScheduleLaborRules";
-import { paidShiftHours } from "@/utils/shiftUtils";
+import { useWeekLaborCost } from "@/hooks/useWeekLaborCost";
+import { dayPay, personDayPay } from "@/utils/laborCost";
+import { grossShiftHours, paidShiftHours } from "@/utils/shiftUtils";
 import { Sparkles, Loader2, User, Printer } from "lucide-react";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
@@ -56,7 +57,8 @@ export function DayBreakdownDialog({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
-  const { data: laborRules } = useScheduleLaborRules(currentLocation?.id);
+  // The ONE scheduled pay calculation over the week's shifts (weekly OT, 7th day, meal premiums)
+  const { pay: weekPay, rules: laborRules, wageFor } = useWeekLaborCost(shifts, profiles, currentLocation?.id);
   const laborGoals = useLaborGoals();
   const dayGoal = laborGoals.forDate(dateStr);
   
@@ -295,8 +297,9 @@ export function DayBreakdownDialog({
       }
       const totalHours = endTime - startTime;
 
-      const profile = getProfileForShift(shift);
-      const wage = profile?.hourly_wage ?? 0;
+      // Same per-shift wage + meal deduction as the totals (spread evenly over the shift)
+      const wage = shift.user_id ? wageFor(shift.user_id, shift.shift_date) : 0;
+      const paidRatio = totalHours > 0 ? paidShiftHours(shift.start_time, shift.end_time, laborRules) / grossShiftHours(shift.start_time, shift.end_time) : 1;
 
       // Fill in each hour this shift covers
       for (let hour = Math.floor(startTime); hour < Math.ceil(endTime); hour++) {
@@ -307,7 +310,7 @@ export function DayBreakdownDialog({
         // Calculate fraction of hour worked
         const hourStart = Math.max(hour, startTime);
         const hourEnd = Math.min(hour + 1, endTime);
-        const hoursThisSlot = hourEnd - hourStart;
+        const hoursThisSlot = (hourEnd - hourStart) * paidRatio;
 
         hourlyData[hour].hours += hoursThisSlot;
         hourlyData[hour].cost += hoursThisSlot * wage;
@@ -321,15 +324,15 @@ export function DayBreakdownDialog({
   const hourlyBreakdown = calculateHourlyBreakdown();
 
   // Calculate totals
-  const totalHours = dayShifts.reduce((sum: number, shift: any) =>
-    shift.is_time_off ? sum : sum + paidShiftHours(shift.start_time, shift.end_time, laborRules), 0);
-
-  const totalCost = dayShifts.reduce((sum: number, shift: any) => {
-    if (shift.is_time_off) return sum;
-    const profile = getProfileForShift(shift);
-    const wage = profile?.hourly_wage ?? 0;
-    return sum + paidShiftHours(shift.start_time, shift.end_time, laborRules) * wage;
-  }, 0);
+  const dayTotals = dayPay(weekPay, dateStr);
+  const totalHours = dayTotals.hours;
+  const totalCost = dayTotals.cost;
+  /** One shift's share of that person's day cost (by paid hours). */
+  const shiftCost = (shift: any) => {
+    const pd = personDayPay(weekPay, shift.user_id, dateStr);
+    if (!pd || pd.hours <= 0) return 0;
+    return pd.cost * (paidShiftHours(shift.start_time, shift.end_time, laborRules) / pd.hours);
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -769,8 +772,8 @@ export function DayBreakdownDialog({
                   }
                   const workedHours = paidShiftHours(shift.start_time, shift.end_time, laborRules);
                   const profile = getProfileForShift(shift);
-                  const wage = profile?.hourly_wage ?? 0;
-                  const cost = workedHours * wage;
+                  const wage = wageFor(shift.user_id, shift.shift_date);
+                  const cost = shiftCost(shift);
 
                   return (
                     <div

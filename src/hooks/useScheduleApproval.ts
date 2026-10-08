@@ -21,7 +21,7 @@ export interface ScheduleLaborCheck {
   reason: string | null;
   week_over_goal?: boolean;
   days?: { date: string; projected_sales: number | null; target_pct: number | null; scheduled_hours: number; scheduled_cost: number; labor_pct: number | null; over_goal: boolean }[];
-  people?: { user_id: string; name: string | null; week_hours: number; over_weekly: boolean; weekly_threshold: number; days_over_daily: { date: string; hours: number }[] }[];
+  people?: { user_id: string; name: string | null; week_hours: number; over_weekly: boolean; weekly_threshold: number | null; days_over_daily: { date: string; hours: number }[]; seventh_day?: string | null; meal_premium_days?: string[] }[];
 }
 
 export interface ApprovalSettings {
@@ -201,6 +201,7 @@ export function laborCheckOverGoal(lc: ScheduleLaborCheck | null | undefined): b
 export function needsApprovalReason(lc: ScheduleLaborCheck | null | undefined): string {
   const reason = lc?.reason;
   if (reason === "over_goal") return "This week is over the labor goal, so it needs approval before it posts.";
+  if (reason === "day_over_goal") return "A day this week is over its labor goal, so it needs approval before it posts.";
   if (reason === "no_projection" || reason === "zero_sales") return "This week has no sales projection yet, so it needs approval before it posts.";
   if (reason === "no_target") return "This store has no labor goal set, so it needs approval before it posts.";
   return "This week needs approval before it posts.";

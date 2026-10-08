@@ -15486,6 +15486,10 @@ export type Database = {
         Args: { _sc: Database["public"]["Tables"]["schedules"]["Row"] }
         Returns: undefined
       }
+      _schedule_week_labor_check: {
+        Args: { _schedule_id: string }
+        Returns: Json
+      }
       _shift_change_desc: {
         Args: { _r: Database["public"]["Tables"]["schedule_change_log"]["Row"] }
         Returns: string
@@ -16300,6 +16304,7 @@ export type Database = {
         }[]
       }
       labor_source_for: { Args: { _location_id: string }; Returns: string }
+      labor_week_pay: { Args: { _rules: Json; _shifts: Json }; Returns: Json }
       location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
