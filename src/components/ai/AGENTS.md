@@ -1,0 +1,1 @@
+- Team Feed posts only via src/lib/feedPosts.ts (createFeedPost / deleteFeedPost), shared by the feed composer and Theo's Post announcement tap. Why: one save, one push path.
