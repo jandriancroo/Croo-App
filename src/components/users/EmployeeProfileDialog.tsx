@@ -669,6 +669,11 @@ export function EmployeeProfileDialog({
                 </div>
               </div>
 
+              {isManager && currentLocationId && (
+                <OriginalShiftsTile userId={user.id} locationId={currentLocationId} />
+              )}
+
+
 
               {/* Admin Actions */}
               {isAdmin && (
