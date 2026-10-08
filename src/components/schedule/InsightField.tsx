@@ -25,7 +25,7 @@ interface Props {
 }
 
 const base =
-  'group/field w-full h-8 min-w-0 flex items-center gap-1.5 rounded-lg border pl-[9px] pr-2 text-left cursor-pointer transition-colors outline-none ' +
+  'group/field w-full h-8 min-w-0 overflow-hidden flex items-center gap-1.5 rounded-lg border pl-[9px] pr-2 text-left cursor-pointer transition-colors outline-none ' +
   'shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] ' +
   'hover:border-blue-400 hover:bg-blue-400/[0.16] focus-visible:border-blue-400 focus-visible:bg-blue-400/[0.16] focus-visible:ring-[3px] focus-visible:ring-blue-400/[0.22] ' +
   '[button:hover>&]:border-blue-400 [button:hover>&]:bg-blue-400/[0.16] ' +

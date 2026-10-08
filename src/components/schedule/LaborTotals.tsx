@@ -772,7 +772,7 @@ export function LaborTotals({
           <div className={`${insightGrid} border-b border-slate-700/40`}>
             <div className="px-3 py-1.5 bg-blue-950/40 flex items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Labor %</span>
-              <LaborGoalPopover dow={null} projectedSales={weeklyTotals.sales} canEdit={isEditable}>
+              <div className="flex-1 min-w-0"><LaborGoalPopover dow={null} projectedSales={weeklyTotals.sales} canEdit={isEditable}>
                 <InsightField
                   plain={!laborGoals.available}
                   value={weeklyTotals.sales > 0 ? <span className={`text-[15px] font-bold ${toneClass(laborGoalTone(weeklyTotals.laborPercent, laborGoals.weekly))}`}>
@@ -781,7 +781,7 @@ export function LaborTotals({
                   suffix={laborGoals.weekly != null ? <>/ <span className="text-slate-300">{laborGoals.weekly}%</span> weekly goal</> : undefined}
                   tooltip={<><p>Edit weekly labor goal</p>{laborGoals.weekly != null && <p className="text-xs opacity-70">Currently {laborGoals.weekly}%</p>}</>}
                 />
-              </LaborGoalPopover>
+              </LaborGoalPopover></div>
             </div>
             {dailyTotals.map((day, index) => {
               const phase = getDayPhase(index);
