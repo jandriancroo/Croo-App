@@ -426,7 +426,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                                     Use
                                   </Button>
                                 )}
-                                <Button variant="ghost" size="sm" onClick={() => handleOpenPresetForm(preset)}>
+                                <Button variant="ghost" size="sm" onClick={() => handleOpenPresetForm(preset as LaborRulePreset)}>
                                   <Edit className="h-3.5 w-3.5" />
                                 </Button>
                                 <Button variant="ghost" size="sm" onClick={() => handleDeletePreset(preset.id)}
