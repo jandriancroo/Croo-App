@@ -7,13 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLaborRules } from '@/hooks/useLaborRules';
 import {
-  DEFAULT_FORM, EDITABLE_FIELDS, FIELD_META, diffForm, formatValue, laborRulesSchema, toForm,
+  DEFAULT_FORM, EDITABLE_FIELDS, FIELD_META, diffForm, laborRulesSchema, toForm,
   type LaborRulesField, type LaborRulesForm,
 } from '@/lib/laborRules/schema';
 import { labelFor } from '@/lib/timeTracking/shiftFlags';

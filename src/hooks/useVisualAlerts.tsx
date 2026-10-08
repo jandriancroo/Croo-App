@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
-export type VisualAlertType = "quick_task" | "overdue_checklist" | "checklist_nudge" | "quick_nudge";
+export type VisualAlertType = "quick_task" | "overdue_checklist" | "checklist_nudge" | "quick_nudge" | "labor_rules_proposal";
 
 export interface VisualAlert {
   id: string;
