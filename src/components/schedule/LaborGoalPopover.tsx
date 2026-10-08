@@ -27,7 +27,7 @@ export function LaborGoalPopover({ dow, projectedSales, canEdit, children }: Pro
   const hidden = !goals.available;
 
   useEffect(() => {
-    if (open) setValue(String(current));
+    if (open) setValue(current == null ? '' : String(current));
   }, [open, current]);
 
   const save = async (pct: number | null) => {
@@ -46,6 +46,10 @@ export function LaborGoalPopover({ dow, projectedSales, canEdit, children }: Pro
 
   const pctNum = parseFloat(value);
   const implied = projectedSales > 0 && pctNum > 0 ? projectedSales * (pctNum / 100) : null;
+
+  if (hidden) {
+    return <div className="w-full h-full flex items-center justify-center gap-2">{children}</div>;
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

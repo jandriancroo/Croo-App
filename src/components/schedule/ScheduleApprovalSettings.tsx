@@ -35,9 +35,9 @@ function useApprovalSave(locationId: string) {
   return { save, saving };
 }
 
-function summaryText(roles: string[], mode: ApprovalSettingsMode, weekly: number) {
+function summaryText(roles: string[], mode: ApprovalSettingsMode, weekly: number | null) {
   const who = roles.includes("manager") && roles.includes("admin") ? "Managers and admins" : roles.includes("admin") ? "Admins" : "Managers";
-  const when = mode === "every_draft" ? "every schedule" : `only when over the labor goal (${weekly}%)`;
+  const when = mode === "every_draft" ? "every schedule" : `only when over the labor goal${weekly != null ? ` (${weekly}%)` : ""}`;
   return `${who} need approval · ${when}`;
 }
 
@@ -108,7 +108,7 @@ export function ScheduleApprovalRulesBlock({ locationId }: { locationId: string 
         <RadioGroup value={s.mode} onValueChange={(v) => save({ mode: v as ApprovalSettingsMode })} disabled={!editable || saving}>
           <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="every_draft" /> Every schedule</label>
           <label className="flex items-center gap-2 text-sm">
-            <RadioGroupItem value="over_labor_goal" /> Only when the week misses the labor goal ({goals.weekly}%)
+            <RadioGroupItem value="over_labor_goal" /> Only when the week misses the labor goal{goals.weekly != null ? ` (${goals.weekly}%)` : ""}
           </label>
         </RadioGroup>
         {goals.templateId && (
