@@ -155,6 +155,13 @@
       "when": 1791442314473,
       "tag": "0021_0021_labor_goal_display",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791442847082,
+      "tag": "0022_pos_source_guard_and_registry",
+      "breakpoints": true
     }
   ]
 }
