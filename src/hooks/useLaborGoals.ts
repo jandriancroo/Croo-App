@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
+import { useUserRole } from '@/hooks/useUserRole';
+
+/** Same as the server's has_role_or_higher(…, 'manager'): only these see the labor goal. */
+const GOAL_ROLES = ['manager', 'general_manager', 'admin', 'org_admin', 'brand_admin', 'super_admin'];
 
 /** Weekday convention: 0 = Monday … 6 = Sunday (same as the Weekly Template). */
 export type LaborGoalSource = 'weekly_template' | 'weekly_goal' | 'store_default';
@@ -31,10 +35,12 @@ export function useLaborGoals(locationIdOverride?: string | null) {
   const { currentLocation } = useLocation();
   const locationId = locationIdOverride ?? currentLocation?.id ?? null;
   const qc = useQueryClient();
+  const { role } = useUserRole();
+  const canSee = !!role && GOAL_ROLES.includes(role);
 
   const query = useQuery({
     queryKey: laborGoalsKey(locationId),
-    enabled: !!locationId,
+    enabled: !!locationId && canSee,
     staleTime: 60_000,
     queryFn: async (): Promise<LaborGoalsRow | null> => {
       const { data, error } = await supabase.rpc('labor_goals' as any, { _location_id: locationId });
@@ -43,9 +49,11 @@ export function useLaborGoals(locationIdOverride?: string | null) {
     },
   });
 
-  const g = query.data;
-  const storeDefault = g?.store_default ?? 25;
-  const weekly = g?.weekly ?? storeDefault;
+  // No goal for staff (server returns NULL): never fall back to a made-up number.
+  const g = canSee ? query.data : null;
+  const available = !!g;
+  const storeDefault: number | null = g ? (g.store_default ?? null) : null;
+  const weekly: number | null = g ? (g.weekly ?? storeDefault) : null;
   const weeklySource: LaborGoalSource = g?.weekly_source ?? 'store_default';
 
   const dayValue = useCallback((dow: number): number | null => {
@@ -53,7 +61,7 @@ export function useLaborGoals(locationIdOverride?: string | null) {
     return v == null ? null : Number(v);
   }, [g]);
 
-  const forDow = useCallback((dow: number) => dayValue(dow) ?? weekly, [dayValue, weekly]);
+  const forDow = useCallback((dow: number): number | null => dayValue(dow) ?? weekly, [dayValue, weekly]);
   const sourceForDow = useCallback(
     (dow: number): LaborGoalSource => (dayValue(dow) != null ? 'weekly_template' : weeklySource),
     [dayValue, weeklySource],
@@ -85,6 +93,8 @@ export function useLaborGoals(locationIdOverride?: string | null) {
 
   return {
     loading: query.isLoading,
+    /** False for staff or when the store has no goal row: hide goal UI, use neutral colors. */
+    available,
     weekly,
     weeklySource,
     storeDefault,
@@ -108,7 +118,8 @@ export const LABOR_GOAL_SOURCE_LABEL: Record<LaborGoalSource, string> = {
 };
 
 /** ≤ goal green, ≤ goal+3 yellow, above red. */
-export function laborGoalTone(pct: number, goal: number): 'good' | 'warn' | 'bad' {
+export function laborGoalTone(pct: number, goal: number | null): 'good' | 'warn' | 'bad' | 'neutral' {
+  if (goal == null) return 'neutral';
   if (pct <= goal) return 'good';
   if (pct <= goal + 3) return 'warn';
   return 'bad';
