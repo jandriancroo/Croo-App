@@ -1,5 +1,5 @@
-import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
-import { paidShiftHours } from '@/utils/shiftUtils';
+import { useWeekLaborCost } from '@/hooks/useWeekLaborCost';
+import { dayPay } from '@/utils/laborCost';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -24,6 +24,8 @@ interface DayShift {
   start_time: string;
   end_time: string;
   shift_date: string;
+  is_time_off?: boolean | null;
+  is_phantom?: boolean | null;
 }
 
 interface DayProfile {
@@ -42,6 +44,8 @@ interface DayInsightsBarProps {
   dayIndex: number;
   scheduleId?: string | null;
   shifts: DayShift[];
+  /** The whole week's shifts so weekly OT / 7th day land on the right day */
+  weekShifts?: DayShift[];
   profiles: DayProfile[];
   canEdit?: boolean;
   /** Week start (yyyy-MM-dd) used when the shared projection service needs seeding */
@@ -55,7 +59,7 @@ interface DayInsightsBarProps {
  * surfaces can never disagree:
  *   sales  → past: net_sales · today: live POS sales · future: resolved projection
  *   labor  → past: labor_cache (gap-filled from punches) · today: live punch labor
- *            · future: scheduled shifts with the location's OT/DT rules
+ *            · future: weekLaborCost over the week's scheduled shifts
  */
 export function DayInsightsBar({
   locationId,
@@ -65,6 +69,7 @@ export function DayInsightsBar({
   dayIndex,
   scheduleId,
   shifts,
+  weekShifts,
   profiles,
   canEdit = false,
   weekStart,
@@ -80,28 +85,8 @@ export function DayInsightsBar({
   const phase: 'completed' | 'today' | 'future' =
     dateStr < todayStr ? 'completed' : dateStr === todayStr ? 'today' : 'future';
 
-  // ---- Labor rules (OT/DT) -------------------------------------------------
-  const { data: laborRules } = useScheduleLaborRules(locationId);
-
-  // ---- Wages for this day's scheduled shifts ------------------------------
-  const shiftsKey = shifts.map(s => `${s.id}-${s.user_id}`).join('|');
-  const { data: shiftWages = {} } = useQuery({
-    queryKey: ['day-insights-wages', dateStr, shiftsKey],
-    queryFn: async () => {
-      const wages: Record<string, number> = {};
-      await Promise.all(shifts.map(async shift => {
-        if (!shift.user_id) return;
-        const { data } = await supabase.rpc('get_current_wage', {
-          p_user_id: shift.user_id,
-          p_date: shift.shift_date,
-        });
-        if (data !== null && data !== undefined) wages[shift.id] = Number(data);
-      }));
-      return wages;
-    },
-    enabled: shifts.length > 0 && phase !== 'completed',
-    staleTime: 5 * 60 * 1000,
-  });
+  // ---- Scheduled pay: the ONE week calculation over the WEEK's shifts --
+  const { pay: weekPay } = useWeekLaborCost(weekShifts ?? shifts, profiles, locationId);
 
   // ---- Labor for the selected day -----------------------------------------
   const { data: laborData } = useQuery({
@@ -124,46 +109,11 @@ export function DayInsightsBar({
     refetchInterval: phase === 'today' ? 60 * 1000 : false,
   });
 
-  // Scheduled labor (today + future) — identical math to the desktop bar
+  // Scheduled labor (today + future) — same weekLaborCost result as the desktop bar
   const scheduledLabor = useMemo(() => {
-    const rawDailyOT = laborRules?.daily_overtime_threshold;
-    const rawDailyDT = laborRules?.daily_double_time_threshold;
-    const dailyOT = rawDailyOT && rawDailyOT > 0 ? rawDailyOT : Infinity;
-    const dailyDT = rawDailyDT && rawDailyDT > 0 ? rawDailyDT : Infinity;
-    const otMult = laborRules?.overtime_multiplier ?? 1.5;
-    const dtMult = laborRules?.double_time_multiplier ?? 2.0;
-
-    let totalHours = 0;
-    let totalWages = 0;
-    const byEmployee: Record<string, { hours: number; wage: number }> = {};
-
-    shifts.forEach(shift => {
-      if (!shift.user_id) return;
-      const shiftHours = paidShiftHours(shift.start_time, shift.end_time, laborRules);
-      totalHours += shiftHours;
-
-      const wage = (shiftWages as Record<string, number>)[shift.id]
-        ?? profiles.find(p => p.id === shift.user_id)?.hourly_wage
-        ?? 0;
-      if (!byEmployee[shift.user_id]) byEmployee[shift.user_id] = { hours: 0, wage };
-      byEmployee[shift.user_id].hours += shiftHours;
-      byEmployee[shift.user_id].wage = wage;
-    });
-
-    Object.values(byEmployee).forEach(({ hours: empHours, wage }) => {
-      if (empHours <= dailyOT) {
-        totalWages += empHours * wage;
-      } else if (empHours <= dailyDT) {
-        totalWages += dailyOT * wage + (empHours - dailyOT) * wage * otMult;
-      } else {
-        totalWages += dailyOT * wage
-          + (dailyDT - dailyOT) * wage * otMult
-          + (empHours - dailyDT) * wage * dtMult;
-      }
-    });
-
-    return { hours: totalHours, cost: totalWages };
-  }, [shifts, profiles, shiftWages, laborRules]);
+    const d = dayPay(weekPay, dateStr);
+    return { hours: d.hours, cost: d.cost };
+  }, [weekPay, dateStr]);
 
   const labor = useMemo(() => {
     if (phase === 'future') return scheduledLabor;

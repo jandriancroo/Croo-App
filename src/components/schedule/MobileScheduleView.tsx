@@ -1537,6 +1537,7 @@ export function MobileScheduleView({
                   dayIndex={selectedDayOfWeek}
                   scheduleId={scheduleId}
                   shifts={dayShifts as any}
+                  weekShifts={shifts as any}
                   profiles={profiles as any}
                   canEdit={isAdmin || isManager}
                   weekStart={format(currentWeekStart, 'yyyy-MM-dd')}

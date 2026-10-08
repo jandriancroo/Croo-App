@@ -3,7 +3,9 @@
  * keep both identical. Unpaid meals come from the store's labor_rules row:
  * no row / basis 'none' / paid meals / no meal hours → nothing subtracted;
  * gross > meal_break_hours → one meal; gross > second_meal_break_hours (> 0) → a second.
- * Meal length = coalesce(meal_break_duration, unpaid_break_min_minutes, 30). Waivers ignored.
+ * Meal length = coalesce(meal_break_duration, unpaid_break_min_minutes, 30).
+ * Waivers: no first-meal deduction when meal_waiver_max_hours > 0 and gross <= it; no second-meal
+ * deduction when second_meal_waiver_max_hours > 0 and gross <= it (worked through and paid).
  */
 export interface MealRules {
   meal_rule_basis?: string | null;
@@ -12,6 +14,8 @@ export interface MealRules {
   meal_break_duration?: number | null;
   unpaid_break_min_minutes?: number | null;
   second_meal_break_hours?: number | null;
+  meal_waiver_max_hours?: number | null;
+  second_meal_waiver_max_hours?: number | null;
 }
 
 export function grossShiftHours(start: string | undefined | null, end: string | undefined | null): number {
@@ -23,7 +27,7 @@ export function grossShiftHours(start: string | undefined | null, end: string | 
   return mins / 60;
 }
 
-function mealLength(rules: MealRules): number {
+export function mealLength(rules: MealRules): number {
   return Number(rules.meal_break_duration ?? rules.unpaid_break_min_minutes ?? 30);
 }
 
@@ -34,9 +38,11 @@ export function mealBreakMinutes(gross: number, rules: MealRules | null | undefi
   if (!first) return 0;
   const len = mealLength(rules);
   let mins = 0;
-  if (gross > first) mins += len;
+  const w1 = Number(rules.meal_waiver_max_hours ?? 0);
+  const w2 = Number(rules.second_meal_waiver_max_hours ?? 0);
+  if (gross > first && !(w1 > 0 && gross <= w1)) mins += len;
   const second = Number(rules.second_meal_break_hours ?? 0);
-  if (second > 0 && gross > second) mins += len;
+  if (second > 0 && gross > second && !(w2 > 0 && gross <= w2)) mins += len;
   return mins;
 }
 

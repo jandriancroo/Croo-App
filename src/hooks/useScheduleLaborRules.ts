@@ -9,6 +9,9 @@ export interface ScheduleLaborRules extends MealRules {
   overtime_multiplier: number | null;
   double_time_multiplier: number | null;
   weekly_overtime_threshold: number | null;
+  seventh_day_rule?: boolean | null;
+  daily_ot_max_wage?: number | null;
+  meal_deadline_hours?: number | null;
 }
 
 /** The ONE schedule read of a store's labor_rules (meal + OT/DT fields). Null = no row. */
@@ -20,7 +23,7 @@ export function useScheduleLaborRules(locationId: string | null | undefined) {
     queryFn: async (): Promise<ScheduleLaborRules | null> => {
       const { data, error } = await supabase
         .from('labor_rules')
-        .select('daily_overtime_threshold, daily_double_time_threshold, overtime_multiplier, double_time_multiplier, weekly_overtime_threshold, meal_rule_basis, meal_break_paid, meal_break_hours, meal_break_duration, unpaid_break_min_minutes, second_meal_break_hours')
+        .select('daily_overtime_threshold, daily_double_time_threshold, overtime_multiplier, double_time_multiplier, weekly_overtime_threshold, meal_rule_basis, meal_break_paid, meal_break_hours, meal_break_duration, unpaid_break_min_minutes, second_meal_break_hours, seventh_day_rule, daily_ot_max_wage, meal_deadline_hours, meal_waiver_max_hours, second_meal_waiver_max_hours')
         .eq('location_id', locationId!)
         .maybeSingle();
       if (error) { console.warn('labor-rules-schedule', error.code, error.message); return null; }
