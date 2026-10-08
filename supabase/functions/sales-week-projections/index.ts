@@ -15,6 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { computeAndSavePace } from "../_shared/projections.ts";
 import { authorizeCaller, requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { POS_SOURCES } from "../_shared/posSources.ts";
 import {
   getLocationTimezone,
   seedWeekProjections,
@@ -28,8 +29,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Any integration that delivers sales into sales_cache.
-const POS_INTEGRATION_TYPES = ["qubeyond", "clover", "aloha"];
 
 interface Body {
   action: "seed_week" | "seed_all_weeks";
@@ -95,7 +94,7 @@ Deno.serve(async (req) => {
       const { data: integrations, error } = await supabase
         .from("location_integrations")
         .select("location_id, integration_type")
-        .in("integration_type", POS_INTEGRATION_TYPES)
+        .in("integration_type", POS_SOURCES as unknown as string[])
         .eq("is_active", true);
       if (error) throw new Error(`POS location lookup failed: ${error.message}`);
 

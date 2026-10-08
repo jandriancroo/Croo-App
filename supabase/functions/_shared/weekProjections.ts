@@ -14,6 +14,7 @@
 //   • Never touches a day that already has actual sales.
 //   • Never touches labor_cache or any inventory data.
 
+import { getActivePosSource } from "./posSources.ts";
 import {
   fetchHistoricalDataFromCache,
   generateHourlyProjections,
@@ -75,25 +76,7 @@ export async function getLocationTimezone(supabase: any, locationId: string): Pr
   }
 }
 
-// Which sales system this store actually runs on, so a newly created
-// forecast row is never mislabeled with another vendor's name.
-async function getActivePosSource(supabase: any, locationId: string): Promise<string | null> {
-  try {
-    const { data } = await supabase
-      .from("location_integrations")
-      .select("integration_type")
-      .eq("location_id", locationId)
-      .eq("is_active", true)
-      .in("integration_type", ["qubeyond", "clover", "aloha"]);
-    const found = (data ?? []).map((r: any) => r.integration_type as string);
-    for (const key of ["qubeyond", "clover", "aloha"]) {
-      if (found.includes(key)) return key;
-    }
-  } catch {
-    // fall through
-  }
-  return null;
-}
+// Which sales system this store runs on comes from _shared/posSources.ts.
 
 async function getStoreHours(supabase: any, locationId: string): Promise<{ open: number; close: number }> {
   let open = 10;

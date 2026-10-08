@@ -3249,6 +3249,57 @@ export type Database = {
           },
         ]
       }
+      data_point_registry: {
+        Row: {
+          canonical_column: string | null
+          canonical_table: string | null
+          category: string
+          description: string | null
+          key: string
+          label: string
+          notes: string | null
+          readers: string[]
+          refresh_cadence: string | null
+          sot_ref: string | null
+          sot_status: string
+          sources: Json
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          canonical_column?: string | null
+          canonical_table?: string | null
+          category: string
+          description?: string | null
+          key: string
+          label: string
+          notes?: string | null
+          readers?: string[]
+          refresh_cadence?: string | null
+          sot_ref?: string | null
+          sot_status: string
+          sources?: Json
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          canonical_column?: string | null
+          canonical_table?: string | null
+          category?: string
+          description?: string | null
+          key?: string
+          label?: string
+          notes?: string | null
+          readers?: string[]
+          refresh_cadence?: string | null
+          sot_ref?: string | null
+          sot_status?: string
+          sources?: Json
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       dow_sales_profile: {
         Row: {
           avg_net_sales: number
@@ -16249,6 +16300,7 @@ export type Database = {
         }[]
       }
       labor_source_for: { Args: { _location_id: string }; Returns: string }
+      location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
         Args: { p_location_id: string; p_message_id: string }
