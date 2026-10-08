@@ -197,7 +197,14 @@ export function laborCheckOverGoal(lc: ScheduleLaborCheck | null | undefined): b
   return !!lc && (!!lc.week_over_goal || !!lc.days?.some((d) => d.over_goal));
 }
 
-export const OVER_GOAL_NEEDS_APPROVAL = "This week is over the labor goal, so it needs approval before it posts.";
+/** The ONE line saying why this week needs approval (over_labor_goal mode); picked from the check's reason. */
+export function needsApprovalReason(lc: ScheduleLaborCheck | null | undefined): string {
+  const reason = lc?.reason;
+  if (reason === "over_goal") return "This week is over the labor goal, so it needs approval before it posts.";
+  if (reason === "no_projection" || reason === "zero_sales") return "This week has no sales projection yet, so it needs approval before it posts.";
+  if (reason === "no_target") return "This store has no labor goal set, so it needs approval before it posts.";
+  return "This week needs approval before it posts.";
+}
 
 /** Friendly text for server errors from the approval functions. */
 export function approvalErrorText(e: any): string {
