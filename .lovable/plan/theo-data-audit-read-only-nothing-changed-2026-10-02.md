@@ -89,7 +89,7 @@ The opening data summary Theo sees (`buildContextSnapshot`, lines 190-260) reads
 - Vendor invoices (PFG and Produce Alliance); his COGS uses order totals instead.
 - Recipes and menu pricing (Menu Genius).
 - Payroll export and pay periods.
-- Deposits and cash (`croo_cash_transactions`).
+- Deposits and cash (deposits are logbook entries; `croo_cash_transactions` was the retired Croo Cash points ledger, not cash).
 - Food safety audits, QR task reports, holidays and events.
 - Toast shifts table (read-only Toast punches) for Coop's.
 

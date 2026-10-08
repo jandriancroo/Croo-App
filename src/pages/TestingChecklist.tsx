@@ -28,7 +28,6 @@ export default function TestingChecklist() {
     ],
     "My Wallet": [
       "View current pay period hours",
-      "View Croo Cash balance",
     ],
     "Schedule": [
       "View your published shifts",

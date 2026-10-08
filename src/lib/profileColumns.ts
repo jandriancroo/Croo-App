@@ -23,7 +23,6 @@ export const PROFILE_SAFE_COLUMNS = [
   'phone_number',
   'birthday',
   'display_order',
-  'croo_cash_balance',
   'appears_on_schedule',
   'default_location_id',
   'min_weekly_hours',
