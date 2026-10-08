@@ -119,7 +119,7 @@ export function detectScheduleChanges(oldShifts: any[], newShifts: any[]) {
 }
 
 /**
- * The Schedule page's "Update" step for a published week: change log for every waiting change,
+ * The Schedule page's "Update" step for a published week (history rows are written by DB triggers),
  * ONE "Schedule Updated" push to everyone affected, then the published snapshot refresh.
  * `onNotified` runs at the same moment the page has always shown its success message.
  */
@@ -142,12 +142,6 @@ export async function sendScheduleUpdate(opts: {
 
   if (changes.length > 0) {
     affectedUserIds = [...new Set(changes.map(c => c.user_id).filter(Boolean))] as string[];
-    for (const change of changes) {
-      await supabase.from('schedule_change_log').insert({
-        schedule_id: scheduleId, user_id: change.user_id, change_type: change.type,
-        old_shift_data: change.oldShift, new_shift_data: change.newShift, changed_by: changedBy
-      });
-    }
     if (affectedUserIds.length > 0) {
       await supabase.functions.invoke('send-push-notification', {
         body: { user_ids: affectedUserIds, title: 'Schedule Updated', body: `Your schedule for ${dateRange} has been updated`, notification_type: 'schedule_updates', data: { type: 'schedule_update', schedule_id: scheduleId } }
@@ -156,8 +150,7 @@ export async function sendScheduleUpdate(opts: {
   }
   opts.onNotified?.(affectedUserIds.length, changes.length);
 
-  await supabase.from('schedule_change_log').update({ is_draft: false }).eq('schedule_id', scheduleId).eq('is_draft', true);
-
+  // The schedules trigger turns this snapshot refresh into one 'update_sent' history row and marks rows Sent.
   const { error } = await supabase.from('schedules').update({
     published_shifts_snapshot: currentShifts, last_status_changed_at: new Date().toISOString(),
     last_status_changed_by: changedBy, last_status_action: 'updated'
