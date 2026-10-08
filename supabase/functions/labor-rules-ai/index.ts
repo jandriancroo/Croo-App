@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
   const { data: allowed, error: aErr } = await gateClient.rpc("labor_rule_check_allowed", { _location_id: location_id, _kind: kind });
   if (aErr) return json({ error: "Check limit lookup failed" }, 500);
   if (!allowed?.allowed) return json({ status: "rate_limited", reason: allowed?.reason, next_at: allowed?.next_at });
+  if (!Deno.env.get("PERPLEXITY_API_KEY")) return json({ status: "not_connected", error: "Law search isn't connected yet." });
 
   const fail = async (error: string, publicError = error) => {
     await admin.rpc("record_labor_rule_check_failure", { _location_id: location_id, _kind: kind, _error: error, _created_by: createdBy });

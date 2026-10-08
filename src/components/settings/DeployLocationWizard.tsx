@@ -1,3 +1,4 @@
+import { startBuildLawCheck, stateFromAddress } from '@/lib/laborRules/lawCheck';
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -411,6 +412,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         const { error: seedErr } = await supabase.rpc('seed_labor_rules_from_preset' as any, { _location_id: locationId });
         if (seedErr) throw seedErr;
         setSeededLocationId(locationId);
+        startBuildLawCheck(locationId);
       } catch (laborPresetError) {
         console.error('Seed labor rules error:', laborPresetError);
       }
@@ -903,6 +905,9 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                   <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <p className="text-xs text-muted-foreground">
                       <strong>What happens next:</strong> Brand event categories, state-specific labor rules, and all brand inventory items will be auto-deployed. After deployment, vendor syncs will run automatically if credentials are configured.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      We're checking {stateFromAddress(address) || 'state'} labor laws; an org admin will get a review request.
                     </p>
                   </div>
                 </div>

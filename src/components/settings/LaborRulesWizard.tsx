@@ -7,16 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLaborRules } from '@/hooks/useLaborRules';
 import {
-  DEFAULT_FORM, EDITABLE_FIELDS, FIELD_META, diffForm, formatValue, laborRulesSchema, toForm,
+  DEFAULT_FORM, EDITABLE_FIELDS, FIELD_META, diffForm, laborRulesSchema, toForm,
   type LaborRulesField, type LaborRulesForm,
 } from '@/lib/laborRules/schema';
 import { labelFor } from '@/lib/timeTracking/shiftFlags';
+import { LaborRulesDiff } from './LaborRulesDiff';
 
 const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
 const STEPS = ['Start', 'Breaks', 'Shifts & overtime', 'Minors', 'Review & save'];
@@ -155,11 +155,6 @@ export function LaborRulesWizard({ locationId, open, onOpenChange, initial }: Pr
     return parts.length ? parts.join(', ') : 'No change to flags in the last 14 days';
   }, [previewQ.data, form.long_shift_hours]);
 
-  const fieldSource = (f: string) => {
-    const s = rules?.field_sources?.[f]?.source as string | undefined;
-    if (!s) return null;
-    return s === 'preset' ? 'Preset' : s === 'manual' ? 'Manual' : s === 'migration' ? 'Migration' : s === 'ai' ? 'AI' : s;
-  };
 
   const handleSave = async () => {
     if (!parsed.success) { setStep(1); return; }
@@ -468,19 +463,12 @@ export function LaborRulesWizard({ locationId, open, onOpenChange, initial }: Pr
               {Object.keys(patch).length === 0 ? (
                 <p className="text-sm text-muted-foreground">No changes.</p>
               ) : (
-                <div className="rounded-lg border divide-y">
-                  {(EDITABLE_FIELDS.filter((f) => f in patch)).map((f) => (
-                    <div key={f} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                      <span className="min-w-0">{FIELD_META[f].label}</span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        {fieldSource(f) && <Badge variant="outline" className="text-[10px]">{fieldSource(f)}</Badge>}
-                        <span className="text-muted-foreground">{formatValue(f, current ? (current as any)[f] : null)}</span>
-                        <span>→</span>
-                        <span className="font-medium">{formatValue(f, (form as any)[f])}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <LaborRulesDiff rows={EDITABLE_FIELDS.filter((f) => f in patch).map((f) => ({
+                  field: f,
+                  current: current ? (current as any)[f] : null,
+                  next: (form as any)[f],
+                  currentSource: rules?.field_sources?.[f]?.source ?? null,
+                }))} />
               )}
               {canEdit && Object.keys(patch).length > 0 && (
                 <p className="text-sm text-muted-foreground">
