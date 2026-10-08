@@ -892,6 +892,7 @@ export function MobileScheduleView({
 
       {/* Shifts for selected day */}
       <div className="space-y-2">
+        {(isAdmin || isManager) && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
             <Users className="h-3.5 w-3.5" />
