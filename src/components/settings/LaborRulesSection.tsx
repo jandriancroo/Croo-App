@@ -2,50 +2,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Scale, Calendar, Clock, Settings2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Scale, Settings2, History, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useLaborRules, type LaborRulesHistoryRow } from '@/hooks/useLaborRules';
+import { toForm } from '@/lib/laborRules/schema';
+import { LaborRulesWizard } from './LaborRulesWizard';
 
 interface LaborRulesSectionProps {
   locationId?: string;
 }
-
-interface LaborRule {
-  id?: string;
-  location_id?: string;
-  rule_name: string;
-  state_code: string;
-  daily_overtime_threshold: number;
-  daily_double_time_threshold: number;
-  weekly_overtime_threshold: number;
-  overtime_multiplier: number;
-  double_time_multiplier: number;
-  meal_break_hours: number | null;
-  meal_break_duration: number | null;
-  rest_break_hours: number | null;
-  rest_break_duration: number | null;
-  auto_punch_out_time: string | null;
-  pay_period_type: string;
-  pay_period_start_date: string | null;
-  allow_unscheduled_clock_in: boolean;
-  allow_early_clock_in: boolean;
-  early_clock_in_minutes: number;
-  reporting_time_enabled: boolean;
-  reporting_time_min_hours: number | null;
-  reporting_time_max_hours: number | null;
-  seventh_day_rule?: boolean;
-  daily_ot_max_wage?: number | null;
-  workweek_start_dow?: number;
-  daily_ot_window?: 'business_day' | 'rolling_24h';
-}
-
-const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
 
 interface LaborRulePreset {
   id: string;
@@ -63,7 +36,37 @@ interface LaborRulePreset {
   reporting_time_enabled: boolean;
   reporting_time_min_hours: number | null;
   reporting_time_max_hours: number | null;
+  meal_rule_basis: 'law' | 'company' | 'none';
+  meal_break_paid: boolean;
+  meal_deadline_hours: number | null;
+  meal_waiver_max_hours: number | null;
+  second_meal_break_hours: number | null;
+  second_meal_waiver_max_hours: number | null;
+  rest_break_paid: boolean;
+  flag_rest_breaks: boolean;
+  long_break_grace_minutes: number;
+  long_shift_hours: number;
+  min_hours_between_shifts: number | null;
+  split_shift_enabled: boolean;
+  split_shift_gap_minutes: number | null;
 }
+
+const PRESET_NUM_FIELDS: [keyof LaborRulePreset, string][] = [
+  ['meal_deadline_hours', 'Meal must start by (hrs)'],
+  ['meal_waiver_max_hours', 'Meal waiver up to (hrs)'],
+  ['second_meal_break_hours', '2nd meal after (hrs)'],
+  ['second_meal_waiver_max_hours', '2nd meal waiver up to (hrs)'],
+  ['long_break_grace_minutes', 'Long-break grace (min)'],
+  ['long_shift_hours', 'Long-shift limit (hrs)'],
+  ['min_hours_between_shifts', 'Min hrs between shifts'],
+  ['split_shift_gap_minutes', 'Split-shift gap (min)'],
+];
+const PRESET_BOOL_FIELDS: [keyof LaborRulePreset, string][] = [
+  ['meal_break_paid', 'Meal paid'],
+  ['rest_break_paid', 'Rest paid'],
+  ['flag_rest_breaks', 'Flag rest breaks'],
+  ['split_shift_enabled', 'Split shift'],
+];
 
 const emptyPreset: Omit<LaborRulePreset, 'id'> = {
   preset_name: '',
@@ -80,15 +83,34 @@ const emptyPreset: Omit<LaborRulePreset, 'id'> = {
   reporting_time_enabled: false,
   reporting_time_min_hours: null,
   reporting_time_max_hours: null,
+  meal_rule_basis: 'law',
+  meal_break_paid: false,
+  meal_deadline_hours: null,
+  meal_waiver_max_hours: null,
+  second_meal_break_hours: null,
+  second_meal_waiver_max_hours: null,
+  rest_break_paid: true,
+  flag_rest_breaks: false,
+  long_break_grace_minutes: 5,
+  long_shift_hours: 10,
+  min_hours_between_shifts: null,
+  split_shift_enabled: false,
+  split_shift_gap_minutes: null,
 };
 
+const presetFields = (p: any): Omit<LaborRulePreset, 'id'> => {
+  const out: any = {};
+  (Object.keys(emptyPreset) as (keyof typeof emptyPreset)[]).forEach((k) => { out[k] = p[k] ?? (emptyPreset as any)[k]; });
+  return out;
+};
+
+const SOURCE_LABEL: Record<string, string> = { manual: 'Manual', preset: 'Preset', migration: 'Migration', ai: 'AI' };
+
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
-  const [rules, setRules] = useState<LaborRule[]>([]);
-  const [presets, setPresets] = useState<LaborRulePreset[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<LaborRule | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { rules, presets, history, canEdit, save, refetchPresets } = useLaborRules(locationId);
   const { isSuperAdmin } = useUserRole();
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardInitial, setWizardInitial] = useState<{ values: any; source: 'manual' | 'preset' } | null>(null);
 
   // Preset management state
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
@@ -97,233 +119,38 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   const [presetFormOpen, setPresetFormOpen] = useState(false);
   const [presetLoading, setPresetLoading] = useState(false);
 
-  const emptyRule: LaborRule = {
-    rule_name: '',
-    state_code: '',
-    daily_overtime_threshold: 8,
-    daily_double_time_threshold: 12,
-    weekly_overtime_threshold: 40,
-    overtime_multiplier: 1.5,
-    double_time_multiplier: 2.0,
-    meal_break_hours: null,
-    meal_break_duration: null,
-    rest_break_hours: null,
-    rest_break_duration: null,
-    auto_punch_out_time: null,
-    pay_period_type: 'biweekly',
-    pay_period_start_date: null,
-    allow_unscheduled_clock_in: true,
-    allow_early_clock_in: true,
-    early_clock_in_minutes: 30,
-    reporting_time_enabled: false,
-    reporting_time_min_hours: null,
-    reporting_time_max_hours: null,
-    seventh_day_rule: false,
-    daily_ot_max_wage: null,
-    workweek_start_dow: 1,
-    daily_ot_window: 'business_day',
+  const reviewerQ = useQuery({
+    queryKey: ['labor-rules', 'reviewer', rules?.rules_reviewed_by],
+    enabled: !!rules?.rules_reviewed_by,
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('full_name').eq('id', rules!.rules_reviewed_by).maybeSingle();
+      return data?.full_name as string | undefined;
+    },
+  });
+
+  const openWizard = (initial?: { values: any; source: 'manual' | 'preset' } | null) => {
+    setWizardInitial(initial ?? null);
+    setWizardOpen(true);
   };
 
-  const [formData, setFormData] = useState<LaborRule>(emptyRule);
-
-  useEffect(() => {
-    if (locationId) {
-      fetchRules();
-    }
-    fetchPresets();
-  }, [locationId]);
-
-  const fetchPresets = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('labor_rule_presets')
-        .select('*')
-        .order('preset_name');
-      if (error) throw error;
-      setPresets(data || []);
-    } catch (error: any) {
-      console.error('Error fetching presets:', error);
-    }
-  };
-
-  const fetchRules = async () => {
-    if (!locationId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('labor_rules')
-        .select('*')
-        .eq('location_id', locationId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setRules((data || []) as LaborRule[]);
-    } catch (error: any) {
-      console.error('Error fetching labor rules:', error);
-      toast.error('Failed to load labor rules');
-    }
-  };
-
-  const handleOpenDialog = (rule?: LaborRule) => {
-    if (rule) {
-      setEditingRule(rule);
-      setFormData(rule);
-    } else {
-      setEditingRule(null);
-      setFormData(emptyRule);
-    }
-    setDialogOpen(true);
-  };
-
+  /** Fills the wizard with a preset; nothing saves until the review step. */
   const handleApplyPreset = (presetId: string) => {
-    const preset = presets.find(p => p.id === presetId);
+    const preset = presets.find((p) => p.id === presetId);
     if (!preset) return;
-    setFormData(prev => ({
-      ...prev,
-      rule_name: preset.preset_name,
-      state_code: preset.state_code,
-      daily_overtime_threshold: preset.daily_overtime_threshold,
-      daily_double_time_threshold: preset.daily_double_time_threshold,
-      weekly_overtime_threshold: preset.weekly_overtime_threshold,
-      overtime_multiplier: preset.overtime_multiplier,
-      double_time_multiplier: preset.double_time_multiplier,
-      meal_break_hours: preset.meal_break_hours,
-      meal_break_duration: preset.meal_break_duration,
-      rest_break_hours: preset.rest_break_hours,
-      rest_break_duration: preset.rest_break_duration,
-      reporting_time_enabled: preset.reporting_time_enabled,
-      reporting_time_min_hours: preset.reporting_time_min_hours,
-      reporting_time_max_hours: preset.reporting_time_max_hours,
-    }));
-    toast.success(`Applied "${preset.preset_name}" preset`);
+    openWizard({ values: { ...preset, rule_name: preset.preset_name }, source: 'preset' });
   };
 
-  const handleSave = async () => {
-    if (!locationId || !formData.rule_name.trim() || !formData.state_code.trim()) {
-      toast.error('Please fill in rule name and state code');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      if (editingRule) {
-        const { error } = await supabase
-          .from('labor_rules')
-          .update({
-            rule_name: formData.rule_name,
-            state_code: formData.state_code,
-            daily_overtime_threshold: formData.daily_overtime_threshold,
-            daily_double_time_threshold: formData.daily_double_time_threshold,
-            weekly_overtime_threshold: formData.weekly_overtime_threshold,
-            overtime_multiplier: formData.overtime_multiplier,
-            double_time_multiplier: formData.double_time_multiplier,
-            meal_break_hours: formData.meal_break_hours,
-            meal_break_duration: formData.meal_break_duration,
-            rest_break_hours: formData.rest_break_hours,
-            rest_break_duration: formData.rest_break_duration,
-            auto_punch_out_time: formData.auto_punch_out_time,
-            pay_period_type: formData.pay_period_type,
-            pay_period_start_date: formData.pay_period_start_date,
-            allow_unscheduled_clock_in: formData.allow_unscheduled_clock_in,
-            allow_early_clock_in: formData.allow_early_clock_in,
-            early_clock_in_minutes: formData.early_clock_in_minutes,
-            reporting_time_enabled: formData.reporting_time_enabled,
-            reporting_time_min_hours: formData.reporting_time_min_hours,
-            reporting_time_max_hours: formData.reporting_time_max_hours,
-            seventh_day_rule: formData.seventh_day_rule ?? false,
-            daily_ot_max_wage: formData.daily_ot_max_wage ?? null,
-            workweek_start_dow: formData.workweek_start_dow ?? 1,
-            daily_ot_window: formData.daily_ot_window ?? 'business_day',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingRule.id);
-
-        if (error) throw error;
-        toast.success('Labor rule updated');
-      } else {
-        const { error } = await supabase
-          .from('labor_rules')
-          .insert({
-            location_id: locationId,
-            rule_name: formData.rule_name,
-            state_code: formData.state_code,
-            daily_overtime_threshold: formData.daily_overtime_threshold,
-            daily_double_time_threshold: formData.daily_double_time_threshold,
-            weekly_overtime_threshold: formData.weekly_overtime_threshold,
-            overtime_multiplier: formData.overtime_multiplier,
-            double_time_multiplier: formData.double_time_multiplier,
-            meal_break_hours: formData.meal_break_hours,
-            meal_break_duration: formData.meal_break_duration,
-            rest_break_hours: formData.rest_break_hours,
-            rest_break_duration: formData.rest_break_duration,
-            auto_punch_out_time: formData.auto_punch_out_time,
-            pay_period_type: formData.pay_period_type,
-            pay_period_start_date: formData.pay_period_start_date,
-            allow_unscheduled_clock_in: formData.allow_unscheduled_clock_in,
-            allow_early_clock_in: formData.allow_early_clock_in,
-            early_clock_in_minutes: formData.early_clock_in_minutes,
-            reporting_time_enabled: formData.reporting_time_enabled,
-            reporting_time_min_hours: formData.reporting_time_min_hours,
-            reporting_time_max_hours: formData.reporting_time_max_hours,
-            seventh_day_rule: formData.seventh_day_rule ?? false,
-            daily_ot_max_wage: formData.daily_ot_max_wage ?? null,
-            workweek_start_dow: formData.workweek_start_dow ?? 1,
-            daily_ot_window: formData.daily_ot_window ?? 'business_day',
-          });
-
-        if (error) throw error;
-        toast.success('Labor rule created');
-      }
-
-      setDialogOpen(false);
-      fetchRules();
-    } catch (error: any) {
-      console.error('Error saving labor rule:', error);
-      toast.error('Failed to save labor rule');
-    } finally {
-      setLoading(false);
-    }
+  const handleRevert = async (h: LaborRulesHistoryRow) => {
+    if (!h.after) return;
+    if (!confirm(`Revert labor rules to ${format(new Date(h.changed_at), 'MMM d, yyyy h:mm a')}?`)) return;
+    await save(toForm(h.after, rules ? toForm(rules) : undefined), 'manual', `Revert to ${format(new Date(h.changed_at), 'yyyy-MM-dd HH:mm')}`);
   };
 
-  const handleDelete = async (ruleId: string) => {
-    if (!confirm('Are you sure you want to delete this labor rule?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('labor_rules')
-        .delete()
-        .eq('id', ruleId);
-
-      if (error) throw error;
-      toast.success('Labor rule deleted');
-      fetchRules();
-    } catch (error: any) {
-      console.error('Error deleting labor rule:', error);
-      toast.error('Failed to delete labor rule');
-    }
-  };
-
-  // ========== Preset Management ==========
+  // ========== Preset Management (super admin; writes labor_rule_presets) ==========
   const handleOpenPresetForm = (preset?: LaborRulePreset) => {
     if (preset) {
       setEditingPreset(preset);
-      setPresetForm({
-        preset_name: preset.preset_name,
-        state_code: preset.state_code,
-        daily_overtime_threshold: preset.daily_overtime_threshold,
-        daily_double_time_threshold: preset.daily_double_time_threshold,
-        weekly_overtime_threshold: preset.weekly_overtime_threshold,
-        overtime_multiplier: preset.overtime_multiplier,
-        double_time_multiplier: preset.double_time_multiplier,
-        meal_break_hours: preset.meal_break_hours,
-        meal_break_duration: preset.meal_break_duration,
-        rest_break_hours: preset.rest_break_hours,
-        rest_break_duration: preset.rest_break_duration,
-        reporting_time_enabled: preset.reporting_time_enabled,
-        reporting_time_min_hours: preset.reporting_time_min_hours,
-        reporting_time_max_hours: preset.reporting_time_max_hours,
-      });
+      setPresetForm(presetFields(preset));
     } else {
       setEditingPreset(null);
       setPresetForm(emptyPreset);
@@ -336,62 +163,25 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
       toast.error('Please fill in preset name and state code');
       return;
     }
-
     try {
       setPresetLoading(true);
-
       if (editingPreset) {
         const { error } = await supabase
           .from('labor_rule_presets')
-          .update({
-            preset_name: presetForm.preset_name,
-            state_code: presetForm.state_code,
-            daily_overtime_threshold: presetForm.daily_overtime_threshold,
-            daily_double_time_threshold: presetForm.daily_double_time_threshold,
-            weekly_overtime_threshold: presetForm.weekly_overtime_threshold,
-            overtime_multiplier: presetForm.overtime_multiplier,
-            double_time_multiplier: presetForm.double_time_multiplier,
-            meal_break_hours: presetForm.meal_break_hours,
-            meal_break_duration: presetForm.meal_break_duration,
-            rest_break_hours: presetForm.rest_break_hours,
-            rest_break_duration: presetForm.rest_break_duration,
-            reporting_time_enabled: presetForm.reporting_time_enabled,
-            reporting_time_min_hours: presetForm.reporting_time_min_hours,
-            reporting_time_max_hours: presetForm.reporting_time_max_hours,
-            updated_at: new Date().toISOString(),
-          })
+          .update({ ...presetForm, updated_at: new Date().toISOString() } as any)
           .eq('id', editingPreset.id);
-
         if (error) throw error;
         toast.success('Preset updated');
       } else {
         const { error } = await supabase
           .from('labor_rule_presets')
-          .insert({
-            preset_name: presetForm.preset_name,
-            state_code: presetForm.state_code,
-            daily_overtime_threshold: presetForm.daily_overtime_threshold,
-            daily_double_time_threshold: presetForm.daily_double_time_threshold,
-            weekly_overtime_threshold: presetForm.weekly_overtime_threshold,
-            overtime_multiplier: presetForm.overtime_multiplier,
-            double_time_multiplier: presetForm.double_time_multiplier,
-            meal_break_hours: presetForm.meal_break_hours,
-            meal_break_duration: presetForm.meal_break_duration,
-            rest_break_hours: presetForm.rest_break_hours,
-            rest_break_duration: presetForm.rest_break_duration,
-            reporting_time_enabled: presetForm.reporting_time_enabled,
-            reporting_time_min_hours: presetForm.reporting_time_min_hours,
-            reporting_time_max_hours: presetForm.reporting_time_max_hours,
-            is_system: true,
-          });
-
+          .insert({ ...presetForm, is_system: true } as any);
         if (error) throw error;
         toast.success('Preset created');
       }
-
       setPresetFormOpen(false);
       setEditingPreset(null);
-      fetchPresets();
+      refetchPresets();
     } catch (error: any) {
       console.error('Error saving preset:', error);
       toast.error('Failed to save preset');
@@ -402,16 +192,14 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
 
   const handleDeletePreset = async (presetId: string) => {
     if (!confirm('Are you sure you want to delete this preset? This won\'t affect locations already using these rules.')) return;
-
     try {
       const { error } = await supabase
         .from('labor_rule_presets')
         .delete()
         .eq('id', presetId);
-
       if (error) throw error;
       toast.success('Preset deleted');
-      fetchPresets();
+      refetchPresets();
     } catch (error: any) {
       console.error('Error deleting preset:', error);
       toast.error('Failed to delete preset');
@@ -421,6 +209,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   if (!locationId) {
     return null;
   }
+
+  const fs = (rules?.field_sources || {}) as Record<string, { source?: string }>;
+  const sources = Array.from(new Set(Object.values(fs).map((v) => v?.source).filter(Boolean))) as string[];
 
   return (
     <Card className="overflow-hidden">
@@ -432,14 +223,13 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
               Labor Rules
             </CardTitle>
             <CardDescription>
-              Define overtime, breaks, and labor calculation rules for this location
+              Overtime, breaks, and shift flags for this location
             </CardDescription>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 italic">
               ⚠️ Labor rules are customized by the user and should be confirmed with local jurisdiction before applying.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 sm:shrink-0">
-
             {isSuperAdmin && (
               <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
                 <DialogTrigger asChild>
@@ -574,6 +364,38 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                         )}
                       </div>
 
+
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-3 text-sm">Meal, Rest &amp; Shift Flags</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Meal rule basis</Label>
+                            <select className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                              value={presetForm.meal_rule_basis}
+                              onChange={(e) => setPresetForm({...presetForm, meal_rule_basis: e.target.value as any})}>
+                              <option value="law">Law</option>
+                              <option value="company">Company policy</option>
+                              <option value="none">None</option>
+                            </select>
+                          </div>
+                          {PRESET_NUM_FIELDS.map(([k, label]) => (
+                            <div key={k} className="space-y-1">
+                              <Label className="text-xs">{label}</Label>
+                              <Input type="number" step="0.5" placeholder="Off"
+                                value={(presetForm as any)[k] ?? ''}
+                                onChange={(e) => setPresetForm({...presetForm, [k]: e.target.value === '' ? null : Number(e.target.value)})} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          {PRESET_BOOL_FIELDS.map(([k, label]) => (
+                            <div key={k} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                              <Label className="text-xs">{label}</Label>
+                              <Switch checked={!!(presetForm as any)[k]} onCheckedChange={(c) => setPresetForm({...presetForm, [k]: c})} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setPresetFormOpen(false)}>Back</Button>
                         <Button onClick={handleSavePreset} disabled={presetLoading}>
@@ -599,7 +421,12 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                                 <p className="text-xs text-muted-foreground">State: {preset.state_code}</p>
                               </div>
                               <div className="flex gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => handleOpenPresetForm(preset)}>
+                                {canEdit && (
+                                  <Button variant="ghost" size="sm" onClick={() => { setPresetDialogOpen(false); handleApplyPreset(preset.id); }}>
+                                    Use
+                                  </Button>
+                                )}
+                                <Button variant="ghost" size="sm" onClick={() => handleOpenPresetForm(preset as LaborRulePreset)}>
                                   <Edit className="h-3.5 w-3.5" />
                                 </Button>
                                 <Button variant="ghost" size="sm" onClick={() => handleDeletePreset(preset.id)}
@@ -629,486 +456,92 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </DialogContent>
               </Dialog>
             )}
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" onClick={() => handleOpenDialog()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Rule
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{editingRule ? 'Edit Labor Rule' : 'Create Labor Rule'}</DialogTitle>
-                  <DialogDescription>
-                    Configure labor calculation rules based on state requirements
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  {presets.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Apply a Preset</Label>
-                      <Select onValueChange={handleApplyPreset}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a preset to auto-fill..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {presets.map(p => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.preset_name} ({p.state_code})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">Fills in all fields below — you can still customize before saving.</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="rule-name">Rule Name</Label>
-                      <Input
-                        id="rule-name"
-                        placeholder="e.g., California Rules"
-                        value={formData.rule_name}
-                        onChange={(e) => setFormData({...formData, rule_name: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="state-code">State Code</Label>
-                      <Input
-                        id="state-code"
-                        placeholder="e.g., CA"
-                        value={formData.state_code}
-                        onChange={(e) => setFormData({...formData, state_code: e.target.value.toUpperCase()})}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3">Daily Overtime Rules</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Daily overtime calculated after unpaid meal breaks are deducted
-                    </p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="daily-ot-threshold">Daily Overtime After (hours)</Label>
-                        <Input
-                          id="daily-ot-threshold"
-                          type="number"
-                          step="0.5"
-                          value={formData.daily_overtime_threshold}
-                          onChange={(e) => setFormData({...formData, daily_overtime_threshold: parseFloat(e.target.value)})}
-                        />
-                        <p className="text-xs text-muted-foreground">Typically 8 hours/day</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="daily-dt-threshold">Daily Double Time After (hours)</Label>
-                        <Input
-                          id="daily-dt-threshold"
-                          type="number"
-                          step="0.5"
-                          value={formData.daily_double_time_threshold}
-                          onChange={(e) => setFormData({...formData, daily_double_time_threshold: parseFloat(e.target.value)})}
-                        />
-                        <p className="text-xs text-muted-foreground">Typically 12 hours/day</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3">Weekly Overtime Rules</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Employee receives the higher of daily or weekly overtime
-                    </p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="weekly-ot-threshold">Weekly Overtime After (hours)</Label>
-                        <Input
-                          id="weekly-ot-threshold"
-                          type="number"
-                          step="0.5"
-                          value={formData.weekly_overtime_threshold}
-                          onChange={(e) => setFormData({...formData, weekly_overtime_threshold: parseFloat(e.target.value)})}
-                        />
-                        <p className="text-xs text-muted-foreground">Typically 40 hours/week</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ot-multiplier">Overtime Pay Multiplier</Label>
-                        <Input
-                          id="ot-multiplier"
-                          type="number"
-                          step="0.1"
-                          value={formData.overtime_multiplier}
-                          onChange={(e) => setFormData({...formData, overtime_multiplier: parseFloat(e.target.value)})}
-                        />
-                        <p className="text-xs text-muted-foreground">Typically 1.5x</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3">Pay Multipliers</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="dt-multiplier">Double Time Pay Multiplier</Label>
-                        <Input
-                          id="dt-multiplier"
-                          type="number"
-                          step="0.1"
-                          value={formData.double_time_multiplier}
-                          onChange={(e) => setFormData({...formData, double_time_multiplier: parseFloat(e.target.value)})}
-                        />
-                        <p className="text-xs text-muted-foreground">Typically 2.0x</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3">Payroll Export Rules</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="workweek-start">Workweek starts on</Label>
-                        <select
-                          id="workweek-start"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          value={formData.workweek_start_dow ?? 1}
-                          onChange={(e) => setFormData({ ...formData, workweek_start_dow: parseInt(e.target.value, 10) })}
-                        >
-                          {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d, i) => (
-                            <option key={d} value={i}>{d}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ot-window">Daily overtime counted per</Label>
-                        <select
-                          id="ot-window"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          value={formData.daily_ot_window ?? 'business_day'}
-                          onChange={(e) => setFormData({ ...formData, daily_ot_window: e.target.value as 'business_day' | 'rolling_24h' })}
-                        >
-                          <option value="business_day">Business day</option>
-                          <option value="rolling_24h">24 hours from first clock-in (Nevada)</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ot-max-wage">No daily overtime at or above wage ($/hr)</Label>
-                        <Input
-                          id="ot-max-wage"
-                          type="number"
-                          step="0.01"
-                          placeholder="Leave blank for no cutoff"
-                          value={formData.daily_ot_max_wage ?? ''}
-                          onChange={(e) => setFormData({ ...formData, daily_ot_max_wage: e.target.value ? parseFloat(e.target.value) : null })}
-                        />
-                        <p className="text-xs text-muted-foreground">Nevada: 1.5 × state minimum wage. Update when the minimum wage changes.</p>
-                      </div>
-                      <div className="space-y-2 flex items-center gap-2 pt-6">
-                        <input
-                          id="seventh-day"
-                          type="checkbox"
-                          checked={!!formData.seventh_day_rule}
-                          onChange={(e) => setFormData({ ...formData, seventh_day_rule: e.target.checked })}
-                        />
-                        <Label htmlFor="seventh-day">California 7th-day rule</Label>
-                      </div>
-                    </div>
-                  </div>
-
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3">Meal Break Requirements (Optional)</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="meal-hours">Required After (hours)</Label>
-                        <Input
-                          id="meal-hours"
-                          type="number"
-                          step="0.5"
-                          placeholder="e.g., 5"
-                          value={formData.meal_break_hours || ''}
-                          onChange={(e) => setFormData({...formData, meal_break_hours: e.target.value ? parseFloat(e.target.value) : null})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="meal-duration">Break Duration (minutes)</Label>
-                        <Input
-                          id="meal-duration"
-                          type="number"
-                          placeholder="e.g., 30"
-                          value={formData.meal_break_duration || ''}
-                          onChange={(e) => setFormData({...formData, meal_break_duration: e.target.value ? parseInt(e.target.value) : null})}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3">Rest Break Requirements (Optional)</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="rest-hours">Required After (hours)</Label>
-                        <Input
-                          id="rest-hours"
-                          type="number"
-                          step="0.5"
-                          placeholder="e.g., 4"
-                          value={formData.rest_break_hours || ''}
-                          onChange={(e) => setFormData({...formData, rest_break_hours: e.target.value ? parseFloat(e.target.value) : null})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="rest-duration">Break Duration (minutes)</Label>
-                        <Input
-                          id="rest-duration"
-                          type="number"
-                          placeholder="e.g., 10"
-                          value={formData.rest_break_duration || ''}
-                          onChange={(e) => setFormData({...formData, rest_break_duration: e.target.value ? parseInt(e.target.value) : null})}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Pay Period Configuration
-                    </h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Define how pay periods are calculated for this location
-                    </p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="pay-period-type">Pay Period Type</Label>
-                        <Select
-                          value={formData.pay_period_type}
-                          onValueChange={(value) => setFormData({...formData, pay_period_type: value})}
-                        >
-                          <SelectTrigger id="pay-period-type">
-                            <SelectValue placeholder="Select pay period type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="weekly">Weekly</SelectItem>
-                            <SelectItem value="biweekly">Biweekly (Every 2 Weeks)</SelectItem>
-                            <SelectItem value="semimonthly">Semi-Monthly (1st & 15th)</SelectItem>
-                            <SelectItem value="monthly">Monthly</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {(formData.pay_period_type === 'weekly' || formData.pay_period_type === 'biweekly') && (
-                        <div className="space-y-2">
-                          <Label htmlFor="pay-period-start">Pay Period Start Date</Label>
-                          <Input
-                            id="pay-period-start"
-                            type="date"
-                            value={formData.pay_period_start_date || ''}
-                            onChange={(e) => setFormData({...formData, pay_period_start_date: e.target.value || null})}
-                          />
-                          <p className="text-xs text-muted-foreground">First day of a pay period</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Clock-In Restrictions
-                    </h4>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Control when employees can clock in at this location
-                    </p>
-                    
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="allow-unscheduled" className="text-sm font-medium">
-                            Clock In When Not Scheduled
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Allow employees to clock in without a scheduled shift (flagged for payroll review)
-                          </p>
-                        </div>
-                        <Switch
-                          id="allow-unscheduled"
-                          checked={formData.allow_unscheduled_clock_in}
-                          onCheckedChange={(checked) => setFormData({...formData, allow_unscheduled_clock_in: checked})}
-                        />
-                      </div>
-
-                      <div className="p-3 bg-muted/50 rounded-lg space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="allow-early" className="text-sm font-medium">
-                              Clock In Early
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
-                              Allow employees to clock in before their scheduled shift start time
-                            </p>
-                          </div>
-                          <Switch
-                            id="allow-early"
-                            checked={formData.allow_early_clock_in}
-                            onCheckedChange={(checked) => setFormData({...formData, allow_early_clock_in: checked})}
-                          />
-                        </div>
-                        
-                        {formData.allow_early_clock_in && (
-                          <div className="pt-2 border-t">
-                            <Label className="text-sm mb-2 block">How early can they clock in?</Label>
-                            <div className="flex flex-wrap gap-2 mb-2">
-                              {EARLY_CLOCK_IN_PRESETS.map((mins) => (
-                                <Button
-                                  key={mins}
-                                  type="button"
-                                  size="sm"
-                                  variant={formData.early_clock_in_minutes === mins ? "default" : "outline"}
-                                  onClick={() => setFormData({...formData, early_clock_in_minutes: mins})}
-                                >
-                                  {mins} min
-                                </Button>
-                              ))}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Label htmlFor="custom-early" className="text-xs text-muted-foreground whitespace-nowrap">
-                                Custom:
-                              </Label>
-                              <Input
-                                id="custom-early"
-                                type="number"
-                                min="1"
-                                max="120"
-                                className="w-20"
-                                value={formData.early_clock_in_minutes}
-                                onChange={(e) => setFormData({...formData, early_clock_in_minutes: parseInt(e.target.value) || 30})}
-                              />
-                              <span className="text-xs text-muted-foreground">minutes</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold mb-3">Auto Punch-Out</h4>
-                    <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm text-muted-foreground">
-                        Auto punch-out is now automatically calculated as <strong>close time + 3 hours</strong> based on your Business Hours settings.
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        This ensures a unified "business day" across all systems (time tracking, checklists, logbook, etc.)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSave} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Rule'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" onClick={() => openWizard(null)}>
+              <Edit className="h-4 w-4 mr-2" />
+              {canEdit ? 'Edit rules' : 'View rules'}
+            </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        {rules.length === 0 ? (
+      <CardContent className="space-y-4">
+        {!rules ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            No labor rules configured yet. Add your first rule to define overtime and break requirements.
+            No labor rules yet for this store.{canEdit ? ' Use Edit rules to set them up.' : ''}
           </p>
         ) : (
-          <div className="space-y-4">
-            {rules.map((rule) => (
-              <div
-                key={rule.id}
-                className="border rounded-lg p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-semibold">{rule.rule_name}</h4>
-                    <p className="text-sm text-muted-foreground">State: {rule.state_code}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenDialog(rule)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(rule.id!)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 text-sm [&>div]:min-w-0 [&>div]:break-words">
-                  <div>
-                    <span className="text-muted-foreground">Pay Period:</span> {
-                      rule.pay_period_type === 'weekly' ? 'Weekly' :
-                      rule.pay_period_type === 'biweekly' ? 'Biweekly' :
-                      rule.pay_period_type === 'semimonthly' ? 'Semi-Monthly (1st & 15th)' :
-                      rule.pay_period_type === 'monthly' ? 'Monthly' : 'Biweekly'
-                    }
-                  </div>
-                  {rule.pay_period_start_date && (
-                    <div>
-                      <span className="text-muted-foreground">Start Date:</span> {format(new Date(rule.pay_period_start_date), 'MMM d, yyyy')}
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-muted-foreground">Daily OT:</span> After {rule.daily_overtime_threshold}h at {rule.overtime_multiplier}x
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Daily DT:</span> After {rule.daily_double_time_threshold}h at {rule.double_time_multiplier}x
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Weekly OT:</span> After {rule.weekly_overtime_threshold}h at {rule.overtime_multiplier}x
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Higher of daily/weekly applies</span>
-                  </div>
-                  {rule.meal_break_hours && (
-                    <div>
-                      <span className="text-muted-foreground">Meal Break:</span> {rule.meal_break_duration}min after {rule.meal_break_hours}h
-                    </div>
-                  )}
-                  {rule.rest_break_hours && (
-                    <div>
-                      <span className="text-muted-foreground">Rest Break:</span> {rule.rest_break_duration}min after {rule.rest_break_hours}h
-                    </div>
-                  )}
-                  {rule.reporting_time_enabled && (
-                    <div>
-                      <span className="text-muted-foreground">Reporting Time:</span> Min {rule.reporting_time_min_hours}h{rule.reporting_time_max_hours ? `, max ${rule.reporting_time_max_hours}h` : ''}
-                    </div>
-                  )}
-                  <div className="col-span-2 border-t pt-2 mt-2">
-                    <span className="text-muted-foreground">Clock-In:</span>{' '}
-                    {rule.allow_unscheduled_clock_in ? 'Allowed without schedule' : 'Requires scheduled shift'}
-                    {' • '}
-                    {rule.allow_early_clock_in 
-                      ? `Up to ${rule.early_clock_in_minutes} min early` 
-                      : 'No early clock-in'}
-                  </div>
-                  <div className="col-span-2 text-xs text-muted-foreground italic">
-                    Auto punch-out: Close time + 3 hours (from Business Hours)
-                  </div>
-                </div>
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h4 className="font-semibold">{rules.rule_name}</h4>
+                <p className="text-sm text-muted-foreground">State: {rules.state_code || '—'}</p>
               </div>
-            ))}
+              <div className="flex flex-wrap gap-1">
+                {sources.map((s) => <Badge key={s} variant="outline" className="text-[10px]">{SOURCE_LABEL[s] || s}</Badge>)}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 text-sm [&>div]:min-w-0 [&>div]:break-words">
+              <div><span className="text-muted-foreground">Daily OT:</span> After {rules.daily_overtime_threshold}h at {rules.overtime_multiplier}x</div>
+              <div><span className="text-muted-foreground">Daily DT:</span> After {rules.daily_double_time_threshold}h at {rules.double_time_multiplier}x</div>
+              <div><span className="text-muted-foreground">Weekly OT:</span> After {rules.weekly_overtime_threshold}h</div>
+              <div>
+                <span className="text-muted-foreground">Meal:</span>{' '}
+                {rules.meal_rule_basis === 'none' || rules.meal_break_hours == null
+                  ? 'No meal rule'
+                  : `${rules.meal_break_duration ?? 30} min after ${rules.meal_break_hours}h${rules.meal_rule_basis === 'company' ? ' (policy)' : ''}`}
+                {rules.second_meal_break_hours != null && ` · 2nd after ${rules.second_meal_break_hours}h`}
+              </div>
+              {rules.rest_break_hours != null && (
+                <div><span className="text-muted-foreground">Rest:</span> {rules.rest_break_duration} min every {rules.rest_break_hours}h</div>
+              )}
+              <div><span className="text-muted-foreground">Long shift:</span> over {rules.long_shift_hours}h</div>
+              <div className="col-span-2 border-t pt-2 mt-2">
+                <span className="text-muted-foreground">Clock-In:</span>{' '}
+                {rules.allow_unscheduled_clock_in ? 'Allowed without schedule' : 'Requires scheduled shift'}
+                {' • '}
+                {rules.allow_early_clock_in ? `Up to ${rules.early_clock_in_minutes} min early` : 'No early clock-in'}
+              </div>
+              <div className="col-span-2 text-xs text-muted-foreground">
+                {rules.rules_reviewed_at
+                  ? `Last reviewed ${format(new Date(rules.rules_reviewed_at), 'MMM d, yyyy')}${reviewerQ.data ? ` by ${reviewerQ.data}` : ''}`
+                  : 'Not reviewed by a person yet'}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2"><History className="h-4 w-4" /> History</h4>
+            <div className="rounded-lg border divide-y">
+              {history.map((h) => {
+                const changed = h.before && h.after
+                  ? Object.keys(h.after).filter((k) => !['updated_at', 'field_sources', 'rules_reviewed_at', 'rules_reviewed_by'].includes(k) && JSON.stringify(h.before![k]) !== JSON.stringify(h.after![k]))
+                  : [];
+                return (
+                  <div key={h.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <div>
+                        {format(new Date(h.changed_at), 'MMM d, yyyy h:mm a')}{' '}
+                        <Badge variant="outline" className="text-[10px] ml-1">{SOURCE_LABEL[h.source] || h.source}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {h.note || (h.before ? `${changed.length} field${changed.length === 1 ? '' : 's'} changed` : 'Created')}
+                      </div>
+                    </div>
+                    {canEdit && h.after && (
+                      <Button size="sm" variant="ghost" onClick={() => handleRevert(h)}>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" /> Revert to this
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </CardContent>
+
+      <LaborRulesWizard locationId={locationId} open={wizardOpen} onOpenChange={setWizardOpen} initial={wizardInitial} />
     </Card>
   );
 };

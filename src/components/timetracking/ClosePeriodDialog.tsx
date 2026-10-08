@@ -86,7 +86,8 @@ export function ClosePeriodDialog({
   };
 
   const openAdd = (r: LaborShiftRow) => {
-    const base = DateTime.min(DateTime.fromISO(r.clock_in).plus({ hours: 8 }), DateTime.now());
+    const est = r.details?.estimated_end;
+    const base = est ? DateTime.fromISO(est) : DateTime.min(DateTime.fromISO(r.clock_in).plus({ hours: 8 }), DateTime.now());
     setAddTime(base.setZone(timezone).toFormat("yyyy-MM-dd'T'HH:mm"));
     setAddFor(r);
   };
@@ -223,7 +224,7 @@ export function ClosePeriodDialog({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add clock-out</DialogTitle>
-            <DialogDescription>Pre-filled 8 hours after clock-in. Set the time they actually left.</DialogDescription>
+            <DialogDescription>Pre-filled with the estimated end of this shift.</DialogDescription>
           </DialogHeader>
           <Input type="datetime-local" value={addTime} onChange={(e) => setAddTime(e.target.value)} />
           <DialogFooter>

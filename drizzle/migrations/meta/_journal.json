@@ -36,6 +36,13 @@
       "when": 1791418209408,
       "tag": "0004_second_meal_waiver_default_off",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791418970653,
+      "tag": "0005_shift_flags_estimated_end",
+      "breakpoints": true
     }
   ]
 }

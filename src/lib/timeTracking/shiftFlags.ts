@@ -28,6 +28,7 @@ export interface ShiftFlagDetails {
   ot?: number | null;
   dt?: number | null;
   short_meal_min?: number | null;
+  estimated_end?: string | null;
 }
 
 export interface ShiftFlagRow {
