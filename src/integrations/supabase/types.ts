@@ -15317,6 +15317,7 @@ export type Database = {
         Args: { _key: string; _location_id: string; _role: string }
         Returns: boolean
       }
+      _osc_caller_ok: { Args: { _location_id: string }; Returns: boolean }
       _pay_period_open_issues: {
         Args: { _end: string; _start: string; _user: string }
         Returns: {
