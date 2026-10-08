@@ -1,1 +1,2 @@
 - AI law checks only write pending labor_rule_proposals; org/super admin approval applies via save_labor_rules. Why: no unapproved AI change.
+- Croo Cash is retired and archived (docs/archive/croo-cash.md). Never read, write, display or reintroduce croo_cash_balance, croo_cash_transactions or increment_croo_cash, even though they still appear in types.ts.
