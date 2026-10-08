@@ -94,7 +94,7 @@ export function TemporaryTasksSection() {
       return (data || []).filter(task => {
         if (task.expires_at && isPast(new Date(task.expires_at))) return false;
         // Hide system-generated tasks (linked to audits or write-ups)
-        if (task.audit_id || task.write_up_id) return false;
+        if (task.audit_id || task.write_up_id || task.schedule_id) return false;
         return true;
       });
     },
