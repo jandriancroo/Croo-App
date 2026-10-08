@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Oct 8 follow-ups
-- [ ] Remove Quick Nudge outer circle/impact lines and enlarge glove (visual only).
-- [ ] California-only scheduled meal premiums, migration 0027, all tests and read-only fixture parity.
+- [x] Remove Quick Nudge outer circle/impact lines and enlarge glove (visual only); desktop/phone preview checked.
+- [x] California-only scheduled meal premiums, migration 0027; 393 tests passed; all 16 fixtures match exact migration SQL in isolated PostgreSQL (live read-only role correctly blocked by service-only ACL).
 - [ ] Verify preview and publish to croohq.com.
 
 ## Quick Nudge final review (Oct 7)
