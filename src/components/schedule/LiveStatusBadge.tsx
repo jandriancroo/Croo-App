@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScheduleUndoButton } from './ScheduleUndoButton';
 
 interface LiveStatusBadgeProps {
   isPublished: boolean;
@@ -13,9 +14,22 @@ interface LiveStatusBadgeProps {
   lastStatusChangedAt?: string | null;
   lastStatusChangedByName?: string | null;
   lastStatusAction?: string | null;
+  scheduleId?: string | null;
+  /** Changes when shifts change (refreshes Undo). */
+  shiftsVersion?: unknown;
+  onRestored?: () => void;
 }
 
-export function LiveStatusBadge({ 
+export function LiveStatusBadge(props: LiveStatusBadgeProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <ScheduleUndoButton scheduleId={props.scheduleId} isPublished={props.isPublished} version={props.shiftsVersion} onChanged={props.onRestored} />
+      <StatusControl {...props} />
+    </div>
+  );
+}
+
+function StatusControl({ 
   isPublished, 
   isPublishing, 
   hasPendingChanges,

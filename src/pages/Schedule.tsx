@@ -35,7 +35,7 @@ import { LaborTotals } from "@/components/schedule/LaborTotals";
 import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 const DayBreakdownDialog = lazyWithRetry(() => import("@/components/schedule/DayBreakdownDialog").then(m => ({ default: m.DayBreakdownDialog })));
 const AutoScheduleWizard = lazyWithRetry(() => import("@/components/schedule/AutoScheduleWizard").then(m => ({ default: m.AutoScheduleWizard })));
-const ChangeTrackingDialog = lazyWithRetry(() => import("@/components/schedule/ChangeTrackingDialog").then(m => ({ default: m.ChangeTrackingDialog })));
+const ScheduleHistoryPanel = lazyWithRetry(() => import("@/components/schedule/ScheduleHistoryPanel").then(m => ({ default: m.ScheduleHistoryPanel })));
 import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 import { useLocationStations } from "@/hooks/useLocationStations";
 import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
@@ -78,7 +78,7 @@ export default function Schedule() {
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [newShiftPreset, setNewShiftPreset] = useState<{ userId: string; dayIndex: number; shiftDate: string } | null>(null);
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
-  const [changeTrackingOpen, setChangeTrackingOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [updatePreviewOpen, setUpdatePreviewOpen] = useState(false);
   const requestUpdate = () => setUpdatePreviewOpen(true);
   const confirmUpdate = async () => {
@@ -278,6 +278,8 @@ export default function Schedule() {
           templates={templates}
           onGoLive={handleGoLive}
           onSendUpdate={requestUpdate}
+          onOpenHistory={() => setHistoryOpen(true)}
+          onRestored={() => fetchScheduleData(false)}
           isPublishing={isPublishing}
           hasPendingChanges={hasPendingChanges}
           isLoading={loading}
@@ -355,9 +357,6 @@ export default function Schedule() {
                       <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
                         <Copy className="h-4 w-4" />Copy Schedule to Future Week
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setChangeTrackingOpen(true)} className="gap-2 cursor-pointer">
-                        <History className="h-4 w-4" />Change Tracking
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
                         <Trash2 className="h-4 w-4" />Clear Schedule
                       </DropdownMenuItem>
@@ -368,6 +367,10 @@ export default function Schedule() {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+
+                  <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="h-7 gap-1.5 px-2.5" disabled={!scheduleId}>
+                    <History className="h-4 w-4" /><span className="hidden lg:inline">History</span>
+                  </Button>
 
                   <Button variant="outline" size="sm" onClick={() => setAutoScheduleOpen(true)} className="h-7 gap-1.5 px-2.5">
                     <Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Croo AI</span>
@@ -386,6 +389,9 @@ export default function Schedule() {
                       lastStatusChangedAt={lastStatusChangedAt}
                       lastStatusChangedByName={lastStatusChangedByName}
                       lastStatusAction={lastStatusAction}
+                      scheduleId={scheduleId}
+                      shiftsVersion={shifts}
+                      onRestored={() => fetchScheduleData(false)}
                     />
                   )}
                 </div>
@@ -866,8 +872,8 @@ export default function Schedule() {
         <Suspense fallback={null}><AutoScheduleWizard open={autoScheduleOpen} onOpenChange={setAutoScheduleOpen} currentWeekStart={currentWeekStart} locationId={currentLocation.id} scheduleId={scheduleId} onScheduleGenerated={() => fetchScheduleData(false)} /></Suspense>
       )}
 
-      {changeTrackingOpen && (
-      <Suspense fallback={null}><ChangeTrackingDialog open={changeTrackingOpen} onOpenChange={setChangeTrackingOpen} scheduleId={scheduleId} weekStartDate={currentWeekStart} isPublished={isPublished} /></Suspense>
+      {historyOpen && (
+      <Suspense fallback={null}><ScheduleHistoryPanel open={historyOpen} onOpenChange={setHistoryOpen} scheduleId={scheduleId} weekStartDate={currentWeekStart} onChanged={() => fetchScheduleData(false)} /></Suspense>
       )}
       <UpdatePreviewSheet
         open={updatePreviewOpen}

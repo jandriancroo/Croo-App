@@ -6,7 +6,8 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid, Printer, Share } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, CheckCircle, Clock, BarChart3, CalendarDays, LayoutGrid, Printer, Share, History } from 'lucide-react';
+import { ScheduleUndoButton } from './ScheduleUndoButton';
 import { exportDayTimelineToPrint } from '@/utils/exportDayTimelinePrint';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
@@ -97,6 +98,8 @@ interface MobileScheduleViewProps {
   }>;
   onGoLive?: () => void;
   onSendUpdate?: () => void;
+  onOpenHistory?: () => void;
+  onRestored?: () => void;
   isPublishing?: boolean;
   hasPendingChanges?: boolean;
   isLoading?: boolean; // Show skeleton cards while loading
@@ -144,6 +147,8 @@ export function MobileScheduleView({
   templates = [],
   onGoLive,
   onSendUpdate,
+  onOpenHistory,
+  onRestored,
   isPublishing = false,
   hasPendingChanges = false,
   isLoading = false,
@@ -925,6 +930,12 @@ export function MobileScheduleView({
                   </Button>
                 </>
               )}
+              {scheduleId && onOpenHistory && (
+                <Button variant="outline" size="icon" className="h-7 w-7" title="History" aria-label="History" onClick={onOpenHistory}>
+                  <History className="h-4 w-4" />
+                </Button>
+              )}
+              <ScheduleUndoButton scheduleId={scheduleId} isPublished={isPublished} version={shifts} onChanged={onRestored} />
               {/* Publish/Update Button - styled like desktop */}
               {scheduleId && (!isPublished ? (
                 <Button 
