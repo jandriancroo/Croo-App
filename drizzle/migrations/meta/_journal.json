@@ -78,6 +78,13 @@
       "when": 1791436311696,
       "tag": "0010_schedule_change_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791436551108,
+      "tag": "0011_schedule_change_log_clock_order",
+      "breakpoints": true
     }
   ]
 }
