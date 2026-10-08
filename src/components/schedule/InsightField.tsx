@@ -46,8 +46,8 @@ export const InsightField = forwardRef<HTMLElement, Props>(function InsightField
     <>
       {leftIcon && <span className="shrink-0 flex items-center">{leftIcon}</span>}
       <span className="shrink-0">{value}</span>
-      {suffix && <span className="truncate text-[11px] text-slate-400">{suffix}</span>}
-      <span className="flex-1" />
+      {suffix && <span className="min-w-0 truncate text-[11px] text-slate-400">{suffix}</span>}
+      <span className="flex-1 min-w-0" />
       {showPencil && (
         <Pencil
           aria-hidden
