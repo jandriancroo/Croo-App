@@ -183,6 +183,13 @@
       "when": 1791483954689,
       "tag": "0025_labor_week_pay_all_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791484043802,
+      "tag": "0026_labor_week_pay_all_rules_body",
+      "breakpoints": true
     }
   ]
 }
