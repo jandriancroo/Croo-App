@@ -17,6 +17,10 @@ import { useAuth } from '@/lib/auth';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
+import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
+import { useLaborGoals, laborGoalTone, dowFromDate } from '@/hooks/useLaborGoals';
+
+const toneClass = (t: 'good' | 'warn' | 'bad') => (t === 'good' ? 'text-green-400' : t === 'warn' ? 'text-yellow-400' : 'text-red-400');
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
@@ -76,6 +80,7 @@ export function LaborTotals({
   const { canSeeSales } = useTeamSalesVisibility();
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  const laborGoals = useLaborGoals();
   const getTodayPST = () => getTodayInTZ(timezone);
   const weekDays = Array.from({
     length: 7
