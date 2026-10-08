@@ -24,6 +24,7 @@ import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 import { StationsManagerCard } from "@/components/settings/StationsManagerCard";
 import { CopyEventCategoriesDialog } from "@/components/schedule/CopyEventCategoriesDialog";
+import { ScheduleApprovalSettingsCard } from "@/components/schedule/ScheduleApprovalSettings";
 
 interface ShiftTemplate {
   id: string;
@@ -47,7 +48,7 @@ interface WeekTemplate {
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-export default function ScheduleTemplates() {
+export default function ScheduleSettings() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { canManageTemplates, loading: roleLoading } = useUserRole();
@@ -309,8 +310,10 @@ export default function ScheduleTemplates() {
           <Button variant="outline" onClick={() => navigate("/schedule")}>
             ← Back to Schedule
           </Button>
-          <h1 className="text-3xl font-bold">Schedule Templates</h1>
+          <h1 className="text-3xl font-bold">Schedule Settings</h1>
         </div>
+
+        {currentLocation?.id && <ScheduleApprovalSettingsCard locationId={currentLocation.id} />}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>

@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScheduleApprovalRulesBlock } from '@/components/schedule/ScheduleApprovalSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -655,6 +656,8 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             </div>
           </div>
         )}
+
+        <ScheduleApprovalRulesBlock locationId={locationId} />
       </CardContent>
 
       <LaborRulesWizard locationId={locationId} open={wizardOpen} onOpenChange={setWizardOpen} initial={wizardInitial} />
