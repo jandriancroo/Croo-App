@@ -15,6 +15,20 @@
       "when": 1791404729586,
       "tag": "0001_quick_nudge_generic_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791417324717,
+      "tag": "0002_labor_rules_unification_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791417714365,
+      "tag": "0003_labor_rules_unification_functions",
+      "breakpoints": true
     }
   ]
 }
