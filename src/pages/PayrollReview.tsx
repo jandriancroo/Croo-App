@@ -83,6 +83,7 @@ export default function PayrollReview() {
     tipsLoading,
     totalTipPool,
     dailyTips,
+    shiftFlagsError,
   } = usePayrollData();
   const [closeOpen, setCloseOpen] = useState(false);
   const reviewNames: Record<string, string> = {};
@@ -336,6 +337,12 @@ export default function PayrollReview() {
               );
             })()}
 
+            {shiftFlagsError && (
+              <div role="alert" className="mb-3 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>Flags couldn't load. Refresh to retry.</span>
+              </div>
+            )}
             {isPeriodClosed ? (
               /* Payroll Summary */
               <Card>

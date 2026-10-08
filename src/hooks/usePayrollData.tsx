@@ -63,6 +63,10 @@ export function usePayrollData() {
   const queryClient = useQueryClient();
   const shiftFlagsQuery = useShiftFlags(currentLocation?.id, selectedPeriod?.startDate, selectedPeriod?.endDate);
   const flagIndex = useMemo(() => indexByClockIn(shiftFlagsQuery.data), [shiftFlagsQuery.data]);
+  useEffect(() => {
+    const e: any = shiftFlagsQuery.error;
+    if (e) console.error('[shift_flags] failed to load', { code: e?.code, message: e?.message });
+  }, [shiftFlagsQuery.error]);
 
   // Cache guard: skip refetch if data was loaded within STALE_MS for same period+location
   const STALE_MS = 5 * 60 * 1000; // 5 minutes
@@ -1636,6 +1640,7 @@ export function usePayrollData() {
     sortPunches,
     getDayFlags,
     shiftFlagsLoading: shiftFlagsQuery.isLoading,
+    shiftFlagsError: !!shiftFlagsQuery.error,
     groupPunchesByWeek,
 
     // Payroll summary & exports
