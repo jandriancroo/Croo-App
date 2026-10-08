@@ -7,7 +7,8 @@
  *  b. 7th day (seventh_day_rule, paid hours on all 7 days): 7th day regular 0, ot = min(H,8), dt = rest.
  *  c. Daily OT on when daily_overtime_threshold > 0 and not (daily_ot_max_wage > 0 and wage >= it).
  *  d. Weekly OT: only regular hours count toward weekly_overtime_threshold; regular past it -> weekly_ot.
- *  e. Meal premium (basis 'law', unpaid meals): 1 hr at the day's wage when fewer meals fit than required.
+ *  e. California only (state_code 'CA', basis 'law', unpaid meals): 1 hr meal premium
+ *     at the day's wage when fewer meals fit than required. Other states keep deductions, no premium.
  *  g. cost = (regular + (ot + weekly_ot) * otm + dt * dtm) * wage + meal_premium.
  * Open shifts, time off and phantom shifts are skipped. Missing wage = $15.
  */
@@ -84,7 +85,7 @@ export function weekLaborCost(shifts: PayShift[], rules: PayRules | null | undef
   const dtm = r.double_time_multiplier ?? 2;
   const W = num(r.weekly_overtime_threshold);
   const maxWage = num(r.daily_ot_max_wage);
-  const law = !!rules && r.meal_rule_basis === 'law' && r.meal_break_paid !== true && num(r.meal_break_hours) > 0;
+  const law = !!rules && r.state_code === 'CA' && r.meal_rule_basis === 'law' && r.meal_break_paid !== true && num(r.meal_break_hours) > 0;
 
   const byUser = new Map<string, Map<string, PayShift[]>>();
   for (const s of shifts) {

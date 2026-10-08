@@ -5,6 +5,7 @@ export const WEEK = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '20
 const U = '00000000-0000-0000-0000-000000000001';
 
 export const CA: PayRules = {
+  state_code: 'CA',
   daily_overtime_threshold: 8, daily_double_time_threshold: 12, weekly_overtime_threshold: 40,
   overtime_multiplier: 1.5, double_time_multiplier: 2, seventh_day_rule: true,
   meal_rule_basis: 'law', meal_break_paid: false, meal_break_hours: 5, meal_break_duration: 30,
@@ -39,4 +40,8 @@ export const FIXTURES: PayFixture[] = [
   { name: 'meal waiver 6h, 5.5h shift', shifts: [sh(WEEK[0], '10:00', '15:30')], rules: { ...CA, meal_waiver_max_hours: 6 }, total_cost: 5.5 * 20, meal_premium: 0 },
   { name: 'daily_ot_max_wage 18, wage 20 -> weekly OT only', shifts: days(5, '08:00', '19:00'), rules: { ...CA, daily_ot_max_wage: 18 }, total_cost: 40 * 20 + 10 * 30, hours: { regular: 40, ot: 0, weekly_ot: 10 } },
   { name: 'no rules -> straight time', shifts: days(6, '08:00', '19:00'), rules: null, total_cost: 66 * 20, hours: { regular: 66, ot: 0, weekly_ot: 0 } },
+  { name: 'NV 8h meal law: 15-min gap, no premium', shifts: [sh(WEEK[0], '10:00', '14:00'), sh(WEEK[0], '14:15', '18:30')], rules: { ...CA, state_code: 'NV', meal_break_hours: 8, meal_deadline_hours: 8, second_meal_break_hours: null, seventh_day_rule: false }, total_cost: 167.5, hours: { regular: 8, ot: 0.25, weekly_ot: 0 }, meal_premium: 0 },
+  { name: 'NV single 9h: meal deduction unchanged', shifts: [sh(WEEK[0], '09:00', '18:00')], rules: { ...CA, state_code: 'NV', meal_break_hours: 8, meal_deadline_hours: 8, second_meal_break_hours: null, seventh_day_rule: false }, total_cost: 175, hours: { regular: 8, ot: 0.5, weekly_ot: 0 }, meal_premium: 0 },
+  { name: 'IL 7.5h meal law: 15-min gap, no premium', shifts: [sh(WEEK[0], '10:00', '14:00'), sh(WEEK[0], '14:15', '18:30')], rules: { ...WEEKLY_ONLY, state_code: 'IL', meal_rule_basis: 'law', meal_break_paid: false, meal_break_hours: 7.5, meal_break_duration: 20 }, total_cost: 165, meal_premium: 0 },
+  { name: 'missing state: 15-min gap, no premium', shifts: [sh(WEEK[0], '10:00', '13:00'), sh(WEEK[0], '13:15', '16:00')], rules: { ...CA, state_code: null }, total_cost: 115, meal_premium: 0 },
 ];
