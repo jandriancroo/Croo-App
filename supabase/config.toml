@@ -163,3 +163,6 @@ verify_jwt = false
 
 [functions.quick-nudge]
 verify_jwt = true
+
+[functions.labor-rules-ai]
+verify_jwt = true
