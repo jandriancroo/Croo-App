@@ -3,6 +3,8 @@ import { RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScheduleUndoButton } from './ScheduleUndoButton';
+import { SchedulePostButton } from './SchedulePostButton';
+import type { useScheduleApproval } from '@/hooks/useScheduleApproval';
 
 interface LiveStatusBadgeProps {
   isPublished: boolean;
@@ -18,6 +20,7 @@ interface LiveStatusBadgeProps {
   /** Changes when shifts change (refreshes Undo). */
   shiftsVersion?: unknown;
   onRestored?: () => void;
+  approval?: ReturnType<typeof useScheduleApproval> | null;
 }
 
 export function LiveStatusBadge(props: LiveStatusBadgeProps) {
@@ -38,7 +41,9 @@ function StatusControl({
   onUpdate,
   lastStatusChangedAt,
   lastStatusChangedByName,
-  lastStatusAction
+  lastStatusAction,
+  approval,
+  onRestored,
 }: LiveStatusBadgeProps) {
   
   // Format the status info for tooltip
@@ -58,7 +63,7 @@ function StatusControl({
 
   const statusInfo = getStatusInfo();
   
-  // State 1: Never published - show "Go Live" button
+  // State 1: Not posted - the one Post control
   if (!isPublished) {
     // If it was withdrawn, show who did it
     if (statusInfo && lastStatusAction === 'withdrawn') {
@@ -74,17 +79,13 @@ function StatusControl({
               <p>{statusInfo.actionLabel} {statusInfo.timeAgo}</p>
             </TooltipContent>
           </Tooltip>
-          <Button onClick={onGoLive} disabled={isPublishing}>
-            {isPublishing ? 'Posting...' : 'Post'}
-          </Button>
+          <SchedulePostButton approval={approval} onPost={onGoLive} isPublishing={isPublishing} onChanged={onRestored} />
         </div>
       );
     }
     
     return (
-      <Button onClick={onGoLive} disabled={isPublishing}>
-        {isPublishing ? 'Posting...' : 'Post'}
-      </Button>
+      <SchedulePostButton approval={approval} onPost={onGoLive} isPublishing={isPublishing} onChanged={onRestored} />
     );
   }
 
