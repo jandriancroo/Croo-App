@@ -57,7 +57,7 @@ export function DayBreakdownDialog({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
-  // The ONE scheduled pay calculation over the week's shifts (weekly OT, 7th day, meal premiums)
+  // The ONE scheduled pay calculation over the week's shifts (weekly OT, 7th day)
   const { pay: weekPay, rules: laborRules, wageFor } = useWeekLaborCost(shifts, profiles, currentLocation?.id);
   const laborGoals = useLaborGoals();
   const dayGoal = laborGoals.forDate(dateStr);

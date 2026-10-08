@@ -536,7 +536,7 @@ export function LaborTotals({
         };
       }
       
-      // Today and future: the ONE week-pay calculation (weekly OT, 7th day, meal premiums)
+      // Today and future: the ONE week-pay calculation (weekly OT, 7th day)
       const d = dayPay(weekPay, dayStr);
       return { date: format(day, 'EEE'), hours: d.hours, wages: d.cost, isActual: false };
     });
