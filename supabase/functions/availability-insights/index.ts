@@ -6,7 +6,7 @@
 // Actions:
 //   { action: "run_hourly" }            internal (cron, hourly). Acts only for
 //       stores whose local hour is 7 AND that got ≥1 new time-off request the
-//       previous local day. dedup_key availability_insights_v1_<loc>_<date>.
+//       previous local day whose dates touch next week. dedup_key availability_insights_v1_<loc>_<date>.
 //   { action: "dry_run", location_id, date? }   internal or super_admin.
 //       Builds the email and returns it; never queues or sends anything.
 //   { action: "send_sample", location_id }      signed-in manager+ at the
@@ -50,7 +50,7 @@ async function buildFor(supabase: any, locationId: string, localDate: string, ti
   const [data, logo, newRequestsYesterday, recipients] = await Promise.all([
     loadInsights(supabase, locationId, weekStart, weekEnd),
     resolveEmailLogo(supabase, { locationId }),
-    countNewRequestsYesterday(supabase, locationId, timezone, localDate),
+    countNewRequestsYesterday(supabase, locationId, timezone, localDate, weekStart, weekEnd),
     resolveInsightsRecipients(supabase, locationId),
   ]);
   return {
@@ -113,9 +113,10 @@ Deno.serve(async (req) => {
         subject: b.subject,
         html: b.html,
         recipientCount: b.recipients.length,
+        shortStaffedThreshold: b.data.threshold,
         dayCounts: dayCounts(b.data),
         newRequestsYesterday: b.newRequestsYesterday,
-        gate: { localHourIs7Now: isInsightsHour(timezone), hasNewRequestYesterday: b.newRequestsYesterday > 0 },
+        gate: { localHourIs7Now: isInsightsHour(timezone), hasNewRequestForNextWeekYesterday: b.newRequestsYesterday > 0 },
       });
     }
 
@@ -153,7 +154,8 @@ async function runHourly(supabase: any) {
       const timezone = await timezoneOf(supabase, loc.id);
       if (!isInsightsHour(timezone)) continue; // quiet: not 7 AM there
       const localDate = localDateInTimezone(timezone);
-      if ((await countNewRequestsYesterday(supabase, loc.id, timezone, localDate)) === 0) {
+      const { weekStart, weekEnd } = nextWeekRange(localDate);
+      if ((await countNewRequestsYesterday(supabase, loc.id, timezone, localDate, weekStart, weekEnd)) === 0) {
         results.push({ store: loc.name, status: "no_new_requests" });
         continue;
       }

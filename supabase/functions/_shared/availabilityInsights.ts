@@ -21,7 +21,13 @@ import { escapeEmailHtml as escapeHtml, renderEmailHeader } from "./emailHeader.
 export { escapeHtml };
 export const INSIGHTS_NOTIFICATION_TYPE = "time_off_weekly_digest";
 export const INSIGHTS_LOCAL_HOUR = 7;
-export const COVERAGE_THRESHOLD = 2;
+/** Fallback only; the real value is location_settings.short_staffed_threshold. */
+export const DEFAULT_SHORT_STAFFED_THRESHOLD = 3;
+
+export function resolveThreshold(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 20 ? n : DEFAULT_SHORT_STAFFED_THRESHOLD;
+}
 
 const RECIPIENT_ROLES = ["admin", "general_manager", "manager", "org_admin", "super_admin"];
 const DOW_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -86,14 +92,24 @@ export function insightsSubject(weekStart: string, weekEnd: string, isSample = f
   return `${isSample ? "[Sample] " : ""}Availability Insights · ${weekRangeLabel(weekStart, weekEnd)}`;
 }
 
-/** Gate 2: how many requests were created on `localDate` in the store's timezone. */
-export function countCreatedOnLocalDate(rows: { created_at: string }[], timezone: string, localDate: string): number {
-  return (rows || []).filter((r) => r?.created_at && localDateInTimezone(timezone, new Date(r.created_at)) === localDate).length;
+/** Does a request's date range (end_date null = one day) touch weekStart..weekEnd? */
+export function overlapsWeek(r: { start_date: string; end_date?: string | null }, weekStart: string, weekEnd: string): boolean {
+  return !!r?.start_date && r.start_date <= weekEnd && (r.end_date || r.start_date) >= weekStart;
 }
 
-/** Coverage: 2+ different people out or unavailable that day. */
-export function needsCoverage(peopleOut: number): boolean {
-  return peopleOut >= COVERAGE_THRESHOLD;
+/** Gate 2: requests created on `localDate` (store time) whose dates touch the email's week. */
+export function countQualifyingNewRequests(
+  rows: { created_at: string; start_date: string; end_date?: string | null }[],
+  timezone: string, localDate: string, weekStart: string, weekEnd: string,
+): number {
+  return (rows || []).filter((r) =>
+    r?.created_at && localDateInTimezone(timezone, new Date(r.created_at)) === localDate && overlapsWeek(r, weekStart, weekEnd),
+  ).length;
+}
+
+/** Coverage: `threshold`+ different people out or unavailable that day. */
+export function needsCoverage(peopleOut: number, threshold: number = DEFAULT_SHORT_STAFFED_THRESHOLD): boolean {
+  return peopleOut >= resolveThreshold(threshold);
 }
 
 function fmtTime(t: string | null): string {
@@ -131,7 +147,7 @@ export interface InsightsDay {
 export interface InsightsData {
   locationId: string; locationName: string; orgName: string;
   weekStart: string; weekEnd: string; days: InsightsDay[];
-  pending: number; approved: number;
+  pending: number; approved: number; threshold: number;
 }
 
 /** Pure: puts requests + weekly availability onto the 7 days. */
@@ -141,6 +157,7 @@ export function buildInsightDays(input: {
   roster: { userId: string; name: string; weekly: any }[];
   goals?: Map<string, number>;
   busyDows?: Set<number>;
+  threshold?: number;
 }): InsightsDay[] {
   const days: InsightsDay[] = [];
   for (let i = 0; i < 7; i++) {
@@ -166,7 +183,7 @@ export function buildInsightDays(input: {
     days.push({
       date, dow, label: DOW_LABELS[dow], dayNumber: parts(date).d,
       goal: input.goals?.get(date) ?? null, busy: input.busyDows?.has(dow) ?? false,
-      timeOff, availability, peopleOut: out.size, coverage: needsCoverage(out.size),
+      timeOff, availability, peopleOut: out.size, coverage: needsCoverage(out.size, input.threshold),
     });
   }
   return days;
@@ -208,6 +225,10 @@ export async function loadInsights(supabase: any, locationId: string, weekStart:
     for (const p of profs || []) profiles.set(p.id, p);
   }
 
+  const { data: ls } = await supabase
+    .from("location_settings").select("short_staffed_threshold").eq("location_id", locationId).maybeSingle();
+  const threshold = resolveThreshold(ls?.short_staffed_threshold);
+
   const { data: hoursRows } = await supabase
     .from("location_hours").select("day_of_week, open_time, close_time, is_closed").eq("location_id", locationId);
   const hours: any = {};
@@ -232,19 +253,23 @@ export async function loadInsights(supabase: any, locationId: string, weekStart:
 
   return {
     locationId, locationName: loc?.name || "Location", orgName, weekStart, weekEnd,
-    days: buildInsightDays({ weekStart, requests, roster, goals, busyDows }),
+    days: buildInsightDays({ weekStart, requests, roster, goals, busyDows, threshold }),
+    threshold,
     pending: requests.filter((r) => r.status === "pending").length,
     approved: requests.filter((r) => r.status === "approved").length,
   };
 }
 
 /** New time-off requests created at the store on the previous local day. */
-export async function countNewRequestsYesterday(supabase: any, locationId: string, timezone: string, localToday: string): Promise<number> {
+/** New time-off requests created the previous local day that touch weekStart..weekEnd. */
+export async function countNewRequestsYesterday(
+  supabase: any, locationId: string, timezone: string, localToday: string, weekStart: string, weekEnd: string,
+): Promise<number> {
   const since = new Date(Date.now() - 3 * 86400000).toISOString();
   const { data, error } = await supabase
-    .from("availability_requests").select("created_at").eq("location_id", locationId).gte("created_at", since);
+    .from("availability_requests").select("created_at, start_date, end_date").eq("location_id", locationId).gte("created_at", since);
   if (error) throw new Error(`availability_requests read failed: ${error.message}`);
-  return countCreatedOnLocalDate(data || [], timezone, addDays(localToday, -1));
+  return countQualifyingNewRequests(data || [], timezone, addDays(localToday, -1), weekStart, weekEnd);
 }
 
 /** Per-day sales goal: schedule projection → sales_cache projection → DOW average. */
@@ -497,7 +522,7 @@ ${renderEmailHeader({ title: "Availability Insights", logoUrl: opts.logoUrl, alt
 <p style="color:${INK};font-size:14px;margin:0 0 4px;font-weight:700;">Next week &middot; ${escapeHtml(range)}</p>
 <p style="color:${MUTED};font-size:12px;margin:0 0 14px;">${summary}</p>
 <table width="100%" style="border-collapse:collapse;"><tr>${data.days.map(dayCard).join("")}</tr></table>
-<p style="color:${MUTED};font-size:11px;line-height:1.6;margin:12px 2px 0;"><span style="color:${ORANGE};font-weight:800;">COVERAGE</span> = ${COVERAGE_THRESHOLD}+ people out or unavailable all day &middot; amount under each day is the sales goal &middot; <span style="color:${ORANGE};font-weight:800;">&#9733; BUSY</span> = historically strongest day</p>
+<p style="color:${MUTED};font-size:11px;line-height:1.6;margin:12px 2px 0;"><span style="color:${ORANGE};font-weight:800;">COVERAGE</span> = ${data.threshold}+ people out or unavailable all day &middot; amount under each day is the sales goal &middot; <span style="color:${ORANGE};font-weight:800;">&#9733; BUSY</span> = historically strongest day</p>
 <div style="text-align:center;margin:24px 0 8px;">
 <a href="https://croohq.com/availability" style="display:inline-block;background:${ORANGE};color:#ffffff;text-decoration:none;padding:14px 34px;border-radius:12px;font-weight:800;font-size:15px;">Review in CrooHQ</a>
 </div>
