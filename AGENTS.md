@@ -25,3 +25,4 @@
 <!-- LOVABLE:BEGIN -->
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
 <!-- LOVABLE:END -->
+- "Who is clocked in" is read only via _shared/onClock.ts clockedInUserIds (labor_source_for: toast → open paired toast_shifts, else time_punches). Why: Toast stores have no time_punches.
