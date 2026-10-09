@@ -89,16 +89,34 @@ export function useLocationStations(locationId: string | null | undefined) {
 
   const reorder = useMutation({
     mutationFn: async (orderedIds: string[]) => {
-      await Promise.all(
-        orderedIds.map((id, idx) =>
-          supabase
+      const results = await Promise.all(
+        orderedIds.map(async (id, idx) => {
+          const { error } = await supabase
             .from("location_stations" as any)
             .update({ sort_order: idx })
-            .eq("id", id)
-        )
+            .eq("id", id);
+          return error;
+        })
       );
+      const error = results.find(Boolean);
+      if (error) throw error;
     },
-    onSuccess: invalidate,
+    onMutate: async (orderedIds) => {
+      await qc.cancelQueries({ queryKey: STATIONS_KEY(locationId) });
+      const previous = qc.getQueryData<LocationStation[]>(STATIONS_KEY(locationId));
+      if (previous) {
+        const byId = new Map(previous.map(station => [station.id, station]));
+        qc.setQueryData(STATIONS_KEY(locationId), orderedIds.flatMap((id, sort_order) => {
+          const station = byId.get(id);
+          return station ? [{ ...station, sort_order }] : [];
+        }));
+      }
+      return { previous };
+    },
+    onError: (_error, _ids, context) => {
+      if (context?.previous) qc.setQueryData(STATIONS_KEY(locationId), context.previous);
+    },
+    onSettled: invalidate,
   });
 
   return {
@@ -143,7 +161,11 @@ export function useStationMode(locationId: string | null | undefined) {
     },
     onSuccess: async (enabled) => {
       qc.setQueryData(queryKey, { stations_enabled: enabled });
-      await qc.invalidateQueries({ queryKey });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey }),
+        qc.invalidateQueries({ queryKey: ["mobile-schedule-stations-enabled", locationId] }),
+        qc.invalidateQueries({ queryKey: ["schedule-stations-enabled", locationId] }),
+      ]);
     },
   });
   return { enabled: !!query.data?.stations_enabled, isLoading: query.isLoading, save };

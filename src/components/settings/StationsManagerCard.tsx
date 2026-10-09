@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -20,9 +23,37 @@ interface StationsManagerCardProps {
   locationId: string;
 }
 
+function SortableStationRow({ station, disabled, children }: { station: LocationStation; disabled: boolean; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: station.id, disabled });
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 ${isDragging ? "relative z-10 opacity-70" : ""}`}>
+      <Button ref={setActivatorNodeRef} type="button" variant="ghost" size="icon"
+        className="h-9 w-9 shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground"
+        disabled={disabled} {...attributes} {...listeners} aria-label={`Reorder ${station.name}`}>
+        <GripVertical className="h-4 w-4" />
+      </Button>
+      {children}
+    </div>
+  );
+}
+
 export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
   const { enabled } = useStationMode(locationId);
-  const { stations, create, update, remove } = useLocationStations(locationId);
+  const { stations, create, update, remove, reorder } = useLocationStations(locationId);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id || reorder.isPending) return;
+    const from = stations.findIndex(station => station.id === active.id);
+    const to = stations.findIndex(station => station.id === over.id);
+    if (from < 0 || to < 0) return;
+    try {
+      await reorder.mutateAsync(arrayMove(stations, from, to).map(station => station.id));
+    } catch { toast.error("Could not save station order. Refresh to check the saved order."); }
+  };
 
   // Local edit buffer for inline name editing
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -116,16 +147,14 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
             )}
 
 
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={stations.map(station => station.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
               {stations.map((s) => {
                 const editingValue = edits[s.id];
                 const isDirty = editingValue !== undefined && editingValue !== s.name;
                 return (
-                  <div
-                    key={s.id}
-                    className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-                  >
-                    <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <SortableStationRow key={s.id} station={s} disabled={reorder.isPending}>
                     <input
                       type="color"
                       value={s.color}
@@ -165,10 +194,12 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </div>
+                  </SortableStationRow>
                 );
               })}
             </div>
+            </SortableContext>
+            </DndContext>
 
             <div className="flex items-center gap-2 pt-2 border-t">
               <input

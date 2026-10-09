@@ -1,6 +1,8 @@
 import { format, addDays } from "date-fns";
+import { groupPeopleByStation, type StationResolvable } from "./groupShiftsByStation";
+import type { LocationStation } from "@/hooks/useLocationStations";
 
-interface PrintShift {
+interface PrintShift extends StationResolvable {
   userId: string;
   dayIndex: number; // 0-6 (Mon-Sun)
   startTime: string;
@@ -22,6 +24,7 @@ export interface SchedulePrintData {
   profiles: PrintProfile[];
   shifts: PrintShift[];
   events?: { dayIndex: number; name: string; time: string }[];
+  stations?: LocationStation[];
 }
 
 function escapeHtml(text: string): string {
@@ -57,8 +60,10 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
   });
 
   // Build rows
-  const rows = data.profiles.map((profile) => {
-    const userShifts = data.shifts.filter((s) => s.userId === profile.id);
+  const sections = data.stations?.length
+    ? groupPeopleByStation(data.profiles, data.shifts.map(shift => ({ ...shift, user_id: shift.userId })), data.stations)
+    : [{ station: null, rows: data.profiles.map(person => ({ person, shifts: data.shifts.filter(shift => shift.userId === person.id) })) }];
+  const rows = sections.flatMap(section => section.rows.map(({ person: profile, shifts: userShifts }, index) => {
     let totalHrs = 0;
     const cells = Array.from({ length: 7 }, (_, dayIdx) => {
       const dayShifts = userShifts.filter((s) => s.dayIndex === dayIdx);
@@ -82,8 +87,9 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
       .filter((s) => !s.isTimeOff)
       .reduce((sum, s) => sum + calcHours(s.startTime, s.endTime), 0);
 
-    return { name: profile.fullName, role: profile.role, cells, totalHrs };
-  });
+    return { name: profile.fullName, role: profile.role, cells, totalHrs,
+      sectionHeading: data.stations?.length && index === 0 ? section.station?.name ?? "Unassigned" : null };
+  }));
 
   // Events row
   let eventsRowHtml = "";
@@ -273,7 +279,7 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
     ${eventsRowHtml}
     ${rows
       .map(
-        (row) => `<tr>
+        (row) => `${row.sectionHeading ? `<tr><th colspan="9">${escapeHtml(row.sectionHeading)}</th></tr>` : ""}<tr>
       <td class="name-cell">${escapeHtml(row.name)}${row.role && row.role !== "team_member" ? `<span class="role-tag">${row.role.replace(/_/g, " ")}</span>` : ""}</td>
       ${row.cells.map((c) => `<td class="cell">${c.html}</td>`).join("")}
       <td class="total-cell">${row.totalHrs > 0 ? row.totalHrs.toFixed(1) : ""}</td>

@@ -16,6 +16,13 @@ describe("effectiveStationId", () => {
 });
 
 describe("groupShiftsByStation", () => {
+  it("follows the supplied station order, not names, with Unassigned last", () => {
+    const ordered = [st("foh", 0), st("boh", 1)];
+    const shifts = [{ id: "u" }, { id: "b", station_id: "boh" }, { id: "f", station_id: "foh" }];
+    expect(groupShiftsByStation(shifts, ordered).map(group => group.station?.id ?? null))
+      .toEqual(["foh", "boh", null]);
+    expect(shifts.map(shift => shift.id)).toEqual(["u", "b", "f"]);
+  });
   it("buckets by effective station; inactive goes to Unassigned", () => {
     const shifts = [
       { id: "1", template: { station_id: "boh" } },
