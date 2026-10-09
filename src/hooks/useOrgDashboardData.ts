@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
+import { computePace, laborPct, resolveGoal, storeNow } from '../../supabase/functions/_shared/cubeMetrics';
 
 const LA_TZ = 'America/Los_Angeles';
 
@@ -122,15 +123,6 @@ export function useBrandLocations(brandId: string | null) {
   });
 }
 
-// Which labor row wins for a day. QU rows are only written when the store's
-// "Pull Qu Labor %" switch is on, so a QU row means the store is on POS labor.
-// A $0 time clock row never hides real labor.
-function laborRank(r: { source?: string | null; labor_cost?: any }): number {
-  if (r.source === 'qubeyond' && Number(r.labor_cost) > 0) return 0;
-  if (Number(r.labor_cost) > 0) return 1;
-  return 2;
-}
-
 /**
  * Fetches sales/labor data for multiple locations from sales_cache + labor_cache.
  * targetDate: the selected date (yyyy-MM-dd). For month view this is the 1st of the month.
@@ -237,93 +229,11 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
         const todayRow = locSales.find(r => r.sale_date === effectiveToday);
         const salesToday = Number(todayRow?.net_sales) || 0;
 
-        // Pace: only for real today, not historical
-        let paceToday: number | null = null;
-        if (!isHistorical && todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
-          const nowLA = new Date(nowReal.toLocaleString('en-US', { timeZone: tzByLoc.get(locId) || LA_TZ }));
-          const currentHour = nowLA.getHours();
-          const currentMinutes = nowLA.getMinutes();
-          
-          // === SHIFT-AWARE PACE V3 ===
-          // Shift boundary at 3 PM (hour 15). Before 3 PM: lunch trend. After: dinner trend.
-          // If dinner has < 3 data points, carry lunch average at 50% weight.
-          const SHIFT_BOUNDARY = 15;
-          
-          // Collect per-hour over/under % split by shift
-          const lunchPcts: number[] = [];
-          const dinnerPcts: number[] = [];
-          for (const entry of todayRow.hourly_data as any[]) {
-            const h = parseInt(String(entry.hour || ''));
-            if (isNaN(h)) continue;
-            const actual = Number(entry.sales) || 0;
-            const projected = Number(entry.projected) || 0;
-            if (projected > 0) {
-              const isCompleted = (h < currentHour && actual > 0) || 
-                                  (h === currentHour && currentMinutes >= 30 && actual > 0);
-              if (isCompleted) {
-                if (h < SHIFT_BOUNDARY) {
-                  lunchPcts.push((actual - projected) / projected);
-                } else {
-                  dinnerPcts.push((actual - projected) / projected);
-                }
-              }
-            }
-          }
-          
-          let adjustmentFactor = 1.0;
-          const isDinnerShift = currentHour >= SHIFT_BOUNDARY;
-          let activeAvg: number | null = null;
-          
-          if (isDinnerShift) {
-            if (dinnerPcts.length >= 3) {
-              activeAvg = dinnerPcts.reduce((a, b) => a + b, 0) / dinnerPcts.length;
-            } else if (lunchPcts.length >= 3) {
-              // Carry lunch avg at 50% weight during dinner ramp-up
-              activeAvg = (lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length) * 0.5;
-            }
-          } else {
-            if (lunchPcts.length >= 3) {
-              activeAvg = lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length;
-            }
-          }
-          
-          if (activeAvg !== null) {
-            // Momentum boost (deterministic): only when the store is running ahead,
-            // scaled by how far ahead, capped at +3%. No random wobble, no extra drop.
-            const variant = activeAvg > 0 ? 0.03 * Math.min(activeAvg / 0.50, 1.0) : 0;
-            adjustmentFactor = 1.0 + activeAvg + variant;
-          }
-          
-          // Build pace with adjustment
-          let paceSum = 0;
-          for (const entry of todayRow.hourly_data as any[]) {
-            const h = parseInt(String(entry.hour || ''));
-            if (isNaN(h)) continue;
-            const actual = Number(entry.sales) || 0;
-            const projected = Number(entry.projected) || 0;
-            if (h < currentHour) {
-              paceSum += actual;
-            } else if (h === currentHour) {
-              if (currentMinutes < 30) {
-                paceSum += projected * adjustmentFactor;
-              } else {
-                const remainFrac = (60 - currentMinutes) / 60;
-                paceSum += actual + (projected * remainFrac * adjustmentFactor);
-              }
-            } else {
-              paceSum += projected * adjustmentFactor;
-            }
-          }
-          paceToday = paceSum > 0 ? Math.max(paceSum, salesToday) : null;
-          const storedPace = Number((todayRow as any)?.pace_adjusted_projection) || 0;
-          const paceAt = (todayRow as any)?.pace_calculated_at;
-          if (storedPace > 0 && paceAt && Date.now() - new Date(paceAt).getTime() < 15 * 60 * 1000) {
-            paceToday = Math.max(storedPace, salesToday);
-          }
-        }
-
-        // Goal: override > living > initial > projected (same rule as the store dashboard)
-        const goalToday = Number(todayRow?.override_projection) || Number(todayRow?.living_projection) || Number(todayRow?.initial_projection) || Number(todayRow?.projected_sales) || null;
+        // Pace (shared, deterministic) — only for real today; goal: shared order.
+        const paceToday = !isHistorical && todayRow
+          ? computePace({ ...todayRow, nowInStoreTz: storeNow(tzByLoc.get(locId) || LA_TZ) })
+          : null;
+        const goalToday = resolveGoal(todayRow);
 
         // Last year same day
         const salesLastYearDay = todayRow?.yoy_net_sales != null ? Number(todayRow.yoy_net_sales) : null;
@@ -366,32 +276,16 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
           last7[i] = Number(row?.net_sales) || 0;
         }
 
-        // Labor — prefer punch_clock source
-        const todayLabor = locLabor
-          .filter(r => r.labor_date === effectiveToday)
-          .sort((a, b) => laborRank(a) - laborRank(b));
-        const laborCost = todayLabor.length > 0 ? Number(todayLabor[0].labor_cost) || null : null;
-        const laborPercent = laborCost != null && salesToday > 0 ? (laborCost / salesToday) * 100 : null;
-
-        // Labor WTD
-        const wtdLabor = locLabor.filter(r => r.labor_date >= wtdStart && r.labor_date <= effectiveToday);
-        const wtdLaborByDate = new Map<string, number>();
-        for (const r of wtdLabor.sort((a, b) => laborRank(a) - laborRank(b))) {
-          if (!wtdLaborByDate.has(r.labor_date)) {
-            wtdLaborByDate.set(r.labor_date, Number(r.labor_cost) || 0);
-          }
-        }
-        const laborCostWtd = wtdLaborByDate.size > 0 ? Array.from(wtdLaborByDate.values()).reduce((s, v) => s + v, 0) : null;
-
-        // Labor MTD
-        const mtdLabor = locLabor.filter(r => r.labor_date >= mtdStart && r.labor_date <= effectiveToday);
-        const mtdLaborByDate = new Map<string, number>();
-        for (const r of mtdLabor.sort((a, b) => laborRank(a) - laborRank(b))) {
-          if (!mtdLaborByDate.has(r.labor_date)) {
-            mtdLaborByDate.set(r.labor_date, Number(r.labor_cost) || 0);
-          }
-        }
-        const laborCostMtd = mtdLaborByDate.size > 0 ? Array.from(mtdLaborByDate.values()).reduce((s, v) => s + v, 0) : null;
+        // Labor: get_store_labor already returns ONE server-chosen row per store-day.
+        const laborByDate = new Map<string, number>(locLabor.map(r => [r.labor_date, Number(r.labor_cost) || 0]));
+        const laborCost = laborByDate.has(effectiveToday) ? (laborByDate.get(effectiveToday) || null) : null;
+        const laborPercent = laborPct(laborCost, salesToday);
+        const sumRange = (from: string) => {
+          const vals = [...laborByDate].filter(([d]) => d >= from && d <= effectiveToday).map(([, v]) => v);
+          return vals.length > 0 ? vals.reduce((s, v) => s + v, 0) : null;
+        };
+        const laborCostWtd = sumRange(wtdStart);
+        const laborCostMtd = sumRange(mtdStart);
 
         result[locId] = {
           salesToday, paceToday, goalToday,

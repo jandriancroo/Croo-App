@@ -13,7 +13,7 @@
 | Auth | **Global** env vars (`QU_*`) — never per-location portal creds (prevents 401s) |
 | Base URL | QU V4 REST |
 | Sync function | `supabase/functions/fetch-qubeyond-sales` + `labor-service` |
-| Cadence | Every 15 min during business hours · 3 AM PST `sync_yesterday` · nightly maintenance |
+| Cadence | Every 15 min during business hours · yesterday sync at 0 11 UTC (3 AM PST / 4 AM PDT) via the `qubeyond-sync-yesterday-3am-pst` cron (`sales-service?action=sync-yesterday`) · nightly maintenance |
 | Rate limits | OK with global auth; PMix search uses single 90-day aggregate call (see POS Search Optimization) |
 | Webhooks | ✅ `Closed Check`, `Till`, `EOD` events stream to `qu-data-streaming` → drives KDS + live views without polling |
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { OrgLocationData } from './OrgLocationCube';
 import { OrgPeriod } from './cube-styles/OrgCubeStyleB';
+import { weightedLaborPct } from '../../../supabase/functions/_shared/cubeMetrics';
 
 interface OrgTotalsBarProps {
   locationData: Record<string, Partial<OrgLocationData>>;
@@ -13,8 +14,7 @@ export function OrgTotalsBar({ locationData, locationIds, period }: OrgTotalsBar
     let totalGoal = 0;
     let totalPace = 0;
     let totalSales = 0;
-    let laborSum = 0;
-    let laborCount = 0;
+    const laborRows: { labor: number | null | undefined; sales: number }[] = [];
     let hasGoal = false;
     let hasPace = false;
 
@@ -32,21 +32,17 @@ export function OrgTotalsBar({ locationData, locationIds, period }: OrgTotalsBar
         totalSales += d.salesMtd ?? 0;
       }
 
-      // Weighted labor %: add up every store's labor $ and sales $, then divide.
-      // Only count stores that have labor for the period so sales and labor pair up.
+      // Weighted labor % (shared helper): Σlabor / Σsales over stores with both.
       const periodSales = period === 'day' ? (d.salesToday ?? 0) : period === 'week' ? (d.salesWtd ?? 0) : (d.salesMtd ?? 0);
       const periodLabor = period === 'day' ? d.laborCost : period === 'week' ? d.laborCostWtd : d.laborCostMtd;
-      if (periodLabor != null && periodLabor > 0 && periodSales > 0) {
-        laborSum += periodLabor;
-        laborCount += periodSales;
-      }
+      laborRows.push({ labor: periodLabor, sales: periodSales });
     }
 
     return {
       goal: hasGoal ? totalGoal : null,
       pace: hasPace ? totalPace : null,
       sales: totalSales,
-      laborAvg: laborCount > 0 ? (laborSum / laborCount) * 100 : null,
+      laborAvg: weightedLaborPct(laborRows),
     };
   }, [locationData, locationIds, period]);
 

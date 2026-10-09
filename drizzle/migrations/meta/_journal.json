@@ -246,6 +246,13 @@
       "when": 1791572543159,
       "tag": "0034_toast_mapping_unmatched",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791572972206,
+      "tag": "0035_qubeyond_sync_yesterday_cron",
+      "breakpoints": true
     }
   ]
 }

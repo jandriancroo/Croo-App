@@ -18,6 +18,7 @@ import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCach
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { computePace, laborPct, storeNow } from '../../../supabase/functions/_shared/cubeMetrics';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
@@ -222,28 +223,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return null;
     }
     
-    // labor_cache only holds CLOSED days, so today's hours/cost come from live
-    // punches — otherwise weekly/monthly hours read low while cost keeps moving.
-    // Server labor (get_store_labor) already includes business today live.
-    const liveToday = { date: '', hours: 0, cost: 0 };
+    // Server labor (get_store_labor): ONE server-chosen row per day, business today live.
 
-    // Build a map of daily labor data for the week (prefer punch_clock over qubeyond)
-    const weeklyLaborData = weeklyLaborResult.data || [];
-    const weeklyLaborMap = new Map<string, { laborCost: number; laborHours: number }>();
-    for (const row of weeklyLaborData) {
-      const dateKey = row.labor_date;
-      const existing = weeklyLaborMap.get(dateKey);
-      // Prefer punch_clock source, or use first entry if no preference
-      if (!existing || row.source === 'punch_clock') {
-        weeklyLaborMap.set(dateKey, {
-          laborCost: Number(row.labor_cost) || 0,
-          laborHours: Number(row.labor_hours) || 0
-        });
-      }
-    }
-    if (liveToday.hours > 0 && liveToday.date >= weekStartStr && liveToday.date <= weekEndStr) {
-      weeklyLaborMap.set(liveToday.date, { laborCost: liveToday.cost, laborHours: liveToday.hours });
-    }
+    const weeklyLaborMap = new Map<string, { laborCost: number; laborHours: number }>(
+      (weeklyLaborResult.data || []).map((row) => [row.labor_date, { laborCost: Number(row.labor_cost) || 0, laborHours: Number(row.labor_hours) || 0 }]),
+    );
 
 
     // Check if we have ANY cached data for the period (week or month)
@@ -276,7 +260,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       // Get labor data for this day and calculate laborPercent from laborCost / sales
       const dayLabor = weeklyLaborMap.get(dayStr);
       const laborCost = dayLabor?.laborCost || 0;
-      const laborPercent = (laborCost > 0 && actualSales > 0) ? (laborCost / actualSales) * 100 : 0;
+      const laborPercent = laborPct(laborCost, actualSales) ?? 0;
       
       weeklyBreakdown.push({
         date: dayStr,
@@ -319,22 +303,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Generate all days in the month
     const daysInMonth = monthStart.daysInMonth;
     // Build monthly labor map (same pattern as weekly)
-    const monthlyLaborData = monthlyLaborResult.data || [];
-    const monthlyLaborMap = new Map<string, { laborCost: number; laborHours: number }>();
-    for (const row of monthlyLaborData) {
-      const dateKey = row.labor_date;
-      const existing = monthlyLaborMap.get(dateKey);
-      // Prefer punch_clock source
-      if (!existing || row.source === 'punch_clock') {
-        monthlyLaborMap.set(dateKey, {
-          laborCost: Number(row.labor_cost) || 0,
-          laborHours: Number(row.labor_hours) || 0
-        });
-      }
-    }
-    if (liveToday.hours > 0 && liveToday.date >= monthStartStr && liveToday.date <= monthEndStr) {
-      monthlyLaborMap.set(liveToday.date, { laborCost: liveToday.cost, laborHours: liveToday.hours });
-    }
+    const monthlyLaborMap = new Map<string, { laborCost: number; laborHours: number }>(
+      (monthlyLaborResult.data || []).map((row) => [row.labor_date, { laborCost: Number(row.labor_cost) || 0, laborHours: Number(row.labor_hours) || 0 }]),
+    );
 
     
     const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number }[] = [];
@@ -350,7 +321,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       // Get labor data for this day
       const dayLabor = monthlyLaborMap.get(dayStr);
       const mLaborCost = dayLabor?.laborCost || 0;
-      const mLaborPercent = (mLaborCost > 0 && actualSales > 0) ? (mLaborCost / actualSales) * 100 : 0;
+      const mLaborPercent = laborPct(mLaborCost, actualSales) ?? 0;
       
       monthlyBreakdownFull.push({
         date: dayStr,
@@ -383,32 +354,17 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       ? (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>)
       : [];
     
-    // Build daily labor from labor_cache - prioritize punch_clock over qubeyond (do NOT aggregate sources)
-    const laborData = laborResult.data || [];
-    // Pick the best source: punch_clock > qubeyond (punch_clock is our internal source of truth)
-    const punchClockRow = laborData.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-    const externalRow = laborData.find((r: any) => ['qubeyond', 'aloha', 'clover', 'toast'].includes(r.source) && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
-    const preferredRow = punchClockRow || externalRow;
-    
-    const aggregatedLabor = (dateStr === liveToday.date && liveToday.hours > 0) ? {
-      // Today has no cache row yet — use live punch math
-      laborCost: liveToday.cost,
-      hoursWorked: liveToday.hours,
-      regularHours: liveToday.hours,
-      overtimeHours: 0
-    } : preferredRow ? {
-      laborCost: Number(preferredRow.labor_cost) || 0,
-      hoursWorked: Number(preferredRow.labor_hours) || 0,
-      regularHours: Number(preferredRow.regular_hours) || 0,
-      overtimeHours: Number(preferredRow.overtime_hours) || 0
+    // Day labor: get_store_labor already picked the one row for this store-day.
+    const dayRow: any = (laborResult.data || [])[0];
+    const aggregatedLabor = dayRow ? {
+      laborCost: Number(dayRow.labor_cost) || 0,
+      hoursWorked: Number(dayRow.labor_hours) || 0,
+      regularHours: Number(dayRow.regular_hours) || 0,
+      overtimeHours: Number(dayRow.overtime_hours) || 0
     } : { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
 
-    
-    
     const dailyLabor = (aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0) ? {
-      laborPercent: cached?.net_sales && Number(cached.net_sales) > 0 
-        ? (aggregatedLabor.laborCost / Number(cached.net_sales)) * 100 
-        : 0,
+      laborPercent: laborPct(aggregatedLabor.laborCost, Number(cached?.net_sales)) ?? 0,
       laborCost: aggregatedLabor.laborCost,
       hoursWorked: aggregatedLabor.hoursWorked,
       regularHours: aggregatedLabor.regularHours || aggregatedLabor.hoursWorked,
@@ -419,7 +375,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const weeklyLaborTotalCost = weeklyBreakdown.reduce((sum, d) => sum + (d.laborCost || 0), 0);
     const weeklyLaborTotalHours = Array.from(weeklyLaborMap.values()).reduce((sum, l) => sum + l.laborHours, 0);
     const weeklyLabor = (weeklyLaborTotalCost > 0 || weeklyLaborTotalHours > 0) ? {
-      laborPercent: weeklySales > 0 ? (weeklyLaborTotalCost / weeklySales) * 100 : 0,
+      laborPercent: laborPct(weeklyLaborTotalCost, weeklySales) ?? 0,
       laborCost: weeklyLaborTotalCost,
       hoursWorked: weeklyLaborTotalHours,
       regularHours: weeklyLaborTotalHours, // We don't have breakdown, use total
@@ -430,7 +386,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const monthlyLaborTotalCost = monthlyBreakdownFull.reduce((sum, d) => sum + (d.laborCost || 0), 0);
     const monthlyLaborTotalHours = Array.from(monthlyLaborMap.values()).reduce((sum, l) => sum + l.laborHours, 0);
     const monthlyLabor = (monthlyLaborTotalCost > 0 || monthlyLaborTotalHours > 0) ? {
-      laborPercent: monthlySales > 0 ? (monthlyLaborTotalCost / monthlySales) * 100 : 0,
+      laborPercent: laborPct(monthlyLaborTotalCost, monthlySales) ?? 0,
       laborCost: monthlyLaborTotalCost,
       hoursWorked: monthlyLaborTotalHours,
       regularHours: monthlyLaborTotalHours,
@@ -493,10 +449,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       projections: {
         todayProjected: cached ? (resolveProjection(cached as any).value || 0) : 0,
         todaySource: cached ? resolveProjection(cached as any).source : null,
-        // Live pace value written by the POS adapter (clover-sync / qu sync).
-        // Absent for very old rows; UI falls back to actual sales when undefined.
-        todayPaceAdjusted: cached && (cached as any).pace_adjusted_projection
-          ? Number((cached as any).pace_adjusted_projection)
+        // Today's pace: the shared deterministic helper (fresh stored pace, else V3).
+        todayPaceAdjusted: cached && dateStr === todayTzStr
+          ? (computePace({ ...(cached as any), nowInStoreTz: storeNow(locationZone) }) ?? undefined)
           : undefined,
         weekProjected: weeklyProjected,
         monthProjected: monthlyProjected
@@ -689,17 +644,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             ])
           );
 
-          // Prefer punch_clock if both sources exist for the same day
-          const laborMap = new Map<string, { cost: number; hours: number }>();
-          for (const row of weekLaborRes.data || []) {
-            const existing = laborMap.get(row.labor_date);
-            if (!existing || row.source === 'punch_clock') {
-              laborMap.set(row.labor_date, {
-                cost: Number(row.labor_cost) || 0,
-                hours: Number(row.labor_hours) || 0,
-              });
-            }
-          }
+          // One server-chosen labor row per day (get_store_labor).
+          const laborMap = new Map<string, { cost: number; hours: number }>(
+            (weekLaborRes.data || []).map((row) => [row.labor_date, { cost: Number(row.labor_cost) || 0, hours: Number(row.labor_hours) || 0 }]),
+          );
 
           // Today has no labor_cache row yet — use live punch math so hours and
           // cost move together (same helper the pay period cards use).
@@ -711,7 +659,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               const labor = laborMap.get(d.date);
               if (labor) {
                 const laborCost = labor.cost;
-                const laborPercent = laborCost > 0 && d.sales > 0 ? (laborCost / d.sales) * 100 : 0;
+                const laborPercent = laborPct(laborCost, d.sales) ?? 0;
                 return { ...d, laborCost, laborPercent };
               }
               return d;
@@ -727,7 +675,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
             const labor = laborMap.get(d.date);
             const laborCost = labor?.cost ?? d.laborCost ?? 0;
-            const laborPercent = laborCost > 0 && sales > 0 ? (laborCost / sales) * 100 : 0;
+            const laborPercent = laborPct(laborCost, sales) ?? 0;
 
             return {
               ...d,
@@ -747,7 +695,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           salesData.weekly = repairedWeeklySales;
           salesData.weeklyLabor = (repairedWeeklyLaborCost > 0 || repairedWeeklyLaborHours > 0)
             ? {
-                laborPercent: repairedWeeklySales > 0 ? (repairedWeeklyLaborCost / repairedWeeklySales) * 100 : 0,
+                laborPercent: laborPct(repairedWeeklyLaborCost, repairedWeeklySales) ?? 0,
                 laborCost: repairedWeeklyLaborCost,
                 hoursWorked: repairedWeeklyLaborHours,
                 regularHours: repairedWeeklyLaborHours,
@@ -771,7 +719,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         const todaySales = Number(salesData.daily) || 0;
         salesData.labor = (liveLabor.hours > 0 || liveLabor.cost > 0)
           ? {
-              laborPercent: todaySales > 0 ? (liveLabor.cost / todaySales) * 100 : 0,
+              laborPercent: laborPct(liveLabor.cost, todaySales) ?? 0,
               laborCost: liveLabor.cost,
               hoursWorked: liveLabor.hours,
               regularHours: liveLabor.hours,

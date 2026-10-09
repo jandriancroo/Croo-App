@@ -37,6 +37,7 @@ import { useAuth } from '@/lib/auth';
 import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
 import { summarizeCuts } from '@/utils/cutSavingsSummary';
 import { useLaborGoalDisplay } from '@/hooks/useLaborGoalDisplay';
+import { computePace, laborPct, storeNow } from '../../../supabase/functions/_shared/cubeMetrics';
 
 // Swipe-up panel palette. "Ink" = theme primary darkened for text on the light
 // page background; dark themes lighten it instead so it stays readable.
@@ -382,133 +383,16 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const resolvedProjection = resolveProjection(salesData);
   const projectedSales = resolvedProjection.value || 0;
   
-  // Calculate pace-adjusted (same logic as ManagerDashboardOverlay)
-  // Pace = actual sales so far + projected remaining hours
+  // Pace: the one shared, deterministic helper (fresh stored pace wins, else shift-aware V3).
   const paceAdjusted = useMemo(() => {
-    // Stored pace (shared server math) wins when it is fresh (< 15 min).
-    const storedPace = Number((salesData as any)?.pace_adjusted_projection) || 0;
-    const paceAt = (salesData as any)?.pace_calculated_at;
-    if (storedPace > 0 && paceAt && Date.now() - new Date(paceAt).getTime() < 15 * 60 * 1000) {
-      return Math.max(storedPace, Number((salesData as any)?.net_sales) || 0);
-    }
-    // First check localStorage cache (same key pattern as Dashboard)
-    try {
-      const cacheKey = `qu_projections_cache_${locationId}`;
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.data?.todayPaceAdjusted && parsed.data.todayPaceAdjusted > 0) {
-          return parsed.data.todayPaceAdjusted;
-        }
-      }
-    } catch {
-      // Ignore cache errors
-    }
+    const pace = salesData ? computePace({ ...(salesData as any), nowInStoreTz: storeNow(timezone) }) : null;
+    return pace ?? (totalSales > 0 ? totalSales : projectedSales);
+  }, [salesData, totalSales, projectedSales, timezone]);
 
-    // Calculate pace on-the-fly when cache is stale/missing
-    const now = new Date();
-    const tzNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-    const tzHour = tzNow.getHours();
-    const tzMinutes = tzNow.getMinutes();
-    
-    // Get hourly data from sales_cache
-    const hourlyArray = (salesData?.hourly_data as unknown as { hour?: string; sales?: number; projected?: number }[] | null) || [];
-    
-    // Find the last hour with data (indicates store close time)
-    let lastDataHour = 0;
-    hourlyArray.forEach(h => {
-      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
-      if (hourNum > lastDataHour) {
-        lastDataHour = hourNum;
-      }
-    });
-    
-    // If current hour is past the last data hour, store is closed - pace = actuals
-    if (tzHour > lastDataHour && totalSales > 0) {
-      return totalSales;
-    }
-    
-    // === SHIFT-AWARE PACE V3 ===
-    const SHIFT_BOUNDARY = 15;
-    const lunchPcts: number[] = [];
-    const dinnerPcts: number[] = [];
-    hourlyArray.forEach(h => {
-      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
-      const actual = Number(h.sales) || 0;
-      const projected = Number(h.projected) || 0;
-      if (projected > 0) {
-        const isCompleted = (hourNum < tzHour && actual > 0) || 
-                            (hourNum === tzHour && tzMinutes >= 30 && actual > 0);
-        if (isCompleted) {
-          if (hourNum < SHIFT_BOUNDARY) {
-            lunchPcts.push((actual - projected) / projected);
-          } else {
-            dinnerPcts.push((actual - projected) / projected);
-          }
-        }
-      }
-    });
-    
-    let adjustmentFactor = 1.0;
-    const isDinnerShift = tzHour >= SHIFT_BOUNDARY;
-    let activeAvg: number | null = null;
-    
-    if (isDinnerShift) {
-      if (dinnerPcts.length >= 3) {
-        activeAvg = dinnerPcts.reduce((a, b) => a + b, 0) / dinnerPcts.length;
-      } else if (lunchPcts.length >= 3) {
-        activeAvg = (lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length) * 0.5;
-      }
-    } else {
-      if (lunchPcts.length >= 3) {
-        activeAvg = lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length;
-      }
-    }
-    
-    if (activeAvg !== null) {
-      const severity = Math.min(Math.abs(activeAvg) / 0.50, 1.0);
-      const rand = Math.random();
-      const variant = activeAvg < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
-      adjustmentFactor = 1.0 + activeAvg + variant;
-    }
-    
-    // Calculate pace with adjustment and 30-min grace period
-    let paceSum = 0;
-    hourlyArray.forEach(h => {
-      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
-      const actual = Number(h.sales) || 0;
-      const projected = Number(h.projected) || 0;
-      if (hourNum < tzHour) {
-        paceSum += actual;
-      } else if (hourNum === tzHour) {
-        if (tzMinutes < 30) {
-          paceSum += projected * adjustmentFactor;
-        } else {
-          const remainFrac = (60 - tzMinutes) / 60;
-          paceSum += actual + (projected * remainFrac * adjustmentFactor);
-        }
-      } else {
-        paceSum += projected * adjustmentFactor;
-      }
-    });
-    
-    if (paceSum > 0) {
-      return Math.max(paceSum, totalSales);
-    }
-    
-    // If no remaining projections but still during business hours, use actual sales
-    if (totalSales > 0) {
-      return totalSales;
-    }
-    
-    return projectedSales;
-  }, [locationId, salesData, totalSales, projectedSales, timezone]);
-  
-  
   // Labor calculations
   const laborCost = laborData?.labor_cost || 0;
   const laborTarget = goal?.day ?? goal?.weekly ?? (locationSettings?.labor_percentage_target || 25);
-  const laborPercentage = totalSales > 0 ? (laborCost / totalSales) * 100 : 0;
+  const laborPercentage = laborPct(laborCost, totalSales) ?? 0;
   const laborDiff = laborPercentage - laborTarget;
   
   // Determine labor status

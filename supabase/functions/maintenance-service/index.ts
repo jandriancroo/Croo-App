@@ -204,17 +204,7 @@ async function handleNightlyMaintenance(
     return { locations: allLocations?.length || 0, backfilled: backfilledCount };
   }));
 
-  // Task 5: Sync yesterday's sales (product_mix, payments, YOY)
-  results.push(await runResumableTask(supabase, runDate, completedSet, "sync-yesterday-sales", async () => {
-    const response = await fetch(`${supabaseUrl}/functions/v1/sales-service?action=sync-yesterday`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
-      body: JSON.stringify({}),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const result = await response.json();
-    return { synced: result.synced || 0, results: result.results?.length || 0 };
-  }));
+  // (Yesterday's QU sales sync runs from its own cron: qubeyond-sync-yesterday-3am-pst.)
 
   // Task 6: Send daily logbook summaries
   results.push(await runResumableTask(supabase, runDate, completedSet, "daily-logbook-summaries", async () => {

@@ -7,6 +7,7 @@
  * - living_projection: Updated daily at 2 AM for days within 7-day window
  * - override_projection: Manager manual override (highest priority)
  */
+import { resolveGoalWithSource } from '../../supabase/functions/_shared/cubeMetrics';
 
 export interface ProjectionData {
   initial_projection?: number | null;
@@ -35,68 +36,15 @@ export interface ResolvedProjection {
  * override > living > initial > legacy (projected_sales)
  */
 export function resolveProjection(data: ProjectionData | null | undefined): ResolvedProjection {
-  if (!data) {
-    return {
-      value: null,
-      source: null,
-      isOverride: false,
-      isLiving: false,
-      isInitial: false,
-    };
-  }
-
-  // Check override first (highest priority)
-  if (data.override_projection != null && data.override_projection > 0) {
-    return {
-      value: data.override_projection,
-      source: 'override',
-      isOverride: true,
-      isLiving: false,
-      isInitial: false,
-      overrideAt: data.override_at ? new Date(data.override_at) : null,
-      overrideBy: data.override_by ?? null,
-    };
-  }
-
-  // Check living projection (updated within 7-day window)
-  if (data.living_projection != null && data.living_projection > 0) {
-    return {
-      value: data.living_projection,
-      source: 'living',
-      isOverride: false,
-      isLiving: true,
-      isInitial: false,
-    };
-  }
-
-  // Check initial projection (schedule planning)
-  if (data.initial_projection != null && data.initial_projection > 0) {
-    return {
-      value: data.initial_projection,
-      source: 'initial',
-      isOverride: false,
-      isLiving: false,
-      isInitial: true,
-    };
-  }
-
-  // Fallback to legacy projected_sales field
-  if (data.projected_sales != null && data.projected_sales > 0) {
-    return {
-      value: data.projected_sales,
-      source: 'legacy',
-      isOverride: false,
-      isLiving: false,
-      isInitial: false,
-    };
-  }
-
+  const { value, source } = resolveGoalWithSource(data);
+  const isOverride = source === 'override';
   return {
-    value: null,
-    source: null,
-    isOverride: false,
-    isLiving: false,
-    isInitial: false,
+    value,
+    source,
+    isOverride,
+    isLiving: source === 'living',
+    isInitial: source === 'initial',
+    ...(isOverride ? { overrideAt: data?.override_at ? new Date(data.override_at) : null, overrideBy: data?.override_by ?? null } : {}),
   };
 }
 
