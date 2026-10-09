@@ -232,6 +232,13 @@
       "when": 1791527812051,
       "tag": "0032_chat_members_location_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791528189960,
+      "tag": "0033_short_staffed_threshold",
+      "breakpoints": true
     }
   ]
 }

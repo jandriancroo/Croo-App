@@ -8169,6 +8169,7 @@ export type Database = {
           schedule_approval_enabled: boolean
           schedule_approval_mode: string
           schedule_approval_roles: Database["public"]["Enums"]["app_role"][]
+          short_staffed_threshold: number
           stations_enabled: boolean
           team_member_sales_view_enabled: boolean
           time_off_cutoff_day: number
@@ -8207,6 +8208,7 @@ export type Database = {
           schedule_approval_enabled?: boolean
           schedule_approval_mode?: string
           schedule_approval_roles?: Database["public"]["Enums"]["app_role"][]
+          short_staffed_threshold?: number
           stations_enabled?: boolean
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
@@ -8245,6 +8247,7 @@ export type Database = {
           schedule_approval_enabled?: boolean
           schedule_approval_mode?: string
           schedule_approval_roles?: Database["public"]["Enums"]["app_role"][]
+          short_staffed_threshold?: number
           stations_enabled?: boolean
           team_member_sales_view_enabled?: boolean
           time_off_cutoff_day?: number
@@ -16730,6 +16733,10 @@ export type Database = {
           _roles?: Database["public"]["Enums"]["app_role"][]
         }
         Returns: Json
+      }
+      set_short_staffed_threshold: {
+        Args: { _location_id: string; _threshold: number }
+        Returns: number
       }
       set_store_goal_template: { Args: { _template_id: string }; Returns: Json }
       shift_flags: {
