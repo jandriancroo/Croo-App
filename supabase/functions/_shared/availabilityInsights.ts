@@ -366,7 +366,7 @@ async function loadBusiestDows(
   // A close second counts too (within 3%).
   if (averages[1] && averages[1].avg >= top.avg * 0.97) busyDows.add(averages[1].dow);
 
-  return { busyDows, busiestDowLabel: DOW_LONG[top.dow] };
+  return { busyDows, busiestDowLabel: DOW_LABELS[top.dow] };
 }
 
 // ── Recipients (same list the old Who's Out digest used) ──────────────────
