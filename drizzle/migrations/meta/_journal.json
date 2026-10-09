@@ -211,6 +211,13 @@
       "when": 1791485402992,
       "tag": "0029_labor_meal_premiums_removed_body",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791518582455,
+      "tag": "0030_checklist_items_assignees",
+      "breakpoints": true
     }
   ]
 }
