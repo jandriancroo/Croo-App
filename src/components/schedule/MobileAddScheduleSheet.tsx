@@ -25,7 +25,6 @@ import {
   type WeeklyAvailability,
 } from '@/types/availability';
 import { useLocationStations } from '@/hooks/useLocationStations';
-import { useUserStationAssignments } from '@/hooks/useUserStationAssignments';
 import { useQuery } from '@tanstack/react-query';
 
 interface Profile {
@@ -229,7 +228,14 @@ export function MobileAddScheduleSheet({
   const { stations } = useLocationStations(locationId);
   const stationsList = stations ?? [];
   const stationsEnabled = !!(stationsEnabledRow as any)?.stations_enabled && stationsList.length > 0;
-  const { assignments: stationAssignments, assign: assignUserStation } = useUserStationAssignments(locationId);
+  // Per-day station pick for the week builder (station mode only). Unset = inherit the template's station.
+  const [dayStation, setDayStation] = useState<Record<number, string | null>>({});
+  /** Saved station_id: only when the pick differs from the template's station (else null = inherit). */
+  const stationOverride = (dayIdx: number, templateId: string | null) => {
+    const picked = stationsEnabled ? dayStation[dayIdx] ?? null : null;
+    const tplStation = (templates.find(t => t.id === templateId) as any)?.station_id ?? null;
+    return picked && picked !== tplStation ? picked : null;
+  };
 
   // Init defaults on open
   useEffect(() => {
@@ -248,7 +254,7 @@ export function MobileAddScheduleSheet({
       setDayCursor(0);
     }
     setEmpUserId(defaultEmployeeId || '');
-    setWeekDraft({});
+    setWeekDraft({}); setDayStation({});
   }, [open]); // eslint-disable-line
 
   const empProfile = profiles.find(p => p.id === empUserId);
@@ -473,6 +479,7 @@ export function MobileAddScheduleSheet({
           template_id: v.templateId || null,
           day_of_week: d.getDay(),
           shift_date: format(d, 'yyyy-MM-dd'),
+          station_id: stationOverride(i, v.templateId || null),
         };
       });
       const { error } = await supabase.from('scheduled_shifts').insert(rows);
@@ -482,7 +489,7 @@ export function MobileAddScheduleSheet({
       onCreated?.();
       setReviewOpen(false);
       // Reset builder state but keep the sheet open so manager can pick the next employee.
-      setWeekDraft({});
+      setWeekDraft({}); setDayStation({});
       setDayCursor(0);
       if (pendingEmpSwitchId) {
         setEmpUserId(pendingEmpSwitchId);
@@ -958,7 +965,7 @@ export function MobileAddScheduleSheet({
                 </DialogHeader>
 
                 <div className="space-y-0.5">
-                  {/* Stations — assign primary station to this employee */}
+                  {/* Station for THIS day's shift (unset = the template's station) */}
                   {stationsEnabled && empUserId && (
                     <>
                       <div className="flex items-center justify-center gap-1 px-2 pt-1 pb-0.5">
@@ -969,12 +976,12 @@ export function MobileAddScheduleSheet({
                       </div>
                       <div className="flex flex-wrap gap-1 px-1 pb-1">
                         {stationsList.map((s) => {
-                          const active = stationAssignments[empUserId] === s.id;
+                          const active = dayStation[i] === s.id;
                           return (
                             <button
                               key={s.id}
                               type="button"
-                              onClick={() => assignUserStation(empUserId, active ? null : s.id)}
+                              onClick={() => setDayStation(prev => ({ ...prev, [i]: active ? null : s.id }))}
                               className={cn(
                                 "flex items-center gap-1 px-2 py-1 rounded-md border text-xs transition",
                                 active ? "border-primary bg-primary/10" : "border-border hover:bg-accent/70"
@@ -986,14 +993,14 @@ export function MobileAddScheduleSheet({
                             </button>
                           );
                         })}
-                        {stationAssignments[empUserId] && (
+                        {dayStation[i] && (
                           <button
                             type="button"
-                            onClick={() => assignUserStation(empUserId, null)}
+                            onClick={() => setDayStation(prev => ({ ...prev, [i]: null }))}
                             className="flex items-center gap-1 px-2 py-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-accent/70"
                           >
                             <XIcon className="h-3 w-3" />
-                            Unassign
+                            Use template
                           </button>
                         )}
                       </div>

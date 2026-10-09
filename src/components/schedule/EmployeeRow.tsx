@@ -80,15 +80,21 @@ interface EmployeeRowProps {
   isCompactMode?: boolean;
   holidays?: Holiday[];
   allShifts?: any[];
-  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any, stationId?: string | null) => void;
   onNewShift?: (userId: string, dayIndex: number, shiftDate: string) => void;
   /** Optional small badge shown next to the name (e.g. "Manager"). */
   roleBadge?: string;
-  /** Stations enabled at the location (passed to SmartTap popover). */
+  /** Stations enabled at the location (station mode only; passed to SmartTap popover). */
   stations?: { id: string; name: string; color?: string | null }[];
-  currentStationId?: string | null;
-  onAssignStation?: (userId: string, stationId: string | null) => void;
+  /** Station section this row sits in (station mode only; null = Unassigned). Defaults the new shift's station. */
+  sectionStationId?: string | null;
 }
+
+/** Station mode shows one person in several sections, so drag/drop and popup ids carry the section. */
+export const rowIdSuffix = (sectionStationId: string | null | undefined) =>
+  sectionStationId === undefined ? "" : `@${(sectionStationId ?? "none").replace(/-/g, "")}`;
+/** Strip the station-section suffix from a row / drop id. */
+export const stripRowIdSuffix = (id: string) => id.replace(/@[0-9a-z]*/i, "");
 
 
 function EmployeeRowComponent({
@@ -113,9 +119,9 @@ function EmployeeRowComponent({
   onNewShift,
   roleBadge,
   stations,
-  currentStationId,
-  onAssignStation,
+  sectionStationId,
 }: EmployeeRowProps) {
+  const idSuffix = rowIdSuffix(sectionStationId);
 
   const navigate = useNavigate();
   const { currentLocation } = useAppLocation();
@@ -132,7 +138,7 @@ function EmployeeRowComponent({
     transition,
     isDragging
   } = useSortable({
-    id: profile.id,
+    id: profile.id + idSuffix,
     disabled: !isDraggable || profile.id === "unassigned"
   });
   const style = {
@@ -277,8 +283,8 @@ function EmployeeRowComponent({
          onNewShift={onNewShift}
          cellDateStr={cellDateStr}
          stations={stations}
-         currentStationId={currentStationId}
-         onAssignStation={onAssignStation ? (sid) => onAssignStation(profile.id, sid) : undefined}
+         sectionStationId={sectionStationId}
+         idSuffix={idSuffix}
        />;
 
     })}
@@ -307,8 +313,8 @@ function DayCell({
   onNewShift,
   cellDateStr = "",
   stations,
-  currentStationId,
-  onAssignStation,
+  sectionStationId,
+  idSuffix = "",
 }: {
   userId: string;
   dayIndex: number;
@@ -328,15 +334,15 @@ function DayCell({
   profileName?: string;
   templates?: any[];
   recentTemplateIds?: string[];
-  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any, stationId?: string | null) => void;
   onNewShift?: (userId: string, dayIndex: number, shiftDate: string) => void;
   cellDateStr?: string;
   stations?: { id: string; name: string; color?: string | null }[];
-  currentStationId?: string | null;
-  onAssignStation?: (stationId: string | null) => void;
+  sectionStationId?: string | null;
+  idSuffix?: string;
 }) {
 
-  const dropId = `drop-${userId}-${dayIndex}`;
+  const dropId = `drop-${userId}${idSuffix}-${dayIndex}`;
   const {
     setNodeRef,
     isOver
@@ -346,18 +352,18 @@ function DayCell({
   
   // Popup open state is shared grid-wide (one popup at a time)
   const activePopover = useSyncExternalStore(subscribeCellPopover, getActiveCellPopover);
-  const smartTapKey = `${userId}-${dayIndex}-smarttap`;
-  const availKey = `${userId}-${dayIndex}-avail`;
-  const timeOffKey = (requestId: string) => `${userId}-${dayIndex}-timeoff-${requestId}`;
+  const smartTapKey = `${userId}${idSuffix}-${dayIndex}-smarttap`;
+  const availKey = `${userId}${idSuffix}-${dayIndex}-avail`;
+  const timeOffKey = (requestId: string) => `${userId}${idSuffix}-${dayIndex}-timeoff-${requestId}`;
   const smartTapOpen = activePopover === smartTapKey;
   const availabilityPopoverOpen = activePopover === availKey;
-  const timeOffPopoverId = activePopover?.startsWith(`${userId}-${dayIndex}-timeoff-`)
-    ? activePopover.slice(`${userId}-${dayIndex}-timeoff-`.length)
+  const timeOffPopoverId = activePopover?.startsWith(`${userId}${idSuffix}-${dayIndex}-timeoff-`)
+    ? activePopover.slice(`${userId}${idSuffix}-${dayIndex}-timeoff-`.length)
     : null;
   const setSmartTapOpen = (open: boolean) => setActiveCellPopover(open ? smartTapKey : null);
   const setAvailabilityPopoverOpen = (open: boolean) => setActiveCellPopover(open ? availKey : null);
   const setTimeOffPopoverId = (requestId: string | null) => setActiveCellPopover(requestId ? timeOffKey(requestId) : null);
-  const hasStationPicker = !!(stations && stations.length > 0 && onAssignStation && userId !== "unassigned");
+  const hasStationPicker = !!(stations && stations.length > 0 && userId !== "unassigned");
   const canSmartTap = (!!onSmartTap || !!onNewShift) && (templates.length > 0 || hasStationPicker || !!onNewShift) && shifts.length === 0 && userId !== "unassigned";
 
   
@@ -382,9 +388,11 @@ function DayCell({
   // Check if any shift covers the availability restriction
 
   
-  const handleSmartTapSelect = (template: any) => {
+  // Station mode: the shift gets its own station only when the pick differs from the template's (else it inherits).
+  const handleSmartTapSelect = (template: any, pickedStationId?: string | null) => {
     setSmartTapOpen(false);
-    onSmartTap?.(userId, dayIndex, cellDateStr, template);
+    const override = hasStationPicker && pickedStationId && pickedStationId !== (template?.station_id ?? null) ? pickedStationId : null;
+    onSmartTap?.(userId, dayIndex, cellDateStr, template, override);
   };
 
   const handleNewShift = () => {
@@ -403,8 +411,7 @@ function DayCell({
       onSelectTemplate={handleSmartTapSelect}
       isCompactMode={isCompactMode}
       stations={hasStationPicker ? stations : undefined}
-      currentStationId={currentStationId ?? null}
-      onSelectStation={hasStationPicker ? onAssignStation : undefined}
+      defaultStationId={sectionStationId ?? null}
       onNewShift={onNewShift ? handleNewShift : undefined}
     >
 

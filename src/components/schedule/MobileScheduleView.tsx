@@ -37,7 +37,7 @@ import { AvailabilityRequest } from '@/hooks/useScheduleData';
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone, getBusinessDateForTimestamp } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { useLocationStations, type LocationStation } from '@/hooks/useLocationStations';
-import { useUserStationAssignments } from '@/hooks/useUserStationAssignments';
+import { effectiveStationId, type StationResolvable } from '@/utils/groupShiftsByStation';
 
 interface Profile {
   id: string;
@@ -209,20 +209,17 @@ export function MobileScheduleView({
   const stationsEnabled = !!(liveStationSettings as any)?.stations_enabled
     || !!(locationSettings as any)?.stations_enabled;
   const { stations } = useLocationStations(currentLocation?.id);
-  const { assignments: stationAssignments } = useUserStationAssignments(currentLocation?.id);
   const useStationGrouping = stationsEnabled && stations.length > 0;
 
-  /** Group a flat list by station_id (via the user's primary station). */
-  const groupByStation = useCallback(<T,>(items: T[], getUserId: (item: T) => string | null | undefined) => {
+  /** Group a flat list by each item's shift station (effectiveStationId — the one resolver). */
+  const groupByStation = useCallback(<T,>(items: T[], getShift: (item: T) => StationResolvable | null | undefined) => {
     const buckets = new Map<string | null, T[]>();
     buckets.set(null, []);
     for (const s of stations) buckets.set(s.id, []);
     for (const it of items) {
-      const uid = getUserId(it);
-      const sid = uid ? stationAssignments[uid] ?? null : null;
+      const sid = effectiveStationId(getShift(it));
       const key = sid && buckets.has(sid) ? sid : null;
-      const arr = buckets.get(key);
-      if (arr) arr.push(it);
+      buckets.get(key)!.push(it);
     }
     const out: { station: LocationStation | null; items: T[] }[] = stations.map(st => ({
       station: st,
@@ -231,19 +228,24 @@ export function MobileScheduleView({
     const un = buckets.get(null) ?? [];
     if (un.length > 0) out.push({ station: null, items: un });
     return out.filter(s => s.items.length > 0);
-  }, [stations, stationAssignments]);
+  }, [stations]);
+
+  /** A punch's shift (its own shift id, else that person's shift that day) for station grouping. */
+  const shiftForPunch = (punch: { user_id?: string | null; shiftId?: string | null }) =>
+    ((punch.shiftId && shifts.find(s => s.id === punch.shiftId))
+      || dayShifts.find(s => s.user_id === punch.user_id)) as StationResolvable | undefined;
 
   /** Render a flat list of items either flat, or wrapped in station section headers when grouping is on. */
   const renderMaybeStationGrouped = useCallback(<T,>(
     items: T[],
-    getUserId: (item: T) => string | null | undefined,
+    getShift: (item: T) => StationResolvable | null | undefined,
     renderItem: (item: T) => JSX.Element | null,
     keyForItem: (item: T) => string,
   ) => {
     if (!useStationGrouping) {
       return <>{items.map(it => <React.Fragment key={keyForItem(it)}>{renderItem(it)}</React.Fragment>)}</>;
     }
-    const groups = groupByStation(items, getUserId);
+    const groups = groupByStation(items, getShift);
     return (
       <>
         {groups.map(({ station, items: groupItems }) => (
@@ -1315,7 +1317,7 @@ export function MobileScheduleView({
                           ) : (
                             renderMaybeStationGrouped(
                               laterShifts,
-                              (shift) => shift.user_id,
+                              (shift) => shift as StationResolvable,
                               (shift) => {
                                 const profile = getProfileForShift(shift);
                                 if (!profile) return null;
@@ -1355,7 +1357,7 @@ export function MobileScheduleView({
 
                         {renderMaybeStationGrouped(
                           completedPunches,
-                          (punch) => punch.user_id,
+                          (punch) => shiftForPunch(punch),
                           (punch) => (
                             <MobileShiftCard
                               name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
@@ -1410,7 +1412,7 @@ export function MobileScheduleView({
                   </h4>
                   {renderMaybeStationGrouped(
                     allDayPunches,
-                    (punch) => punch.user_id,
+                    (punch) => shiftForPunch(punch),
                     (punch) => (
                       <MobileShiftCard
                         name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
@@ -1497,7 +1499,7 @@ export function MobileScheduleView({
                   ) : (
                     renderMaybeStationGrouped(
                       [...dayShifts].sort((a, b) => a.start_time.localeCompare(b.start_time)),
-                      (shift) => shift.user_id,
+                      (shift) => shift as StationResolvable,
                       (shift) => {
                         const profile = getProfileForShift(shift);
                         if (!profile) return null;

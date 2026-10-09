@@ -109,3 +109,25 @@ export function useLocationStations(locationId: string | null | undefined) {
     reorder,
   };
 }
+
+/**
+ * Station mode for schedule screens: the store's active stations, and whether station UI shows
+ * (location_settings.stations_enabled AND at least one active station).
+ */
+export function useScheduleStations(locationId: string | null | undefined) {
+  const { stations } = useLocationStations(locationId);
+  const { data: enabledRow } = useQuery({
+    queryKey: ["location_stations_enabled", locationId],
+    enabled: !!locationId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("location_settings")
+        .select("stations_enabled")
+        .eq("location_id", locationId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const list = stations ?? [];
+  return { stations: list, enabled: !!(enabledRow as any)?.stations_enabled && list.length > 0 };
+}

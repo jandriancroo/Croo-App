@@ -540,6 +540,7 @@ export function useScheduleData() {
     const previousData = queryClient.getQueryData(scheduleQueryKey);
     const isFromTemplate = active.data?.current?.isTemplate || active.isTemplate;
     const template = active.data?.current?.template || active.template;
+    const pickedStationId: string | null = active.data?.current?.stationId ?? null;
     const existingShift = active.data?.current || active;
     const tempId = `temp-${Date.now()}`;
 
@@ -549,7 +550,7 @@ export function useScheduleData() {
         const optimisticShift = {
           id: tempId, schedule_id: scheduleId, template_id: template.id, user_id: userId,
           day_of_week: dayIndex, shift_date: shiftDate, start_time: template.start_time,
-          end_time: template.end_time, is_time_off: false, template: template, _optimistic: true,
+          end_time: template.end_time, is_time_off: false, template: template, station_id: pickedStationId, _optimistic: true,
         };
         return { ...old, shifts: [...old.shifts, optimisticShift] };
       } else {
@@ -559,7 +560,7 @@ export function useScheduleData() {
 
     try {
       if (isFromTemplate) {
-        const insertedShift = await addShift({ schedule_id: scheduleId, template_id: template.id, user_id: userId, day_of_week: dayIndex, shift_date: shiftDate, start_time: template.start_time, end_time: template.end_time });
+        const insertedShift = await addShift({ schedule_id: scheduleId, template_id: template.id, user_id: userId, day_of_week: dayIndex, shift_date: shiftDate, start_time: template.start_time, end_time: template.end_time, station_id: pickedStationId });
         queryClient.setQueryData(scheduleQueryKey, (old: any) => {
           if (!old) return old;
           return { ...old, shifts: old.shifts.map((s: any) => s.id === tempId ? { ...insertedShift, _optimistic: false } : s) };
@@ -813,9 +814,9 @@ export function useScheduleData() {
   }, [currentWeekStart, thisWeekStart]);
 
   // Smart Tap handler
-  const handleSmartTap = useCallback(async (userId: string, dayIndex: number, shiftDate: string, template: any) => {
+  const handleSmartTap = useCallback(async (userId: string, dayIndex: number, shiftDate: string, template: any, stationId?: string | null) => {
     if (!scheduleId) return;
-    const fakeActive = { data: { current: { isTemplate: true, template } }, isTemplate: true, template };
+    const fakeActive = { data: { current: { isTemplate: true, template, stationId: stationId ?? null } }, isTemplate: true, template };
     const detectedConflicts = checkForConflicts(userId, dayIndex, shiftDate);
     if (detectedConflicts.length > 0) {
       return { type: 'conflict' as const, fakeActive, userId, dayIndex, shiftDate, conflicts: detectedConflicts };

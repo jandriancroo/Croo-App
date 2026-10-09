@@ -18,6 +18,7 @@ import { useLaborGoals, laborGoalTone } from "@/hooks/useLaborGoals";
 import { exportDayTimelineToPrint } from "@/utils/exportDayTimelinePrint";
 import { normalizeBreaks } from "@/types/shiftBreak";
 import type { LocationStation } from "@/hooks/useLocationStations";
+import { effectiveStationId, groupShiftsByStation } from "@/utils/groupShiftsByStation";
 interface DayBreakdownDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,7 +32,6 @@ interface DayBreakdownDialogProps {
   locationSettings?: { hours_open?: string; hours_close?: string; break_coverage_enabled?: boolean } | null;
   // Optional station grouping
   stations?: LocationStation[];
-  stationAssignments?: Record<string, string | null>;
 }
 
 /** ≤ goal green, ≤ goal+3 yellow, above red — the one rule in laborGoalTone. */
@@ -52,7 +52,6 @@ export function DayBreakdownDialog({
   profiles,
   locationSettings,
   stations,
-  stationAssignments,
 }: DayBreakdownDialogProps) {
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
@@ -376,33 +375,28 @@ export function DayBreakdownDialog({
           template_color: shift.template?.color ?? shift.color ?? null,
           position: shift.template?.template_name ?? null,
           breaks: shift.breaks,
+          station_id: effectiveStationId(shift),
         })),
       breakCoverageEnabled: !!locationSettings?.break_coverage_enabled,
       stations: stations,
-      stationAssignments: stationAssignments,
     });
   };
 
-  // Group sorted shifts by station for in-app timeline rendering
-  const useStations = !!stations && stations.length > 0 && !!stationAssignments;
+  // Group sorted shifts by station for in-app timeline rendering (shared resolver)
+  const useStations = !!stations && stations.length > 0;
   const timelineSections: Array<{ key: string; label: string; color?: string; shifts: any[] }> = (() => {
     const nonTimeOff = sortedDayShifts.filter((s: any) => !s.is_time_off);
     if (!useStations) {
       return [{ key: "all", label: "", shifts: nonTimeOff }];
     }
-    const sections = stations!.map((st) => ({
-      key: st.id,
-      label: st.name,
-      color: st.color,
-      shifts: nonTimeOff.filter((s: any) => stationAssignments![s.user_id] === st.id),
-    }));
-    const unassigned = nonTimeOff.filter(
-      (s: any) => !s.user_id || !stationAssignments![s.user_id]
-    );
-    if (unassigned.length > 0) {
-      sections.push({ key: "unassigned", label: "Unassigned", color: undefined, shifts: unassigned });
-    }
-    return sections.filter((s) => s.shifts.length > 0);
+    return groupShiftsByStation(nonTimeOff, stations!)
+      .map((sec) => ({
+        key: sec.station?.id ?? "unassigned",
+        label: sec.station?.name ?? "Unassigned",
+        color: sec.station?.color ?? undefined,
+        shifts: sec.shifts,
+      }))
+      .filter((s) => s.shifts.length > 0);
   })();
 
   return (

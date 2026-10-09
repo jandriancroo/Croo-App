@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useScheduleStations } from '@/hooks/useLocationStations';
+import { ShiftStationSelect, stationIdToSave } from '@/components/schedule/ShiftStationSelect';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -35,8 +37,10 @@ interface Shift {
   end_time: string;
   shift_date: string;
   template_id?: string | null;
+  station_id?: string | null;
   breaks?: unknown;
   template?: {
+    station_id?: string | null;
     position: string | null;
     color: string | null;
   };
@@ -57,6 +61,7 @@ interface MobileShiftDialogProps {
     start_time: string;
     end_time: string;
     color: string | null;
+    station_id?: string | null;
   }>;
   locationId?: string | null;
   currentWeekStart?: Date;
@@ -92,6 +97,15 @@ export function MobileShiftDialog({
   const [showOfferDialog, setShowOfferDialog] = useState(false);
   const [breaks, setBreaks] = useState<ShiftBreak[]>([]);
   const breakCoverageEnabled = useBreakCoverageEnabled(locationId);
+  // Station mode only: the shift's own station (null = follow its template's station).
+  const { stations, enabled: stationsOn } = useScheduleStations(locationId || currentLocation?.id);
+  const [stationPick, setStationPick] = useState<string | null>(null);
+  const templateStationId = templates.find(t => t.id === selectedTemplateId)?.station_id;
+  const stationField = stationsOn ? { station_id: stationIdToSave(stationPick, templateStationId) } : {};
+
+  useEffect(() => {
+    setStationPick(shift?.station_id ?? null);
+  }, [shift]);
 
   useEffect(() => {
     if (shift) {
@@ -207,6 +221,7 @@ export function MobileShiftDialog({
             end_time: endTime,
             user_id: selectedUserId === 'unassigned' ? null : selectedUserId,
             template_id: selectedTemplateId || null,
+            ...stationField,
             day_of_week: dayOfWeek,
             shift_date: shiftDate,
             breaks: breakCoverageEnabled ? breaks : [],
@@ -225,6 +240,7 @@ export function MobileShiftDialog({
             end_time: endTime,
             user_id: selectedUserId === 'unassigned' ? null : selectedUserId,
             template_id: selectedTemplateId || null,
+            ...stationField,
             shift_date: shiftDate,
             day_of_week: dayOfWeek,
             breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
@@ -267,7 +283,7 @@ export function MobileShiftDialog({
               ...old,
               shifts: old.shifts.map((s: any) =>
                 s.id === shift.id
-                  ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: selectedTemplateId || null }
+                  ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: selectedTemplateId || null, ...stationField }
                   : s
               ),
             };
@@ -599,6 +615,17 @@ export function MobileShiftDialog({
                   })}
                 </SelectContent>
               </Select>
+              {stationsOn && (
+                <div className="pt-3">
+                  <ShiftStationSelect
+                    stations={stations}
+                    value={stationPick}
+                    templateStationId={templateStationId}
+                    onChange={setStationPick}
+                    id="mobile-shift-station"
+                  />
+                </div>
+              )}
             </div>
           )}
 
