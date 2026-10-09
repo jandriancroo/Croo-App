@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Oct 9 approved UI batch (no publish)
-- [ ] Reorder schedule wrench menu; reorganize settings with shared Position/Station selector.
-- [ ] Separate saved sales goal display/prefill from existing labor sales denominators.
-- [ ] Full tests and preview checks without data changes.
+- [x] Reorder schedule wrench menu; reorganize settings with shared Position/Station selector.
+- [x] Separate saved sales goal display/prefill from existing labor sales denominators.
+- [x] Typecheck and full Vitest (24 files / 407 tests); desktop/mobile settings and Hemet goal preview without data changes; not published.
 
 ## Oct 8 follow-ups
 - [x] Remove Quick Nudge outer circle/impact lines and enlarge glove (visual only); desktop/phone preview checked.
