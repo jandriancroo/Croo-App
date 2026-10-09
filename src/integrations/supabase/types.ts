@@ -2071,6 +2071,8 @@ export type Database = {
       }
       checklist_items: {
         Row: {
+          assigned_role: Database["public"]["Enums"]["app_role"] | null
+          assigned_user_id: string | null
           checklist_id: string
           created_at: string | null
           days_of_week: number[] | null
@@ -2090,9 +2092,12 @@ export type Database = {
           reference_notes: string | null
           reference_video_url: string | null
           requires_temperature_validation: boolean
+          station_id: string | null
           temperature_alert_enabled: boolean
         }
         Insert: {
+          assigned_role?: Database["public"]["Enums"]["app_role"] | null
+          assigned_user_id?: string | null
           checklist_id: string
           created_at?: string | null
           days_of_week?: number[] | null
@@ -2112,9 +2117,12 @@ export type Database = {
           reference_notes?: string | null
           reference_video_url?: string | null
           requires_temperature_validation?: boolean
+          station_id?: string | null
           temperature_alert_enabled?: boolean
         }
         Update: {
+          assigned_role?: Database["public"]["Enums"]["app_role"] | null
+          assigned_user_id?: string | null
           checklist_id?: string
           created_at?: string | null
           days_of_week?: number[] | null
@@ -2134,9 +2142,17 @@ export type Database = {
           reference_notes?: string | null
           reference_video_url?: string | null
           requires_temperature_validation?: boolean
+          station_id?: string | null
           temperature_alert_enabled?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "checklist_items_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklist_items_checklist_id_fkey"
             columns: ["checklist_id"]
@@ -2149,6 +2165,13 @@ export type Database = {
             columns: ["forked_from_item_id"]
             isOneToOne: false
             referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_items_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "location_stations"
             referencedColumns: ["id"]
           },
         ]

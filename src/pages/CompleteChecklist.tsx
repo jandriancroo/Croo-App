@@ -24,7 +24,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
-import { useUserPosition } from '@/hooks/useUserPosition';
+import { useUserShiftContext } from '@/hooks/useUserShiftContext';
+import { useScheduleStations } from '@/hooks/useLocationStations';
+import { useLocationPeople } from '@/components/tasks/TaskAssigneePicker';
+import { ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { serverDebugLog } from '@/utils/serverDebugLog';
@@ -47,6 +50,9 @@ interface ChecklistItem {
   reference_notes?: string;
   manager_shift?: string | null;
   position?: string | null;
+  station_id?: string | null;
+  assigned_role?: string | null;
+  assigned_user_id?: string | null;
   order_index?: number;
   link_refs?: any;
 }
@@ -109,7 +115,34 @@ export default function CompleteChecklist() {
   const { isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
   const { timezone: locationTimezone } = useLocationTimezone();
-  const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
+  const { position: userPosition, station: userStation, role: userRole } = useUserShiftContext(user?.id, currentLocation?.id);
+  const { stations: locationStations, enabled: stationMode } = useScheduleStations(currentLocation?.id);
+  const { data: locationPeople = [] } = useLocationPeople(currentLocation?.id);
+  // What the person can match on: position (Position mode) or station (Station mode), role, themselves.
+  const myGroupMatch = stationMode ? userStation : userPosition;
+  const hasMatchSource = !!(myGroupMatch || userRole || user?.id);
+  const isTaggedItem = (it: ChecklistItem) => !!(it.position || it.station_id || it.assigned_role || it.assigned_user_id);
+  const itemMatchesMe = (it: ChecklistItem) =>
+    !isTaggedItem(it) ||
+    (!stationMode && !!it.position && it.position === userPosition) ||
+    (stationMode && !!it.station_id && it.station_id === userStation) ||
+    (!!it.assigned_role && it.assigned_role === userRole) ||
+    (!!it.assigned_user_id && it.assigned_user_id === user?.id);
+  /** Header group for an item: tier 0 position/station, 1 role, 2 person, 3 General (last). */
+  const itemGroup = (it: ChecklistItem): { key: string; tier: number; label: string; color?: string } => {
+    if (it.assigned_user_id) {
+      const name = locationPeople.find((p) => p.id === it.assigned_user_id)?.name ?? 'Team member';
+      return { key: `user:${it.assigned_user_id}`, tier: 2, label: name };
+    }
+    if (it.assigned_role) return { key: `role:${it.assigned_role}`, tier: 1, label: ROLE_DISPLAY_NAMES[it.assigned_role as AppRole] ?? it.assigned_role };
+    if (stationMode && it.station_id) {
+      const st = locationStations.find((x) => x.id === it.station_id);
+      if (st) return { key: `station:${st.id}`, tier: 0, label: st.name, color: st.color };
+    }
+    if (!stationMode && it.position) return { key: `pos:${it.position}`, tier: 0, label: formatPositionLabel(it.position) };
+    if (it.position) return { key: `pos:${it.position}`, tier: 0, label: it.position };
+    return { key: 'general', tier: 3, label: 'General' };
+  };
   const [positionStartTimes, setPositionStartTimes] = useState<Record<string, string>>({});
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
   // Tapped deep-link chip — opens over the checklist so the user never loses their place
@@ -1174,7 +1207,7 @@ export default function CompleteChecklist() {
             </div>
             
             {/* Position filter toggle — only show when position filtering is enabled and user has a position */}
-            {checklist?.position_filtering_enabled && userPosition && (
+            {checklist?.position_filtering_enabled && hasMatchSource && (
               <div className="flex items-center gap-2">
                 <Switch
                   id="position-filter"
@@ -1189,7 +1222,7 @@ export default function CompleteChecklist() {
                   }}
                 />
                 <Label htmlFor="position-filter" className="text-sm text-muted-foreground cursor-pointer">
-                  My tasks ({formatPositionLabel(userPosition)})
+                  My tasks{myGroupMatch ? ` (${stationMode ? (locationStations.find((x) => x.id === myGroupMatch)?.name ?? 'my station') : formatPositionLabel(myGroupMatch)})` : ''}
                 </Label>
               </div>
             )}
@@ -1212,18 +1245,16 @@ export default function CompleteChecklist() {
 
             // Position filtering: if enabled and user has position and toggle is on, filter
             const hasPositionFiltering = checklist?.position_filtering_enabled;
-            if (hasPositionFiltering && userPosition && showOnlyMyPosition) {
-              filteredItems = filteredItems.filter(item => 
-                !item.position || item.position === userPosition
-              );
+            if (hasPositionFiltering && hasMatchSource && showOnlyMyPosition) {
+              filteredItems = filteredItems.filter(itemMatchesMe);
             }
 
             // If position filtering is enabled, sort/group by position
             if (hasPositionFiltering) {
               filteredItems = [...filteredItems].sort((a, b) => {
-                const aPos = a.position || '\uffff'; // unassigned last
-                const bPos = b.position || '\uffff';
-                if (aPos !== bPos) return aPos.localeCompare(bPos);
+                const ga = itemGroup(a), gb = itemGroup(b); // General last
+                if (ga.tier !== gb.tier) return ga.tier - gb.tier;
+                if (ga.key !== gb.key) return ga.label.localeCompare(gb.label);
                 return (a.order_index || 0) - (b.order_index || 0);
               });
             }
@@ -1246,7 +1277,7 @@ export default function CompleteChecklist() {
             }
 
             // Track position headers for dividers
-            let lastRenderedPosition: string | null | undefined = undefined;
+            let lastRenderedGroup: string | undefined = undefined;
             let renderedDivider = false;
             
             return sortedItems.map((item, idx) => {
@@ -1261,10 +1292,10 @@ export default function CompleteChecklist() {
               }
 
               // Position section headers
-              const showPositionHeader = hasPositionFiltering && 
-                item.position !== lastRenderedPosition;
+              const group = itemGroup(item);
+              const showPositionHeader = hasPositionFiltering && group.key !== lastRenderedGroup;
               if (showPositionHeader) {
-                lastRenderedPosition = item.position;
+                lastRenderedGroup = group.key;
               }
 
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
@@ -1350,8 +1381,9 @@ export default function CompleteChecklist() {
               {showPositionHeader && (
                 <div className="flex items-center gap-3 py-3 my-2">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                  <span className="text-sm font-semibold text-primary px-3 py-1 rounded-full bg-primary/10">
-                    {formatPositionLabel(item.position)}
+                  <span className="text-sm font-semibold text-primary px-3 py-1 rounded-full bg-primary/10 flex items-center gap-1.5">
+                    {group.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: group.color }} />}
+                    {group.label}
                   </span>
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                 </div>

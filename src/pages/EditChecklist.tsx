@@ -1,3 +1,4 @@
+import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,6 +40,9 @@ interface ChecklistItem {
   order_index: number;
   manager_shift?: 'am' | 'pm' | null;
   position?: string | null;
+  station_id?: string | null;
+  assigned_role?: string | null;
+  assigned_user_id?: string | null;
   prep_rows?: PrepRow[];
   link_refs?: ChecklistLinkRef[];
 }
@@ -144,21 +148,13 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             </SelectContent>
           </Select>
 
-          {!isSection && showPositionSelector && availablePositions && availablePositions.length > 0 && (
-            <Select
-              value={item.position || 'none'}
-              onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
-            >
-              <SelectTrigger className="w-auto min-w-0 h-7 px-2 text-[11px] border-dashed shrink-0">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">All Positions</SelectItem>
-                {availablePositions.map(pos => (
-                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {!isSection && showPositionSelector && (
+            <TaskAssigneePicker
+              locationId={locationId}
+              value={item}
+              availablePositions={availablePositions || []}
+              onChange={(next) => (Object.keys(next) as (keyof typeof next)[]).forEach((k) => updateItem(index, k, next[k]))}
+            />
           )}
           <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0 h-7 w-7">
             <X className="h-3.5 w-3.5" />
@@ -505,6 +501,9 @@ export default function EditChecklist() {
           order_index: item.order_index,
           manager_shift: (item as any).manager_shift || null,
           position: (item as any).position || null,
+          station_id: (item as any).station_id || null,
+          assigned_role: (item as any).assigned_role || null,
+          assigned_user_id: (item as any).assigned_user_id || null,
           prep_rows: itemType === 'prep_list' ? (prepRowsByItem[item.id] || []) : undefined,
           link_refs: parseLinkRefs((item as any).link_refs),
         };
@@ -604,6 +603,9 @@ export default function EditChecklist() {
           order_index: index,
           manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
           position: positionFilteringEnabled ? (item.position || null) : null,
+          station_id: positionFilteringEnabled ? (item.station_id || null) : null,
+          assigned_role: positionFilteringEnabled ? ((item.assigned_role as any) || null) : null,
+          assigned_user_id: positionFilteringEnabled ? (item.assigned_user_id || null) : null,
           link_refs: (item.link_refs ?? []) as any,
         };
 
@@ -973,11 +975,11 @@ export default function EditChecklist() {
               </label>
               <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <Switch checked={positionFilteringEnabled} onCheckedChange={setPositionFilteringEnabled} />
-                Position Filtering
+                Assign tasks
               </label>
             </div>
-            {positionFilteringEnabled && availablePositions.length === 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">No positions found. Create positions in Schedule Settings first.</p>
+            {positionFilteringEnabled && (
+              <p className="text-xs text-muted-foreground">Give each task to a position or station (follows the store's station setting), a role, or one person. Everyone else can still see it with "My tasks" off.</p>
             )}
           </CardContent>
         </Card>

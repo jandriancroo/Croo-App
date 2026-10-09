@@ -1,3 +1,4 @@
+import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +34,9 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   position?: string | null;
+  station_id?: string | null;
+  assigned_role?: string | null;
+  assigned_user_id?: string | null;
   link_refs?: ChecklistLinkRef[];
 }
 
@@ -314,6 +318,9 @@ export default function CreateChecklist() {
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
       position: positionFilteringEnabled ? (item.position || null) : null,
+      station_id: positionFilteringEnabled ? (item.station_id || null) : null,
+      assigned_role: positionFilteringEnabled ? ((item.assigned_role as any) || null) : null,
+      assigned_user_id: positionFilteringEnabled ? (item.assigned_user_id || null) : null,
       link_refs: (item.link_refs ?? []) as any,
     }));
   };
@@ -526,11 +533,11 @@ export default function CreateChecklist() {
               <div className="flex flex-wrap gap-4 pt-2 border-t">
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <Switch checked={positionFilteringEnabled} onCheckedChange={setPositionFilteringEnabled} />
-                  Position Filtering
+                  Assign tasks
                 </label>
               </div>
-              {positionFilteringEnabled && availablePositions.length === 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">No positions found. Create positions in Schedule Settings first.</p>
+              {positionFilteringEnabled && (
+                <p className="text-xs text-muted-foreground">Give each task to a position or station (follows the store's station setting), a role, or one person. Everyone else can still see it with "My tasks" off.</p>
               )}
             </CardContent>
           </Card>
@@ -633,21 +640,14 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
               required
             />
           </div>
-          {!isSection && positionFilteringEnabled && availablePositions.length > 0 && (
-            <Select
-              value={item.position || 'none'}
-              onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
-            >
-              <SelectTrigger className="w-auto min-w-0 h-8 px-2 text-xs border-dashed shrink-0">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">All Positions</SelectItem>
-                {availablePositions.map(pos => (
-                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {!isSection && positionFilteringEnabled && (
+            <TaskAssigneePicker
+              locationId={locationId}
+              value={item}
+              availablePositions={availablePositions}
+              className="h-8 text-xs"
+              onChange={(next) => (Object.keys(next) as (keyof typeof next)[]).forEach((k) => updateItem(index, k, next[k]))}
+            />
           )}
           {canRemove && (
             <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0 h-8 w-8">
