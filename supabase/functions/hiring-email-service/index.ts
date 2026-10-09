@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { requireCaller } from "../_shared/callerAuth.ts";
 import { loadInterview, buildIcs, calendarButtonsHtml, interviewJoinUrl } from "../_shared/interviewCalendar.ts";
+import { renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -288,13 +289,6 @@ function wrapEmail(content: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
-function getEmailHeader(title: string, logoUrl?: string, orgName?: string): string {
-  const logoHtml = logoUrl 
-    ? `<img src="${logoUrl}" alt="${orgName || 'Logo'}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>`
-    : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
-  return `<tr><td style="background:${primaryColor};padding:30px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
-}
-
 function getEmailFooter(): string {
   return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:44px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
@@ -324,23 +318,7 @@ function generateICS(date: string, time: string, orgName: string, locationName: 
 async function sendInviteEmail(payload: any): Promise<Response> {
   if (payload.preview) {
     const html = wrapEmail(`
-      <!-- HEADER -->
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-            </td>
-            <td style="vertical-align:middle;text-align:center;">
-              <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1>
-            </td>
-            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Organization</p>
-              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">Sample Location</p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
+      ${renderEmailHeader({ title: "Welcome to the Team!", line1: "Sample Organization", line2: "Sample Location" })}
       <tr><td style="padding:28px 32px;">
         <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
         <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
@@ -364,37 +342,30 @@ async function sendInviteEmail(payload: any): Promise<Response> {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-  let orgName = "your new team", locName = "", logoUrl = "", brandName = "";
+  let orgName = "your new team", locName = "", brandName = "";
   if (locationId) {
     const { data: loc } = await supabase.from('locations').select('name, organization_id').eq('id', locationId).single();
     if (loc) {
       locName = loc.name;
       if (loc.organization_id) {
-        const { data: org } = await supabase.from('organizations').select('name, logo_url, brand_name').eq('id', loc.organization_id).single();
-        if (org) { orgName = org.name; logoUrl = org.logo_url || ""; brandName = org.brand_name || org.name; }
+        const { data: org } = await supabase.from('organizations').select('name, brand_name').eq('id', loc.organization_id).single();
+        if (org) { orgName = org.name; brandName = org.brand_name || org.name; }
       }
     }
   }
 
-  const firstName = fullName.split(' ')[0];
   const displayName = brandName || orgName;
-  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${displayName}" style="max-height:100px;max-width:200px;margin-bottom:20px;border-radius:8px;"/>` : `<div style="font-size:48px;margin-bottom:16px;">🎉</div>`;
+  const logo = await resolveEmailLogo(supabase, { locationId });
 
   await queueEmail({
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [to],
     subject: `Welcome to ${displayName}${locName ? ` - ${locName}` : ''}!`,
     html: wrapEmail(`
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace('margin-bottom:20px;', '').replace('margin-bottom:16px;', '').replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;"`)}</td>
-          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1></td>
-          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${displayName}</p>${locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locName}</p>` : ''}</td>
-        </tr></table>
-      </td></tr>
+      ${renderEmailHeader({ title: "Welcome to the Team!", logoUrl: logo.logoUrl, alt: logo.alt, line1: displayName, line2: locName })}
       <tr><td style="padding:28px 32px;">
         <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
-        <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+        <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${fullName}!</p>
         <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${displayName}</strong>${locName ? ` at the <strong>${locName}</strong> location` : ''}.</p>
         <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
@@ -420,35 +391,29 @@ async function resendInviteEmail(payload: any): Promise<Response> {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-  let orgName = "your team", locName = "", logoUrl = "", brandName = "";
+  let orgName = "your team", locName = "", brandName = "";
   if (locationId) {
     const { data: loc } = await supabase.from('locations').select('name, organization_id').eq('id', locationId).single();
     if (loc) {
       locName = loc.name;
       if (loc.organization_id) {
-        const { data: org } = await supabase.from('organizations').select('name, logo_url, brand_name').eq('id', loc.organization_id).single();
-        if (org) { orgName = org.name; logoUrl = org.logo_url || ""; brandName = org.brand_name || org.name; }
+        const { data: org } = await supabase.from('organizations').select('name, brand_name').eq('id', loc.organization_id).single();
+        if (org) { orgName = org.name; brandName = org.brand_name || org.name; }
       }
     }
   }
 
-  const firstName = fullName.split(' ')[0];
   const displayName = brandName || orgName;
+  const logo = await resolveEmailLogo(supabase, { locationId });
 
   await queueEmail({
     from: "CrooHQ <hiring@croohq.email>",
     to: [to],
     subject: `Your CrooHQ Invite - ${displayName}`,
     html: wrapEmail(`
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="max-height:40px;max-width:120px;" /></td>
-          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Set Your Password</h1></td>
-          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${displayName}</p>${locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locName}</p>` : ''}</td>
-        </tr></table>
-      </td></tr>
+      ${renderEmailHeader({ title: "Set Your Password", logoUrl: logo.logoUrl, alt: logo.alt, line1: displayName, line2: locName })}
       <tr><td style="padding:28px 32px;">
-        <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+        <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${fullName}!</p>
         <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">${displayName}</strong>. Click below to set your password and get started.</p>
         <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
         <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
@@ -466,23 +431,7 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
     const orgName = "Blaze Pizza";
     const sampleBody = "Dear Jane,<br><br>Thank you for taking the time to apply to Blaze Pizza. After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our current needs.<br><br>We appreciate your interest in our team and encourage you to apply again in the future.<br><br>Best regards,<br>The Blaze Pizza Team";
     const html = wrapEmail(`
-      <!-- HEADER -->
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-            </td>
-            <td style="vertical-align:middle;text-align:center;">
-              <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Application Update</h1>
-            </td>
-            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p>
-              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">Standard Template</p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
+      ${renderEmailHeader({ title: "Application Update", line1: orgName, line2: "Standard Template" })}
       <tr><td style="padding:28px 32px;">
         <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:20px;">
           <div style="color:${textColor};font-size:15px;line-height:1.7;">${sampleBody}</div>
@@ -504,27 +453,20 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
   const { data: template } = await supabase.from("rejection_email_templates").select("*").eq("id", templateId).eq("organization_id", app.organization_id).single();
   if (!template) return new Response(JSON.stringify({ error: "Template not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  const { data: org } = await supabase.from("organizations").select("name, logo_url, brand_name").eq("id", app.organization_id).single();
+  const { data: org } = await supabase.from("organizations").select("name, brand_name").eq("id", app.organization_id).single();
   const orgName = org?.brand_name || org?.name || "Our Team";
-  const logoUrl = org?.logo_url || "";
+  const logo = await resolveEmailLogo(supabase, { organizationId: app.organization_id });
 
-  const subject = template.subject.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name.split(" ")[0]).replace(/{{organization}}/gi, orgName);
-  const body = template.body.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name.split(" ")[0]).replace(/{{organization}}/gi, orgName).replace(/\n/g, "<br>");
+  const subject = template.subject.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name).replace(/{{organization}}/gi, orgName);
+  const body = template.body.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name).replace(/{{organization}}/gi, orgName).replace(/\n/g, "<br>");
 
-  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
 
   await queueEmail({
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [overrideEmail || app.email],
     subject,
     html: wrapEmail(`
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;"`)}</td>
-          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Application Update</h1></td>
-          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p></td>
-        </tr></table>
-      </td></tr>
+      ${renderEmailHeader({ title: "Application Update", logoUrl: logo.logoUrl, alt: logo.alt, line1: orgName })}
       <tr><td style="padding:28px 32px;">
         <div style="background:#fafaf8;border-radius:16px;padding:24px;">
           <div style="color:${textColor};font-size:15px;line-height:1.7;">${body}</div>
@@ -543,23 +485,7 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
 async function sendInterviewInvite(payload: any): Promise<Response> {
   if (payload.preview) {
     const html = wrapEmail(`
-      <!-- HEADER -->
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-            </td>
-            <td style="vertical-align:middle;text-align:center;">
-              <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Interview Invitation</h1>
-            </td>
-            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Organization</p>
-              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">Sample Location</p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
+      ${renderEmailHeader({ title: "Interview Invitation", line1: "Sample Organization", line2: "Sample Location" })}
       <tr><td style="padding:28px 32px;">
         <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi Jane,</p>
         <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>John Manager</strong> would like to invite you for an interview at <strong>Sample Organization</strong>.</p>
@@ -597,9 +523,8 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const org = application?.organization;
   const applicantEmail = application?.email;
   const applicantName = application?.full_name || "Applicant";
-  const firstName = applicantName.split(" ")[0];
   const orgName = org?.brand_name || org?.name || "Hiring Team";
-  const logoUrl = org?.logo_url || "";
+  const logo = await resolveEmailLogo(supabase, { organizationId: application?.organization_id });
   if (!applicantEmail) return new Response(JSON.stringify({ error: "Applicant has no email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   const chatUrl = `https://croohq.com/hiring-chat/${conversation.access_token}`;
@@ -618,22 +543,15 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
     : modality === 'phone'
       ? `<p style="color:#666;font-size:14px;margin:0;">Phone interview — a manager will reach out by phone.</p>`
       : `<p style="color:#666;font-size:14px;margin:0;">${locationName}</p>${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}`;
-  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
 
   await queueEmail({
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [applicantEmail],
     subject: `Interview Invitation - ${orgName} on ${formattedDate}`,
     html: wrapEmail(`
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;"`)}</td>
-          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Interview Invitation</h1></td>
-          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p><p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locationName}</p></td>
-        </tr></table>
-      </td></tr>
+      ${renderEmailHeader({ title: "Interview Invitation", logoUrl: logo.logoUrl, alt: logo.alt, line1: orgName, line2: locationName })}
       <tr><td style="padding:28px 32px;">
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${firstName},</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${escH(applicantName)},</p>
         <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>${scheduledByName}</strong> would like to invite you for an interview at <strong>${orgName}</strong>.</p>
         <div style="background:#fafaf8;border-radius:16px;padding:24px;margin:0 0 24px;text-align:center;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Interview Details</p>
@@ -731,9 +649,9 @@ async function notifyNewApplication(payload: any): Promise<Response> {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: org } = await supabase.from("organizations").select("name, brand_name, logo_url").eq("id", organizationId).single();
+  const { data: org } = await supabase.from("organizations").select("name, brand_name").eq("id", organizationId).single();
   const orgDisplayName = org?.brand_name || org?.name || "Your Organization";
-  const logoUrl = org?.logo_url || "";
+  const logo = await resolveEmailLogo(supabase, { organizationId, locationId });
 
   let locationName = "Any Location";
   if (locationId) {
@@ -755,7 +673,7 @@ async function notifyNewApplication(payload: any): Promise<Response> {
   }
 
   const reviewUrl = "https://croohq.com/hiring";
-  const emailHtml = wrapEmail(`${getEmailHeader("New Job Application", logoUrl, orgDisplayName)}<tr><td style="padding:30px 40px;"><h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2><div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;"><table style="width:100%;"><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">${applicantName}</strong></td></tr><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="mailto:${applicantEmail}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantEmail}</a></td></tr>${applicantPhone ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Phone</span><br/><a href="tel:${applicantPhone}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantPhone}</a></td></tr>` : ''}<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Position</span><br/><strong style="color:${textColor};font-size:14px;">${templateName}</strong></td></tr><tr><td style="padding:8px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${locationName}</strong></td></tr></table></div>${getCTAButton(reviewUrl, "Review Application")}</td></tr>${getEmailFooter()}`);
+  const emailHtml = wrapEmail(`${renderEmailHeader({ title: "New Job Application", logoUrl: logo.logoUrl, alt: logo.alt, line1: orgDisplayName })}<tr><td style="padding:30px 40px;"><h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2><div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;"><table style="width:100%;"><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">${applicantName}</strong></td></tr><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="mailto:${applicantEmail}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantEmail}</a></td></tr>${applicantPhone ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Phone</span><br/><a href="tel:${applicantPhone}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantPhone}</a></td></tr>` : ''}<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Position</span><br/><strong style="color:${textColor};font-size:14px;">${templateName}</strong></td></tr><tr><td style="padding:8px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${locationName}</strong></td></tr></table></div>${getCTAButton(reviewUrl, "Review Application")}</td></tr>${getEmailFooter()}`);
 
   const emailPromises = uniqueEmails.map(email => queueEmail({
     from: "CrooHQ Hiring <hiring@croohq.email>",
@@ -823,8 +741,9 @@ async function notifyEmployeeJoined(payload: any): Promise<Response> {
   }
 
   const employeeName = profile.full_name || "New Employee";
+  const logo = await resolveEmailLogo(supabase, { locationId: locationIds[0] });
   const emailHtml = wrapEmail(`
-    ${getEmailHeader("New Team Member")}
+    ${renderEmailHeader({ title: "New Team Member", logoUrl: logo.logoUrl, alt: logo.alt, line1: locationNames })}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;"><strong style="color:${primaryColor};">${employeeName}</strong> just logged in to Croo for the first time!</p>
       <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
