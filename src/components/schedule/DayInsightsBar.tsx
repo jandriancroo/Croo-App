@@ -80,6 +80,8 @@ export function DayInsightsBar({
   const [dialogOpen, setDialogOpen] = useState(false);
   const laborGoals = useLaborGoals(locationId);
   const [sales, setSales] = useState(0);
+  const [todayGoal, setTodayGoal] = useState<number | null>(null);
+  const [todayGoalSource, setTodayGoalSource] = useState<SalesSource | undefined>();
   const [salesSource, setSalesSource] = useState<SalesSource | undefined>(undefined);
 
   const phase: 'completed' | 'today' | 'future' =
@@ -161,6 +163,11 @@ export function DayInsightsBar({
         }
 
         if (phase === 'today') {
+          const goal = resolveProjection(row);
+          if (!cancelled) {
+            setTodayGoal(goal.value);
+            setTodayGoalSource(goal.source === 'legacy' ? 'ai' : goal.source ?? undefined);
+          }
           if (Number(row?.net_sales) > 0) {
             if (!cancelled) {
               setSales(Math.round(Number(row?.net_sales) * 100) / 100);
@@ -203,8 +210,8 @@ export function DayInsightsBar({
 
   const saveOverride = async (value: number, excludedDates?: string[]) => {
     if (!locationId) return;
-    setSales(value);
-    setSalesSource('override');
+    if (phase === 'today') { setTodayGoal(value); setTodayGoalSource('override'); }
+    else { setSales(value); setSalesSource('override'); }
     try {
       const { error } = await (supabase.from('sales_cache') as any).upsert({
         location_id: locationId,
@@ -253,6 +260,11 @@ export function DayInsightsBar({
         .eq('sale_date', dateStr)
         .maybeSingle();
 
+      if (phase === 'today') {
+        const goal = resolveProjection(row);
+        setTodayGoal(goal.value);
+        setTodayGoalSource(goal.source === 'legacy' ? 'ai' : goal.source ?? undefined);
+      }
       if (phase === 'future') {
         const resolved = resolveProjection({
           initial_projection: row?.initial_projection,
@@ -287,22 +299,25 @@ export function DayInsightsBar({
         ? 'text-yellow-400'
         : 'text-red-400';
 
+  const displaySales = phase === 'today' ? todayGoal : sales;
+  const displaySource = phase === 'today' ? todayGoalSource : salesSource;
+
   const salesButtonClass =
-    salesSource === 'override'
+    displaySource === 'override'
       ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-      : salesSource === 'living'
+      : displaySource === 'living'
         ? 'border-blue-400/40 bg-blue-500/10 text-blue-200'
-        : salesSource === 'initial' || salesSource === 'ai'
+        : displaySource === 'initial' || displaySource === 'ai'
           ? 'border-blue-400/20 bg-blue-500/5 text-blue-200'
-          : salesSource === 'historical'
+          : displaySource === 'historical'
             ? 'border-green-500/40 bg-green-500/10 text-green-300'
             : 'border-slate-600/50 text-slate-100';
 
   const SalesIcon =
-    salesSource === 'override' ? PencilLine
-      : salesSource === 'living' ? Radio
-        : salesSource === 'initial' || salesSource === 'ai' ? Sparkles
-          : salesSource === 'historical' ? CheckCircle2
+    displaySource === 'override' ? PencilLine
+      : displaySource === 'living' ? Radio
+        : displaySource === 'initial' || displaySource === 'ai' ? Sparkles
+          : displaySource === 'historical' ? CheckCircle2
             : null;
 
   const phaseLabel = phase === 'completed' ? 'Actual' : phase === 'today' ? 'Live' : 'Planned';
@@ -380,7 +395,7 @@ export function DayInsightsBar({
             </span>
             <span className="flex items-center gap-1.5 text-lg font-bold">
               {SalesIcon && <SalesIcon className="h-3.5 w-3.5" />}
-              ${sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {displaySales != null ? `$${displaySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
             </span>
           </button>
         </div>
@@ -392,8 +407,8 @@ export function DayInsightsBar({
         locationId={locationId}
         dateStr={dateStr}
         todayStr={todayStr}
-        currentValue={sales}
-        currentSource={salesSource}
+        currentValue={displaySales ?? 0}
+        currentSource={displaySource}
         canEdit={canEdit && phase !== 'completed'}
         onSaveOverride={saveOverride}
         onResetToProjection={resetToProjection}

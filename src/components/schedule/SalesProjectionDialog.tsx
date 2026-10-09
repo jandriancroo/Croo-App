@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { resolveProjection } from '@/hooks/useResolvedProjection';
+import { projectionGoalValue, resolveProjection } from '@/hooks/useResolvedProjection';
 
 interface SalesProjectionDialogProps {
   open: boolean;
@@ -177,14 +177,15 @@ export function SalesProjectionDialog({
       setNearbyEvents(Array.from(new Map(loadedEvents.map(event => [`${event.date}:${event.name.toLowerCase()}`, event])).values()));
       const ly = rows.find(r => r.sale_date === lastYearDate);
       setLastYear(ly ? { date: lastYearDate, net_sales: ly.net_sales } : { date: lastYearDate, net_sales: null });
-      setDraft(currentValue ? String(Math.round(currentValue * 100) / 100) : '');
+      const goal = projectionGoalValue(rowRes.data, currentValue, dateStr <= todayStr || currentSource === 'historical');
+      setDraft(goal != null ? String(Math.round(goal * 100) / 100) : '');
       setLoading(false);
     };
     load();
     return () => {
       cancelled = true;
     };
-  }, [open, locationId, dateStr, historyDates, lastYearDate, currentValue]);
+  }, [open, locationId, dateStr, historyDates, lastYearDate, currentValue, currentSource, todayStr]);
 
   const usableHistory = history.filter(h => (h.net_sales ?? 0) > 0 && includedDates.has(h.date));
   const fourWeekAvg = usableHistory.length
@@ -192,6 +193,7 @@ export function SalesProjectionDialog({
     : 0;
 
   const resolved = resolveProjection(row || undefined);
+  const goalValue = projectionGoalValue(row, currentValue, dateStr <= todayStr || currentSource === 'historical');
   const hasOverride = (row?.override_projection ?? 0) > 0;
 
   const annotationsFor = (historyDate: string) => nearbyEvents
@@ -215,13 +217,14 @@ export function SalesProjectionDialog({
   };
 
   const sourceBadge = (() => {
-    if (currentSource === 'historical') {
+    const source = !isPast ? resolved.source : currentSource;
+    if (source === 'historical') {
       return <Badge variant="outline" className="gap-1 border-green-500/40 text-green-600"><CheckCircle2 className="h-3 w-3" />Actual sales</Badge>;
     }
-    if (currentSource === 'override' || currentSource === 'manual') {
+    if (source === 'override' || source === 'manual') {
       return <Badge variant="outline" className="gap-1 border-amber-500/40 text-amber-600"><PencilLine className="h-3 w-3" />Manager override</Badge>;
     }
-    if (currentSource === 'living') {
+    if (source === 'living') {
       return <Badge variant="outline" className="gap-1 border-primary/40 text-primary"><Radio className="h-3 w-3" />Live goal</Badge>;
     }
     return <Badge variant="outline" className="gap-1 border-primary/30 text-primary"><Sparkles className="h-3 w-3" />Goal</Badge>;
@@ -276,9 +279,9 @@ export function SalesProjectionDialog({
         ) : (
           <div className="space-y-3 text-sm">
             <div className="flex items-baseline justify-between rounded-md bg-muted/50 px-3 py-2">
-              <span className="text-muted-foreground">{canEdit && !isPast ? 'Goal' : 'Showing'}</span>
+              <span className="text-muted-foreground">{!isPast ? 'Goal' : 'Showing'}</span>
               <span className="text-lg font-bold">
-                {money(canEdit && !isPast && draft !== '' && !isNaN(parseFloat(draft)) ? parseFloat(draft) : currentValue || 0)}
+                {isPast ? money(currentValue) : canEdit && draft !== '' && !isNaN(parseFloat(draft)) ? money(parseFloat(draft)) : goalValue != null ? money(goalValue) : '—'}
               </span>
             </div>
 
