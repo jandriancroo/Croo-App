@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toastOnClockIds } from "./onClock";
+import { toastOnClockIds } from "../../supabase/functions/_shared/onClock";
 
 const now = Date.parse("2026-10-09T19:00:00Z");
 const h = (n: number) => new Date(now - n * 3600_000).toISOString();
