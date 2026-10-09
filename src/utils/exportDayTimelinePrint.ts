@@ -17,6 +17,8 @@ interface PrintShift {
   template_color?: string | null;
   position?: string | null;
   breaks?: unknown;
+  /** The shift's station, already resolved by the caller with effectiveStationId. */
+  station_id?: string | null;
 }
 
 export interface PrintStation {
@@ -34,8 +36,6 @@ export interface DayTimelinePrintData {
   breakCoverageEnabled?: boolean;
   /** Optional stations to group by. When provided, output is grouped per station. */
   stations?: PrintStation[];
-  /** Map of user_id -> station_id (or null for unassigned). */
-  stationAssignments?: Record<string, string | null>;
 }
 
 function escapeHtml(text: string): string {
@@ -120,8 +120,17 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
     return Math.max(0, Math.min(100, (mins / totalMinutes) * 100));
   }
 
-  const renderTimelineRow = (p: PrintProfile): string => {
-    const userShifts = shiftsByUser.get(p.id) || [];
+  // Station sections: a shift's section is its (caller-resolved) station when active, else Unassigned.
+  const useStations = !!data.stations && data.stations.length > 0;
+  const activeStationIds = new Set((data.stations ?? []).map((st) => st.id));
+  const sectionKey = (s: PrintShift): string | null =>
+    s.station_id && activeStationIds.has(s.station_id) ? s.station_id : null;
+  /** A person's shifts, limited to one section when grouping (undefined = all). */
+  const shiftsFor = (p: PrintProfile, key?: string | null) =>
+    (shiftsByUser.get(p.id) || []).filter((s) => key === undefined || sectionKey(s) === key);
+
+  const renderTimelineRow = (p: PrintProfile, key?: string | null): string => {
+    const userShifts = shiftsFor(p, key);
     const coveringBlocks = coveringByUser.get(p.id) || [];
 
     const shiftBars = userShifts
@@ -177,8 +186,8 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
       </tr>`;
   };
 
-  const renderRosterItem = (p: PrintProfile): string => {
-    const userShifts = shiftsByUser.get(p.id) || [];
+  const renderRosterItem = (p: PrintProfile, key?: string | null): string => {
+    const userShifts = shiftsFor(p, key);
     const coveringBlocks = coveringByUser.get(p.id) || [];
 
     const shiftItems = userShifts
@@ -221,24 +230,25 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
       </div>`;
   };
 
-  // Build station sections (or single "all" section when stations disabled)
-  const useStations = !!data.stations && data.stations.length > 0 && !!data.stationAssignments;
-  type Section = { id: string; name: string; color?: string; profiles: PrintProfile[] };
+  // Build station sections (or single "all" section when stations disabled).
+  // A person appears in each station where they have a shift that day, showing only those shifts.
+  type Section = { id: string; key?: string | null; name: string; color?: string; profiles: PrintProfile[] };
   const sections: Section[] = (() => {
     if (!useStations) {
-      return [{ id: 'all', name: '', profiles: profilesWithShifts }];
+      return [{ id: 'all', key: undefined, name: '', profiles: profilesWithShifts }];
     }
     const out: Section[] = data.stations!.map((st) => ({
       id: st.id,
+      key: st.id,
       name: st.name,
       color: st.color,
-      profiles: profilesWithShifts.filter((p) => data.stationAssignments![p.id] === st.id),
+      profiles: profilesWithShifts.filter((p) => shiftsFor(p, st.id).length > 0),
     }));
     const unassigned = profilesWithShifts.filter(
-      (p) => !data.stationAssignments![p.id],
+      (p) => shiftsFor(p, null).length > 0 || shiftsFor(p).length === 0,
     );
     if (unassigned.length > 0) {
-      out.push({ id: 'unassigned', name: 'Unassigned', color: undefined, profiles: unassigned });
+      out.push({ id: 'unassigned', key: null, name: 'Unassigned', color: undefined, profiles: unassigned });
     }
     return out.filter((s) => s.profiles.length > 0);
   })();
@@ -254,14 +264,14 @@ export function exportDayTimelineToPrint(data: DayTimelinePrintData) {
 
   const timelineRows = sections
     .map((s) => {
-      const rows = s.profiles.map(renderTimelineRow).join('');
+      const rows = s.profiles.map((p) => renderTimelineRow(p, s.key)).join('');
       return useStations ? stationHeaderRow(s) + rows : rows;
     })
     .join('');
 
   const rosterItems = sections
     .map((s) => {
-      const items = s.profiles.map(renderRosterItem).join('');
+      const items = s.profiles.map((p) => renderRosterItem(p, s.key)).join('');
       const header = useStations
         ? `<div class="roster-station-header" style="break-inside:avoid;">
              <span class="station-swatch" style="background:${s.color || '#9ca3af'}"></span>

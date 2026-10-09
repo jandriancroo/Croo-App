@@ -6,10 +6,11 @@ import { endOfWeek } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
 /** Add one shift (the Schedule page's desktop drag-add, and Theo's Add shift). No breaks. Returns the row with its template. */
-export async function addShift(row: { schedule_id: string; template_id: string | null; user_id: string; day_of_week: number; shift_date: string; start_time: string; end_time: string }) {
+/** station_id: set only when the shift's station differs from its template's (null = inherit via effectiveStationId). */
+export async function addShift(row: { schedule_id: string; template_id: string | null; user_id: string; day_of_week: number; shift_date: string; start_time: string; end_time: string; station_id?: string | null }) {
   const { data, error } = await supabase
     .from("scheduled_shifts")
-    .insert({ schedule_id: row.schedule_id, template_id: row.template_id, user_id: row.user_id, day_of_week: row.day_of_week, shift_date: row.shift_date, start_time: row.start_time, end_time: row.end_time, is_time_off: false })
+    .insert({ schedule_id: row.schedule_id, template_id: row.template_id, user_id: row.user_id, day_of_week: row.day_of_week, shift_date: row.shift_date, start_time: row.start_time, end_time: row.end_time, is_time_off: false, ...(row.station_id ? { station_id: row.station_id } : {}) })
     .select(`*, template:shift_templates(*)`)
     .single();
   if (error) throw error;

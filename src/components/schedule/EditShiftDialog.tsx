@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ShiftStationSelect, stationIdToSave } from "@/components/schedule/ShiftStationSelect";
+import { useScheduleStations } from "@/hooks/useLocationStations";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +69,9 @@ export function EditShiftDialog({
   const [endTime, setEndTime] = useState(shift.end_time);
   const [selectedUserId, setSelectedUserId] = useState(shift.user_id || "unassigned");
   const [position, setPosition] = useState(shift.template_id || "");
+  // Station mode only: the shift's own station (null = follow its template's station).
+  const { stations, enabled: stationsOn } = useScheduleStations(currentLocation?.id);
+  const [stationPick, setStationPick] = useState<string | null>((shift as any).station_id ?? null);
   const [selectedDays, setSelectedDays] = useState<number[]>([shift.day_of_week]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -222,6 +227,7 @@ export function EditShiftDialog({
       await updateShiftTimes(shift.id, startTime, endTime, {
         user_id: selectedUserId === "unassigned" ? null : selectedUserId,
         template_id: position || null,
+        ...(stationsOn ? { station_id: stationIdToSave(stationPick, templates.find((t: any) => t.id === position)?.station_id) } : {}),
         breaks: breakCoverageEnabled ? breaks : (shift?.breaks ?? []),
         ...(isSingleDayMove
           ? { day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
@@ -237,7 +243,7 @@ export function EditShiftDialog({
           ...old,
           shifts: old.shifts.map((s: any) =>
             s.id === shift.id
-              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template, day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
+              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template, ...(stationsOn ? { station_id: stationIdToSave(stationPick, selectedTemplate?.station_id) } : {}), day_of_week: movedDayOfWeek, shift_date: movedShiftDate }
               : s
           ),
         };
@@ -610,6 +616,15 @@ export function EditShiftDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {stationsOn && (
+              <ShiftStationSelect
+                stations={stations}
+                value={stationPick}
+                templateStationId={templates.find((t: any) => t.id === position)?.station_id}
+                onChange={setStationPick}
+              />
+            )}
 
             {/* Apply to Days */}
             <div className="space-y-2">

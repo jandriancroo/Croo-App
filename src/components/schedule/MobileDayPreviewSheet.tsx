@@ -16,7 +16,7 @@ import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
 import { Button } from "@/components/ui/button";
 import { useLocationStations } from "@/hooks/useLocationStations";
-import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
+import { effectiveStationId } from "@/utils/groupShiftsByStation";
 import { useQuery } from "@tanstack/react-query";
 import { useLaborGoals, laborGoalTone } from "@/hooks/useLaborGoals";
 
@@ -151,7 +151,6 @@ export function MobileDayPreviewSheet({
 
   // Stations support
   const { stations } = useLocationStations(currentLocation?.id);
-  const { assignments: stationAssignments } = useUserStationAssignments(currentLocation?.id);
   const { data: stationsEnabledRow } = useQuery({
     queryKey: ['location_stations_enabled', currentLocation?.id],
     enabled: !!currentLocation?.id,
@@ -353,7 +352,7 @@ export function MobileDayPreviewSheet({
                     { id: "__unassigned__", name: "Unassigned", color: "hsl(var(--muted-foreground))", items: [] as any[] },
                   ];
                   for (const shift of sorted) {
-                    const sid = shift.user_id ? (stationAssignments[shift.user_id] ?? null) : null;
+                    const sid = effectiveStationId(shift);
                     const bucket = groups.find((g) => g.id === sid) ?? groups[groups.length - 1];
                     bucket.items.push(shift);
                   }

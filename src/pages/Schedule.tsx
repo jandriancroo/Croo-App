@@ -29,7 +29,7 @@ import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSe
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { ShiftCard } from "@/components/schedule/ShiftCard";
 import { EventRow } from "@/components/schedule/EventRow";
-import { EmployeeRow } from "@/components/schedule/EmployeeRow";
+import { EmployeeRow, rowIdSuffix, stripRowIdSuffix } from "@/components/schedule/EmployeeRow";
 const EditShiftDialog = lazyWithRetry(() => import("@/components/schedule/EditShiftDialog").then(m => ({ default: m.EditShiftDialog })));
 import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
 import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
@@ -41,7 +41,7 @@ const AutoScheduleWizard = lazyWithRetry(() => import("@/components/schedule/Aut
 const ScheduleHistoryPanel = lazyWithRetry(() => import("@/components/schedule/ScheduleHistoryPanel").then(m => ({ default: m.ScheduleHistoryPanel })));
 import { UpdatePreviewSheet } from "@/components/schedule/UpdatePreviewSheet";
 import { useLocationStations } from "@/hooks/useLocationStations";
-import { useUserStationAssignments } from "@/hooks/useUserStationAssignments";
+import { groupPeopleByStation } from "@/utils/groupShiftsByStation";
 import { useScheduleLaborRules } from "@/hooks/useScheduleLaborRules";
 import { paidShiftHours } from "@/utils/shiftUtils";
 // StationAssignChip removed — station assignment moved into SmartTap popover
@@ -149,8 +149,6 @@ export default function Schedule() {
   });
   const stationsEnabled = liveStationSettings?.stations_enabled ?? !!(locationSettings as any)?.stations_enabled;
   const { stations } = useLocationStations(currentLocation?.id);
-  const { assignments: stationAssignments, assign: assignUserStation } =
-    useUserStationAssignments(currentLocation?.id);
   const useStationGrouping = stationsEnabled && stations.length > 0;
 
   // Measure actual navbar height for sticky offset
@@ -202,12 +200,14 @@ export default function Schedule() {
     setActiveShift(null);
     if (!over) return;
 
-    const isEmployeeDrag = profiles.some(p => p.id === active.id);
+    const activeId = stripRowIdSuffix(String(active.id));
+    const isEmployeeDrag = profiles.some(p => p.id === activeId);
     if (isEmployeeDrag) {
       // Employee row drags only reorder within the same section now.
       // Role changes happen exclusively on the User Management page.
-      if (active.id !== over.id) {
-        const result = await handleDragReorder(active.id as string, over.id as string);
+      const overRowId = stripRowIdSuffix(String(over.id));
+      if (activeId !== overRowId) {
+        const result = await handleDragReorder(activeId, overRowId);
         if (result?.type === 'role_change') {
           // Intentionally ignored — roles are managed in User Management.
         }
@@ -216,7 +216,7 @@ export default function Schedule() {
     }
 
     if (!scheduleId) return;
-    const overId = over.id as string;
+    const overId = stripRowIdSuffix(over.id as string);
     const lastHyphenIndex = overId.lastIndexOf("-");
     const dayIndex = parseInt(overId.substring(lastHyphenIndex + 1));
     const userId = overId.substring(5, lastHyphenIndex);
@@ -251,8 +251,8 @@ export default function Schedule() {
     setConflicts([]);
   };
 
-  const onSmartTap = async (userId: string, dayIndex: number, shiftDate: string, template: any) => {
-    const result = await handleSmartTap(userId, dayIndex, shiftDate, template);
+  const onSmartTap = async (userId: string, dayIndex: number, shiftDate: string, template: any, stationId?: string | null) => {
+    const result = await handleSmartTap(userId, dayIndex, shiftDate, template, stationId);
     if (!result) return;
     if (result.type === 'conflict') {
       setPendingShiftData({ type: "template", active: result.fakeActive, userId: result.userId, dayIndex: result.dayIndex, shiftDate: result.shiftDate });
@@ -608,9 +608,6 @@ export default function Schedule() {
                                         allShifts={lastWeekShifts}
                                         onSmartTap={onSmartTap}
                                         onNewShift={onNewShiftFromCell}
-                                        stations={useStationGrouping ? stations : undefined}
-                                        currentStationId={stationAssignments[profile.id] ?? null}
-                                        onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
                                       />
                                     </div>
                                   ))}
@@ -637,29 +634,27 @@ export default function Schedule() {
                   };
                   const sortByRole = (list: typeof profiles) =>
                     [...list].sort((a: any, b: any) => roleRank(a.role) - roleRank(b.role));
-                  const stationSections = [
-                    ...stations.map(s => ({ station: s, profilesIn: sortByRole(profiles.filter(p => stationAssignments[p.id] === s.id)) })),
-                    { station: null as any, profilesIn: sortByRole(profiles.filter(p => !stationAssignments[p.id])) },
-                  ];
+                  // View-only: sections are built from `shifts` but never filter it (copy-week / totals keep the full list).
+                  const stationSections = groupPeopleByStation(sortByRole(profiles), shifts, stations);
                   return (
                     <>
-                      {stationSections.map(({ station, profilesIn }) => {
-                        const stationShifts = shifts.filter(s => profilesIn.some(p => p.id === s.user_id));
+                      {stationSections.map(({ station, rows, shifts: sectionShifts }) => {
+                        const profilesIn = rows.map(r => r.person);
+                        const shiftsByPerson = new Map(rows.map(r => [r.person.id, r.shifts]));
                         return (
                           <StationGroupSection
                             key={station?.id ?? 'unassigned'}
                             station={station}
                             employeeCount={profilesIn.length}
-                            totalHours={calcHours(stationShifts)}
-                            onDropUser={(userId) => assignUserStation(userId, station?.id ?? null)}
+                            totalHours={calcHours(sectionShifts)}
                           >
-                            <SortableContext items={profilesIn.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                            <SortableContext items={profilesIn.map(p => p.id + rowIdSuffix(station?.id ?? null))} strategy={verticalListSortingStrategy}>
                               {profilesIn.map((profile: any) => (
                                 <div key={profile.id} className="relative">
                                   <EmployeeRow
                                     profile={profile}
                                     roleBadge={undefined}
-                                    shifts={shifts.filter((s) => s.user_id === profile.id)}
+                                    shifts={shiftsByPerson.get(profile.id) ?? []}
                                     templates={templates}
                                     availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
                                     currentWeekStart={currentWeekStart}
@@ -678,8 +673,7 @@ export default function Schedule() {
                                     onSmartTap={onSmartTap}
                                         onNewShift={onNewShiftFromCell}
                                     stations={stations}
-                                    currentStationId={stationAssignments[profile.id] ?? null}
-                                    onAssignStation={(isAdmin || isManager) ? assignUserStation : undefined}
+                                    sectionStationId={station?.id ?? null}
                                   />
                                 </div>
                               ))}
@@ -790,7 +784,7 @@ export default function Schedule() {
         )}
 
         {(isAdmin || isManager) && selectedDayForBreakdown && scheduleId && (
-          <Suspense fallback={null}><DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} stations={useStationGrouping ? stations : undefined} stationAssignments={useStationGrouping ? stationAssignments : undefined} /></Suspense>
+          <Suspense fallback={null}><DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} stations={useStationGrouping ? stations : undefined} /></Suspense>
         )}
 
         {(isAdmin || isManager) && isCreatingShift && (

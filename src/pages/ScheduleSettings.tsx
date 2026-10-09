@@ -23,6 +23,7 @@ import {
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 import { StationsManagerCard } from "@/components/settings/StationsManagerCard";
+import { useScheduleStations } from "@/hooks/useLocationStations";
 import { CopyEventCategoriesDialog } from "@/components/schedule/CopyEventCategoriesDialog";
 import { ScheduleApprovalSettingsCard } from "@/components/schedule/ScheduleApprovalSettings";
 
@@ -53,6 +54,12 @@ export default function ScheduleSettings() {
   const [searchParams] = useSearchParams();
   const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { stations, enabled: stationsOn } = useScheduleStations(currentLocation?.id);
+  const setTemplateStation = async (templateId: string, stationId: string | null) => {
+    const { error } = await supabase.from("shift_templates").update({ station_id: stationId } as any).eq("id", templateId);
+    if (error) { toast.error("Couldn't save station"); return; }
+    setShiftTemplates((prev) => prev.map((t) => (t.id === templateId ? ({ ...t, station_id: stationId } as typeof t) : t)));
+  };
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
   const [weekTemplates, setWeekTemplates] = useState<WeekTemplate[]>([]);
   const [positions, setPositions] = useState<string[]>([]);
@@ -370,6 +377,27 @@ export default function ScheduleSettings() {
                           <p className="text-[10px] text-muted-foreground mt-1">
                             {template.days_of_week.map(d => DAY_NAMES[d].slice(0, 3)).join(", ")}
                           </p>
+                        )}
+                        {stationsOn && (
+                          <Select
+                            value={(template as any).station_id ?? "none"}
+                            onValueChange={(v) => setTemplateStation(template.id, v === "none" ? null : v)}
+                          >
+                            <SelectTrigger className="h-7 mt-1.5 text-xs" aria-label="Station">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No station</SelectItem>
+                              {stations.map((st) => (
+                                <SelectItem key={st.id} value={st.id}>
+                                  <span className="flex items-center gap-2">
+                                    <span className="h-2.5 w-2.5 rounded-sm" style={{ background: st.color }} />
+                                    {st.name}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         )}
                       </div>
                       <DropdownMenu>

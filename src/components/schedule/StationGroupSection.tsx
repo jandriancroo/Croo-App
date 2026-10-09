@@ -6,17 +6,15 @@ interface Props {
   station: LocationStation | null; // null = Unassigned
   employeeCount: number;
   totalHours: number;
-  onDropUser: (userId: string) => void;
   children: React.ReactNode;
 }
 
 /**
- * Outer station section. Header is a native HTML5 drop zone — drag an
- * employee's StationAssignChip onto it to reassign.
+ * Outer station section (collapsible header + hours). Station belongs to each shift,
+ * so there is no drag-a-person-here behavior.
  */
-export function StationGroupSection({ station, employeeCount, totalHours, onDropUser, children }: Props) {
+export function StationGroupSection({ station, employeeCount, totalHours, children }: Props) {
   const [open, setOpen] = useState(true);
-  const [dragOver, setDragOver] = useState(false);
 
   const name = station?.name ?? "Unassigned";
   const color = station?.color ?? "#94a3b8";
@@ -24,25 +22,7 @@ export function StationGroupSection({ station, employeeCount, totalHours, onDrop
   return (
     <div className="border-b border-border last:border-b-0">
       <div
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes("application/x-croo-user-id") || e.dataTransfer.types.includes("text/plain")) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            if (!dragOver) setDragOver(true);
-          }
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          const userId =
-            e.dataTransfer.getData("application/x-croo-user-id") ||
-            e.dataTransfer.getData("text/plain");
-          if (userId) onDropUser(userId);
-        }}
-        className={`px-3 py-2 flex items-center justify-between gap-2 transition-colors ${
-          dragOver ? "bg-primary/10 ring-1 ring-primary/40" : "bg-muted/40"
-        }`}
+        className="px-3 py-2 flex items-center justify-between gap-2 bg-muted/40"
         style={{ borderLeft: `4px solid ${color}` }}
       >
         <button
@@ -65,7 +45,7 @@ export function StationGroupSection({ station, employeeCount, totalHours, onDrop
         <div>
           {employeeCount === 0 ? (
             <div className="px-3 py-4 text-center text-[11px] text-muted-foreground italic">
-              Drag a person here to assign them to {name}.
+              No shifts at {name} this week.
             </div>
           ) : (
             children

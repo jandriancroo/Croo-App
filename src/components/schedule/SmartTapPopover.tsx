@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sparkles, MapPin, Check, Plus } from "lucide-react";
 import { formatTime12Hour } from "@/lib/utils";
@@ -11,6 +11,7 @@ interface ShiftTemplate {
   role: string;
   color: string;
   position?: string;
+  station_id?: string | null;
 }
 
 interface StationOption {
@@ -24,13 +25,14 @@ interface SmartTapPopoverProps {
   onOpenChange: (open: boolean) => void;
   templates: ShiftTemplate[];
   recentTemplateIds: string[];
-  onSelectTemplate: (template: ShiftTemplate) => void;
+  /** pickedStationId = the Station column's choice (station mode only). */
+  onSelectTemplate: (template: ShiftTemplate, pickedStationId?: string | null) => void;
   children: React.ReactNode;
   isCompactMode?: boolean;
-  /** Stations enabled at the location. When provided, a Station picker appears in the popover. */
+  /** Stations enabled at the location. When provided, a Station picker for the NEW shift appears. */
   stations?: StationOption[];
-  currentStationId?: string | null;
-  onSelectStation?: (stationId: string | null) => void;
+  /** Station preselected in the picker (the cell's section). */
+  defaultStationId?: string | null;
   /** Opens a blank new-shift dialog for this cell. */
   onNewShift?: () => void;
 }
@@ -46,10 +48,15 @@ function SmartTapPopoverComponent({
   children,
   isCompactMode = false,
   stations,
-  currentStationId,
-  onSelectStation,
+  defaultStationId,
   onNewShift,
 }: SmartTapPopoverProps) {
+  // Station for the shift about to be added; resets to the section's station each time it opens.
+  const [pickedStationId, setPickedStationId] = useState<string | null>(defaultStationId ?? null);
+  useEffect(() => {
+    if (open) setPickedStationId(defaultStationId ?? null);
+  }, [open, defaultStationId]);
+  const selectTemplate = (t: ShiftTemplate) => onSelectTemplate(t, hasStations ? pickedStationId : undefined);
 
   const { recentTemplates, otherColumns } = useMemo(() => {
     const recent: ShiftTemplate[] = [];
@@ -75,7 +82,7 @@ function SmartTapPopoverComponent({
     return { recentTemplates: recent.slice(0, 3), otherColumns: columns };
   }, [templates, recentTemplateIds]);
 
-  const hasStations = !!(stations && stations.length > 0 && onSelectStation);
+  const hasStations = !!(stations && stations.length > 0);
   if (templates.length === 0 && !hasStations && !onNewShift) return <>{children}</>;
 
   const hasRecent = recentTemplates.length > 0;
@@ -104,17 +111,17 @@ function SmartTapPopoverComponent({
               <div className="space-y-0.5">
                 <button
                   type="button"
-                  onClick={() => { onSelectStation?.(null); onOpenChange(false); }}
+                  onClick={() => setPickedStationId(null)}
                   className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent/70"
                 >
-                  <span className="text-muted-foreground">Unassigned</span>
-                  {(currentStationId ?? null) === null && <Check className="h-3.5 w-3.5" />}
+                  <span className="text-muted-foreground">Use template</span>
+                  {pickedStationId === null && <Check className="h-3.5 w-3.5" />}
                 </button>
                 {stations!.map((s) => (
                   <button
                     type="button"
                     key={s.id}
-                    onClick={() => { onSelectStation?.(s.id); onOpenChange(false); }}
+                    onClick={() => setPickedStationId(s.id)}
                     className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent/70"
                   >
                     <span className="flex items-center gap-2 min-w-0">
@@ -124,7 +131,7 @@ function SmartTapPopoverComponent({
                       />
                       <span className="truncate">{s.name}</span>
                     </span>
-                    {currentStationId === s.id && <Check className="h-3.5 w-3.5" />}
+                    {pickedStationId === s.id && <Check className="h-3.5 w-3.5" />}
                   </button>
                 ))}
               </div>
@@ -167,7 +174,7 @@ function SmartTapPopoverComponent({
                       <TemplateOption
                         key={template.id}
                         template={template}
-                        onSelect={onSelectTemplate}
+                        onSelect={selectTemplate}
                         isHighlighted
                       />
                     ))}
@@ -197,7 +204,7 @@ function SmartTapPopoverComponent({
                     <TemplateOption
                       key={template.id}
                       template={template}
-                      onSelect={onSelectTemplate}
+                      onSelect={selectTemplate}
                     />
                   ))}
                 </div>
