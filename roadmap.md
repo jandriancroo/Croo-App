@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Oct 9 approved UI batch (no publish)
+- [ ] Wire station grip reordering, optimistic saved order, schedule ordering/cache audit, and fresh tests; no publish.
 - [x] Reorder schedule wrench menu; reorganize settings with shared Position/Station selector.
 - [x] Separate saved sales goal display/prefill from existing labor sales denominators.
 - [x] Typecheck and full Vitest (24 files / 407 tests); desktop/mobile settings and Hemet goal preview without data changes; not published.
