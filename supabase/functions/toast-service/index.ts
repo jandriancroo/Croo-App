@@ -8,6 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "npm:zod@3.23.8";
 import { authorizeCaller } from "../_shared/callerAuth.ts";
 import { isToastRunner, TOAST_RUNNER_HEADER } from "../_shared/toastRunnerKey.ts";
+import { repostDates, REPOST_LOOKBACK_DAYS } from "../_shared/toastRepost.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,8 +112,39 @@ Deno.serve(async (req) => {
     const { data: hours, error: e3 } = await supabase
       .from("location_hours").select("location_id, day_of_week, open_time, close_time, is_closed").in("location_id", ids);
     if (e3) return json({ error: e3.message }, 500);
+    // Past dates the runner should re-post, derived from the data (clears itself).
+    const repostByStore = new Map<string, string[]>();
+    for (const id of ids) {
+      try {
+        const { data: bd } = await supabase.rpc("business_date", { _location_id: id });
+        const businessDate = String(bd ?? "").slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) continue;
+        const shift = (d: string, n: number) => { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+        const oldest = shift(businessDate, -REPOST_LOOKBACK_DAYS);
+        const yesterday = shift(businessDate, -1);
+        const [sales, labor, open, raw, win] = await Promise.all([
+          supabase.from("sales_cache").select("sale_date, net_sales, fetched_at").eq("location_id", id).gte("sale_date", oldest).lt("sale_date", businessDate),
+          supabase.from("labor_cache").select("labor_date").eq("location_id", id).eq("source", "toast").gte("labor_date", oldest).lt("labor_date", businessDate),
+          supabase.from("toast_shifts").select("shift_date").eq("location_id", id).is("out_time", null).gte("shift_date", oldest).lt("shift_date", businessDate),
+          supabase.from("toast_sales_cache").select("sale_date, data_source").eq("location_id", id).eq("sale_date", yesterday),
+          supabase.rpc("business_day_window", { _location_id: id, _date: yesterday }),
+        ]);
+        const w = Array.isArray(win.data) ? win.data[0] : win.data;
+        repostByStore.set(id, repostDates({
+          businessDate,
+          sales: sales.data ?? [],
+          toastLaborDates: (labor.data ?? []).map((r: any) => r.labor_date),
+          openShiftDates: (open.data ?? []).map((r: any) => r.shift_date),
+          rawSources: raw.data ?? [],
+          yesterdayEndAt: w?.end_at ?? null,
+        }));
+      } catch (e) {
+        console.warn("[toast-service] repostDates skipped:", e);
+      }
+    }
     return json({
       stores: (locs ?? []).map((l: any) => ({
+        repostDates: repostByStore.get(l.location_id) ?? [],
         locationId: l.location_id,
         restaurantGuid: (active ?? []).find((a: any) => a.location_id === l.location_id)?.credentials?.restaurant_guid ?? null,
         timezone: l.timezone ?? "America/Los_Angeles",
