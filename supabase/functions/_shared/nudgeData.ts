@@ -1,9 +1,10 @@
 // Reads for Quick Nudge, shared by quick-nudge and Theo's preview (service-role client).
 // Rules stay in nudgePlan.ts; this only gathers the facts they need.
 import {
-  onClockIds, splitCooldown, firstName, lockLabel, canNudgeChecklist, canNudgeTask, canNudgeEvent, NUDGE_COOLDOWN_MIN,
+  splitCooldown, firstName, lockLabel, canNudgeChecklist, canNudgeTask, canNudgeEvent, NUDGE_COOLDOWN_MIN,
   type NudgeStatusRow, type TaskStatusRow, type EventStatusRow, type TargetType,
 } from "./nudgePlan.ts";
+import { clockedInUserIds } from "./onClock.ts";
 
 export type CrewPerson = { id: string; name: string; first_name: string };
 export type NudgeTarget = {
@@ -84,15 +85,12 @@ export async function nudgeableTargets(admin: any, locationId: string): Promise<
 /** Everyone on the clock at the store right now (active crew), minus the sender, split by cooldown for this target. */
 export async function nudgeAudience(admin: any, locationId: string, targetType: TargetType, familyId: string, senderId: string) {
   const now = Date.now();
-  const since = new Date(now - 24 * 3600_000).toISOString();
-  const [{ data: punches }, { data: links }] = await Promise.all([
-    admin.from("time_punches").select("user_id, id, punch_type, punch_time, location_id").eq("location_id", locationId).gte("punch_time", since).order("punch_time"),
+  const [clockedIn, { data: links }] = await Promise.all([
+    clockedInUserIds(admin, locationId, now),
     admin.from("user_locations").select("user_id").eq("location_id", locationId),
   ]);
-  const byUser: Record<string, any[]> = {};
-  for (const p of punches || []) (byUser[p.user_id] ||= []).push(p);
   const crewIds = new Set((links || []).map((l: any) => l.user_id));
-  const onIds = onClockIds(byUser, now).filter((id) => id !== senderId && crewIds.has(id));
+  const onIds = clockedIn.filter((id) => id !== senderId && crewIds.has(id));
   let people: CrewPerson[] = [];
   if (onIds.length) {
     const { data: profs } = await admin.from("profiles").select("id, full_name, nickname, is_active").in("id", onIds);
