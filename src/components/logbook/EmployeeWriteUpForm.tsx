@@ -278,6 +278,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
         await supabase.functions.invoke('send-notification-email', {
           body: {
             type: 'employee_writeup',
+            location_id: currentLocation?.id,
             to: employeeData.email,
             data: {
               reason,

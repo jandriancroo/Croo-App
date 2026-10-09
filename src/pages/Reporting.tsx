@@ -884,7 +884,7 @@ export default function Reporting() {
       });
       if (upErr) throw upErr;
       const { error } = await supabase.functions.invoke('send-report-email', {
-        body: { recipients: recips, reportTitle: config.reportTitle, period, author: config.author, path: uploadPath, fileName },
+        body: { recipients: recips, reportTitle: config.reportTitle, period, author: config.author, path: uploadPath, fileName, location_id: config.locationIds[0] },
       });
       if (error) throw error;
       toast.success(`Sent to ${recips.length} recipient${recips.length > 1 ? 's' : ''}`);

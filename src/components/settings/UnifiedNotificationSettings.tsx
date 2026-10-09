@@ -38,7 +38,7 @@ const NOTIFICATION_TYPES = [
   { key: 'cash_safe_count', label: 'Safe Counts', description: 'Safe count submissions', category: 'cash', managerOnly: true },
   { key: 'cash_bank_deposit', label: 'Bank Deposits', description: 'Bank deposit submissions', category: 'cash', managerOnly: true },
   { key: 'new_job_application', label: 'New Job Applications', description: 'When someone applies at this location', category: 'hiring', managerOnly: true },
-  { key: 'time_off_weekly_digest', label: "Next Week's Time Off", description: 'Nightly digest of approved time off for next week', category: 'timeoff', managerOnly: true },
+  { key: 'time_off_weekly_digest', label: 'Availability Insights', description: "Next week's time off and availability, 7 AM after new requests", category: 'timeoff', managerOnly: true },
 ] as const;
 
 

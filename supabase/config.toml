@@ -152,7 +152,7 @@ verify_jwt = false
 [functions.sales-week-projections]
 verify_jwt = false
 
-[functions.whos-out-email]
+[functions.availability-insights]
 verify_jwt = false
 
 [functions.hiring-interview-response]

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,18 +47,19 @@ async function queueEmailDirect(supabaseAdmin: any, opts: { from: string; to: st
 }
 
 async function getOrgBranding(supabaseAdmin: any, locationId?: string) {
-  let orgName = "your new team", locName = "", logoUrl = "", brandName = "";
+  let orgName = "your new team", locName = "", brandName = "";
   if (locationId) {
     const { data: loc } = await supabaseAdmin.from('locations').select('name, organization_id').eq('id', locationId).single();
     if (loc) {
       locName = loc.name;
       if (loc.organization_id) {
-        const { data: org } = await supabaseAdmin.from('organizations').select('name, logo_url, brand_name').eq('id', loc.organization_id).single();
-        if (org) { orgName = org.name; logoUrl = org.logo_url || ""; brandName = org.brand_name || org.name; }
+        const { data: org } = await supabaseAdmin.from('organizations').select('name, brand_name').eq('id', loc.organization_id).single();
+        if (org) { orgName = org.name; brandName = org.brand_name || org.name; }
       }
     }
   }
-  return { orgName, locName, logoUrl, displayName: brandName || orgName };
+  const logo = await resolveEmailLogo(supabaseAdmin, { locationId });
+  return { orgName, locName, logo, displayName: brandName || orgName };
 }
 
 // ============================================================================
@@ -272,26 +274,16 @@ async function handleInvite(payload: InviteUserPayload, req: Request, supabaseAd
   if (resetLink) {
     try {
       const branding = await getOrgBranding(supabaseAdmin, locationId);
-      const firstName = fullName.split(' ')[0];
-      const logoHtml = branding.logoUrl
-        ? `<img src="${branding.logoUrl}" alt="${branding.displayName}" style="max-height:40px;max-width:120px;border-radius:8px;"/>`
-        : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="max-height:40px;max-width:120px;" />`;
 
       await queueEmailDirect(supabaseAdmin, {
         from: "CrooHQ Hiring <hiring@croohq.email>",
         to: [email],
         subject: `Welcome to ${branding.displayName}${branding.locName ? ` - ${branding.locName}` : ''}!`,
         html: wrapEmail(`
-          <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-            <table style="width:100%;border-collapse:collapse;"><tr>
-              <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml}</td>
-              <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1></td>
-              <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${branding.displayName}</p>${branding.locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${branding.locName}</p>` : ''}</td>
-            </tr></table>
-          </td></tr>
+          ${renderEmailHeader({ title: "Welcome to the Team!", logoUrl: branding.logo.logoUrl, alt: branding.logo.alt, line1: branding.displayName, line2: branding.locName })}
           <tr><td style="padding:28px 32px;">
             <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
-            <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+            <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${fullName}!</p>
             <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${branding.displayName}</strong>${branding.locName ? ` at the <strong>${branding.locName}</strong> location` : ''}.</p>
             <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
               <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
@@ -382,22 +374,16 @@ async function handleResendInvite(req: Request, supabaseAdmin: any, requestingUs
   // Send resend email directly via email_queue
   try {
     const branding = await getOrgBranding(supabaseAdmin, locationId);
-    const firstName = (profile.full_name || '').split(' ')[0] || 'there';
+    const fullNameForEmail = (profile.full_name || '').trim() || 'there';
 
     await queueEmailDirect(supabaseAdmin, {
       from: "CrooHQ <hiring@croohq.email>",
       to: [emailToUse],
       subject: `Your CrooHQ Invite - ${branding.displayName}`,
       html: wrapEmail(`
-        <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-          <table style="width:100%;border-collapse:collapse;"><tr>
-            <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="max-height:40px;max-width:120px;" /></td>
-            <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Set Your Password</h1></td>
-            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${branding.displayName}</p>${branding.locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${branding.locName}</p>` : ''}</td>
-          </tr></table>
-        </td></tr>
+        ${renderEmailHeader({ title: "Set Your Password", logoUrl: branding.logo.logoUrl, alt: branding.logo.alt, line1: branding.displayName, line2: branding.locName })}
         <tr><td style="padding:28px 32px;">
-          <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+          <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${fullNameForEmail}!</p>
           <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">${branding.displayName}</strong>. Click below to set your password and get started.</p>
           <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
           <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>

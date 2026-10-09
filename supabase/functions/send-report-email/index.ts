@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { requireCaller } from "../_shared/callerAuth.ts";
+import { escapeEmailHtml as escapeHtml, renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -18,7 +19,7 @@ serve(async (req) => {
   if ("response" in auth) return auth.response;
 
   try {
-    const { recipients, reportTitle, period, author, pdfBase64, fileName, path: providedPath } = await req.json();
+    const { recipients, reportTitle, period, author, pdfBase64, fileName, path: providedPath, location_id } = await req.json();
 
     if (!Array.isArray(recipients) || recipients.length === 0 || (!pdfBase64 && !providedPath)) {
       return new Response(JSON.stringify({ error: "recipients and (path or pdfBase64) required" }), {
@@ -49,14 +50,14 @@ serve(async (req) => {
 
     const downloadUrl = signed.signedUrl;
 
+    const logo = typeof location_id === "string" && /^[0-9a-f-]{36}$/i.test(location_id)
+      ? await resolveEmailLogo(supabase, { locationId: location_id })
+      : await resolveEmailLogo(null, {});
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f0ebe1;font-family:'Manrope',-apple-system,sans-serif;">
 <table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;">
 <table style="width:100%;max-width:640px;margin:0 auto;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
-  <tr><td style="background:#0a7a8a;padding:30px 40px;text-align:center;">
-    <h1 style="color:#fff;margin:0;font-size:24px;">${escapeHtml(reportTitle || "Report")}</h1>
-    <p style="color:#cce;font-size:13px;margin:8px 0 0;">${escapeHtml(period || "")}</p>
-  </td></tr>
+  ${renderEmailHeader({ title: reportTitle || "Report", logoUrl: logo.logoUrl, alt: logo.alt, line1: period || "" })}
   <tr><td style="padding:30px 40px;">
     <p style="font-size:15px;color:#0f1215;margin:0 0 18px;">Your CrooHQ report is ready.</p>
     ${author ? `<p style="font-size:13px;color:#666;margin:0 0 24px;">Prepared by ${escapeHtml(author)}</p>` : ""}
@@ -91,7 +92,3 @@ serve(async (req) => {
     });
   }
 });
-
-function escapeHtml(s: string): string {
-  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
-}

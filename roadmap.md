@@ -170,3 +170,4 @@
 - Open (Jordan): create brand items for Mich Ultra 24/16 #11451 and the other new beers; then fix PD "Michelob Ultra 12oz" (priced from 24/16 product, left at 33.50).
 - Open: HEIC photos too heavy for the server converter on big images; app-side photo conversion would fix it.
 - Don't touch: frozen past count costs; the profile rules file without re-running src/lib/heimarkProfile.test.ts.
+- [x] Ship 2: full-name hiring emails, shared brand email header, Availability Insights (7 AM local, replaces Who's Out)

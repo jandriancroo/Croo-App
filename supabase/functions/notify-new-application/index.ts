@@ -10,7 +10,7 @@
 // Contract:
 //   - Client sends ONLY { applicationId }. Any other client-supplied field is
 //     ignored — every detail is re-fetched server-side with the service role.
-//   - PII: push body carries position + location only. Email carries first
+//   - PII: push body carries position + location only. Email carries full
 //     name + position + location + a login-gated link. No phone, no email
 //     address, no resume content in either body.
 //   - Recipients: active general_manager users assigned to the applied-to
@@ -24,6 +24,8 @@
 //     must never fail because notification failed.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { escapeEmailHtml as escapeHtml, renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
+import { applicantFullName } from "../_shared/hiringNames.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -43,47 +45,23 @@ const textColor = "#0f1215";
 const systemFontStack =
   "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-const escapeHtml = (v: unknown) =>
-  String(v ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-
-const safeHttpsUrl = (v: unknown) => {
-  try {
-    const u = new URL(String(v));
-    return u.protocol === "https:" ? escapeHtml(u.toString()) : "";
-  } catch {
-    return "";
-  }
-};
-
 function buildEmailHtml(args: {
-  firstName: string;
+  applicantName: string;
   position: string;
   locationName: string;
   orgName: string;
   logoUrl: string;
+  logoAlt: string;
   reviewUrl: string;
 }): string {
-  const firstName = escapeHtml(args.firstName);
+  const applicantName = escapeHtml(args.applicantName);
   const position = escapeHtml(args.position);
   const locationName = escapeHtml(args.locationName);
-  const orgName = escapeHtml(args.orgName);
-  const logo = safeHttpsUrl(args.logoUrl);
-  const logoHtml = logo
-    ? `<img src="${logo}" alt="${orgName}" style="max-height:44px;max-width:140px;border-radius:6px;"/>`
-    : `<span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:-0.5px;">croo</span>`;
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:640px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
-<tr><td style="background:${primaryColor};padding:24px 40px;"><table role="presentation" style="width:100%;"><tr>
-<td style="width:40%;text-align:left;vertical-align:middle;">${logoHtml}</td>
-<td style="width:60%;text-align:right;vertical-align:middle;"><span style="color:#fff;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">New Application</span><br/><span style="color:rgba(255,255,255,0.9);font-size:12px;font-weight:500;">${orgName}</span></td>
-</tr></table></td></tr>
+${renderEmailHeader({ title: "New Application", logoUrl: args.logoUrl, alt: args.logoAlt, line1: args.orgName })}
 <tr><td style="padding:32px 40px;">
-<p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;"><strong>${firstName}</strong> just applied.</p>
+<p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;"><strong>${applicantName}</strong> just applied.</p>
 <div style="background:${backgroundColor};border-radius:12px;padding:20px 24px;margin-bottom:26px;">
 <table style="width:100%;">
 <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Position</span><br/><strong style="color:${textColor};font-size:15px;">${position}</strong></td></tr>
@@ -137,7 +115,7 @@ serve(async (req) => {
       return json({ error: "Application not found" }, 404);
     }
 
-    const firstName = String(application.full_name || "A new applicant").trim().split(/\s+/)[0];
+    const applicantName = applicantFullName(application.full_name, "A new applicant");
     const locationId: string | null = application.location_id ?? null;
     const organizationId: string | null = application.organization_id ?? null;
 
@@ -162,15 +140,14 @@ serve(async (req) => {
     }
 
     let orgName = "CrooHQ";
-    let logoUrl = "";
+    const logo = await resolveEmailLogo(supabase, { organizationId, locationId });
     if (organizationId) {
       const { data: org } = await supabase
         .from("organizations")
-        .select("name, brand_name, logo_url")
+        .select("name, brand_name")
         .eq("id", organizationId)
         .maybeSingle();
       orgName = org?.brand_name || org?.name || orgName;
-      logoUrl = org?.logo_url || "";
     }
 
     // ── Recipients ──────────────────────────────────────────────────────
@@ -324,13 +301,14 @@ serve(async (req) => {
       }
     }
 
-    // ── Email: first name + position + location + login-gated link ──────
+    // ── Email: full name + position + location + login-gated link ──────
     const emailHtml = buildEmailHtml({
-      firstName,
+      applicantName,
       position,
       locationName,
       orgName,
-      logoUrl,
+      logoUrl: logo.logoUrl,
+      logoAlt: logo.alt,
       reviewUrl: "https://croohq.com/hiring",
     });
 

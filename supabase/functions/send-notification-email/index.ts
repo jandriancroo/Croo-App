@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { requireCaller } from "../_shared/callerAuth.ts";
+import { renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -38,10 +39,6 @@ const systemFontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro',
 
 function wrapEmail(content: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
-}
-
-function getEmailHeader(title: string): string {
-  return `<tr><td style="background:${primaryColor};padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
 }
 
 function getEmailFooter(): string {
@@ -258,8 +255,13 @@ serve(async (req) => {
 
     const ctaUrl = type === "billing_initiated" && data?.billing_url ? data.billing_url : "https://croohq.com";
     const ctaText = type === "billing_initiated" ? "Activate Subscription" : "Open Croo";
+    // Brand logo when the caller says which store this is about; CrooHQ logo otherwise.
+    const locationId = typeof payload.location_id === "string" && /^[0-9a-f-]{36}$/i.test(payload.location_id) ? payload.location_id : null;
+    const logo = locationId
+      ? await resolveEmailLogo(createClient(supabaseUrl, supabaseServiceKey), { locationId })
+      : await resolveEmailLogo(null, {});
     const emailHtml = wrapEmail(`
-      ${getEmailHeader(headerTitle)}
+      ${renderEmailHeader({ title: headerTitle, logoUrl: logo.logoUrl, alt: logo.alt })}
       <tr><td style="padding:30px 40px;">${content}<div style="margin-top:24px;">${getCTAButton(ctaUrl, ctaText)}</div></td></tr>
       ${getEmailFooter()}
     `);

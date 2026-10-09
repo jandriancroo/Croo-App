@@ -275,6 +275,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                       await supabase.functions.invoke("send-notification-email", {
                         body: {
                           type: "waste_log",
+                          location_id: currentLocation?.id,
                           to: managerEmails,
                           data: {
                             item_name: wasteData.itemName,
