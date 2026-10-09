@@ -5,11 +5,12 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
-import { HatchClock } from "./availabilityVisuals";
+import { HatchClock, SplitBlockedCell, timeOffHatch } from "./availabilityVisuals";
+import { AvailabilityDetails, TimeOffRequestDetails } from "./BlockedDayDetails";
 import { SmartTapPopover } from "./SmartTapPopover";
 import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide-react";
+import { GripVertical, CakeSlice } from "lucide-react";
 import { getTodayInPST } from "@/utils/dateUtils";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationWeeklyHours } from "@/hooks/useLocationWeeklyHours";
@@ -388,6 +389,33 @@ function DayCell({
   // Check if any shift covers the availability restriction
 
   
+  const visibleTimeOff = availabilityRequests.filter(request => {
+          // Check if any shift covers this time-off request
+          const isCoveredByShift = shifts.some(shift => {
+            if (request.time_scope !== "partial_day") return true; // Full day requests are always covered if there's any shift
+            if (request.start_time && request.end_time) {
+              const shiftStart = shift.start_time;
+              const shiftEnd = shift.end_time;
+              const reqStart = request.start_time;
+              const reqEnd = request.end_time;
+              return shiftStart < reqEnd && shiftEnd > reqStart;
+            }
+            return true;
+          });
+          // Only show if NOT covered by any shift
+          return !isCoveredByShift;
+        });
+  const showSplitBlockedCell = shifts.length === 0 && hasLimitedAvailability && visibleTimeOff.length > 0 && userId !== "unassigned";
+  const availabilityLines = dayPref?.available === false ? ["Unavailable all day"] : availabilityChips;
+  const handleAvailabilityTap = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (smartTapOpen || !availabilityPopoverOpen) setAvailabilityPopoverOpen(true);
+    else {
+      setAvailabilityPopoverOpen(false);
+      if (canSmartTap) setSmartTapOpen(true);
+    }
+  };
+
   // Station mode: the shift gets its own station only when the pick differs from the template's (else it inherits).
   const handleSmartTapSelect = (template: any, pickedStationId?: string | null) => {
     setSmartTapOpen(false);
@@ -435,39 +463,15 @@ function DayCell({
         {hasLimitedAvailability && userId !== "unassigned" && shifts.length === 0 && (
           <Popover open={availabilityPopoverOpen} onOpenChange={setAvailabilityPopoverOpen}>
             <PopoverAnchor asChild>
-              <HatchClock
+              {showSplitBlockedCell ? <SplitBlockedCell compact={isCompactMode} requests={visibleTimeOff} onClick={handleAvailabilityTap} /> : <HatchClock
                 className={`${isCompactMode ? 'flex-1 min-h-[26px] rounded-none' : 'rounded flex-1 min-h-[55px]'} cursor-pointer transition-opacity hover:opacity-90`}
                 clockClassName={isCompactMode ? "h-4 w-4" : "h-7 w-7"}
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  if (smartTapOpen) {
-                    // Smart Tap open: swap back to availability details
-                    setSmartTapOpen(false);
-                    setAvailabilityPopoverOpen(true);
-                  } else if (!availabilityPopoverOpen) {
-                    // First tap: show availability details
-                    setAvailabilityPopoverOpen(true);
-                  } else {
-                    // Second tap: close details and open Smart Tap (add shift)
-                    setAvailabilityPopoverOpen(false);
-                    if (canSmartTap) setSmartTapOpen(true);
-                  }
-                }}
-              />
+                onClick={handleAvailabilityTap}
+              />}
             </PopoverAnchor>
             <PopoverContent className="w-64 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={(e) => { const t = e.target as HTMLElement; if (t.closest?.('[data-availability-box]')) e.preventDefault(); }}>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  Weekly Availability
-                </div>
-                <div className="text-sm text-muted-foreground whitespace-pre-line">
-                  {dayPref?.available === false
-                    ? "Unavailable all day"
-                    : availabilityChips.join("\n")}
-                </div>
-
-              </div>
+              <AvailabilityDetails lines={availabilityLines} />
+              {showSplitBlockedCell && visibleTimeOff.map((request) => <div key={request.id} className="pt-3 mt-3 border-t border-border"><TimeOffRequestDetails request={request} /></div>)}
             </PopoverContent>
           </Popover>
         )}
@@ -509,7 +513,7 @@ function DayCell({
           // Also check weekly availability conflict
           const hasAvailabilityConflict = shiftConflicts(shift);
           
-          const availabilityLines = dayPref?.available === false ? ["Unavailable all day"] : availabilityChips;
+
 
           return <ShiftCard
             key={shift.id}
@@ -526,22 +530,7 @@ function DayCell({
           />;
         })}
         {/* Only show time-off requests that don't have a conflicting shift covering them */}
-        {availabilityRequests.filter(request => {
-          // Check if any shift covers this time-off request
-          const isCoveredByShift = shifts.some(shift => {
-            if (request.time_scope !== "partial_day") return true; // Full day requests are always covered if there's any shift
-            if (request.start_time && request.end_time) {
-              const shiftStart = shift.start_time;
-              const shiftEnd = shift.end_time;
-              const reqStart = request.start_time;
-              const reqEnd = request.end_time;
-              return shiftStart < reqEnd && shiftEnd > reqStart;
-            }
-            return true;
-          });
-          // Only show if NOT covered by any shift
-          return !isCoveredByShift;
-        }).map(request => (
+        {!showSplitBlockedCell && visibleTimeOff.map(request => (
           <Popover key={request.id} open={timeOffPopoverId === request.id} onOpenChange={(open) => setTimeOffPopoverId(open ? request.id : null)}>
             <PopoverAnchor asChild>
               <div
@@ -563,9 +552,7 @@ function DayCell({
                 data-timeoff-box
                 className={`${isCompactMode ? 'flex-1 min-h-[22px] flex flex-col justify-center items-center rounded-none' : 'p-1 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
                 style={{
-                  background: isCompactMode 
-                    ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
-                    : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+                  background: timeOffHatch(isCompactMode)
                 }}
               >
                 <div className={`text-[10px] text-muted-foreground font-medium ${isCompactMode ? 'text-center' : ''}`}>
@@ -581,45 +568,7 @@ function DayCell({
               </div>
             </PopoverAnchor>
             <PopoverContent className="w-72 p-3" side="top" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={(e) => { const t = e.target as HTMLElement; if (t.closest?.('[data-timeoff-box]')) e.preventDefault(); }}>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <CalendarOff className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">
-                    {request.request_type === "time_off" ? "Time Off Request" : "Availability Request"}
-                  </span>
-                  {request.status === "pending" && (
-                    <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                      Pending
-                    </span>
-                  )}
-                  {request.status === "approved" && (
-                    <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                      Approved
-                    </span>
-                  )}
-                </div>
-                
-                <div className="text-sm space-y-1">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    {request.time_scope === "partial_day" && request.start_time && request.end_time 
-                      ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}`
-                      : request.time_scope === "multi_day" && request.end_date
-                        ? `${format(new Date(request.start_date + 'T12:00:00'), 'MMM d')} - ${format(new Date(request.end_date + 'T12:00:00'), 'MMM d')}`
-                        : "Full day"
-                    }
-                  </div>
-                </div>
-
-                {request.notes && (
-                  <div className="pt-2 border-t border-border">
-                    <div className="flex items-start gap-2 text-sm">
-                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <span className="text-muted-foreground">{request.notes}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <TimeOffRequestDetails request={request} />
             </PopoverContent>
           </Popover>
         ))}
