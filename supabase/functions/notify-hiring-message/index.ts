@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { authenticateCaller } from "../_shared/callerAuth.ts";
+import { escapeEmailHtml as escapeHtml, renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -55,20 +56,9 @@ serve(async (req) => {
     // Preview mode
     if (body.preview) {
       const previewOrgName = "Blaze Pizza";
-      const previewLogoHtml = `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:36px;"/>`;
       const previewChatUrl = "https://croohq.com/hiring-chat/preview-token";
       const previewHtml = wrapEmail(`
-        <tr><td style="background:${primaryColor};padding:24px 40px;">
-          <table role="presentation" style="width:100%;"><tr>
-            <td style="width:33%;text-align:left;vertical-align:middle;">${previewLogoHtml}</td>
-            <td style="width:34%;text-align:center;vertical-align:middle;">
-              <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:1px;">💬 New Message</h1>
-            </td>
-            <td style="width:33%;text-align:right;vertical-align:middle;">
-              <span style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">${previewOrgName}</span>
-            </td>
-          </tr></table>
-        </td></tr>
+        ${renderEmailHeader({ title: "💬 New Message", line1: previewOrgName })}
         <tr><td style="padding:32px 40px;">
           <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">Hi <strong>Jane</strong>,</p>
           <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">You have a new message from <strong>Marcus Rivera</strong>:</p>
@@ -97,7 +87,7 @@ serve(async (req) => {
     // Look up conversation → application → applicant email + org info
     const { data: conversation, error: convError } = await supabase
       .from("hiring_conversations")
-      .select("id, access_token, application:job_applications(id, full_name, email, organization_id, organization:organizations(name, brand_name, logo_url))")
+      .select("id, access_token, application:job_applications(id, full_name, email, organization_id, organization:organizations(name, brand_name))")
       .eq("id", conversationId)
       .single();
 
@@ -123,60 +113,28 @@ serve(async (req) => {
     }
     const applicantEmail = application?.email;
     const applicantName = application?.full_name || "Applicant";
-    const firstName = applicantName.split(" ")[0];
     const org = application?.organization;
     const orgName = org?.brand_name || org?.name || "Croo Hiring";
-    const logoUrl = org?.logo_url || "";
+    const logo = await resolveEmailLogo(supabase, { organizationId: appRow?.organization_id, locationId: appRow?.location_id });
 
     if (!applicantEmail) {
       console.log("[notify-hiring-message] No applicant email, skipping");
       return new Response(JSON.stringify({ success: true, message: "No email on file" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const escapeHtml = (v: unknown) =>
-      String(v ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    const safeHttpsUrl = (v: unknown) => {
-      try {
-        const u = new URL(String(v));
-        return u.protocol === 'https:' ? escapeHtml(u.toString()) : '';
-      } catch {
-        return '';
-      }
-    };
 
     const chatUrl = `https://croohq.com/hiring-chat/${encodeURIComponent(conversation.access_token)}`;
     const preview = messageContent ? escapeHtml(String(messageContent).substring(0, 200)) : "(no preview)";
     const sender = escapeHtml(senderName || "a hiring manager");
-    const safeOrgName = escapeHtml(orgName);
-    const safeFirstName = escapeHtml(firstName);
-    const safeLogoUrl = safeHttpsUrl(logoUrl);
-
-    const logoHtml = safeLogoUrl
-      ? `<img src="${safeLogoUrl}" alt="${safeOrgName}" style="max-height:44px;max-width:140px;border-radius:6px;"/>`
-      : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:36px;"/>`;
+    const safeName = escapeHtml(applicantName);
 
 
     const subject = `New message from ${orgName}`;
 
     const emailHtml = wrapEmail(`
-      <tr><td style="background:${primaryColor};padding:24px 40px;">
-        <table role="presentation" style="width:100%;"><tr>
-          <td style="width:33%;text-align:left;vertical-align:middle;">${logoHtml}</td>
-          <td style="width:34%;text-align:center;vertical-align:middle;">
-            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:1px;">💬 New Message</h1>
-          </td>
-          <td style="width:33%;text-align:right;vertical-align:middle;">
-            <span style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">${safeOrgName}</span>
-          </td>
-        </tr></table>
-      </td></tr>
+      ${renderEmailHeader({ title: "💬 New Message", logoUrl: logo.logoUrl, alt: logo.alt, line1: orgName })}
       <tr><td style="padding:32px 40px;">
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">Hi <strong>${safeFirstName}</strong>,</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">Hi <strong>${safeName}</strong>,</p>
         <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">You have a new message from <strong>${sender}</strong>:</p>
         <div style="background:#fafaf8;border-radius:16px;padding:20px 24px;margin-bottom:28px;border-left:4px solid ${primaryColor};">
           <p style="color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;font-weight:600;">Message Preview</p>
