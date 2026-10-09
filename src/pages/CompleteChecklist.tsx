@@ -1312,6 +1312,19 @@ export default function CompleteChecklist() {
                 lastRenderedGroup = group.key;
               }
 
+              const c = group.color ?? 'hsl(var(--primary))';
+              const count = groupCounts.get(group.key) ?? 0;
+              const groupHeader = showPositionHeader && (
+                <div className={cn("flex items-center gap-3 mb-4", idx === 0 ? "" : "mt-4")}>
+                  <span className="inline-flex items-center gap-2 rounded-full pl-3 pr-3.5 py-1 text-base leading-6 font-semibold" style={{ backgroundColor: `color-mix(in srgb, ${c} 12%, transparent)`, color: `color-mix(in srgb, ${c} 70%, hsl(var(--foreground)))` }}>
+                    <span className="h-[9px] w-[9px] rounded-full shrink-0" style={{ backgroundColor: c }} />
+                    {group.label}
+                  </span>
+                  <span className="-ml-1 text-[13px] leading-5 font-medium text-muted-foreground whitespace-nowrap">{count} {count === 1 ? "task" : "tasks"}</span>
+                  <span className="flex-1 h-px" style={{ background: `linear-gradient(to right, color-mix(in srgb, ${c} 35%, transparent), transparent)` }} />
+                </div>
+              );
+
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
           const isTextEntryItem = item.item_type === 'text' || item.item_type === 'number';

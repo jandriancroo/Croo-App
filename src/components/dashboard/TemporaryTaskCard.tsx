@@ -43,7 +43,7 @@ function parseHex(hex: string): [number, number, number] | null {
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
-/** Lighten a hex color toward white by `amount` (0..1). 0.8 ≈ near-white tint. */
+/** Choose readable text using WCAG relative luminance of the item's own color. */
 export function readableTextOn(hex: string): string {
   const rgb = parseHex(hex);
   if (!rgb) return '#ffffff';
