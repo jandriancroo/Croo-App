@@ -25,4 +25,3 @@
 <!-- LOVABLE:BEGIN -->
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
 <!-- LOVABLE:END -->
-- Brand-tied system emails build their header only with _shared/emailHeader.ts (resolveEmailLogo + renderEmailHeader); Availability Insights is built only by _shared/availabilityInsights.ts. Why: one logo order and one builder, no copied markup.
