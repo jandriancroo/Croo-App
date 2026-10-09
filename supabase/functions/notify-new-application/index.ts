@@ -56,7 +56,6 @@ function buildEmailHtml(args: {
   const applicantName = escapeHtml(args.applicantName);
   const position = escapeHtml(args.position);
   const locationName = escapeHtml(args.locationName);
-  const orgName = escapeHtml(args.orgName);
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:640px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 ${renderEmailHeader({ title: "New Application", logoUrl: args.logoUrl, alt: args.logoAlt, line1: args.orgName })}
