@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Oct 9 six-item display batch (no publish)
-- [x] Honor task/event colors with readable text; grouped checklist headers/counts/station order and legacy divider hiding; footer capitalization.
+- [x] Honor task/event colors with readable text; grouped checklist headers/counts/station order and legacy divider hiding.
 - [x] Single split availability/time-off cell and shared details, preserving two-tap behavior; optional partial-day-under-shift folding left unchanged.
 - [x] Automatic TypeScript/preview compilation passed; fresh full Vitest 27 files / 415 tests passed. Signed-in browser-only fixtures verified 55px single cell, combined details, tap-two Smart Tap, tap-three details, station order and headers on special types; compact display covered by unit tests, not live preview. No data deletions, punch/kiosk edits or publishing.
 
