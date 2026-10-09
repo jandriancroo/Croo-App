@@ -1,5 +1,10 @@
 # Roadmap
 
+## Oct 9 approved UI batch (no publish)
+- [ ] Reorder schedule wrench menu; reorganize settings with shared Position/Station selector.
+- [ ] Separate saved sales goal display/prefill from existing labor sales denominators.
+- [ ] Full tests and preview checks without data changes.
+
 ## Oct 8 follow-ups
 - [x] Remove Quick Nudge outer circle/impact lines and enlarge glove (visual only); desktop/phone preview checked.
 - [x] California-only scheduled meal premiums, migration 0027; 393 tests passed; all 16 fixtures match exact migration SQL in isolated PostgreSQL (live read-only role correctly blocked by service-only ACL).
