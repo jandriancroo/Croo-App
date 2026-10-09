@@ -339,7 +339,8 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     return dt.isValid ? dt.toFormat('h:mma').replace(':00', '').toLowerCase() : String(t);
   };
 
-  const nowMinutes = now.hour * 60 + now.minute;
+  const clock = storeNow(tz);
+  const nowMinutes = clock.hour * 60 + clock.minute;
   const toMinutes = (t?: string | null) => {
     if (!t) return null;
     const [h, m] = String(t).slice(0, 5).split(':').map(Number);
