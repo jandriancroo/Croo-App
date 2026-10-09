@@ -1234,6 +1234,7 @@ export default function CompleteChecklist() {
           {(() => {
             // Filter items based on hideCompleted
             let filteredItems = items.filter(item => {
+              if (checklist?.position_filtering_enabled && stationMode && item.item_type === 'section_header' && !item.station_id) return false;
               if (!hideCompleted) return true;
               const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
               const hasResponse = isImageItem 
@@ -1250,12 +1251,24 @@ export default function CompleteChecklist() {
               filteredItems = filteredItems.filter(itemMatchesMe);
             }
 
+            const groupCounts = new Map<string, number>();
+            for (const item of items) {
+              if (item.item_type === 'section_header') continue;
+              const key = itemGroup(item).key;
+              groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
+            }
+            const stationOrder = new Map(locationStations.map((station, index) => [`station:${station.id}`, index]));
+
             // If position filtering is enabled, sort/group by position
             if (hasPositionFiltering) {
               filteredItems = [...filteredItems].sort((a, b) => {
                 const ga = itemGroup(a), gb = itemGroup(b); // General last
                 if (ga.tier !== gb.tier) return ga.tier - gb.tier;
-                if (ga.key !== gb.key) return ga.label.localeCompare(gb.label);
+                if (ga.key !== gb.key) {
+                  const aStation = stationOrder.get(ga.key), bStation = stationOrder.get(gb.key);
+                  if (aStation !== undefined && bStation !== undefined && aStation !== bStation) return aStation - bStation;
+                  return ga.label.localeCompare(gb.label);
+                }
                 return (a.order_index || 0) - (b.order_index || 0);
               });
             }
@@ -1312,6 +1325,7 @@ export default function CompleteChecklist() {
           if (item.item_type === 'section_header') {
             return (
               <div key={item.id} className="pt-4 pb-1 first:pt-0">
+                {groupHeader}
                 <h2 className="text-base font-semibold tracking-tight border-b border-border pb-1.5">
                   {item.question || 'Section'}
                 </h2>
@@ -1322,6 +1336,7 @@ export default function CompleteChecklist() {
           if (item.item_type === 'manager_approval') {
             return (
               <div key={item.id} className="pt-1">
+                {groupHeader}
                 <ManagerApprovalItem
                   question={item.question}
                   assignmentId={assignmentId}
@@ -1343,6 +1358,7 @@ export default function CompleteChecklist() {
             })();
             return (
               <div key={item.id} className="space-y-2">
+                {groupHeader}
                 <div className="px-1">
                   <h3 className="text-sm font-medium">
                     {item.question}
@@ -1378,17 +1394,7 @@ export default function CompleteChecklist() {
 
           return (
             <div key={item.id}>
-              {/* Position Section Header */}
-              {showPositionHeader && (
-                <div className="flex items-center gap-3 py-3 my-2">
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                  <span className="text-sm font-semibold text-primary px-3 py-1 rounded-full bg-primary/10 flex items-center gap-1.5">
-                    {group.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: group.color }} />}
-                    {group.label}
-                  </span>
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                </div>
-              )}
+              {groupHeader}
               {showDivider && (
                 <div className="flex items-center gap-3 py-4 my-2">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />

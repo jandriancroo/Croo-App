@@ -1,11 +1,12 @@
 import { memo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
-import { Scissors, Coffee, CalendarOff, Clock, AlertCircle } from "lucide-react";
+import { Scissors, Coffee } from "lucide-react";
 import { useShiftMealHint } from "@/hooks/useScheduleLaborRules";
 import { formatTime12Hour } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AvailabilityDetails, TimeOffRequestDetails } from "./BlockedDayDetails";
 import { AvailabilityStamp, CONFLICT_HATCH_OVERLAY } from "./availabilityVisuals";
 
 interface ShiftCardProps {
@@ -81,16 +82,6 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
 
   // Conflict = translucent gray hatching over the whole shift (shift stays readable underneath)
   const conflictBorderClass = "";
-
-  const formatTime = (t: string) => {
-    const [h, m] = t.split(":");
-    const hour = parseInt(h);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${m} ${ampm}`;
-  };
-
-
 
   const cardEl = (
     <Card
@@ -177,47 +168,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       <PopoverTrigger asChild>{cardEl}</PopoverTrigger>
       <PopoverContent className="w-72 p-3 z-[200]" side="top" onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="space-y-3">
-          {hasAvailabilityDetails && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                Weekly Availability
-              </div>
-              <div className="text-sm text-muted-foreground whitespace-pre-line">
-                {availabilityLines.join("\n")}
-              </div>
-            </div>
-          )}
+          {hasAvailabilityDetails && <AvailabilityDetails lines={availabilityLines} />}
           {hasTimeOffDetails && conflictingTimeOff.map((request, idx) => (
-            <div key={request.id || idx} className={(idx > 0 || hasAvailabilityDetails) ? "pt-3 border-t border-border space-y-2" : "space-y-2"}>
-              <div className="flex items-center gap-2">
-                <CalendarOff className="h-4 w-4 text-red-500" />
-                <span className="text-sm font-medium">
-                  {request.request_type === "time_off" ? "Time Off Request" : "Availability Request"}
-                </span>
-                {request.status === "pending" && (
-                  <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                    Pending
-                  </span>
-                )}
-                {request.status === "approved" && (
-                  <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    Approved
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                {request.time_scope === "partial_day" && request.start_time && request.end_time
-                  ? `${formatTime(request.start_time)} - ${formatTime(request.end_time)}`
-                  : "Full day"}
-              </div>
-              {request.notes && (
-                <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                  <span>{request.notes}</span>
-                </div>
-              )}
+            <div key={request.id || idx} className={(idx > 0 || hasAvailabilityDetails) ? "pt-3 border-t border-border" : undefined}>
+              <TimeOffRequestDetails request={request} />
             </div>
           ))}
           <div className="pt-2 border-t border-border text-[11px] text-muted-foreground">
