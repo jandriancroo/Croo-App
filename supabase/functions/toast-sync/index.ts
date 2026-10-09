@@ -30,6 +30,10 @@ import {
   getCurrentHourInTimezone,
   getCurrentMinutesInTimezone,
 } from "../_shared/projections.ts";
+import { formatHourlyTo24 } from "../_shared/hourly.ts";
+import { pizzaCountFromMix } from "../_shared/productMix.ts";
+import { normToastName } from "../_shared/toastNames.ts";
+import { lateMinutes as lateMinutesFor, openShiftEndMs, regularHours } from "../_shared/toastLabor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +65,12 @@ const DaySchema = z.object({
     })).default([]),
     total_tips: z.number().finite().default(0),
   }).default({ tenders: [], total_tips: 0 }),
+  items: z.array(z.object({
+    itemName: z.string().max(200),
+    category: z.string().max(120).default(""),
+    quantity: z.number().finite().min(0),
+    netSales: z.number().finite(),
+  })).max(1500).default([]),
   raw: z.unknown().optional(),
 });
 
@@ -79,6 +89,7 @@ const ShiftSchema = z.object({
   tips: z.number().finite().default(0),
   payableSeconds: z.number().finite().min(0).default(0),
   overtimeSeconds: z.number().finite().min(0).default(0),
+  doubleTimeSeconds: z.number().finite().min(0).default(0),
   unpaidBreakSeconds: z.number().finite().min(0).default(0),
   takenBreaks: z.array(z.object({
     start: z.string().nullable().optional(),
@@ -163,7 +174,17 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
     return { date, skipped: `kept ${existingRaw.data_source} data` };
   }
 
-  const hourly = reconcileHourly(day.netSales, day.hourly);
+  const { data: existingMail } = await supabase
+    .from("sales_cache")
+    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, yoy_sale_date, yoy_net_sales, yoy_hourly_data, hourly_data")
+    .eq("location_id", locationId)
+    .eq("sale_date", date)
+    .maybeSingle();
+
+  // 24 padded hours; keeps projected / laborPercent / laborCost already on the row.
+  const hourly = formatHourlyTo24(reconcileHourly(day.netSales, day.hourly), existingMail?.hourly_data ?? undefined);
+  // Qu's shape for the mailroom; the full Toast object stays in toast_sales_cache.
+  const mailPayments = day.payments.tenders.map((t) => ({ paymentType: t.label, amount: t.amount }));
   const guests = Math.max(day.guestCount, day.checkCount);
   const avgTicket = day.checkCount > 0 ? day.netSales / day.checkCount : 0;
   const paymentsData = {
@@ -185,30 +206,26 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
     avg_ticket: avgTicket,
     hourly_data: hourly,
     payments_data: paymentsData,
-    raw_payload: day.raw ?? null,
+    raw_payload: day.items.length > 0 ? { ...((day.raw && typeof day.raw === "object") ? day.raw as Record<string, unknown> : { raw: day.raw ?? null }), items: day.items } : (day.raw ?? null),
     flagged_no_sales: day.netSales === 0,
     fetched_at: now,
   }, { onConflict: "location_id,sale_date" });
   if (rawErr) throw new Error(`toast_sales_cache upsert failed for ${date}: ${rawErr.message}`);
 
-  const { data: existingMail } = await supabase
-    .from("sales_cache")
-    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
-    .eq("location_id", locationId)
-    .eq("sale_date", date)
-    .maybeSingle();
-
   const { error: mailErr } = await supabase.from("sales_cache").upsert({
-    ...(existingMail ?? {}),
+    ...(existingMail ? (({ hourly_data: _h, ...rest }) => rest)(existingMail) : {}),
     location_id: locationId,
     sale_date: date,
     pos_source: "toast",
     net_sales: day.netSales,
     guest_count: guests,
-    pizza_count: 0,
     avg_ticket: avgTicket,
     hourly_data: hourly,
-    payments_data: paymentsData,
+    // Empty reads never wipe good data (same rule as sales-service).
+    ...(day.items.length > 0 ? { product_mix: day.items, pizza_count: pizzaCountFromMix(day.items) } : {}),
+    ...(mailPayments.length > 0 ? { payments_data: mailPayments } : {}),
+    validation_status: "valid",
+    validation_attempts: 1,
     flagged_no_sales: day.netSales === 0,
     fetched_at: now,
   }, { onConflict: "location_id,sale_date" });
@@ -291,7 +308,6 @@ async function runPace(supabase: any, locationId: string, date: string, netSales
   await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: open, closeHour: close });
 }
 
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
 function localHour(iso: string | null | undefined, tz: string, fallbackNow = true): number | null {
   if (!iso && !fallbackNow) return null;
@@ -309,11 +325,11 @@ function localHour(iso: string | null | undefined, tz: string, fallbackNow = tru
 
 // Distribute a shift's payable seconds across the store-local hours it spans
 // (proportional, so hourly buckets always sum to the shift total).
-function distributeHours(inIso: string, outIso: string | null, tz: string, totalHours: number) {
+function distributeHours(inIso: string, outIso: string | null, tz: string, totalHours: number, openEndMs: number) {
   const byHour: Record<number, number> = {};
   const startMs = new Date(inIso).getTime();
   if (Number.isNaN(startMs)) return byHour;
-  const endMs = outIso ? new Date(outIso).getTime() : Date.now();
+  const endMs = outIso ? new Date(outIso).getTime() : openEndMs;
   if (Number.isNaN(endMs) || endMs <= startMs || !(totalHours > 0)) {
     const h0 = localHour(inIso, tz, false);
     if (h0 != null) byHour[h0] = (byHour[h0] ?? 0) + totalHours;
@@ -384,28 +400,34 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     .eq("location_id", locationId).maybeSingle();
   const tz = settings?.timezone || DEFAULT_TZ;
 
-  // ── Employee matching: saved mappings first, then auto-match by exact name ──
+  // ── Employee matching: saved mappings first, then auto-match by name ──
+  // Runs before the breakdown is built so a re-post always carries current mappings.
+  // 'manual' rows are never touched; 'unmatched' rows get a fresh try every ingest.
   const { data: mappings } = await supabase
     .from("toast_employee_mappings").select("*")
     .eq("location_id", locationId);
   const byToastUser = new Map<string, any>((mappings || []).map((m: any) => [m.toast_user_id, m]));
 
-  const unmatchedNames = [...new Set(shifts.map((s) => s.employeeName).filter(Boolean))]
-    .filter((n) => ![...byToastUser.values()].some((m: any) => m.toast_name && norm(m.toast_name) === norm(n)));
-  if (unmatchedNames.length > 0) {
+  const needsMatch = [...new Map(shifts.map((s) => [s.toastUserId, s])).values()].filter((s) => {
+    const m = byToastUser.get(s.toastUserId);
+    return !m || (m.match_method === "unmatched" && !m.croo_user_id);
+  });
+  if (needsMatch.length > 0) {
     const { data: roster } = await supabase
       .from("user_locations")
       .select("user_id, profiles(full_name)")
       .eq("location_id", locationId);
     const byName = new Map<string, string>();
     for (const r of roster || []) {
-      const full = String((r as any)?.profiles?.full_name ?? "").trim();
-      if (full) byName.set(norm(full), (r as any).user_id);
+      const full = normToastName((r as any)?.profiles?.full_name);
+      if (full) byName.set(full, (r as any).user_id);
     }
-    for (const shift of shifts) {
-      if (byToastUser.has(shift.toastUserId)) continue;
-      const crooId = byName.get(norm(shift.employeeName)) ?? null;
-      const { data: inserted, error: insErr } = await supabase
+    const taken = new Set([...byToastUser.values()].map((m: any) => m.croo_user_id).filter(Boolean));
+    for (const shift of needsMatch) {
+      const hit = byName.get(normToastName(shift.employeeName)) ?? null;
+      const crooId = hit && !taken.has(hit) ? hit : null;
+      if (crooId) taken.add(crooId);
+      const { data: saved, error: insErr } = await supabase
         .from("toast_employee_mappings")
         .upsert({
           location_id: locationId,
@@ -413,11 +435,11 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
           toast_restaurant_user_id: shift.restaurantUserId ?? null,
           toast_name: shift.employeeName,
           croo_user_id: crooId,
-          match_method: crooId ? "auto" : "auto",
+          match_method: crooId ? "auto" : "unmatched",
         }, { onConflict: "location_id,toast_user_id" })
-        .select("id, croo_user_id")
+        .select("id, croo_user_id, match_method")
         .maybeSingle();
-      if (!insErr) byToastUser.set(shift.toastUserId, { toast_name: shift.employeeName, croo_user_id: inserted?.croo_user_id ?? crooId });
+      if (!insErr) byToastUser.set(shift.toastUserId, { toast_name: shift.employeeName, croo_user_id: saved?.croo_user_id ?? crooId, match_method: saved?.match_method });
     }
   }
 
@@ -461,7 +483,8 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
   // ── Pair punches against the CrooHQ schedule for alerts ──
   const { data: scheduled } = await supabase
     .from("scheduled_shifts")
-    .select("id, user_id, start_time, end_time, is_time_off")
+    .select("id, user_id, start_time, end_time, is_time_off, schedules!inner(location_id)")
+    .eq("schedules.location_id", locationId)
     .eq("shift_date", date)
     .in("user_id", crooIds.length > 0 ? crooIds : ["00000000-0000-0000-0000-000000000000"]);
   const scheduledByUser = new Map<string, any[]>();
@@ -477,6 +500,17 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
       return bd && String(bd).slice(0, 10) === date;
     } catch { return false; }
   })();
+
+  // Past dates: an open shift stops at the end of that business day, never "now".
+  let dayEndIso: string | null = null;
+  if (!isToday) {
+    try {
+      const { data: win } = await supabase.rpc("business_day_window", { _location_id: locationId, _date: date });
+      const row = Array.isArray(win) ? win[0] : win;
+      dayEndIso = row?.end_at ?? null;
+    } catch { dayEndIso = null; }
+  }
+  const openEndMs = openShiftEndMs(!!isToday, dayEndIso);
 
   // Store managers receive the punch alerts.
   let managerIds: string[] = [];
@@ -505,7 +539,7 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     // Toast reports 0 payable hours until clock-out; count open shifts live.
     let paySec = shift.payableSeconds;
     if (!shift.outTime && paySec === 0) {
-      paySec = Math.max(0, (Date.now() - new Date(shift.inTime).getTime()) / 1000 - shift.unpaidBreakSeconds);
+      paySec = Math.max(0, (openEndMs - new Date(shift.inTime).getTime()) / 1000 - shift.unpaidBreakSeconds);
     }
     const hours = Math.round((paySec / 3600) * 100) / 100;
     totalHours += hours;
@@ -518,17 +552,8 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
 
     const scheduledList = crooId ? scheduledByUser.get(crooId) || [] : [];
     const pairedScheduled = scheduledList.find((s) => !s.is_time_off) ?? scheduledList[0] ?? null;
-    let lateMinutes: number | null = null;
-    if (pairedScheduled) {
-      // Compare in store-local wall clock (both sides are HH:mm strings of the same date).
-      const inLocal = localHour(shift.inTime, tz, false);
-      if (inLocal != null) {
-        const schedHour = parseInt(String(pairedScheduled.start_time).slice(0, 2), 10);
-        const schedMin = parseInt(String(pairedScheduled.start_time).slice(3, 5), 10);
-        const late = (inLocal * 60) - (schedHour * 60 + schedMin);
-        if (late > 5) lateMinutes = late;
-      }
-    }
+    // Store-local minutes of day vs scheduled start (minutes count).
+    const lateMinutes = pairedScheduled ? lateMinutesFor(shift.inTime, pairedScheduled.start_time, tz) : null;
 
     employeeBreakdown.push({
       id: shift.id,
@@ -549,6 +574,7 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
       anomalies: shift.anomalyCount,
       late_minutes: lateMinutes,
       overtime_hours: Math.round((shift.overtimeSeconds / 3600) * 100) / 100,
+      double_time_hours: Math.round((shift.doubleTimeSeconds / 3600) * 100) / 100,
     });
 
     // Persist the read-only shift row for the mobile schedule / pairing UI.
@@ -577,7 +603,7 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
       updated_at: new Date().toISOString(),
     }, { onConflict: "location_id,toast_shift_id" });
 
-    const byHour = distributeHours(shift.inTime, outIso, tz, hours);
+    const byHour = distributeHours(shift.inTime, outIso, tz, hours, openEndMs);
     for (const [h, v] of Object.entries(byHour)) hourlyByHour[Number(h)] = (hourlyByHour[Number(h)] ?? 0) + v;
 
     const rate = toastWage.get(shift.toastUserId) ?? (crooId ? wageByUser.get(crooId) ?? null : null);
@@ -590,13 +616,18 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     .sort((a, b) => a.hour.localeCompare(b.hour));
 
   const now = new Date().toISOString();
+  const laborHours = Math.round(totalHours * 100) / 100;
+  const otHours = Math.round(employeeBreakdown.reduce((s: number, e: any) => s + (e.overtime_hours || 0), 0) * 100) / 100;
+  const dtHours = Math.round(employeeBreakdown.reduce((s: number, e: any) => s + (e.double_time_hours || 0), 0) * 100) / 100;
   const { error: labErr } = await supabase.from("labor_cache").upsert({
     location_id: locationId,
     labor_date: date,
     source: "toast",
-    labor_hours: Math.round(totalHours * 100) / 100,
+    labor_hours: laborHours,
     labor_cost: totalCost,
-    overtime_hours: Math.round(employeeBreakdown.reduce((s: number, e: any) => s + (e.overtime_hours || 0), 0) * 100) / 100,
+    overtime_hours: otHours,
+    double_time_hours: dtHours,
+    regular_hours: regularHours(laborHours, otHours, dtHours),
     hourly_breakdown: hourlyBreakdown,
     employee_breakdown: employeeBreakdown,
     is_stale: false,
