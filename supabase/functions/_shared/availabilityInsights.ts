@@ -434,7 +434,6 @@ export async function resolveInsightsRecipients(
 // ── HTML ──────────────────────────────────────────────────────────────────
 
 const TEAL = "#0a7a8a";
-const TEAL_TINT = "#e8f1f2";
 const TEAL_DEEP = "#0f565e";
 const ORANGE = "#e8733d";
 const ORANGE_TINT = "#fdf0e8";
