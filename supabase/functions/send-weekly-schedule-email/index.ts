@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { requireCaller } from "../_shared/callerAuth.ts";
+import { renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -93,23 +94,7 @@ serve(async (req) => {
         }).join('');
 
         const html = wrapEmail(`
-          <!-- HEADER -->
-          <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-            <table style="width:100%;border-collapse:collapse;">
-              <tr>
-                <td style="vertical-align:middle;text-align:left;width:180px;">
-                  <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-                </td>
-                <td style="vertical-align:middle;text-align:center;">
-                  <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Weekly Schedule</h1>
-                </td>
-                <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-                  <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Location</p>
-                  <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${weekLabel}</p>
-                </td>
-              </tr>
-            </table>
-          </td></tr>
+          ${renderEmailHeader({ title: "Weekly Schedule", line1: "Sample Location", line2: weekLabel })}
 
           <tr><td style="padding:28px 24px;">
             <!-- SUMMARY BADGES -->
@@ -152,23 +137,7 @@ serve(async (req) => {
       }).join('');
 
       const sampleHtml = wrapEmail(`
-        <!-- HEADER -->
-        <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-          <table style="width:100%;border-collapse:collapse;">
-            <tr>
-              <td style="vertical-align:middle;text-align:left;width:180px;">
-                <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-              </td>
-              <td style="vertical-align:middle;text-align:center;">
-                <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Your Schedule</h1>
-              </td>
-              <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-                <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Location</p>
-                <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${weekLabel}</p>
-              </td>
-            </tr>
-          </table>
-        </td></tr>
+        ${renderEmailHeader({ title: "Your Schedule", line1: "Sample Location", line2: weekLabel })}
 
         <tr><td style="padding:28px 32px;">
           <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey Sarah! Your schedule for the week has been published.</p>
@@ -209,6 +178,7 @@ serve(async (req) => {
       .single();
 
     const locationName = location?.name || "Your Location";
+    const logo = await resolveEmailLogo(supabase, { locationId: location_id });
 
     // Get all shifts for this schedule
     const { data: shifts } = await supabase
@@ -292,23 +262,7 @@ serve(async (req) => {
       }, 0);
 
       const emailHtml = wrapEmail(`
-         <!-- HEADER -->
-         <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-           <table style="width:100%;border-collapse:collapse;">
-             <tr>
-               <td style="vertical-align:middle;text-align:left;width:180px;">
-                 <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-               </td>
-               <td style="vertical-align:middle;text-align:center;">
-                 <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Your Schedule</h1>
-               </td>
-               <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-                 <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${locationName}</p>
-                 <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${weekLabel}</p>
-               </td>
-             </tr>
-           </table>
-         </td></tr>
+         ${renderEmailHeader({ title: "Your Schedule", logoUrl: logo.logoUrl, alt: logo.alt, line1: locationName, line2: weekLabel })}
         <tr><td style="padding:28px 32px;">
           <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey ${firstName}! Your schedule for the week has been published.</p>
           <div style="background:#fafaf8;border-radius:16px;padding:16px;margin-bottom:20px;">
