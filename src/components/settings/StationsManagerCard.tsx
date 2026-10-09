@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useLocationStations, type LocationStation } from "@/hooks/useLocationStations";
+import { useLocationStations, useStationMode, type LocationStation } from "@/hooks/useLocationStations";
 
 const PRESET_COLORS = [
   "#ef4444", "#f97316", "#f59e0b", "#84cc16",
@@ -21,55 +21,13 @@ interface StationsManagerCardProps {
 }
 
 export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
-  const [enabled, setEnabled] = useState(false);
-  const [loadingToggle, setLoadingToggle] = useState(false);
-  const [savingToggle, setSavingToggle] = useState(false);
-
+  const { enabled } = useStationMode(locationId);
   const { stations, create, update, remove } = useLocationStations(locationId);
 
   // Local edit buffer for inline name editing
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(PRESET_COLORS[7]);
-
-  // Load enabled flag
-  useEffect(() => {
-    if (!locationId) return;
-    let cancelled = false;
-    (async () => {
-      setLoadingToggle(true);
-      const { data } = await supabase
-        .from("location_settings")
-        .select("stations_enabled")
-        .eq("location_id", locationId)
-        .maybeSingle();
-      if (!cancelled) {
-        setEnabled(!!(data as any)?.stations_enabled);
-        setLoadingToggle(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [locationId]);
-
-  const handleToggle = async (next: boolean) => {
-    setEnabled(next);
-    setSavingToggle(true);
-    const { error } = await supabase
-      .from("location_settings")
-      .upsert(
-        { location_id: locationId, stations_enabled: next } as any,
-        { onConflict: "location_id" }
-      );
-    setSavingToggle(false);
-    if (error) {
-      toast.error("Could not save stations setting");
-      setEnabled(!next);
-    } else {
-      toast.success(next ? "Stations enabled" : "Stations disabled");
-    }
-  };
 
   const handleAdd = async () => {
     const name = newName.trim();
@@ -123,23 +81,28 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
     }
   };
 
+  if (!enabled) return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+      <MapPin className="h-4 w-4 shrink-0" />
+      <span>Stations · Not used in Position mode</span>
+      <div className="ml-auto flex items-center gap-1">
+        {stations.map(s => <span key={s.id} title={s.name} className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />)}
+        <span className="ml-1">{stations.length} saved</span>
+      </div>
+    </div>
+  );
+
   return (
-    <Card>
+    <Card className="rounded-lg">
       <CardHeader className="py-3 px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
             <CardTitle className="text-sm font-semibold">Stations</CardTitle>
-            <span className="text-xs text-muted-foreground truncate hidden sm:inline">
-              Group your schedule by station (FOH / BOH / Patio, daycare rooms, etc.)
-            </span>
+            <Badge variant="secondary" className="text-[10px]">In use</Badge>
           </div>
-          <Switch
-            checked={enabled}
-            disabled={loadingToggle || savingToggle}
-            onCheckedChange={handleToggle}
-          />
         </div>
+        <p className="text-xs text-muted-foreground">Schedule groups into these sections; each template gets one station. FOH / BOH / Patio, etc.</p>
       </CardHeader>
       {enabled && (
       <CardContent className="space-y-3 pt-0 px-4 pb-4">
