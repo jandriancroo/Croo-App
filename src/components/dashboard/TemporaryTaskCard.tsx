@@ -10,13 +10,13 @@ export interface TemporaryTaskCardProps {
   title: string;
   subtitle?: string;
   icon: LucideIcon;
-  /** Accent color for the chip container (hex, e.g. #cd7a4a). Ignored when `variant` is set. */
+  /** Own chip color (hex); text contrast adapts to it. Ignored when a theme `variant` is set. */
   accentColor: string;
   /**
    * Theme-driven color rule:
    * - "user"   → uses `hsl(var(--accent))` (user-generated tasks)
    * - "system" → uses `hsl(var(--primary))` (system-generated tasks)
-   * When omitted, `accentColor` is used as-is (legacy).
+    * When omitted, `accentColor` is used with readable light/dark text.
    */
   variant?: "user" | "system";
   buttonLabel?: string;
@@ -41,6 +41,17 @@ function parseHex(hex: string): [number, number, number] | null {
   if (h.length === 3) h = h.split("").map((c) => c + c).join("");
   if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/** Lighten a hex color toward white by `amount` (0..1). 0.8 ≈ near-white tint. */
+export function readableTextOn(hex: string): string {
+  const rgb = parseHex(hex);
+  if (!rgb) return '#ffffff';
+  const [r, g, b] = rgb.map(value => {
+    const s = value / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.36 ? '#1f2937' : '#ffffff';
 }
 
 /** Lighten a hex color toward white by `amount` (0..1). 0.8 ≈ near-white tint. */
@@ -86,9 +97,10 @@ export function TemporaryTaskCard({
     ? `hsl(${themeVarExpr} / 0.33)`
     : `${accentColor}55`;
 
+  const textColor = themeVarExpr ? '#fff' : readableTextOn(accentColor);
   const countColor = themeVarExpr
     ? "rgba(255,255,255,0.78)"
-    : lightenHexTowardWhite(accentColor, 0.8);
+     : textColor === '#1f2937' ? 'rgba(31,41,55,0.7)' : lightenHexTowardWhite(accentColor, 0.8);
 
 
 
@@ -121,13 +133,13 @@ export function TemporaryTaskCard({
           {isOpusTask ? (
             <img src={opusLogo} alt="OPUS" className="h-3.5 w-auto" loading="lazy" />
           ) : (
-            <Icon style={{ width: 14, height: 14, color: "#fff" }} strokeWidth={2.25} />
+            <Icon style={{ width: 14, height: 14, color: textColor }} strokeWidth={2.25} />
           )}
         </div>
 
         <span
           className="flex-1 min-w-0 truncate"
-          style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}
+          style={{ color: textColor, fontSize: 13, fontWeight: 500 }}
         >
           {title}
         </span>
@@ -137,7 +149,7 @@ export function TemporaryTaskCard({
             className="shrink-0 px-1 py-0.5 rounded text-[10px] font-semibold"
             style={{
               backgroundColor: "rgba(255,255,255,0.22)",
-              color: "#fff",
+              color: textColor,
               letterSpacing: 0.3,
             }}
           >
@@ -166,7 +178,7 @@ export function TemporaryTaskCard({
             size="icon"
             variant="ghost"
             className="h-5 w-5 shrink-0 hover:bg-white/15"
-            style={{ color: "#fff" }}
+            style={{ color: textColor }}
             onClick={(e) => {
               e.stopPropagation();
               setShareOpen(true);

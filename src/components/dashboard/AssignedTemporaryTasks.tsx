@@ -447,7 +447,7 @@ export function AssignedTemporaryTasks({
         id: `event-${task.id}`,
         label: task.event_name,
         color: task.category?.color || '#8B5CF6',
-        variant: 'user' as const,
+        variant: task.category?.color ? undefined : 'user',
         progress: formatTime(task.event_time),
         onClick: () => handleEventTaskComplete(task.id),
         isEvent: true,
@@ -463,7 +463,7 @@ export function AssignedTemporaryTasks({
         id: task.id,
         label: task.title,
         color: task.accent_color || '#8B5CF6',
-        variant: 'user' as const,
+        variant: task.accent_color ? undefined : 'user',
         onClick: () => openTask(task),
         icon: getIconComponent(task.icon_name || "ClipboardList"),
         subtasksCompleted: counts?.completed,
@@ -580,7 +580,7 @@ export function AssignedTemporaryTasks({
           subtitle={task.event_time}
           icon={CalendarCheck}
           accentColor={task.category?.color || "#6366f1"}
-          variant="user"
+          variant={task.category?.color ? undefined : 'user'}
           onAction={() => handleEventTaskComplete(task.id)}
           isLoading={completingEventTask === task.id}
           iconStyle="minimal"
@@ -601,7 +601,7 @@ export function AssignedTemporaryTasks({
             subtitle={task.description || undefined}
             icon={getIconComponent(task.icon_name === "opus_logo" ? "GraduationCap" : (task.icon_name || "ClipboardList"))}
             accentColor={task.accent_color || "#8B5CF6"}
-            variant="user"
+            variant={task.accent_color ? undefined : 'user'}
             buttonLabel={task.write_up_id ? "Sign" : task.schedule_id ? "Review" : undefined}
             onAction={() => openTask(task)}
             taskStyle={(task.task_style as "standard" | "alarm") || "standard"}

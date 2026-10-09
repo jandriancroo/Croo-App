@@ -1,5 +1,10 @@
 # Roadmap
 
+## Oct 9 six-item display batch (no publish)
+- [ ] Honor task/event colors with readable text; grouped checklist headers/counts/station order and legacy divider hiding; footer capitalization.
+- [ ] Single split availability/time-off cell and shared details, preserving two-tap behavior.
+- [ ] Fresh full tests and preview checks; no data deletions or punch/kiosk changes.
+
 ## Oct 9 approved UI batch (no publish)
 - [x] Station grip + keyboard reorder, optimistic saved order, mode-cache invalidation, mobile off-mode fallback, weekly/day print grouping; 25 files / 409 tests pass, browser-fixture drag/readback/failure checks pass; no publish.
 - [x] Reorder schedule wrench menu; reorganize settings with shared Position/Station selector.
