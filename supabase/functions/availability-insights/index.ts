@@ -153,8 +153,11 @@ async function runHourly(supabase: any) {
       const timezone = await timezoneOf(supabase, loc.id);
       if (!isInsightsHour(timezone)) continue; // quiet: not 7 AM there
       const localDate = localDateInTimezone(timezone);
+      if ((await countNewRequestsYesterday(supabase, loc.id, timezone, localDate)) === 0) {
+        results.push({ store: loc.name, status: "no_new_requests" });
+        continue;
+      }
       const b = await buildFor(supabase, loc.id, localDate, timezone);
-      if (b.newRequestsYesterday === 0) { results.push({ store: loc.name, status: "no_new_requests" }); continue; }
       if (b.recipients.length === 0) { results.push({ store: loc.name, status: "no_recipients" }); continue; }
       const { error: qErr } = await supabase.from("email_queue").insert({
         from_address: FROM,
