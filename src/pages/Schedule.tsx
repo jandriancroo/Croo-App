@@ -387,9 +387,6 @@ export default function Schedule() {
                       <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
                         <Calendar className="h-4 w-4" />View Availability
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate("/schedule-settings")} className="gap-2 cursor-pointer">
-                        <Settings className="h-4 w-4" />Schedule Settings
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
                         <Copy className="h-4 w-4" />Copy Schedule to Future Week
                       </DropdownMenuItem>
@@ -401,6 +398,9 @@ export default function Schedule() {
                           <AlertTriangle className="h-4 w-4" />Withdraw Schedule
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem onClick={() => navigate("/schedule-settings")} className="gap-2 cursor-pointer">
+                        <Settings className="h-4 w-4" />Schedule Settings
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 

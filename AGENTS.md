@@ -22,3 +22,6 @@
 - POS list: server only _shared/posSources.ts, client only src/lib/pos/liveSales.ts; never a hard-coded fallback POS (unknown = null). Why: missing lists mislabeled Hayward.
 - New data/POS source: update data_point_registry in the same migration. Why: one writer map.
 - Schedule pay: weekLaborCost=labor_week_pay, fixture-checked, no meal premium. Why: 1 cost.
+<!-- LOVABLE:BEGIN -->
+- Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
+<!-- LOVABLE:END -->
