@@ -4,6 +4,7 @@ import { Resend } from "https://esm.sh/resend@2.0.0";
 import { requireCaller } from "../_shared/callerAuth.ts";
 import { loadInterview, buildIcs, calendarButtonsHtml, interviewJoinUrl } from "../_shared/interviewCalendar.ts";
 import { renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
+import { applicantFullName, fillHiringTokens } from "../_shared/hiringNames.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -457,8 +458,9 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
   const orgName = org?.brand_name || org?.name || "Our Team";
   const logo = await resolveEmailLogo(supabase, { organizationId: app.organization_id });
 
-  const subject = template.subject.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name).replace(/{{organization}}/gi, orgName);
-  const body = template.body.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name).replace(/{{organization}}/gi, orgName).replace(/\n/g, "<br>");
+  const tokens = { name: applicantFullName(app.full_name), organization: orgName };
+  const subject = fillHiringTokens(template.subject, tokens);
+  const body = fillHiringTokens(template.body, tokens).replace(/\n/g, "<br>");
 
 
   await queueEmail({
@@ -522,7 +524,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const application = conversation.application as any;
   const org = application?.organization;
   const applicantEmail = application?.email;
-  const applicantName = application?.full_name || "Applicant";
+  const applicantName = applicantFullName(application?.full_name);
   const orgName = org?.brand_name || org?.name || "Hiring Team";
   const logo = await resolveEmailLogo(supabase, { organizationId: application?.organization_id });
   if (!applicantEmail) return new Response(JSON.stringify({ error: "Applicant has no email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

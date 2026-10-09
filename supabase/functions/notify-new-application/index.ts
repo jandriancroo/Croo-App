@@ -25,6 +25,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { escapeEmailHtml as escapeHtml, renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
+import { applicantFullName } from "../_shared/hiringNames.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -114,7 +115,7 @@ serve(async (req) => {
       return json({ error: "Application not found" }, 404);
     }
 
-    const applicantName = String(application.full_name || "A new applicant").trim();
+    const applicantName = applicantFullName(application.full_name, "A new applicant");
     const locationId: string | null = application.location_id ?? null;
     const organizationId: string | null = application.organization_id ?? null;
 

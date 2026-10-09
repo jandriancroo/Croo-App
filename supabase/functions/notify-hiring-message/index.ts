@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { authenticateCaller } from "../_shared/callerAuth.ts";
 import { escapeEmailHtml as escapeHtml, renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
+import { applicantFullName } from "../_shared/hiringNames.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -112,7 +113,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const applicantEmail = application?.email;
-    const applicantName = application?.full_name || "Applicant";
+    const applicantName = applicantFullName(application?.full_name);
     const org = application?.organization;
     const orgName = org?.brand_name || org?.name || "Croo Hiring";
     const logo = await resolveEmailLogo(supabase, { organizationId: appRow?.organization_id, locationId: appRow?.location_id });

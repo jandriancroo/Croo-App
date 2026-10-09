@@ -19,6 +19,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { loadInterview, calendarButtonsHtml } from "../_shared/interviewCalendar.ts";
 import { renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
+import { applicantFullName } from "../_shared/hiringNames.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -132,7 +133,7 @@ serve(async (req) => {
   // ── Staff notifications (never fail the response) ───────────────────
   const notify = { push: 0, email: 0 };
   try {
-    const who = String(app.full_name || "Applicant").trim();
+    const who = applicantFullName(app.full_name);
     const when = invite.date && invite.time ? `${fmtTime(invite.time)}, ${fmtDate(invite.date)}` : "";
     const headline =
       response === "accept"
