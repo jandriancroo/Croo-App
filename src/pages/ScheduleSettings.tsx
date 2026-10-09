@@ -316,11 +316,11 @@ export default function ScheduleSettings() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" onClick={() => navigate("/schedule")}>
             ← Back to Schedule
           </Button>
-          <h1 className="text-3xl font-bold">Schedule Settings</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Schedule Settings</h1>
         </div>
 
         <Card className="p-4 rounded-lg schedule-settings-events">
@@ -336,6 +336,7 @@ export default function ScheduleSettings() {
                   </Button>
                 )}
               </div>
+              <p className="mb-2 text-xs text-muted-foreground">Label events on the schedule (catering, meetings, etc.)</p>
               {eventCategories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No event categories yet — create them from the schedule event form.</p>
               ) : (
@@ -529,6 +530,7 @@ export default function ScheduleSettings() {
                   <span className="ml-1 text-xs">{positionsOpen ? 'Done' : 'Manage'}</span>
                 </Button>
               </div>
+              <p className="mb-2 text-xs text-muted-foreground">Shared by every location in your organization · used by shift templates</p>
               {positions.length === 0 && !positionsOpen && (
                 <p className="text-sm text-muted-foreground">No positions yet — they're created with shift templates.</p>
               )}
