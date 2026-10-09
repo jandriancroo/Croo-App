@@ -206,8 +206,8 @@ export function MobileScheduleView({
       return data;
     },
   });
-  const stationsEnabled = !!(liveStationSettings as any)?.stations_enabled
-    || !!(locationSettings as any)?.stations_enabled;
+  const stationsEnabled = liveStationSettings?.stations_enabled
+    ?? !!(locationSettings as any)?.stations_enabled;
   const { stations } = useLocationStations(currentLocation?.id);
   const useStationGrouping = stationsEnabled && stations.length > 0;
 
@@ -757,6 +757,7 @@ export function MobileScheduleView({
     exportDayTimelineToPrint({
       locationName: currentLocation?.name || 'Location',
       date: selectedDate,
+      stations: useStationGrouping ? stations : undefined,
       profiles: profiles.map((p: any) => ({ id: p.id, full_name: p.full_name, role: p.role })),
       shifts: dayShifts.map((s: any) => ({
         id: s.id,
@@ -767,6 +768,7 @@ export function MobileScheduleView({
         template_color: s.template?.color ?? null,
         position: s.template?.position ?? null,
         breaks: s.breaks,
+        station_id: effectiveStationId(s),
       })),
       breakCoverageEnabled: !!locationSettings?.break_coverage_enabled,
     });
