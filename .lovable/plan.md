@@ -1,113 +1,135 @@
-# Heimark beer invoices: reading profile, price flow, dedup (PLAN ONLY)
+# Stations vs Positions + Primrose cleanup
 
-Nothing was changed. All evidence below comes from reading the code plus a few light read-only queries.
+Vocabulary: ROLE = permission level. POSITION = shift_templates.position. STATION = location_stations entry.
+Mode per store = location_settings.stations_enabled (OFF = Position mode, ON = Station mode). Switching never deletes data.
 
-## A. What happens today (evidence)
+## Step 1 — Station is a shift attribute (schedule only)
 
-- **Prompt and schema:** `supabase/functions/_shared/invoice-ai.ts:27-41` (system prompt) and `:44-79` (tool schema). The model is asked for product_name, item_number, pa_product_id, pack_size ("Pack UM" column), quantity, unit, unit_price and total_price. It is never asked for discount, CRV/deposit or footer totals. Its pack wording expects a PFG/PA-style "Pack UM" column (`:37`, `:127`), but Heimark prints the pack inside the description. Model: `gemini-3-flash-preview` (`:112`).
-- **Invoice record:** a new `vendor_invoices` row is created on every upload (`parse-vendor-invoice/index.ts:75-90`). There is no check for vendor + number + store, so #200019 was saved three times. The vendor name is saved as the model read it (`:199-207`). A registry link is attempted (`:220-270`), but the raw string stays on the invoice.
-- **Matching:** `:307-389`. The store item is found by PA id, then store `item_number`, then exact name, then brand item through any vendor number on `brand_vendor_mappings` (`:328-336`, `:383`, `:387`).
-- **Line save:** `:391-402` and `:430-434`. There is no pack, discount or deposit. `vendor_invoice_items` has no `pack_size`.
-- **Pack write-back:** this goes to `inventory_items.pack_size`, and only for matched lines (`:404-408`, `:438-443`). Pack is not saved on the line itself.
-- **Gaps:** `:410-424` and `:473-477`. Each gap gets vendor_source `'invoice'`, `pack_size: li.unit` (this is why it says "CASE"/"CS"), and no reporting store. The upsert uses `ignoreDuplicates`, so an ignored gap stays ignored silently.
-- **Price write-back:** an invoice does not write a price. It only calls `vendor-price-chase` for matched items (`:450-470`). That chain reads **only `pfg_invoices`** (`_shared/vendorPriceChase.ts:199-203`, `:264-291`). It never reads `vendor_invoice_items`, so **Heimark prices can never reach a store item**, even when a line matches.
-- **Why 81 of 82 lines aren't linked (from the data):**
-  - **The 22 "matched_brand" lines:** each one has an active store item with that brand item today, and those store items existed before the uploads (Apr 8 and Apr 17; uploads ran Jun–Sep). Their brand mappings exist (for example `heimark:10351`). The comments at `:277-282` record that the store-item list query used to fail (old `status` and `vendor_item_id` columns), which left the list empty. So the brand-level match worked and the store-level match had nothing to look in. This is the likely cause. Step 1 confirms it against the commit dates.
-  - **The 59 "unmatched" lines:** no brand mapping exists for those numbers, mostly the other packagings (13631, 37744, 37743, 70939, 11451 and so on).
-  - **Palm Desert store items have `item_number = null`.** That would also defeat matching by number, but the brand-mapping path covers it.
+Shared helper (extend `src/utils/groupShiftsByStation.ts`, no new file):
+- `effectiveStationId(shift) = shift.station_id ?? shift.template?.station_id ?? null`
+- `groupShiftsByStation` buckets by `effectiveStationId` (inactive/missing station -> Unassigned)
+- new `groupPeopleByStation(people, shifts, stations)` -> `{ station, rows: { person, shifts }[] , hours }[]`, used by the desktop grid only
 
-## B. Design: vendor reading profiles
+Desktop grid in station mode (`src/pages/Schedule.tsx`):
+- For each station section, a person gets a row if they have at least one shift that week whose effective station is that section. The row passes ONLY that section's shifts into the existing `EmployeeRow`.
+- Unassigned section = shifts with no effective station, plus every person with zero shifts that week (empty row, so managers can still schedule them).
+- A person can therefore appear in several sections. Section hour total = sum of that section's shifts. Overall labor/header totals keep reading the unfiltered `shifts` array (copy-week and labor totals untouched).
+- `StationGroupSection`: remove `onDropUser` and the drag-over/drop handlers; keep collapse/header/hours.
 
-- New `supabase/functions/_shared/invoiceProfiles/` folder:
-  - `index.ts` picks the profile.
-  - `default.ts` holds today's prompt, schema and post-processing, moved byte-for-byte.
-  - `heimark.ts` holds Heimark's rules.
-- **How a profile is chosen:** two steps.
-  1. A cheap first pass reads only the vendor name, using the normalized name and `match_vendor_name`.
-  2. If it resolves to the Heimark registry entry, the second pass uses Heimark's prompt and schema. Anything else uses `default`, so PFG/PA parsing is unchanged.
-  - **Alternative to avoid the extra call:** run the default parse, and re-run with Heimark only when the vendor resolves to Heimark.
-- **What the Heimark profile asks for:** per line, item#, qty (cases), description as printed, price, disc, crv_dep and amount. It also asks for the footer: CRV units, CRV$, cases, gallons, content$, deposit$, discount$ and total.
-- **Pack is worked out by code, not by the model,** in `heimark.ts`:
-  - Units per case = CRV ÷ 0.05.
-  - Read the description: "N/oz" (with an optional inner layout or LOOSE), or a layout only ("a/b", where a×b = units). The CRV unit count decides which form it is and checks the result.
-  - CN means can. NR is ignored for the container type.
-- **Cost per case** = AMOUNT ÷ QTY (what was actually paid). List price and discount are saved separately.
-- **Self-checks:**
-  - Σ amount = total
-  - Σ qty = cases
-  - Σ qty×units = CRV units
-  - Σ oz÷128 ≈ gallons, when ounces are known
-  - Every line: amount = qty×(price−disc+crv)
-  - If any check fails, the invoice is set to `needs_review` and no prices or gaps are written.
-- **Price flow, for all vendors:**
-  - Add a fourth source to `vendorPriceChase.ts`: **non-PFG vendor invoice lines** from `vendor_invoice_items`, only on invoices with `review_status = 'ok'`, keyed by `vendor:item_number`.
-  - Match against **every approved number** on the brand item (all `brand_vendor_mappings` rows plus its pack configs).
-  - The price is written per case. The store item's `item_number` is filled in when it is empty.
-  - This stays in the one shared price chain (project rule), so nothing in the invoice function writes a price itself.
-- **Gaps:**
-  - vendor_source becomes `heimark`, the vendor name is the normalized registry name, `pack_size` is the parsed string, and the reporting store is appended to `reported_by_locations`.
-  - **Ignored number seen again:** reopen it as `new`, with a "seen again on invoice X" note and the latest store. Ignored means "not now", not "never". Option for Jordan: keep it ignored but show a badge.
-- **Extra packagings** (13631, 37744 and 37743, 70939): these become extra mappings and pack configs on the same brand item, approved through the existing pack-config approval screen. They are never auto-created.
+Files:
+- `src/utils/groupShiftsByStation.ts` (helper + tests in `groupShiftsByStation.test.ts`)
+- `src/pages/Schedule.tsx` (grouping above, stop using `useUserStationAssignments`)
+- `src/components/schedule/StationGroupSection.tsx` (drop-zone removed)
+- `src/components/schedule/MobileScheduleView.tsx`, `DayBreakdownDialog.tsx`, `MobileDayPreviewSheet.tsx`, `src/utils/exportSchedulePrint.ts` (group via helper)
+- `src/components/schedule/SmartTapPopover.tsx`: station column becomes "station for this new shift"; default = the cell's section; template pick creates the shift with `station_id` only if the pick differs from the template's station, else null
+- `src/lib/scheduleActions.ts` `addShift`: add optional `station_id` to the existing row (same single insert); `src/hooks/useScheduleData.tsx` passes it through
+- `src/components/schedule/MobileAddScheduleSheet.tsx`: replace the "primary station for this employee" block with a per-shift Station pick (default = template's station) written via the same insert
+- `src/components/schedule/EditShiftDialog.tsx`, `MobileShiftDialog.tsx`: Station select (stations on only), default label "BOH (from template)", writes `scheduled_shifts.station_id` in the dialog's existing save (`updateShiftTimes` extra / existing insert); never touches `template_id`
+- `src/pages/ScheduleSettings.tsx`: Station dropdown per template card (None + active stations) -> `shift_templates.station_id`, shown only when stations on. `/shift-templates` page untouched.
+- Delete `src/hooks/useUserStationAssignments.ts` (only importers are the 4 files above). `user_locations.primary_station_id` column and data left alone.
+- Station select options come from the existing `useLocationStations`.
 
-## C. Schema changes (one migration, later)
+## Step 2 — Checklists "Assigned to" + shift context hook
 
-- **`vendor_invoice_items`:** add `pack_size text`, `units_per_case numeric`, `oz_per_unit numeric`, `inner_layout text`, `list_price numeric`, `discount numeric`, `deposit numeric`, `cost_per_case numeric`, `raw_description text`.
-- **`vendor_invoices`:**
-  - Add `vendor_registry_id uuid`, `vendor_name_normalized text`, `review_status text` (ok / needs_review), `self_checks jsonb` and `profile text`.
-  - Add a partial unique index on `(location_id, vendor_name_normalized, invoice_number)` where invoice_number is not null.
-  - A re-upload updates that record and replaces its lines.
-- **`vendor_gap_alerts`:** no new columns (it already has `reported_by_locations` and `pack_size`). Only the writer changes.
+Migration (additive, applied via the migration tool):
+```sql
+ALTER TABLE public.checklist_items
+  ADD COLUMN IF NOT EXISTS station_id uuid NULL REFERENCES public.location_stations(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS assigned_role public.app_role NULL,
+  ADD COLUMN IF NOT EXISTS assigned_user_id uuid NULL REFERENCES public.profiles(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS checklist_items_station_id_idx ON public.checklist_items(station_id) WHERE station_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS checklist_items_assigned_user_id_idx ON public.checklist_items(assigned_user_id) WHERE assigned_user_id IS NOT NULL;
+COMMENT ON COLUMN public.checklist_items.position IS 'Position-mode assignment; one of position/station_id/assigned_role/assigned_user_id is set (or none).';
+```
+No data migration; existing position tags (Georgetown waste log, Hemet opening) keep working. The table's existing grants and RLS cover the new columns. `assigned_user_id` references `profiles` instead of `auth.users`, which is the project's rule for app tables.
 
-## D. Dry run (no writes)
+Editing (`src/pages/CreateChecklist.tsx`, `src/pages/EditChecklist.tsx`, `src/components/tasks/EditTabContent.tsx`):
+- One new picker component `src/components/tasks/TaskAssigneePicker.tsx` replaces the per-task Position dropdown in all three. Groups: Positions (Position mode) or Stations (Station mode), Roles, People at this location. Choosing one clears the other three fields.
+- A stored position in Station mode stays visible as a selected "Position: X (position mode)" option, so it isn't lost.
+- Switch label "Position Filtering" -> "Assign tasks"; helper text per mode. `position_filtering_enabled` is kept.
 
-- **Script location:** a one-off script in `/tmp`, using the Heimark profile. It reads the 10 stored invoices (all images are in storage) with the new rules.
-- **Per line, old vs new:** item number, pack (`pack_size` on the gap / units / oz / layout), and cost per case (old `unit_price` vs new AMOUNT÷QTY).
-- **Per invoice:** pass/fail on each self-check.
-- **Sep 28 fixture:** checked against the hand-read #235013 lines as the known-good answer, before Jordan's photo test.
-- **Price table for the 9 Palm Springs / Palm Desert beer items:** today's `cost_per_unit` and source next to the new per-case paid price. For example, Bud Light at Palm Springs goes from 1.2042 (manual, per can) to 24.55 (per case), and Palm Desert's empty Bud Light, Budweiser and the two Lagunitas get prices.
-- **#200019 triplicate cleanup (dry run):**
-  - Keep `0694ed82` (dated, 7 lines). Delete `b9694d4e` and `77b63b79` and their lines.
-  - The 21-line copy is first compared line by line, to confirm it is a misread and not a genuine combined copy.
-  - Re-point anything that references the deleted ones.
-- **Vendor-name normalization:** a list of the rows that would change.
+Shift context (`src/hooks/useUserPosition.tsx` -> becomes `useUserShiftContext`, file renamed `src/hooks/useUserShiftContext.ts`; `useUserPosition` removed since its only importer is CompleteChecklist):
+- Returns `{ position, station, role, loading }` from ONE shift lookup.
+- Store timezone from `location_settings.timezone`. Today's start/end are computed as real UTC instants in that timezone (Luxon), which fixes the PT evening miss.
+- Clocked-in shift: latest punch at THIS location inside those bounds, `clock_in` with shift_id. Else today's shifts at this location on a published schedule (`schedules.is_published`), ordered by start_time: the one covering now, else the next upcoming, else the latest.
+- station = `effectiveStationId(shift)`; role = the existing `useUserRole` result for this location.
+- Read-only: no punch or kiosk code is touched.
 
-## E. Beer pack configs (list now, change later)
+`src/pages/CompleteChecklist.tsx` (extend existing filter/sort/headers, `positionFilter_<id>` switch kept):
+- Visible when "My tasks" is on: untagged, plus position match (Position mode) or station match (Station mode), plus role match, plus assigned_user_id = me. No shift/station found = sees everything.
+- Headers: Position mode = existing `formatPositionLabel`; Station mode = station name/color; then role headers, person-name headers; "General" last. Completion % stays whole-store.
 
-| Item | Today |
-|---|---|
-| Bud Light 16 | 24 ea, case, no inner |
-| CVB CDMX | 24 can, inner 1 ea, label "6/4 ea" |
-| Firestone 805 | 2 packs × 12 ea |
-| Lagunitas Poolside | 6 packs × 4 ea |
-| Estrella 12 | **288 oz**, counted in oz, labeled "24/12 ea" |
-| Stella, Mich Ultra 12, Lagunitas Heatwave, Porch Pounder, others | need a full listing; some are 216 or 264 oz with inner 12 or 11 oz |
+## Step 3 — Copy tools + Primrose cleanup
 
-**Proposed standard for every beer config** (counted by the can):
-- common_unit = `ea` (can)
-- count_units_per_case = units per case (24)
-- inner = the printed layout (2×12, 4×6, 6×4), or none for LOOSE
-- show_cases on, show_inner_packs on only when an inner layout exists
-- Ounces kept in the label only
-- Each Heimark number for the same beer gets its own config
+- `src/hooks/useCloneLocationSettings.ts`: template copy maps `station_id` by station NAME in the target store (else null). Checklist item copy also carries station_id (by name), assigned_role, and assigned_user_id (only if that user is in the target location's user_locations).
+- `src/components/tasks/CopyChecklistDialog.tsx`: same item fields plus `position` and `position_filtering_enabled`, reusing one small mapping function exported from `useCloneLocationSettings.ts` (not duplicated).
 
-The dry run outputs the full list and the proposed config for each.
+Primrose cleanup: this deletes data, so the migration tool is the wrong place for it (that tool is DDL-only). The same guarded block runs instead as ONE transaction through the database data tool, which will ask for your approval. First a dry run that ends in ROLLBACK and reports counts, then the real run after you say go. Deleting from auth.users with SQL works here, and the users' identities/sessions cascade. If the platform refuses it, the fallback is the admin user-delete call from a one-off backend function. I would tell you before using it.
 
-## F. Count screen: cans typed into "Cases"
+```sql
+DO $$
+DECLARE
+  v_loc uuid := 'f8b6e4fd-1c3e-4de4-8020-482426629249';
+  v_org uuid := 'bcab5c3f-f65c-4beb-95de-4151f946b3ac';
+  v_brand uuid := '1652f6d4-6c7e-4de1-9c10-51028d356e1f';
+  v_users uuid[]; r record; n bigint;
+BEGIN
+  SELECT array_agg(id) INTO v_users FROM auth.users
+   WHERE email ~ '^demo(0[1-9]|1[0-5])@demo\.croohq\.local$' OR email = 'aolson@primrosesouthreno.com';
+  IF coalesce(array_length(v_users,1),0) <> 16 THEN RAISE EXCEPTION 'guard: expected 16 users, found %', coalesce(array_length(v_users,1),0); END IF;
+  IF EXISTS (SELECT 1 FROM locations WHERE organization_id = v_org AND id <> v_loc) THEN RAISE EXCEPTION 'guard: org has other locations'; END IF;
+  IF EXISTS (SELECT 1 FROM organizations WHERE brand_id = v_brand AND id <> v_org) THEN RAISE EXCEPTION 'guard: brand has other orgs'; END IF;
+  IF EXISTS (SELECT 1 FROM user_locations WHERE user_id = ANY(v_users) AND location_id <> v_loc) THEN RAISE EXCEPTION 'guard: user in another location'; END IF;
+  IF EXISTS (SELECT 1 FROM organization_members WHERE user_id = ANY(v_users) AND organization_id <> v_org) THEN RAISE EXCEPTION 'guard: user in another org'; END IF;
+  IF EXISTS (SELECT 1 FROM auth.users WHERE email = 'jordan@jo-pizza.com' AND id = ANY(v_users)) THEN RAISE EXCEPTION 'guard: jordan in list'; END IF;
 
-- Palm Springs' Firestone has `show_cases` on, and its "Cases" box is the first input. On Oct 1, 128 typed into Cases = 3,072 cans.
-- Estrella-style configs count in **ounces**, so a "can" box does not exist there. Staff fall back to Cases.
-- **Fix candidates (config only, no screen change):** make "cans" the main box for beer by setting `show_cases` off, or keep cases but have the screen show "= N cans" live.
-- The count screen (`InventoryCountSession.tsx:517-533`, `:3014-3016`) is part of the **locked inventory system**. Any change to the screen itself needs "unlock please". The config-only route doesn't touch it.
-- Separately: flag that Oct 1 count line for correction (128 → about 5.3 cases, or 128 cans).
+  -- children of NO ACTION tables first
+  DELETE FROM logbook_entry_values WHERE entry_id IN (SELECT id FROM logbook_entries WHERE location_id = v_loc);
+  DELETE FROM logbook_fields WHERE category_id IN (SELECT id FROM logbook_categories WHERE location_id = v_loc);
+  DELETE FROM scheduled_shifts WHERE schedule_id IN (SELECT id FROM schedules WHERE location_id = v_loc);
+  DELETE FROM logbook_audit WHERE location_id = v_loc;
+  DELETE FROM pkga_backup_rows WHERE location_id = v_loc;
 
-## Steps after approval
+  -- every NO ACTION/RESTRICT FK to locations / organizations / brands, read live from pg_constraint
+  FOR r IN SELECT conrelid::regclass AS t, a.attname AS c, confrelid::regclass AS ref
+    FROM pg_constraint k JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
+    WHERE k.contype = 'f' AND k.confdeltype IN ('a','r')
+      AND k.confrelid IN ('public.locations'::regclass, 'public.organizations'::regclass, 'public.brands'::regclass)
+      AND k.conrelid <> 'public.locations'::regclass
+  LOOP
+    EXECUTE format('DELETE FROM %s WHERE %I = $1', r.t, r.c)
+      USING CASE r.ref::text WHEN 'locations' THEN v_loc WHEN 'organizations' THEN v_org ELSE v_brand END;
+  END LOOP;
 
-1. Confirm the A cause from the commit dates.
-2. Run the D/E dry run in `/tmp` and report.
-3. Jordan reviews and decides on the cleanup and the ignored-gap behavior.
-4. Run the migration (C).
-5. Add the profiles and the gap writer.
-6. Add the price-chase source.
-7. Live photo test of #235013.
+  DELETE FROM locations WHERE id = v_loc;
+  DELETE FROM organizations WHERE id = v_org;
+  DELETE FROM brands WHERE id = v_brand;
 
-PFG/PA parsing stays byte-identical (the default profile), and that is checked with a before/after parse diff on one PFG invoice.
+  -- users: abort if any NO ACTION reference to them survives (would mean data outside Primrose)
+  FOR r IN SELECT conrelid::regclass AS t, a.attname AS c
+    FROM pg_constraint k JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
+    WHERE k.contype = 'f' AND k.confdeltype IN ('a','r')
+      AND k.confrelid IN ('auth.users'::regclass, 'public.profiles'::regclass)
+  LOOP
+    EXECUTE format('SELECT count(*) FROM %s WHERE %I = ANY($1)', r.t, r.c) INTO n USING v_users;
+    IF n > 0 THEN RAISE EXCEPTION 'guard: %.% still references a Primrose user (% rows)', r.t, r.c, n; END IF;
+  END LOOP;
+  DELETE FROM user_roles WHERE user_id = ANY(v_users);
+  DELETE FROM profiles WHERE id = ANY(v_users);
+  DELETE FROM auth.users WHERE id = ANY(v_users);
+
+  IF (SELECT count(*) FROM user_locations ul JOIN auth.users u ON u.id = ul.user_id WHERE u.email = 'jordan@jo-pizza.com') <> 17
+    THEN RAISE EXCEPTION 'guard: jordan location count changed'; END IF;
+  IF (SELECT count(*) FROM organization_members m JOIN auth.users u ON u.id = m.user_id WHERE u.email = 'jordan@jo-pizza.com') <> 3
+    THEN RAISE EXCEPTION 'guard: jordan org count changed'; END IF;
+END $$;
+```
+Already checked against the live data: 16 matching users, the org has 1 location, the brand has 1 org, Jordan has 18 store memberships (17 remain after this). The live store/org/brand link list currently has 25 blocking tables, all covered by the loop. Before running, the dry run also confirms that Jordan's 3 org memberships are outside Primrose and that logbook_audit/pkga_backup_rows have a location_id column. Any guard failure undoes everything. Nothing is done in Stripe.
+
+## Reused, not rebuilt
+location_stations, stations_enabled, shift_templates.station_id, scheduled_shifts.station_id, useLocationStations, groupShiftsByStation.ts (extended), StationGroupSection (trimmed), SmartTapPopover station column, EmployeeRow, CompleteChecklist filter/sort/headers and positionFilter_ switch, formatPositionLabel, useUserRole, scheduleActions.addShift / updateShiftTimes, useCloneLocationSettings, CopyChecklistDialog. New files: only TaskAssigneePicker.tsx and the renamed shift-context hook.
+
+Untouched: punch clock, kiosk PIN/auth, auto-punch-out, labor cost math, schedule approval, restore/undo, any scheduled_shifts trigger.
+
+## Confirming the build
+After each step: the automatic build log must show "build OK", plus the project typecheck (`tsgo -p tsconfig.app.json`) with 0 errors and `bunx vitest run` all passing. I'll report all three. You can also check that the preview loads Schedule and a checklist without an error screen.
