@@ -13,7 +13,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DateTime } from "https://esm.sh/luxon@3.4.4";
 import { METRIC_CONFIGS, formatWatchValue, resolveAccentHex } from "./metricConfigs.ts";
-import { calculatePunchLabor } from "../_shared/punchLabor.ts";
+import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMetrics.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -128,8 +128,10 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   ]);
 
   const tz = settings?.timezone || 'America/Los_Angeles';
-  const now = DateTime.now().setZone(tz);
-  const today = now.toFormat('yyyy-MM-dd');
+  // "Today" is the store's business date (same as every other cube).
+  const { data: bd } = await sb.rpc('business_date', { _location_id: locationId });
+  const today = String(bd ?? '').slice(0, 10) || storeNow(tz).date;
+  const now = DateTime.fromISO(today, { zone: tz });
   const weekStart = now.minus({ days: now.weekday - 1 }).toFormat('yyyy-MM-dd');
   const weekEnd = now.minus({ days: now.weekday - 1 }).plus({ days: 6 }).toFormat('yyyy-MM-dd');
   const monthStart = now.startOf('month').toFormat('yyyy-MM-dd');
@@ -140,44 +142,39 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const prevMonthEnd = now.minus({ months: 1 }).endOf('month').toFormat('yyyy-MM-dd');
 
   const salesCols =
-    'sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, initial_projection, living_projection, override_projection, pace_adjusted_projection, yoy_net_sales, payments_data';
+    'sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, yoy_net_sales, payments_data';
 
   const rangeStart = [monthStart, weekStart, prevWeekStart, prevMonthStart].sort()[0];
   const rangeEnd = [monthEnd, weekEnd, today].sort().slice(-1)[0];
 
-  const [{ data: salesRows }, { data: laborRows }] = await Promise.all([
+  // Labor: one server-chosen row per store-day from public._store_labor (business today live).
+  const laborStart = weekStart < monthStart ? weekStart : monthStart;
+  const laborDays: string[] = [];
+  for (let d = DateTime.fromISO(laborStart); d.toFormat('yyyy-MM-dd') <= today; d = d.plus({ days: 1 })) laborDays.push(d.toFormat('yyyy-MM-dd'));
+  const [{ data: salesRows }, laborResults] = await Promise.all([
     sb.from('sales_cache').select(salesCols).eq('location_id', locationId).gte('sale_date', rangeStart).lte('sale_date', rangeEnd),
-    sb.from('labor_cache').select('labor_date, labor_cost, labor_hours, source').eq('location_id', locationId).gte('labor_date', weekStart < monthStart ? weekStart : monthStart).lte('labor_date', today),
+    Promise.all(laborDays.map((d) => sb.rpc('_store_labor', { _location_id: locationId, _date: d, _live: d === today }))),
   ]);
+  const laborByDate = new Map<string, { cost: number; hours: number }>();
+  laborResults.forEach((res: any, i: number) => {
+    const row = Array.isArray(res?.data) ? res.data[0] : res?.data;
+    if (row && (Number(row.cost) > 0 || Number(row.hours) > 0)) {
+      laborByDate.set(laborDays[i], { cost: Number(row.cost) || 0, hours: Number(row.hours) || 0 });
+    }
+  });
 
   const sales = salesRows || [];
   const inRange = (from: string, to: string) => sales.filter(r => r.sale_date >= from && r.sale_date <= to);
   const todayRow = sales.find(r => r.sale_date === today);
 
-  // Labor: one row per date. QU rows exist only when the store's "Pull Qu Labor %"
-  // switch is on, so they win; a $0 row never hides real labor.
-  const laborRank = (r: any) => (r.source === 'qubeyond' && Number(r.labor_cost) > 0 ? 0 : Number(r.labor_cost) > 0 ? 1 : 2);
-  const laborByDate = new Map<string, any>();
-  for (const r of laborRows || []) {
-    const existing = laborByDate.get(r.labor_date);
-    if (!existing || laborRank(r) < laborRank(existing)) laborByDate.set(r.labor_date, r);
-  }
-  const laborIn = (from: string, to: string) =>
-    Array.from(laborByDate.entries()).filter(([d]) => d >= from && d <= to).map(([, r]) => r);
-
   const dailySales = num(todayRow?.net_sales);
   const wtdSales = sum(inRange(weekStart, today), 'net_sales');
   const mtdSales = sum(inRange(monthStart, today), 'net_sales');
 
-  const projectionFor = (row: any): number | undefined =>
-    num(row?.override_projection) ?? num(row?.living_projection) ?? num(row?.initial_projection) ?? num(row?.projected_sales);
+  const projectionFor = (row: any): number | undefined => resolveGoal(row) ?? undefined;
 
-  const dayPace = (() => {
-    // Prefer the stored pace projection; fall back to the living projection so
-    // the watch shows a pace even before the nightly pace job stamps a value.
-    const pace = num(todayRow?.pace_adjusted_projection) ?? num(todayRow?.living_projection);
-    return pace != null ? Math.max(pace, dailySales || 0) : undefined;
-  })();
+  // Today's pace: the shared deterministic helper (fresh stored pace, else V3).
+  const dayPace = todayRow ? (computePace({ ...todayRow, nowInStoreTz: storeNow(tz) }) ?? undefined) : undefined;
 
   const periodProjection = (from: string, to: string) => {
     const rows = inRange(from, to);
@@ -197,41 +194,16 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const lyWeek = (() => { const rows = inRange(weekStart, weekEnd); const v = sum(rows, 'yoy_net_sales'); return v || undefined; })();
   const lyMonth = (() => { const rows = inRange(monthStart, monthEnd); const v = sum(rows, 'yoy_net_sales'); return v || undefined; })();
 
-  const laborAgg = (from: string, to: string, salesTotal?: number) => {
-    const rows = laborIn(from, to);
+  const laborAgg = (from: string, salesTotal?: number) => {
+    const rows = [...laborByDate].filter(([d]) => d >= from && d <= today).map(([, r]) => r);
     if (!rows.length) return { cost: undefined, hours: undefined, percent: undefined };
-    const cost = sum(rows, 'labor_cost');
-    const hours = sum(rows, 'labor_hours');
-    return { cost, hours, percent: salesTotal && salesTotal > 0 ? (cost / salesTotal) * 100 : undefined };
+    const cost = sum(rows, 'cost');
+    const hours = sum(rows, 'hours');
+    return { cost, hours, percent: laborPct(cost, salesTotal) ?? undefined };
   };
-
-  // ── Today labor: punch-based unless the store is on POS labor (see above) ──
-  // labor_cache is history-only (it excludes today), so today's numbers come
-  // from the shared punch helper. Never gated on any POS integration.
-  // Updated 2026-09-25 (Jordan): stores on POS labor ("Pull Qu Labor %" ON) use
-  // today's saved QU row instead of punches. Everyone else stays punch-based.
-  const quTodayRow = (laborRows || []).find((r: any) => r.labor_date === today && r.source === 'qubeyond' && Number(r.labor_cost) > 0);
-  const punchToday = quTodayRow
-    ? { laborCost: Number(quTodayRow.labor_cost) || 0, hoursWorked: Number(quTodayRow.labor_hours) || 0 }
-    : await calculatePunchLabor(sb, locationId, today, tz);
-  const dayLabor = punchToday
-    ? {
-        cost: punchToday.laborCost,
-        hours: punchToday.hoursWorked,
-        percent: dailySales && dailySales > 0 ? (punchToday.laborCost / dailySales) * 100 : undefined,
-      }
-    : laborAgg(today, today, dailySales);
-
-  // Week/month: cached closed days + today from punches.
-  const withToday = (from: string, salesTotal?: number) => {
-    const rows = laborIn(from, today).filter((r: any) => r.labor_date !== today);
-    const cost = sum(rows, 'labor_cost') + (punchToday?.laborCost ?? 0);
-    const hours = sum(rows, 'labor_hours') + (punchToday?.hoursWorked ?? 0);
-    if (!rows.length && !punchToday) return { cost: undefined, hours: undefined, percent: undefined };
-    return { cost, hours, percent: salesTotal && salesTotal > 0 ? (cost / salesTotal) * 100 : undefined };
-  };
-  const weekLabor = withToday(weekStart, wtdSales);
-  const monthLabor = withToday(monthStart, mtdSales);
+  const dayLabor = laborAgg(today, dailySales);
+  const weekLabor = laborAgg(weekStart, wtdSales);
+  const monthLabor = laborAgg(monthStart, mtdSales);
 
   const paymentsDaily: PaymentRow[] = Array.isArray(todayRow?.payments_data) ? todayRow.payments_data : [];
   const paymentsWeekly = mergePayments(inRange(weekStart, today).map(r => (Array.isArray(r.payments_data) ? r.payments_data : [])));
