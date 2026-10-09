@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildInsightDays,
   buildInsightsHtml,
-  countCreatedOnLocalDate,
+  countQualifyingNewRequests,
+  DEFAULT_SHORT_STAFFED_THRESHOLD,
   insightsSubject,
   isInsightsHour,
   needsCoverage,
@@ -23,16 +24,26 @@ describe("7 AM local gate", () => {
 });
 
 describe("new request yesterday gate", () => {
-  const rows = [
-    { created_at: "2026-10-08T06:58:00Z" }, // Oct 7 11:58 PM Pacific
-    { created_at: "2026-10-08T19:00:00Z" }, // Oct 8 Pacific
-    { created_at: "2026-10-09T08:00:00Z" }, // Oct 9 1 AM Pacific
-  ];
+  const W = ["2026-10-12", "2026-10-18"] as const;
+  const at = "2026-10-08T19:00:00Z"; // Oct 8 Pacific
   it("counts by store-local calendar day", () => {
-    expect(countCreatedOnLocalDate(rows, "America/Los_Angeles", "2026-10-08")).toBe(1);
-    expect(countCreatedOnLocalDate(rows, "America/Los_Angeles", "2026-10-07")).toBe(1);
-    expect(countCreatedOnLocalDate(rows, "America/Chicago", "2026-10-08")).toBe(2);
-    expect(countCreatedOnLocalDate([], "America/Los_Angeles", "2026-10-08")).toBe(0);
+    const rows = [
+      { created_at: "2026-10-08T06:58:00Z", start_date: "2026-10-13" }, // Oct 7 11:58 PM Pacific
+      { created_at: at, start_date: "2026-10-13" },
+      { created_at: "2026-10-09T08:00:00Z", start_date: "2026-10-13" }, // Oct 9 1 AM Pacific
+    ];
+    expect(countQualifyingNewRequests(rows, "America/Los_Angeles", "2026-10-08", ...W)).toBe(1);
+    expect(countQualifyingNewRequests(rows, "America/Los_Angeles", "2026-10-07", ...W)).toBe(1);
+    expect(countQualifyingNewRequests(rows, "America/Chicago", "2026-10-08", ...W)).toBe(2);
+    expect(countQualifyingNewRequests([], "America/Los_Angeles", "2026-10-08", ...W)).toBe(0);
+  });
+  it("only counts requests that touch next week", () => {
+    const tz = "America/Los_Angeles";
+    expect(countQualifyingNewRequests([{ created_at: at, start_date: "2026-10-15", end_date: null }], tz, "2026-10-08", ...W)).toBe(1);
+    expect(countQualifyingNewRequests([{ created_at: at, start_date: "2026-10-24", end_date: "2026-10-30" }], tz, "2026-10-08", ...W)).toBe(0);
+    expect(countQualifyingNewRequests([{ created_at: at, start_date: "2026-10-19", end_date: null }], tz, "2026-10-08", ...W)).toBe(0);
+    expect(countQualifyingNewRequests([{ created_at: at, start_date: "2026-10-16", end_date: "2026-10-21" }], tz, "2026-10-08", ...W)).toBe(1);
+    expect(countQualifyingNewRequests([{ created_at: at, start_date: "2026-10-09", end_date: "2026-10-12" }], tz, "2026-10-08", ...W)).toBe(1);
   });
 });
 
@@ -46,10 +57,17 @@ describe("week range", () => {
 });
 
 describe("coverage flag", () => {
-  it("flags 2+ different people out or unavailable all day", () => {
-    expect(needsCoverage(1)).toBe(false);
-    expect(needsCoverage(2)).toBe(true);
+  it("defaults to 3 and honors a custom value", () => {
+    expect(DEFAULT_SHORT_STAFFED_THRESHOLD).toBe(3);
+    expect(needsCoverage(2)).toBe(false);
+    expect(needsCoverage(3)).toBe(true);
+    expect(needsCoverage(1, 1)).toBe(true);
+    expect(needsCoverage(4, 5)).toBe(false);
+    expect(needsCoverage(2, 0)).toBe(false); // invalid → default 3
+  });
+  it("flags threshold+ different people out or unavailable all day", () => {
     const days = buildInsightDays({
+      threshold: 2,
       weekStart: "2026-10-12",
       requests: [
         { userId: "a", name: "Ana Maria Lopez", status: "pending", startDate: "2026-10-12", endDate: "2026-10-13", timeScope: "multi_day", startTime: null, endTime: null },
@@ -64,10 +82,11 @@ describe("coverage flag", () => {
     expect(days[1].peopleOut).toBe(1); // partial block listed, not counted
     expect(days[1].availability).toHaveLength(1);
     expect(days[1].coverage).toBe(false);
-    const html = buildInsightsHtml({ locationId: "x", locationName: "Hemet", orgName: "Blaze", weekStart: "2026-10-12", weekEnd: "2026-10-18", days, pending: 1, approved: 1 });
+    const html = buildInsightsHtml({ locationId: "x", locationName: "Hemet", orgName: "Blaze", weekStart: "2026-10-12", weekEnd: "2026-10-18", days, pending: 1, approved: 1, threshold: 2 });
     expect(html).toContain("Ana Maria Lopez");
     expect(html).toContain("PENDING");
     expect(html).toContain("COVERAGE");
+    expect(html).toContain("= 2+ people out");
   });
 });
 

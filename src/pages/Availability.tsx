@@ -14,6 +14,7 @@ import { Clock, Plus, List, CalendarDays } from "lucide-react";
 import { useState } from "react";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
+import { ShortStaffedThresholdSetting } from "@/components/availability/ShortStaffedThresholdSetting";
 import { SchedulingPreferencesSection } from "@/components/availability/SchedulingPreferencesSection";
 import { AvailabilityRequestCard } from "@/components/availability/AvailabilityRequestCard";
 import { AvailabilityDialogs } from "@/components/availability/AvailabilityDialogs";
@@ -90,6 +91,9 @@ export default function Availability() {
 
         {/* Shift Pool - Manager Only */}
         {data.canApproveRequests && <ShiftPoolSection />}
+
+        {/* Short-staffed alert - Manager Only */}
+        {data.canApproveRequests && <ShortStaffedThresholdSetting />}
 
         {/* View toggle + Filters + Content */}
         <Card className="p-4 md:p-6">
