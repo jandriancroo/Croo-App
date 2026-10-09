@@ -2399,3 +2399,10 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
 .punch-approve-label {
   text-transform: uppercase;
 }
+
+/* Schedule Settings panel surfaces follow the active theme. */
+:root { --schedule-events-surface: 35 55% 96%; --schedule-templates-surface: 200 38% 96%; --schedule-organize-surface: 220 28% 96%; }
+.dark, [data-theme="oled"] { --schedule-events-surface: 35 12% 10%; --schedule-templates-surface: 200 18% 10%; --schedule-organize-surface: 220 12% 10%; }
+.schedule-settings-events { background: hsl(var(--schedule-events-surface)); }
+.schedule-settings-templates { background: hsl(var(--schedule-templates-surface)); }
+.schedule-settings-organize { background: hsl(var(--schedule-organize-surface)); }

@@ -41,7 +41,7 @@ function summaryText(roles: string[], mode: ApprovalSettingsMode, weekly: number
   return `${who} need approval · ${when}`;
 }
 
-/** Top card on Schedule Settings: on/off switch, summary, link to Labor Rules. */
+/** Compact bottom card on Schedule Settings: on/off switch, summary, link to Labor Rules. */
 export function ScheduleApprovalSettingsCard({ locationId }: { locationId: string }) {
   const { role } = useUserRole();
   const { data: s } = useScheduleApprovalSettings(locationId);
@@ -50,9 +50,8 @@ export function ScheduleApprovalSettingsCard({ locationId }: { locationId: strin
   if (!s) return null;
   const editable = canEditApprovalSettings(role, s.roles);
   return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-lg">Settings</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
+    <Card className="rounded-lg">
+      <CardContent className="space-y-2 p-3">
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="sched-approval" className="text-sm font-medium">Require approval before posting</Label>
           {editable ? (

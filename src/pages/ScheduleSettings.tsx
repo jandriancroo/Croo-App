@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScheduleOrganizeBy } from "@/components/settings/ScheduleOrganizeBy";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +25,7 @@ import {
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 import { StationsManagerCard } from "@/components/settings/StationsManagerCard";
-import { useScheduleStations } from "@/hooks/useLocationStations";
+import { useStationMode, useScheduleStations } from "@/hooks/useLocationStations";
 import { CopyEventCategoriesDialog } from "@/components/schedule/CopyEventCategoriesDialog";
 import { ScheduleApprovalSettingsCard } from "@/components/schedule/ScheduleApprovalSettings";
 
@@ -54,6 +56,7 @@ export default function ScheduleSettings() {
   const [searchParams] = useSearchParams();
   const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { enabled: stationMode } = useStationMode(currentLocation?.id);
   const { stations, enabled: stationsOn } = useScheduleStations(currentLocation?.id);
   const setTemplateStation = async (templateId: string, stationId: string | null) => {
     const { error } = await supabase.from("shift_templates").update({ station_id: stationId } as any).eq("id", templateId);
@@ -313,15 +316,42 @@ export default function ScheduleSettings() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" onClick={() => navigate("/schedule")}>
             ← Back to Schedule
           </Button>
-          <h1 className="text-3xl font-bold">Schedule Settings</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Schedule Settings</h1>
         </div>
 
-        {currentLocation?.id && <ScheduleApprovalSettingsCard locationId={currentLocation.id} />}
+        <Card className="p-4 rounded-lg schedule-settings-events">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="font-semibold text-base">Event Categories</h2>
+                </div>
+                {eventCategories.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => setCopyCategoriesDialogOpen(true)}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy All
+                  </Button>
+                )}
+              </div>
+              <p className="mb-2 text-xs text-muted-foreground">Label events on the schedule (catering, meetings, etc.)</p>
+              {eventCategories.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No event categories yet — create them from the schedule event form.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {eventCategories.map(cat => (
+                    <div key={cat.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                      {cat.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
 
+        <div className="rounded-lg border p-3 sm:p-4 schedule-settings-templates">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="shifts" className="gap-2">
@@ -335,11 +365,8 @@ export default function ScheduleSettings() {
           </TabsList>
 
           <TabsContent value="shifts" className="space-y-4 mt-4">
-            {currentLocation?.id && (
-              <StationsManagerCard locationId={currentLocation.id} />
-            )}
-            <div className="flex justify-between items-center">
-              <p className="text-muted-foreground">Create reusable shift templates for quick scheduling</p>
+            <div className="flex flex-wrap justify-between items-center gap-3">
+              <p className="text-xs text-muted-foreground">Create reusable shift templates for quick scheduling</p>
               <div className="flex items-center gap-2">
                 {shiftTemplates.length > 0 && (
                   <Button variant="outline" size="sm" onClick={() => {
@@ -360,11 +387,11 @@ export default function ScheduleSettings() {
             {shiftTemplates.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {shiftTemplates.map((template) => (
-                  <Card key={template.id} className="p-2.5">
+                  <Card key={template.id} className="p-2 rounded-lg">
                     <div className="flex justify-between items-start gap-1">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: template.color }} />
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: template.color }} />
                           <h3 className="font-semibold text-sm truncate">{template.position}</h3>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -432,18 +459,78 @@ export default function ScheduleSettings() {
               </Card>
             )}
 
-            {/* Positions panel */}
-            <Card className="p-4">
+          </TabsContent>
+
+          <TabsContent value="weeks" className="space-y-4 mt-4">
+            <div className="flex flex-wrap justify-between items-center gap-3">
+              <p className="text-muted-foreground">Build weekly schedules from shift templates for auto-scheduling</p>
+              <Button onClick={() => navigate("/week-template/new")}>
+                <Plus className="h-4 w-4 mr-2" />New Week Template
+              </Button>
+            </div>
+            {weekTemplates.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {weekTemplates.map((template) => (
+                  <Card key={template.id} className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg mb-1">{template.template_name}</h3>
+                        {template.description && <p className="text-sm text-muted-foreground mb-2">{template.description}</p>}
+                        <p className="text-xs text-muted-foreground">{template.assignment_count} shift{template.assignment_count !== 1 ? 's' : ''} assigned</p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/week-template/${template.id}`)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDeleteWeekTemplate(template.id)} className="text-destructive focus:text-destructive">
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="p-12 text-center">
+                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">No Week Templates Yet</h3>
+                <p className="text-muted-foreground mb-4">Create week templates by assigning shift templates to days of the week.</p>
+                {shiftTemplates.length === 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-amber-500">You need to create shift templates first</p>
+                    <Button onClick={openCreateDialog}>
+                      <Plus className="h-4 w-4 mr-2" />Create Shift Templates
+                    </Button>
+                  </div>
+                ) : (
+                  <Button onClick={() => navigate("/week-template/new")}>
+                    <Plus className="h-4 w-4 mr-2" />Create First Week Template
+                  </Button>
+                )}
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+        </div>
+        {currentLocation?.id && (
+          <section className="space-y-3 rounded-lg border p-3 sm:p-4 schedule-settings-organize">
+            <ScheduleOrganizeBy locationId={currentLocation.id} />
+            <div className="rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="font-semibold text-base">Positions</h2>
+                  <h2 className="font-semibold text-sm">Positions</h2>
+                   {!stationMode && <Badge variant="secondary" className="text-[10px]">In use</Badge>}
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setPositionsOpen(o => !o)}>
                   {positionsOpen ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                   <span className="ml-1 text-xs">{positionsOpen ? 'Done' : 'Manage'}</span>
                 </Button>
               </div>
+              <p className="mb-2 text-xs text-muted-foreground">Shared by every location in your organization · used by shift templates</p>
               {positions.length === 0 && !positionsOpen && (
                 <p className="text-sm text-muted-foreground">No positions yet — they're created with shift templates.</p>
               )}
@@ -504,90 +591,12 @@ export default function ScheduleSettings() {
                   </Button>
                 </div>
               )}
-            </Card>
-
-            {/* Event Categories section */}
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="font-semibold text-base">Event Categories</h2>
-                </div>
-                {eventCategories.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={() => setCopyCategoriesDialogOpen(true)}>
-                    <Copy className="h-4 w-4 mr-1" />
-                    Copy All
-                  </Button>
-                )}
-              </div>
-              {eventCategories.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No event categories yet — create them from the schedule event form.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {eventCategories.map(cat => (
-                    <div key={cat.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                      {cat.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="weeks" className="space-y-4 mt-4">
-            <div className="flex justify-between items-center">
-              <p className="text-muted-foreground">Build weekly schedules from shift templates for auto-scheduling</p>
-              <Button onClick={() => navigate("/week-template/new")}>
-                <Plus className="h-4 w-4 mr-2" />New Week Template
-              </Button>
             </div>
-            {weekTemplates.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {weekTemplates.map((template) => (
-                  <Card key={template.id} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg mb-1">{template.template_name}</h3>
-                        {template.description && <p className="text-sm text-muted-foreground mb-2">{template.description}</p>}
-                        <p className="text-xs text-muted-foreground">{template.assignment_count} shift{template.assignment_count !== 1 ? 's' : ''} assigned</p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/week-template/${template.id}`)}>Edit</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDeleteWeekTemplate(template.id)} className="text-destructive focus:text-destructive">
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card className="p-12 text-center">
-                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">No Week Templates Yet</h3>
-                <p className="text-muted-foreground mb-4">Create week templates by assigning shift templates to days of the week.</p>
-                {shiftTemplates.length === 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-amber-500">You need to create shift templates first</p>
-                    <Button onClick={openCreateDialog}>
-                      <Plus className="h-4 w-4 mr-2" />Create Shift Templates
-                    </Button>
-                  </div>
-                ) : (
-                  <Button onClick={() => navigate("/week-template/new")}>
-                    <Plus className="h-4 w-4 mr-2" />Create First Week Template
-                  </Button>
-                )}
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+
+            <StationsManagerCard locationId={currentLocation.id} />
+          </section>
+        )}
+        {currentLocation?.id && <ScheduleApprovalSettingsCard locationId={currentLocation.id} />}
 
         {/* Shift template create/edit dialog */}
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>

@@ -140,3 +140,12 @@ export function calculatePaceAdjustedTotal(
     }
   }, 0);
 }
+
+/** Saved goal for display/prefill; an actual-sales grid value is never a goal fallback. */
+export function projectionGoalValue(
+  row: ProjectionData | null | undefined,
+  currentValue: number,
+  currentIsActual: boolean,
+): number | null {
+  return resolveProjection(row).value ?? (!currentIsActual && currentValue > 0 ? currentValue : null);
+}

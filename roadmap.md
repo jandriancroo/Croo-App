@@ -1,5 +1,10 @@
 # Roadmap
 
+## Oct 9 approved UI batch (no publish)
+- [x] Reorder schedule wrench menu; reorganize settings with shared Position/Station selector.
+- [x] Separate saved sales goal display/prefill from existing labor sales denominators.
+- [x] Typecheck and full Vitest (24 files / 407 tests); desktop/mobile settings and Hemet goal preview without data changes; not published.
+
 ## Oct 8 follow-ups
 - [x] Remove Quick Nudge outer circle/impact lines and enlarge glove (visual only); desktop/phone preview checked.
 - [x] California-only scheduled meal premiums, migration 0027; 393 tests passed; all 16 fixtures match exact migration SQL in isolated PostgreSQL (live read-only role correctly blocked by service-only ACL).

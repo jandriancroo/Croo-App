@@ -22,10 +22,11 @@ export function useLocationStations(locationId: string | null | undefined) {
     queryKey: STATIONS_KEY(locationId),
     enabled: !!locationId,
     queryFn: async (): Promise<LocationStation[]> => {
+      if (!locationId) return [];
       const { data, error } = await supabase
         .from("location_stations" as any)
         .select("*")
-        .eq("location_id", locationId!)
+        .eq("location_id", locationId)
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
       if (error) throw error;
@@ -114,20 +115,42 @@ export function useLocationStations(locationId: string | null | undefined) {
  * Station mode for schedule screens: the store's active stations, and whether station UI shows
  * (location_settings.stations_enabled AND at least one active station).
  */
-export function useScheduleStations(locationId: string | null | undefined) {
-  const { stations } = useLocationStations(locationId);
-  const { data: enabledRow } = useQuery({
-    queryKey: ["location_stations_enabled", locationId],
+export function useStationMode(locationId: string | null | undefined) {
+  const qc = useQueryClient();
+  const queryKey = ["location_stations_enabled", locationId];
+  const query = useQuery({
+    queryKey,
     enabled: !!locationId,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!locationId) return null;
+      const { data, error } = await supabase
         .from("location_settings")
         .select("stations_enabled")
-        .eq("location_id", locationId!)
+        .eq("location_id", locationId)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
-  const list = stations ?? [];
-  return { stations: list, enabled: !!(enabledRow as any)?.stations_enabled && list.length > 0 };
+  const save = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!locationId) throw new Error("No location");
+      const { error } = await supabase.from("location_settings").upsert(
+        { location_id: locationId, stations_enabled: enabled }, { onConflict: "location_id" }
+      );
+      if (error) throw error;
+      return enabled;
+    },
+    onSuccess: async (enabled) => {
+      qc.setQueryData(queryKey, { stations_enabled: enabled });
+      await qc.invalidateQueries({ queryKey });
+    },
+  });
+  return { enabled: !!query.data?.stations_enabled, isLoading: query.isLoading, save };
+}
+
+export function useScheduleStations(locationId: string | null | undefined) {
+  const { stations } = useLocationStations(locationId);
+  const mode = useStationMode(locationId);
+  return { stations, enabled: mode.enabled && stations.length > 0 };
 }
