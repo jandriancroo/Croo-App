@@ -11,6 +11,35 @@ interface CloneResult {
   skipped: number;
 }
 
+/**
+ * ONE mapping for copying station / assignment fields to another store:
+ * station by NAME in the target store (else null); assigned_user_id only if that
+ * person belongs to the target store; position and assigned_role copy as-is.
+ */
+export async function buildStoreCopyMapper(sourceLocationId: string | null | undefined, targetLocationId: string) {
+  const [{ data: src }, { data: tgt }, { data: members }] = await Promise.all([
+    sourceLocationId
+      ? supabase.from('location_stations').select('id, name').eq('location_id', sourceLocationId)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    supabase.from('location_stations').select('id, name').eq('location_id', targetLocationId).eq('is_active', true),
+    supabase.from('user_locations').select('user_id').eq('location_id', targetLocationId),
+  ]);
+  const srcName = new Map((src ?? []).map((s: any) => [s.id as string, String(s.name).trim().toLowerCase()]));
+  const tgtByName = new Map((tgt ?? []).map((s: any) => [String(s.name).trim().toLowerCase(), s.id as string]));
+  const targetUsers = new Set((members ?? []).map((m: any) => m.user_id as string));
+  const station = (id: string | null | undefined): string | null => {
+    const name = id ? srcName.get(id) : undefined;
+    return name ? tgtByName.get(name) ?? null : null;
+  };
+  const assignment = (item: { position?: string | null; station_id?: string | null; assigned_role?: string | null; assigned_user_id?: string | null }) => ({
+    position: item.position ?? null,
+    station_id: station(item.station_id),
+    assigned_role: (item.assigned_role ?? null) as any,
+    assigned_user_id: item.assigned_user_id && targetUsers.has(item.assigned_user_id) ? item.assigned_user_id : null,
+  });
+  return { station, assignment };
+}
+
 export function useCloneLocationSettings() {
   const [cloning, setCloning] = useState(false);
   const [results, setResults] = useState<CloneResult[]>([]);
@@ -36,7 +65,9 @@ export function useCloneLocationSettings() {
     const skipped = templates.length - toInsert.length;
 
     if (toInsert.length > 0) {
+      const mapper = await buildStoreCopyMapper(sourceLocationId, targetLocationId);
       const rows = toInsert.map(t => ({
+        station_id: mapper.station((t as any).station_id),
         location_id: targetLocationId,
         start_time: t.start_time,
         end_time: t.end_time,
@@ -100,7 +131,9 @@ export function useCloneLocationSettings() {
       // Clone items
       const items = cl.checklist_items || [];
       if (items.length > 0) {
+        const mapper = await buildStoreCopyMapper(sourceLocationId, targetLocationId);
         const itemRows = items.map((item: any) => ({
+          ...mapper.assignment(item),
           checklist_id: newCl.id,
           question: item.question,
           item_type: item.item_type,
@@ -108,7 +141,6 @@ export function useCloneLocationSettings() {
           is_required: item.is_required,
           options: item.options,
           days_of_week: item.days_of_week,
-          position: item.position,
           manager_shift: item.manager_shift,
           reference_image_url: item.reference_image_url,
           reference_video_url: item.reference_video_url,
