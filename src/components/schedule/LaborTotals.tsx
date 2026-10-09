@@ -708,7 +708,9 @@ export function LaborTotals({
               <span className="text-sm font-bold text-slate-100">${weeklyTotals.sales.toFixed(0)}</span>
             </div>
             {weekDays.map((day, index) => {
-              const source = salesSource[index];
+              const displayGoal = todayGoal?.date === format(day, 'yyyy-MM-dd') && getDayPhase(index) === 'today';
+              const displayValue = displayGoal ? todayGoal?.value : getDayPhase(index) === 'today' ? null : projectedSales[index];
+              const source = displayGoal ? todayGoal?.source : getDayPhase(index) === 'today' ? undefined : salesSource[index];
               const isLiving = source === 'living';
               const isInitial = source === 'initial' || source === 'ai';
               const isHistorical = source === 'historical';
@@ -741,7 +743,7 @@ export function LaborTotals({
                           : isHistorical ? <CheckCircle2 className="h-[13px] w-[13px] text-green-300" aria-label="Actual Sales" />
                           : undefined}
                         value={<span className={isHistorical ? 'text-green-200' : isOverride ? 'text-amber-200' : 'text-slate-100'}>
-                          {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '$0'}
+                          {isLoadingSales || isLoadingQuSales ? '...' : displayValue != null ? `$${displayValue.toFixed(0)}` : '—'}
                         </span>}
                       />
                       {canReload && (
@@ -770,7 +772,7 @@ export function LaborTotals({
                       className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
                     >
                       <p className={`text-sm font-bold ${phase === 'completed' ? 'text-slate-500' : 'text-slate-100'}`}>
-                        {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
+                        {isLoadingSales || isLoadingQuSales ? '...' : displayValue != null ? `$${displayValue.toFixed(0)}` : '—'}
                       </p>
                       {isLiving && <Radio className="h-2.5 w-2.5 text-blue-300 animate-pulse" />}
                       {isInitial && <Sparkles className="h-2.5 w-2.5 text-blue-300/60" />}
@@ -791,15 +793,15 @@ export function LaborTotals({
           locationId={currentLocation?.id}
           dateStr={format(weekDays[projectionDialogDay], 'yyyy-MM-dd')}
           todayStr={getTodayPST()}
-          currentValue={projectedSales[projectionDialogDay] || 0}
-          currentSource={salesSource[projectionDialogDay]}
+          currentValue={getDayPhase(projectionDialogDay) === 'today' ? todayGoal?.value ?? 0 : projectedSales[projectionDialogDay] || 0}
+          currentSource={getDayPhase(projectionDialogDay) === 'today' ? todayGoal?.source : salesSource[projectionDialogDay]}
           canEdit={isEditable}
           onSaveOverride={async (value, excludedDates) => {
-            await handleSalesChange(projectionDialogDay!, String(value), excludedDates);
+            await handleSalesChange(projectionDialogDay, String(value), excludedDates);
             toast.success('Sales number saved');
           }}
           onResetToProjection={async () => {
-            await handleReloadProjection(projectionDialogDay!);
+            await handleReloadProjection(projectionDialogDay);
           }}
         />
       )}
