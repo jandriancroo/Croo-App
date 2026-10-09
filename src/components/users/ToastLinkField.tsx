@@ -3,13 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Link2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { normToastName as normName } from '../../../supabase/functions/_shared/toastNames';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 type MappingRow = { id: string; toast_user_id: string; toast_name: string | null };
 type RosterRow = { toast_user_id: string; toast_name: string; job_title: string | null };
 
-const normName = (s: string) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
 
 interface ToastLinkFieldProps {
   userId: string;

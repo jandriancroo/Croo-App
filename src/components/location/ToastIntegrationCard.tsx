@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Link2, TriangleAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { normToastName as normName } from '../../../supabase/functions/_shared/toastNames';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -20,7 +21,6 @@ type RosterRow = { id: string; toast_user_id: string; toast_name: string; job_ti
 type MappingRow = { id: string; toast_user_id: string; croo_user_id: string | null };
 type StaffRow = { userId: string; name: string };
 
-export const normName = (s: string) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
 
 function PairingSection({ locationId }: { locationId: string }) {
   const qc = useQueryClient();
