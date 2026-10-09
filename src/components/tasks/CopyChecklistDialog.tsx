@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Loader2, AlertTriangle, Plus, RefreshCw } from 'lucide-react';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useQueryClient } from '@tanstack/react-query';
+import { buildStoreCopyMapper } from '@/hooks/useCloneLocationSettings';
 
 interface CopyChecklistDialogProps {
   open: boolean;
@@ -156,6 +157,7 @@ export function CopyChecklistDialog({
               assigned_day_of_week: checklist.assigned_day_of_week,
               visible_days_before_month_end: checklist.visible_days_before_month_end,
               display_order: checklist.display_order,
+              position_filtering_enabled: checklist.position_filtering_enabled ?? false,
               location_id: targetLocationId,
               is_active: true,
             })
@@ -170,7 +172,9 @@ export function CopyChecklistDialog({
 
           // Copy items
           if (checklist.checklist_items?.length > 0) {
+            const mapper = await buildStoreCopyMapper(checklist.location_id, targetLocationId);
             const items = checklist.checklist_items.map((item: any) => ({
+              ...mapper.assignment(item),
               checklist_id: newChecklist.id,
               question: item.question,
               item_type: item.item_type,

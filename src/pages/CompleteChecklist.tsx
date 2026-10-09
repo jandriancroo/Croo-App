@@ -120,7 +120,8 @@ export default function CompleteChecklist() {
   const { data: locationPeople = [] } = useLocationPeople(currentLocation?.id);
   // What the person can match on: position (Position mode) or station (Station mode), role, themselves.
   const myGroupMatch = stationMode ? userStation : userPosition;
-  const hasMatchSource = !!(myGroupMatch || userRole || user?.id);
+  // No position/station from a shift = no switch, everyone sees everything (as before).
+  const hasMatchSource = !!myGroupMatch;
   const isTaggedItem = (it: ChecklistItem) => !!(it.position || it.station_id || it.assigned_role || it.assigned_user_id);
   const itemMatchesMe = (it: ChecklistItem) =>
     !isTaggedItem(it) ||

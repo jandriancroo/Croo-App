@@ -48,7 +48,7 @@ export function pickShiftForNow<T extends { shift_date: string; start_time: stri
   return spans[spans.length - 1].s;
 }
 
-const SHIFT_SELECT = 'id, shift_date, start_time, end_time, station_id, template:shift_templates(position, station_id)';
+const SHIFT_SELECT = 'id, shift_date, start_time, end_time, station_id, is_time_off, template:shift_templates(position, station_id)';
 
 export function useUserShiftContext(userId?: string, locationId?: string): UserShiftContext {
   const { role, loading: roleLoading } = useUserRole();
