@@ -191,6 +191,16 @@ export function buildInsightDays(input: {
 
 // ── Loader ────────────────────────────────────────────────────────────────
 
+
+/** Same rule as the schedule builder (useScheduleData): store link with show_on_schedule !== false,
+ *  plus profile is_active = true and appears_on_schedule = true. Missing row/profile = off schedule. */
+export function isOnSchedule(
+  profile: { is_active?: boolean | null; appears_on_schedule?: boolean | null } | null | undefined,
+  userLocation: { show_on_schedule?: boolean | null } | null | undefined,
+): boolean {
+  if (!profile || !userLocation) return false;
+  return userLocation.show_on_schedule !== false && profile.is_active === true && profile.appears_on_schedule === true;
+}
 export async function loadInsights(supabase: any, locationId: string, weekStart: string, weekEnd: string): Promise<InsightsData> {
   const { data: loc, error: locErr } = await supabase
     .from("locations").select("id, name, organization_id").eq("id", locationId).maybeSingle();
@@ -213,7 +223,7 @@ export async function loadInsights(supabase: any, locationId: string, weekStart:
 
   // Same weekly-availability source as the schedule grid: profiles.weekly_availability
   // through the shared normalizer, store hours from location_hours.
-  const { data: assigned, error: ulErr } = await supabase.from("user_locations").select("user_id").eq("location_id", locationId);
+  const { data: assigned, error: ulErr } = await supabase.from("user_locations").select("user_id, show_on_schedule").eq("location_id", locationId);
   if (ulErr) throw new Error(`user_locations read failed: ${ulErr.message}`);
   const rosterIds = [...new Set([...(assigned || []).map((r: any) => r.user_id), ...overlapping.map((r: any) => r.user_id)])];
 
@@ -237,12 +247,13 @@ export async function loadInsights(supabase: any, locationId: string, weekStart:
     if (k && !r.is_closed && r.open_time && r.close_time) hours[k] = { open: String(r.open_time).slice(0, 5), close: String(r.close_time).slice(0, 5) };
   }
 
-  const assignedSet = new Set((assigned || []).map((r: any) => r.user_id));
+  const ulByUser = new Map<string, any>((assigned || []).map((r: any) => [r.user_id, r]));
+  const eligible = (id: string) => isOnSchedule(profiles.get(id), ulByUser.get(id));
   const roster = [...profiles.values()]
-    .filter((p) => assignedSet.has(p.id) && p.is_active !== false && p.appears_on_schedule !== false && p.weekly_availability)
+    .filter((p) => eligible(p.id) && p.weekly_availability)
     .map((p) => ({ userId: p.id, name: fullName(p.full_name), weekly: normalizeWeeklyAvailability(p.weekly_availability, hours) }));
 
-  const requests: TimeOffEntry[] = overlapping.map((r: any) => ({
+  const requests: TimeOffEntry[] = overlapping.filter((r: any) => eligible(r.user_id)).map((r: any) => ({
     userId: r.user_id, name: fullName(profiles.get(r.user_id)?.full_name), status: r.status,
     startDate: r.start_date, endDate: r.end_date || r.start_date, timeScope: r.time_scope,
     startTime: r.start_time, endTime: r.end_time,
