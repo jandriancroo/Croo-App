@@ -11,6 +11,7 @@ import {
   parseDateStringInTimezone,
 } from '@/utils/timezoneUtils';
 import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
+import { must, recheckSnapshot, friendlyPunchError, STALE_SHIFT_MESSAGE } from '@/lib/punchEditGuard';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
 export function EditShiftForm({ 
@@ -21,7 +22,8 @@ export function EditShiftForm({
   timezone,
   onSave, 
   onCancel,
-  onDelete
+  onDelete,
+  onStale,
 }: { 
   dayPunches: any[]; 
   userId: string;
@@ -31,6 +33,8 @@ export function EditShiftForm({
   onSave: () => void; 
   onCancel: () => void;
   onDelete: () => void;
+  /** Called with the latest punches when someone else changed this shift while the form was open. */
+  onStale?: (freshPunches: any[]) => void;
 }) {
   // Sort punches chronologically
   const sortedPunches = [...dayPunches].sort((a: any, b: any) => 
@@ -295,6 +299,17 @@ export function EditShiftForm({
         }
       }
 
+      // Re-read this shift right before writing: stop if another manager or the kiosk changed it.
+      if (dayPunches.length > 0) {
+        const { fresh, changed } = await recheckSnapshot(userId, locationId, dayPunches);
+        if (changed) {
+          toast.error(STALE_SHIFT_MESSAGE, { duration: 8000 });
+          onStale?.(fresh);
+          setSaving(false);
+          return;
+        }
+      }
+
       for (const shift of shiftStates) {
         // New shift added in this form: skip if no clock-in time
         if (!shift.clockInId && !shift.clockInTime) continue;
@@ -405,7 +420,10 @@ export function EditShiftForm({
       toast.success('Shift updated');
       onSave();
     } catch (error) {
-      toast.error('Failed to update shift');
+      console.error('[EditShiftForm] save failed', error);
+      toast.error(friendlyPunchError(error));
+      // Some rows may have saved before the failure — reload so the screen shows the truth.
+      onSave();
     } finally {
       setSaving(false);
     }
