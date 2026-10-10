@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePunchViewsRefresh, invalidatePunchViews } from '@/lib/punchEditGuard';
 import { useShiftFlags, invalidateShiftFlags } from '@/hooks/useShiftFlags';
 import { FLAG_META, flagsForDay, hasCode, indexByClockIn, labelFor } from '@/lib/timeTracking/shiftFlags';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
@@ -131,6 +132,12 @@ export function usePayrollData() {
       fetchTimeCards();
     }
   }, [selectedPeriod, currentLocation, timezone]);
+
+  // Coming back to the window/app always reloads (bypasses the 5-minute skip guard),
+  // so other managers' edits and kiosk punches show up.
+  usePunchViewsRefresh(() => {
+    if (selectedPeriod && currentLocation && timezone) fetchTimeCards();
+  });
 
   // Fetch PTO data when period is selected
   useEffect(() => {
@@ -829,6 +836,8 @@ export function usePayrollData() {
       });
 
     setTimeCards(cards);
+    // Other screens (schedule clocked-in status) reload too.
+    invalidatePunchViews(queryClient);
     // Punches reloaded (edit/add/delete) — re-read server payroll hours too.
     refetchPayrollHours();
     // Stamp cache so navigating away/back skips refetch for 5 min

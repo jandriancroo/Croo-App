@@ -12,16 +12,14 @@
 - Theo voice: opener via xAI TTS, live voice only for conversation, one mic graph tap-to-end (audio held, pass prefetched), cues only when Theo isn't speaking, turns end on server-VAD silence. Why: fast start, steady iPhone volume, Theo never hears himself.
 - Theo memory fingerprints come only from _shared/embeddings.ts (real embedding model, 768 dims); never ask a chat model for vectors. Why: chat-made vectors are random, so memory search returned unrelated notes.
 - Theo actions: ai-assistant only proposes (voice + chat, never bake-off), never writes; the only write is the tap in the one wizard src/components/ai/theoWizard.tsx (owned by the chat bubble) via quickTasks.ts or scheduleActions.ts; previews logged in theo_action_log (source). Who gets what: only _shared/theoActions.ts. Why: no save without a tap; one card.
-- Shift reassign + published-week Update (change log, one "Schedule Updated" push, snapshot refresh) live only in src/lib/scheduleActions.ts, used by the Schedule page and Theo (draft week: move only). Why: one save path, identical notices.
 - Who can cover a shift: only _shared/coverCandidates.ts (time off, availability, already working; role tag is a flag); server mirrors _shared/availabilityMirror.ts and _shared/appRoles.ts stay equal via src/lib/coverCandidates.test.ts. Why: the app checks, Theo only reads.
 
-- Theo add/delete shift rules + day preview: only _shared/shiftPlan.ts (checked at preview and tap); writes only in src/lib/scheduleActions.ts. Why: one rule, one save path.
 - Theo messages (read my chats, reply, new DM): all chat reading goes through the asking person's own access plus the one store/membership filter (_shared/messagePlan.ts scopeChats), and the only sends are src/lib/chatMessages.ts (sendChatMessage with its push, findOrCreateDm for Theo only, unsendMessage), shared with the chat window. Why: Theo must never see a chat the person isn't in, and a message must send one way.
 - Theo clock in/out: rules only in _shared/punchPlan.ts (preview, tap, Undo); every punch insert goes through src/lib/punches.ts; clock-out never sends a shift_id. Why: one rule, one save, and in/out stay on the same shift.
 - Quick Nudge: _shared/nudgePlan.ts + *_nudge_status; who's clocked in only via _shared/onClock.ts (Toast stores: open paired toast_shifts); quickNudges.ts → quick-nudge; nudge_log; NUDGE_ICON. Why: one path; Toast stores have no time_punches.
 - POS list: server only _shared/posSources.ts, client only src/lib/pos/liveSales.ts; never a hard-coded fallback POS (unknown = null). Why: missing lists mislabeled Hayward.
 - New data/POS source: update data_point_registry in the same migration. Why: one writer map.
-- Schedule pay: weekLaborCost=labor_week_pay, fixture-checked, no meal premium. Why: 1 cost.
 <!-- LOVABLE:BEGIN -->
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
 <!-- LOVABLE:END -->
+- Manager duplicate punches (2nd clock-out, overlapping break) are blocked only by trigger trg_zz_guard_manager_duplicate_punch (skips kiosk/self/auto); edit screens use src/lib/punchEditGuard.ts. Why: no double-punched shifts.

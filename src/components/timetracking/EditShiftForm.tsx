@@ -11,6 +11,7 @@ import {
   parseDateStringInTimezone,
 } from '@/utils/timezoneUtils';
 import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
+import { must, recheckSnapshot, friendlyPunchError, STALE_SHIFT_MESSAGE } from '@/lib/punchEditGuard';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
 export function EditShiftForm({ 
@@ -21,7 +22,8 @@ export function EditShiftForm({
   timezone,
   onSave, 
   onCancel,
-  onDelete
+  onDelete,
+  onStale,
 }: { 
   dayPunches: any[]; 
   userId: string;
@@ -31,6 +33,8 @@ export function EditShiftForm({
   onSave: () => void; 
   onCancel: () => void;
   onDelete: () => void;
+  /** Called with the latest punches when someone else changed this shift while the form was open. */
+  onStale?: (freshPunches: any[]) => void;
 }) {
   // Sort punches chronologically
   const sortedPunches = [...dayPunches].sort((a: any, b: any) => 
@@ -295,30 +299,41 @@ export function EditShiftForm({
         }
       }
 
+      // Re-read this shift right before writing: stop if another manager or the kiosk changed it.
+      if (dayPunches.length > 0) {
+        const { fresh, changed } = await recheckSnapshot(userId, locationId, dayPunches);
+        if (changed) {
+          toast.error(STALE_SHIFT_MESSAGE, { duration: 8000 });
+          onStale?.(fresh);
+          setSaving(false);
+          return;
+        }
+      }
+
       for (const shift of shiftStates) {
         // New shift added in this form: skip if no clock-in time
         if (!shift.clockInId && !shift.clockInTime) continue;
         if (!shift.clockInId && shift.clockInTime) {
           const newClockIn = toISOStringInTimezone(shiftDate, shift.clockInTime, timezone);
           if (!validateNotFuture(newClockIn, 'Clock in')) { setSaving(false); return; }
-          await supabase.from('time_punches').insert({
+          must(await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
             punch_type: 'clock_in',
             punch_time: newClockIn,
             created_by: currentUserId,
-          });
+          }));
         }
 
         // Update clock in
         if (shift.clockInId && shift.clockInTime) {
           const newClockInTime = toISOStringInTimezone(shiftDate, shift.clockInTime, timezone);
           if (!validateNotFuture(newClockInTime, 'Clock in')) { setSaving(false); return; }
-          await supabase.from('time_punches').update({ 
+          must(await supabase.from('time_punches').update({ 
             punch_time: newClockInTime,
             edited_by: currentUserId,
             edited_at: now
-          }).eq('id', shift.clockInId);
+          }).eq('id', shift.clockInId));
         }
 
         // Update clock out
@@ -326,24 +341,24 @@ export function EditShiftForm({
           const clockOutDate = getAdjustedDateForClockOut(shift.clockOutTime, shift.clockInTime, shiftDate);
           const newClockOutTime = toISOStringInTimezone(clockOutDate, shift.clockOutTime, timezone);
           if (!validateNotFuture(newClockOutTime, 'Clock out')) { setSaving(false); return; }
-          await supabase.from('time_punches').update({ 
+          must(await supabase.from('time_punches').update({ 
             punch_time: newClockOutTime,
             edited_by: currentUserId,
             edited_at: now,
             is_auto_punched_out: false
-          }).eq('id', shift.clockOutId);
+          }).eq('id', shift.clockOutId));
         } else if (!shift.clockOutId && shift.clockOutTime) {
           const clockOutDate = getAdjustedDateForClockOut(shift.clockOutTime, shift.clockInTime, shiftDate);
           const newClockOutTime = toISOStringInTimezone(clockOutDate, shift.clockOutTime, timezone);
           if (!validateNotFuture(newClockOutTime, 'Clock out')) { setSaving(false); return; }
-          await supabase.from('time_punches').insert({
+          must(await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
             punch_type: 'clock_out',
             punch_time: newClockOutTime,
             shift_id: shift.shiftId || null,
             created_by: currentUserId
-          });
+          }));
         }
 
         // Handle breaks
@@ -354,34 +369,34 @@ export function EditShiftForm({
           if (!validateNotFuture(breakStartIso, 'Break start')) { setSaving(false); return; }
 
           if (brk.id) {
-            await supabase.from('time_punches').update({
+            must(await supabase.from('time_punches').update({
               punch_time: breakStartIso, notes: breakNotes,
               edited_by: currentUserId, edited_at: now,
-            }).eq('id', brk.id);
+            }).eq('id', brk.id));
           } else {
-            await supabase.from('time_punches').insert({
+            must(await supabase.from('time_punches').insert({
               user_id: userId, location_id: locationId,
               punch_type: 'break_start', punch_time: breakStartIso,
               shift_id: shift.shiftId || null,
               notes: breakNotes, created_by: currentUserId,
-            });
+            }));
           }
 
           if (brk.endTime) {
             const breakEndIso = toISOStringInTimezone(shiftDate, brk.endTime, timezone);
             if (!validateNotFuture(breakEndIso, 'Break end')) { setSaving(false); return; }
             if (brk.endId) {
-              await supabase.from('time_punches').update({
+              must(await supabase.from('time_punches').update({
                 punch_time: breakEndIso, notes: breakNotes,
                 edited_by: currentUserId, edited_at: now,
-              }).eq('id', brk.endId);
+              }).eq('id', brk.endId));
             } else {
-              await supabase.from('time_punches').insert({
+              must(await supabase.from('time_punches').insert({
                 user_id: userId, location_id: locationId,
                 punch_type: 'break_end', punch_time: breakEndIso,
                 shift_id: shift.shiftId || null,
                 notes: breakNotes, created_by: currentUserId,
-              });
+              }));
             }
           }
         }
@@ -393,19 +408,22 @@ export function EditShiftForm({
 
       for (const p of dayPunches.filter((p: any) => p.punch_type === 'break_start')) {
         if (!existingBreakStartIds.has(p.id)) {
-          await supabase.from('time_punches').delete().eq('id', p.id);
+          must(await supabase.from('time_punches').delete().eq('id', p.id));
         }
       }
       for (const p of dayPunches.filter((p: any) => p.punch_type === 'break_end')) {
         if (!existingBreakEndIds.has(p.id)) {
-          await supabase.from('time_punches').delete().eq('id', p.id);
+          must(await supabase.from('time_punches').delete().eq('id', p.id));
         }
       }
 
       toast.success('Shift updated');
       onSave();
     } catch (error) {
-      toast.error('Failed to update shift');
+      console.error('[EditShiftForm] save failed', error);
+      toast.error(friendlyPunchError(error));
+      // Some rows may have saved before the failure — reload so the screen shows the truth.
+      onSave();
     } finally {
       setSaving(false);
     }

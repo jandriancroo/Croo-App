@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { savePunches } from '@/lib/punches';
+import { friendlyPunchError } from '@/lib/punchEditGuard';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -270,7 +271,7 @@ export function QuickPunchDialog({
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating punch:', error);
-      toast.error('Failed to create punch');
+      toast.error(friendlyPunchError(error, 'Failed to create punch'));
     } finally {
       setSaving(false);
     }

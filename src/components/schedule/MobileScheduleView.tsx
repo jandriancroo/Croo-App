@@ -20,6 +20,7 @@ import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
+import { invalidatePunchViews, usePunchViewsRefresh } from '@/lib/punchEditGuard';
 import { MobileEventDialog } from './MobileEventDialog';
 import { DayInsightsBar } from './DayInsightsBar';
 // Option6TodayContent kept as standalone component for potential reuse
@@ -564,6 +565,9 @@ export function MobileScheduleView({
     // Only auto-refetch for today
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
+
+  // Coming back to the window/app reloads clocked-in status right away.
+  usePunchViewsRefresh(() => { refetchPunches(); }, !!punchDateStr);
 
   // Stores whose labor comes from Toast: Toast owns punches, so hide Quick Punch / punch edits.
   const { data: laborSource } = useQuery({
@@ -1649,9 +1653,8 @@ export function MobileScheduleView({
         selectedDate={selectedDate}
         onPunchCreated={() => {
           onUpdate?.();
-          if (activeTab === 'today') {
-            refetchPunches();
-          }
+          refetchPunches();
+          invalidatePunchViews(queryClient);
         }}
       />
 
@@ -1668,6 +1671,7 @@ export function MobileScheduleView({
           locationId={currentLocation.id}
           onPunchUpdated={() => {
             refetchPunches();
+            invalidatePunchViews(queryClient);
             onUpdate?.();
           }}
         />

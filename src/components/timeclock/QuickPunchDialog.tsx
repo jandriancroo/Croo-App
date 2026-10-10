@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { savePunches } from '@/lib/punches';
+import { friendlyPunchError } from '@/lib/punchEditGuard';
 import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
@@ -236,7 +237,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
         onOpenChange(false);
       } catch (error) {
         console.error('Error creating punch:', error);
-        toast.error('Failed to punch out');
+        toast.error(friendlyPunchError(error, 'Failed to punch out'));
       } finally {
         setSaving(false);
       }
@@ -352,7 +353,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating punch:', error);
-      toast.error('Failed to add punch entries');
+      toast.error(friendlyPunchError(error, 'Failed to add punch entries'));
     } finally {
       setSaving(false);
     }
