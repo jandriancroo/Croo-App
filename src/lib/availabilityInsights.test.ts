@@ -84,9 +84,11 @@ describe("coverage flag", () => {
     expect(days[1].coverage).toBe(false);
     const html = buildInsightsHtml({ locationId: "x", locationName: "Hemet", orgName: "Blaze", weekStart: "2026-10-12", weekEnd: "2026-10-18", days, pending: 1, approved: 1, threshold: 2 });
     expect(html).toContain("Ana Maria Lopez");
-    expect(html).toContain("PENDING");
-    expect(html).toContain("COVERAGE");
-    expect(html).toContain("= 2+ people out");
+    expect(html).not.toContain("COVERAGE");
+    expect(html).not.toContain("BUSY");
+    expect(html).not.toContain("2 OUT");
+    expect(html).toContain("Short-staffed (2+ out)");
+    expect(html).toContain("background:#e8733d;border-radius:8px 8px 0 0");
   });
 });
 
@@ -107,5 +109,40 @@ describe("email header", () => {
     const h = renderEmailHeader({ title: "<b>Hi</b>", logoUrl: "javascript:alert(1)" });
     expect(h).toContain("&lt;b&gt;Hi&lt;/b&gt;");
     expect(h).toContain(CROO_EMAIL_LOGO);
+  });
+});
+
+
+describe("calendar email", () => {
+  const requests = Array.from({ length: 6 }, (_, i) => ({ userId: `u${i}`, name: `Person ${i}`, status: "pending" as const, startDate: "2026-10-12", endDate: "2026-10-12", timeScope: "partial_day", startTime: null, endTime: "16:00", createdAt: "2026-10-10T00:14:00Z", originalWeekly: { monday: { available: true, blocks: [] } } }));
+  const data = { locationId: "x", locationName: "Hemet", orgName: "Blaze", weekStart: "2026-10-12", weekEnd: "2026-10-18", days: buildInsightDays({ weekStart: "2026-10-12", requests, roster: [], goals: new Map([["2026-10-12", 2300]]) }), pending: 6, approved: 0, threshold: 3, newRequests: [requests[0]], requestDay: "2026-10-09", currentLocalDate: "2026-10-10", timezone: "America/Los_Angeles" };
+  it("caps calendar pills, puts partial times below them, and links to review", () => {
+    const html = buildInsightsHtml(data);
+    expect(html).toContain("+ 2 more requests");
+    expect(html).not.toContain("Person 4");
+    expect(html).not.toContain("6 OUT");
+    expect(html).not.toContain("people out");
+    expect(html).toMatch(/Person 0<\/span>\s*<br\/><span style="font-size:10px;font-style:italic[^>]*>until 4 PM/);
+    expect(html).toContain("$2.3k");
+    expect(html).toContain('href="https://croohq.com/availability"');
+    expect(html).toContain("max-width:600px");
+    expect(html).toContain("New time off requests (yesterday)");
+    expect(html).toContain("Oct 9, 5:14 PM");
+    expect(html).toContain("Mon Oct 12, until 4 PM");
+    expect(html).toContain("Available all day");
+  });
+  it("labels current-day samples accurately and escapes names", () => {
+    const html = buildInsightsHtml({ ...data, currentLocalDate: "2026-10-09", newRequests: [{ ...requests[0], name: "<Jo & Co>" }] });
+    expect(html).toContain("New time off requests (today)");
+    expect(html).toContain("&lt;Jo &amp; Co&gt;");
+  });
+  it("describes differing original availability for multi-day requests", () => {
+    const html = buildInsightsHtml({ ...data, newRequests: [{ ...requests[0], startDate: "2026-10-16", endDate: "2026-10-17", timeScope: "multi_day", originalWeekly: { friday: { available: true, blocks: [{ start: "11:00", end: "15:00" }] }, saturday: { available: true, blocks: [] } } }] });
+    expect(html).toContain("Fri: After 3 PM · Sat: Available all day");
+    expect(html).toContain("Fri Oct 16 – Sat Oct 17, all day");
+  });
+  it("shows the original available window, not the unavailable blocks", () => {
+    const html = buildInsightsHtml({ ...data, hours: { monday: { open: "08:00", close: "22:00" } }, newRequests: [{ ...requests[0], originalWeekly: { monday: { available: true, blocks: [{ start: "08:00", end: "09:00" }, { start: "17:00", end: "22:00" }] } } }] });
+    expect(html).toContain("9 AM – 5 PM");
   });
 });
