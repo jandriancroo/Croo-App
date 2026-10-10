@@ -25,4 +25,4 @@
 <!-- LOVABLE:BEGIN -->
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
 <!-- LOVABLE:END -->
-- Manager-added duplicate punches (a second clock-out on a closed shift, an overlapping/duplicate break) are blocked only by the time_punches BEFORE INSERT trigger trg_zz_guard_manager_duplicate_punch (skips kiosk/self, auto punch-out and created_by NULL); manager edit screens re-check the shift and map errors via src/lib/punchEditGuard.ts. Why: two managers or a manager plus the kiosk must never double-punch a shift.
+- Manager duplicate punches (2nd clock-out, overlapping break) are blocked only by trigger trg_zz_guard_manager_duplicate_punch (skips kiosk/self/auto); edit screens use src/lib/punchEditGuard.ts. Why: no double-punched shifts.
