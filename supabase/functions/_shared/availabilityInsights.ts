@@ -116,7 +116,7 @@ function fmtTime(t: string | null): string {
   if (!t) return "";
   const [hStr, mStr] = t.split(":");
   let h = Number(hStr);
-  const suffix = h >= 12 ? "p" : "a";
+  const suffix = h >= 12 ? " PM" : " AM";
   h = h % 12 === 0 ? 12 : h % 12;
   return mStr && mStr !== "00" ? `${h}:${mStr}${suffix}` : `${h}${suffix}`;
 }
@@ -136,6 +136,7 @@ function fullName(v: unknown): string {
 export interface TimeOffEntry {
   userId: string; name: string; status: "pending" | "approved";
   startDate: string; endDate: string; timeScope: string; startTime: string | null; endTime: string | null;
+  createdAt?: string; originalWeekly?: any;
 }
 export interface AvailabilityEntry { userId: string; name: string; allDay: boolean; blocks: { start: string; end: string }[] }
 export interface InsightsDay {
@@ -148,6 +149,7 @@ export interface InsightsData {
   locationId: string; locationName: string; orgName: string;
   weekStart: string; weekEnd: string; days: InsightsDay[];
   pending: number; approved: number; threshold: number;
+  newRequests?: TimeOffEntry[]; requestDay?: string; currentLocalDate?: string; timezone?: string; hours?: any;
 }
 
 /** Pure: puts requests + weekly availability onto the 7 days. */
@@ -201,7 +203,7 @@ export function isOnSchedule(
   if (!profile || !userLocation) return false;
   return userLocation.show_on_schedule !== false && profile.is_active === true && profile.appears_on_schedule === true;
 }
-export async function loadInsights(supabase: any, locationId: string, weekStart: string, weekEnd: string): Promise<InsightsData> {
+export async function loadInsights(supabase: any, locationId: string, weekStart: string, weekEnd: string, context: { localDate?: string; isSample?: boolean } = {}): Promise<InsightsData> {
   const { data: loc, error: locErr } = await supabase
     .from("locations").select("id, name, organization_id").eq("id", locationId).maybeSingle();
   if (locErr) throw new Error(`locations read failed: ${locErr.message}`);
@@ -214,7 +216,7 @@ export async function loadInsights(supabase: any, locationId: string, weekStart:
 
   const { data: reqRows, error: reqErr } = await supabase
     .from("availability_requests")
-    .select("id, user_id, status, time_scope, start_date, end_date, start_time, end_time")
+    .select("id, user_id, status, time_scope, start_date, end_date, start_time, end_time, created_at")
     .eq("location_id", locationId)
     .in("status", ["pending", "approved"])
     .lte("start_date", weekEnd);
@@ -236,7 +238,7 @@ export async function loadInsights(supabase: any, locationId: string, weekStart:
   }
 
   const { data: ls } = await supabase
-    .from("location_settings").select("short_staffed_threshold").eq("location_id", locationId).maybeSingle();
+    .from("location_settings").select("short_staffed_threshold, timezone").eq("location_id", locationId).maybeSingle();
   const threshold = resolveThreshold(ls?.short_staffed_threshold);
 
   const { data: hoursRows } = await supabase
@@ -256,13 +258,22 @@ export async function loadInsights(supabase: any, locationId: string, weekStart:
   const requests: TimeOffEntry[] = overlapping.filter((r: any) => eligible(r.user_id)).map((r: any) => ({
     userId: r.user_id, name: fullName(profiles.get(r.user_id)?.full_name), status: r.status,
     startDate: r.start_date, endDate: r.end_date || r.start_date, timeScope: r.time_scope,
-    startTime: r.start_time, endTime: r.end_time,
+    startTime: r.start_time, endTime: r.end_time, createdAt: r.created_at,
+    originalWeekly: normalizeWeeklyAvailability(profiles.get(r.user_id)?.weekly_availability, hours),
   }));
 
   const goals = await loadDailyGoals(supabase, locationId, weekStart, weekEnd);
   const { busyDows } = await loadBusiestDows(supabase, locationId, weekStart);
 
+  const timezone = ls?.timezone || "America/Los_Angeles";
+  const currentLocalDate = localDateInTimezone(timezone);
+  const requestDay = context.isSample ? (context.localDate || currentLocalDate) : addDays(context.localDate || currentLocalDate, -1);
+  const newRequests = requests.filter((r) => countQualifyingNewRequests(
+    [{ created_at: r.createdAt, start_date: r.startDate, end_date: r.endDate }], timezone, requestDay, weekStart, weekEnd,
+  ) > 0);
+
   return {
+    newRequests, requestDay, currentLocalDate, timezone, hours,
     locationId, locationName: loc?.name || "Location", orgName, weekStart, weekEnd,
     days: buildInsightDays({ weekStart, requests, roster, goals, busyDows, threshold }),
     threshold,
@@ -477,37 +488,29 @@ const AMBER = "#b7791f";
 const CREAM = "#eae7dd";
 const INK = "#1a1d21";
 const MUTED = "#8a8f95";
-const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const FONT = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-function timeOffDetail(e: TimeOffEntry, date: string): string {
-  if (e.timeScope === "partial_day" && e.startTime) return `${fmtTime(e.startTime)}–${fmtTime(e.endTime)}`;
-  if (e.startDate < date || e.endDate > date) return `${prettyDate(e.startDate)}–${prettyDate(e.endDate)}`;
-  return "full day";
+function timeOffDetail(e: TimeOffEntry): string {
+  if (e.timeScope !== "partial_day" || (!e.startTime && !e.endTime)) return "";
+  if (!e.startTime) return `until ${fmtTime(e.endTime)}`;
+  if (!e.endTime) return `After ${fmtTime(e.startTime)}`;
+  return `${fmtTime(e.startTime)} – ${fmtTime(e.endTime)}`;
 }
 
-function dayCard(day: InsightsDay): string {
-  const border = day.coverage ? `2px solid ${ORANGE}` : "1px solid #e4e1d8";
-  const bg = day.coverage ? ORANGE_TINT : "#ffffff";
-  const flag = day.coverage
-    ? `<div style="color:${ORANGE};font-size:10px;font-weight:800;letter-spacing:0.6px;margin-bottom:4px;">${day.peopleOut} OUT &middot; COVERAGE</div>`
-    : day.busy ? `<div style="color:${ORANGE};font-size:10px;font-weight:800;letter-spacing:0.6px;margin-bottom:4px;">&#9733; BUSY</div>` : "";
-  const timeOff = day.timeOff.map((e) => {
-    const pending = e.status === "pending";
-    return `<div style="margin-top:6px;font-size:12px;line-height:1.4;color:${INK};"><strong>${escapeHtml(e.name)}</strong><br/><span style="color:${pending ? AMBER : TEAL_DEEP};font-weight:700;font-size:10px;letter-spacing:0.4px;">${pending ? "PENDING" : "APPROVED"}</span> <span style="color:${MUTED};font-size:11px;">&middot; ${escapeHtml(timeOffDetail(e, day.date))}</span></div>`;
-  }).join("");
-  const avail = day.availability.map((a) => {
-    const what = a.allDay ? "unavailable all day" : `can't work ${a.blocks.map((b) => `${fmtTime(b.start)}–${fmtTime(b.end)}`).join(", ")}`;
-    return `<div style="margin-top:6px;font-size:12px;line-height:1.4;color:${INK};">${escapeHtml(a.name)}<br/><span style="color:${MUTED};font-size:11px;">${escapeHtml(what)}</span></div>`;
-  }).join("");
-  const empty = !timeOff && !avail ? `<div style="color:${MUTED};font-size:11px;margin-top:6px;">clear</div>` : "";
-  return `<td class="ai-day" width="14%" valign="top" style="padding:3px;">
-<div style="border:${border};background:${bg};border-radius:12px;padding:10px 8px;min-height:120px;">
-${flag}<div style="color:${day.coverage ? ORANGE : MUTED};font-size:10px;font-weight:700;letter-spacing:0.8px;">${day.label} ${day.dayNumber}</div>
-<div style="color:${MUTED};font-size:11px;font-weight:600;">${escapeHtml(money(day.goal) || "—")}</div>
-${timeOff ? `<div style="margin-top:6px;color:${TEAL_DEEP};font-size:9px;font-weight:800;letter-spacing:0.6px;">TIME OFF</div>${timeOff}` : ""}
-${avail ? `<div style="margin-top:8px;color:${TEAL_DEEP};font-size:9px;font-weight:800;letter-spacing:0.6px;">AVAILABILITY</div>${avail}` : ""}
-${empty}
-</div></td>`;
+function dayCard(day: InsightsDay, threshold: number): string {
+  const short = needsCoverage(day.peopleOut, threshold);
+  const entries = [
+    ...day.timeOff.map((e) => ({ name: e.name, detail: timeOffDetail(e), bg: "#e3f1f2", color: TEAL_DEEP })),
+    ...day.availability.map((a) => ({ name: a.name, detail: a.allDay ? "" : a.blocks.map((b) => `${fmtTime(b.start)} – ${fmtTime(b.end)}`).join(" · "), bg: "#fbf1dc", color: AMBER })),
+  ];
+  const pills = entries.slice(0, 4).map((e) => `<tr><td style="padding:0 0 5px;">
+<span style="display:inline-block;max-width:100%;border-radius:999px;padding:3px 6px;background:${e.bg};color:${e.color};font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(e.name)}</span>
+${e.detail ? `<br/><span style="font-size:10px;font-style:italic;color:${MUTED};">${escapeHtml(e.detail)}</span>` : ""}</td></tr>`).join("");
+  return `<td class="ai-day" width="25%" valign="top" style="width:25%;padding:4px;">
+<table role="presentation" width="100%" style="table-layout:fixed;border-spacing:0;">
+<tr><td style="background:${short ? ORANGE : TEAL};border-radius:8px 8px 0 0;padding:9px 6px;color:#ffffff;"><table role="presentation" width="100%" style="border-collapse:collapse;"><tr><td style="font-size:11px;font-weight:800;white-space:nowrap;">${day.label} ${day.dayNumber}</td><td align="right" style="font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(money(day.goal))}</td></tr></table></td></tr>
+<tr><td height="150" valign="top" style="height:150px;padding:8px 6px;background:${short ? ORANGE_TINT : "#ffffff"};border:1px solid #d9d5ca;border-top:0;border-radius:0 0 8px 8px;"><table role="presentation" width="100%" style="border-collapse:collapse;">${pills}${entries.length > 4 ? `<tr><td style="font-size:11px;font-weight:700;color:${TEAL_DEEP};">+ ${entries.length - 4} more requests</td></tr>` : ""}</table></td></tr>
+</table></td>`;
 }
 
 export function buildInsightsHtml(
@@ -515,35 +518,54 @@ export function buildInsightsHtml(
   opts: { logoUrl?: string; logoAlt?: string; newRequestsYesterday?: number; isSample?: boolean } = {},
 ): string {
   const range = weekRangeLabel(data.weekStart, data.weekEnd);
-  const coverageDays = data.days.filter((d) => d.coverage).length;
-  const summary = [
-    opts.newRequestsYesterday ? `${opts.newRequestsYesterday} new ${opts.newRequestsYesterday === 1 ? "request" : "requests"} yesterday` : "",
-    `${data.pending} pending`,
-    `${data.approved} approved`,
-    coverageDays ? `${coverageDays} ${coverageDays === 1 ? "day needs" : "days need"} coverage` : "",
-  ].filter(Boolean).join(" &middot; ");
-
+  const rows = (data.newRequests || []).map((r) => {
+    const originalDays: { label: string; value: string }[] = [];
+    for (let date = r.startDate; date <= r.endDate; date = addDays(date, 1)) {
+      const key = DAY_KEYS_SUNDAY_FIRST[dowOf(date)];
+      const day = r.originalWeekly?.[key];
+      const blocks = sanitizeBlocks(day?.blocks);
+      let value = "Available all day";
+      if (day?.available === false) value = "Unavailable";
+      else if (blocks.length) {
+        const hours = data.hours?.[key] || { open: "11:00", close: "22:00" };
+        const windows: string[] = [];
+        let start = hours.open;
+        for (const b of blocks) {
+          if (b.start > start) windows.push(start === hours.open ? `until ${fmtTime(b.start)}` : `${fmtTime(start)} – ${fmtTime(b.start)}`);
+          if (b.end > start) start = b.end;
+        }
+        if (start < hours.close) windows.push(`After ${fmtTime(start)}`);
+        value = windows.join(" · ") || "Unavailable";
+      }
+      originalDays.push({ label: DOW_LABELS[dowOf(date)].slice(0, 1) + DOW_LABELS[dowOf(date)].slice(1).toLowerCase(), value });
+    }
+    const same = originalDays.every((d) => d.value === originalDays[0]?.value);
+    const original = same ? originalDays[0]?.value || "Available all day" : originalDays.map((d) => `${d.label}: ${d.value}`).join(" · ");
+    const requestDate = (date: string) => `${DOW_LABELS[dowOf(date)].slice(0, 1)}${DOW_LABELS[dowOf(date)].slice(1).toLowerCase()} ${prettyDate(date)}`;
+    const requested = `${requestDate(r.startDate)}${r.endDate !== r.startDate ? ` – ${requestDate(r.endDate)}` : ""}, ${timeOffDetail(r) || "all day"}`;
+    const submitted = r.createdAt ? new Intl.DateTimeFormat("en-US", { timeZone: data.timezone || "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(r.createdAt)) : "";
+    return `<tr><td style="${cellStyle}font-weight:700;">${escapeHtml(r.name)}</td><td style="${cellStyle}">${escapeHtml(original)}</td><td style="${cellStyle}color:${TEAL_DEEP};font-weight:600;">${escapeHtml(requested)}</td><td style="${cellStyle}white-space:nowrap;">${escapeHtml(submitted)}</td></tr>`;
+  }).join("");
+  const dayLabel = data.requestDay && data.requestDay === data.currentLocalDate ? "today" : "yesterday";
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<style>@media only screen and (max-width:620px){.ai-day{display:block!important;width:100%!important;box-sizing:border-box;}}</style></head>
+<style>@media only screen and (max-width:620px){.ai-day{display:block!important;width:100%!important;box-sizing:border-box;}.ai-empty{display:none!important;}.ai-content{padding-left:10px!important;padding-right:10px!important;}.ai-requests td,.ai-requests th{padding:6px 3px!important;font-size:10px!important;}}</style></head>
 <body style="margin:0;padding:0;background:${CREAM};font-family:${FONT};">
-<table width="100%" style="border-collapse:collapse;background:${CREAM};"><tr><td style="padding:26px 10px;">
-<table width="100%" style="max-width:760px;margin:0 auto;border-collapse:collapse;background:#ffffff;border-radius:22px;overflow:hidden;">
+<table role="presentation" width="100%" style="border-collapse:collapse;background:${CREAM};"><tr><td style="padding:26px 10px;">
+<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
 ${renderEmailHeader({ title: "Availability Insights", logoUrl: opts.logoUrl, alt: opts.logoAlt, line1: data.locationName, line2: range, background: TEAL })}
-<tr><td style="padding:20px 16px 8px;">
-<p style="color:${INK};font-size:14px;margin:0 0 4px;font-weight:700;">Next week &middot; ${escapeHtml(range)}</p>
-<p style="color:${MUTED};font-size:12px;margin:0 0 14px;">${summary}</p>
-<table width="100%" style="border-collapse:collapse;"><tr>${data.days.map(dayCard).join("")}</tr></table>
-<p style="color:${MUTED};font-size:11px;line-height:1.6;margin:12px 2px 0;"><span style="color:${ORANGE};font-weight:800;">COVERAGE</span> = ${data.threshold}+ people out or unavailable all day &middot; amount under each day is the sales goal &middot; <span style="color:${ORANGE};font-weight:800;">&#9733; BUSY</span> = historically strongest day</p>
-<div style="text-align:center;margin:24px 0 8px;">
-<a href="https://croohq.com/availability" style="display:inline-block;background:${ORANGE};color:#ffffff;text-decoration:none;padding:14px 34px;border-radius:12px;font-weight:800;font-size:15px;">Review in CrooHQ</a>
-</div>
-<p style="color:${MUTED};font-size:11px;text-align:center;margin:0 0 10px;">${opts.isSample ? "Sample preview." : "Sent at 7 AM after new time-off requests."}</p>
+<tr><td class="ai-content" style="padding:20px 16px 8px;">
+<p style="color:${INK};font-size:14px;margin:0 0 8px;font-weight:700;">Next week &middot; ${escapeHtml(range)}</p>
+<p style="color:${MUTED};font-size:11px;margin:0 0 14px;"><span style="color:${ORANGE};">■</span> Short-staffed (${resolveThreshold(data.threshold)}+ out) &nbsp; <span style="color:${TEAL};">●</span> Time off &nbsp; <span style="color:${AMBER};">●</span> Unavailable</p>
+<table role="presentation" width="100%" style="table-layout:fixed;border-collapse:collapse;"><tr>${data.days.slice(0, 4).map((d) => dayCard(d, data.threshold)).join("")}</tr><tr>${data.days.slice(4, 7).map((d) => dayCard(d, data.threshold)).join("")}<td class="ai-empty" width="25%" style="width:25%;"></td></tr></table>
+<p style="font-size:11px;font-weight:800;letter-spacing:0.7px;color:${TEAL_DEEP};text-transform:uppercase;margin:22px 0 10px;">New time off requests (${dayLabel})</p>
+<table class="ai-requests" width="100%" style="border-collapse:collapse;border:1px solid #d9d5ca;color:${INK};"><thead><tr>${["Employee", "Original", "New request", "Submitted"].map((h) => `<th align="left" style="${cellStyle}background:#f5f3ee;font-weight:700;">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
+<table role="presentation" style="margin:24px auto 18px;border-collapse:collapse;"><tr><td style="background:${ORANGE};border-radius:8px;text-align:center;"><a href="https://croohq.com/availability" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 34px;font-weight:800;font-size:15px;">Review in CrooHQ</a></td></tr></table>
 </td></tr>
 <tr><td style="background:${CREAM};padding:20px;text-align:center;border-top:1px solid #e4e1d8;">
-<span style="color:#3a5f7d;font-size:14px;">Powered by</span> <strong style="color:#1a1a1a;font-size:16px;letter-spacing:-0.5px;">croo</strong>
-</td></tr>
-</table></td></tr></table></body></html>`;
+<span style="color:#3a5f7d;font-size:14px;">Powered by</span> <strong style="color:#1a1a1a;font-size:16px;">croo</strong>
+</td></tr></table></td></tr></table></body></html>`;
 }
+const cellStyle = "border:1px solid #d9d5ca;padding:8px 6px;font-size:11px;vertical-align:top;";
 
 export function dayCounts(data: InsightsData) {
   return data.days.map((d) => ({

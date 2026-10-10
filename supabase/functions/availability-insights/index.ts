@@ -48,7 +48,7 @@ async function timezoneOf(supabase: any, locationId: string): Promise<string> {
 async function buildFor(supabase: any, locationId: string, localDate: string, timezone: string, isSample = false) {
   const { weekStart, weekEnd } = nextWeekRange(localDate);
   const [data, logo, newRequestsYesterday, recipients] = await Promise.all([
-    loadInsights(supabase, locationId, weekStart, weekEnd),
+    loadInsights(supabase, locationId, weekStart, weekEnd, { localDate, isSample }),
     resolveEmailLogo(supabase, { locationId }),
     countNewRequestsYesterday(supabase, locationId, timezone, localDate, weekStart, weekEnd),
     resolveInsightsRecipients(supabase, locationId),
