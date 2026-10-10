@@ -141,4 +141,8 @@ describe("calendar email", () => {
     expect(html).toContain("Fri: After 3 PM · Sat: Available all day");
     expect(html).toContain("Fri Oct 16 – Sat Oct 17, all day");
   });
+  it("shows the original available window, not the unavailable blocks", () => {
+    const html = buildInsightsHtml({ ...data, hours: { monday: { open: "08:00", close: "22:00" } }, newRequests: [{ ...requests[0], originalWeekly: { monday: { available: true, blocks: [{ start: "08:00", end: "09:00" }, { start: "17:00", end: "22:00" }] } } }] });
+    expect(html).toContain("9 AM – 5 PM");
+  });
 });

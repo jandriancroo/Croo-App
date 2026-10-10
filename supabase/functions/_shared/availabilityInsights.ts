@@ -528,14 +528,16 @@ export function buildInsightsHtml(
       if (day?.available === false) value = "Unavailable";
       else if (blocks.length) {
         const hours = data.hours?.[key] || { open: "11:00", close: "22:00" };
-        const windows: string[] = [];
+        const windows: { start: string; end: string }[] = [];
         let start = hours.open;
         for (const b of blocks) {
-          if (b.start > start) windows.push(start === hours.open ? `until ${fmtTime(b.start)}` : `${fmtTime(start)} – ${fmtTime(b.start)}`);
+          if (b.start > start) windows.push({ start, end: b.start });
           if (b.end > start) start = b.end;
         }
-        if (start < hours.close) windows.push(`After ${fmtTime(start)}`);
-        value = windows.join(" · ") || "Unavailable";
+        if (start < hours.close) windows.push({ start, end: hours.close });
+        value = windows.map((w) => w.start === hours.open ? `until ${fmtTime(w.end)}`
+          : w.end === hours.close ? `After ${fmtTime(w.start)}`
+          : `${fmtTime(w.start)} – ${fmtTime(w.end)}`).join(" · ") || "Unavailable";
       }
       originalDays.push({ label: DOW_LABELS[dowOf(date)].slice(0, 1) + DOW_LABELS[dowOf(date)].slice(1).toLowerCase(), value });
     }
