@@ -47,7 +47,12 @@ export interface ChatDetails {
   created_by: string;
 }
 
-export function useChatWindowData(chatId: string, chatDetails: ChatDetails | null) {
+export function useChatWindowData(
+  chatId: string,
+  chatDetails: ChatDetails | null,
+  focusMessageId?: string | null,
+  onFocusMessageHandled?: () => void,
+) {
   const { user } = useAuth();
   const currentUserId = user?.id || null;
   const queryClient = useQueryClient();
@@ -344,6 +349,45 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
       if (currentUserId) markChatAsRead(chatId, currentUserId);
     });
   });
+
+  // Deep link (chat push): force-fetch the latest page (ignores the Infinity cache) so the
+  // just-sent message is there, then scroll to it with a brief highlight; else scroll to bottom.
+  const earlierRef = useRef(earlierMessages);
+  earlierRef.current = earlierMessages;
+  const focusDoneRef = useRef(onFocusMessageHandled);
+  focusDoneRef.current = onFocusMessageHandled;
+  useEffect(() => {
+    if (!chatId || !focusMessageId) return;
+    let cancelled = false;
+    initialScrollDone.current = true; // the deep link owns the first scroll
+    (async () => {
+      await queryClient.refetchQueries({ queryKey: ['chat-messages', chatId], exact: true });
+      if (cancelled) return;
+      if (currentUserId) markChatAsRead(chatId, currentUserId);
+      const fresh = (queryClient.getQueryData(['chat-messages', chatId]) as Message[] | undefined) || [];
+      const all = [...earlierRef.current, ...fresh];
+      const idx = all.findIndex((m) => m.id === focusMessageId);
+      // Let Virtuoso render the fresh list first.
+      setTimeout(() => {
+        if (cancelled) return;
+        if (idx < 0) { scrollToBottom(true); focusDoneRef.current?.(); return; }
+        virtuosoRef.current?.scrollToIndex({ index: idx, align: 'center', behavior: 'auto' });
+        setTimeout(() => {
+          if (cancelled) return;
+          const el = document.getElementById(`msg-${focusMessageId}`);
+          if (el) {
+            el.scrollIntoView({ block: 'center' });
+            el.classList.add('bg-primary/10');
+            setTimeout(() => el.classList.remove('bg-primary/10'), 1800);
+          } else {
+            scrollToBottom(true);
+          }
+          focusDoneRef.current?.();
+        }, 250);
+      }, 50);
+    })();
+    return () => { cancelled = true; };
+  }, [chatId, focusMessageId, queryClient, currentUserId, scrollToBottom]);
 
   useEffect(() => {
     if (!chatId) return;

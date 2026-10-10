@@ -9,7 +9,7 @@ import { getDisplayName } from '@/utils/displayName';
  * The push the chat window has always sent after a message: to every other member, titled with the sender's name.
  * The 3-minute-per-chat limit and each person's alert settings live in the push function, not here.
  */
-export async function pushChatMessage(chatId: string, senderId: string, body: string, type = 'message') {
+export async function pushChatMessage(chatId: string, senderId: string, body: string, type = 'message', messageId?: string | null) {
   try {
     const { data: members } = await supabase.from('chat_members').select('user_id').eq('chat_id', chatId).neq('user_id', senderId);
     if (members && members.length > 0) {
@@ -21,7 +21,7 @@ export async function pushChatMessage(chatId: string, senderId: string, body: st
           title: getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
           body,
           notification_type: 'chat_messages',
-          data: { chat_id: chatId, type },
+          data: messageId ? { chat_id: chatId, type, message_id: messageId } : { chat_id: chatId, type },
         },
       });
     }
@@ -38,7 +38,7 @@ export async function sendChatMessage(opts: { chatId: string; senderId: string; 
     .select('id, created_at')
     .single();
   if (error) throw error;
-  void pushChatMessage(opts.chatId, opts.senderId, opts.content.substring(0, 100));
+  void pushChatMessage(opts.chatId, opts.senderId, opts.content.substring(0, 100), 'message', (data as any)?.id);
   return data as { id: string; created_at: string };
 }
 
