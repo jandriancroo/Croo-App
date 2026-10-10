@@ -20,6 +20,7 @@ import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
+import { invalidatePunchViews, usePunchViewsRefresh } from '@/lib/punchEditGuard';
 import { MobileEventDialog } from './MobileEventDialog';
 import { DayInsightsBar } from './DayInsightsBar';
 // Option6TodayContent kept as standalone component for potential reuse
