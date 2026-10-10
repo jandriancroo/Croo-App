@@ -14,6 +14,7 @@ import { DesktopTimeTrackingTable } from '@/components/timetracking/DesktopTimeT
 import { DayByDayView } from '@/components/timetracking/DayByDayView';
 import { labelFor } from '@/lib/timeTracking/shiftFlags';
 import { EditShiftForm } from '@/components/timetracking/EditShiftForm';
+import { punchFingerprint } from '@/lib/punchEditGuard';
 import { Users, CalendarDays, Flag } from 'lucide-react';
 import { usePayrollData } from '@/hooks/usePayrollData';
 import { DailyTipsStrip } from '@/components/payroll/DailyTipsStrip';
@@ -514,12 +515,14 @@ export default function PayrollReview() {
             </DialogHeader>
             {editingShift && (
               <EditShiftForm
+                key={punchFingerprint(editingShift.dayPunches)}
                 dayPunches={editingShift.dayPunches}
                 userId={editingShift.userId}
                 locationId={editingShift.locationId}
                 shiftDate={editingShift.shiftDate}
                 timezone={timezone}
                 onSave={() => { setEditingShift(null); fetchTimeCards(); }}
+                onStale={(fresh) => { setEditingShift({ ...editingShift, dayPunches: fresh }); fetchTimeCards(); }}
                 onCancel={() => setEditingShift(null)}
                 onDelete={() => {
                   setDeleteConfirmation({ 
