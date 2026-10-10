@@ -286,7 +286,7 @@ serve(async (req) => {
             notification_type: NOTIFICATION_TYPE,
             title: "New Application",
             body: `${position} — ${locationName}`,
-            data: { url: "/hiring", type: NOTIFICATION_TYPE },
+            data: { url: `/hiring?applicationId=${encodeURIComponent(applicationId)}`, application_id: applicationId, type: NOTIFICATION_TYPE },
           }),
         });
         const pushBody = await pushRes.text();

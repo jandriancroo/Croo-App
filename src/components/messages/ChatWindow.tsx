@@ -48,10 +48,12 @@ interface ChatWindowProps {
   chatDetails: ChatDetails | null;
   onChatDeleted: () => void;
   onChatUpdated: () => void;
+  focusMessageId?: string | null;
+  onFocusMessageHandled?: () => void;
 }
 
-export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }: ChatWindowProps) {
-  const data = useChatWindowData(chatId, chatDetails);
+export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, focusMessageId, onFocusMessageHandled }: ChatWindowProps) {
+  const data = useChatWindowData(chatId, chatDetails, focusMessageId, onFocusMessageHandled);
   const {
     currentUserId, isAdmin,
     messages, messagesLoading,
@@ -252,7 +254,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               const showName = isFirstInCluster && !isOwnMessage;
               
               return (
-                <div className={`py-0.5 px-4 sm:px-6 ${message.isNew ? 'animate-fade-in' : ''}`}>
+                <div id={`msg-${message.id}`} className={`py-0.5 px-4 sm:px-6 transition-colors ${message.isNew ? 'animate-fade-in' : ''}`}>
                   {showDateSeparator && <DateSeparator date={messageDate} />}
                   <MemoizedMessageBubble
                     message={message}

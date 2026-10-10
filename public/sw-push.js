@@ -61,9 +61,10 @@ function crooResolvePushRoute(data) {
   if (postId && (type === 'announcement' || type === 'feed_post' || type === 'feed_comment' || !chatId)) {
     return '/messages?post=' + encodeURIComponent(postId);
   }
-  if (chatId) return '/messages?chat=' + encodeURIComponent(chatId);
+  var msgId = data.message_id || data.messageId;
+  if (chatId) return '/messages?chat=' + encodeURIComponent(chatId) + (msgId ? '&msg=' + encodeURIComponent(msgId) : '');
   if (type === 'alert' || type === 'late_arrival') return '/alerts';
-  return null;
+  return '/dashboard';
 }
 
 self.addEventListener('notificationclick', function(event) {

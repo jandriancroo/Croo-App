@@ -37,11 +37,12 @@ export function resolvePushRoute(data: Record<string, any> | null | undefined): 
   }
 
   // e. Any chat.
-  if (chatId) return `/messages?chat=${encodeURIComponent(chatId)}`;
+  const msgId = data.message_id || data.messageId;
+  if (chatId) return `/messages?chat=${encodeURIComponent(chatId)}` + (msgId ? `&msg=${encodeURIComponent(msgId)}` : '');
 
   // f. Alerts.
   if (type === 'alert' || type === 'late_arrival') return '/alerts';
 
-  // g. Stay where the app is.
-  return null;
+  // g. Everything else opens the dashboard.
+  return '/dashboard';
 }

@@ -25,9 +25,12 @@ interface DmPanelProps {
   initialChatId?: string | null;
   /** Deep link target: opens straight into this application's hiring thread. */
   initialHiringApplicationId?: string | null;
+  /** Deep link: message to scroll to inside initialChatId (chat push). */
+  focusMessageId?: string | null;
+  onFocusMessageHandled?: () => void;
 }
 
-export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplicationId }: DmPanelProps) {
+export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplicationId, focusMessageId, onFocusMessageHandled }: DmPanelProps) {
   const data = useMessagesData();
   const isMobile = useIsMobile();
   const {
@@ -156,6 +159,8 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
           chatDetails={chats.find(c => c.id === selectedChatId) || null}
           onChatDeleted={() => { setSelectedChatId(null); fetchChats(); }}
           onChatUpdated={fetchChats}
+          focusMessageId={focusMessageId && selectedChatId === initialChatId ? focusMessageId : null}
+          onFocusMessageHandled={onFocusMessageHandled}
         />
       </div>
     </div>

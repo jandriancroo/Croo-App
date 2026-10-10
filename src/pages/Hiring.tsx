@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -426,6 +426,17 @@ export default function Hiring() {
       setIsBulkUpdating(false);
     }
   };
+
+  // Deep link (new-application push): /hiring?applicationId=<id> opens that applicant once loaded.
+  const [hiringParams, setHiringParams] = useSearchParams();
+  const deepLinkAppId = hiringParams.get('applicationId');
+  useEffect(() => {
+    if (!deepLinkAppId || appsLoading || !applications) return;
+    if (applications.some((a: any) => a.id === deepLinkAppId)) setSelectedApplicant(deepLinkAppId);
+    const next = new URLSearchParams(hiringParams);
+    next.delete('applicationId');
+    setHiringParams(next, { replace: true });
+  }, [deepLinkAppId, appsLoading, applications, hiringParams, setHiringParams]);
 
   const filteredApplicants = applications?.filter(app => {
     if (!searchQuery) return true;

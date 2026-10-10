@@ -25,10 +25,18 @@ export default function Messages() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Deep link from push notification: /messages?chat=<id> → open DM panel to that chat.
+  // ?msg=<id> (chat push) scrolls to that message, then both params are cleared.
   const chatParam = searchParams.get('chat');
+  const msgParam = searchParams.get('msg');
   useEffect(() => {
     if (chatParam) setDmOpen(true);
   }, [chatParam]);
+  const handleMessageFocused = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('chat');
+    next.delete('msg');
+    setSearchParams(next, { replace: true });
+  };
 
   // Deep link from a Team Feed push: /messages?post=<id> → scroll to that post.
   const postParam = searchParams.get('post');
@@ -99,6 +107,8 @@ export default function Messages() {
         open={dmOpen}
         onOpenChange={(o) => { setDmOpen(o); if (!o) setHiringTarget(null); }}
         initialChatId={chatParam}
+        focusMessageId={msgParam}
+        onFocusMessageHandled={handleMessageFocused}
         initialHiringApplicationId={hiringTarget}
       />
     </Layout>
