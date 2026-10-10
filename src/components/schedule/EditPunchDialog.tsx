@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { punchFingerprint, friendlyPunchError, must, STALE_SHIFT_MESSAGE } from '@/lib/punchEditGuard';
 import { addDays, parseISO } from 'date-fns';
 import { getEndOfDateStringInTimezone, parseDateStringInTimezone, toISOStringInTimezone } from '@/utils/timezoneUtils';
 import { Clock, Trash2, Plus, X } from 'lucide-react';
@@ -72,6 +73,8 @@ export function EditPunchDialog({
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  // Signature of the punches as loaded; re-checked right before saving.
+  const [loadedFingerprint, setLoadedFingerprint] = useState('');
 
   useEffect(() => {
     if (open && userId && punchDate && locationId && clockInId) {
@@ -79,8 +82,9 @@ export function EditPunchDialog({
     }
   }, [open, userId, punchDate, locationId, clockInId]);
 
-  const fetchPunches = async () => {
-    setLoading(true);
+  // Reads this shift's punches from the database. With apply=false only returns them (used for the pre-save check).
+  const fetchPunches = async (apply = true): Promise<PunchRecord[] | null> => {
+    if (apply) setLoading(true);
     try {
       const dayStart = parseDateStringInTimezone(punchDate, timezone);
       const fetchStart = new Date(dayStart);
@@ -125,7 +129,9 @@ export function EditPunchDialog({
         return true;
       });
 
+      if (!apply) return scopedPunches;
       setPunches(scopedPunches);
+      setLoadedFingerprint(punchFingerprint(scopedPunches));
 
       // Set form values from punches - sorted by time
       const relevantPunches = [...scopedPunches].sort((a, b) => 
@@ -196,10 +202,13 @@ export function EditPunchDialog({
       setBreaks(parsedBreaks);
     } catch (error) {
       console.error('Error fetching punches:', error);
+      if (!apply) throw error;
       toast.error('Failed to load punch data');
+      return null;
     } finally {
-      setLoading(false);
+      if (apply) setLoading(false);
     }
+    return null;
   };
 
   // Calculate break duration in minutes for a specific break
@@ -297,6 +306,15 @@ export function EditPunchDialog({
 
     setSaving(true);
     try {
+      // Re-read the shift right before writing: stop if another manager or the kiosk changed it.
+      const latest = await fetchPunches(false);
+      if (latest && punchFingerprint(latest) !== loadedFingerprint) {
+        toast.error(STALE_SHIFT_MESSAGE, { duration: 8000 });
+        await fetchPunches();
+        onPunchUpdated?.();
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
       const now = new Date().toISOString();
@@ -375,7 +393,7 @@ export function EditPunchDialog({
 
       // Delete clock-out punch if it was removed (showClockOut is false but punch exists)
       if (!showClockOut && punches.find(p => p.punch_type === 'clock_out')) {
-        await supabase.from('time_punches').delete().eq('id', punches.find(p => p.punch_type === 'clock_out')!.id);
+        must(await supabase.from('time_punches').delete().eq('id', punches.find(p => p.punch_type === 'clock_out')!.id));
       }
       
       // Delete break punches that no longer exist in the breaks array
@@ -384,12 +402,12 @@ export function EditPunchDialog({
       
       for (const punch of punches.filter(p => p.punch_type === 'break_start')) {
         if (!existingBreakStartIds.has(punch.id)) {
-          await supabase.from('time_punches').delete().eq('id', punch.id);
+          must(await supabase.from('time_punches').delete().eq('id', punch.id));
         }
       }
       for (const punch of punches.filter(p => p.punch_type === 'break_end')) {
         if (!existingBreakEndIds.has(punch.id)) {
-          await supabase.from('time_punches').delete().eq('id', punch.id);
+          must(await supabase.from('time_punches').delete().eq('id', punch.id));
         }
       }
 
@@ -398,7 +416,10 @@ export function EditPunchDialog({
       onOpenChange(false);
     } catch (error) {
       console.error('Error updating punches:', error);
-      toast.error('Failed to update punch times');
+      toast.error(friendlyPunchError(error, 'Failed to update punch times'));
+      // Some rows may have saved before the failure — reload so the screen shows the truth.
+      fetchPunches();
+      onPunchUpdated?.();
     } finally {
       setSaving(false);
     }
@@ -422,7 +443,7 @@ export function EditPunchDialog({
       onOpenChange(false);
     } catch (error) {
       console.error('Error deleting punches:', error);
-      toast.error('Failed to delete punches');
+      toast.error(friendlyPunchError(error, 'Failed to delete punches'));
     } finally {
       setSaving(false);
     }

@@ -565,6 +565,9 @@ export function MobileScheduleView({
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
+  // Coming back to the window/app reloads clocked-in status right away.
+  usePunchViewsRefresh(() => { refetchPunches(); }, !!punchDateStr);
+
   // Stores whose labor comes from Toast: Toast owns punches, so hide Quick Punch / punch edits.
   const { data: laborSource } = useQuery({
     queryKey: ['labor-source-for', currentLocation?.id],
@@ -1649,9 +1652,8 @@ export function MobileScheduleView({
         selectedDate={selectedDate}
         onPunchCreated={() => {
           onUpdate?.();
-          if (activeTab === 'today') {
-            refetchPunches();
-          }
+          refetchPunches();
+          invalidatePunchViews(queryClient);
         }}
       />
 
@@ -1668,6 +1670,7 @@ export function MobileScheduleView({
           locationId={currentLocation.id}
           onPunchUpdated={() => {
             refetchPunches();
+            invalidatePunchViews(queryClient);
             onUpdate?.();
           }}
         />
