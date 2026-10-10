@@ -503,8 +503,8 @@ function dayCard(day: InsightsDay, threshold: number): string {
     ...day.timeOff.map((e) => ({ name: e.name, detail: timeOffDetail(e), bg: "#e3f1f2", color: TEAL_DEEP })),
     ...day.availability.map((a) => ({ name: a.name, detail: a.allDay ? "" : a.blocks.map((b) => `${fmtTime(b.start)} – ${fmtTime(b.end)}`).join(" · "), bg: "#fbf1dc", color: AMBER })),
   ];
-  const pills = entries.slice(0, 4).map((e) => `<tr><td style="padding:0 0 5px;">
-<span style="display:inline-block;max-width:100%;border-radius:999px;padding:3px 6px;background:${e.bg};color:${e.color};font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(e.name)}</span>
+  const pills = entries.slice(0, 4).map((e) => `<tr><td style="padding:0 0 4px;line-height:12px;">
+<span style="display:inline-block;max-width:100%;border-radius:999px;padding:2px 6px;background:${e.bg};color:${e.color};font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(e.name)}</span>
 ${e.detail ? `<br/><span style="font-size:10px;font-style:italic;color:${MUTED};">${escapeHtml(e.detail)}</span>` : ""}</td></tr>`).join("");
   return `<td class="ai-day" width="25%" valign="top" style="width:25%;padding:4px;">
 <table role="presentation" width="100%" style="table-layout:fixed;border-spacing:0;">
