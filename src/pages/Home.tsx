@@ -251,7 +251,10 @@ const Home = () => {
               ))}
             </tbody>
           </table>
-          <p className="note">One system. Per location. Price comes on a walkthrough, not a grid.</p>
+          <p className="price-line">Starting at $199/month.</p>
+          <div className="cta-row" style={{ marginTop: 18 }}>
+            <a className="btn btn-primary" href={MAILTO}>Book a walkthrough</a>
+          </div>
         </section>
       </div>
 
