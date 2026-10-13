@@ -44,7 +44,7 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
         // Done tasks may be off today's status list: check recently completed ones too.
         const { data: doneTasks } = await admin.from("temporary_tasks").select("id, title").eq("location_id", loc.id).not("completed_at", "is", null)
           .gte("completed_at", new Date(Date.now() - 24 * 3600_000).toISOString()).limit(200);
-        const d = matchTargetSmart(said, (doneTasks || []).map((r: any) => ({ ...r, title: r.title || "" })));
+        const d = matchTargetSmart(said, (doneTasks || []).map((r: any) => ({ id: String(r.id), title: String(r.title || "") })));
         if ("one" in d) return { stop: await doneLine(admin, loc.id, { type: "task", id: d.one.id, title: d.one.title, verdict: {} }) };
         return { stop: `I don't see a checklist, task or event called "${said}" for today.` };
       }
@@ -71,7 +71,7 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
   // The audience is unchanged: the send still goes to everyone on the clock.
   const namedList: string[] = Array.isArray(args?.named_people) ? args.named_people.map((x: any) => String(x || "")).flatMap(splitNames) : [];
   if (namedList.length) {
-    const asPerson = (p: { name: string }) => ({ ...p, full_name: p.name, nickname: null });
+    const asPerson = (p: any) => ({ ...p, full_name: p.name, nickname: null });
     for (const raw of namedList.slice(0, 10)) {
       const q = raw.toLowerCase();
       let on = aud.onClock.find(hit(q));
