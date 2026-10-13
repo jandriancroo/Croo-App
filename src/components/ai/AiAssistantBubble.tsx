@@ -18,6 +18,7 @@ import { useTheoUnread } from '@/hooks/useTheoUnread';
 import { TheoVoiceOverlay } from './TheoVoiceOverlay';
 import { useTheoWizard, CHAT_COLORS, NO_ACTS, readActs, type Acts, type AnyProposal, type CoverScreen } from './theoWizard';
 import { AudioLines } from 'lucide-react';
+import { askTheoStream, TheoStreamError } from '@/lib/theoStream';
 
 
 interface Message {
@@ -360,6 +361,7 @@ export function AiAssistantBubble() {
     }
   };
 
+  const [streaming, setStreaming] = useState(false);
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !currentLocation) return;
     if (isListening) toggleListening();
@@ -615,7 +617,7 @@ export function AiAssistantBubble() {
                       </motion.div>
                     )); })()}
 
-                    {loading && (
+                    {loading && !streaming && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
