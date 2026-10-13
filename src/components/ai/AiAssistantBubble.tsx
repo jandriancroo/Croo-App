@@ -361,7 +361,6 @@ export function AiAssistantBubble() {
     }
   };
 
-  const [streaming, setStreaming] = useState(false);
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !currentLocation) return;
     if (isListening) toggleListening();
