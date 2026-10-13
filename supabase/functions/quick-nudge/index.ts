@@ -82,6 +82,13 @@ Deno.serve(async (req) => {
       templateId = t?.id ?? null;
     }
     if (aud.going.length === 0) return json({ error: noOneReason }, 409);
+    // Optional (Theo, named people): only these ids, and only if they're on the clock and out of cooldown. Absent = everyone, as before.
+    if (Array.isArray(body?.recipient_ids)) {
+      const want = new Set(body.recipient_ids.filter((x: unknown) => typeof x === "string" && UUID.test(x)));
+      const picked = aud.going.filter((p) => want.has(p.id));
+      if (!picked.length) return json({ error: "None of those people are on the clock (or they were nudged in the last hour)." }, 409);
+      aud.going = picked;
+    }
 
     const batchId = crypto.randomUUID();
     const vars = { sender_first_name: senderFirst, item: target.title, item_type: type, event_time: target.event_time, done: target.done, total: target.total };

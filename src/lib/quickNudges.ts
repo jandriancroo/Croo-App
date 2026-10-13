@@ -47,9 +47,9 @@ export async function getNudgeOptions({ targetType, targetId }: { targetType: Ta
   return data as NudgeOptions;
 }
 
-export async function sendQuickNudge(args: { targetType: TargetType; targetId: string; message: string; templateId?: string | null; source: 'dashboard' | 'theo_chat' | 'theo_voice'; theoProposalId?: string | null }): Promise<NudgeSendResult> {
+export async function sendQuickNudge(args: { targetType: TargetType; targetId: string; message: string; templateId?: string | null; source: 'dashboard' | 'theo_chat' | 'theo_voice'; theoProposalId?: string | null; recipientIds?: string[] }): Promise<NudgeSendResult> {
   const { data, error } = await supabase.functions.invoke('quick-nudge', {
-    body: { action: 'send', target_type: args.targetType, target_id: args.targetId, message: args.message, template_id: args.templateId ?? null, source: args.source, theo_proposal_id: args.theoProposalId ?? null },
+    body: { action: 'send', target_type: args.targetType, target_id: args.targetId, message: args.message, template_id: args.templateId ?? null, source: args.source, theo_proposal_id: args.theoProposalId ?? null, ...(args.recipientIds?.length ? { recipient_ids: args.recipientIds } : {}) },
   });
   if (error) return { ok: false, error: await readError(error) };
   return data as NudgeSendResult;
