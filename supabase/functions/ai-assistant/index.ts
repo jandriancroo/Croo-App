@@ -3259,7 +3259,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     // THEO HANDS: which actions this person has at this store — decided only in _shared/theoActions.ts.
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
     // Voice screen and typed chat, never in the bake-off.
-    const theoActions = !bakeoff && (usageSource === "voice" || usageSource === "chat") ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
+    const theoActions = actionsMayRun ? theoActionsEarly! : { ...NO_ACTIONS };
     const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift || theoActions.create_event || theoActions.send_message || theoActions.clock_punch || theoActions.quick_nudge || theoActions.post_announcement;
     // Build 6C: clock someone in / out (one switch).
     const punchOn = theoActions.clock_punch;
@@ -3339,7 +3339,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     } : null;
     const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange || pendingEvent || pendingMessage || pendingPunch || pendingNudge);
     const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
-    const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
+    const crewForActions = actionsOn ? unwrapSettled(await crewP!) : [];
     const matchCrew = (raw: string) => {
       const q = raw.trim().toLowerCase();
       return q ? crewForActions.filter((c) => {
@@ -3674,6 +3674,8 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
 
     while (loopCount < MAX_LOOPS) {
       loopCount++;
+      const roundStart = Date.now();
+      if (tPreAiMs === null) tPreAiMs = roundStart - reqStart;
       const aiResp = await fetch(AI_URL, {
         method: "POST",
         headers: {
@@ -3711,6 +3713,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       }
 
       const aiData = await aiResp.json();
+      tRoundMs.push(Date.now() - roundStart);
       usage.calls++;
       usage.pt += aiData.usage?.prompt_tokens || 0;
       usage.ct += aiData.usage?.completion_tokens || 0;
@@ -3877,14 +3880,23 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       });
     }
     if (usage.calls > 0) {
-      await supabaseAdmin.from("theo_ai_usage").insert({
+      // Fire-and-forget (never delays the reply); timing columns are for latency measurement only.
+      const logP = Promise.resolve(supabaseAdmin.from("theo_ai_usage").insert({
         user_id: user.id,
         location_id: location_id || null,
         source: usageSource === "voice" ? "voice" : "chat",
         model: THEO_MODEL,
         prompt_tokens: usage.pt,
         completion_tokens: usage.ct,
-      }).then(({ error }: any) => error && console.error("usage log failed", error.message));
+        t_pre_ai_ms: tPreAiMs,
+        t_round_ms: tRoundMs,
+        round_count: tRoundMs.length,
+        cold_start: coldStart,
+        t_total_ms: Date.now() - reqStart,
+      })).then(({ error }: any) => { if (error) console.error("usage log failed", error.message); })
+        .catch((e: any) => console.error("usage log failed", e?.message || e));
+      // @ts-ignore EdgeRuntime is provided by the edge runtime
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(logP);
     }
 
     if (actionsOn) {
