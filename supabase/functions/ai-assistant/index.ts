@@ -3726,15 +3726,23 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
 
     let finalResponse: any = null;
     let loopCount = 0;
-    const MAX_LOOPS = 5;
+    // Up to 3 tool rounds; if round 3 still wants tools, one last call with tool_choice "none"
+    // makes the model answer with what it already has.
+    const MAX_LOOPS = 3;
     let currentMessages = [...aiMessages];
     const usage = { calls: 0, pt: 0, ct: 0, cached: 0 };
+    const roundTools = dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), ...(nudgeOn ? [PROPOSE_NUDGE_TOOL] : []), ...(announceOn ? [PROPOSE_ANNOUNCEMENT_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS;
+    // Safety cap only (average answer ~110 tokens). Dropped for the rest of the request if the
+    // gateway rejects it (400) or an answer hits it (finish_reason "length"). Never in the bake-off.
+    const CAP_TOKENS = usageSource === "voice" ? 500 : 1200;
+    let useCap = !bakeoff;
 
-    while (loopCount < MAX_LOOPS) {
+    while (loopCount <= MAX_LOOPS) {
       loopCount++;
+      const finalRound = loopCount > MAX_LOOPS;
       const roundStart = Date.now();
       if (tPreAiMs === null) tPreAiMs = roundStart - reqStart;
-      const aiResp = await fetch(AI_URL, {
+      const callAI = (withCap: boolean) => fetch(AI_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -3745,10 +3753,17 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
           ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
-          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), ...(nudgeOn ? [PROPOSE_NUDGE_TOOL] : []), ...(announceOn ? [PROPOSE_ANNOUNCEMENT_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS,
-          tool_choice: "auto",
+          tools: roundTools,
+          tool_choice: finalRound ? "none" : "auto",
+          ...(withCap ? { max_completion_tokens: CAP_TOKENS } : {}),
         }),
       });
+      let aiResp = await callAI(useCap);
+      if (useCap && aiResp.status === 400) {
+        console.warn("AI 400 with max_completion_tokens; retrying once without it:", (await aiResp.text()).slice(0, 300));
+        useCap = false;
+        aiResp = await callAI(false);
+      }
 
       if (!aiResp.ok) {
         const status = aiResp.status;
@@ -3770,30 +3785,45 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
         throw new Error(`AI error: ${status}`);
       }
 
-      const aiData = await aiResp.json();
-      tRoundMs.push(Date.now() - roundStart);
+      let aiData = await aiResp.json();
       usage.calls++;
       usage.pt += aiData.usage?.prompt_tokens || 0;
       usage.ct += aiData.usage?.completion_tokens || 0;
       usage.cached += aiData.usage?.prompt_tokens_details?.cached_tokens || 0;
+      // Hit the safety cap: redo this round once with no cap so the answer is never cut off.
+      if (useCap && aiData.choices?.[0]?.finish_reason === "length") {
+        console.warn("Answer hit max_completion_tokens; redoing round without the cap");
+        useCap = false;
+        const again = await callAI(false);
+        if (again.ok) {
+          aiData = await again.json();
+          usage.calls++;
+          usage.pt += aiData.usage?.prompt_tokens || 0;
+          usage.ct += aiData.usage?.completion_tokens || 0;
+          usage.cached += aiData.usage?.prompt_tokens_details?.cached_tokens || 0;
+        }
+      }
+      tRoundMs.push(Date.now() - roundStart);
       const choice = aiData.choices?.[0];
       
       if (!choice) throw new Error("No AI response");
 
-      if (!choice.message.tool_calls || choice.message.tool_calls.length === 0) {
+      if (finalRound || !choice.message.tool_calls || choice.message.tool_calls.length === 0) {
         finalResponse = choice.message.content;
         break;
       }
 
       currentMessages.push(choice.message);
       
-      for (const tc of choice.message.tool_calls) {
+      const parsedCalls = choice.message.tool_calls.map((tc: any) => {
         const args = typeof tc.function.arguments === "string" 
           ? JSON.parse(tc.function.arguments) 
           : tc.function.arguments;
-        
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
         toolsCalled.push(tc.function.name);
+        return { tc, args };
+      });
+      const runOne = async (tc: any, args: any): Promise<string> => {
         let result: string;
         if (dryRun && tc.function.name === "propose_action") {
           proposals.push(args);
