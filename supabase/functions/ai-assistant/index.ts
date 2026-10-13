@@ -367,62 +367,67 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
 
     // Fetch full week sales (yesterday through Sunday) for projections
     const fetchStart = yesterday < weekStart ? yesterday : weekStart;
-    const { data: salesRows } = await supabase
-      .from("sales_cache")
-      .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection, pace_adjusted_projection")
-      .eq("location_id", locationId)
-      .gte("sale_date", fetchStart)
-      .lte("sale_date", weekEnd)
-      .order("sale_date");
-
     // Labor is NOT in this cached snapshot — it is fetched per request with the
     // asking user's permissions (see buildLaborLines) so one person's labor never
     // reaches someone who would have been refused.
-
-    // Fetch today's schedule count
-    const { data: scheduleRows } = await supabase
-      .from("scheduled_shifts")
-      .select("id, schedules!inner(location_id)")
-      .eq("schedules.location_id", locationId)
-      .eq("schedules.is_published", true)
-      .eq("shift_date", today)
-      .not("user_id", "is", null);
-
-    // Fetch tomorrow's schedule count
-    const { data: tomorrowSchedule } = await supabase
-      .from("scheduled_shifts")
-      .select("id, schedules!inner(location_id)")
-      .eq("schedules.location_id", locationId)
-      .eq("schedules.is_published", true)
-      .eq("shift_date", tomorrow)
-      .not("user_id", "is", null);
+    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
+    // All independent reads run together (same queries as before; output unchanged).
+    const [
+      { data: salesRows },
+      { data: scheduleRows },
+      { data: tomorrowSchedule },
+      { data: tipsRow },
+      { data: hoursRow },
+      { data: pendingPto },
+    ] = await Promise.all([
+      // Full week sales (yesterday through Sunday) for projections
+      supabase
+        .from("sales_cache")
+        .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection, pace_adjusted_projection")
+        .eq("location_id", locationId)
+        .gte("sale_date", fetchStart)
+        .lte("sale_date", weekEnd)
+        .order("sale_date"),
+      // Today's schedule count
+      supabase
+        .from("scheduled_shifts")
+        .select("id, schedules!inner(location_id)")
+        .eq("schedules.location_id", locationId)
+        .eq("schedules.is_published", true)
+        .eq("shift_date", today)
+        .not("user_id", "is", null),
+      // Tomorrow's schedule count
+      supabase
+        .from("scheduled_shifts")
+        .select("id, schedules!inner(location_id)")
+        .eq("schedules.location_id", locationId)
+        .eq("schedules.is_published", true)
+        .eq("shift_date", tomorrow)
+        .not("user_id", "is", null),
+      // Today's tips
+      supabase
+        .from("daily_tips")
+        .select("total_cc_tips, total_cash_tips")
+        .eq("location_id", locationId)
+        .eq("tip_date", today)
+        .maybeSingle(),
+      // Location hours for today
+      supabase
+        .from("location_hours")
+        .select("open_time, close_time, is_closed")
+        .eq("location_id", locationId)
+        .eq("day_of_week", dayOfWeek)
+        .maybeSingle(),
+      // Pending time-off requests
+      supabase
+        .from("availability_requests")
+        .select("id")
+        .eq("location_id", locationId)
+        .eq("status", "pending"),
+    ]);
 
     // Week-to-date rows derived from the full-week sales fetch above
     const weekRows = (salesRows || []).filter((r: any) => r.sale_date >= weekStart && r.sale_date <= today);
-
-    // Fetch today's tips
-    const { data: tipsRow } = await supabase
-      .from("daily_tips")
-      .select("total_cc_tips, total_cash_tips")
-      .eq("location_id", locationId)
-      .eq("tip_date", today)
-      .maybeSingle();
-
-    // Fetch location hours for today
-    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
-    const { data: hoursRow } = await supabase
-      .from("location_hours")
-      .select("open_time, close_time, is_closed")
-      .eq("location_id", locationId)
-      .eq("day_of_week", dayOfWeek)
-      .maybeSingle();
-
-    // Pending time-off requests
-    const { data: pendingPto } = await supabase
-      .from("availability_requests")
-      .select("id")
-      .eq("location_id", locationId)
-      .eq("status", "pending");
 
     // Build snapshot
     const lines: string[] = ["📊 LIVE CONTEXT SNAPSHOT (auto-injected, do NOT repeat raw numbers — use them to answer naturally):"];
@@ -1052,6 +1057,46 @@ const CANCEL_PENDING_TOOL = {
     parameters: { type: "object", properties: {} },
   },
 };
+
+// === LATENCY HELPERS (speed only; no result changes) ===
+let isColdStart = true; // true for the first request in this isolate
+type Settled<T> = { ok: true; v: T } | { ok: false; e: unknown };
+function settle<T>(p: Promise<T>): Promise<Settled<T>> { return p.then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e })); }
+function unwrapSettled<T>(s: Settled<T>): T { if (s.ok) return s.v; throw s.e; }
+
+// Does this store have any saved Theo memory? Cached ~5 min per isolate. Errors fail open (true).
+const knowledgeCache = new Map<string, { has: boolean; expiry: number }>();
+async function locationHasKnowledge(admin: any, locationId: string): Promise<boolean> {
+  const c = knowledgeCache.get(locationId);
+  if (c && Date.now() < c.expiry) return c.has;
+  try {
+    const { data, error } = await admin.from("theo_knowledge").select("id").eq("location_id", locationId).limit(1);
+    if (error) return true;
+    const has = (data || []).length > 0;
+    knowledgeCache.set(locationId, { has, expiry: Date.now() + 5 * 60_000 });
+    return has;
+  } catch { return true; }
+}
+// Same theo-memory "search" call as before; any failure -> [] (as before).
+async function callTheoMemory(locationId: any, query: string): Promise<any[]> {
+  try {
+    const memResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/theo-memory`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "search", location_id: locationId, query }),
+    });
+    if (memResp.ok) {
+      const memData = await memResp.json();
+      return memData.results || [];
+    }
+  } catch (e) {
+    console.error("Vector memory search failed, falling back to text:", e);
+  }
+  return [];
+}
 
 async function activeCrewAt(admin: any, locationId: string): Promise<{ id: string; full_name: string; nickname: string | null }[]> {
   const { data: ul } = await admin.from("user_locations").select("user_id").eq("location_id", locationId);
@@ -2797,6 +2842,12 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Latency measurement (written to theo_ai_usage only).
+  const reqStart = Date.now();
+  const coldStart = isColdStart;
+  isColdStart = false;
+  let tPreAiMs: number | null = null;
+  const tRoundMs: number[] = [];
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -2848,14 +2899,37 @@ serve(async (req) => {
     const lunaEffort = bakeoff && ["none", "low", "medium", "high"].includes(reasoning_override) ? reasoning_override : "none";
     // Store time zone from location_settings (same place useLocationTimezone and the
     // business-day functions read). "Today" is the store's BUSINESS date.
+    // Speed: permissions, crew and the memory lookup only need the store id, so they start now and
+    // run alongside the time zone / business date / snapshot / labor work. Results are unchanged.
+    const actionsMayRun = !bakeoff && (usageSource === "voice" || usageSource === "chat");
+    const actionsP: Promise<any> = actionsMayRun ? theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : Promise.resolve(null);
+    // Crew is only USED when an action is on (needs a valid store id); fetched early, errors held until used.
+    const crewP: Promise<Settled<{ id: string; full_name: string; nickname: string | null }[]>> | null =
+      actionsMayRun && typeof location_id === "string" && /^[0-9a-f-]{36}$/i.test(location_id) ? settle(activeCrewAt(supabaseAdmin, location_id)) : null;
+    const memoryP: Promise<any[] | null> = (async () => {
+      try {
+        const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
+        if (!lastUserMsg?.content) return null;
+        const queryText = lastUserMsg.content;
+        if (/@opus\b/i.test(queryText)) return null;
+        const cleanQuery = queryText.replace(/@opus\b/i, "").trim();
+        // No saved memory for this store -> theo-memory would return nothing; skip the call.
+        if (location_id && !(await locationHasKnowledge(supabaseAdmin, location_id))) return [];
+        return await callTheoMemory(location_id, cleanQuery);
+      } catch { return null; }
+    })();
+
     let timezone = "America/Los_Angeles";
-    if (location_id) {
-      const { data: tzRow } = await supabaseAdmin.from("location_settings").select("timezone").eq("location_id", location_id).maybeSingle();
-      if (tzRow?.timezone) timezone = tzRow.timezone;
-    }
+    const [tzRes, bdRes] = location_id
+      ? await Promise.all([
+          supabaseAdmin.from("location_settings").select("timezone").eq("location_id", location_id).maybeSingle(),
+          supabaseAdmin.rpc("business_date", { _location_id: location_id, _at: new Date().toISOString() }),
+        ])
+      : [null, null];
+    if (tzRes?.data?.timezone) timezone = tzRes.data.timezone;
     let today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
     if (location_id) {
-      const { data: bd } = await supabaseAdmin.rpc("business_date", { _location_id: location_id, _at: new Date().toISOString() });
+      const bd = bdRes?.data;
       if (typeof bd === "string" && /^\d{4}-\d{2}-\d{2}/.test(bd)) today = bd.slice(0, 10);
     }
     const yesterday = addDays(today, -1);
@@ -2864,9 +2938,11 @@ serve(async (req) => {
     const weekStart = addDays(today, -(dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
     // === BUILD CONTEXT SNAPSHOT (cached per location for 60s; labor added per request) ===
-    const [cachedSnapshot, laborLines] = await Promise.all([
+    const [cachedSnapshot, laborLines, theoActionsEarly] = await Promise.all([
       getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart),
       buildLaborLines(supabaseUser, location_id, yesterday, today),
+      actionsP,
+      memoryP,
     ]);
     const contextSnapshot = laborLines ? `${cachedSnapshot}\n${laborLines}` : cachedSnapshot;
 
@@ -2884,26 +2960,8 @@ serve(async (req) => {
         let relevant: any[] = [];
 
         if (!isOpusQuery) {
-          try {
-            const memResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/theo-memory`, {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                action: "search",
-                location_id: location_id,
-                query: cleanQuery,
-              }),
-            });
-            if (memResp.ok) {
-              const memData = await memResp.json();
-              relevant = memData.results || [];
-            }
-          } catch (e) {
-            console.error("Vector memory search failed, falling back to text:", e);
-          }
+          // Started earlier, in parallel with the snapshot (same call, same query text).
+          relevant = (await memoryP) ?? (await callTheoMemory(location_id, cleanQuery));
         }
 
         // Honesty check: if @OPUS is invoked but this location has no active OPUS integration,
@@ -3259,7 +3317,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     // THEO HANDS: which actions this person has at this store — decided only in _shared/theoActions.ts.
     // The store access check runs here, once, before any crew lookup, list, preview, tap or re-check below.
     // Voice screen and typed chat, never in the bake-off.
-    const theoActions = !bakeoff && (usageSource === "voice" || usageSource === "chat") ? await theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : { ...NO_ACTIONS };
+    const theoActions = actionsMayRun ? theoActionsEarly! : { ...NO_ACTIONS };
     const actionsOn = theoActions.create_task || theoActions.cover_shift || theoActions.add_shift || theoActions.delete_shift || theoActions.swap_shift || theoActions.change_shift || theoActions.create_event || theoActions.send_message || theoActions.clock_punch || theoActions.quick_nudge || theoActions.post_announcement;
     // Build 6C: clock someone in / out (one switch).
     const punchOn = theoActions.clock_punch;
@@ -3339,7 +3397,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     } : null;
     const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange || pendingEvent || pendingMessage || pendingPunch || pendingNudge);
     const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
-    const crewForActions = actionsOn ? await activeCrewAt(supabaseAdmin, location_id) : [];
+    const crewForActions = actionsOn ? unwrapSettled(await crewP!) : [];
     const matchCrew = (raw: string) => {
       const q = raw.trim().toLowerCase();
       return q ? crewForActions.filter((c) => {
@@ -3674,6 +3732,8 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
 
     while (loopCount < MAX_LOOPS) {
       loopCount++;
+      const roundStart = Date.now();
+      if (tPreAiMs === null) tPreAiMs = roundStart - reqStart;
       const aiResp = await fetch(AI_URL, {
         method: "POST",
         headers: {
@@ -3711,6 +3771,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       }
 
       const aiData = await aiResp.json();
+      tRoundMs.push(Date.now() - roundStart);
       usage.calls++;
       usage.pt += aiData.usage?.prompt_tokens || 0;
       usage.ct += aiData.usage?.completion_tokens || 0;
@@ -3877,14 +3938,23 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
       });
     }
     if (usage.calls > 0) {
-      await supabaseAdmin.from("theo_ai_usage").insert({
+      // Fire-and-forget (never delays the reply); timing columns are for latency measurement only.
+      const logP = Promise.resolve(supabaseAdmin.from("theo_ai_usage").insert({
         user_id: user.id,
         location_id: location_id || null,
         source: usageSource === "voice" ? "voice" : "chat",
         model: THEO_MODEL,
         prompt_tokens: usage.pt,
         completion_tokens: usage.ct,
-      }).then(({ error }: any) => error && console.error("usage log failed", error.message));
+        t_pre_ai_ms: tPreAiMs,
+        t_round_ms: tRoundMs,
+        round_count: tRoundMs.length,
+        cold_start: coldStart,
+        t_total_ms: Date.now() - reqStart,
+      })).then(({ error }: any) => { if (error) console.error("usage log failed", error.message); })
+        .catch((e: any) => console.error("usage log failed", e?.message || e));
+      // @ts-ignore EdgeRuntime is provided by the edge runtime
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(logP);
     }
 
     if (actionsOn) {
