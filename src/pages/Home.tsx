@@ -323,8 +323,9 @@ const Home = () => {
           <span>croohq.com · Built for operators, by operators. · Proudly made in America.</span>
           <nav>
             <Link to="/jobs">Jobs</Link>
-            <Link to="/privacy">Privacy</Link>
+            <Link to="/privacy">Privacy Policy</Link>
             <Link to="/terms">Terms</Link>
+            <a href={MAILTO}>Contact: jordan@croohq.com</a>
             <Link to="/auth">Log in</Link>
           </nav>
         </footer>
