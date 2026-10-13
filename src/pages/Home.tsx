@@ -227,6 +227,46 @@ const Home = () => {
           </div>
         </section>
 
+        {/* TODO: add more client logos/testimonials when real assets exist */}
+        <section className="trust" aria-label="Why CrooHQ">
+          <div className="trust-grid">
+            <div>
+              <p className="eyebrow">Why CrooHQ</p>
+              <p className="body-copy">Built by a former 3-store Jersey Mike’s owner-operator.</p>
+              <p className="body-copy">
+                One system for scheduling, time clock, checklists, inventory, hiring, and POS sync with Toast, Qu,
+                Aloha, and Clover.
+              </p>
+              <ul className="sec-list">
+                <li>Encrypted in transit (HTTPS)</li>
+                <li>Role-based access for owners, managers, and crew</li>
+              </ul>
+            </div>
+            <a
+              className="jefe"
+              href="https://eljefe-enterprises.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <p className="jefe-quote">
+                “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
+              </p>
+              <div className="jefe-byline">
+                <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
+                <div className="jefe-id">
+                  <strong>Johnny Tellez</strong>
+                  <span>20+ Year Restaurant Exec</span>
+                  <span>El Jefe Enterprises</span>
+                </div>
+              </div>
+              <p className="jefe-ask">
+                Ask me how I can help your business through
+                <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
+              </p>
+            </a>
+          </div>
+        </section>
+
         <div className="proof">
           <strong>Live in real QSR kitchens.</strong>
           <span>Punch clock · Checklists · Scheduling · Hiring · Inventory</span>
