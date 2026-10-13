@@ -157,3 +157,81 @@ export function matchTarget<T extends { title: string }>(said: string, rows: T[]
 }
 /** Back-compat name for checklist-only callers. */
 export const matchChecklist = matchTarget;
+
+// ---- Tier 2 (fallback only, runs when matchTarget finds nothing): forgiving word matching. ----
+const FILLER = new Set(["and", "a", "an", "to", "of", "quick", "please", "get", "done", "the", "that", "task", "checklist", "event"]);
+/** Words of a phrase: lowercase, hyphens/punctuation split ("de-icing" -> de, icing), filler dropped. */
+export function nudgeTokens(s: string): string[] {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((w) => w && !FILLER.has(w));
+}
+/** Rough word stem: cleaning -> clean, icing -> ic, ice -> ic. */
+export function wordStem(w: string): string {
+  let s = w;
+  for (const suf of ["ing", "ed", "es", "s"]) if (s.length - suf.length >= 2 && s.endsWith(suf)) { s = s.slice(0, -suf.length); break; }
+  if (s.length > 2 && s.endsWith("e")) s = s.slice(0, -1);
+  return s;
+}
+const commonPrefix = (a: string, b: string) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
+export function wordsMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const sa = wordStem(a), sb = wordStem(b);
+  if (sa === sb) return true;
+  return a.length >= 3 && b.length >= 3 && commonPrefix(a, b) >= 3;
+}
+export type ScoredTarget<T> = { row: T; score: number; hits: number };
+/** Score every title by how many of the spoken words it contains (stem / shared-prefix aware). Best first. */
+export function scoreTargets<T extends { title: string }>(said: string, rows: T[]): ScoredTarget<T>[] {
+  const q = nudgeTokens(said);
+  if (!q.length) return [];
+  return rows.map((row) => {
+    const t = nudgeTokens(row.title);
+    const hits = q.filter((w) => t.some((x) => wordsMatch(w, x))).length;
+    const score = hits ? hits + 0.5 * (hits / Math.max(1, t.length)) : 0;
+    return { row, score, hits };
+  }).filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
+}
+/**
+ * Tier 1 = matchTarget, unchanged. Only when it finds nothing: tier 2 scoring.
+ * `suggest` = not confident or too close to call: top 3 candidates for "Did you mean ...?".
+ */
+export function matchTargetSmart<T extends { title: string }>(said: string, rows: T[]):
+  { one: T; fuzzy?: boolean } | { several: T[] } | { suggest: T[] } | { none: true } {
+  const t1 = matchTarget(said, rows);
+  if (!("none" in t1)) return t1;
+  const scored = scoreTargets(said, rows);
+  if (!scored.length) return { none: true };
+  const need = Math.max(1, Math.ceil(nudgeTokens(said).length / 2));
+  const [best, second] = scored;
+  const close = second && best.score - second.score < 0.25;
+  if (best.hits >= need && !close) return { one: best.row, fuzzy: true };
+  return { suggest: scored.slice(0, 3).map((s) => s.row) };
+}
+
+// ---- People: split several names, spelling-tolerant fallback. ----
+/** "Maria and Jo, Sam & Lee plus Kim" -> ["Maria", "Jo", "Sam", "Lee", "Kim"]. */
+export function splitNames(raw: string): string[] {
+  return (raw || "").split(/\s*(?:,|&|\+|\band\b|\bplus\b)\s*/i).map((s) => s.trim()).filter(Boolean);
+}
+export function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+/** Only used when the normal name match found nobody: first name / nickname within 2 edits ("Shaylee" -> Shayli). Closest first. */
+export function fuzzyPeople<P extends { full_name?: string | null; nickname?: string | null }>(q: string, people: P[], maxDist = 2): P[] {
+  const w = (q || "").trim().toLowerCase().split(/\s+/)[0] || "";
+  if (w.length < 3) return [];
+  const scored: { p: P; d: number }[] = [];
+  for (const p of people) {
+    const names = [(p.full_name || "").trim().split(/\s+/)[0], (p.nickname || "").trim()].map((x) => x.toLowerCase()).filter(Boolean);
+    const d = Math.min(...names.map((x) => levenshtein(w, x)), Infinity);
+    if (d <= maxDist) scored.push({ p, d });
+  }
+  return scored.sort((a, b) => a.d - b.d).map((s) => s.p);
+}
