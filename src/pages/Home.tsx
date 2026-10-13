@@ -1,115 +1,41 @@
+import { useEffect, useRef, type CSSProperties } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 
-/**
- * Public marketing homepage at `/` (unauthenticated only).
- * Self-contained styles scoped under `.hme` so nothing here touches the app theme.
- */
 const MAILTO = "mailto:jordan@croohq.com";
+const CSS = `.hme *{box-sizing:border-box;margin:0;padding:0}.hme a{color:inherit;text-decoration:none}.hme{--paper:#f3eee6;--ink:#1a1a1a;--muted:#5c5852;--teal:#417f8e;--teal-d:#2e6270;--white:#fffcf7;--line:rgba(26,26,26,.12);--orange:#eb7d3c}.hme{background:var(--paper);color:var(--ink);font-family:Manrope,sans-serif;font-weight:500;line-height:1.45;-webkit-font-smoothing:antialiased}.hme .serif{font-family:Fraunces,Georgia,serif;letter-spacing:0;font-weight:500}.hme .wrap{width:min(1200px,calc(100% - 40px));margin:0 auto}.hme .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:12px 20px;font-weight:700;font-size:14px;border:1.5px solid transparent;white-space:nowrap}.hme .bp{background:var(--teal);color:#fff}.hme .bo{background:var(--orange);color:#fff}.hme .bg{border-color:var(--line)}.hme .lg{padding:16px 26px;font-size:16px}.hme .eyebrow{color:var(--teal);font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase}.hme .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--muted);background:var(--white);margin:0 6px 8px 0}.hme .quote{font-family:Fraunces,Georgia,serif;font-style:italic}.hme .by{display:flex;align-items:center;gap:12px}.hme .by img.ph{width:48px;height:48px;border-radius:99px;object-fit:cover}.hme .by small{display:block;color:var(--muted);font-size:12px}.hme footer{border-top:1px solid var(--line);padding:28px 0 40px;font-size:14px;color:var(--muted);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.hme footer nav{display:flex;gap:20px;flex-wrap:wrap}.hme .hd{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 0}.hme .logo{height:32px}.hme .nv{display:flex;gap:26px;font-size:14px;font-weight:700;color:var(--muted)}.hme .act{display:flex;gap:10px}.hme .tcard{display:block;background:var(--white);border:1px solid rgba(65,127,142,.28);border-radius:20px;padding:26px}.hme .tcard .quote{font-size:19px;line-height:1.4}.hme .tfoot{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:18px;flex-wrap:wrap}.hme .ask{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--teal-d)}.hme .ask img{height:44px}
+@media(max-width:760px){.nv{display:none}.hme .act .bo{display:none}.hme .logo{height:26px}.hme footer{flex-direction:column}}.hme{background:#fbf8f3}.hme h1,.hme h2{font-family:Manrope;font-weight:800;letter-spacing:0;line-height:.92}.hme .hero{display:grid;grid-template-columns:1.1fr .9fr;min-height:780px;margin:0 20px;border-radius:36px;overflow:hidden;background:var(--teal);color:#fff}.hme .hl{padding:70px 64px;display:flex;flex-direction:column;justify-content:space-between}.hme .hl h1{font-size:150px}.hme .hl .s1{font-size:24px;font-weight:700;max-width:24ch;line-height:1.25;margin-top:24px;color:#e6f2f4}.hme .hr{position:relative}.hme .hr img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.hme .tag{position:absolute;left:28px;bottom:28px;background:#fbf8f3;color:var(--ink);border-radius:18px;padding:16px 20px;font-weight:800}.hme .tag small{display:block;font-weight:600;color:var(--muted)}.hme .wh{background:#fff;color:var(--teal-d)}.hme .fine{font-size:14px;color:#d4e8ec;margin-top:12px}.hme .marq{display:flex;gap:44px;padding:34px 0;font-size:34px;font-weight:800;letter-spacing:0;white-space:nowrap;overflow:hidden;color:var(--ink)}.hme .marq span:nth-child(even){color:var(--orange)}.hme .sec{padding:110px 0}.hme h2{font-size:84px}.hme .big{font-size:22px;color:var(--muted);max-width:44ch;margin-top:20px;line-height:1.4}.hme .split{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:56px}.hme .tile{border-radius:30px;padding:44px;min-height:420px;display:flex;flex-direction:column;justify-content:space-between}.hme .t1{background:var(--ink);color:#fbf8f3}.hme .t2{background:var(--orange);color:#fff}.hme .t1 .quote{font-size:34px;line-height:1.2}.hme .t1 .by small{color:#bdb7ae}.hme .t1 .stamp{height:70px;background:#fbf8f3;border-radius:99px;padding:3px}.hme .t2 h3{font-size:56px;letter-spacing:0;line-height:.95;font-weight:800}.hme .t2 .chip{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35)}.hme .rows{margin-top:50px;border-top:2px solid var(--ink)}.hme .r{display:grid;grid-template-columns:1fr 60px 1fr;padding:26px 0;border-bottom:1px solid var(--line);font-size:26px;font-weight:700;letter-spacing:0;align-items:center}.hme .r s{color:#a8a39b}.hme .r i{font-style:normal;color:var(--orange)}.hme .r b{color:var(--teal-d)}.hme .price{display:grid;grid-template-columns:1fr auto;align-items:center;margin-top:40px;background:#efe8dd;border-radius:30px;padding:44px}.hme .price .n{font-size:140px;font-weight:800;letter-spacing:0;line-height:.9}.hme .price .n small{font-size:28px;letter-spacing:0;color:var(--muted)}.hme .how{background:var(--ink);color:#fbf8f3;margin:0 20px;border-radius:36px;padding:100px 0}.hme .how h2{color:#fff}.hme .st{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:56px}.hme .st div{background:#242424;border-radius:24px;padding:28px;font-size:18px;min-height:220px;display:flex;flex-direction:column;justify-content:space-between}.hme .st b{font-size:64px;letter-spacing:0;color:var(--orange);line-height:1}.hme .how .chip{background:transparent;color:#d8d3cb;border-color:#444}.hme .end{padding:130px 0;text-align:center}.hme .end h2{font-size:110px}.hme .end p{font-size:22px;color:var(--muted);margin:20px auto 34px;max-width:40ch}.hme .jb{display:flex;justify-content:space-between;align-items:center;background:#e4eff1;border-radius:24px;padding:26px 32px;font-size:18px;font-weight:700;gap:16px;flex-wrap:wrap}
+@media(max-width:760px){.hero{grid-template-columns:1fr;margin:0 10px;border-radius:24px;min-height:0}.hme .hl{padding:36px 24px}.hme .hl h1{font-size:66px}.hme .hl .s1{font-size:18px}.hme .hr{height:300px}.hme .marq{font-size:22px;gap:24px}.hme .sec{padding:64px 0}.hme h2{font-size:44px}.hme .split,.hme .st{grid-template-columns:1fr}.hme .tile{padding:28px;min-height:0;gap:24px}.hme .t1 .quote{font-size:24px}.hme .t2 h3{font-size:36px}.hme .r{font-size:17px;grid-template-columns:1fr 30px 1fr}.hme .price{grid-template-columns:1fr;padding:28px;gap:20px}.hme .price .n{font-size:84px}.hme .how{margin:0 10px;padding:60px 0}.hme .st div{min-height:0;gap:14px}.hme .st b{font-size:44px}.hme .end h2{font-size:54px}.hme .end{padding:70px 0}}.hme .rv{opacity:0;transform:translateY(40px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}.hme .rv.in{opacity:1;transform:none}.hme .tile.rv{transform:translateY(60px) rotate(-2deg) scale(.96)}.hme .tile.rv:nth-child(2){transform:translateY(60px) rotate(2deg) scale(.96)}.hme .tile.rv.in{transform:none;box-shadow:0 30px 60px rgba(0,0,0,.12)}.hme .tile{transition:transform .5s,box-shadow .5s}.hme .tile.in:hover{transform:translateY(-6px) rotate(-.5deg)}.hme .w{display:inline-block;opacity:0;transform:translateY(.5em) rotate(4deg);animation:hme-wd .9s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:calc(var(--i)*.12s + .15s)}
+@keyframes hme-wd{to{opacity:1;transform:none}}.hme .marq{overflow:hidden}.hme .track{display:flex;gap:44px;width:max-content;animation:hme-mq 28s linear infinite}.hme .marq:hover .track{animation-play-state:paused}
+@keyframes hme-mq{to{transform:translateX(-50%)}}.hme .how{position:relative}.hme .pin{position:sticky;top:0;min-height:100vh;display:flex;align-items:center;padding:60px 0}.hme .st div{transition:transform .5s,background .5s,opacity .5s;opacity:.35;transform:translateY(16px)}.hme .st div.on{opacity:1;transform:none;background:#2d2d2d}.hme .st div.on b{text-shadow:0 0 30px rgba(235,125,60,.5)}.hme .prog{height:4px;background:#333;border-radius:4px;margin-top:30px;overflow:hidden}.hme .prog i{display:block;height:100%;width:0;background:var(--orange)}
+@media(max-width:760px){.pin{position:static;min-height:0}.hme .st div{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.rv,.tile.rv,.w{opacity:1!important;transform:none!important;animation:none!important;transition:none!important}.hme .track{animation:none}.hme .hr img{transform:none!important}.hme .st div{opacity:1;transform:none}}.hme .hr{overflow:hidden;background:radial-gradient(120% 90% at 70% 30%,#4f93a3 0%,#417f8e 55%,#356c79 100%)}.hme .hr::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.10) 1.2px,transparent 1.3px);background-size:22px 22px}.hme .stage{position:absolute;left:50%;top:50%;width:560px;height:660px;margin:-330px 0 0 -280px;transform:scale(var(--s,1));perspective:1400px}.hme .L{position:absolute;transform:translate3d(0,calc(var(--py,0)*1px),0) rotate(var(--r,0deg));will-change:transform}.hme .L>.in{animation:hme-pop 1s cubic-bezier(.2,.8,.2,1.05) both;animation-delay:var(--d,.2s)}
+@keyframes hme-pop{from{opacity:0;transform:translateY(60px) scale(.9) rotate(4deg)}to{opacity:1;transform:none}}.hme .L>.in>.hme-fl{animation:hme-fl 6s ease-in-out infinite;animation-delay:var(--fd,0s)}
+@keyframes hme-fl{50%{transform:translateY(-8px)}}.hme .card{background:#fffcf7;color:#1a1a1a;border-radius:22px;box-shadow:0 2px 0 rgba(255,255,255,.6) inset,0 30px 60px -20px rgba(10,40,48,.55),0 10px 24px -10px rgba(10,40,48,.35)}.hme .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-weight:800;font-size:12px;padding:6px 11px}.hme .ser{font-family:Fraunces,Georgia,serif;font-weight:600;letter-spacing:0}.hme .av{width:26px;height:26px;border-radius:99px;display:inline-grid;place-items:center;font-size:10px;font-weight:800;color:#fff;flex:none}.hme .ck{width:26px;height:26px;border-radius:99px;background:#417f8e;display:grid;place-items:center;flex:none}.hme .ck svg{width:14px;height:14px}.hme .ck.o{background:none;border:2px dashed #c9c1b5}.hme .draw path{stroke-dasharray:30;stroke-dashoffset:30;animation:hme-dr .5s ease forwards;animation-delay:var(--cd,1s)}
+@keyframes hme-dr{to{stroke-dashoffset:0}}.hme .tag{z-index:5}
+@media(max-width:760px){.hr{height:460px}}
+@media(prefers-reduced-motion:reduce){.L>.in,.L>.in>.hme-fl,.draw path,.grow,.ringp{animation:none!important;stroke-dashoffset:0!important}}
 
-const CSS = `
-.hme {
-  --paper: #f3eee6;
-  --ink: #1a1a1a;
-  --muted: #5c5852;
-  --teal: #417f8e;
-  --teal-d: #2e6270;
-  --white: #fffcf7;
-  --line: rgba(26,26,26,.12);
-  --orange: #eb7d3c;
-  --orange-d: #d66b2c;
-  background: var(--paper);
-  color: var(--ink);
-  min-height: 100vh;
-  font-family: Manrope, "Liberation Sans", system-ui, sans-serif;
-  font-weight: 500;
-  line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
-}
-.hme * { box-sizing: border-box; margin: 0; padding: 0; }
-.hme a { color: inherit; text-decoration: none; }
-.hme .wrap { width: min(1120px, calc(100% - 48px)); margin: 0 auto; }
+.hme{--step-line:#333;min-height:100vh;--page:#fbf8f3;--light:#fff;--hero-sub:#e6f2f4;--hero-fine:#d4e8ec;background:var(--page)}
+.hme *{box-sizing:border-box;margin:0;padding:0}.hme a{color:inherit;text-decoration:none}.hme h1,.hme h2,.hme h3{letter-spacing:0}
+.hme .hero{min-height:min(780px,calc(100svh - 108px));grid-template-columns:1.1fr .9fr}
+.hme .hl{padding:70px 64px;gap:24px;min-width:0}.hme .hl h1{font-size:150px;max-width:5ch}.hme .hl .s1{color:var(--hero-sub)}
+.hme .btn.bp{color:var(--light)}.hme .btn.bo{color:var(--light)}.hme .btn.wh{color:var(--teal-d)}.hme .btn:focus-visible,.hme a:focus-visible{outline:3px solid var(--orange);outline-offset:5px}.hme .btn:hover{filter:brightness(.95)}
+.hme .why-sec{padding-top:60px}.hme #stack{padding-top:0}.hme .tile{gap:30px;min-width:0}.hme .t2 .eyebrow{color:var(--light);margin-bottom:16px}.hme .t2 .pos-copy{font-size:18px;margin-bottom:16px}.hme .testimonial-foot{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between}.hme .by{min-width:0}.hme .ask{color:inherit;flex-wrap:wrap}.hme .ask img{height:60px;max-width:100%;object-fit:contain;background:var(--page);border-radius:99px;padding:3px}
+.hme .price-label{font-weight:800;color:var(--muted)}.hme .price-note{color:var(--muted);margin-top:10px}.hme .price-fine{font-size:13px;color:var(--muted);margin-top:10px}.hme .feature-chips{margin-top:36px}.hme .jb span{flex:1;min-width:0}.hme footer{margin-top:28px}.hme .marq-group{display:flex;gap:44px;padding-right:44px}.hme .track{gap:0}.hme .marq-group span:nth-child(even){color:var(--orange)}
+.hme .w:nth-child(1){--i:0}.hme .w:nth-child(2){--i:1}.hme .w:nth-child(3){--i:2}
+.hme .how{position:relative}.hme .how.is-animated{height:260vh}.hme .how .pin{min-height:100svh}.hme .prog{height:4px;background:var(--step-line);border-radius:4px;margin-top:30px;overflow:hidden}.hme .prog i{display:block;height:100%;width:0;background:var(--orange)}
+.hme .rv{opacity:1;transform:none}.hme.motion-ready .rv:not(.in){opacity:0;transform:translateY(40px)}.hme.motion-ready .tile.rv:not(.in){transform:translateY(60px) rotate(-2deg) scale(.96)}.hme.motion-ready .tile.rv:nth-child(2):not(.in){transform:translateY(60px) rotate(2deg) scale(.96)}
+@keyframes hme-rg{from{stroke-dashoffset:314}to{stroke-dashoffset:52}}
+@media(min-width:761px) and (max-width:1400px){.hme .hl{padding:70px 64px}.hme .hl h1{font-size:140px}.hme .hl .s1{font-size:24px}.hme .hero .btn.lg{padding:16px 24px;font-size:16px}.hme .hl{padding-right:24px}.hme .t2 h3{font-size:48px}}
+@media(min-width:761px) and (max-width:1100px){.hme .hl{padding:48px 32px}.hme .hl h1{font-size:110px}.hme .hl .s1{font-size:21px}.hme h2{font-size:68px}.hme .nv{gap:16px}.hme .tile{padding:32px}.hme .t1 .quote{font-size:28px}.hme .t2 h3{font-size:40px}.hme .st{grid-template-columns:repeat(2,1fr)}.hme .price{padding:32px}.hme .price .n{font-size:110px}}
+@media(max-width:760px){.hme .hero{min-height:0;grid-template-columns:1fr}.hme .hl{padding:36px 24px;gap:28px}.hme .hl h1{font-size:66px;max-width:6ch}.hme .hl .s1{font-size:18px}.hme .hero .btn.lg{font-size:14px;padding:14px 18px;white-space:normal}.hme .hr{height:460px}.hme .act{gap:6px}.hme .act .btn{padding:10px 12px;font-size:12px}.hme .act .bo{display:inline-flex}.hme .logo{width:auto;max-width:105px}.hme .hd{gap:8px}.hme .marq-group{gap:24px;padding-right:24px}.hme .why-sec{padding-top:36px}.hme .price .n small{font-size:24px}.hme .how.is-animated{height:auto}.hme .how .pin{position:static;min-height:0;padding:0}.hme .st div{opacity:1;transform:none}.hme .st{margin-top:32px}.hme .t2 h3{font-size:36px}.hme .jb{padding:24px}.hme footer nav{gap:16px}.hme .chip{white-space:normal}.hme .end h2{font-size:54px}}
+@media(max-width:360px){.hme .hl h1{font-size:58px}.hme .act .btn{padding:9px;font-size:11px}.hme .logo{max-width:90px}.hme .price .n{font-size:70px}}
+@media(prefers-reduced-motion:reduce){.hme.motion-ready .rv,.hme.motion-ready .tile.rv,.hme .w{opacity:1!important;transform:none!important;transition:none!important;animation:none!important}.hme .L{transform:rotate(var(--r,0deg))!important;will-change:auto}.hme .L>.in,.hme .L>.in>.fl,.hme .draw path,.hme .ringp,.hme .track{animation:none!important}.hme .draw path{stroke-dashoffset:0!important}.hme .ringp{stroke-dashoffset:52!important}.hme .how.is-animated{height:auto}.hme .how .pin{position:static;min-height:0}.hme .st div{opacity:1;transform:none}.hme .tile.in:hover{transform:none}.hme .prog i{width:100%!important}}
 
-.hme header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0 18px; flex-wrap: wrap; }
-.hme .logo { height: 34px; width: auto; display: block; }
-.hme nav { display: flex; align-items: center; gap: 26px; font-size: 14px; font-weight: 600; color: var(--muted); flex-wrap: wrap; }
-.hme nav a:hover { color: var(--ink); }
-.hme .actions { display: flex; align-items: center; gap: 10px; }
+.hme{--art-1:#e4eff1;--art-2:#2e6270;--art-3:rgba(26,26,26,.08);--art-4:#fff;--art-5:#eb7d3c;--art-6:#8a847b;--art-7:#417f8e;--art-8:#8a6fb5;--art-9:#fde9dc;--art-10:#c25e22;--art-11:#e8e1d6;--art-12:#1a1a1a;--art-13:#efd9c6;--art-14:#dcbfa5;--art-15:#fffcf7;--art-16:#b48c6c;--art-17:#f6c27e;--art-18:rgba(26,26,26,.7);--art-19:#cfe3e7;--art-20:#e9f4f6;--art-21:#9cc3cc;}
 
-.hme .btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 12px 20px; font-weight: 700; font-size: 14px; border: 1.5px solid transparent; cursor: pointer; }
-.hme .btn-primary { background: var(--teal); color: #fff; }
-.hme .btn-primary:hover { background: var(--teal-d); }
-.hme .btn-app { background: var(--orange); color: #fff; }
-.hme .btn-app:hover { background: var(--orange-d); }
-.hme .btn-ghost { background: transparent; border-color: var(--line); color: var(--ink); }
-.hme .btn-lg { padding: 16px 26px; font-size: 16px; }
-
-.hme h1 { font-family: Fraunces, "DejaVu Serif", Georgia, serif; font-weight: 500; font-size: clamp(38px, 6vw, 72px); line-height: 1.03; letter-spacing: -0.03em; }
-.hme h2 { font-family: Fraunces, "DejaVu Serif", Georgia, serif; font-weight: 500; font-size: clamp(28px, 4vw, 46px); letter-spacing: -0.03em; line-height: 1.1; max-width: 20ch; }
-.hme h3 { font-size: 16px; font-weight: 800; }
-
-.hme .hero { padding: 26px 0 10px; }
-.hme .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 52px; align-items: center; }
-.hme .pairline { font-family: Fraunces, Georgia, serif; font-size: clamp(20px, 2.4vw, 27px); color: var(--teal); font-style: italic; margin-bottom: 10px; letter-spacing: -0.02em; }
-.hme .sub { font-size: 19px; color: var(--ink); max-width: 46ch; margin: 20px 0 14px; }
-.hme .stackline { font-size: 17px; color: var(--muted); max-width: 48ch; margin-bottom: 26px; }
-.hme .cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.hme .fine { margin-top: 14px; font-size: 13px; color: var(--muted); }
-.hme .h1sub { margin-top: 12px; font-size: clamp(17px, 2.2vw, 22px); font-weight: 800; color: var(--ink); }
-.hme .why-block .jefe { max-width: 560px; margin-top: 22px; }
-.hme .shot { width: 100%; height: auto; display: block; border-radius: 20px; border: 1px solid var(--line); box-shadow: 0 24px 50px rgba(65,127,142,.18); }
-
-.hme .proof { margin: 46px 0 8px; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; gap: 18px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
-.hme .proof strong { font-size: 15px; }
-.hme .proof span { font-size: 14px; color: var(--muted); font-weight: 600; }
-
-.hme section.blk { padding: 68px 0; }
-.hme .lead { font-size: 18px; color: var(--muted); max-width: 56ch; margin-top: 16px; }
-
-.hme table.stack { width: 100%; border-collapse: collapse; margin-top: 30px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-.hme table.stack th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 14px 18px; border-bottom: 1px solid var(--line); }
-.hme table.stack td { padding: 14px 18px; border-top: 1px solid var(--line); font-size: 15px; vertical-align: top; }
-.hme table.stack td:last-child { color: var(--teal-d); font-weight: 700; }
-.hme .note { margin-top: 16px; font-size: 14px; color: var(--muted); }
-
-.hme ol.steps { margin-top: 28px; display: grid; gap: 14px; list-style: none; counter-reset: s; }
-.hme ol.steps li { counter-increment: s; background: var(--white); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px 16px 56px; position: relative; font-size: 16px; }
-.hme ol.steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 26px; height: 26px; border-radius: 999px; background: var(--teal); color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-.hme .chips { margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; }
-.hme .chip { border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 700; color: var(--muted); background: var(--white); }
-
-.hme .eyebrow { color: var(--teal); font-weight: 700; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 12px; }
-.hme .band { background: var(--white); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.hme .body-copy { font-size: 18px; color: var(--muted); max-width: 54ch; margin-top: 18px; }
-.hme .body-copy + .body-copy { margin-top: 12px; }
-
-.hme footer { border-top: 1px solid var(--line); padding: 30px 0 44px; font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
-.hme footer nav { gap: 20px; }
-
-.hme .jobs-band { background: var(--teal); color: #fff; }
-.hme .jobs-band .eyebrow { color: rgba(255,255,255,.88); }
-.hme .jobs-band h2 { color: #fff; }
-.hme .jobs-band .body-copy { color: rgba(255,252,247,.9); }
-.hme .jobs-band .btn-primary { background: #fff; color: var(--teal-d); }
-.hme .jobs-band .btn-primary:hover { background: var(--white); }
-
-.hme .hero-visual { display: flex; flex-direction: column; gap: 14px; }
-.hme .jefe { display: block; background: var(--white); border: 1px solid rgba(65,127,142,.28); border-radius: 18px; padding: 20px; color: inherit; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
-.hme .jefe:hover { border-color: var(--teal); box-shadow: 0 8px 24px rgba(65,127,142,.16); transform: translateY(-1px); }
-.hme .jefe-quote { font-family: Fraunces, Georgia, serif; font-style: italic; font-weight: 500; font-size: 15px; line-height: 1.4; }
-.hme .jefe-byline { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-.hme .jefe-photo { width: 40px; height: 40px; border-radius: 999px; object-fit: cover; flex-shrink: 0; }
-.hme .jefe-id { display: flex; flex-direction: column; gap: 1px; font-size: 11px; color: var(--muted); font-weight: 500; }
-.hme .jefe-id strong { font-size: 12px; font-weight: 700; color: var(--ink); }
-.hme .jefe-ask { margin-top: 2px; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--teal-d); flex-wrap: wrap; }
-.hme .jefe-stamp { height: 36px; width: auto; display: block; }
-
-@media (max-width: 900px) {
-  .hme .hero-grid { grid-template-columns: 1fr; gap: 30px; }
-  .hme .wrap { width: calc(100% - 32px); }
-  .hme section.blk { padding: 52px 0; }
-  .hme h2 { max-width: none; }
-}
+.hme .cta-row{display:flex;gap:10px;flex-wrap:wrap}
 `;
 
 const STACK_ROWS: [string, string][] = [
@@ -137,9 +63,64 @@ const CHIPS = [
   "Inventory and COGS",
 ];
 
+const FEATURES = ["Punch clock", "Checklists", "Scheduling", "Team chat", "Hiring", "Inventory", "Dashboard", "POS sync"];
+
 const Home = () => {
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const heroArt = root.querySelector<HTMLElement>('.hr');
+    const stage = root.querySelector<HTMLElement>('.stage');
+    const how = root.querySelector<HTMLElement>('.how');
+    const layers = Array.from(root.querySelectorAll<HTMLElement>('.L'));
+    const steps = Array.from(root.querySelectorAll<HTMLElement>('.st > div'));
+    const bar = root.querySelector<HTMLElement>('.prog i');
+    let frame = 0;
+    let observer: IntersectionObserver | undefined;
+    const fit = () => {
+      if (heroArt && stage) stage.style.setProperty('--s', String(Math.min(heroArt.clientWidth / 600, heroArt.clientHeight / 700, 1.15)));
+    };
+    const update = () => {
+      frame = 0;
+      const reduced = media.matches;
+      const mobile = window.matchMedia('(max-width:760px)').matches;
+      how?.classList.toggle('is-animated', !mobile && !reduced);
+      if (!reduced) {
+        const offset = Math.min(Math.max(window.scrollY, 0), 900);
+        layers.forEach(layer => layer.style.setProperty('--py', String(-offset * Number(layer.dataset.z || 0))));
+      } else layers.forEach(layer => layer.style.removeProperty('--py'));
+      if (how) {
+        const rect = how.getBoundingClientRect();
+        const progress = reduced ? 1 : mobile ? Math.min(1, Math.max(0, (window.innerHeight - rect.top) / rect.height)) : Math.min(1, Math.max(0, -rect.top / Math.max(1, rect.height - window.innerHeight)));
+        if (bar) bar.style.width = `${progress * 100}%`;
+        steps.forEach((step, i) => step.classList.toggle('on', reduced || mobile || progress >= i / steps.length - .001));
+      }
+    };
+    const queue = () => { if (!frame) frame = requestAnimationFrame(update); };
+    const setup = () => {
+      observer?.disconnect();
+      root.classList.toggle('motion-ready', !media.matches);
+      if (media.matches) root.querySelectorAll('.rv').forEach(el => el.classList.add('in'));
+      else {
+        observer = new IntersectionObserver(entries => entries.forEach(entry => {
+          if (entry.isIntersecting) { entry.target.classList.add('in'); observer?.unobserve(entry.target); }
+        }), { threshold: .15, rootMargin: '0px 0px -8% 0px' });
+        root.querySelectorAll('.rv').forEach(el => observer?.observe(el));
+      }
+      fit(); update();
+    };
+    const resize = () => { fit(); queue(); };
+    setup();
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', resize);
+    media.addEventListener('change', setup);
+    return () => { observer?.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('scroll', queue); window.removeEventListener('resize', resize); media.removeEventListener('change', setup); };
+  }, []);
   return (
-    <div className="hme">
+    <div className="hme" ref={rootRef}>
       <Helmet>
         <title>CrooHQ — Restaurant operation system, built by an operator</title>
         <meta
@@ -158,198 +139,39 @@ const Home = () => {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:image" content="https://croohq.com/croohq-ipad-punch.png" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Manrope:wght@500;600;700;800&display=swap"
           rel="stylesheet"
         />
         <style type="text/css">{CSS}</style>
       </Helmet>
-
-      <div className="wrap">
-        <header>
-          <img src="/croohq-wordmark.png" alt="CrooHQ" className="logo" width={136} height={34} />
-          <nav>
-            <a href="#how">How it works</a>
-            <a href="#stack">Replace the stack</a>
-            <Link to="/jobs">Jobs</Link>
-          </nav>
-          <div className="actions">
-            <Link className="btn btn-app" to="/auth">App Login</Link>
-            <a className="btn btn-primary" href={MAILTO}>Book a walkthrough</a>
+      <div className="wrap"><header className="hd">
+        <img className="logo" src="/croohq-wordmark.png" alt="CrooHQ" width={136} height={32} />
+        <nav className="nv" aria-label="Main navigation"><a href="#how">How it works</a><a href="#stack">Replace the stack</a><Link to="/jobs">Jobs</Link></nav>
+        <div className="act"><Link className="btn bo" to="/auth">App Login</Link><a className="btn bp" href={MAILTO}>Book a walkthrough</a></div>
+      </header></div>
+      <main>
+        <section className="hero" aria-label="Your crew’s HQ">
+          <div className="hl"><div><h1><span className="w">Your</span>{' '}<span className="w">crew’s</span>{' '}<span className="w">HQ.</span></h1><p className="s1 rv">The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p></div>
+            <div><div className="cta-row"><a className="btn lg wh rv" href={MAILTO}>Book a 20-minute walkthrough</a><a className="btn lg bo rv" href="#stack">Starting at $199/month</a></div><p className="fine">Try it for 14 days for free.</p></div>
           </div>
-        </header>
-
-        <section className="hero">
-          <div className="hero-grid">
-            <div>
-              <p className="pairline">Built for operators, by operators.</p>
-              <h1>Your crew’s HQ.</h1>
-              <p className="h1sub">The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p>
-              <p className="sub">
-                Operators buy it. The crew actually runs it. Meet them on the floor, on an iPad, not on a desktop.
-              </p>
-              <p className="stackline">
-                You're paying $600 a month for scheduling, checklists, hiring, inventory, a punch clock, and a group
-                chat. CrooHQ replaces that stack.
-              </p>
-              <div className="cta-row">
-                <a className="btn btn-primary btn-lg" href={MAILTO}>Book a 20-minute walkthrough</a>
-              </div>
-              <p className="fine">Try it for 14 days for free.</p>
-            </div>
-            <div className="hero-visual">
-              <img
-                className="shot"
-                src="/croohq-ipad-punch.png"
-                alt="CrooHQ punch clock PIN screen on an iPad on a restaurant counter"
-                width={1536}
-                height={1024}
-              />
-            </div>
-          </div>
+          <div className="hr" aria-hidden="true"><div className="stage"><div className="L" data-z="0.05" style={{"left": "40px", "top": "70px", "width": "380px", "--r": "-3deg", "zIndex": "2"} as CSSProperties}><div className="in" style={{"--d": "0.15s"} as CSSProperties}><div className="fl" style={{"--fd": "0s"} as CSSProperties}><div className="card" style={{"padding": "24px 24px 14px"} as CSSProperties}><div style={{"display": "flex", "justifyContent": "space-between", "alignItems": "flex-start", "gap": "12px"} as CSSProperties}><div><div className="eyebrow" style={{"fontSize": "11px"} as CSSProperties}>Opening · 6:00 AM</div><div className="ser" style={{"fontSize": "30px", "lineHeight": "1.05", "marginTop": "6px"} as CSSProperties}>Morning Line Check</div></div><span className="pill" style={{"background": "var(--art-1)", "color": "var(--art-2)"} as CSSProperties}>In progress</span></div><div style={{"height": "14px"} as CSSProperties}></div><div style={{"display": "flex", "alignItems": "center", "gap": "12px", "padding": "11px 0", "borderTop": "1px solid var(--art-3)"} as CSSProperties}><div className="ck" style={{"--cd": "1.1s"} as CSSProperties}><svg viewBox="0 0 24 24" className="draw"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--art-4)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"></path></svg></div><div style={{"flex": "1", "fontWeight": "700", "fontSize": "14px"} as CSSProperties}>Products dated, nothing expired</div><span className="av" style={{"background": "var(--art-5)"} as CSSProperties}>AL</span><span style={{"fontSize": "11px", "color": "var(--art-6)", "fontWeight": "700", "width": "52px", "textAlign": "right"} as CSSProperties}>6:02 AM</span></div><div style={{"display": "flex", "alignItems": "center", "gap": "12px", "padding": "11px 0", "borderTop": "1px solid var(--art-3)"} as CSSProperties}><div className="ck" style={{"--cd": "1.28s"} as CSSProperties}><svg viewBox="0 0 24 24" className="draw"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--art-4)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"></path></svg></div><div style={{"flex": "1", "fontWeight": "700", "fontSize": "14px"} as CSSProperties}>Patio wiped &amp; swept</div><span className="av" style={{"background": "var(--art-7)"} as CSSProperties}>SR</span><span style={{"fontSize": "11px", "color": "var(--art-6)", "fontWeight": "700", "width": "52px", "textAlign": "right"} as CSSProperties}>6:09 AM</span></div><div style={{"display": "flex", "alignItems": "center", "gap": "12px", "padding": "11px 0", "borderTop": "1px solid var(--art-3)"} as CSSProperties}><div className="ck" style={{"--cd": "1.46s"} as CSSProperties}><svg viewBox="0 0 24 24" className="draw"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--art-4)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"></path></svg></div><div style={{"flex": "1", "fontWeight": "700", "fontSize": "14px"} as CSSProperties}>Front door glass</div><span className="av" style={{"background": "var(--art-7)"} as CSSProperties}>SR</span><span style={{"fontSize": "11px", "color": "var(--art-6)", "fontWeight": "700", "width": "52px", "textAlign": "right"} as CSSProperties}>6:11 AM</span></div><div style={{"display": "flex", "alignItems": "center", "gap": "12px", "padding": "11px 0", "borderTop": "1px solid var(--art-3)"} as CSSProperties}><div className="ck" style={{"--cd": "1.6400000000000001s"} as CSSProperties}><svg viewBox="0 0 24 24" className="draw"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--art-4)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"></path></svg></div><div style={{"flex": "1", "fontWeight": "700", "fontSize": "14px"} as CSSProperties}>Walk-in temp logged</div><span className="av" style={{"background": "var(--art-8)"} as CSSProperties}>JM</span><span style={{"fontSize": "11px", "color": "var(--art-6)", "fontWeight": "700", "width": "52px", "textAlign": "right"} as CSSProperties}>6:15 AM</span></div><div style={{"display": "flex", "alignItems": "center", "gap": "12px", "padding": "11px 0", "borderTop": "1px solid var(--art-3)"} as CSSProperties}><div className="ck" style={{"--cd": "1.82s"} as CSSProperties}><svg viewBox="0 0 24 24" className="draw"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--art-4)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"></path></svg></div><div style={{"flex": "1", "fontWeight": "700", "fontSize": "14px"} as CSSProperties}>Restrooms stocked</div><span className="av" style={{"background": "var(--art-5)"} as CSSProperties}>AL</span><span style={{"fontSize": "11px", "color": "var(--art-6)", "fontWeight": "700", "width": "52px", "textAlign": "right"} as CSSProperties}>6:18 AM</span></div><div style={{"display": "flex", "alignItems": "center", "gap": "12px", "padding": "11px 0", "borderTop": "1px solid var(--art-3)"} as CSSProperties}><div className="ck o" style={{"--cd": "2.0s"} as CSSProperties}></div><div style={{"flex": "1", "fontWeight": "700", "fontSize": "14px", "color": "var(--art-6)"} as CSSProperties}>Line stocked for open</div><span className="pill" style={{"background": "var(--art-9)", "color": "var(--art-10)"} as CSSProperties}>Open</span></div></div></div></div></div><div className="L" data-z="0.14" style={{"left": "380px", "top": "30px", "width": "auto", "--r": "5deg", "zIndex": "3"} as CSSProperties}><div className="in" style={{"--d": "0.5s"} as CSSProperties}><div className="fl" style={{"--fd": "1.2s"} as CSSProperties}><div className="card" style={{"padding": "16px", "borderRadius": "999px"} as CSSProperties}><svg viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--art-11)" strokeWidth="12"></circle><circle className="ringp" cx="60" cy="60" r="50" fill="none" stroke="var(--art-5)" strokeWidth="12" strokeLinecap="round" transform="rotate(-90 60 60)" strokeDasharray="314" strokeDashoffset="52" style={{"animation": "hme-rg 1.6s cubic-bezier(.3,.7,.2,1) both .9s"} as CSSProperties}></circle><text x="60" y="58" textAnchor="middle" fontFamily="Fraunces" fontWeight="600" fontSize="30" fill="var(--art-12)">5/6</text><text x="60" y="78" textAnchor="middle" fontFamily="Manrope" fontWeight="800" fontSize="11" fill="var(--art-6)">DONE</text></svg></div></div></div></div><div className="L" data-z="0.2" style={{"left": "400px", "top": "300px", "width": "150px", "--r": "6deg", "zIndex": "3"} as CSSProperties}><div className="in" style={{"--d": "0.75s"} as CSSProperties}><div className="fl" style={{"--fd": "0.6s"} as CSSProperties}><div className="card" style={{"padding": "8px 8px 10px", "borderRadius": "18px"} as CSSProperties}><div style={{"height": "120px", "borderRadius": "12px", "overflow": "hidden", "position": "relative"} as CSSProperties}><svg viewBox="0 0 100 110" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" style={{"display": "block"} as CSSProperties}><rect width="100%" height="100%" fill="var(--art-13)"></rect><rect y="62" width="100" height="48" fill="var(--art-14)"></rect><ellipse cx="34" cy="58" rx="24" ry="7" fill="var(--art-15)"></ellipse><rect x="31" y="58" width="6" height="30" fill="var(--art-16)"></rect><ellipse cx="76" cy="62" rx="18" ry="6" fill="var(--art-15)"></ellipse><rect x="73" y="62" width="5" height="26" fill="var(--art-16)"></rect><circle cx="84" cy="18" r="9" fill="var(--art-17)"></circle></svg><span className="pill" style={{"position": "absolute", "left": "8px", "top": "8px", "background": "var(--art-18)", "color": "var(--art-4)", "fontSize": "10px", "padding": "4px 8px"} as CSSProperties}>📷 Photo proof</span></div><div style={{"display": "flex", "alignItems": "center", "gap": "8px", "marginTop": "9px", "fontSize": "12px", "fontWeight": "800"} as CSSProperties}><span className="av" style={{"background": "var(--art-7)"} as CSSProperties}>SR</span>Patio · SR</div></div></div></div></div><div className="L" data-z="0.26" style={{"left": "330px", "top": "470px", "width": "150px", "--r": "-5deg", "zIndex": "4"} as CSSProperties}><div className="in" style={{"--d": "0.95s"} as CSSProperties}><div className="fl" style={{"--fd": "2s"} as CSSProperties}><div className="card" style={{"padding": "8px 8px 10px", "borderRadius": "18px"} as CSSProperties}><div style={{"height": "120px", "borderRadius": "12px", "overflow": "hidden", "position": "relative"} as CSSProperties}><svg viewBox="0 0 100 110" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" style={{"display": "block"} as CSSProperties}><rect width="100%" height="100%" fill="var(--art-19)"></rect><rect x="18" y="12" width="64" height="86" rx="4" fill="var(--art-20)" stroke="var(--art-21)" strokeWidth="3"></rect><path d="M28 30l20-14M30 52l34-24M40 80l34-26" stroke="var(--art-4)" strokeWidth="5" strokeLinecap="round" opacity=".9"></path><rect x="66" y="52" width="6" height="16" rx="3" fill="var(--art-7)"></rect></svg><span className="pill" style={{"position": "absolute", "left": "8px", "top": "8px", "background": "var(--art-18)", "color": "var(--art-4)", "fontSize": "10px", "padding": "4px 8px"} as CSSProperties}>📷 Photo proof</span></div><div style={{"display": "flex", "alignItems": "center", "gap": "8px", "marginTop": "9px", "fontSize": "12px", "fontWeight": "800"} as CSSProperties}><span className="av" style={{"background": "var(--art-7)"} as CSSProperties}>SR</span>Front glass · SR</div></div></div></div></div><div className="L" data-z="0.32" style={{"left": "10px", "top": "560px", "width": "auto", "--r": "-2deg", "zIndex": "5"} as CSSProperties}><div className="in" style={{"--d": "1.3s"} as CSSProperties}><div className="fl" style={{"--fd": "1s"} as CSSProperties}><div className="card" style={{"padding": "12px 16px", "display": "flex", "gap": "10px", "alignItems": "center", "borderRadius": "16px"} as CSSProperties}><div className="ck" style={{"background": "var(--art-5)", "--cd": "1.9s"} as CSSProperties}><svg viewBox="0 0 24 24" className="draw"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--art-4)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"></path></svg></div><div><div style={{"fontWeight": "800", "fontSize": "13px"} as CSSProperties}>Walk-in temp logged</div><div style={{"fontSize": "11px", "color": "var(--art-6)", "fontWeight": "700"} as CSSProperties}>JM · just now</div></div></div></div></div></div></div></div>
         </section>
-
-        <section className="blk why-block" id="why">
-          <p className="eyebrow">Why CrooHQ</p>
-          <p className="body-copy">Built by a real multi-unit restaurant owner.</p>
-          <p className="body-copy">
-            One system for scheduling, time clock, checklists, inventory, hiring, and POS sync with Toast, Qu, Aloha,
-            and Clover.
-          </p>
-          <a
-            className="jefe"
-            href="https://eljefe-enterprises.com"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <p className="jefe-quote">
-              “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
-            </p>
-            <div className="jefe-byline">
-              <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
-              <div className="jefe-id">
-                <strong>Johnny Tellez</strong>
-                <span>20+ Year Restaurant Exec</span>
-                <span>El Jefe Enterprises</span>
-              </div>
-            </div>
-            <p className="jefe-ask">
-              Ask me how I can help your business through
-              <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
-            </p>
-          </a>
-          <div className="chips">
-            <span className="chip">Encrypted in transit (HTTPS)</span>
-            <span className="chip">Role-based access for owners, managers, and crew</span>
-          </div>
-          {/* TODO: add more client logos/testimonials when real assets exist */}
-        </section>
-
-        <div className="proof">
-          <strong>Live in real QSR kitchens.</strong>
-          <span>Punch clock · Checklists · Scheduling · Hiring · Inventory</span>
-        </div>
-
-        <section className="blk" id="stack">
-          <h2>A pile of tools. None of them talk to each other.</h2>
-          <p className="lead">Most multi-unit operators did not choose a stack. They accumulated one.</p>
-          <table className="stack">
-            <thead>
-              <tr>
-                <th>What you already pay for</th>
-                <th>What CrooHQ covers</th>
-              </tr>
-            </thead>
-            <tbody>
-              {STACK_ROWS.map(([a, b]) => (
-                <tr key={a}>
-                  <td>{a}</td>
-                  <td>{b}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="note">Starting at $199/month.</p>
-          <div className="cta-row" style={{ marginTop: 18 }}>
-            <a className="btn btn-primary" href={MAILTO}>Book a walkthrough</a>
-          </div>
-        </section>
-      </div>
-
-      <div className="band">
+        <div className="marq rv" aria-label={FEATURES.join(', ')}><div className="track" aria-hidden="true">{[0, 1].map(copy => <div className="marq-group" key={copy}>{FEATURES.map(word => <span key={word}>{word}</span>)}</div>)}</div></div>
         <div className="wrap">
-          <section className="blk" id="how">
-            <h2>We do not rip out the restaurant on day one.</h2>
-            <ol className="steps">
-              {STEPS.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ol>
-            <div className="chips">
-              {CHIPS.map((c) => (
-                <span className="chip" key={c}>{c}</span>
-              ))}
+          <section className="sec why-sec" id="why"><h2 className="rv">Operators buy it.<br />The crew runs it.</h2><p className="big rv">Meet them on the floor, on an iPad, not on a desktop. One system instead of the stack.</p>
+            <div className="split"><a className="tile t1 rv" href="https://eljefe-enterprises.com" target="_blank" rel="noopener noreferrer"><p className="quote">“I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”</p><div className="testimonial-foot"><div className="by"><img className="ph" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={48} height={48} loading="lazy" /><div><b>Johnny Tellez</b><small>20+ Year Restaurant Exec · El Jefe Enterprises</small></div></div><p className="ask">Ask me how I can help your business through <img src="/eljefe-stamp.png" alt="El Jefe Enterprises" loading="lazy" /></p></div></a>
+              <div className="tile t2 rv"><div><p className="eyebrow">Why CrooHQ</p><h3>Built by a real multi-unit restaurant owner.</h3></div><div><p className="pos-copy">POS sync with Toast, Qu, Aloha, and Clover.</p><span className="chip">Encrypted in transit (HTTPS)</span><span className="chip">Role-based access for owners, managers, and crew</span></div></div>
             </div>
+            {/* TODO: add more client logos/testimonials when real assets exist */}
+          </section>
+          <section className="sec" id="stack"><h2 className="rv">The whole stack out.<br />One system in.</h2><div className="rows">{STACK_ROWS.map(([before, after], i) => <div className="r rv" key={before} style={{ '--d': `${i * .08}s` } as CSSProperties}><s>{before}</s><i aria-hidden="true">→</i><b>{after}</b></div>)}</div>
+            <div className="price rv"><div><p className="price-label">Starting at</p><div className="n">$199<small>/month.</small></div><p className="price-note">Less than half your current stack. One bill, one system.</p></div><div><a className="btn bp lg" href={MAILTO}>Book a walkthrough</a><p className="price-fine">Try it for 14 days for free.</p></div></div>
           </section>
         </div>
-      </div>
-
-      <div className="wrap">
-        <section className="blk">
-          <p className="eyebrow">Operators</p>
-          <h2>Built by operators. For the people on the floor.</h2>
-          <p className="body-copy">The founders wanted a system that actually connected with restaurant staff.</p>
-          <p className="body-copy">
-            The features exist because real operators and their crews thought them up, then had to run them.
-          </p>
-          <div className="cta-row" style={{ marginTop: 26 }}>
-            <a className="btn btn-primary btn-lg" href={MAILTO}>Talk to an operator, not a sales pod.</a>
-          </div>
-        </section>
-
-        <section className="blk" style={{ paddingTop: 0 }}>
-          <h2>Less than half your current stack. One bill, one system.</h2>
-        </section>
-      </div>
-
-      <div className="wrap">
-        <section className="blk">
-          <h2>If you do not love it, you are not stuck.</h2>
-          <p className="body-copy">
-            I am not looking to hold anyone hostage who does not love the CrooHQ experience.
-          </p>
-          <div className="cta-row" style={{ marginTop: 26 }}>
-            <a className="btn btn-primary btn-lg" href={MAILTO}>Book a walkthrough</a>
-          </div>
-        </section>
-      </div>
-
-      <div className="jobs-band">
-        <div className="wrap">
-          <section className="blk" id="jobs">
-            <p className="eyebrow">Looking for a job?</p>
-            <h2>Restaurant roles are already posted.</h2>
-            <p className="body-copy">
-              Open crew and manager roles in Southern California. Apply on the jobs board.
-            </p>
-            <div className="cta-row" style={{ marginTop: 26 }}>
-              <Link className="btn btn-primary btn-lg" to="/jobs">See open jobs</Link>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <div className="wrap">
-        <footer>
-          <span>croohq.com · Built for operators, by operators. · Proudly made in America.</span>
-          <nav>
-            <Link to="/jobs">Jobs</Link>
-            <Link to="/privacy">Privacy Policy</Link>
-            <a href={MAILTO}>Contact: jordan@croohq.com</a>
-            <Link to="/terms">Terms</Link>
-            <Link to="/auth">Log in</Link>
-          </nav>
-        </footer>
-      </div>
+        <section className="how" id="how"><div className="pin"><div className="wrap"><h2 className="rv">No rip-and-replace<br />on day one.</h2><div className="st rv">{STEPS.map((step, i) => <div key={step}><b>{String(i + 1).padStart(2, '0')}</b><p>{step}</p></div>)}</div><div className="prog" aria-hidden="true"><i /></div><div className="feature-chips">{CHIPS.map(chip => <span className="chip" key={chip}>{chip}</span>)}</div></div></div></section>
+        <div className="wrap"><section className="end"><h2 className="rv">Not stuck.<br />Not sold to.</h2><p className="rv">If you do not love it, you are not stuck. Talk to an operator, not a sales pod.</p><a className="btn bo lg rv" href={MAILTO}>Book a 20-minute walkthrough</a></section><div className="jb rv"><span>Looking for a job? Open crew and manager roles in Southern California.</span><Link className="btn bp" to="/jobs">See open jobs</Link></div></div>
+      </main>
+      <div className="wrap"><footer><span>croohq.com · Built for operators, by operators. · Proudly made in America.</span><nav aria-label="Footer navigation"><Link to="/jobs">Jobs</Link><Link to="/privacy">Privacy Policy</Link><a href={MAILTO}>Contact: jordan@croohq.com</a><Link to="/terms">Terms</Link><Link to="/auth">Log in</Link></nav></footer></div>
     </div>
   );
 };
