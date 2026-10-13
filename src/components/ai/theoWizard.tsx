@@ -80,6 +80,7 @@ export type NudgeProposal = {
   id: string; action: 'quick_nudge'; target: { type: 'checklist' | 'task' | 'event'; id: string; title: string; done: number | null; total: number | null; event_time: string | null };
   recipients: { id: string; name: string }[]; recently: { name: string; minutes_ago: number }[]; template_id: string | null; message: string;
   preview_for: { name: string; text: string }; store: string; location_id: string; warnings: string[];
+  recipient_ids?: string[];
 };
 // Team Feed announcement. Posted only by the Post announcement tap (src/lib/feedPosts.ts createFeedPost).
 export type AnnouncementProposal = {
@@ -569,7 +570,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     if (p.location_id !== currentLocation.id) { setAction({ ...a, error: 'Not sent. You switched stores.' }); return; }
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
-      const res = await sendQuickNudge({ targetType: p.target.type, targetId: p.target.id, message: p.message, templateId: p.template_id, source: ownerRef.current === 'voice' ? 'theo_voice' : 'theo_chat', theoProposalId: p.id });
+      const res = await sendQuickNudge({ targetType: p.target.type, targetId: p.target.id, message: p.message, templateId: p.template_id, source: ownerRef.current === 'voice' ? 'theo_voice' : 'theo_chat', theoProposalId: p.id, recipientIds: p.recipient_ids });
       if (res.ok !== true) { logAction(a.logId, { status: 'failed' }); setAction({ ...a, stage: 'preview', error: `Not sent: ${(res as { error: string }).error}` }); return; }
       logAction(a.logId, { status: 'confirmed', record_id: res.batch_id });
       const names = nameList(res.sent.map((x) => firstName(x.name)));
@@ -1145,7 +1146,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
             {p.target.total != null && p.target.total > 0 && <div className="text-[13px] text-muted-foreground">{p.target.done ?? 0} of {p.target.total} done</div>}
           </div>
           <div>
-            <div className={label}>Going to (everyone on the clock)</div>
+            <div className={label}>{p.recipient_ids?.length ? 'Goes to (only the people you named)' : 'Going to (everyone on the clock)'}</div>
             <div className="mt-1 flex flex-wrap gap-1.5">{p.recipients.map((r) => <span key={r.id} className="rounded-full bg-muted px-2 py-1 text-[13px] font-semibold">{r.name}</span>)}</div>
             {p.recently.length > 0 && <p className="mt-1 text-[12px] text-muted-foreground">Skipped, nudged recently: {p.recently.map((r) => `${firstName(r.name)} (${r.minutes_ago}m ago)`).join(', ')}</p>}
           </div>

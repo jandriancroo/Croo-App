@@ -3355,7 +3355,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       if (crewRankMemo) return crewRankMemo;
       const [onIds, { data: sched }] = await Promise.all([
         clockedInUserIds(supabaseAdmin, location_id).catch(() => [] as string[]),
-        supabaseAdmin.from("scheduled_shifts").select("user_id, schedules!inner(location_id)").eq("schedules.location_id", location_id).eq("shift_date", today).not("user_id", "is", null),
+        supabaseAdmin.from("scheduled_shifts").select("user_id, schedules!inner(location_id)").eq("schedules.location_id", location_id).eq("schedules.is_published", true).eq("shift_date", today).not("user_id", "is", null),
       ]);
       const on = new Set(onIds); const sch = new Set((sched || []).map((r: any) => r.user_id));
       const tier = (id: string) => on.has(id) ? 0 : sch.has(id) ? 1 : 2;
@@ -3582,7 +3582,7 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 - Breaks, editing or deleting an existing punch, and clocking several people at once are not built: say to use the Time Clock page.
 ` : ""}${nudgeOn ? `QUICK NUDGE (a push in the manager's name about a checklist, task or event):
 - Works for checklists, tasks and today's events. Examples of meaning: "nudge the crew about the AM line check", "nudge the crew about the catering order", "remind Maria to finish the closing checklist", "give everyone a heads-up about the staff meeting". Call propose_nudge with target as said and named_person if someone was named (several people: named_people). If an id for that item is known from earlier in the conversation ("[ids: ...]"), also pass it as target_id.
-- Nudges always go to everyone on the clock at this store. Never promise it goes to one person alone.
+- By default a nudge goes to everyone on the clock at this store. If the manager names specific people, pass them (named_person / named_people) and it goes only to those who are on the clock. If the app says it took a name to mean someone, ask the manager to confirm before re-proposing with the full name.
 - Preview only. When it returns preview_shown, your whole reply must be exactly: "Here's the nudge. Does this look right to you?" Never say a nudge was sent.
 - Word changes ("say it nicer", "use the Before close one"): call propose_nudge again with the same target and text (the manager's own first-person words) or template.
 ` : ""}${announceOn ? `ANNOUNCEMENTS (a Team Feed post for this store, with the normal push):

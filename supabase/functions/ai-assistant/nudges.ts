@@ -59,13 +59,17 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
   const warnings: string[] = [];
   const hit = (q: string) => (p: { name: string }) => p.name.toLowerCase().split(/\s+/).some((w) => w.startsWith(q)) || p.name.toLowerCase().startsWith(q);
   const named = String(args?.named_person || "").trim();
+  // Named people who are on the clock and not in cooldown (exact/prefix hits only, never spelling guesses).
+  const pickedIds = new Set<string>();
+  const pick = (q: string) => { const g = aud.going.find(hit(q)); if (g) pickedIds.add(g.id); };
+  if (named) pick(named.toLowerCase());
   if (named) {
     const q = named.toLowerCase();
     const nm = named.split(/\s+/)[0];
     const rec = aud.recently.find(hit(q));
     if (rec) warnings.push(`${nm} was nudged about this ${rec.minutes_ago}m ago.`);
     else if (!aud.onClock.some(hit(q))) warnings.push(`${nm} isn't clocked in, so they won't get it.`);
-    if (aud.going.length) warnings.push("Nudges go to everyone on the clock.");
+    if (aud.going.length && !pickedIds.size) warnings.push("Nudges go to everyone on the clock.");
   }
   // Optional (new): several named people. Resolved like find_crew (prefix first, spelling-tolerant fallback).
   // The audience is unchanged: the send still goes to everyone on the clock.
@@ -75,12 +79,13 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
     for (const raw of namedList.slice(0, 10)) {
       const q = raw.toLowerCase();
       let on = aud.onClock.find(hit(q));
+      if (on) pick(q);
       if (!on) { const f = fuzzyPeople(raw, aud.onClock.map(asPerson))[0]; if (f) { on = f; warnings.push(`I took "${raw}" to mean ${f.name}.`); } }
       if (!on) { warnings.push(`${raw} isn't on shift right now, so they won't get it.`); continue; }
       const rec = aud.recently.find((p) => p.id === (on as any).id);
       if (rec) warnings.push(`${on.name.split(" ")[0]} was nudged about this ${rec.minutes_ago}m ago.`);
     }
-    if (aud.going.length && !warnings.includes("Nudges go to everyone on the clock.")) warnings.push("Nudges go to everyone on the clock.");
+    if (aud.going.length && !pickedIds.size && !warnings.includes("Nudges go to everyone on the clock.")) warnings.push("Nudges go to everyone on the clock.");
   }
   if (!aud.onClock.length) return { stop: `No one is clocked in at ${loc.name} right now, so there's no one to nudge.` };
   if (!aud.going.length) return { stop: "Everyone on the clock was nudged about this in the last hour." };
@@ -111,13 +116,16 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
     message = String(t.body || "").slice(0, MAX_MESSAGE);
   }
   const senderFirst = await senderFirstName(admin, managerId);
-  const first = aud.going[0];
+  const goingTo = pickedIds.size ? aud.going.filter((p) => pickedIds.has(p.id)) : aud.going;
+  if (pickedIds.size) warnings.push(`Goes to: ${goingTo.map((p) => p.first_name || p.name).join(", ")}.`);
+  const first = goingTo[0];
   return {
     ok: true,
     proposal: {
       id: crypto.randomUUID(), action: "quick_nudge",
       target: { type: target.type, id: target.id, title: target.title, done: target.done, total: target.total, event_time: target.event_time },
-      recipients: aud.going.map((p) => ({ id: p.id, name: p.name })),
+      recipients: goingTo.map((p) => ({ id: p.id, name: p.name })),
+      ...(pickedIds.size ? { recipient_ids: goingTo.map((p) => p.id) } : {}),
       recently: aud.recently.map((p) => ({ name: p.name, minutes_ago: p.minutes_ago })),
       template_id, message,
       preview_for: {
@@ -133,14 +141,14 @@ export const PROPOSE_NUDGE_TOOL = {
   type: "function",
   function: {
     name: "propose_nudge",
-    description: "Show the manager a PREVIEW of a nudge (a push in the manager's name asking the crew to finish a checklist or task, or a heads-up about today's event). Sends nothing: only the manager's Send nudge tap sends it. A nudge always goes to everyone on the clock at this store; Theo never picks who gets it.",
+    description: "Show the manager a PREVIEW of a nudge (a push in the manager's name asking the crew to finish a checklist or task, or a heads-up about today's event). Sends nothing: only the manager's Send nudge tap sends it. By default a nudge goes to everyone on the clock at this store; when the manager names specific people (named_person / named_people) it goes only to those of them who are on the clock.",
     parameters: {
       type: "object",
       properties: {
         target: { type: "string", description: "The checklist, task or event name as the manager said it ('AM line check', 'catering order')" },
         target_id: { type: "string", description: "Optional: the exact id of the checklist, task or event, when it is known from earlier in the conversation (e.g. [ids: ...]) or from a 'Did you mean' list. Used instead of matching the name." },
-        named_person: { type: "string", description: "A person the manager named, if any (the nudge still goes to everyone on the clock)" },
-        named_people: { type: "array", items: { type: "string" }, description: "Optional: several people the manager named ('Maria and Jo'). Checked against who's on shift; the nudge still goes to everyone on the clock." },
+        named_person: { type: "string", description: "A person the manager named, if any (the nudge then goes only to them, if they are on the clock)" },
+        named_people: { type: "array", items: { type: "string" }, description: "Optional: several people the manager named ('Maria and Jo'). Checked against who's on shift; the nudge goes only to the ones on the clock. Spelling guesses are not included until the manager confirms." },
         template: { type: "string", description: "A nudge template name the manager asked for" },
         text: { type: "string", description: "The manager's own words for the message, written in the manager's first person" },
       },
