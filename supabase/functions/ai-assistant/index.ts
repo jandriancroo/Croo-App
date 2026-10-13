@@ -10,6 +10,7 @@ import { buildAnnouncementProposal, recheckAnnouncement, PROPOSE_ANNOUNCEMENT_TO
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 import { isReadOnlyTool, runToolsSplit } from "./toolSplit.ts";
+import { bridge, readStreamedRound, streamEligible, wantsStream, type Streamer } from "./sseBridge.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
@@ -2841,7 +2842,17 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
   }
 }
 
+// Opt-in typed-chat streaming wraps the SAME handler; every other request goes straight to it.
 serve(async (req) => {
+  if (req.method === "POST") {
+    let wants = false;
+    try { wants = wantsStream(await req.clone().json()); } catch { /* the handler reports bad bodies as before */ }
+    if (wants) return bridge((s) => handleRequest(req, s), corsHeaders);
+  }
+  return handleRequest(req, null);
+});
+
+async function handleRequest(req: Request, streamer: Streamer | null): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   // Latency measurement (written to theo_ai_usage only).
   const reqStart = Date.now();
@@ -2891,6 +2902,8 @@ serve(async (req) => {
     const BAKEOFF_MODELS = ["google/gemini-2.5-flash", "google/gemini-3.1-flash-lite", "openai/gpt-6-luna"];
     const bakeoff = usageSource === "bakeoff" && userRole === "super_admin" && BAKEOFF_MODELS.includes(model_override);
     const bakeModel: string | null = bakeoff ? model_override : null;
+    // @OPUS questions never stream (their two-step list flow stays as is).
+    const opusAsk = Array.isArray(messages) && /@opus\b/i.test(String([...messages].reverse().find((m: any) => m?.role === "user")?.content || ""));
     const toolsCalled: string[] = [];
     const referencedIds: { type: string; id: string; title: string }[] = [];
     // Actions dry-run (bake-off only): propose_action is offered, writes nothing, returns preview_ready.
@@ -4093,4 +4106,4 @@ ${memoryContext}`;
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}
