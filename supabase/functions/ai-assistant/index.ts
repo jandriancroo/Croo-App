@@ -3908,15 +3908,19 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
         } else {
           result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun, locationId: location_id }), timezone);
         }
+        return result;
+      };
+      const toolResults = await runToolsSplit(parsedCalls, (c) => isReadOnlyTool(c.tc.function.name), (c) => runOne(c.tc, c.args));
+      parsedCalls.forEach(({ tc, args }, i) => {
+        const result = toolResults[i];
         if (bakeoff) toolOutputs.push({ tool: tc.function.name, args, output: result.slice(0, 6000) });
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
-        
         currentMessages.push({
           role: "tool",
           tool_call_id: tc.id,
           content: result,
         });
-      }
+      });
     }
 
     if (!finalResponse) {
