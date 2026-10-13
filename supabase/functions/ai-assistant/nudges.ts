@@ -61,6 +61,7 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
   const named = String(args?.named_person || "").trim();
   // Named people who are on the clock and not in cooldown (exact/prefix hits only, never spelling guesses).
   const pickedIds = new Set<string>();
+  const guesses: { raw: string; name: string }[] = [];
   const pick = (q: string) => { const g = aud.going.find(hit(q)); if (g) pickedIds.add(g.id); };
   if (named) pick(named.toLowerCase());
   if (named) {
@@ -69,10 +70,9 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
     const rec = aud.recently.find(hit(q));
     if (rec) warnings.push(`${nm} was nudged about this ${rec.minutes_ago}m ago.`);
     else if (!aud.onClock.some(hit(q))) warnings.push(`${nm} isn't clocked in, so they won't get it.`);
-    if (aud.going.length && !pickedIds.size) warnings.push("Nudges go to everyone on the clock.");
   }
-  // Optional (new): several named people. Resolved like find_crew (prefix first, spelling-tolerant fallback).
-  // The audience is unchanged: the send still goes to everyone on the clock.
+  // Optional: several named people. Resolved like find_crew (prefix first, spelling-tolerant fallback).
+  // Only the named people go out; when none of them can be nudged, Theo asks — it never falls back to everyone.
   const namedList: string[] = Array.isArray(args?.named_people) ? args.named_people.map((x: any) => String(x || "")).flatMap(splitNames) : [];
   if (namedList.length) {
     const asPerson = (p: any) => ({ ...p, full_name: p.name, nickname: null });
@@ -80,15 +80,20 @@ export async function buildNudgeProposal(admin: any, managerId: string, loc: { i
       const q = raw.toLowerCase();
       let on = aud.onClock.find(hit(q));
       if (on) pick(q);
-      if (!on) { const f = fuzzyPeople(raw, aud.onClock.map(asPerson))[0]; if (f) { on = f; warnings.push(`I took "${raw}" to mean ${f.name}.`); } }
+      if (!on) { const f = fuzzyPeople(raw, aud.onClock.map(asPerson))[0]; if (f) { on = f; guesses.push({ raw, name: f.name }); } }
       if (!on) { warnings.push(`${raw} isn't on shift right now, so they won't get it.`); continue; }
       const rec = aud.recently.find((p) => p.id === (on as any).id);
-      if (rec) warnings.push(`${on.name.split(" ")[0]} was nudged about this ${rec.minutes_ago}m ago.`);
+      if (rec && pickedIds.has((on as any).id)) warnings.push(`${on.name.split(" ")[0]} was nudged about this ${rec.minutes_ago}m ago.`);
     }
-    if (aud.going.length && !pickedIds.size && !warnings.includes("Nudges go to everyone on the clock.")) warnings.push("Nudges go to everyone on the clock.");
   }
   if (!aud.onClock.length) return { stop: `No one is clocked in at ${loc.name} right now, so there's no one to nudge.` };
   if (!aud.going.length) return { stop: "Everyone on the clock was nudged about this in the last hour." };
+  // Safety: the manager named people but none of them can be nudged — never fall back to everyone on the clock.
+  if ((named || namedList.length) && !pickedIds.size) {
+    if (guesses.length) return { ask: `Did you mean ${guesses.map((g) => g.name).join(", ")}?` };
+    return { ask: `${warnings.length ? warnings.join(" ") + " " : ""}Want me to nudge everyone on the clock instead?` };
+  }
+  if (pickedIds.size && guesses.length) warnings.push(`Did you mean ${guesses.map((g) => `${g.name} for "${g.raw}"`).join(", ")}? They weren't included.`);
 
   const available = fieldsFor(target.type, target.has_subtasks);
   const { data: tpls } = await admin.from("location_nudge_templates").select("id, name, body, is_default, sort_order").eq("location_id", loc.id).order("sort_order");
