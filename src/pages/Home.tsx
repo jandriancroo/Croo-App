@@ -194,28 +194,14 @@ const Home = () => {
               <p className="fine">14-day trial. No hostage contract. Sold per location.</p>
             </div>
             <div className="hero-visual">
-              <a
-                className="jefe"
-                href="https://eljefe-enterprises.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <p className="jefe-quote">
-                  “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
-                </p>
-                <div className="jefe-byline">
-                  <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
-                  <div className="jefe-id">
-                    <strong>Johnny Tellez</strong>
-                    <span>20+ Year Restaurant Exec</span>
-                    <span>El Jefe Enterprises</span>
-                  </div>
-                </div>
-                <p className="jefe-ask">
-                  Ask me how I can help your business through
-                  <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
-                </p>
-              </a>
+              <img
+                className="shot"
+                src="/croohq-ipad-punch.png"
+                alt="CrooHQ punch clock PIN screen on an iPad on a restaurant counter"
+                width={1536}
+                height={1024}
+              />
+            </div>
               <img
                 className="shot"
                 src="/croohq-ipad-punch.png"
