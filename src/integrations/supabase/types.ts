@@ -13261,33 +13261,48 @@ export type Database = {
       }
       theo_ai_usage: {
         Row: {
+          cold_start: boolean | null
           completion_tokens: number
           created_at: string
           id: string
           location_id: string | null
           model: string
           prompt_tokens: number
+          round_count: number | null
           source: string
+          t_pre_ai_ms: number | null
+          t_round_ms: number[] | null
+          t_total_ms: number | null
           user_id: string | null
         }
         Insert: {
+          cold_start?: boolean | null
           completion_tokens?: number
           created_at?: string
           id?: string
           location_id?: string | null
           model: string
           prompt_tokens?: number
+          round_count?: number | null
           source: string
+          t_pre_ai_ms?: number | null
+          t_round_ms?: number[] | null
+          t_total_ms?: number | null
           user_id?: string | null
         }
         Update: {
+          cold_start?: boolean | null
           completion_tokens?: number
           created_at?: string
           id?: string
           location_id?: string | null
           model?: string
           prompt_tokens?: number
+          round_count?: number | null
           source?: string
+          t_pre_ai_ms?: number | null
+          t_round_ms?: number[] | null
+          t_total_ms?: number | null
           user_id?: string | null
         }
         Relationships: [
