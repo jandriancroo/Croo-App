@@ -210,7 +210,7 @@ const Home = () => {
 
         <section className="blk why-block" id="why">
           <p className="eyebrow">Why CrooHQ</p>
-          <p className="body-copy">Built by a former 3-store Jersey Mike’s owner-operator.</p>
+          <p className="body-copy">Built by a real multi-unit restaurant owner.</p>
           <p className="body-copy">
             One system for scheduling, time clock, checklists, inventory, hiring, and POS sync with Toast, Qu, Aloha,
             and Clover.
