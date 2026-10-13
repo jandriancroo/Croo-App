@@ -122,7 +122,7 @@ const STEPS = [
   "Checklists and recipes in one store.",
   "Punch clock, cash, inventory in a workshop. Weeks, not a self-serve login.",
   "Scheduling and labor once the team is actually using it.",
-  "Next location when the first one is real.",
+  "Expand when the first rollout is real.",
 ];
 
 const CHIPS = [
@@ -181,6 +181,7 @@ const Home = () => {
             <div>
               <p className="pairline">Built for operators, by operators.</p>
               <h1>Your crew’s HQ.</h1>
+              <p className="h1sub">The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p>
               <p className="sub">
                 Operators buy it. The crew actually runs it. Meet them on the floor, on an iPad, not on a desktop.
               </p>
@@ -191,7 +192,7 @@ const Home = () => {
               <div className="cta-row">
                 <a className="btn btn-primary btn-lg" href={MAILTO}>Book a 20-minute walkthrough</a>
               </div>
-              <p className="fine">14-day trial. No hostage contract. Sold per location.</p>
+              <p className="fine">14-day trial. No hostage contract.</p>
             </div>
             <div className="hero-visual">
               <a
