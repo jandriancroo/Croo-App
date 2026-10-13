@@ -181,6 +181,7 @@ const Home = () => {
             <div>
               <p className="pairline">Built for operators, by operators.</p>
               <h1>Your crew’s HQ.</h1>
+              <p className="lede">The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p>
               <p className="sub">
                 Operators buy it. The crew actually runs it. Meet them on the floor, on an iPad, not on a desktop.
               </p>
