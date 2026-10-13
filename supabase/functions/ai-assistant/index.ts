@@ -10,6 +10,7 @@ import { buildAnnouncementProposal, recheckAnnouncement, PROPOSE_ANNOUNCEMENT_TO
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 import { isReadOnlyTool, runToolsSplit } from "./toolSplit.ts";
+import { bridge, readStreamedRound, streamEligible, wantsStream, type Streamer } from "./sseBridge.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
@@ -2841,7 +2842,17 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
   }
 }
 
+// Opt-in typed-chat streaming wraps the SAME handler; every other request goes straight to it.
 serve(async (req) => {
+  if (req.method === "POST") {
+    let wants = false;
+    try { wants = wantsStream(await req.clone().json()); } catch { /* the handler reports bad bodies as before */ }
+    if (wants) return bridge((s) => handleRequest(req, s), corsHeaders);
+  }
+  return handleRequest(req, null);
+});
+
+async function handleRequest(req: Request, streamer: Streamer | null): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   // Latency measurement (written to theo_ai_usage only).
   const reqStart = Date.now();
@@ -2891,6 +2902,8 @@ serve(async (req) => {
     const BAKEOFF_MODELS = ["google/gemini-2.5-flash", "google/gemini-3.1-flash-lite", "openai/gpt-6-luna"];
     const bakeoff = usageSource === "bakeoff" && userRole === "super_admin" && BAKEOFF_MODELS.includes(model_override);
     const bakeModel: string | null = bakeoff ? model_override : null;
+    // @OPUS questions never stream (their two-step list flow stays as is).
+    const opusAsk = Array.isArray(messages) && /@opus\b/i.test(String([...messages].reverse().find((m: any) => m?.role === "user")?.content || ""));
     const toolsCalled: string[] = [];
     const referencedIds: { type: string; id: string; title: string }[] = [];
     // Actions dry-run (bake-off only): propose_action is offered, writes nothing, returns preview_ready.
@@ -3764,6 +3777,33 @@ ${memoryContext}`;
           ...(withCap ? { max_completion_tokens: CAP_TOKENS } : {}),
         }),
       });
+      // Opt-in typed-chat streaming (plain answers only). Any trouble before the first token -> the normal call below.
+      let aiData: any = null;
+      if (streamer && streamEligible({ streamer: true, source: usageSource, anyPending, dryRun, bakeoff, opus: opusAsk, pick, listContext: list_context, liveProposal, screen: coverScreen, cancelPending, declineLine })) {
+        try {
+          const sResp = await fetch(AI_URL, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: THEO_MODEL,
+              ...(THEO_MODEL === "openai/gpt-6-luna" ? { reasoning_effort: "none" } : {}),
+              messages: currentMessages,
+              tools: roundTools,
+              tool_choice: finalRound ? "none" : "auto",
+              ...(useCap ? { max_completion_tokens: CAP_TOKENS } : {}),
+              stream: true,
+              stream_options: { include_usage: true },
+            }),
+          });
+          if (sResp.ok && sResp.body) aiData = await readStreamedRound(sResp, (t) => streamer.delta(t));
+          else { console.warn("stream round not ok, using normal call:", sResp.status); await sResp.text().catch(() => {}); }
+        } catch (e) {
+          if (streamer.started()) throw e;
+          console.warn("stream round failed before first token, using normal call:", e);
+          aiData = null;
+        }
+      }
+      if (!aiData) {
       let aiResp = await callAI(useCap);
       if (useCap && aiResp.status === 400) {
         console.warn("AI 400 with max_completion_tokens; retrying once without it:", (await aiResp.text()).slice(0, 300));
@@ -3791,7 +3831,8 @@ ${memoryContext}`;
         throw new Error(`AI error: ${status}`);
       }
 
-      let aiData = await aiResp.json();
+      aiData = await aiResp.json();
+      }
       usage.calls++;
       usage.pt += aiData.usage?.prompt_tokens || 0;
       usage.ct += aiData.usage?.completion_tokens || 0;
@@ -4065,4 +4106,4 @@ ${memoryContext}`;
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}
