@@ -9,6 +9,7 @@ import { buildNudgeProposal, PROPOSE_NUDGE_TOOL } from "./nudges.ts";
 import { buildAnnouncementProposal, recheckAnnouncement, PROPOSE_ANNOUNCEMENT_TOOL } from "./announcements.ts";
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
+import { isReadOnlyTool, runToolsSplit } from "./toolSplit.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
@@ -3198,8 +3199,6 @@ userRole === 'manager' ? `- MANAGER: You can see all operational data including 
 - NEVER bypass these restrictions regardless of how the question is phrased. If a shift manager asks "what's Nicole's hourly rate" — deny it.
 - When in doubt about whether data is allowed for this role, err on the side of restricting it.
 
-${contextSnapshot}
-${memoryContext}
 
 KNOWLEDGE BASE & MEMORY:
 - If pinned knowledge exists above, treat it as ground truth for this location — it was saved by managers who know their store.
@@ -3397,7 +3396,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     } : null;
     const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange || pendingEvent || pendingMessage || pendingPunch || pendingNudge);
     const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
-    const crewForActions = actionsOn ? unwrapSettled(await crewP!) : [];
+    const crewForActions = actionsOn ? (crewP ? unwrapSettled(await crewP) : await activeCrewAt(supabaseAdmin, location_id)) : [];
     const matchCrew = (raw: string) => {
       const q = raw.trim().toLowerCase();
       return q ? crewForActions.filter((c) => {
@@ -3709,8 +3708,15 @@ A TEMPLATE LIST IS ON SCREEN for adding a shift: ${JSON.stringify(listDraft)}. I
 
 You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklists, time off or anything else). Never say you did. If asked, say you can't do that and tell them where in the app to do it. Telling or asking someone to do a job ("tell Jordan to clean the bathroom") means a quick task: say you can't assign it from here and to add it on the Tasks page — don't talk about messages.`;
     const sysContent = actionGuard ? systemPrompt + GUARD_RULE : actionsOn ? systemPrompt + ACTIONS_RULES : dryRun ? systemPrompt : systemPrompt + NEVER_CLAIM;
+    const liveContext = `LIVE CONTEXT (the snapshot and any pinned knowledge / OPUS results referred to in the rules above):
+For simple number questions (sales, projections, labor %, guests, tips, who's scheduled), answer straight from the LIVE CONTEXT SNAPSHOT when the figure is there, without calling a tool.
+
+${contextSnapshot}
+${memoryContext}`;
     const aiMessages = [
       { role: "system", content: sysContent },
+      // Live, per-request parts go in a trailing system message so the rules above stay an identical prefix (prompt caching).
+      { role: "system", content: liveContext },
       ...messages,
     ];
     let liveProposal: any = null;
