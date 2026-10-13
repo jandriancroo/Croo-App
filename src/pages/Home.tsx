@@ -213,14 +213,6 @@ const Home = () => {
                 height={1024}
               />
             </div>
-              <img
-                className="shot"
-                src="/croohq-ipad-punch.png"
-                alt="CrooHQ punch clock PIN screen on an iPad on a restaurant counter"
-                width={1536}
-                height={1024}
-              />
-            </div>
           </div>
         </section>
 
