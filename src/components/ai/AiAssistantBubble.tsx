@@ -261,6 +261,7 @@ export function AiAssistantBubble() {
   // ── Theo voice: offer each 4-hour opener once per person per store ──
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [voiceIntent, setVoiceIntent] = useState<'update' | 'talk'>('talk');
+  const [streaming, setStreaming] = useState(false);
   useEffect(() => {
     if (!isShiftManager || !currentLocation?.id || !timezone) return;
     const check = async () => {
@@ -361,7 +362,6 @@ export function AiAssistantBubble() {
     }
   };
 
-  const [streaming, setStreaming] = useState(false);
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !currentLocation) return;
     if (isListening) toggleListening();
