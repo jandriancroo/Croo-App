@@ -194,7 +194,7 @@ const Home = () => {
               <div className="cta-row">
                 <a className="btn btn-primary btn-lg" href={MAILTO}>Book a 20-minute walkthrough</a>
               </div>
-              <p className="fine">14-day trial. No hostage contract.</p>
+              <p className="fine">Try it for 14 days for free.</p>
             </div>
             <div className="hero-visual">
               <img
