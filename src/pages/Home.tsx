@@ -102,8 +102,18 @@ const CSS = `
 .hme .jefe-ask { margin-top: 2px; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--teal-d); flex-wrap: wrap; }
 .hme .jefe-stamp { height: 36px; width: auto; display: block; }
 
+.hme .lede { font-size: 19px; font-weight: 700; color: var(--teal-d); max-width: 40ch; margin: 16px 0 0; letter-spacing: -0.01em; }
+
+.hme .trust { padding: 46px 0 4px; }
+.hme .trust-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: center; }
+.hme .sec-list { margin-top: 20px; display: grid; gap: 9px; list-style: none; }
+.hme .sec-list li { position: relative; padding-left: 24px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.hme .sec-list li::before { content: "✓"; position: absolute; left: 0; top: -1px; color: var(--teal); font-weight: 800; }
+.hme .price-line { margin-top: 16px; font-size: 19px; font-weight: 800; color: var(--teal-d); }
+
 @media (max-width: 900px) {
   .hme .hero-grid { grid-template-columns: 1fr; gap: 30px; }
+  .hme .trust-grid { grid-template-columns: 1fr; gap: 26px; }
   .hme .wrap { width: calc(100% - 32px); }
   .hme section.blk { padding: 52px 0; }
   .hme h2 { max-width: none; }
