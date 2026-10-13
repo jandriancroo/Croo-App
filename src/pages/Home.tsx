@@ -195,28 +195,6 @@ const Home = () => {
               <p className="fine">14-day trial. No hostage contract.</p>
             </div>
             <div className="hero-visual">
-              <a
-                className="jefe"
-                href="https://eljefe-enterprises.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <p className="jefe-quote">
-                  “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
-                </p>
-                <div className="jefe-byline">
-                  <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
-                  <div className="jefe-id">
-                    <strong>Johnny Tellez</strong>
-                    <span>20+ Year Restaurant Exec</span>
-                    <span>El Jefe Enterprises</span>
-                  </div>
-                </div>
-                <p className="jefe-ask">
-                  Ask me how I can help your business through
-                  <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
-                </p>
-              </a>
               <img
                 className="shot"
                 src="/croohq-ipad-punch.png"
@@ -226,6 +204,42 @@ const Home = () => {
               />
             </div>
           </div>
+        </section>
+
+        <section className="blk why-block" id="why">
+          <p className="eyebrow">Why CrooHQ</p>
+          <p className="body-copy">Built by a former 3-store Jersey Mike’s owner-operator.</p>
+          <p className="body-copy">
+            One system for scheduling, time clock, checklists, inventory, hiring, and POS sync with Toast, Qu, Aloha,
+            and Clover.
+          </p>
+          <a
+            className="jefe"
+            href="https://eljefe-enterprises.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <p className="jefe-quote">
+              “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
+            </p>
+            <div className="jefe-byline">
+              <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
+              <div className="jefe-id">
+                <strong>Johnny Tellez</strong>
+                <span>20+ Year Restaurant Exec</span>
+                <span>El Jefe Enterprises</span>
+              </div>
+            </div>
+            <p className="jefe-ask">
+              Ask me how I can help your business through
+              <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
+            </p>
+          </a>
+          <div className="chips">
+            <span className="chip">Encrypted in transit (HTTPS)</span>
+            <span className="chip">Role-based access for owners, managers, and crew</span>
+          </div>
+          {/* TODO: add more client logos/testimonials when real assets exist */}
         </section>
 
         <div className="proof">
@@ -252,7 +266,10 @@ const Home = () => {
               ))}
             </tbody>
           </table>
-          <p className="note">One system. Per location. Price comes on a walkthrough, not a grid.</p>
+          <p className="note">Starting at $199/month.</p>
+          <div className="cta-row" style={{ marginTop: 18 }}>
+            <a className="btn btn-primary" href={MAILTO}>Book a walkthrough</a>
+          </div>
         </section>
       </div>
 
@@ -324,7 +341,8 @@ const Home = () => {
           <span>croohq.com · Built for operators, by operators. · Proudly made in America.</span>
           <nav>
             <Link to="/jobs">Jobs</Link>
-            <Link to="/privacy">Privacy</Link>
+            <Link to="/privacy">Privacy Policy</Link>
+            <a href={MAILTO}>Contact: jordan@croohq.com</a>
             <Link to="/terms">Terms</Link>
             <Link to="/auth">Log in</Link>
           </nav>
