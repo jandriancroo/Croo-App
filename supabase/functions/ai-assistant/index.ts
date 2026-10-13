@@ -10,6 +10,7 @@ import { buildAnnouncementProposal, recheckAnnouncement, PROPOSE_ANNOUNCEMENT_TO
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
 import { isReadOnlyTool, runToolsSplit } from "./toolSplit.ts";
+import { isWarmPing, warmResponse } from "../_shared/warm.ts";
 import { bridge, readStreamedRound, streamEligible, wantsStream, type Streamer } from "./sseBridge.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
@@ -2844,6 +2845,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
 // Opt-in typed-chat streaming wraps the SAME handler; every other request goes straight to it.
 serve(async (req) => {
+  // Keep-warm ping (exact {"warm": true} body): answered before auth and before the stream wrapper.
+  if (await isWarmPing(req)) return warmResponse(corsHeaders);
   if (req.method === "POST") {
     let wants = false;
     try { wants = wantsStream(await req.clone().json()); } catch { /* the handler reports bad bodies as before */ }

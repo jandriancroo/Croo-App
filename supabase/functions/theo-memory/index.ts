@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateEmbedding } from "../_shared/embeddings.ts";
+import { isWarmPing, warmResponse } from "../_shared/warm.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -18,6 +19,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Keep-warm ping (exact {"warm": true} body): before auth, no embedding, no data.
+  if (await isWarmPing(req)) return warmResponse(corsHeaders);
 
   try {
     const authHeader = req.headers.get("Authorization");
