@@ -2848,14 +2848,37 @@ serve(async (req) => {
     const lunaEffort = bakeoff && ["none", "low", "medium", "high"].includes(reasoning_override) ? reasoning_override : "none";
     // Store time zone from location_settings (same place useLocationTimezone and the
     // business-day functions read). "Today" is the store's BUSINESS date.
+    // Speed: permissions, crew and the memory lookup only need the store id, so they start now and
+    // run alongside the time zone / business date / snapshot / labor work. Results are unchanged.
+    const actionsMayRun = !bakeoff && (usageSource === "voice" || usageSource === "chat");
+    const actionsP: Promise<any> = actionsMayRun ? theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : Promise.resolve(null);
+    // Crew is only USED when an action is on (needs a valid store id); fetched early, errors held until used.
+    const crewP: Promise<Settled<{ id: string; full_name: string; nickname: string | null }[]>> | null =
+      actionsMayRun && typeof location_id === "string" && /^[0-9a-f-]{36}$/i.test(location_id) ? settle(activeCrewAt(supabaseAdmin, location_id)) : null;
+    const memoryP: Promise<any[] | null> = (async () => {
+      try {
+        const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
+        if (!lastUserMsg?.content) return null;
+        const queryText = lastUserMsg.content;
+        if (/@opus\b/i.test(queryText)) return null;
+        const cleanQuery = queryText.replace(/@opus\b/i, "").trim();
+        // No saved memory for this store -> theo-memory would return nothing; skip the call.
+        if (location_id && !(await locationHasKnowledge(supabaseAdmin, location_id))) return [];
+        return await callTheoMemory(location_id, cleanQuery);
+      } catch { return null; }
+    })();
+
     let timezone = "America/Los_Angeles";
-    if (location_id) {
-      const { data: tzRow } = await supabaseAdmin.from("location_settings").select("timezone").eq("location_id", location_id).maybeSingle();
-      if (tzRow?.timezone) timezone = tzRow.timezone;
-    }
+    const [tzRes, bdRes] = location_id
+      ? await Promise.all([
+          supabaseAdmin.from("location_settings").select("timezone").eq("location_id", location_id).maybeSingle(),
+          supabaseAdmin.rpc("business_date", { _location_id: location_id, _at: new Date().toISOString() }),
+        ])
+      : [null, null];
+    if (tzRes?.data?.timezone) timezone = tzRes.data.timezone;
     let today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
     if (location_id) {
-      const { data: bd } = await supabaseAdmin.rpc("business_date", { _location_id: location_id, _at: new Date().toISOString() });
+      const bd = bdRes?.data;
       if (typeof bd === "string" && /^\d{4}-\d{2}-\d{2}/.test(bd)) today = bd.slice(0, 10);
     }
     const yesterday = addDays(today, -1);
@@ -2864,9 +2887,11 @@ serve(async (req) => {
     const weekStart = addDays(today, -(dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
     // === BUILD CONTEXT SNAPSHOT (cached per location for 60s; labor added per request) ===
-    const [cachedSnapshot, laborLines] = await Promise.all([
+    const [cachedSnapshot, laborLines, theoActionsEarly] = await Promise.all([
       getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart),
       buildLaborLines(supabaseUser, location_id, yesterday, today),
+      actionsP,
+      memoryP,
     ]);
     const contextSnapshot = laborLines ? `${cachedSnapshot}\n${laborLines}` : cachedSnapshot;
 
