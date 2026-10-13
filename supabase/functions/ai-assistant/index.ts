@@ -3764,6 +3764,33 @@ ${memoryContext}`;
           ...(withCap ? { max_completion_tokens: CAP_TOKENS } : {}),
         }),
       });
+      // Opt-in typed-chat streaming (plain answers only). Any trouble before the first token -> the normal call below.
+      let aiData: any = null;
+      if (streamer && streamEligible({ streamer: true, source: usageSource, anyPending, dryRun, bakeoff, opus: opusAsk, pick, listContext: list_context, liveProposal, screen: coverScreen, cancelPending, declineLine })) {
+        try {
+          const sResp = await fetch(AI_URL, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: THEO_MODEL,
+              ...(THEO_MODEL === "openai/gpt-6-luna" ? { reasoning_effort: "none" } : {}),
+              messages: currentMessages,
+              tools: roundTools,
+              tool_choice: finalRound ? "none" : "auto",
+              ...(useCap ? { max_completion_tokens: CAP_TOKENS } : {}),
+              stream: true,
+              stream_options: { include_usage: true },
+            }),
+          });
+          if (sResp.ok && sResp.body) aiData = await readStreamedRound(sResp, (t) => streamer.delta(t));
+          else { console.warn("stream round not ok, using normal call:", sResp.status); await sResp.text().catch(() => {}); }
+        } catch (e) {
+          if (streamer.started()) throw e;
+          console.warn("stream round failed before first token, using normal call:", e);
+          aiData = null;
+        }
+      }
+      if (!aiData) {
       let aiResp = await callAI(useCap);
       if (useCap && aiResp.status === 400) {
         console.warn("AI 400 with max_completion_tokens; retrying once without it:", (await aiResp.text()).slice(0, 300));
@@ -3791,7 +3818,8 @@ ${memoryContext}`;
         throw new Error(`AI error: ${status}`);
       }
 
-      let aiData = await aiResp.json();
+      aiData = await aiResp.json();
+      }
       usage.calls++;
       usage.pt += aiData.usage?.prompt_tokens || 0;
       usage.ct += aiData.usage?.completion_tokens || 0;
