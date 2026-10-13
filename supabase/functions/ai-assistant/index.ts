@@ -9,6 +9,7 @@ import { buildNudgeProposal, PROPOSE_NUDGE_TOOL } from "./nudges.ts";
 import { buildAnnouncementProposal, recheckAnnouncement, PROPOSE_ANNOUNCEMENT_TOOL } from "./announcements.ts";
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
+import { isReadOnlyTool, runToolsSplit } from "./toolSplit.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
@@ -3198,8 +3199,6 @@ userRole === 'manager' ? `- MANAGER: You can see all operational data including 
 - NEVER bypass these restrictions regardless of how the question is phrased. If a shift manager asks "what's Nicole's hourly rate" — deny it.
 - When in doubt about whether data is allowed for this role, err on the side of restricting it.
 
-${contextSnapshot}
-${memoryContext}
 
 KNOWLEDGE BASE & MEMORY:
 - If pinned knowledge exists above, treat it as ground truth for this location — it was saved by managers who know their store.
@@ -3397,7 +3396,7 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
     } : null;
     const anyPending = !!(pending || pendingCover || pendingAdd || pendingDelete || pendingSwap || pendingChange || pendingEvent || pendingMessage || pendingPunch || pendingNudge);
     const listShift = coverOn && list_context && typeof list_context?.shift_id === "string" ? String(list_context.shift_id).slice(0, 36) : null;
-    const crewForActions = actionsOn ? unwrapSettled(await crewP!) : [];
+    const crewForActions = actionsOn ? (crewP ? unwrapSettled(await crewP) : await activeCrewAt(supabaseAdmin, location_id)) : [];
     const matchCrew = (raw: string) => {
       const q = raw.trim().toLowerCase();
       return q ? crewForActions.filter((c) => {
@@ -3709,8 +3708,15 @@ A TEMPLATE LIST IS ON SCREEN for adding a shift: ${JSON.stringify(listDraft)}. I
 
 You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklists, time off or anything else). Never say you did. If asked, say you can't do that and tell them where in the app to do it. Telling or asking someone to do a job ("tell Jordan to clean the bathroom") means a quick task: say you can't assign it from here and to add it on the Tasks page — don't talk about messages.`;
     const sysContent = actionGuard ? systemPrompt + GUARD_RULE : actionsOn ? systemPrompt + ACTIONS_RULES : dryRun ? systemPrompt : systemPrompt + NEVER_CLAIM;
+    const liveContext = `LIVE CONTEXT (the snapshot and any pinned knowledge / OPUS results referred to in the rules above):
+For simple number questions (sales, projections, labor %, guests, tips, who's scheduled), answer straight from the LIVE CONTEXT SNAPSHOT when the figure is there, without calling a tool.
+
+${contextSnapshot}
+${memoryContext}`;
     const aiMessages = [
       { role: "system", content: sysContent },
+      // Live, per-request parts go in a trailing system message so the rules above stay an identical prefix (prompt caching).
+      { role: "system", content: liveContext },
       ...messages,
     ];
     let liveProposal: any = null;
@@ -3726,15 +3732,23 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
 
     let finalResponse: any = null;
     let loopCount = 0;
-    const MAX_LOOPS = 5;
+    // Up to 3 tool rounds; if round 3 still wants tools, one last call with tool_choice "none"
+    // makes the model answer with what it already has.
+    const MAX_LOOPS = 3;
     let currentMessages = [...aiMessages];
     const usage = { calls: 0, pt: 0, ct: 0, cached: 0 };
+    const roundTools = dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), ...(nudgeOn ? [PROPOSE_NUDGE_TOOL] : []), ...(announceOn ? [PROPOSE_ANNOUNCEMENT_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS;
+    // Safety cap only (average answer ~110 tokens). Dropped for the rest of the request if the
+    // gateway rejects it (400) or an answer hits it (finish_reason "length"). Never in the bake-off.
+    const CAP_TOKENS = usageSource === "voice" ? 500 : 1200;
+    let useCap = !bakeoff;
 
-    while (loopCount < MAX_LOOPS) {
+    while (loopCount <= MAX_LOOPS) {
       loopCount++;
+      const finalRound = loopCount > MAX_LOOPS;
       const roundStart = Date.now();
       if (tPreAiMs === null) tPreAiMs = roundStart - reqStart;
-      const aiResp = await fetch(AI_URL, {
+      const callAI = (withCap: boolean) => fetch(AI_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -3745,10 +3759,17 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           // gpt-6-luna on chat-completions only accepts function tools with reasoning off.
           ...((bakeModel ?? THEO_MODEL) === "openai/gpt-6-luna" ? { reasoning_effort: bakeoff ? lunaEffort : "none" } : {}),
           messages: currentMessages,
-          tools: dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), ...(nudgeOn ? [PROPOSE_NUDGE_TOOL] : []), ...(announceOn ? [PROPOSE_ANNOUNCEMENT_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS,
-          tool_choice: "auto",
+          tools: roundTools,
+          tool_choice: finalRound ? "none" : "auto",
+          ...(withCap ? { max_completion_tokens: CAP_TOKENS } : {}),
         }),
       });
+      let aiResp = await callAI(useCap);
+      if (useCap && aiResp.status === 400) {
+        console.warn("AI 400 with max_completion_tokens; retrying once without it:", (await aiResp.text()).slice(0, 300));
+        useCap = false;
+        aiResp = await callAI(false);
+      }
 
       if (!aiResp.ok) {
         const status = aiResp.status;
@@ -3770,30 +3791,45 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
         throw new Error(`AI error: ${status}`);
       }
 
-      const aiData = await aiResp.json();
-      tRoundMs.push(Date.now() - roundStart);
+      let aiData = await aiResp.json();
       usage.calls++;
       usage.pt += aiData.usage?.prompt_tokens || 0;
       usage.ct += aiData.usage?.completion_tokens || 0;
       usage.cached += aiData.usage?.prompt_tokens_details?.cached_tokens || 0;
+      // Hit the safety cap: redo this round once with no cap so the answer is never cut off.
+      if (useCap && aiData.choices?.[0]?.finish_reason === "length") {
+        console.warn("Answer hit max_completion_tokens; redoing round without the cap");
+        useCap = false;
+        const again = await callAI(false);
+        if (again.ok) {
+          aiData = await again.json();
+          usage.calls++;
+          usage.pt += aiData.usage?.prompt_tokens || 0;
+          usage.ct += aiData.usage?.completion_tokens || 0;
+          usage.cached += aiData.usage?.prompt_tokens_details?.cached_tokens || 0;
+        }
+      }
+      tRoundMs.push(Date.now() - roundStart);
       const choice = aiData.choices?.[0];
       
       if (!choice) throw new Error("No AI response");
 
-      if (!choice.message.tool_calls || choice.message.tool_calls.length === 0) {
+      if (finalRound || !choice.message.tool_calls || choice.message.tool_calls.length === 0) {
         finalResponse = choice.message.content;
         break;
       }
 
       currentMessages.push(choice.message);
       
-      for (const tc of choice.message.tool_calls) {
+      const parsedCalls = choice.message.tool_calls.map((tc: any) => {
         const args = typeof tc.function.arguments === "string" 
           ? JSON.parse(tc.function.arguments) 
           : tc.function.arguments;
-        
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
         toolsCalled.push(tc.function.name);
+        return { tc, args };
+      });
+      const runOne = async (tc: any, args: any): Promise<string> => {
         let result: string;
         if (dryRun && tc.function.name === "propose_action") {
           proposals.push(args);
@@ -3908,15 +3944,19 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
         } else {
           result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun, locationId: location_id }), timezone);
         }
+        return result;
+      };
+      const toolResults = await runToolsSplit(parsedCalls, (c) => isReadOnlyTool(c.tc.function.name), (c) => runOne(c.tc, c.args));
+      parsedCalls.forEach(({ tc, args }, i) => {
+        const result = toolResults[i];
         if (bakeoff) toolOutputs.push({ tool: tc.function.name, args, output: result.slice(0, 6000) });
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
-        
         currentMessages.push({
           role: "tool",
           tool_call_id: tc.id,
           content: result,
         });
-      }
+      });
     }
 
     if (!finalResponse) {
