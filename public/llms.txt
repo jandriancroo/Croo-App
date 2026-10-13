@@ -1,0 +1,8 @@
+# CrooHQ
+
+> CrooHQ is a restaurant operations platform for multi-unit QSR and fast-casual groups, built by an operator.
+
+CrooHQ brings scheduling, time clock, checklists, inventory, and hiring into one system, with POS sync for Toast, Qu, Aloha, and Clover. Pricing starts at $199/month. Founded by Jordan Andrian. Contact: jordan@croohq.com
+
+- Home: https://croohq.com/
+- Jobs: https://croohq.com/jobs
