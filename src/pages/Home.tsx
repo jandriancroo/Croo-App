@@ -122,7 +122,7 @@ const STEPS = [
   "Checklists and recipes in one store.",
   "Punch clock, cash, inventory in a workshop. Weeks, not a self-serve login.",
   "Scheduling and labor once the team is actually using it.",
-  "Next location when the first one is real.",
+  "Expand when the first rollout is real.",
 ];
 
 const CHIPS = [
