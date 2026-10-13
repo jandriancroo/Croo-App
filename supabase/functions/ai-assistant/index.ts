@@ -2884,26 +2884,8 @@ serve(async (req) => {
         let relevant: any[] = [];
 
         if (!isOpusQuery) {
-          try {
-            const memResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/theo-memory`, {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                action: "search",
-                location_id: location_id,
-                query: cleanQuery,
-              }),
-            });
-            if (memResp.ok) {
-              const memData = await memResp.json();
-              relevant = memData.results || [];
-            }
-          } catch (e) {
-            console.error("Vector memory search failed, falling back to text:", e);
-          }
+          // Started earlier, in parallel with the snapshot (same call, same query text).
+          relevant = (await memoryP) ?? (await callTheoMemory(location_id, cleanQuery));
         }
 
         // Honesty check: if @OPUS is invoked but this location has no active OPUS integration,
