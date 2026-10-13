@@ -462,7 +462,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             tools: [{
               type: 'function',
               name: 'ask_theo',
-              description: "Ask Theo's store-data brain any question about this store (sales, labor, schedule, checklists, tips, reviews, punches, crew). Returns the answer to speak.",
+              description: "Ask Theo's store-data brain any question about this store (sales, labor, schedule, checklists, tips, reviews, punches, crew). Returns the answer to speak. Before calling ask_theo, say a 2-4 word filler like \"Checking the numbers…\", then call it. Don't repeat the filler after the answer.",
               parameters: { type: 'object', properties: { question: { type: 'string', description: 'The full question in plain English' } }, required: ['question'] },
             }],
           },
