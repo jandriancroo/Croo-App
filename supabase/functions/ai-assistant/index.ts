@@ -2840,6 +2840,7 @@ serve(async (req) => {
     const bakeoff = usageSource === "bakeoff" && userRole === "super_admin" && BAKEOFF_MODELS.includes(model_override);
     const bakeModel: string | null = bakeoff ? model_override : null;
     const toolsCalled: string[] = [];
+    const referencedIds: { type: string; id: string; title: string }[] = [];
     // Actions dry-run (bake-off only): propose_action is offered, writes nothing, returns preview_ready.
     const dryRun = bakeoff && actions_dry_run === true;
     const proposals: any[] = [];
