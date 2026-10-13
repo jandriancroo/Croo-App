@@ -9,6 +9,8 @@ import { buildNudgeProposal, PROPOSE_NUDGE_TOOL } from "./nudges.ts";
 import { buildAnnouncementProposal, recheckAnnouncement, PROPOSE_ANNOUNCEMENT_TOOL } from "./announcements.ts";
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
+import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
+import { clockedInUserIds } from "../_shared/onClock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -944,8 +946,8 @@ const FIND_CREW_TOOL = {
   type: "function",
   function: {
     name: "find_crew",
-    description: "Look up ACTIVE crew members at this store by name (first name, nickname or full name). Returns every match with employee_id. Always use this to resolve a person before proposing a task for them.",
-    parameters: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+    description: "Look up ACTIVE crew members at this store by name (first name, nickname or full name). Returns every match with employee_id. Always use this to resolve a person before proposing a task for them. Several people at once: pass names (or 'Maria and Jo' in name); results come back per name in by_name. A 'did_you_mean' entry is a spelling guess: ask the manager to confirm it before using it.",
+    parameters: { type: "object", properties: { name: { type: "string" }, names: { type: "array", items: { type: "string" }, description: "Optional: several names to look up at once" } }, required: ["name"] },
   },
 };
 const PROPOSE_TASK_TOOL = {
@@ -2838,6 +2840,7 @@ serve(async (req) => {
     const bakeoff = usageSource === "bakeoff" && userRole === "super_admin" && BAKEOFF_MODELS.includes(model_override);
     const bakeModel: string | null = bakeoff ? model_override : null;
     const toolsCalled: string[] = [];
+    const referencedIds: { type: string; id: string; title: string }[] = [];
     // Actions dry-run (bake-off only): propose_action is offered, writes nothing, returns preview_ready.
     const dryRun = bakeoff && actions_dry_run === true;
     const proposals: any[] = [];
@@ -3346,6 +3349,20 @@ ACTION RULE (strict): Call propose_action ONLY when you are actually proposing t
       }) : [];
     };
     const nowHHMM = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+    // find_crew ranking (read-only): clocked in first, then on today's schedule, then the rest of the store.
+    let crewRankMemo: ((xs: any[]) => any[]) | null = null;
+    const crewRank = async () => {
+      if (crewRankMemo) return crewRankMemo;
+      const [onIds, { data: sched }] = await Promise.all([
+        clockedInUserIds(supabaseAdmin, location_id).catch(() => [] as string[]),
+        supabaseAdmin.from("scheduled_shifts").select("user_id, schedules!inner(location_id)").eq("schedules.location_id", location_id).eq("shift_date", today).not("user_id", "is", null),
+      ]);
+      const on = new Set(onIds); const sch = new Set((sched || []).map((r: any) => r.user_id));
+      const tier = (id: string) => on.has(id) ? 0 : sch.has(id) ? 1 : 2;
+      const label = ["clocked_in", "scheduled_today", "at_store"];
+      crewRankMemo = (xs: any[]) => [...xs].sort((a, b) => tier(a.id) - tier(b.id)).map((c) => ({ employee_id: c.id, name: crewName(c), status: label[tier(c.id)] }));
+      return crewRankMemo;
+    };
 
     // Screen taps (a shift, a person or a name on the list) and the Confirm re-check: answered by code, no AI.
     const when = { today, nowHHMM };
@@ -3564,7 +3581,7 @@ ${swapOn ? `SWAP TWO SHIFTS (you can PROPOSE two people trading their shifts at 
 - The app does every check (already in, not in, on a break, future time, flags). Follow its "next" exactly. When it returns preview_shown, your whole reply must be exactly: "Here's the punch. Does this look right to you?" Never say anyone was clocked in or out.
 - Breaks, editing or deleting an existing punch, and clocking several people at once are not built: say to use the Time Clock page.
 ` : ""}${nudgeOn ? `QUICK NUDGE (a push in the manager's name about a checklist, task or event):
-- Works for checklists, tasks and today's events. Examples of meaning: "nudge the crew about the AM line check", "nudge the crew about the catering order", "remind Maria to finish the closing checklist", "give everyone a heads-up about the staff meeting". Call propose_nudge with target as said and named_person if someone was named.
+- Works for checklists, tasks and today's events. Examples of meaning: "nudge the crew about the AM line check", "nudge the crew about the catering order", "remind Maria to finish the closing checklist", "give everyone a heads-up about the staff meeting". Call propose_nudge with target as said and named_person if someone was named (several people: named_people). If an id for that item is known from earlier in the conversation ("[ids: ...]"), also pass it as target_id.
 - Nudges always go to everyone on the clock at this store. Never promise it goes to one person alone.
 - Preview only. When it returns preview_shown, your whole reply must be exactly: "Here's the nudge. Does this look right to you?" Never say a nudge was sent.
 - Word changes ("say it nicer", "use the Before close one"): call propose_nudge again with the same target and text (the manager's own first-person words) or template.
@@ -3721,9 +3738,25 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
           proposals.push(args);
           result = JSON.stringify({ status: "preview_ready" });
         } else if (actionsOn && tc.function.name === "find_crew") {
-          const matches = matchCrew(String(args?.name || ""));
+          const rawName = String(args?.name || "");
+          const matches = matchCrew(rawName);
           matches.forEach((c) => seenCrewIds.add(c.id));
-          result = JSON.stringify({ matches: matches.slice(0, 10).map((c) => ({ employee_id: c.id, name: crewName(c) })) });
+          const out: any = { matches: matches.slice(0, 10).map((c) => ({ employee_id: c.id, name: crewName(c) })) };
+          // Additive: several names, spelling-tolerant guesses, on-shift ranking. "matches" above is unchanged.
+          const extra = Array.isArray(args?.names) ? args.names.map((x: any) => String(x || "")) : [];
+          const parts = [...new Set([...splitNames(rawName), ...extra.flatMap(splitNames)])];
+          if (parts.length > 1 || !matches.length || extra.length) {
+            const rank = await crewRank();
+            const by_name = parts.slice(0, 10).map((n) => {
+              const hits = matchCrew(n);
+              if (hits.length) { hits.forEach((c) => seenCrewIds.add(c.id)); return { name: n, matches: rank(hits).slice(0, 10) }; }
+              const guess = fuzzyPeople(n, crewForActions);
+              return { name: n, matches: [], ...(guess.length ? { did_you_mean: rank(guess).slice(0, 3) } : {}) };
+            });
+            if (parts.length > 1 || extra.length) out.by_name = by_name;
+            else if (by_name[0]?.did_you_mean) out.did_you_mean = by_name[0].did_you_mean;
+          }
+          result = JSON.stringify(out);
         } else if (findOn && tc.function.name === "find_shifts") {
           const wanted = String(args?.purpose || "cover");
           const okP = (x: string) => (x === "delete" && deleteOn) || (x === "swap" && swapOn) || (x === "change" && changeOn) || (x === "cover" && coverOn);
@@ -3797,8 +3830,10 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
         } else if (nudgeOn && tc.function.name === "propose_nudge") {
           const { data: locRow } = await supabaseAdmin.from("locations").select("id, name").eq("id", location_id).maybeSingle();
           const v: any = locRow ? await buildNudgeProposal(supabaseAdmin, user.id, locRow, args || {}) : { stop: "I can't find this store." };
+          if (v.ok && v.proposal?.target?.id) referencedIds.push({ type: v.proposal.target.type, id: v.proposal.target.id, title: v.proposal.target.title });
+          (v.candidates || []).forEach((c: any) => referencedIds.push(c));
           if (v.ok) { liveProposal = v.proposal; cancelPending = false; coverScreen = null; result = JSON.stringify({ status: "preview_shown" }); }
-          else if (v.ask) { liveProposal = null; result = JSON.stringify({ status: "need_more", next: `Ask exactly "${v.ask}" Propose nothing.` }); }
+          else if (v.ask) { liveProposal = null; result = JSON.stringify({ status: "need_more", ...(v.candidates ? { candidates: v.candidates } : {}), next: `Ask exactly "${v.ask}" Propose nothing.${v.candidates ? " If the manager picks one, call propose_nudge again with its target_id." : ""}` }); }
           else { liveProposal = null; declineLine = v.stop; result = JSON.stringify({ stop: v.stop, next: `Say "${v.stop}" Propose nothing.` }); }
         } else if (announceOn && tc.function.name === "propose_announcement") {
           const { data: locRow } = await supabaseAdmin.from("locations").select("id, name").eq("id", location_id).maybeSingle();
@@ -3855,6 +3890,8 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     if (actionsOn) {
       // The screen offers only what the server allows: the same actions object theo-voice returns.
       const out: any = { actions: theoActions };
+      // Optional, additive: ids of the checklists/tasks/events this answer is about (voice keeps them for follow-ups).
+      if (referencedIds.length) out.referenced_ids = [...new Map(referencedIds.map((r) => [r.id, r])).values()].slice(0, 10);
       // Agreeing ("yes, do it") with a preview open never drops or changes it: the answer is always the tap line.
       const lastUser = String([...(messages || [])].reverse().find((m: any) => m?.role === "user")?.content || "").trim();
       if (anyPending && /^(yes|yeah|yep|yup|sure|do it|confirm|looks good|sounds (good|right)|go ahead|ok(ay)?)\b/i.test(lastUser) && !/\b(not|don['’]?t|cancel|never|instead|make it|change)\b/i.test(lastUser)) {

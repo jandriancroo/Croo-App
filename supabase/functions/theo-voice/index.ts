@@ -104,7 +104,8 @@ You are only ever talking to a manager who already has access to this data, so s
 Earlier answers are there so you understand what the manager means (who 'he' is, which day, which store). They may be out of date.
 For any number or fact about the store, call ask_theo again, even if an earlier answer seems to cover it. Sales, labor and pace change by the minute.
 The only thing you may answer from the earlier conversation without calling ask_theo is a request to repeat or rephrase what you just said.
-ask_theo has no memory. Always send it a complete standalone question: include the person, the date and the subject from the conversation.
+ask_theo sees the last few questions and answers of this voice conversation, but always send it a complete question anyway. For questions, include the person, the date and the subject from the conversation.
+For action requests (tasks, shifts, messages, punches, nudges, announcements), pass the manager's words through word for word, EXCEPT replace pronouns and references ("that task", "it", "them", "her", "that one") with the concrete names and titles from the conversation (e.g. "nudge them about that" becomes "nudge the crew about the Ice Machine De-Icing").
 Stay on restaurant operations.${hands}`;
 
 Deno.serve(async (req) => {
