@@ -102,8 +102,18 @@ const CSS = `
 .hme .jefe-ask { margin-top: 2px; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--teal-d); flex-wrap: wrap; }
 .hme .jefe-stamp { height: 36px; width: auto; display: block; }
 
+.hme .lede { font-size: 19px; font-weight: 700; color: var(--teal-d); max-width: 40ch; margin: 16px 0 0; letter-spacing: -0.01em; }
+
+.hme .trust { padding: 46px 0 4px; }
+.hme .trust-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: center; }
+.hme .sec-list { margin-top: 20px; display: grid; gap: 9px; list-style: none; }
+.hme .sec-list li { position: relative; padding-left: 24px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.hme .sec-list li::before { content: "✓"; position: absolute; left: 0; top: -1px; color: var(--teal); font-weight: 800; }
+.hme .price-line { margin-top: 16px; font-size: 19px; font-weight: 800; color: var(--teal-d); }
+
 @media (max-width: 900px) {
   .hme .hero-grid { grid-template-columns: 1fr; gap: 30px; }
+  .hme .trust-grid { grid-template-columns: 1fr; gap: 26px; }
   .hme .wrap { width: calc(100% - 32px); }
   .hme section.blk { padding: 52px 0; }
   .hme h2 { max-width: none; }
@@ -122,7 +132,7 @@ const STEPS = [
   "Checklists and recipes in one store.",
   "Punch clock, cash, inventory in a workshop. Weeks, not a self-serve login.",
   "Scheduling and labor once the team is actually using it.",
-  "Next location when the first one is real.",
+  "Expand when the first rollout is real.",
 ];
 
 const CHIPS = [
@@ -181,6 +191,7 @@ const Home = () => {
             <div>
               <p className="pairline">Built for operators, by operators.</p>
               <h1>Your crew’s HQ.</h1>
+              <p className="lede">The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p>
               <p className="sub">
                 Operators buy it. The crew actually runs it. Meet them on the floor, on an iPad, not on a desktop.
               </p>
@@ -191,31 +202,9 @@ const Home = () => {
               <div className="cta-row">
                 <a className="btn btn-primary btn-lg" href={MAILTO}>Book a 20-minute walkthrough</a>
               </div>
-              <p className="fine">14-day trial. No hostage contract. Sold per location.</p>
+              <p className="fine">14-day trial. No hostage contract.</p>
             </div>
             <div className="hero-visual">
-              <a
-                className="jefe"
-                href="https://eljefe-enterprises.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <p className="jefe-quote">
-                  “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
-                </p>
-                <div className="jefe-byline">
-                  <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
-                  <div className="jefe-id">
-                    <strong>Johnny Tellez</strong>
-                    <span>20+ Year Restaurant Exec</span>
-                    <span>El Jefe Enterprises</span>
-                  </div>
-                </div>
-                <p className="jefe-ask">
-                  Ask me how I can help your business through
-                  <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
-                </p>
-              </a>
               <img
                 className="shot"
                 src="/croohq-ipad-punch.png"
@@ -224,6 +213,46 @@ const Home = () => {
                 height={1024}
               />
             </div>
+          </div>
+        </section>
+
+        {/* TODO: add more client logos/testimonials when real assets exist */}
+        <section className="trust" aria-label="Why CrooHQ">
+          <div className="trust-grid">
+            <div>
+              <p className="eyebrow">Why CrooHQ</p>
+              <p className="body-copy">Built by a former 3-store Jersey Mike’s owner-operator.</p>
+              <p className="body-copy">
+                One system for scheduling, time clock, checklists, inventory, hiring, and POS sync with Toast, Qu,
+                Aloha, and Clover.
+              </p>
+              <ul className="sec-list">
+                <li>Encrypted in transit (HTTPS)</li>
+                <li>Role-based access for owners, managers, and crew</li>
+              </ul>
+            </div>
+            <a
+              className="jefe"
+              href="https://eljefe-enterprises.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <p className="jefe-quote">
+                “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
+              </p>
+              <div className="jefe-byline">
+                <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
+                <div className="jefe-id">
+                  <strong>Johnny Tellez</strong>
+                  <span>20+ Year Restaurant Exec</span>
+                  <span>El Jefe Enterprises</span>
+                </div>
+              </div>
+              <p className="jefe-ask">
+                Ask me how I can help your business through
+                <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
+              </p>
+            </a>
           </div>
         </section>
 
@@ -251,7 +280,10 @@ const Home = () => {
               ))}
             </tbody>
           </table>
-          <p className="note">One system. Per location. Price comes on a walkthrough, not a grid.</p>
+          <p className="price-line">Starting at $199/month.</p>
+          <div className="cta-row" style={{ marginTop: 18 }}>
+            <a className="btn btn-primary" href={MAILTO}>Book a walkthrough</a>
+          </div>
         </section>
       </div>
 
@@ -323,8 +355,9 @@ const Home = () => {
           <span>croohq.com · Built for operators, by operators. · Proudly made in America.</span>
           <nav>
             <Link to="/jobs">Jobs</Link>
-            <Link to="/privacy">Privacy</Link>
+            <Link to="/privacy">Privacy Policy</Link>
             <Link to="/terms">Terms</Link>
+            <a href={MAILTO}>Contact: jordan@croohq.com</a>
             <Link to="/auth">Log in</Link>
           </nav>
         </footer>
