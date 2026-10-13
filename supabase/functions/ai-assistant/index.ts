@@ -367,62 +367,67 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
 
     // Fetch full week sales (yesterday through Sunday) for projections
     const fetchStart = yesterday < weekStart ? yesterday : weekStart;
-    const { data: salesRows } = await supabase
-      .from("sales_cache")
-      .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection, pace_adjusted_projection")
-      .eq("location_id", locationId)
-      .gte("sale_date", fetchStart)
-      .lte("sale_date", weekEnd)
-      .order("sale_date");
-
     // Labor is NOT in this cached snapshot — it is fetched per request with the
     // asking user's permissions (see buildLaborLines) so one person's labor never
     // reaches someone who would have been refused.
-
-    // Fetch today's schedule count
-    const { data: scheduleRows } = await supabase
-      .from("scheduled_shifts")
-      .select("id, schedules!inner(location_id)")
-      .eq("schedules.location_id", locationId)
-      .eq("schedules.is_published", true)
-      .eq("shift_date", today)
-      .not("user_id", "is", null);
-
-    // Fetch tomorrow's schedule count
-    const { data: tomorrowSchedule } = await supabase
-      .from("scheduled_shifts")
-      .select("id, schedules!inner(location_id)")
-      .eq("schedules.location_id", locationId)
-      .eq("schedules.is_published", true)
-      .eq("shift_date", tomorrow)
-      .not("user_id", "is", null);
+    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
+    // All independent reads run together (same queries as before; output unchanged).
+    const [
+      { data: salesRows },
+      { data: scheduleRows },
+      { data: tomorrowSchedule },
+      { data: tipsRow },
+      { data: hoursRow },
+      { data: pendingPto },
+    ] = await Promise.all([
+      // Full week sales (yesterday through Sunday) for projections
+      supabase
+        .from("sales_cache")
+        .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection, pace_adjusted_projection")
+        .eq("location_id", locationId)
+        .gte("sale_date", fetchStart)
+        .lte("sale_date", weekEnd)
+        .order("sale_date"),
+      // Today's schedule count
+      supabase
+        .from("scheduled_shifts")
+        .select("id, schedules!inner(location_id)")
+        .eq("schedules.location_id", locationId)
+        .eq("schedules.is_published", true)
+        .eq("shift_date", today)
+        .not("user_id", "is", null),
+      // Tomorrow's schedule count
+      supabase
+        .from("scheduled_shifts")
+        .select("id, schedules!inner(location_id)")
+        .eq("schedules.location_id", locationId)
+        .eq("schedules.is_published", true)
+        .eq("shift_date", tomorrow)
+        .not("user_id", "is", null),
+      // Today's tips
+      supabase
+        .from("daily_tips")
+        .select("total_cc_tips, total_cash_tips")
+        .eq("location_id", locationId)
+        .eq("tip_date", today)
+        .maybeSingle(),
+      // Location hours for today
+      supabase
+        .from("location_hours")
+        .select("open_time, close_time, is_closed")
+        .eq("location_id", locationId)
+        .eq("day_of_week", dayOfWeek)
+        .maybeSingle(),
+      // Pending time-off requests
+      supabase
+        .from("availability_requests")
+        .select("id")
+        .eq("location_id", locationId)
+        .eq("status", "pending"),
+    ]);
 
     // Week-to-date rows derived from the full-week sales fetch above
     const weekRows = (salesRows || []).filter((r: any) => r.sale_date >= weekStart && r.sale_date <= today);
-
-    // Fetch today's tips
-    const { data: tipsRow } = await supabase
-      .from("daily_tips")
-      .select("total_cc_tips, total_cash_tips")
-      .eq("location_id", locationId)
-      .eq("tip_date", today)
-      .maybeSingle();
-
-    // Fetch location hours for today
-    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
-    const { data: hoursRow } = await supabase
-      .from("location_hours")
-      .select("open_time, close_time, is_closed")
-      .eq("location_id", locationId)
-      .eq("day_of_week", dayOfWeek)
-      .maybeSingle();
-
-    // Pending time-off requests
-    const { data: pendingPto } = await supabase
-      .from("availability_requests")
-      .select("id")
-      .eq("location_id", locationId)
-      .eq("status", "pending");
 
     // Build snapshot
     const lines: string[] = ["📊 LIVE CONTEXT SNAPSHOT (auto-injected, do NOT repeat raw numbers — use them to answer naturally):"];
