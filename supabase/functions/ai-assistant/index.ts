@@ -1053,6 +1053,46 @@ const CANCEL_PENDING_TOOL = {
   },
 };
 
+// === LATENCY HELPERS (speed only; no result changes) ===
+let isColdStart = true; // true for the first request in this isolate
+type Settled<T> = { ok: true; v: T } | { ok: false; e: unknown };
+function settle<T>(p: Promise<T>): Promise<Settled<T>> { return p.then((v) => ({ ok: true as const, v }), (e) => ({ ok: false as const, e })); }
+function unwrapSettled<T>(s: Settled<T>): T { if (s.ok) return s.v; throw s.e; }
+
+// Does this store have any saved Theo memory? Cached ~5 min per isolate. Errors fail open (true).
+const knowledgeCache = new Map<string, { has: boolean; expiry: number }>();
+async function locationHasKnowledge(admin: any, locationId: string): Promise<boolean> {
+  const c = knowledgeCache.get(locationId);
+  if (c && Date.now() < c.expiry) return c.has;
+  try {
+    const { data, error } = await admin.from("theo_knowledge").select("id").eq("location_id", locationId).limit(1);
+    if (error) return true;
+    const has = (data || []).length > 0;
+    knowledgeCache.set(locationId, { has, expiry: Date.now() + 5 * 60_000 });
+    return has;
+  } catch { return true; }
+}
+// Same theo-memory "search" call as before; any failure -> [] (as before).
+async function callTheoMemory(locationId: any, query: string): Promise<any[]> {
+  try {
+    const memResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/theo-memory`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "search", location_id: locationId, query }),
+    });
+    if (memResp.ok) {
+      const memData = await memResp.json();
+      return memData.results || [];
+    }
+  } catch (e) {
+    console.error("Vector memory search failed, falling back to text:", e);
+  }
+  return [];
+}
+
 async function activeCrewAt(admin: any, locationId: string): Promise<{ id: string; full_name: string; nickname: string | null }[]> {
   const { data: ul } = await admin.from("user_locations").select("user_id").eq("location_id", locationId);
   const ids = (ul || []).map((r: any) => r.user_id);
@@ -2797,6 +2837,12 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Latency measurement (written to theo_ai_usage only).
+  const reqStart = Date.now();
+  const coldStart = isColdStart;
+  isColdStart = false;
+  let tPreAiMs: number | null = null;
+  const tRoundMs: number[] = [];
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
