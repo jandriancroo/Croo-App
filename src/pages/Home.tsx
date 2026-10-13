@@ -55,6 +55,8 @@ const CSS = `
 .hme .stackline { font-size: 17px; color: var(--muted); max-width: 48ch; margin-bottom: 26px; }
 .hme .cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .hme .fine { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.hme .h1sub { margin-top: 12px; font-size: clamp(17px, 2.2vw, 22px); font-weight: 800; color: var(--ink); }
+.hme .why-block .jefe { max-width: 560px; margin-top: 22px; }
 .hme .shot { width: 100%; height: auto; display: block; border-radius: 20px; border: 1px solid var(--line); box-shadow: 0 24px 50px rgba(65,127,142,.18); }
 
 .hme .proof { margin: 46px 0 8px; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; gap: 18px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
