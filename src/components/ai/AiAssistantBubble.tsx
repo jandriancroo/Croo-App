@@ -377,21 +377,40 @@ export function AiAssistantBubble() {
     const chatPending = mine ? wizard.openPreview() : null;
     const chatScreen = mine ? wizard.screenRef.current : null;
 
+    // Streamed text lives in a temporary bubble; it is removed before the final message is added.
+    const partial: Message = { role: 'assistant', content: '' };
+    let partialShown = false;
+    const dropPartial = () => { if (partialShown) { setMessages(prev => prev.filter(m => (m as any).__partial !== partial)); partialShown = false; } setStreaming(false); };
     try {
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          location_id: currentLocation.id,
-          location_name: currentLocation.name,
-          source: 'chat',
-          // Only an OPEN chat preview goes up (never a dropped or saved one); the server decides what it allows.
-          ...(chatPending ? { pending_action: chatPending } : {}),
-          ...(chatScreen?.kind === 'candidates' ? { list_context: { shift_id: chatScreen.shift_id } } : {}),
-          ...(chatScreen?.kind === 'templates' ? { list_context: { draft: chatScreen.draft } } : {}),
-        },
-      });
-
-      if (error) throw error;
+      const reqBody = {
+        messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+        location_id: currentLocation.id,
+        location_name: currentLocation.name,
+        source: 'chat',
+        // Only an OPEN chat preview goes up (never a dropped or saved one); the server decides what it allows.
+        ...(chatPending ? { pending_action: chatPending } : {}),
+        ...(chatScreen?.kind === 'candidates' ? { list_context: { shift_id: chatScreen.shift_id } } : {}),
+        ...(chatScreen?.kind === 'templates' ? { list_context: { draft: chatScreen.draft } } : {}),
+      };
+      let data: any;
+      try {
+        data = await askTheoStream(reqBody, (t) => {
+          partial.content += t;
+          const shown = { role: 'assistant' as const, content: partial.content, __partial: partial };
+          setStreaming(true);
+          setMessages(prev => partialShown ? prev.map(m => (m as any).__partial === partial ? shown : m) : [...prev, shown]);
+          partialShown = true;
+          scrollToBottom();
+        });
+        dropPartial();
+      } catch (se: any) {
+        dropPartial();
+        if (!(se instanceof TheoStreamError) || !se.retry) throw se;
+        // Stream broke before the final answer: retry once the normal way (no stream).
+        const r = await supabase.functions.invoke('ai-assistant', { body: reqBody });
+        if (r.error) throw r.error;
+        data = r.data;
+      }
 
       if (data?.error) {
         if (data.error.includes('Rate limit')) {
