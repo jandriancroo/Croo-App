@@ -167,7 +167,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const phaseRef = useRef<Phase>('idle');
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopAfterAnswerRef = useRef(false);
-  const historyRef = useRef<{ q: string; a: string }[]>([]);
+  const historyRef = useRef<{ q: string; a: string; ids?: { type: string; id: string; title: string }[] }[]>([]);
   const micGateUntilRef = useRef(0);
   const reachedListeningRef = useRef(false);
   const closedCuePlayedRef = useRef(false);
@@ -366,7 +366,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const sc = screenRef.current;
     const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
       body: {
-        messages: [{ role: 'user', content: question + VOICE_SUFFIX }],
+        messages: [
+          // Last few voice turns, same shape as typed chat; ids let follow-ups ("nudge them about that") pass target_id.
+          ...historyRef.current.slice(-CARRY_MAX).flatMap((h) => [
+            { role: 'user', content: h.q },
+            { role: 'assistant', content: h.a + (h.ids?.length ? `\n[ids: ${h.ids.map((x) => `${x.type} "${x.title}" = ${x.id}`).join('; ')}]` : '') },
+          ]),
+          { role: 'user', content: question + VOICE_SUFFIX },
+        ],
         location_id: currentLocation?.id,
         location_name: currentLocation?.name,
         source: 'voice',
@@ -377,6 +384,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     });
     if (e) return JSON.stringify({ error: 'Theo could not reach the store data right now.' });
     const answer: string = data?.content || '';
+    const refIds = Array.isArray(data?.referenced_ids) ? (data.referenced_ids as { type: string; id: string; title: string }[]).slice(0, 10) : undefined;
+    const remember = () => { if (answer) historyRef.current = [...historyRef.current, { q: question, a: answer.slice(0, CARRY_ANSWER_CHARS), ...(refIds?.length ? { ids: refIds } : {}) }].slice(-CARRY_MAX); };
     if (canAct && data?.cancel_pending && actionRef.current?.stage === 'preview') {
       logAction(actionRef.current.logId, { status: 'cancelled' });
       setAction(null);
@@ -385,6 +394,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (pa && acts[pa as keyof Acts] === true) {
       if (showProposal(data.proposal as AnyProposal)) {
         onExchange?.(question, answer);
+        remember();
         return JSON.stringify({ answer, long: false, preview: true });
       }
     }
@@ -397,7 +407,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const long = !!answer && isLongAnswer(answer);
     if (answer) {
       onExchange?.(question, answer);
-      historyRef.current = [...historyRef.current, { q: question, a: answer.slice(0, CARRY_ANSWER_CHARS) }].slice(-CARRY_MAX);
+      remember();
     }
     setLongAnswer(long);
     return JSON.stringify({ answer: answer || 'No answer.', long });
