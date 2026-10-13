@@ -55,6 +55,8 @@ const CSS = `
 .hme .stackline { font-size: 17px; color: var(--muted); max-width: 48ch; margin-bottom: 26px; }
 .hme .cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .hme .fine { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.hme .h1sub { margin-top: 12px; font-size: clamp(17px, 2.2vw, 22px); font-weight: 800; color: var(--ink); }
+.hme .why-block .jefe { max-width: 560px; margin-top: 22px; }
 .hme .shot { width: 100%; height: auto; display: block; border-radius: 20px; border: 1px solid var(--line); box-shadow: 0 24px 50px rgba(65,127,142,.18); }
 
 .hme .proof { margin: 46px 0 8px; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; gap: 18px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
@@ -122,7 +124,7 @@ const STEPS = [
   "Checklists and recipes in one store.",
   "Punch clock, cash, inventory in a workshop. Weeks, not a self-serve login.",
   "Scheduling and labor once the team is actually using it.",
-  "Next location when the first one is real.",
+  "Expand when the first rollout is real.",
 ];
 
 const CHIPS = [
@@ -181,6 +183,7 @@ const Home = () => {
             <div>
               <p className="pairline">Built for operators, by operators.</p>
               <h1>Your crew’s HQ.</h1>
+              <p className="h1sub">The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p>
               <p className="sub">
                 Operators buy it. The crew actually runs it. Meet them on the floor, on an iPad, not on a desktop.
               </p>
@@ -191,31 +194,9 @@ const Home = () => {
               <div className="cta-row">
                 <a className="btn btn-primary btn-lg" href={MAILTO}>Book a 20-minute walkthrough</a>
               </div>
-              <p className="fine">14-day trial. No hostage contract. Sold per location.</p>
+              <p className="fine">14-day trial. No hostage contract.</p>
             </div>
             <div className="hero-visual">
-              <a
-                className="jefe"
-                href="https://eljefe-enterprises.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <p className="jefe-quote">
-                  “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
-                </p>
-                <div className="jefe-byline">
-                  <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
-                  <div className="jefe-id">
-                    <strong>Johnny Tellez</strong>
-                    <span>20+ Year Restaurant Exec</span>
-                    <span>El Jefe Enterprises</span>
-                  </div>
-                </div>
-                <p className="jefe-ask">
-                  Ask me how I can help your business through
-                  <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
-                </p>
-              </a>
               <img
                 className="shot"
                 src="/croohq-ipad-punch.png"
@@ -225,6 +206,42 @@ const Home = () => {
               />
             </div>
           </div>
+        </section>
+
+        <section className="blk why-block" id="why">
+          <p className="eyebrow">Why CrooHQ</p>
+          <p className="body-copy">Built by a former 3-store Jersey Mike’s owner-operator.</p>
+          <p className="body-copy">
+            One system for scheduling, time clock, checklists, inventory, hiring, and POS sync with Toast, Qu, Aloha,
+            and Clover.
+          </p>
+          <a
+            className="jefe"
+            href="https://eljefe-enterprises.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <p className="jefe-quote">
+              “I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”
+            </p>
+            <div className="jefe-byline">
+              <img className="jefe-photo" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={40} height={40} />
+              <div className="jefe-id">
+                <strong>Johnny Tellez</strong>
+                <span>20+ Year Restaurant Exec</span>
+                <span>El Jefe Enterprises</span>
+              </div>
+            </div>
+            <p className="jefe-ask">
+              Ask me how I can help your business through
+              <img className="jefe-stamp" src="/eljefe-stamp.png" alt="El Jefe Enterprises" />
+            </p>
+          </a>
+          <div className="chips">
+            <span className="chip">Encrypted in transit (HTTPS)</span>
+            <span className="chip">Role-based access for owners, managers, and crew</span>
+          </div>
+          {/* TODO: add more client logos/testimonials when real assets exist */}
         </section>
 
         <div className="proof">
@@ -251,7 +268,10 @@ const Home = () => {
               ))}
             </tbody>
           </table>
-          <p className="note">One system. Per location. Price comes on a walkthrough, not a grid.</p>
+          <p className="note">Starting at $199/month.</p>
+          <div className="cta-row" style={{ marginTop: 18 }}>
+            <a className="btn btn-primary" href={MAILTO}>Book a walkthrough</a>
+          </div>
         </section>
       </div>
 
@@ -323,7 +343,8 @@ const Home = () => {
           <span>croohq.com · Built for operators, by operators. · Proudly made in America.</span>
           <nav>
             <Link to="/jobs">Jobs</Link>
-            <Link to="/privacy">Privacy</Link>
+            <Link to="/privacy">Privacy Policy</Link>
+            <a href={MAILTO}>Contact: jordan@croohq.com</a>
             <Link to="/terms">Terms</Link>
             <Link to="/auth">Log in</Link>
           </nav>
