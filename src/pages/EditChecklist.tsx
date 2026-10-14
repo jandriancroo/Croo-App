@@ -1,5 +1,6 @@
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ReferencePhotoField } from '@/components/tasks/ReferencePhotoField';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -33,7 +34,7 @@ interface ChecklistItem {
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
-  reference_image_url?: string;
+  reference_image_url?: string | null;
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
@@ -53,7 +54,7 @@ interface SortableChecklistItemProps {
   index: number;
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
-  handleReferenceImageUpload: (index: number, file: File) => void;
+  handleReferenceImageUpload: (index: number, file: File) => Promise<void>;
   showAmPmSelector?: boolean;
   showPositionSelector?: boolean;
   availablePositions?: string[];
@@ -246,21 +247,12 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               className="text-xs w-full"
             />
             <div className="space-y-2">
-              <div className="space-y-1">
-                <Label className="text-[10px] flex items-center gap-1"><Upload className="h-2.5 w-2.5" /> Reference Photo</Label>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  className="text-[10px] h-7 w-full"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleReferenceImageUpload(index, file);
-                  }}
-                />
-                {item.reference_image_url && (
-                  <img src={item.reference_image_url} alt="Reference" className="rounded max-h-16 object-cover" />
-                )}
-              </div>
+              <ReferencePhotoField
+                compact
+                url={item.reference_image_url}
+                onUpload={(file) => handleReferenceImageUpload(index, file)}
+                onRemove={() => updateItem(index, 'reference_image_url', null)}
+              />
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] flex items-center gap-1"><LinkIcon className="h-2.5 w-2.5" /> Link</Label>
@@ -292,6 +284,39 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
   );
 }
 
+/** DB shape of one item (without checklist_id) — shared by save and the stale-save snapshot. */
+function toItemRow(item: ChecklistItem, orderIndex: number, amPm: boolean, posFilter: boolean) {
+  const dbItemType = item.item_type;
+  return {
+    question: item.question,
+    item_type: dbItemType,
+    is_required: item.is_required,
+    requires_temperature_validation: dbItemType === 'temperature',
+    temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
+    options: item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null,
+    reference_image_url: item.reference_image_url || null,
+    reference_link: item.reference_link || null,
+    reference_video_url: item.reference_video_url || null,
+    reference_notes: item.reference_notes || null,
+    order_index: orderIndex,
+    manager_shift: amPm ? (item.manager_shift || null) : null,
+    position: posFilter ? (item.position || null) : null,
+    station_id: posFilter ? (item.station_id || null) : null,
+    assigned_role: posFilter ? ((item.assigned_role as any) || null) : null,
+    assigned_user_id: posFilter ? (item.assigned_user_id || null) : null,
+    link_refs: (item.link_refs ?? []) as any,
+  };
+}
+
+/** Only the keys whose values differ (deep compare via JSON). */
+function changedFields(before: Record<string, unknown>, after: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(after)) {
+    if (JSON.stringify(before[k] ?? null) !== JSON.stringify(v ?? null)) out[k] = v;
+  }
+  return out;
+}
+
 export default function EditChecklist() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -316,6 +341,42 @@ export default function EditChecklist() {
   const [checklistLocationId, setChecklistLocationId] = useState<string | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null);
+
+  // Unsaved-changes tracking + stale-save snapshot (all hooks before any return).
+  const itemSnapshotRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  const captureBaselineRef = useRef(false);
+  const [baselineKey, setBaselineKey] = useState<string | null>(null);
+  const formKey = useMemo(() => JSON.stringify({
+    title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled,
+    templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, enableAmPmDivision,
+    positionFilteringEnabled, items,
+  }), [title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled,
+    templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, enableAmPmDivision,
+    positionFilteringEnabled, items]);
+  const isDirty = baselineKey !== null && formKey !== baselineKey;
+
+  useEffect(() => {
+    if (loading || !captureBaselineRef.current) return;
+    captureBaselineRef.current = false;
+    const snap = new Map<string, Record<string, unknown>>();
+    for (const it of items) {
+      if (it.id) snap.set(it.id, { checklist_id: id, ...toItemRow(it, it.order_index, enableAmPmDivision, positionFilteringEnabled) });
+    }
+    itemSnapshotRef.current = snap;
+    setBaselineKey(formKey);
+  }, [loading, formKey, items, id, enableAmPmDivision, positionFilteringEnabled]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
+
+  const leaveEditor = () => {
+    if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+    navigate('/tasks');
+  };
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
@@ -508,6 +569,8 @@ export default function EditChecklist() {
           link_refs: parseLinkRefs((item as any).link_refs),
         };
       }));
+      // Capture the "as loaded" snapshot once state settles.
+      captureBaselineRef.current = true;
     } catch (error: any) {
       console.error('Error fetching checklist:', error);
       toast({
@@ -583,39 +646,25 @@ export default function EditChecklist() {
 
 
       const validItems = items.filter(item => item.question.trim() !== '');
+      const savedIds: (string | undefined)[] = [];
 
       for (let index = 0; index < validItems.length; index++) {
         const item = validItems[index];
-        // Store temperature as 'temperature' item_type directly
-        const dbItemType = item.item_type;
-        const itemData = {
-          checklist_id: id,
-          question: item.question,
-          item_type: dbItemType,
-          is_required: item.is_required,
-          requires_temperature_validation: dbItemType === 'temperature',
-          temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
-          options: item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null,
-          reference_image_url: item.reference_image_url || null,
-          reference_link: item.reference_link || null,
-          reference_video_url: item.reference_video_url || null,
-          reference_notes: item.reference_notes || null,
-          order_index: index,
-          manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
-          position: positionFilteringEnabled ? (item.position || null) : null,
-          station_id: positionFilteringEnabled ? (item.station_id || null) : null,
-          assigned_role: positionFilteringEnabled ? ((item.assigned_role as any) || null) : null,
-          assigned_user_id: positionFilteringEnabled ? (item.assigned_user_id || null) : null,
-          link_refs: (item.link_refs ?? []) as any,
-        };
+        const itemData = { checklist_id: id, ...toItemRow(item, index, enableAmPmDivision, positionFilteringEnabled) };
 
         let savedItemId = item.id;
         if (item.id) {
-          const { error: updateError } = await supabase
-            .from('checklist_items')
-            .update(itemData)
-            .eq('id', item.id);
-          if (updateError) throw updateError;
+          // Stale-save protection: only send fields this editor actually changed
+          // since load, so an old screen can't wipe someone else's edits.
+          const before = itemSnapshotRef.current.get(item.id);
+          const patch = before ? changedFields(before, itemData) : itemData;
+          if (Object.keys(patch).length > 0) {
+            const { error: updateError } = await supabase
+              .from('checklist_items')
+              .update(patch as any)
+              .eq('id', item.id);
+            if (updateError) throw updateError;
+          }
         } else {
           const { data: inserted, error: insertError } = await supabase
             .from('checklist_items')
@@ -625,6 +674,7 @@ export default function EditChecklist() {
           if (insertError) throw insertError;
           savedItemId = inserted?.id;
         }
+        savedIds.push(savedItemId);
 
         // Sync prep_rows for prep_list items.
         // IMPORTANT: do NOT delete-then-insert blindly — the FK on
@@ -726,6 +776,14 @@ export default function EditChecklist() {
           : 'Checklist updated successfully',
       });
 
+      // Refresh the snapshot and clear the dirty flag before leaving.
+      const nextSnap = new Map<string, Record<string, unknown>>();
+      validItems.forEach((it, i) => {
+        const sid = savedIds[i];
+        if (sid) nextSnap.set(sid, { checklist_id: id, ...toItemRow(it, i, enableAmPmDivision, positionFilteringEnabled) });
+      });
+      itemSnapshotRef.current = nextSnap;
+      setBaselineKey(formKey);
       navigate('/tasks');
     } catch (error: any) {
       console.error('Error updating checklist:', error);
@@ -758,24 +816,22 @@ export default function EditChecklist() {
   };
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
-    try {
-      const compressedFile = await compressImage(file, 1200, 1200, 0.8);
-      const fileName = `references/${Date.now()}.jpg`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('checklist-images')
-        .upload(fileName, compressedFile);
-      if (uploadError) throw uploadError;
+    // Errors propagate so the photo field shows its inline message.
+    const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+    const itemId = items[index]?.id || 'new';
+    const fileName = `references/${id || 'new'}/${itemId}-${Date.now()}.jpg`;
 
-      const { data } = supabase.storage
-        .from('checklist-images')
-        .getPublicUrl(fileName);
+    const { error: uploadError } = await supabase.storage
+      .from('checklist-images')
+      .upload(fileName, compressedFile);
+    if (uploadError) throw uploadError;
 
-      updateItem(index, 'reference_image_url', data.publicUrl);
-      toast({ title: 'Success', description: 'Reference image uploaded' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: 'Failed to upload image', variant: 'destructive' });
-    }
+    const { data } = supabase.storage
+      .from('checklist-images')
+      .getPublicUrl(fileName);
+
+    updateItem(index, 'reference_image_url', data.publicUrl);
+    toast({ title: 'Photo added', description: 'Tap Save to keep it.' });
   };
 
   const removeItem = (index: number) => {
@@ -847,7 +903,7 @@ export default function EditChecklist() {
     <Layout>
       <div className="container mx-auto p-4 max-w-4xl space-y-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
+          <Button variant="ghost" size="icon" onClick={leaveEditor}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl font-bold">Edit Checklist</h1>
@@ -1052,8 +1108,13 @@ export default function EditChecklist() {
           </CardContent>
         </Card>
 
+        {isDirty && (
+          <div role="status" className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">
+            Unsaved changes — tap Save
+          </div>
+        )}
         <div className="flex gap-4">
-          <Button onClick={() => navigate('/tasks')} variant="outline" className="flex-1">Cancel</Button>
+          <Button onClick={leaveEditor} variant="outline" className="flex-1">Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1">
             {saving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : (<><Save className="mr-2 h-4 w-4" />Save Changes</>)}
           </Button>
