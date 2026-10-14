@@ -404,6 +404,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       { data: tipsRow },
       { data: hoursRow },
       { data: pendingPto },
+      todayDetail,
     ] = await Promise.all([
       // Full week sales (yesterday through Sunday) for projections
       supabase
@@ -449,6 +450,8 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
         .select("id")
         .eq("location_id", locationId)
         .eq("status", "pending"),
+      // Today's detail (schedule names, checklists done, open tasks); best effort, never breaks the snapshot.
+      todayDetailLines(supabase, locationId, today).catch((e) => { console.error("today detail error:", e); return [] as string[]; }),
     ]);
 
     // Week-to-date rows derived from the full-week sales fetch above
@@ -547,6 +550,8 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     if (pendingPto && pendingPto.length > 0) {
       lines.push(`Pending Time-Off Requests: ${pendingPto.length}`);
     }
+
+    lines.push(...todayDetail);
 
     return lines.join("\n");
   } catch (e) {
