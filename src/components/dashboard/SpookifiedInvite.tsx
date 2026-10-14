@@ -44,17 +44,17 @@ export function SpookifiedInvite() {
 
   return (
     <AlertDialog open={open} onOpenChange={(o) => { if (!o) close(); }}>
-      <AlertDialogContent className="max-w-sm">
+      <AlertDialogContent className="spooky-invite max-w-sm">
         <AlertDialogHeader>
           <div className="text-4xl text-center" aria-hidden>🎃🦇</div>
-          <AlertDialogTitle className="text-center">Try the new Spookified theme!</AlertDialogTitle>
+          <AlertDialogTitle className="spooky-invite-title text-center">Try the new Spookified theme!</AlertDialogTitle>
           <AlertDialogDescription className="text-center">
             Fog, bats, a full moon and a little lightning for Halloween. You can switch back anytime in Settings.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-          <AlertDialogAction onClick={tryIt} className="w-full">Make it spooky</AlertDialogAction>
-          <AlertDialogCancel onClick={close} className="w-full mt-0">No thanks</AlertDialogCancel>
+          <AlertDialogAction onClick={tryIt} className="spooky-invite-cta w-full">Make it spooky</AlertDialogAction>
+          <AlertDialogCancel onClick={close} className="spooky-invite-skip w-full mt-0">No thanks</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
