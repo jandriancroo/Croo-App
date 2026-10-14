@@ -27,7 +27,7 @@ import { DayInsightsBar } from './DayInsightsBar';
 
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamScheduleVisibility } from '@/hooks/useTeamScheduleVisibility';
-import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
+import { EventsSection } from '@/components/today/EventsSection';
 import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -873,30 +873,14 @@ export function MobileScheduleView({
         })}
       </div>
 
-      {/* Events for selected day - compact badge style, 2 per row */}
-      {dayEvents.length > 0 && (
-        <div className="space-y-1.5">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
-          <div className="grid grid-cols-2 gap-1.5">
-            {dayEvents.map(event => {
-              const color = event.category?.color || '#8B5CF6';
-              return (
-                <div
-                  key={event.id}
-                  onClick={() => setPreviewEvent(event)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0 cursor-pointer active:opacity-80 transition-opacity"
-                  style={{ backgroundColor: `${color}10` }}
-                >
-                  <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color }} />
-                  <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Events for selected day — collapsible teal section */}
+      <EventsSection
+        events={dayEvents}
+        storageKey="croo:schedule:events-collapsed"
+        nowHHMM={isSelectedDateToday && timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()) : null}
+        dayWord={isSelectedDateToday ? 'today' : 'this day'}
+        onSelect={(e) => setPreviewEvent(e)}
+      />
 
       {/* Shifts for selected day */}
       <div className="space-y-2">
@@ -1109,35 +1093,14 @@ export function MobileScheduleView({
                 })}
               </div>
 
-              {/* Events & Tasks — matching Option 6 layout */}
-              <div className="space-y-1">
-                {/* Events — flex-wrap pill style */}
-                {dayEvents.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {dayEvents.map(event => {
-                      const color = event.category?.color || '#8B5CF6';
-                      return (
-                        <div
-                          key={event.id}
-                          onClick={() => setPreviewEvent(event)}
-                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-[calc(50%-2px)] max-w-full flex-grow cursor-pointer active:opacity-80 transition-opacity"
-                          style={{ backgroundColor: `${color}10` }}
-                        >
-                          <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                          <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color }} />
-                          <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">{formatTime12Hour(event.event_time)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {dayEvents.length > 0 && (
-                  <div className="mx-6 border-t border-border/30" />
-                )}
-                {/* Tasks — from AssignedTemporaryTasks (excludes event tasks to avoid duplication) */}
-                <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={false} compact={true} />
-              </div>
+              {/* Events — collapsible teal section (quick tasks live on the Dash only) */}
+              <EventsSection
+                events={dayEvents}
+                storageKey="croo:schedule:events-collapsed"
+                nowHHMM={isSelectedDateToday && timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()) : null}
+                dayWord={isSelectedDateToday ? 'today' : 'this day'}
+                onSelect={(e) => setPreviewEvent(e)}
+              />
 
               {/* Quick Action Bar — always visible */}
               <div className="mb-2 flex items-stretch gap-1 rounded-lg bg-primary p-0.5 text-primary-foreground shadow-sm">
