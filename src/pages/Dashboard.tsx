@@ -40,6 +40,7 @@ import { getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
 import { PageTitle } from '@/components/PageTitle';
 import { SpookifiedEffects } from '@/components/dashboard/SpookifiedEffects';
+import { SpookifiedInvite } from '@/components/dashboard/SpookifiedInvite';
 
 
 // Lazy-loaded components (only needed conditionally)
@@ -636,6 +637,7 @@ export default function Dashboard() {
   );
   return <Layout>
       <SpookifiedEffects />
+      <SpookifiedInvite />
       <PullToRefresh
         alwaysRefreshKeys={ALWAYS_REFRESH_KEYS}
         cooldownKeys={COOLDOWN_KEYS}
