@@ -321,25 +321,47 @@ function laborByDay(rows: any[], start: string, end: string, goals: Record<strin
 
 // === CONTEXT SNAPSHOT CACHE ===
 // In-memory cache keyed by locationId. Survives across warm invocations in the same Deno isolate.
-// TTL: 60 seconds — multiple managers querying the same location reuse the same DB lookups.
-const snapshotCache = new Map<string, { data: string; expiry: number }>();
-const SNAPSHOT_TTL_MS = 60_000; // 60 seconds
+// Fresh for 60s. From 60s to 5 min the entry is served at once (stale-while-revalidate) and a
+// background rebuild replaces it, so the next asker gets fresh numbers. Older than 5 min -> rebuilt inline.
+const snapshotCache = new Map<string, { data: string; expiry: number; staleUntil: number }>();
+const SNAPSHOT_TTL_MS = 60_000; // fresh window
+const SNAPSHOT_STALE_MS = 5 * 60_000; // serve-stale window (keep-warm cron runs every 5 min)
+const snapshotRefreshing = new Set<string>();
+
+async function buildAndStoreSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
+  const snapshot = await buildContextSnapshot(supabase, locationId, today, yesterday, tomorrow, weekStart);
+  const now = Date.now();
+  snapshotCache.set(`${locationId}:${today}`, { data: snapshot, expiry: now + SNAPSHOT_TTL_MS, staleUntil: now + SNAPSHOT_STALE_MS });
+  return snapshot;
+}
 
 async function getCachedSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
   const cacheKey = `${locationId}:${today}`;
   const cached = snapshotCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiry) {
-    console.log(`[context-cache] HIT for ${locationId} (${Math.round((cached.expiry - Date.now()) / 1000)}s remaining)`);
+  const now = Date.now();
+  if (cached && now < cached.expiry) {
+    console.log(`[context-cache] HIT for ${locationId} (${Math.round((cached.expiry - now) / 1000)}s remaining)`);
+    return cached.data;
+  }
+  if (cached && now < cached.staleUntil) {
+    console.log(`[context-cache] STALE for ${locationId} — serving cached, refreshing in background`);
+    if (!snapshotRefreshing.has(cacheKey)) {
+      snapshotRefreshing.add(cacheKey);
+      const p = buildAndStoreSnapshot(supabase, locationId, today, yesterday, tomorrow, weekStart)
+        .catch((e) => console.error("[context-cache] background refresh failed:", e))
+        .finally(() => snapshotRefreshing.delete(cacheKey));
+      // @ts-ignore EdgeRuntime exists in the edge runtime
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(p);
+    }
     return cached.data;
   }
 
   console.log(`[context-cache] MISS for ${locationId} — building fresh snapshot`);
-  const snapshot = await buildContextSnapshot(supabase, locationId, today, yesterday, tomorrow, weekStart);
-  snapshotCache.set(cacheKey, { data: snapshot, expiry: Date.now() + SNAPSHOT_TTL_MS });
+  const snapshot = await buildAndStoreSnapshot(supabase, locationId, today, yesterday, tomorrow, weekStart);
 
-  // Prune expired entries (keep map clean)
+  // Prune entries past the stale window (keep map clean)
   for (const [key, val] of snapshotCache) {
-    if (Date.now() >= val.expiry) snapshotCache.delete(key);
+    if (Date.now() >= val.staleUntil) snapshotCache.delete(key);
   }
 
   return snapshot;
@@ -2844,9 +2866,43 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 }
 
 // Opt-in typed-chat streaming wraps the SAME handler; every other request goes straight to it.
+// Warm-up prebuild (best effort, service role, capped ~8s): for stores that asked Theo in the
+// last 7 days, fill the shared snapshot cache and the "has saved memory" cache. Labor is NOT
+// prewarmed: it is only ever read with the asking person's own access and never cached.
+async function prewarmCaches(): Promise<void> {
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data } = await admin.from("theo_ai_usage").select("location_id").gte("created_at", since)
+    .not("location_id", "is", null).order("created_at", { ascending: false }).limit(500);
+  const ids = [...new Set((data || []).map((r: any) => r.location_id).filter((x: any) => typeof x === "string"))].slice(0, 20);
+  await Promise.all(ids.map(async (locationId) => {
+    try {
+      const [tzRes, bdRes] = await Promise.all([
+        admin.from("location_settings").select("timezone").eq("location_id", locationId).maybeSingle(),
+        admin.rpc("business_date", { _location_id: locationId, _at: new Date().toISOString() }),
+      ]);
+      const timezone = tzRes?.data?.timezone || "America/Los_Angeles";
+      let today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+      const bd = bdRes?.data;
+      if (typeof bd === "string" && /^\d{4}-\d{2}-\d{2}/.test(bd)) today = bd.slice(0, 10);
+      const dow = new Date(today + "T12:00:00Z").getUTCDay();
+      await Promise.all([
+        buildAndStoreSnapshot(admin, locationId, today, addDays(today, -1), addDays(today, 1), addDays(today, -(dow === 0 ? 6 : dow - 1))),
+        locationHasKnowledge(admin, locationId),
+      ]);
+    } catch (e) { console.error("[warm] prebuild failed for", locationId, e); }
+  }));
+}
+
 serve(async (req) => {
   // Keep-warm ping (exact {"warm": true} body): answered before auth and before the stream wrapper.
-  if (await isWarmPing(req)) return warmResponse(corsHeaders);
+  if (await isWarmPing(req)) {
+    isColdStart = false;
+    try {
+      await Promise.race([prewarmCaches(), new Promise((r) => setTimeout(r, 8_000))]);
+    } catch (e) { console.error("[warm] prebuild error:", e); }
+    return warmResponse(corsHeaders);
+  }
   if (req.method === "POST") {
     let wants = false;
     try { wants = wantsStream(await req.clone().json()); } catch { /* the handler reports bad bodies as before */ }
