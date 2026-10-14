@@ -1,5 +1,6 @@
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ReferencePhotoField } from '@/components/tasks/ReferencePhotoField';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -33,7 +34,7 @@ interface ChecklistItem {
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
-  reference_image_url?: string;
+  reference_image_url?: string | null;
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
@@ -53,7 +54,7 @@ interface SortableChecklistItemProps {
   index: number;
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
-  handleReferenceImageUpload: (index: number, file: File) => void;
+  handleReferenceImageUpload: (index: number, file: File) => Promise<void>;
   showAmPmSelector?: boolean;
   showPositionSelector?: boolean;
   availablePositions?: string[];
@@ -283,6 +284,39 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
   );
 }
 
+/** DB shape of one item (without checklist_id) — shared by save and the stale-save snapshot. */
+function toItemRow(item: ChecklistItem, orderIndex: number, amPm: boolean, posFilter: boolean) {
+  const dbItemType = item.item_type;
+  return {
+    question: item.question,
+    item_type: dbItemType,
+    is_required: item.is_required,
+    requires_temperature_validation: dbItemType === 'temperature',
+    temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
+    options: item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null,
+    reference_image_url: item.reference_image_url || null,
+    reference_link: item.reference_link || null,
+    reference_video_url: item.reference_video_url || null,
+    reference_notes: item.reference_notes || null,
+    order_index: orderIndex,
+    manager_shift: amPm ? (item.manager_shift || null) : null,
+    position: posFilter ? (item.position || null) : null,
+    station_id: posFilter ? (item.station_id || null) : null,
+    assigned_role: posFilter ? ((item.assigned_role as any) || null) : null,
+    assigned_user_id: posFilter ? (item.assigned_user_id || null) : null,
+    link_refs: (item.link_refs ?? []) as any,
+  };
+}
+
+/** Only the keys whose values differ (deep compare via JSON). */
+function changedFields(before: Record<string, unknown>, after: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(after)) {
+    if (JSON.stringify(before[k] ?? null) !== JSON.stringify(v ?? null)) out[k] = v;
+  }
+  return out;
+}
+
 export default function EditChecklist() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -307,6 +341,42 @@ export default function EditChecklist() {
   const [checklistLocationId, setChecklistLocationId] = useState<string | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null);
+
+  // Unsaved-changes tracking + stale-save snapshot (all hooks before any return).
+  const itemSnapshotRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  const captureBaselineRef = useRef(false);
+  const [baselineKey, setBaselineKey] = useState<string | null>(null);
+  const formKey = useMemo(() => JSON.stringify({
+    title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled,
+    templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, enableAmPmDivision,
+    positionFilteringEnabled, items,
+  }), [title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled,
+    templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, enableAmPmDivision,
+    positionFilteringEnabled, items]);
+  const isDirty = baselineKey !== null && formKey !== baselineKey;
+
+  useEffect(() => {
+    if (loading || !captureBaselineRef.current) return;
+    captureBaselineRef.current = false;
+    const snap = new Map<string, Record<string, unknown>>();
+    for (const it of items) {
+      if (it.id) snap.set(it.id, { checklist_id: id, ...toItemRow(it, it.order_index, enableAmPmDivision, positionFilteringEnabled) });
+    }
+    itemSnapshotRef.current = snap;
+    setBaselineKey(formKey);
+  }, [loading, formKey, items, id, enableAmPmDivision, positionFilteringEnabled]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
+
+  const leaveEditor = () => {
+    if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+    navigate('/tasks');
+  };
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
