@@ -29,9 +29,10 @@ export function DashEventsSection() {
         .select('id, event_name, event_time, day_of_week, days_of_week, tagged_roles, is_daily_task')
         .eq('location_id', currentLocation!.id);
       if (error) throw error;
-      const today = (data || []).filter((e: any) => !e.is_daily_task && (
+      type Row = { id: string; event_name: string; event_time: string; day_of_week: number | null; days_of_week: number[] | null; tagged_roles: unknown; is_daily_task: boolean | null };
+      const today = ((data || []) as Row[]).filter((e) => !e.is_daily_task && (
         e.days_of_week && e.days_of_week.length > 0 ? e.days_of_week.includes(dow) : e.day_of_week === dow
-      )).map((e: any) => ({ ...e, tagged_roles: e.tagged_roles as string[] | null }));
+      )).map((e) => ({ ...e, tagged_roles: e.tagged_roles as string[] | null }));
       return (filterEventsByRole(today, role) as SectionEvent[])
         .sort((a, b) => a.event_time.localeCompare(b.event_time));
     },
