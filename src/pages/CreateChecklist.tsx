@@ -29,7 +29,7 @@ interface ChecklistItem {
   options?: string[];
   is_required: boolean;
   temperature_alert_enabled?: boolean;
-  reference_image_url?: string;
+  reference_image_url?: string | null;
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
@@ -195,7 +195,7 @@ export default function CreateChecklist() {
     setUploadingImage(`${index}`);
     try {
       const compressedFile = await compressImage(file, 1200, 1200, 0.8);
-      const fileName = `references/${user?.id}/${Date.now()}.jpg`;
+      const fileName = `references/new/new-${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from('checklist-images')
@@ -209,7 +209,8 @@ export default function CreateChecklist() {
       updateItem(index, 'reference_image_url', data.publicUrl);
       toast.success('Reference image uploaded');
     } catch (error: any) {
-      toast.error('Failed to upload image');
+      // Rethrow so the photo field shows its inline error
+      throw error;
     } finally {
       setUploadingImage(null);
     }
@@ -613,7 +614,7 @@ interface ChecklistItemCardProps {
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
   canRemove: boolean;
-  handleReferenceImageUpload: (index: number, file: File) => void;
+  handleReferenceImageUpload: (index: number, file: File) => Promise<void>;
   uploadingImage: string | null;
   positionFilteringEnabled: boolean;
   availablePositions: string[];
@@ -716,22 +717,11 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-2">
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1"><Upload className="h-3 w-3" /> Photo</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                className="text-xs"
-                disabled={uploadingImage === `${index}`}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleReferenceImageUpload(index, file);
-                }}
-              />
-              {item.reference_image_url && (
-                <img src={item.reference_image_url} alt="Reference" className="rounded max-h-20 object-cover" />
-              )}
-            </div>
+            <ReferencePhotoField
+              url={item.reference_image_url}
+              onUpload={(file) => handleReferenceImageUpload(index, file)}
+              onRemove={() => updateItem(index, 'reference_image_url', null)}
+            />
             <div className="space-y-1">
               <Label className="text-xs flex items-center gap-1"><LinkIcon className="h-3 w-3" /> Link</Label>
               <Input
