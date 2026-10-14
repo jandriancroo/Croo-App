@@ -1,5 +1,10 @@
 # Roadmap
 
+## Dashboard Quick Tasks — Oct 14 (no publish)
+- [x] Remove Dashboard Events section and use compact Quick Tasks at all widths.
+- [x] Share schedule event deduplication; load only today's daily-task events with draft visibility gates; schedule pages/components untouched.
+- [x] Rules-of-hooks passes; 35 test files / 462 tests pass; automatic build OK. Signed-in Hayward Tuesday phone/desktop checks show Manion and both Cross Country rows, no Trivia/BDAY/LP; no data writes or publishing. Existing unrelated lint warnings/errors left untouched.
+
 ## Oct 9 six-item display batch (no publish)
 - [x] Honor task/event colors with readable text; grouped checklist headers/counts/station order and legacy divider hiding.
 - [x] Single split availability/time-off cell and shared details, preserving two-tap behavior; optional partial-day-under-shift folding left unchanged.

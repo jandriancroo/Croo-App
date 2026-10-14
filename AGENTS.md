@@ -23,3 +23,4 @@
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
 <!-- LOVABLE:END -->
 - Manager duplicate punches (2nd clock-out, overlapping break) are blocked only by trigger trg_zz_guard_manager_duplicate_punch (skips kiosk/self/auto); edit screens use src/lib/punchEditGuard.ts. Why: no double-punched shifts.
+- Dashboard daily-task events use todaysScheduleEvents for local-day selection and the same mergeScheduleEvents deduplication as the schedule hook. Why: prevent cross-date events and duplicate template rows without changing schedule screens.

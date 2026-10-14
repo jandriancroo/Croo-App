@@ -11,6 +11,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, isSameWeek
 import { formatInTimeZone } from "date-fns-tz";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
+import { mergeScheduleEvents } from "@/lib/todaysScheduleEvents";
 import { reassignShift, addShift, sendScheduleUpdate, publishSchedule, detectScheduleChanges as detectScheduleChangesShared } from "@/lib/scheduleActions";
 
 // Cache time constants
@@ -325,13 +326,7 @@ export function useScheduleData() {
         ...event, tagged_roles: event.tagged_roles as string[] | null, is_recurring: true, category: event.event_categories || null
       }));
 
-      const allEvents: ScheduleEvent[] = [...scheduleEvents];
-      recurringEvents.forEach(recurEvent => {
-        const exists = scheduleEvents.some(e =>
-          e.event_name === recurEvent.event_name && e.day_of_week === recurEvent.day_of_week && e.event_time === recurEvent.event_time
-        );
-        if (!exists) allEvents.push(recurEvent);
-      });
+      const allEvents: ScheduleEvent[] = mergeScheduleEvents(scheduleEvents, recurringEvents);
 
       const roleFilteredEvents = filterEventsByRole(allEvents, role);
 
@@ -442,13 +437,7 @@ export function useScheduleData() {
             ...event, tagged_roles: event.tagged_roles as string[] | null, is_recurring: true, category: event.event_categories || null
           }));
 
-          const allEvents: ScheduleEvent[] = [...scheduleEvents];
-          recurringEvents.forEach(recurEvent => {
-            const exists = scheduleEvents.some(e =>
-              e.event_name === recurEvent.event_name && e.day_of_week === recurEvent.day_of_week && e.event_time === recurEvent.event_time
-            );
-            if (!exists) allEvents.push(recurEvent);
-          });
+          const allEvents: ScheduleEvent[] = mergeScheduleEvents(scheduleEvents, recurringEvents);
 
           return {
             scheduleId: schedule.id,
