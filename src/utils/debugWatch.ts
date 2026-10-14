@@ -7,11 +7,12 @@ import { serverDebugLog } from './serverDebugLog';
  * Everything here is a no-op once WATCH_UNTIL passes, and a no-op for every
  * other user. Safe to delete after the window closes.
  */
-const WATCH_UNTIL = Date.parse('2026-09-05T07:00:00Z'); // extended through Friday PST
+const WATCH_UNTIL = Date.parse('2026-10-21T07:00:00Z'); // extended for South Meadows line-check reloads
 
 const WATCHED_USER_IDS = new Set<string>([
   'e21aba60-2a4a-4cad-98cc-fe7476689f54', // Ashley Reese
   '3eb1371f-e27c-48b4-8675-465e5172a2b1', // Jose Castaneda
+  'ef825bd2-ff27-4827-9767-378b57338b6b', // Brooklyn Buller
 ]);
 
 let currentUserId: string | null = null;

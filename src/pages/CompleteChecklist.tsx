@@ -24,6 +24,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
+import { setChecklistLock } from '@/utils/deferrableReload';
+import { checklistDraftKeys, saveChecklistDraftValue, clearChecklistDraftValue, loadChecklistDraft, pruneOldChecklistDrafts } from '@/utils/checklistDraft';
 import { useUserShiftContext } from '@/hooks/useUserShiftContext';
 import { useScheduleStations } from '@/hooks/useLocationStations';
 import { useLocationPeople } from '@/components/tasks/TaskAssigneePicker';
@@ -930,6 +932,12 @@ export default function CompleteChecklist() {
     // user sees instant feedback while the real upload finishes in the
     // background (compression + storage + AI temp validation can take 10s+).
     const blobUrl = URL.createObjectURL(file);
+    let blobRevoked = false;
+    const revokeBlob = () => {
+      if (blobRevoked) return;
+      blobRevoked = true;
+      try { URL.revokeObjectURL(blobUrl); } catch { /* ignore */ }
+    };
     const previousResponses = responses;
     const previousResponsesWithCompleters = responsesWithCompleters;
 
@@ -963,7 +971,7 @@ export default function CompleteChecklist() {
 
     try {
       // Compress image to reduce memory usage on mobile devices
-      const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+      const compressedFile = precompressed ?? await compressImage(file, 1200, 1200, 0.8);
       
       const fileName = `${user?.id}/${Date.now()}.jpg`;
       
@@ -1082,6 +1090,9 @@ export default function CompleteChecklist() {
         newValue = data.publicUrl;
       }
 
+      // Keep the uploaded photo link in the local draft until the server has it.
+      saveChecklistDraftValue(draftKeysRef.current, itemId, newValue);
+
       // Persist to DB
       let responseId: string | undefined;
       if (submissionId && user?.id) {
@@ -1168,10 +1179,12 @@ export default function CompleteChecklist() {
       }
 
       // Silent success — the user already saw the photo appear optimistically.
+      revokeBlob();
     } catch (error: any) {
       // Revert the optimistic update so the user knows to retry.
       setResponses(previousResponses);
       setResponsesWithCompleters(previousResponsesWithCompleters);
+      revokeBlob();
 
       const msg = String(error?.message || '').toLowerCase();
       if (msg.includes('memory') || msg.includes('out of memory') || msg.includes('low memory')) {
@@ -1181,7 +1194,7 @@ export default function CompleteChecklist() {
       }
     } finally {
       // Release the blob URL after a beat so the <img> has time to swap sources.
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      setTimeout(revokeBlob, 5000);
       setUploadingItems(prev => {
         const next = { ...prev };
         delete next[itemId];
