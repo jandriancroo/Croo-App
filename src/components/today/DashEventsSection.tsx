@@ -10,7 +10,7 @@ import { EventsSection, type SectionEvent } from './EventsSection';
 
 /**
  * Today's schedule events on the mobile Dash (same rows as the mobile schedule).
- * Daily-task events are left out here because they already sit in Quick Tasks.
+ * Same list as the schedule day view (all of today's events the person's role can see).
  */
 export function DashEventsSection() {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ export function DashEventsSection() {
         .eq('location_id', currentLocation!.id);
       if (error) throw error;
       type Row = { id: string; event_name: string; event_time: string; day_of_week: number | null; days_of_week: number[] | null; tagged_roles: unknown; is_daily_task: boolean | null };
-      const today = ((data || []) as Row[]).filter((e) => !e.is_daily_task && (
+      const today = ((data || []) as Row[]).filter((e) => (
         e.days_of_week && e.days_of_week.length > 0 ? e.days_of_week.includes(dow) : e.day_of_week === dow
       )).map((e) => ({ ...e, tagged_roles: e.tagged_roles as string[] | null }));
       return (filterEventsByRole(today, role) as SectionEvent[])
