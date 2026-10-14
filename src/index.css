@@ -2483,3 +2483,35 @@ html[data-theme="spookified"] .spookified-orb-lightning { display: block; positi
   html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i { animation: none; transform: none; }
   html[data-theme="spookified"] body.spookified-dashboard .spookified-fog-front { display: none; }
 }
+
+/* Spookified invite pop-up: always wears the Spookified palette, whatever theme is active. */
+.spooky-invite {
+  --background: 260 30% 6%;
+  --foreground: 35 40% 94%;
+  --primary: 26 95% 55%;
+  --primary-foreground: 260 30% 6%;
+  --muted-foreground: 265 15% 72%;
+  --border: 270 25% 26%;
+  --input: 270 25% 22%;
+  --ring: 26 95% 55%;
+  --accent: 265 20% 18%;
+  --accent-foreground: 35 40% 94%;
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at 85% 12%, hsl(45 55% 88% / 0.35) 0 22px, hsl(45 55% 88% / 0.08) 23px 60px, transparent 61px),
+    linear-gradient(180deg, hsl(268 48% 16%), hsl(260 30% 6%)) !important;
+  border-color: hsl(26 95% 55% / 0.35) !important;
+  box-shadow: 0 0 40px hsl(26 95% 55% / 0.25), 0 20px 50px hsl(0 0% 0% / 0.6);
+  overflow: hidden;
+}
+.spooky-invite::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 45%;
+  pointer-events: none; z-index: 0;
+  background: radial-gradient(ellipse at 30% 100%, hsl(270 30% 80% / 0.14), transparent 60%),
+              radial-gradient(ellipse at 75% 100%, hsl(100 28% 78% / 0.1), transparent 55%);
+}
+.spooky-invite > * { position: relative; z-index: 1; }
+.spooky-invite .spooky-invite-title { color: hsl(30 95% 68%); text-shadow: 0 0 14px hsl(26 95% 55% / 0.5); }
+.spooky-invite .spooky-invite-cta { box-shadow: 0 0 18px hsl(26 95% 55% / 0.45); }
+.spooky-invite .spooky-invite-skip { background: transparent; color: hsl(var(--muted-foreground)); }
+.spooky-invite .spooky-invite-skip:hover { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
