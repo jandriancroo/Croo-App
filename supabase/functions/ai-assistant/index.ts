@@ -385,6 +385,83 @@ function paceStatus(actual: number, pace: number | null, goal: number): { status
 }
 function money(n: number): string { return `$${Math.round(n).toLocaleString()}`; }
 
+const SNAP_CAP = 25; // max lines per added section
+function hm(t: string | null | undefined): string { return (t || "").slice(0, 5); }
+function capList(title: string, items: string[]): string[] {
+  if (!items.length) return [];
+  const shown = items.slice(0, SNAP_CAP);
+  const more = items.length > SNAP_CAP ? [`  …and ${items.length - SNAP_CAP} more (use a tool for the full list)`] : [];
+  return [title, ...shown.map((s) => `  - ${s}`), ...more];
+}
+
+// Today's schedule names, checklists turned in today, and active tasks (shared cache; same reads the tools do).
+async function todayDetailLines(supabase: any, locationId: string, today: string): Promise<string[]> {
+  const win = await dayWindow(supabase, locationId, today);
+  const [{ data: shifts }, subsRes, { data: tasks }, { data: tz }] = await Promise.all([
+    supabase.from("scheduled_shifts")
+      .select("start_time, end_time, is_time_off, user_id, schedules!inner(location_id, is_published), shift_templates(position, template_name)")
+      .eq("schedules.location_id", locationId).eq("schedules.is_published", true)
+      .eq("shift_date", today).not("user_id", "is", null).order("start_time"),
+    win
+      ? supabase.from("checklist_submissions").select("submitted_at, checklists(title)")
+          .eq("location_id", locationId).gte("submitted_at", win.start_at).lte("submitted_at", win.end_at).order("submitted_at")
+      : Promise.resolve({ data: null }),
+    supabase.from("temporary_tasks").select("title, completed_at, is_recurring")
+      .eq("location_id", locationId).eq("is_active", true).order("created_at", { ascending: false }).limit(50),
+    supabase.from("location_settings").select("timezone").eq("location_id", locationId).maybeSingle(),
+  ]);
+  const zone = tz?.timezone || "America/Los_Angeles";
+  const ids = [...new Set((shifts || []).map((s: any) => s.user_id))];
+  const { data: profs } = ids.length ? await supabase.from("profiles").select("id, full_name").in("id", ids) : { data: [] };
+  const nm: Record<string, string> = Object.fromEntries((profs || []).map((p: any) => [p.id, p.full_name]));
+  const out: string[] = [];
+  out.push(...capList("Today's schedule (published; name, position, start-end):", (shifts || []).filter((s: any) => !s.is_time_off).map((s: any) =>
+    `${nm[s.user_id] || "Unknown"}, ${s.shift_templates?.position || s.shift_templates?.template_name || "no position"}, ${hm(s.start_time)}-${hm(s.end_time)}`)));
+  if (subsRes?.data) {
+    const subs = subsRes.data as any[];
+    out.push(subs.length
+      ? capList(`Checklists turned in today (${subs.length}):`, subs.map((s) => `${s.checklists?.title || "Checklist"} at ${new Date(s.submitted_at).toLocaleTimeString("en-US", { timeZone: zone, hour: "numeric", minute: "2-digit" })}`)).join("\n")
+      : "Checklists turned in today: none yet (for which lists are due or overdue, use query_checklists / the app).");
+  }
+  const tk = (tasks || []) as any[];
+  if (tk.length) {
+    const done = tk.filter((t) => !t.is_recurring && t.completed_at).length;
+    const oneOff = tk.filter((t) => !t.is_recurring).length;
+    out.push(...capList(`Active tasks (${tk.length}; one-off done ${done}/${oneOff}):`, tk.map((t) =>
+      `${t.title} — ${t.is_recurring ? "recurring (today's progress: use query_tasks)" : t.completed_at ? "done" : "open"}`)));
+  }
+  return out;
+}
+
+// Per-request "on the clock right now" lines (NOT cached; changes minute to minute).
+// Who is clocked in comes only from _shared/onClock.ts.
+async function buildOnClockLines(admin: any, locationId: string, today: string): Promise<string> {
+  if (!locationId) return "";
+  try {
+    const ids = await clockedInUserIds(admin, locationId);
+    if (!ids.length) return "On the clock right now: nobody.";
+    const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const [{ data: profs }, { data: ins }, { data: shifts }, { data: tz }] = await Promise.all([
+      admin.from("profiles").select("id, full_name").in("id", ids),
+      admin.from("time_punches").select("user_id, punch_time").eq("location_id", locationId).eq("punch_type", "clock_in").in("user_id", ids).gte("punch_time", since),
+      admin.from("scheduled_shifts").select("user_id, shift_templates(position, template_name), schedules!inner(location_id, is_published)")
+        .eq("schedules.location_id", locationId).eq("schedules.is_published", true).eq("shift_date", today).in("user_id", ids),
+      admin.from("location_settings").select("timezone").eq("location_id", locationId).maybeSingle(),
+    ]);
+    const zone = tz?.timezone || "America/Los_Angeles";
+    const nm: Record<string, string> = Object.fromEntries((profs || []).map((p: any) => [p.id, p.full_name]));
+    const lastIn: Record<string, string> = {};
+    for (const p of ins || []) if (!lastIn[p.user_id] || p.punch_time > lastIn[p.user_id]) lastIn[p.user_id] = p.punch_time;
+    const pos: Record<string, string> = {};
+    for (const s of shifts || []) pos[s.user_id] ||= s.shift_templates?.position || s.shift_templates?.template_name || "";
+    return capList(`On the clock right now (${ids.length}; name, position, in since):`, ids.map((id) =>
+      `${nm[id] || "Unknown"}, ${pos[id] || "no scheduled position"}${lastIn[id] ? `, in since ${new Date(lastIn[id]).toLocaleTimeString("en-US", { timeZone: zone, hour: "numeric", minute: "2-digit" })}` : ""}`)).join("\n");
+  } catch (e) {
+    console.error("on-clock lines error:", e);
+    return "";
+  }
+}
+
 async function buildContextSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
   try {
     // Calculate end of week (Sunday) from weekStart (Monday)
