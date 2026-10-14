@@ -749,24 +749,22 @@ export default function EditChecklist() {
   };
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
-    try {
-      const compressedFile = await compressImage(file, 1200, 1200, 0.8);
-      const fileName = `references/${Date.now()}.jpg`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('checklist-images')
-        .upload(fileName, compressedFile);
-      if (uploadError) throw uploadError;
+    // Errors propagate so the photo field shows its inline message.
+    const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+    const itemId = items[index]?.id || 'new';
+    const fileName = `references/${id || 'new'}/${itemId}-${Date.now()}.jpg`;
 
-      const { data } = supabase.storage
-        .from('checklist-images')
-        .getPublicUrl(fileName);
+    const { error: uploadError } = await supabase.storage
+      .from('checklist-images')
+      .upload(fileName, compressedFile);
+    if (uploadError) throw uploadError;
 
-      updateItem(index, 'reference_image_url', data.publicUrl);
-      toast({ title: 'Success', description: 'Reference image uploaded' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: 'Failed to upload image', variant: 'destructive' });
-    }
+    const { data } = supabase.storage
+      .from('checklist-images')
+      .getPublicUrl(fileName);
+
+    updateItem(index, 'reference_image_url', data.publicUrl);
+    toast({ title: 'Photo added', description: 'Tap Save to keep it.' });
   };
 
   const removeItem = (index: number) => {
@@ -838,7 +836,7 @@ export default function EditChecklist() {
     <Layout>
       <div className="container mx-auto p-4 max-w-4xl space-y-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
+          <Button variant="ghost" size="icon" onClick={leaveEditor}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl font-bold">Edit Checklist</h1>
@@ -1043,8 +1041,13 @@ export default function EditChecklist() {
           </CardContent>
         </Card>
 
+        {isDirty && (
+          <div role="status" className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">
+            Unsaved changes — tap Save
+          </div>
+        )}
         <div className="flex gap-4">
-          <Button onClick={() => navigate('/tasks')} variant="outline" className="flex-1">Cancel</Button>
+          <Button onClick={leaveEditor} variant="outline" className="flex-1">Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1">
             {saving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : (<><Save className="mr-2 h-4 w-4" />Save Changes</>)}
           </Button>
