@@ -3093,13 +3093,14 @@ async function handleRequest(req: Request, streamer: Streamer | null): Promise<R
     const weekStart = addDays(today, -(dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
     // === BUILD CONTEXT SNAPSHOT (cached per location for 60s; labor added per request) ===
-    const [cachedSnapshot, laborLines, theoActionsEarly] = await Promise.all([
+    const [cachedSnapshot, laborLines, theoActionsEarly, , onClockLines] = await Promise.all([
       getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart),
       buildLaborLines(supabaseUser, location_id, yesterday, today),
       actionsP,
       memoryP,
+      buildOnClockLines(supabaseAdmin, location_id, today),
     ]);
-    const contextSnapshot = laborLines ? `${cachedSnapshot}\n${laborLines}` : cachedSnapshot;
+    const contextSnapshot = [cachedSnapshot, laborLines, onClockLines].filter(Boolean).join("\n");
 
     // === RETRIEVE THEO'S LONG-TERM MEMORY ===
     let memoryContext = "";
@@ -3864,6 +3865,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     const sysContent = actionGuard ? systemPrompt + GUARD_RULE : actionsOn ? systemPrompt + ACTIONS_RULES : dryRun ? systemPrompt : systemPrompt + NEVER_CLAIM;
     const liveContext = `LIVE CONTEXT (the snapshot and any pinned knowledge / OPUS results referred to in the rules above):
 For simple number questions (sales, projections, labor %, guests, tips, who's scheduled), answer straight from the LIVE CONTEXT SNAPSHOT when the figure is there, without calling a tool.
+For questions about today's sales, goal, labor %, who's working or on the clock, today's schedule, or open checklists/tasks, answer directly from STORE SNAPSHOT (the LIVE CONTEXT SNAPSHOT below) without calling a tool. Call tools only for anything else (other dates, details not in the snapshot, actions/proposals).
 
 ${contextSnapshot}
 ${memoryContext}`;
@@ -3891,7 +3893,7 @@ ${memoryContext}`;
     const MAX_LOOPS = 3;
     let currentMessages = [...aiMessages];
     const usage = { calls: 0, pt: 0, ct: 0, cached: 0 };
-    const roundTools = dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), ...(nudgeOn ? [PROPOSE_NUDGE_TOOL] : []), ...(announceOn ? [PROPOSE_ANNOUNCEMENT_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS;
+    const roundToolsAll = dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), ...(nudgeOn ? [PROPOSE_NUDGE_TOOL] : []), ...(announceOn ? [PROPOSE_ANNOUNCEMENT_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS;
     // Safety cap only (average answer ~110 tokens). Dropped for the rest of the request if the
     // gateway rejects it (400) or an answer hits it (finish_reason "length"). Never in the bake-off.
     const CAP_TOKENS = usageSource === "voice" ? 500 : 1200;
