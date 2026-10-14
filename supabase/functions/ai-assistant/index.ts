@@ -3894,6 +3894,10 @@ ${memoryContext}`;
     let currentMessages = [...aiMessages];
     const usage = { calls: 0, pt: 0, ct: 0, cached: 0 };
     const roundToolsAll = dryRun ? [...THEO_TOOLS, PROPOSE_ACTION_TOOL] : actionsOn ? [...(msgOn ? THEO_TOOLS : NO_CHAT_TOOLS), ...(msgOn ? [FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL] : []), ...(punchOn ? [PROPOSE_PUNCH_TOOL] : []), ...(nudgeOn ? [PROPOSE_NUDGE_TOOL] : []), ...(announceOn ? [PROPOSE_ANNOUNCEMENT_TOOL] : []), FIND_CREW_TOOL, ...(findOn ? [FIND_SHIFTS_TOOL] : []), ...(coverOn ? [COVER_CANDIDATES_TOOL] : []), ...(schedOn || eventOn ? [proposeScheduleTool(theoActions)] : [PROPOSE_TASK_ONLY_TOOL]), ...(anyPending ? [CANCEL_PENDING_TOOL] : [])] : NO_CHAT_TOOLS;
+    // Voice only: drop fetch_resource_content (OPUS/library documents belong to the typed @opus flow;
+    // voice can't type @opus and doesn't read documents aloud). Every other read and action tool stays.
+    const VOICE_DROP = new Set(["fetch_resource_content"]);
+    const roundTools = usageSource === "voice" ? roundToolsAll.filter((t: any) => !VOICE_DROP.has(t.function?.name)) : roundToolsAll;
     // Safety cap only (average answer ~110 tokens). Dropped for the rest of the request if the
     // gateway rejects it (400) or an answer hits it (finish_reason "length"). Never in the bake-off.
     const CAP_TOKENS = usageSource === "voice" ? 500 : 1200;
