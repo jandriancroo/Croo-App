@@ -891,7 +891,7 @@ export default function CompleteChecklist() {
     }
     // Compress first so we never load the full-size original into memory
     // (older iPhones run out of memory and reload the app).
-    let precompressed: File | Blob | null = null;
+    let precompressed: Awaited<ReturnType<typeof compressImage>> | null = null;
     try {
       precompressed = await compressImage(file, 1200, 1200, 0.8);
     } catch (e) {
