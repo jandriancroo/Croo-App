@@ -114,6 +114,21 @@ export default function CompleteChecklist() {
   } = useAuth();
   const { isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
+
+  // Checklist reload guard: app updates wait until she leaves this page.
+  useEffect(() => {
+    setChecklistLock(true);
+    pruneOldChecklistDrafts();
+    return () => setChecklistLock(false);
+  }, []);
+
+  const draftLocalDate = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(viewDate.getDate()).padStart(2, '0')}`;
+  const draftKeys = useMemo(
+    () => checklistDraftKeys({ userId: user?.id, submissionId, checklistId: id, assignmentId, localDate: draftLocalDate }),
+    [user?.id, submissionId, id, assignmentId, draftLocalDate],
+  );
+  const draftKeysRef = useRef<string[]>(draftKeys);
+  draftKeysRef.current = draftKeys;
   const { timezone: locationTimezone } = useLocationTimezone();
   const { position: userPosition, station: userStation, role: userRole } = useUserShiftContext(user?.id, currentLocation?.id);
   const { stations: locationStations, enabled: stationMode } = useScheduleStations(currentLocation?.id);
@@ -535,7 +550,12 @@ export default function CompleteChecklist() {
           };
         });
 
-        setResponses(loadedResponses);
+        // Restore any local draft answers for items the server doesn't have yet.
+        const draftValues = loadChecklistDraft(draftKeysRef.current, loadedResponses);
+        if (Object.keys(draftValues).length > 0) {
+          console.log('[checklist-draft] restored', Object.keys(draftValues).length, 'item(s)');
+        }
+        setResponses({ ...loadedResponses, ...draftValues });
         setResponsesWithCompleters(loadedWithCompleters);
       } catch (error) {
         console.error('Error loading existing responses:', error);
@@ -544,6 +564,25 @@ export default function CompleteChecklist() {
 
     loadResponses();
   }, [submissionId]);
+
+  // Keep a local draft of answers the server hasn't confirmed yet, so a
+  // reload mid-checklist doesn't lose them. Server-confirmed items are cleared.
+  useEffect(() => {
+    if (loading || !submissionId) return;
+    const keys = draftKeysRef.current;
+    if (keys.length === 0) return;
+    for (const [itemId, value] of Object.entries(responses)) {
+      let confirmed = false;
+      try {
+        const saved = responsesWithCompleters[itemId];
+        confirmed = !!saved?.responseId && JSON.stringify(saved.value) === JSON.stringify(value);
+      } catch {
+        confirmed = false;
+      }
+      if (confirmed) clearChecklistDraftValue(keys, itemId);
+      else saveChecklistDraftValue(keys, itemId, value);
+    }
+  }, [responses, responsesWithCompleters, loading, submissionId]);
 
   // Removed - no longer blocking users from continuing draft submissions
 
