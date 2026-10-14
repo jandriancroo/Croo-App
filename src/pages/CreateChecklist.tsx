@@ -1,4 +1,5 @@
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
+import { ReferencePhotoField } from '@/components/tasks/ReferencePhotoField';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
