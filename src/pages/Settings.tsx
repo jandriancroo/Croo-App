@@ -64,6 +64,7 @@ const themes: ThemeOption[] = [
   { value: 'cupcake', label: 'Cupcake' },
   { value: 'blaze', label: 'Blaze Pizza', brand: 'blaze pizza' },
   { value: 'playa', label: 'Playa Bowls', brand: 'playa bowls' },
+  { value: 'spookified', label: 'Spookified' },
 ];
 
 // Themes scoped to a specific brand only show for that brand's stores.

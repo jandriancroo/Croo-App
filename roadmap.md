@@ -1,5 +1,10 @@
 # Roadmap
 
+## Spookified theme — Oct 14
+- [x] Add palette and theme selection/persistence with no data changes.
+- [x] Dashboard-only moon/forest/cobweb/fog/bats and theme-only voice orb lightning; reduced motion respected.
+- [x] Signed-in phone/desktop and Settings selection checked; bats removed after one pass, reduced lightning hidden, Default effects absent. 462 tests pass; no hook-order violations; automatic build OK. No publication.
+
 ## Dashboard Quick Tasks — Oct 14 (no publish)
 - [x] Remove Dashboard Events section and use compact Quick Tasks at all widths.
 - [x] Share schedule event deduplication; load only today's daily-task events with draft visibility gates; schedule pages/components untouched.

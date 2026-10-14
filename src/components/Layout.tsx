@@ -414,6 +414,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     { value: 'cupcake', label: 'Cupcake' },
     { value: 'blaze', label: 'Blaze Pizza' },
     { value: 'playa', label: 'Playa Bowls' },
+    { value: 'spookified', label: 'Spookified' },
   ];
 
   const handleThemeChange = (value: string) => {

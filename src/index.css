@@ -148,7 +148,7 @@ All colors MUST be HSL.
     --down: 142 71% 45%;  /* metric moving the right way */
     --anchor: 220 16% 97%;
   }
-  .dark, [data-theme="oled"] {
+  .dark, [data-theme="oled"], [data-theme="spookified"] {
     --up: 0 72% 58%;
     --down: 142 62% 52%;
     --anchor: 220 14% 11%;
@@ -2402,7 +2402,80 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
 
 /* Schedule Settings panel surfaces follow the active theme. */
 :root { --schedule-events-surface: 35 55% 96%; --schedule-templates-surface: 200 38% 96%; --schedule-organize-surface: 220 28% 96%; }
-.dark, [data-theme="oled"] { --schedule-events-surface: 35 12% 10%; --schedule-templates-surface: 200 18% 10%; --schedule-organize-surface: 220 12% 10%; }
+.dark, [data-theme="oled"], [data-theme="spookified"] { --schedule-events-surface: 35 12% 10%; --schedule-templates-surface: 200 18% 10%; --schedule-organize-surface: 220 12% 10%; }
 .schedule-settings-events { background: hsl(var(--schedule-events-surface)); }
 .schedule-settings-templates { background: hsl(var(--schedule-templates-surface)); }
 .schedule-settings-organize { background: hsl(var(--schedule-organize-surface)); }
+
+/* Spookified — seasonal palette; shared success/clock/warning tokens stay inherited. */
+[data-theme="spookified"] {
+  --background: 260 30% 6%; --foreground: 35 40% 94%;
+  --card: 265 28% 11%; --card-foreground: 35 40% 94%;
+  --popover: 265 28% 11%; --popover-foreground: 35 40% 94%;
+  --primary: 26 95% 55%; --primary-foreground: 260 30% 6%; --primary-light: 30 95% 68%;
+  --secondary: 270 45% 28%; --secondary-foreground: 35 40% 94%;
+  --muted: 265 20% 18%; --muted-foreground: 265 15% 72%;
+  --accent: 95 80% 52%; --accent-foreground: 260 30% 6%;
+  --destructive: 0 80% 58%; --destructive-foreground: 0 0% 100%;
+  --border: 270 25% 26%; --input: 270 25% 22%; --ring: 26 95% 55%;
+  --header-bg: 262 35% 9%; --header-fg: 30 90% 70%;
+  --sidebar-background: 262 35% 9%; --sidebar-foreground: 35 40% 94%;
+  --sidebar-primary: 26 95% 55%; --sidebar-primary-foreground: 260 30% 6%;
+  --sidebar-accent: 265 20% 18%; --sidebar-accent-foreground: 35 40% 94%;
+  --sidebar-border: 270 25% 26%; --sidebar-ring: 26 95% 55%;
+  --glass-background: 265 28% 11% / 0.82; --glass-border: 26 95% 55% / 0.25; --glass-shadow: 0 0% 0% / 0.5;
+  --quick-task-user: 26 95% 55%; --quick-task-user-fg: 260 30% 6%;
+  --quick-task-system: 270 45% 28%; --quick-task-system-fg: 35 40% 94%; --quick-task-alpha: 0.92;
+  --chart-1: 26 95% 55%; --chart-2: 95 80% 52%; --chart-3: 270 55% 60%;
+  --chart-4: 30 95% 68%; --chart-5: 95 60% 40%; --chart-6: 270 30% 45%;
+  --spooky-sky: 268 48% 16%; --spooky-night: 260 30% 3%; --spooky-moon: 45 55% 88%;
+  --spooky-fog: 270 30% 80%; --spooky-fog-green: 100 28% 78%; --spooky-electric: 200 100% 92%;
+}
+html[data-theme="spookified"] body.spookified-dashboard {
+  background: radial-gradient(circle at 88% 12%, hsl(var(--spooky-moon) / 0.16), transparent 18%),
+    linear-gradient(180deg, hsl(var(--spooky-sky)), hsl(var(--spooky-night)) 85%) fixed !important;
+  isolation: isolate;
+}
+html[data-theme="spookified"] body.spookified-dashboard::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+  background: radial-gradient(circle, hsl(var(--spooky-moon)) 0 47%, hsl(var(--spooky-moon) / 0.12) 49%, transparent 70%) right 7% top 85px / 112px 112px no-repeat, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 1000'%3E%3Cg fill='%23100a18'%3E%3Cpath d='M0 1000V680L65 805 38 800 80 874 44 865 109 951 45 929 58 1000ZM95 1000L126 875 102 882 140 817 117 823 155 733 191 820 167 813 207 878 179 869 214 1000ZM255 1000L281 839 245 853 296 754 273 757 321 638 364 755 343 750 397 851 359 831 395 1000ZM497 1000L533 910 514 915 554 838 532 848 567 767 607 844 585 836 629 915 604 906 635 1000ZM757 1000L783 861 755 865 803 778 779 783 818 666 862 781 840 774 890 864 854 851 895 1000ZM970 1000L990 889 963 897 1006 819 986 826 1029 720 1070 825 1047 818 1094 898 1061 888 1099 1000ZM1111 1000L1137 836 1100 847 1151 751 1129 758 1174 633 1200 705V1000Z'/%3E%3Cpath d='M418 1000L429 842 388 788 395 776 429 810 425 706 405 660 413 654 437 697 463 744 488 711 494 720 466 767 446 751 450 854 486 831 492 839 454 872 462 1000ZM700 1000L706 790 669 744 676 735 708 765 700 693 678 641 686 637 716 697 738 671 746 679 722 715 728 829 769 797 775 806 730 849 741 1000Z'/%3E%3C/g%3E%3C/svg%3E") center bottom / cover no-repeat;
+}
+html[data-theme="spookified"] body.spookified-dashboard .bg-background { background-color: transparent !important; }
+html[data-theme="spookified"] body.spookified-dashboard .bg-card { background-color: hsl(var(--card) / 0.9) !important; }
+html[data-theme="spookified"] body.spookified-dashboard [data-radix-popper-content-wrapper] *,
+html[data-theme="spookified"] body.spookified-dashboard :is([role="listbox"], [role="menu"], [role="dialog"], [data-radix-menu-content], [vaul-drawer], .glass-card) {
+  background-color: hsl(var(--popover)) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+html[data-theme="spookified"] body.spookified-dashboard .spookified-dashboard-content { position: relative; z-index: 1; }
+/* Decorate frames, not rotating faces; retain existing transforms and click surfaces. */
+html[data-theme="spookified"] body.spookified-dashboard .spookified-dashboard-content :is(.bg-card.border, .quick-task-content > section, .quick-task-content section, [data-tour="dashboard-cubes"] > div) { position: relative; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-dashboard-content :is(.bg-card.border, .quick-task-content section, [data-tour="dashboard-cubes"] > div)::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2; opacity: 0.48;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23eee8df' stroke-width='.65'%3E%3Cpath d='M0 0L64 0M0 0L60 18M0 0L46 46M0 0L18 60M0 0L0 64M12 0Q10 6 11 11Q6 10 0 12M25 0Q21 12 23 23Q12 21 0 25M40 0Q34 19 36 36Q19 34 0 40M58 0Q49 27 51 51Q27 49 0 58M18 5Q19 14 14 19M36 11Q37 27 27 37M53 16Q55 40 40 55'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg transform='translate(64 0) scale(-1 1)' fill='none' stroke='%23eee8df' stroke-width='.65'%3E%3Cpath d='M0 0L64 0M0 0L60 18M0 0L46 46M0 0L18 60M0 0L0 64M12 0Q10 6 11 11Q6 10 0 12M25 0Q21 12 23 23Q12 21 0 25M40 0Q34 19 36 36Q19 34 0 40M58 0Q49 27 51 51Q27 49 0 58'/%3E%3C/g%3E%3C/svg%3E");
+  background-position: top left, top right; background-size: 58px 58px; background-repeat: no-repeat;
+  mask-image: linear-gradient(90deg, black, transparent 22px, transparent calc(100% - 22px), black);
+}
+html[data-theme="spookified"] body.spookified-dashboard .spookified-effects { pointer-events: none; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-fog { position: fixed; left: -15%; width: 130%; bottom: -8%; height: 40%; pointer-events: none; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-fog-back { z-index: 0; opacity: 0.5; animation: spooky-fog-roll 2.5s ease-out both; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i { position: absolute; inset: 0; filter: blur(24px); background: radial-gradient(ellipse at 25% 90%, hsl(var(--spooky-fog) / 0.4), transparent 65%), radial-gradient(ellipse at 80% 100%, hsl(var(--spooky-fog-green) / 0.24), transparent 60%); animation: spooky-fog-drift 24s ease-in-out infinite alternate; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i:nth-child(2) { transform: translateX(-12%); animation-duration: 32s; animation-delay: -12s; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i:nth-child(3) { transform: translateX(12%); animation-duration: 38s; animation-delay: -20s; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-fog-front { z-index: 2; height: 11%; opacity: 0.1; animation: spooky-fog-roll 2.5s ease-out both; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat { position: fixed; left: -60px; top: 17%; pointer-events: none; z-index: 3; opacity: 0; fill: hsl(var(--spooky-night)); filter: drop-shadow(0 0 1px hsl(var(--spooky-moon) / 0.4)); animation: fly-across 5s linear both; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-wing { transform-origin: center; animation: flapWing 0.18s ease-in-out infinite alternate; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-1 { top: 26%; animation-delay: 0.4s; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-2 { top: 12%; animation-delay: 0.9s; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-3 { top: 35%; animation-delay: 1.4s; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-4 { top: 21%; animation-delay: 2s; }
+@keyframes spooky-fog-roll { from { transform: translateY(65%) scale(0.85); opacity: 0; } to { transform: translateY(0) scale(1); } }
+@keyframes spooky-fog-drift { from { transform: translateX(-6%) translateY(5%); } to { transform: translateX(6%) translateY(-4%); } }
+.spookified-orb-lightning { display: none; }
+html[data-theme="spookified"] .spookified-orb-lightning { display: block; position: absolute; width: 42px; height: 70px; top: 16px; right: 24px; opacity: 0; pointer-events: none; fill: hsl(var(--spooky-electric)); filter: drop-shadow(0 0 8px hsl(var(--spooky-electric) / 0.8)); }
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="spookified"] body.spookified-dashboard .spookified-bats,
+  html[data-theme="spookified"] .spookified-orb-lightning { display: none !important; }
+  html[data-theme="spookified"] body.spookified-dashboard .spookified-fog { animation: none; height: 15%; opacity: 0.16; }
+  html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i { animation: none; transform: none; }
+  html[data-theme="spookified"] body.spookified-dashboard .spookified-fog-front { display: none; }
+}

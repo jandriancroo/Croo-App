@@ -39,6 +39,7 @@ import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboar
 import { getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
 import { PageTitle } from '@/components/PageTitle';
+import { SpookifiedEffects } from '@/components/dashboard/SpookifiedEffects';
 
 
 // Lazy-loaded components (only needed conditionally)
@@ -72,8 +73,8 @@ interface Checklist {
 export default function Dashboard() {
   // Themed dashboard backgrounds (beach + playa)
   useEffect(() => {
-    document.body.classList.add('beach-dashboard', 'playa-dashboard', 'blaze-dashboard');
-    return () => document.body.classList.remove('beach-dashboard', 'playa-dashboard', 'blaze-dashboard');
+    document.body.classList.add('beach-dashboard', 'playa-dashboard', 'blaze-dashboard', 'spookified-dashboard');
+    return () => document.body.classList.remove('beach-dashboard', 'playa-dashboard', 'blaze-dashboard', 'spookified-dashboard');
   }, []);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -626,13 +627,14 @@ export default function Dashboard() {
     checklistsGridContent
   );
   return <Layout>
+      <SpookifiedEffects />
       <PullToRefresh
         alwaysRefreshKeys={ALWAYS_REFRESH_KEYS}
         cooldownKeys={COOLDOWN_KEYS}
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
-          <div className="space-y-1">
+          <div className="space-y-1 spookified-dashboard-content">
             <PageTitle
               color="teal"
               action={
