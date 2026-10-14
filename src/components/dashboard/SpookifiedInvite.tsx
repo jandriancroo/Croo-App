@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth';
 import { syncChromeColor } from '@/utils/syncChrome';
 
 // Test mode: only these emails see the invite. Empty the list to show everyone.
-const TEST_ONLY_EMAILS = ['jordan@jo-pizza.com'];
+const TEST_ONLY_EMAILS: string[] = [];
 const SEEN_KEY = 'spookified-invite-seen-v1';
 
 export function SpookifiedInvite() {
