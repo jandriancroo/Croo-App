@@ -10,6 +10,8 @@ import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert'
 import { PinMigrationTask } from '@/components/dashboard/PinMigrationTask';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { DashEventsSection } from '@/components/today/DashEventsSection';
 
 interface QuickTasksSectionProps {
   locationSettings: { hours_open: string; hours_close: string } | null | undefined;
@@ -26,9 +28,10 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
   onNudge,
   recentlyNudged,
 }: QuickTasksSectionProps) {
+  const isMobile = useIsMobile();
   return (
     <div className="quick-task-section flex flex-col gap-1 w-full">
-      <DashSectionTitle>Quick Tasks</DashSectionTitle>
+      <DashSectionTitle>{isMobile ? 'Today' : 'Quick Tasks'}</DashSectionTitle>
       <div className="quick-task-content flex flex-col gap-1 w-full">
 
 
@@ -43,6 +46,8 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
           canNudge={canNudge}
           onNudge={onNudge}
           recentlyNudged={recentlyNudged}
+          sectioned={isMobile}
+          showCompleted={isMobile}
           afterEventsContent={
             <>
               <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
@@ -51,6 +56,7 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
           }
         />
         <CateringOrdersAlert />
+        {isMobile && <DashEventsSection />}
       </div>
     </div>
   );

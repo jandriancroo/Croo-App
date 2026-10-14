@@ -551,7 +551,7 @@ export function AssignedTemporaryTasks({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between"><span className="text-sm text-muted-foreground">Customer</span><span className="font-medium">{selectedOrder.customer_name}</span></div>
                   <div className="flex items-center justify-between"><span className="text-sm text-muted-foreground">Pickup</span><span className="text-primary font-medium">Today at {formatTime(selectedOrder.pickup_time)}</span></div>
-                  {selectedOrder.status !== "completed" && (
+                  {canComplete && selectedOrder.status !== "completed" && (
                     <Button className="w-full" size="lg" onClick={() => handleCateringComplete(selectedOrder)}><Check className="h-5 w-5 mr-2" />Mark Complete</Button>
                   )}
                 </div>
