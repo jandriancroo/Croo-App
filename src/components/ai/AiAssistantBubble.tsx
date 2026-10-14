@@ -472,7 +472,7 @@ export function AiAssistantBubble() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '-105%', opacity: 0 }}
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-              className="fixed z-[60] flex flex-col bg-background overflow-hidden border border-border/30"
+              className="theo-chat-panel fixed z-[60] flex flex-col bg-background overflow-hidden border border-border/30"
               style={{
                 left: 0,
                 right: 0,
