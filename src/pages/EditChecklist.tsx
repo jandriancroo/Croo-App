@@ -246,21 +246,12 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               className="text-xs w-full"
             />
             <div className="space-y-2">
-              <div className="space-y-1">
-                <Label className="text-[10px] flex items-center gap-1"><Upload className="h-2.5 w-2.5" /> Reference Photo</Label>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  className="text-[10px] h-7 w-full"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleReferenceImageUpload(index, file);
-                  }}
-                />
-                {item.reference_image_url && (
-                  <img src={item.reference_image_url} alt="Reference" className="rounded max-h-16 object-cover" />
-                )}
-              </div>
+              <ReferencePhotoField
+                compact
+                url={item.reference_image_url}
+                onUpload={(file) => handleReferenceImageUpload(index, file)}
+                onRemove={() => updateItem(index, 'reference_image_url', null)}
+              />
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] flex items-center gap-1"><LinkIcon className="h-2.5 w-2.5" /> Link</Label>
