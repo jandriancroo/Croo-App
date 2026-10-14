@@ -1,5 +1,10 @@
 # Roadmap
 
+## Dashboard Quick Tasks — Oct 14 (no publish)
+- [ ] Remove Dashboard Events section and use compact Quick Tasks at all widths.
+- [ ] Share schedule event deduplication; load only today's daily-task events with draft visibility gates.
+- [ ] Verify hooks, full tests, build signal, and mobile/desktop Dashboard without data writes.
+
 ## Oct 9 six-item display batch (no publish)
 - [x] Honor task/event colors with readable text; grouped checklist headers/counts/station order and legacy divider hiding.
 - [x] Single split availability/time-off cell and shared details, preserving two-tap behavior; optional partial-day-under-shift folding left unchanged.

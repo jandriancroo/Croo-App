@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
-import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
+import { loadTodaysScheduleEvents, scheduleDayContext } from "@/lib/todaysScheduleEvents";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
 import { getAlarmIntervalKey } from "@/utils/timezoneUtils";
 import { CollapsibleSection } from "@/components/today/CollapsibleSection";
@@ -223,37 +223,14 @@ export function AssignedTemporaryTasks({
   });
 
   // Fetch event daily tasks for today - use timezone-aware functions
-  const today = getTodayInTimezone();
-  const todayDayOfWeek = getDayOfWeekInTimezone();
+  const { today } = scheduleDayContext(timezone);
 
   const { data: eventTasks = [], refetch: refetchEvents, isFetched: eventsFetched } = useQuery({
-    queryKey: ["today-event-tasks", currentLocation?.id, includeEventTasks, role],
+    queryKey: ["today-event-tasks", currentLocation?.id, includeEventTasks, role, timezone, today, isAdmin, isManager],
     queryFn: async () => {
       if (!currentLocation?.id || !includeEventTasks) return [];
 
-      const { data: eventsData, error: eventsError } = await supabase
-        .from("schedule_events")
-        .select(`id, event_name, event_time, event_end_time, day_of_week, days_of_week, category_id, tagged_roles, event_categories(name, color)`)
-        .eq("location_id", currentLocation.id)
-        .eq("is_daily_task", true)
-        .eq("is_recurring", true);
-
-      if (eventsError) throw eventsError;
-
-      const todaysTasks = (eventsData || []).filter((event: any) => {
-        if (event.days_of_week && event.days_of_week.length > 0) {
-          return event.days_of_week.includes(todayDayOfWeek);
-        }
-        return event.day_of_week === todayDayOfWeek;
-      }).map((event: any) => ({
-        id: event.id,
-        event_name: event.event_name,
-        event_time: event.event_time,
-        event_end_time: event.event_end_time,
-        category_id: event.category_id,
-        category: event.event_categories,
-        tagged_roles: event.tagged_roles as string[] | null,
-      }));
+      const todaysTasks = await loadTodaysScheduleEvents(currentLocation.id, timezone, isAdmin || isManager, today);
 
       // Filter by user role visibility
       const roleFiltered = filterEventsByRole(todaysTasks, role);
