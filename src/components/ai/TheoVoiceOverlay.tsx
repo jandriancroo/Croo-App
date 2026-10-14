@@ -472,18 +472,24 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         held.forEach((audio) => ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio })));
         setSpeechTick((n) => n + 1); // start the silence hang-up clock now that the line is open
       };
+      // Did Theo speak any audio in the current response? (plain variable, not a hook)
+      let spokeThisResponse = false;
       ws.onmessage = async (msg) => {
         const ev = JSON.parse(msg.data);
         lastActivityRef.current = Date.now();
         switch (ev.type) {
           case 'response.output_audio.delta':
           case 'response.audio.delta':
+            spokeThisResponse = true;
             setPhase('speaking');
             playChunk(b64ToFloat(ev.delta));
             break;
           case 'response.output_audio_transcript.delta':
           case 'response.audio_transcript.delta':
             if (ev.delta) setCaption((c) => (c.endsWith('\u200b') ? '' : c) + ev.delta);
+            break;
+          case 'response.created':
+            spokeThisResponse = false;
             break;
           case 'response.done':
             setCaption((c) => c + '\u200b');
@@ -505,6 +511,10 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
             setSpeechTick((n) => n + 1);
             break;
           case 'response.function_call_arguments.done': {
+            // Theo went to look it up without saying a filler: play the soft "checking" cue now
+            // (local sound, no network; skipped if Theo is talking). The ask_theo call is unchanged.
+            if (ev.name === 'ask_theo' && !spokeThisResponse) triggerCue('checking', true);
+            spokeThisResponse = false;
             const nextLine = pickThinkingLine(lastThinkingRef.current);
             lastThinkingRef.current = nextLine;
             setThinkingLine(nextLine);

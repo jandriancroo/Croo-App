@@ -1,11 +1,13 @@
 // Theo's listening cues ("Wood"). Generated with Web Audio; no files.
-export type TheoCue = 'ready' | 'heard' | 'closed';
+export type TheoCue = 'ready' | 'heard' | 'closed' | 'checking';
 const LO = 659.25, HI = 830.61;
 /** Each cue's taps: [seconds after start, pitch in Hz, level]. */
 export const CUE_TAPS: Record<TheoCue, [number, number, number][]> = {
   ready: [[0, LO, 1], [0.085, HI, 1]],
   heard: [[0, HI, 0.55]],
   closed: [[0, HI, 1], [0.1, LO, 1]],
+  // "One sec" — soft double tap when Theo goes to look something up without saying a filler.
+  checking: [[0, LO, 0.45], [0.16, LO, 0.45]],
 };
 const buses = new WeakMap<BaseAudioContext, GainNode>();
 function bus(ac: BaseAudioContext): GainNode {
