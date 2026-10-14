@@ -16,6 +16,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
 import { getAlarmIntervalKey } from "@/utils/timezoneUtils";
+import { CollapsibleSection } from "@/components/today/CollapsibleSection";
+import { QuickTaskRow } from "@/components/today/QuickTaskRow";
 
 interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
@@ -492,9 +494,7 @@ export function AssignedTemporaryTasks({
     if (sectioned) {
       const fmtHour = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" })
         .format(d).replace(":00", "").replace(/\s?(AM|PM)/, (_m, p) => p.toLowerCase());
-      const hhmmLabel = (t: string) => fmtHour(new Date(`2000-01-01T${t.slice(0, 5)}:00Z`)).trim();
       const timeOnly = (t: string) => { const [h, m] = t.split(":"); const hr = parseInt(h) || 0; return `${hr % 12 || 12}${m && m !== "00" ? `:${m}` : ""}${hr >= 12 ? "pm" : "am"}`; };
-      void hhmmLabel;
       type Row = { key: string; node: React.ReactNode; overdue: boolean };
       const rows: Row[] = [];
       [...eventTasks].sort((a, b) => a.event_time.localeCompare(b.event_time)).forEach(ev => {
