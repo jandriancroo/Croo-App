@@ -16,6 +16,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
 import { getAlarmIntervalKey } from "@/utils/timezoneUtils";
+import { CollapsibleSection } from "@/components/today/CollapsibleSection";
+import { QuickTaskRow } from "@/components/today/QuickTaskRow";
 
 interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
@@ -30,6 +32,8 @@ interface AssignedTemporaryTasksProps {
   onNudge?: (t: { type: 'task' | 'event'; id: string; title: string }) => void;
   /** 'task:<id>' / 'event:<id>' -> minutes since the last nudge (last hour) */
   recentlyNudged?: Record<string, number>;
+  /** Mobile Dash: render tasks as a collapsible "Quick Tasks" section of compact rows. */
+  sectioned?: boolean;
 }
 
 interface CateringOrder {
@@ -68,6 +72,7 @@ export function AssignedTemporaryTasks({
   canNudge = false,
   onNudge,
   recentlyNudged,
+  sectioned = false,
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -485,6 +490,77 @@ export function AssignedTemporaryTasks({
     });
 
     if (badgeItems.length === 0 && !showCompleted) return null;
+
+    if (sectioned) {
+      const fmtHour = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" })
+        .format(d).replace(":00", "").replace(/\s?(AM|PM)/, (_m, p) => p.toLowerCase());
+      const timeOnly = (t: string) => { const [h, m] = t.split(":"); const hr = parseInt(h) || 0; return `${hr % 12 || 12}${m && m !== "00" ? `:${m}` : ""}${hr >= 12 ? "pm" : "am"}`; };
+      type Row = { key: string; node: React.ReactNode; overdue: boolean };
+      const rows: Row[] = [];
+      [...eventTasks].sort((a, b) => a.event_time.localeCompare(b.event_time)).forEach(ev => {
+        const done = isEventCompleted(ev.id);
+        const overdue = !done && !!ev.event_end_time && nowLocalHHMM > ev.event_end_time.slice(0, 5);
+        rows.push({ key: `event-${ev.id}`, overdue, node: pulseWrap(ev.id, (
+          <QuickTaskRow title={ev.event_name} icon={ClipboardList} done={done} overdue={overdue}
+            dueLabel={`Due ${timeOnly(ev.event_time)}`}
+            onSelect={() => { if (!done) handleEventTaskComplete(ev.id); }} nudge={eventNudge(ev)} />
+        )) });
+      });
+      tasks.forEach((task: any) => {
+        const done = !!task.completed_at;
+        const counts = subtaskCounts[task.id];
+        const overdue = !done && task.task_style === "alarm" && !!task.last_triggered_at;
+        rows.push({ key: task.id, overdue, node: (
+          <QuickTaskRow key={task.id} title={task.title} icon={getIconComponent(task.icon_name || "ClipboardList")}
+            done={done} overdue={overdue}
+            dueLabel={task.expires_at ? `Due ${fmtHour(new Date(task.expires_at))}` : null}
+            progress={counts ? { done: counts.completed, total: counts.total } : null}
+            onSelect={() => openTask(task)} nudge={taskNudge(task)} />
+        ) });
+      });
+      cateringOrders.forEach(order => {
+        const done = order.status === "completed";
+        rows.push({ key: `catering-${order.id}`, overdue: false, node: (
+          <QuickTaskRow key={`catering-${order.id}`} title={order.customer_name} icon={ChefHat} done={done}
+            dueLabel={`Due ${timeOnly(order.pickup_time)}`} onSelect={() => setSelectedOrder(order)} />
+        ) });
+      });
+      const total = eventTasks.length + tasks.length + cateringOrders.length;
+      const doneCount = completedEventTasks.length + completedTasks.length + completedOrders.length;
+      const overdueCount = rows.filter(r => r.overdue).length;
+      return (
+        <>
+          {total > 0 && (
+            <CollapsibleSection storageKey="croo:dash:quick-tasks-collapsed" title="Quick Tasks" icon={ClipboardList}
+              tone="orange" count={total - doneCount}
+              collapsedSummary={`${doneCount} of ${total} done${overdueCount ? ` · ${overdueCount} overdue` : ""}`}>
+              {rows.map(r => <div key={r.key}>{r.node}</div>)}
+            </CollapsibleSection>
+          )}
+          {afterEventsContent}
+          {selectedTask && (
+            <TemporaryTaskDetailsDialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}
+              task={selectedTask} onComplete={handleTaskComplete} />
+          )}
+          {selectedOrder && (
+            <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2"><ChefHat className="h-5 w-5" />{selectedOrder.order_number ? `Order #${selectedOrder.order_number}` : "Catering Order"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between"><span className="text-sm text-muted-foreground">Customer</span><span className="font-medium">{selectedOrder.customer_name}</span></div>
+                  <div className="flex items-center justify-between"><span className="text-sm text-muted-foreground">Pickup</span><span className="text-primary font-medium">Today at {formatTime(selectedOrder.pickup_time)}</span></div>
+                  {canComplete && selectedOrder.status !== "completed" && (
+                    <Button className="w-full" size="lg" onClick={() => handleCateringComplete(selectedOrder)}><Check className="h-5 w-5 mr-2" />Mark Complete</Button>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </>
+      );
+    }
 
     const eventItems = badgeItems.filter(i => i.isEvent);
     const otherItems = badgeItems.filter(i => !i.isEvent);
