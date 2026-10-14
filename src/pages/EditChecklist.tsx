@@ -569,6 +569,8 @@ export default function EditChecklist() {
           link_refs: parseLinkRefs((item as any).link_refs),
         };
       }));
+      // Capture the "as loaded" snapshot once state settles.
+      captureBaselineRef.current = true;
     } catch (error: any) {
       console.error('Error fetching checklist:', error);
       toast({
