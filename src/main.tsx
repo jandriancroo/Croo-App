@@ -3,6 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { syncChromeColor } from "./utils/syncChrome";
 import { debugWatchLog } from "./utils/debugWatch";
+import { performDeferrableReload } from "./utils/deferrableReload";
 
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
@@ -96,30 +97,8 @@ setupServiceWorkers();
 // __APP_VERSION__ is injected at build time in vite.config.ts.
 declare const __APP_VERSION__: string;
 
-// Helper: defer any reload while an inventory count session is in progress.
-// Without this, an auto-update mid-count silently wipes unsaved data.
-const isInventoryCountActive = (): boolean => {
-  try {
-    return (window as any).__INVENTORY_COUNT_LOCK__?.active === true;
-  } catch {
-    return false;
-  }
-};
-
-const performDeferrableReload = (doReload: () => void) => {
-  if (!isInventoryCountActive()) {
-    doReload();
-    return;
-  }
-  console.log("[Main] Reload deferred — inventory count in progress");
-  // Poll: as soon as the count session ends, perform the reload.
-  const poll = window.setInterval(() => {
-    if (!isInventoryCountActive()) {
-      window.clearInterval(poll);
-      doReload();
-    }
-  }, 1000);
-};
+// Reloads wait while an inventory count or a checklist is open
+// (shared helper so every reload path uses the same rule).
 
 try {
   const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined;
@@ -130,7 +109,7 @@ try {
       localStorage.setItem('app-version', currentVersion);
       const url = new URL(window.location.href);
       url.searchParams.set('v', currentVersion);
-      performDeferrableReload(() => window.location.replace(url.toString()));
+      performDeferrableReload(() => window.location.replace(url.toString()), 'startup_version');
     } else if (!storedVersion) {
       localStorage.setItem('app-version', currentVersion);
     }
@@ -145,7 +124,7 @@ window.addEventListener('vite:preloadError', (event) => {
   const key = 'vite_preload_reload_attempted';
   if (!sessionStorage.getItem(key)) {
     sessionStorage.setItem(key, Date.now().toString());
-    performDeferrableReload(() => window.location.reload());
+    performDeferrableReload(() => window.location.reload(), 'vite_preload_error');
   }
 });
 

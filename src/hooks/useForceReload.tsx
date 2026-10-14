@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { subscribeUniversalUpdate } from '@/lib/universalUpdate';
+import { performDeferrableReload } from '@/utils/deferrableReload';
 
 declare const __APP_VERSION__: string;
 
@@ -57,7 +58,7 @@ export function useForceReload() {
 
     if (currentVersion.localeCompare(latestVersion, undefined, { numeric: true }) < 0) {
       console.log(`[ForceReload] Outdated version detected (${currentVersion} < ${latestVersion}), reloading...`);
-      window.location.reload();
+      performDeferrableReload(() => window.location.reload(), 'outdated_version');
     }
   }, []);
 
@@ -69,7 +70,7 @@ export function useForceReload() {
     if (window.location.pathname.startsWith('/punch-clock')) return;
     return subscribeUniversalUpdate(() => {
       console.log('[ForceReload] Universal update received, reloading...');
-      window.location.reload();
+      performDeferrableReload(() => window.location.reload(), 'universal_update');
     });
   }, []);
 
@@ -81,7 +82,7 @@ export function useForceReload() {
       .channel(`user-updates:${user.id}`)
       .on('broadcast', { event: 'force-reload' }, () => {
         console.log('[ForceReload] Received reload signal, refreshing...');
-        window.location.reload();
+        performDeferrableReload(() => window.location.reload(), 'personal_force_reload');
       })
       .subscribe();
 
