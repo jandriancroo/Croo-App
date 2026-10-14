@@ -181,11 +181,19 @@ export default function Dashboard() {
     queryFn: async () => {
       if (!currentLocation?.id) return null;
       const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      if (!token) return null;
+      let session = sessionData?.session;
+      if (!session) return null;
+      // A sign-in pass that is expired (or about to be, e.g. after the app
+      // was asleep) gets refreshed first so the function doesn't reject it.
+      const expiresAtMs = (session.expires_at ?? 0) * 1000;
+      if (expiresAtMs && expiresAtMs - Date.now() < 60_000) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (!refreshed?.session) return null;
+        session = refreshed.session;
+      }
       const { data, error } = await supabase.functions.invoke('kiosk-metrics', {
         body: { location_id: currentLocation.id },
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (error) return null;
       return data ?? null;
