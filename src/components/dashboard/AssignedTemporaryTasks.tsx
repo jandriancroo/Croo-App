@@ -30,6 +30,8 @@ interface AssignedTemporaryTasksProps {
   onNudge?: (t: { type: 'task' | 'event'; id: string; title: string }) => void;
   /** 'task:<id>' / 'event:<id>' -> minutes since the last nudge (last hour) */
   recentlyNudged?: Record<string, number>;
+  /** Mobile Dash: render tasks as a collapsible "Quick Tasks" section of compact rows. */
+  sectioned?: boolean;
 }
 
 interface CateringOrder {
@@ -68,6 +70,7 @@ export function AssignedTemporaryTasks({
   canNudge = false,
   onNudge,
   recentlyNudged,
+  sectioned = false,
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
