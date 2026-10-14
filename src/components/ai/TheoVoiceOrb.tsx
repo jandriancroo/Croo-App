@@ -35,6 +35,7 @@ const BURST_S = 0.6;
 export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level: number }>(function TheoVoiceOrb({ phase, level }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
+  const lightningRef = useRef<SVGSVGElement>(null);
   const impulseRef = useRef<(cue: TheoCue, n: number) => void>(() => {});
   const cueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const phaseRef = useRef(phase);
@@ -80,6 +81,22 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
     let dimTarget = 0;
     let sizeMul = 1;
     const dimTimers: ReturnType<typeof setTimeout>[] = [];
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let spooky = document.documentElement.dataset.theme === 'spookified';
+    let lightningAllowed = spooky && !motionQuery.matches;
+    let lightningAt = last + 3000 + Math.random() * 2000;
+    let lightningStart = -Infinity;
+    const updateLightningTheme = () => {
+      spooky = document.documentElement.dataset.theme === 'spookified';
+      lightningAllowed = spooky && !motionQuery.matches;
+      lightningStart = -Infinity;
+      lightningAt = performance.now() + 3000 + Math.random() * 2000;
+      if (lightningRef.current) lightningRef.current.style.opacity = '0';
+    };
+    const themeObserver = new MutationObserver(updateLightningTheme);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    motionQuery.addEventListener('change', updateLightningTheme);
+    const electric = getComputedStyle(document.documentElement).getPropertyValue('--spooky-electric').trim();
 
     impulseRef.current = (cue, n) => {
       const now = performance.now() / 1000;
@@ -109,6 +126,14 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
       sizeMul += (((!reduced && p === 'listening') ? 0.92 : 1) - sizeMul) * Math.min(1, dt * 7);
       dim += (dimTarget - dim) * Math.min(1, dt * 6);
       flash *= Math.pow(0.02, dt);
+      if (lightningAllowed && now >= lightningAt) {
+        lightningStart = now;
+        lightningAt = now + 3000 + Math.random() * 2000;
+      }
+      const lightningAge = now - lightningStart;
+      const lightningPeak = lightningAllowed && ((lightningAge >= 0 && lightningAge < 65) || (lightningAge >= 155 && lightningAge < 230));
+      if (lightningPeak) flash = Math.max(flash, 0.95);
+      if (lightningRef.current) lightningRef.current.style.opacity = lightningPeak ? '1' : '0';
       spinAngle += spinVel * dt;
       spinVel *= Math.exp(-4.5 * dt);
       const nowS = now / 1000;
@@ -124,6 +149,7 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
 
       ctx.clearRect(0, 0, SIZE, SIZE);
       ctx.fillStyle = '#fff';
+      if (lightningPeak) ctx.fillStyle = `hsl(${electric || '200 100% 92%'})`;
       for (const h of halo) {
         const a = h.a + (rotY - spinAngle) * 0.3 + spinAngle * 0.6;
         const d = h.d + (still ? 0 : Math.sin(t * 0.8 + h.s) * 0.02);
@@ -168,6 +194,8 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
       cueTimersRef.current.forEach(clearTimeout);
       cueTimersRef.current = [];
       impulseRef.current = () => {};
+      themeObserver.disconnect();
+      motionQuery.removeEventListener('change', updateLightningTheme);
     };
   }, []);
 
@@ -175,6 +203,9 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
     <>
       <div ref={glowRef} aria-hidden className="absolute left-10 top-10 h-[200px] w-[200px] rounded-full blur-[34px]" style={{ background: 'hsl(var(--primary-light, 190 57% 60%) / 0.32)' }} />
       <canvas ref={canvasRef} aria-hidden style={{ width: SIZE, height: SIZE }} className="relative block" />
+      <svg ref={lightningRef} aria-hidden className="spookified-orb-lightning" viewBox="0 0 60 100">
+        <path d="M38 2L8 52H28L19 98L54 39H33Z" />
+      </svg>
     </>
   );
 });
