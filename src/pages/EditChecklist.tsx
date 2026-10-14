@@ -574,39 +574,25 @@ export default function EditChecklist() {
 
 
       const validItems = items.filter(item => item.question.trim() !== '');
+      const savedIds: (string | undefined)[] = [];
 
       for (let index = 0; index < validItems.length; index++) {
         const item = validItems[index];
-        // Store temperature as 'temperature' item_type directly
-        const dbItemType = item.item_type;
-        const itemData = {
-          checklist_id: id,
-          question: item.question,
-          item_type: dbItemType,
-          is_required: item.is_required,
-          requires_temperature_validation: dbItemType === 'temperature',
-          temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
-          options: item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null,
-          reference_image_url: item.reference_image_url || null,
-          reference_link: item.reference_link || null,
-          reference_video_url: item.reference_video_url || null,
-          reference_notes: item.reference_notes || null,
-          order_index: index,
-          manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
-          position: positionFilteringEnabled ? (item.position || null) : null,
-          station_id: positionFilteringEnabled ? (item.station_id || null) : null,
-          assigned_role: positionFilteringEnabled ? ((item.assigned_role as any) || null) : null,
-          assigned_user_id: positionFilteringEnabled ? (item.assigned_user_id || null) : null,
-          link_refs: (item.link_refs ?? []) as any,
-        };
+        const itemData = { checklist_id: id, ...toItemRow(item, index, enableAmPmDivision, positionFilteringEnabled) };
 
         let savedItemId = item.id;
         if (item.id) {
-          const { error: updateError } = await supabase
-            .from('checklist_items')
-            .update(itemData)
-            .eq('id', item.id);
-          if (updateError) throw updateError;
+          // Stale-save protection: only send fields this editor actually changed
+          // since load, so an old screen can't wipe someone else's edits.
+          const before = itemSnapshotRef.current.get(item.id);
+          const patch = before ? changedFields(before, itemData) : itemData;
+          if (Object.keys(patch).length > 0) {
+            const { error: updateError } = await supabase
+              .from('checklist_items')
+              .update(patch as any)
+              .eq('id', item.id);
+            if (updateError) throw updateError;
+          }
         } else {
           const { data: inserted, error: insertError } = await supabase
             .from('checklist_items')
@@ -616,6 +602,7 @@ export default function EditChecklist() {
           if (insertError) throw insertError;
           savedItemId = inserted?.id;
         }
+        savedIds.push(savedItemId);
 
         // Sync prep_rows for prep_list items.
         // IMPORTANT: do NOT delete-then-insert blindly — the FK on
@@ -717,6 +704,14 @@ export default function EditChecklist() {
           : 'Checklist updated successfully',
       });
 
+      // Refresh the snapshot and clear the dirty flag before leaving.
+      const nextSnap = new Map<string, Record<string, unknown>>();
+      validItems.forEach((it, i) => {
+        const sid = savedIds[i];
+        if (sid) nextSnap.set(sid, { checklist_id: id, ...toItemRow(it, i, enableAmPmDivision, positionFilteringEnabled) });
+      });
+      itemSnapshotRef.current = nextSnap;
+      setBaselineKey(formKey);
       navigate('/tasks');
     } catch (error: any) {
       console.error('Error updating checklist:', error);
