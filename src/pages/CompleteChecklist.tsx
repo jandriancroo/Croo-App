@@ -887,13 +887,21 @@ export default function CompleteChecklist() {
       toast.info('Upload in progress — please wait');
       return;
     }
-    // Block exact repeat photos: same file used at this store in the last
-    // 7 days on a different checklist submission. Fingerprint the ORIGINAL
-    // file (before compression). If hashing or the check fails, allow it.
+    // Compress first so we never load the full-size original into memory
+    // (older iPhones run out of memory and reload the app).
+    let precompressed: File | Blob | null = null;
+    try {
+      precompressed = await compressImage(file, 1200, 1200, 0.8);
+    } catch (e) {
+      console.warn('[photo] early compression failed, will retry during upload', e);
+    }
+    // Block exact repeat photos: same photo used at this store in the last
+    // 7 days on a different checklist submission. Fingerprint the COMPRESSED
+    // file. If compression, hashing or the check fails, allow it.
     const repeatLocationId = currentLocation?.id || checklist?.location_id;
-    if (repeatLocationId && typeof crypto !== 'undefined' && crypto.subtle) {
+    if (precompressed && repeatLocationId && typeof crypto !== 'undefined' && crypto.subtle) {
       try {
-        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+        const digest = await crypto.subtle.digest('SHA-256', await precompressed.arrayBuffer());
         const photoHash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
         const { data: isNew, error: claimErr } = await supabase.rpc('claim_checklist_photo' as any, {
           _location_id: repeatLocationId,
