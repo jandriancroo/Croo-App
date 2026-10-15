@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
@@ -22,6 +22,11 @@ export function useTheoUnread(): TheoUnreadState {
   const { user } = useAuth();
   const { currentLocation } = useLocation();
   const queryClient = useQueryClient();
+
+  // Each component using this hook needs its own realtime channel. Supabase
+  // hands back the existing channel for a repeated name, and adding a listener
+  // to an already-subscribed channel throws, which blanked the iPhone app.
+  const instanceKey = useRef(Math.random().toString(36).slice(2, 10)).current;
 
   const locationId = currentLocation?.id ?? null;
   const userId = user?.id ?? null;
@@ -60,7 +65,7 @@ export function useTheoUnread(): TheoUnreadState {
   useEffect(() => {
     if (!userId || !locationId) return;
     const channel = supabase
-      .channel(`theo-unread-${userId}-${locationId}`)
+      .channel(`theo-unread-${userId}-${locationId}-${instanceKey}`)
       .on(
         'postgres_changes',
         {
@@ -80,7 +85,7 @@ export function useTheoUnread(): TheoUnreadState {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, locationId, queryClient, queryKey]);
+  }, [userId, locationId, queryClient, queryKey, instanceKey]);
 
   const markReadMutation = useMutation({
     mutationFn: async (messageId: string) => {
