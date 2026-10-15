@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
     const xaiKey = Deno.env.get("XAI_API_KEY");
     if (!xaiKey) return json({ error: "Voice is not set up yet" }, 503);
     const { data: pref } = await admin.from("theo_voice_prefs").select("voice").eq("user_id", user.id).maybeSingle();
-    const voice = VOICES.includes(pref?.voice) ? pref.voice : "eve";
+    const voice = pref?.voice && VOICES.includes(pref.voice) ? pref.voice : "eve";
 
     if (body.action === "update") {
       // Cheap path: write the update if needed, read it with text-to-speech. No live connection.
