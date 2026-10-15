@@ -94,8 +94,17 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
     let lightningAllowed = spooky && !motionQuery.matches;
     let lightningAt = last + 3000 + Math.random() * 2000;
     let lightningStart = -Infinity;
+    // In Spookified mode the pumpkin replaces the canvas, so the loop stops; it restarts if the theme changes back.
+    let running = false;
+    const startLoop = () => {
+      if (running || spooky) return;
+      running = true;
+      last = performance.now();
+      raf = requestAnimationFrame(draw);
+    };
     const updateLightningTheme = () => {
       spooky = document.documentElement.dataset.theme === 'spookified';
+      startLoop();
       lightningAllowed = spooky && !motionQuery.matches;
       lightningStart = -Infinity;
       lightningAt = performance.now() + 3000 + Math.random() * 2000;
@@ -123,7 +132,7 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
     const draw = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      if (spooky) { raf = requestAnimationFrame(draw); return; }
+      if (spooky) { running = false; return; }
       const p = phaseRef.current;
       const still = reduced || p === 'error';
       smooth += ((p === 'speaking' ? levelRef.current : 0) - smooth) * 0.25;
@@ -196,7 +205,7 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
       ctx.globalAlpha = 1;
       raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
+    startLoop();
     return () => {
       cancelAnimationFrame(raf);
       dimTimers.forEach(clearTimeout);
