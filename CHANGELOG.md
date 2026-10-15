@@ -8,6 +8,8 @@ Plain-language notes for meaningful changes. SupaCRM ingests this file via the G
 
 ---
 
+2026-10-14 [theo-ai] - Theo answers task, checklist and checklist-item questions from the same data as Tasks > History; open quick tasks show as not done.
+
 2026-04-24 [crm-pattern] — Established CHANGELOG convention so SupaCRM can show plain-language notes alongside per-page commit feeds.
 2026-04-24 [inventory] — Wired inventory-availability-sweep into queue_nightly_maintenance; runs nightly at 3am PST after vendor/labor jobs.
 2026-04-24 [inventory] — Sweep now skips manual/invoice-only items (vendor_source filter), eliminating false 60-day flags. 76 items dropped from Hemet sweep, 81% match rate on remainder.
