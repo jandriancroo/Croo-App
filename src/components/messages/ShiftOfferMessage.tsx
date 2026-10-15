@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { uniqueChannelName } from "@/lib/realtimeChannelName";
 import { toast } from "sonner";
 import { Clock, Calendar, User, Check, X } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -59,7 +60,7 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
     fetchClaims();
 
     const offerChannel = supabase
-      .channel(`shift-offer-${offerId}`)
+      .channel(uniqueChannelName(`shift-offer-${offerId}`))
       .on(
         "postgres_changes",
         {
@@ -73,7 +74,7 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
       .subscribe();
 
     const claimsChannel = supabase
-      .channel(`shift-claims-${offerId}`)
+      .channel(uniqueChannelName(`shift-claims-${offerId}`))
       .on(
         "postgres_changes",
         {

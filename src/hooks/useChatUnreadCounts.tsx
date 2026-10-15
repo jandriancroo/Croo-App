@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannelName } from '@/lib/realtimeChannelName';
 import { useAuth } from '@/lib/auth';
 
 export interface ChatUnreadCounts {
@@ -106,7 +107,7 @@ export function useChatUnreadCounts(locationId: string | null) {
         channelRef.current = null;
       }
       channelRef.current = supabase
-        .channel(`chat-counts-${user.id}`)
+        .channel(uniqueChannelName(`chat-counts-${user.id}`))
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages' },
