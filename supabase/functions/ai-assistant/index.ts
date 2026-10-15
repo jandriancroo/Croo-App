@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { QUERY_TASK_HISTORY_TOOL, runQueryTaskHistory } from "./taskHistoryTool.ts";
+import { QUERY_CHECKLIST_ITEMS_TOOL, runQueryChecklistItems } from "./checklistItemsTool.ts";
 import { getDateDayOfWeekInTimezone } from "../_shared/taskHistory/helpers.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
@@ -1046,7 +1047,7 @@ const PROPOSE_ACTION_TOOL = {
 };
 
 // query_inventory is parked (not offered to the model) — see THEO_INVENTORY.md. Code kept for later.
-const THEO_TOOLS = [...tools.filter((t: any) => t.function?.name !== "query_inventory"), QUERY_TASK_HISTORY_TOOL];
+const THEO_TOOLS = [...tools.filter((t: any) => t.function?.name !== "query_inventory"), QUERY_TASK_HISTORY_TOOL, QUERY_CHECKLIST_ITEMS_TOOL];
 // Build 6A: without the messages switch (below manager, no store access, bake-off), Theo reads no chats.
 const NO_CHAT_TOOLS = THEO_TOOLS.filter((t: any) => t.function?.name !== "query_my_chats");
 
@@ -1559,6 +1560,18 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           ...(userId ? { openTasks: { admin: supabase, userId } } : {}),
         });
         return JSON.stringify(histResult);
+      }
+      case "query_checklist_items": {
+        // Item-level fallback; expected items = Tasks > History's set. Signed-in user only.
+        if (!ctx.userClient) return JSON.stringify({ error: "Checklist items need the signed-in user." });
+        const ciDow = getDateDayOfWeekInTimezone(new Date(), timezone);
+        const { data: ciHours } = await ctx.userClient
+          .from("location_hours").select("close_time")
+          .eq("location_id", args.location_id).eq("day_of_week", ciDow).maybeSingle();
+        const ciResult = await runQueryChecklistItems(ctx.userClient, args, {
+          timezone, closeTime: ciHours?.close_time || null, today: storeToday, now: new Date(),
+        });
+        return JSON.stringify(ciResult);
       }
       case "query_checklists": {
         const cWin = await dayWindow(supabase, args.location_id, args.date);
@@ -3882,6 +3895,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     const liveContext = `LIVE CONTEXT (the snapshot and any pinned knowledge / OPUS results referred to in the rules above):
 For simple number questions (sales, projections, labor %, guests, tips, who's scheduled), answer straight from the LIVE CONTEXT SNAPSHOT when the figure is there, without calling a tool.
 For any question about whether a checklist, quick task, alarm, completed daily event or logbook entry was done, by whom, when, or a checklist percentage, call query_task_history first. It reflects Tasks > History exactly. History lists only COMPLETED work. Never treat missing from History as not done. Say something is not done ONLY when it appears in open_quick_tasks. Otherwise say you don't see it completed yet.
+For a specific checklist item (was X done, what temp, who did it, what's missing), call query_checklist_items.
 For questions about today's sales, goal, labor %, who's working or on the clock, today's schedule, or open checklists/tasks, answer directly from STORE SNAPSHOT (the LIVE CONTEXT SNAPSHOT below) without calling a tool. Call tools only for anything else (other dates, details not in the snapshot, actions/proposals).
 
 ${contextSnapshot}
