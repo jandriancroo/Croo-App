@@ -40,7 +40,7 @@ struct CubesView: View {
                     .tabViewStyle(.verticalPage)
 
                     locationPill
-                        .padding(.top, 1)
+                        .padding(.top, -35)
                 }
             }
         }
@@ -56,17 +56,17 @@ struct CubesView: View {
         return Button {
             showLocationSwitcher = true
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Text(name)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .opacity(0.75)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 3)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 2)
             .background(Capsule().fill(Color.black.opacity(0.22)))
         }
         .buttonStyle(.plain)
@@ -99,7 +99,7 @@ private struct CubeScreen: View {
             showUpArrow: cubeIndex > 0,
             showDownArrow: cubeIndex < cubeCount - 1
         )
-        .padding(.top, 18) // room for the location pill overlay
+        .padding(.top, 0) // room for the location pill overlay
         .background(pastelOrange)
         .containerBackground(pastelOrange.gradient, for: .tabView)
         .contentShape(Rectangle())
@@ -152,12 +152,12 @@ private struct CubeFacePage: View {
             HStack(alignment: .center, spacing: 4) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(cubeTitle.uppercased())
-                        .font(.system(size: 10, weight: .heavy))
+                        .font(.system(size: 13, weight: .heavy))
                         .tracking(0.5)
                         .lineLimit(1)
                     if !face.title.isEmpty {
                         Text(face.title)
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .opacity(0.75)
                             .lineLimit(1)
                     }
@@ -178,7 +178,7 @@ private struct CubeFacePage: View {
                 }
             }
             .padding(.horizontal, 6)
-            .padding(.bottom, 1)
+            .padding(.bottom, 5)
 
             metricsLayout
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -218,7 +218,7 @@ private struct CubeFacePage: View {
         default:
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    metricCell(metrics.count > 0 ? metrics[0] : nil, size: 28)
+                    metricCell(metrics.count > 0 ? metrics[0] : nil, size: 24)
                     verticalDivider
                     metricCell(metrics.count > 1 ? metrics[1] : nil, size: 28)
                 }
@@ -242,7 +242,7 @@ private struct CubeFacePage: View {
                     .minimumScaleFactor(0.35)
                     .lineLimit(1)
                 Text(metric.label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .opacity(0.85)
                     .lineLimit(1)
                 Spacer(minLength: 0)
@@ -258,14 +258,14 @@ private struct CubeFacePage: View {
         Rectangle()
             .fill(Color.white.opacity(0.25))
             .frame(width: 1)
-            .padding(.vertical, 4)
+            .padding(.vertical, 10)
     }
 
     private var horizontalDivider: some View {
         Rectangle()
             .fill(Color.white.opacity(0.25))
             .frame(height: 1)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 5)
     }
 }
 

@@ -28,6 +28,6 @@ struct RootView: View {
             SalesSummaryView()
             StatusView()
         }
-        .tabViewStyle(.page)
+        .tabViewStyle(.page(indexDisplayMode: .never))  // hide the dots
     }
 }
