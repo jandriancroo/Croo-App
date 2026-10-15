@@ -1,3 +1,4 @@
+import { registerDashSlideUp, requestDashSlideUp, setDockOpenState, installStrayPointerLockGuard } from '@/lib/startupSequence';
 import { ReactNode, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
@@ -373,18 +374,22 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     return () => unregisterDockControl();
   }, []);
 
-  // First-time Theo discovery: auto-peek the dock once so managers see Theo's new home.
+  // Manager dash slide-up is part of the login sequence (src/lib/startupSequence.ts):
+  // it runs after the Dash is idle, on the first visit and at each 4-hour opener.
   useEffect(() => {
     if (!isMobile || !canViewSalesAndLabor) return;
+    registerDashSlideUp(() => setShowCompactDashboard(true));
     try {
-      if (localStorage.getItem('theo-welcome-autopeek-v1')) return;
+      if (!localStorage.getItem('theo-welcome-autopeek-v1')) {
+        localStorage.setItem('theo-welcome-autopeek-v1', String(Date.now()));
+        requestDashSlideUp();
+      }
     } catch { /* ignore */ }
-    const t = setTimeout(() => {
-      setShowCompactDashboard(true);
-      try { localStorage.setItem('theo-welcome-autopeek-v1', String(Date.now())); } catch { /* ignore */ }
-    }, 1200);
-    return () => clearTimeout(t);
+    return () => registerDashSlideUp(null);
   }, [isMobile, canViewSalesAndLabor]);
+  useEffect(() => { setDockOpenState(showCompactDashboard); }, [showCompactDashboard]);
+  // Safety net: clear a stray body pointer-events:none when no dialog is open.
+  useEffect(() => installStrayPointerLockGuard(), []);
   const [ovationExpanded, setOvationExpanded] = useState(false);
   const { displayScore: ovationDisplayScore, isLoading: ovationLoading } = useOvationData();
   const ovationHasContent = !!ovationDisplayScore || ovationLoading;

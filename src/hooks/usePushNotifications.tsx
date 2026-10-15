@@ -85,7 +85,16 @@ export const usePushNotifications = () => {
         if (currentPermission === 'default') {
           // Permission hasn't been decided yet - we can request
           console.log('[Push Web] Requesting notification permission...');
-          permission = await Notification.requestPermission();
+          // Ask only on a user tap (browsers/iOS ignore or auto-deny gesture-less prompts).
+          permission = await new Promise<NotificationPermission>((resolve) => {
+            const onTap = () => {
+              window.removeEventListener('click', onTap, true);
+              window.removeEventListener('keydown', onTap, true);
+              Notification.requestPermission().then(resolve, () => resolve('default'));
+            };
+            window.addEventListener('click', onTap, true);
+            window.addEventListener('keydown', onTap, true);
+          });
           console.log('[Push Web] Permission result:', permission);
         }
 

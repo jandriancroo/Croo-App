@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/lib/auth';
 import { syncChromeColor } from '@/utils/syncChrome';
+import { whenInviteAllowed } from '@/lib/startupSequence';
 
 // Test mode: only these emails see the invite. Empty the list to show everyone.
 const TEST_ONLY_EMAILS: string[] = [];
@@ -26,8 +27,8 @@ export function SpookifiedInvite() {
     if (TEST_ONLY_EMAILS.length && !TEST_ONLY_EMAILS.includes(email)) return;
     if (localStorage.getItem(SEEN_KEY)) return;
     if (document.documentElement.getAttribute('data-theme') === 'spookified') return;
-    const t = window.setTimeout(() => setOpen(true), 1200);
-    return () => window.clearTimeout(t);
+    // Waits its turn: after the Dash is idle, ~5 s after the manager dash slide-up, never over another dialog.
+    return whenInviteAllowed(() => setOpen(true));
   }, [user?.email]);
 
   const close = () => {

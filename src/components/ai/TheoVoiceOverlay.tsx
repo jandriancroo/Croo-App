@@ -676,7 +676,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
   return createPortal(
     // Sits above the dock and toasts while open (unlocked for the voice screen only).
-    <div className="fixed inset-0 flex flex-col items-center bg-[rgb(15_18_21/0.8)] text-white backdrop-blur-lg [-webkit-backdrop-filter:blur(16px)] supports-[(backdrop-filter:blur(0))_or_(-webkit-backdrop-filter:blur(0))]:bg-[rgb(15_18_21/0.52)]" style={{ zIndex: 1000000000 }}>
+    <div className="fixed inset-0 flex flex-col items-center bg-[rgb(15_18_21/0.8)] text-white backdrop-blur-lg [-webkit-backdrop-filter:blur(16px)] supports-[(backdrop-filter:blur(0))_or_(-webkit-backdrop-filter:blur(0))]:bg-[rgb(15_18_21/0.52)]" style={{ zIndex: 1000000000, pointerEvents: 'auto' }}>
       <div className="flex w-full items-center justify-between px-4 pt-[max(env(safe-area-inset-top),16px)]">
         <div className="text-sm font-semibold text-white/85">{currentLocation?.name}</div>
         <button aria-label="Close Theo voice" onClick={() => { teardown(); onClose(); }}

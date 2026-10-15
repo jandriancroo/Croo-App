@@ -138,15 +138,15 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   // Shared clock tick — every minute (no seconds needed for dock)
   const currentTime = useClock(60000);
 
-  // Lock body scroll when expanded to prevent background scrolling
+  // Lock body scroll while expanded. Only touch it while open, and put back
+  // whatever was there before (never blank it while a dialog holds its own lock).
   useEffect(() => {
-    if (isExpanded) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    if (!isExpanded) return;
+    const body = document.body;
+    const prev = body.style.overflow;
+    body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = '';
+      if (body.style.overflow === 'hidden') body.style.overflow = prev;
     };
   }, [isExpanded]);
 
