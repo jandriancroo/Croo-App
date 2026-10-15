@@ -114,9 +114,6 @@ struct ChatsView: View {
                     ScrollView {
                         VStack(spacing: 6) {
                             VStack(alignment: .leading, spacing: 0) {
-                                Text("Chats")
-                                    .font(.system(size: 16, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(CrooBrand.tealBright)
                                 if chatStore.unreadTotal > 0 {
                                     Text("\(chatStore.unreadTotal) unread")
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -132,9 +129,9 @@ struct ChatsView: View {
                         }
                         .padding(.bottom, 8)
                     }
-                    .ignoresSafeArea(edges: .top)
                 }
             }
+            .navigationTitle("Chats")
             .navigationDestination(for: WatchChat.self) { chat in
                 ThreadView(chat: chat).environmentObject(chatStore)
             }

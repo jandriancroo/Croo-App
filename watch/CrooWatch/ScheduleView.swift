@@ -24,6 +24,7 @@ struct ScheduleView: View {
     }
 
     var body: some View {
+        NavigationStack {
         Group {
             if !store.isPaired {
                 EmptyStateView(title: "Not Paired", message: "Pair this Watch from CrooHQ on iPhone.")
@@ -33,9 +34,6 @@ struct ScheduleView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("Today")
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                                .foregroundStyle(CrooBrand.tealBright)
                             Text("\(clockedInCount) on now")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundStyle(CrooBrand.green)
@@ -51,8 +49,9 @@ struct ScheduleView: View {
                     }
                     .padding(.bottom, 8)
                 }
-                .ignoresSafeArea(edges: .top)
             }
+        }
+        .navigationTitle("Schedule")
         }
     }
 }

@@ -17,6 +17,7 @@ struct SalesSummaryView: View {
     }
 
     var body: some View {
+        NavigationStack {
         Group {
             if !store.isPaired {
                 EmptyStateView(
@@ -50,7 +51,6 @@ struct SalesSummaryView: View {
                     .padding(.horizontal, 2)
                     .padding(.bottom, 8)
                 }
-                .ignoresSafeArea(edges: .top)
             } else {
                 EmptyStateView(
                     title: "No Sales Data",
@@ -58,13 +58,12 @@ struct SalesSummaryView: View {
                 )
             }
         }
+        .navigationTitle("Sales")
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Sales")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(CrooBrand.orange)
             Text(store.currentLocationName)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
