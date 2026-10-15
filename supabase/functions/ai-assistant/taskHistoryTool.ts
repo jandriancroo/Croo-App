@@ -67,6 +67,33 @@ export interface TaskHistoryToolCtx {
   closeTime: string | null;
   today: string;
   now: Date;
+  /** Open-task add-on (today only). admin = service client; used ONLY after has_location_access passes. */
+  openTasks?: { admin: any; userId: string };
+}
+
+/** Open quick tasks for today via task_nudge_status (admin), gated by has_location_access. null = skipped. */
+export async function loadOpenQuickTasks(admin: any, userId: string, locationId: string, kind: string, tz: string, now: Date) {
+  const { data: ok, error: accErr } = await admin.rpc("has_location_access", { _user_id: userId, _location_id: locationId });
+  if (accErr || ok !== true) return null;
+  const { data, error } = await admin.rpc("task_nudge_status", { _location_id: locationId });
+  if (error) return null;
+  const open: any[] = [], expired: any[] = [];
+  for (const t of (data || []) as any[]) {
+    if (t.is_active === false || t.completed_at) continue;
+    const isAlarm = t.task_style === "alarm";
+    if (kind === "task" && isAlarm) continue;
+    if (kind === "alarm" && !isAlarm) continue;
+    if (isAlarm && t.alarm_done_this_interval) continue;
+    const row = {
+      title: t.title, task_style: t.task_style || null,
+      expires_at_local: fmt(t.expires_at, tz, true),
+      subtasks_done: t.subtasks_done ?? 0, subtasks_total: t.subtasks_total ?? 0,
+      status: isAlarm ? "not done this interval" : "not done",
+    };
+    if (t.expires_at && new Date(t.expires_at).getTime() <= now.getTime()) expired.push({ ...row, status: "expired" });
+    else open.push(row);
+  }
+  return { open, expired };
 }
 
 export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryToolCtx): Promise<any> {
@@ -87,6 +114,11 @@ export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryTool
     ]);
     return { dateStr, cl, qt, ev, lb };
   }));
+
+  const openWanted = (kind === "all" || kind === "task" || kind === "alarm") && !!c.openTasks;
+  const openRes = openWanted && r.dates.includes(c.today)
+    ? await loadOpenQuickTasks(c.openTasks!.admin, c.openTasks!.userId, args.location_id, kind, c.timezone, c.now)
+    : null;
 
   const ids = new Set<string>();
   for (const d of days) {
@@ -121,11 +153,17 @@ export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryTool
     })),
     events_completed: d.ev.map((t: any) => ({ title: t.title, completed_at_local: fmt(t.completed_at, c.timezone, multi), completed_by: nm(t.completed_by) })),
     logbook: d.lb.map((t: any) => ({ title: t.title, at_local: fmt(t.completed_at, c.timezone, multi), by: nm(t.created_by ?? t.completed_by) })),
+    open_quick_tasks: openRes && d.dateStr === c.today ? openRes.open : [] as any[],
+    expired_tasks: openRes && d.dateStr === c.today ? openRes.expired : [] as any[],
   }));
 
   // Optional title / person filters, matched across the whole range.
-  const sections = ["checklists", "quick_tasks", "alarms", "events_completed", "logbook"] as const;
+  // Title search looks at completed AND open (and expired) tasks together.
+  const sections = ["checklists", "quick_tasks", "alarms", "events_completed", "logbook", "open_quick_tasks", "expired_tasks"] as const;
+  const titleQ = typeof args?.title === "string" ? args.title.trim() : "";
   const rowPeople = (row: any): string[] => row.contributors || [row.completed_by || row.by].filter(Boolean);
+  // Expired tasks only count when a title search explicitly matches them.
+  if (!titleQ) for (const d of out) d.expired_tasks = [];
   for (const [field, getVals] of [
     ["title", (row: any) => [row.title]],
     ["person", rowPeople],
@@ -150,12 +188,14 @@ export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryTool
     if (want("alarm")) day.alarms = d.alarms;
     if (want("event")) day.events_completed = d.events_completed;
     if (want("logbook")) day.logbook = d.logbook;
+    if (openRes && d.date === c.today) day.open_quick_tasks = [...d.open_quick_tasks, ...d.expired_tasks];
     return day;
   });
 
   return {
     timezone: c.timezone,
-    note: "History lists only COMPLETED work. If something isn't here, say you don't see it completed (not that it wasn't done).",
+    note: "History lists only COMPLETED work. Never treat missing from History as not done. Say something is not done ONLY when it appears in open_quick_tasks. Otherwise say you don't see it completed yet.",
+    ...(openWanted && r.dates.some((d) => d !== c.today) ? { open_status_note: "open/not-done status is only known for today" } : {}),
     days: result,
   };
 }

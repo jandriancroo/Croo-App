@@ -1555,6 +1555,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .eq("location_id", args.location_id).eq("day_of_week", histDow).maybeSingle();
         const histResult = await runQueryTaskHistory(ctx.userClient, args, {
           timezone, closeTime: histHours?.close_time || null, today: storeToday, now: new Date(),
+          // Open-task add-on: admin client, only after has_location_access for this user (checked inside).
+          ...(userId ? { openTasks: { admin: supabase, userId } } : {}),
         });
         return JSON.stringify(histResult);
       }
@@ -3879,7 +3881,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
     const sysContent = actionGuard ? systemPrompt + GUARD_RULE : actionsOn ? systemPrompt + ACTIONS_RULES : dryRun ? systemPrompt : systemPrompt + NEVER_CLAIM;
     const liveContext = `LIVE CONTEXT (the snapshot and any pinned knowledge / OPUS results referred to in the rules above):
 For simple number questions (sales, projections, labor %, guests, tips, who's scheduled), answer straight from the LIVE CONTEXT SNAPSHOT when the figure is there, without calling a tool.
-For any question about whether a checklist, quick task, alarm, completed daily event or logbook entry was done, by whom, when, or a checklist percentage, call query_task_history first. It reflects Tasks > History exactly. History lists only COMPLETED work, so if something is not in it, do not say it is not done; say you don't see it completed and offer to check.
+For any question about whether a checklist, quick task, alarm, completed daily event or logbook entry was done, by whom, when, or a checklist percentage, call query_task_history first. It reflects Tasks > History exactly. History lists only COMPLETED work. Never treat missing from History as not done. Say something is not done ONLY when it appears in open_quick_tasks. Otherwise say you don't see it completed yet.
 For questions about today's sales, goal, labor %, who's working or on the clock, today's schedule, or open checklists/tasks, answer directly from STORE SNAPSHOT (the LIVE CONTEXT SNAPSHOT below) without calling a tool. Call tools only for anything else (other dates, details not in the snapshot, actions/proposals).
 
 ${contextSnapshot}
