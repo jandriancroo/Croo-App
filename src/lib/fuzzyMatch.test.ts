@@ -10,7 +10,7 @@ describe('fuzzyMatch', () => {
     expect(matchTier('opening checklist', 'Opening Checklist')).toBe(1);
     expect(matchTier('line', 'AM Line Check')).toBe(2);
     expect(matchTier('icing', 'De-Ice Machine')).toBe(3);
-    expect(matchTier('lobyy', 'Check Lobby')).toBe(4);
+    expect(matchTier('lbby', 'Check Lobby')).toBe(4);
     expect(matchTier('pizza', 'Check Lobby')).toBe(0);
   });
   it('best tier + did you mean', () => {

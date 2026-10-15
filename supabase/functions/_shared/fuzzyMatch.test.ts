@@ -10,7 +10,7 @@ Deno.test("tiers", () => {
   assertEquals(matchTier("opening checklist", "Opening Checklist"), 1);
   assertEquals(matchTier("line", "AM Line Check"), 2);
   assertEquals(matchTier("icing", "De-Ice Machine"), 3);
-  assertEquals(matchTier("lobyy", "Check Lobby"), 4);
+  assertEquals(matchTier("lbby", "Check Lobby"), 4);
   assertEquals(matchTier("pizza", "Check Lobby"), 0);
 });
 Deno.test("best tier wins", () => {
