@@ -1,11 +1,11 @@
 # THEO_DATA.md — where Theo's answers come from
 
-Last updated: 2026-10-05. Owner: Jordan. Written by Claude from a read-only audit by Lovable (saved at `.lovable/plan/theo-data-audit-read-only-nothing-changed-2026-10-02.md`) plus Claude's own read of `supabase/functions/ai-assistant/index.ts`.
+Last updated: 2026-10-14. Owner: Jordan. Written by Claude from a read-only audit by Lovable (saved at `.lovable/plan/theo-data-audit-read-only-nothing-changed-2026-10-02.md`) plus Claude's own read of `supabase/functions/ai-assistant/index.ts`; Task History documentation updated against the shared loaders and tools.
 
 ## How to use this file
 
 - This is the map of what Theo knows and how far to trust it. It is the companion to `THEO_ABILITIES.md` (what Theo can do).
-- `THEO_ABILITIES.md` is referenced but does not exist in the repo yet. Until it does, Theo's actions are summarized in "What Theo can do today" below.
+- See `THEO_ABILITIES.md` for the hands: every action's permissions, preview, save tap, recheck, Undo and example phrasing. The summary below stays here for context.
 - Claude edits this file. Lovable builds from it and updates a row's Status only when a build changes it. Jordan approves changes.
 - Before any Theo build, check the area's row here. If the row says the source is wrong, fix the source first.
 - Inventory is out of scope for Theo for now. See `THEO_INVENTORY.md`. The one exception is item sales (top items and the promo tracker), which is sales data and stays in play.
@@ -26,13 +26,13 @@ If a screen in the app shows a number, Theo must get that number from the same f
 
 ## What Theo can do today (actions)
 
-All actions below are available in typed chat and voice. "Managers and up" means only `manager`, `admin`, `org_admin` and `super_admin`, AND `has_location_access` for this store. Shift managers, shift managers in training, team members and brand admins get no actions.
+All actions below are available in typed chat and voice. "Managers and up" means only `manager`, `admin`, `org_admin` and `super_admin`, AND `has_location_access` for this store. Shift managers, shift managers in training and team members get no actions. Brand admins get only `quick_nudge`, with store access.
 
-Theo only builds a preview card. Nothing saves until the manager taps that card's save button; saying "yes" does not save. The tap is rechecked, `cancel_pending_action` drops an open preview, and the wizard logs previews and saved actions in `theo_action_log`.
+Theo only builds a preview card. Nothing saves until the manager taps that card's save button; saying "yes" does not save. Most taps have a server recheck; quick-task creation uses the shared client save and database permissions without a separate recheck call. `cancel_pending_action` drops an open preview, and the wizard logs previews and saved actions in `theo_action_log`.
 
 | Action | Who (role) | How it saves | Notes |
 |---|---|---|---|
-| `create_task` (quick task) | Managers and up, with store access | Preview → tap Create task → recheck → shared quick-task save | Standard quick task for a person or role |
+| `create_task` (quick task) | Managers and up, with store access | Preview → tap Create task → shared quick-task save under database permissions | Standard quick task for a person or role; no separate server recheck call |
 | `create_event` | Managers and up, with store access | Preview → tap Add event → recheck → shared event save | One-time or recurring; categories, notes, role tags, daily-task and meeting flags. Creating a new category requires admin or above; managers can use existing categories |
 | `cover_shift` | Managers and up, with store access | Preview → tap Confirm change → recheck → shared schedule save | Checked cover candidates; published weeks also run Update |
 | `add_shift` | Managers and up, with store access | Preview → tap Add shift → recheck → shared schedule save | Checked day preview; a new week starts as a draft |
@@ -41,16 +41,18 @@ Theo only builds a preview card. Nothing saves until the manager taps that card'
 | `change_shift` | Managers and up, with store access | Preview → tap Change hours → recheck → shared schedule save | Checks the changed hours and conflicts |
 | `send_message` (reply / new DM, build 6A) | Managers and up, with store access | Preview → tap Send → recheck → `src/lib/chatMessages.ts` | Replies can quote a message; new DMs reuse an existing DM; sensitive pay/discipline topics are blocked |
 | `clock_punch` (build 6C) | Managers and up, with store access | Preview → tap Confirm → recheck → shared punch save; Undo available | Clock ONE named crew member in or out at this store, e.g. "clock in Cheyenne at 8:30"; never crew self clock-in through Theo |
+| `quick_nudge` | Managers and up, plus `brand_admin`, with store access | Preview → tap Send nudge → recheck → `src/lib/quickNudges.ts` → `quick-nudge` | Checklist, task or event; defaults to eligible people on the clock, or explicitly confirmed named recipients; no Undo |
+| `post_announcement` | Managers and up, with store access | Preview → tap Post announcement → recheck → `src/lib/feedPosts.ts` | Text Team Feed announcement; Undo for 10 minutes removes the post, not the push already sent |
 
 For `clock_punch`, Theo checks the person's punches, scheduled shift and meetings using `_shared/punchPlan.ts`, and shows the real clock-in time when clocking out. Only the manager's Confirm tap writes the punch. No scheduled shift is a plain warning that confirming also adds a placeholder shift; Undo removes it only when verified safe. The separate QuickPunchDialog in Schedule/Time Clock is the manager's manual quick-punch screen, not Theo.
 
 Voice uses the same `ask_theo` lookups and the same actions as typed chat. `theo-voice` must never claim it saved something; it tells the manager to "tap ... to save".
 
-Read-only tools also offered today that the data table does not list by name: `query_my_chats`, `find_chats` and `read_chat` (managers only, only chats the asking person belongs to, scoped to this store; no hiring or support chats), `query_labor_intelligence`, `query_callout_patterns`, `find_crew`, `find_shifts` and `cover_candidates`. Shift managers can still ask who is working; that is a read, not an action.
+Read-only tools also offered today: `query_task_history`, `query_checklist_items`, `query_my_chats`, `find_chats` and `read_chat` (chat reads are managers only, only chats the asking person belongs to, scoped to this store; no hiring or support chats), `query_labor_intelligence`, `query_callout_patterns`, `find_crew`, `find_shifts` and `cover_candidates`. The History tools use `_shared/fuzzyMatch.ts` for titles, items and names, with did-you-mean suggestions when no match is found. Shift managers can still ask who is working; that is a read, not an action. See `THEO_ABILITIES.md` for the full read-tool list.
 
 Source of truth: `_shared/theoActions.ts` (`actionsFor` / `theoActionsAt`), `supabase/functions/ai-assistant/{index,cover,shifts,events,messages,punches}.ts`, `src/components/ai/theoWizard.tsx` and `supabase/functions/theo-voice/index.ts`.
 
-- **quick_nudge** — Nudge everyone on the clock about a checklist, task or event (manager+, incl. brand admins; voice + chat). Theo previews; the Send nudge tap sends through `quick-nudge` (via `src/lib/quickNudges.ts`) to everyone on the clock at the store, minus the sender and anyone nudged about that item in the last hour. Rules in `_shared/nudgePlan.ts` + `checklist_nudge_status` / `task_nudge_status` / `event_nudge_status`; log in `nudge_log`. No Undo.
+- **quick_nudge** — Nudge eligible people on the clock about a checklist, task or event (manager+, incl. brand admins; voice + chat). Theo previews; the Send nudge tap sends through `quick-nudge` (via `src/lib/quickNudges.ts`), minus the sender and anyone nudged about that item in the last hour. Optional named recipients must intersect that eligible audience; unknown, off-clock and cooldown recipients never receive it. Spelling guesses are not auto-included; if no named person qualifies, Theo asks rather than falling back to everyone. Rules in `_shared/nudgePlan.ts` + `checklist_nudge_status` / `task_nudge_status` / `event_nudge_status`; log in `nudge_log`. No Undo.
 - **post_announcement** — Post a text announcement to the store's Team Feed (manager+ = CREATE_TASK_ROLES; shift managers excluded; voice + chat). Theo previews (`ai-assistant/announcements.ts`: channel by name, default everyone; recipient count from `feed_channel_audience_recipients`; pay/discipline guard; subject ≤120, body ≤2000; no media/pin/badge/scheduling). The Post announcement tap re-checks against the logged preview, then saves through `src/lib/feedPosts.ts` createFeedPost (same insert + push as the feed composer). Undo for 10 minutes deletes the post; the push already went out.
 
 ## What people see after Theo acts (push taps, as of 2026-10-05)
@@ -82,8 +84,9 @@ Status key: OK = Theo reads the right place. FIX = Theo reads the wrong place or
 | Schedule (who works when) | Schedule page, team schedule view | `scheduled_shifts` joined to `schedules`, published only | Same tables, `schedules.is_published = true` in `query_schedule` and the opening summary | OK (Round 1) | None |
 | Availability and time off | Schedule page | `availability_requests` | `availability_requests`, with `pending_total`, `pending_upcoming`, `pending_past_dated` for the whole store and `showing X of Y` on the list | OK (2026-10-02) | None |
 | Shift marketplace | Activity feed, marketplace | `shift_offers` | `shift_offers` | OK (status filter unverified) | Confirm Theo includes the same statuses as the feed |
-| Checklist completion | Dashboard Checklists card | `checklist_items` + `checklist_responses`, scored in `useChecklistCompletion.ts` (business-day window, archive rules) | `checklist_submissions` (counts submitted forms) | FIX | Report completed vs expected items the way the dashboard does |
-| Tasks | Dashboard Quick Tasks | `temporary_tasks` and related tables | Same | OK | Apply the business-day window |
+| Checklist completion | Tasks > History (checklist percentages and header average) | Shared History loaders in `src/lib/taskHistory/core.ts`; byte-identical copy at `supabase/functions/_shared/taskHistory/core.ts`, enforced by `core.parity.test.ts` | `query_task_history` runs the same loaders as the signed-in user: completed/expected items and percent per checklist, plus the History header average (average of checklist percentages) | OK | None. Header average is calculated before title/person filtering |
+| Tasks | Tasks > History; today's open Quick Tasks | Same History loaders for completed quick tasks, alarm slots (done/missed), and completed daily-task events; `task_nudge_status(_location_id)` for today's open quick tasks | `query_task_history` runs History loaders as the signed-in user; today's open-task add-on calls `task_nudge_status` with the admin client only after `has_location_access` passes | OK | History lists only completed work (plus missed alarm slots). Never infer "not done" from absence in History: say "not done" only for `open_quick_tasks`. Past dates: open status unknown |
+| Checklist items (answer, temp, photo, who, when, missing items) | Tasks > History checklist day and its responses | `planChecklistDay` in the shared History core defines the same expected-item set and response window | `query_checklist_items`, as the signed-in user, returns item completion, answer, temperature/in-range result, photo presence, contributor/time, and missing items | OK | Same day plan as History; no separate scoring calculation |
 | Punches, lateness, call-outs, crew performance | Time Tracking, labor screens | Shift pairing in `_labor_pair_shifts` | Business-day windows (Round 1). Lateness: `query_punch_patterns` returns per person per day scheduled start, first clock-in, minutes late and a `late` flag (7-minute grace), plus `late_count`; the model never judges lateness. Pairing still rebuilt by hand | FIX (pairing) | Use the shared pairing. As of commit `9948aa6` (Oct 5), Time Tracking, pay-period cards and personal pay use ONE helper, `src/utils/payrollDayBucketing.ts`, that mirrors `_labor_pair_shifts` + `business_date`: split and overnight shifts are filed under each shift's clock-in business day; duplicate clock-ins within 5 minutes are ignored (a clock-in ending a break is not a duplicate). Server `payroll_hours` remains the source of truth for paid hours. Theo still groups punches by hand, by shift ID or person/business day, so it can disagree with these screens on split/overnight shifts. It is the remaining separate pairing path among those compared here, not a verified claim about every screen in the app |
 | Logbook | Logbook | `logbook_entries`, `logbook_categories` | Same | OK | None |
 | Tips | Tip distribution screen | `daily_tips` | `daily_tips` | OK (totals unverified) | None. 6 stores have no tips (audit) |
@@ -93,6 +96,10 @@ Status key: OK = Theo reads the right place. FIX = Theo reads the wrong place or
 | Employee notes, catering | Employee records, catering | `employee_notes`, `catering_orders` | Same | OK but nearly empty | 5 and 7 rows (audit). Theo should not imply he has history here |
 | Training library | n/a | `opus_resource_index` | `opus_resource_index` | DEAD | 0 rows; the LMS is archived (audit). `fetch_resource_content` is still offered to the model today; only `query_inventory` is filtered out of `THEO_TOOLS`. Stop offering the training tool or re-point it — still open |
 | Pinned knowledge | Theo chat (Pin) | `theo_knowledge` | `theo_knowledge` | OK but stale | Newest entry Apr 9, 2026 (audit) |
+
+### Preserved History quirks
+
+These tools deliberately preserve the History page's existing behavior rather than silently fixing it: the monthly window uses the device-local month; missed alarm slots are stamped with the fixed `-08:00` offset; and today's close time is used for every requested date, including historical dates. The shared core and its byte-identical server copy keep these rules aligned. They are known quirks, not new date/time standards.
 
 ## What Theo cannot see yet (non-inventory)
 
@@ -123,6 +130,7 @@ In rough priority order for a manager's day:
 - The labor RPCs line by line (Lovable's database access could not run them).
 
 ## Change log
+- 2026-10-14: Task History tools (query_task_history with open-task add-on, query_checklist_items) share the History page logic.
 - 2026-10-08: Theo can post Team Feed announcements (post_announcement), preview + tap only.
 - 2026-10-07: Quick Nudge now covers tasks and events too (action renamed quick_nudge; function quick-nudge; log nudge_log).
 - 2026-10-07: Quick Nudge v1 (checklists only): nudge_checklist action, dashboard nudge badge + sheet, Settings > Nudge Templates, checklist_nudge push opens the checklist.
