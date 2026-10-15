@@ -148,6 +148,11 @@ struct WatchChatMessage: Codable, Hashable, Identifiable {
     let sender: String
     let text: String
     let time: String
+    /// Local-only: shown instantly while the send is in flight (never sent by the server).
+    var pending: Bool = false
+    var failed: Bool = false
+
+    enum CodingKeys: String, CodingKey { case id, mine, sender, text, time }
 }
 
 struct WatchLocation: Codable, Hashable, Identifiable {

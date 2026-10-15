@@ -24,6 +24,7 @@ struct RootView: View {
     var body: some View {
         TabView {
             CubesView()
+                .containerBackground(Color.black, for: .tabView)
             // Each page sets its own background so a cube's color never
             // carries over to the other pages.
             ScheduleView()

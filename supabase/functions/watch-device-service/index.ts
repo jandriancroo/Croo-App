@@ -19,7 +19,7 @@ import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMet
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-15.2";
+const WATCH_SERVICE_VERSION = "2026-10-15.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -760,16 +760,20 @@ serve(async (req) => {
         .select('id, created_at')
         .single();
       if (insErr) return json({ error: insErr.message }, 500);
-      try {
-        const memberIds = (chat.chat_members || []).map((m: any) => m.user_id).filter((u: string) => u !== me);
-        if (memberIds.length) {
-          const sender = (await nameOf([me])).get(me) || 'New Message';
-          await sb.functions.invoke('send-push-notification', {
-            body: { user_ids: memberIds, sender_id: me, title: sender, body: content.substring(0, 100),
-                    notification_type: 'chat_messages', data: { chat_id: chatId, type: 'message', message_id: row.id } },
-          });
-        }
-      } catch (e) { console.error('watch chat push failed', e); }
+      // The push must not make the watch wait: run it after the reply when the runtime allows.
+      const pushTask = (async () => {
+        try {
+          const memberIds = (chat.chat_members || []).map((m: any) => m.user_id).filter((u: string) => u !== me);
+          if (memberIds.length) {
+            const sender = (await nameOf([me])).get(me) || 'New Message';
+            await sb.functions.invoke('send-push-notification', {
+              body: { user_ids: memberIds, sender_id: me, title: sender, body: content.substring(0, 100),
+                      notification_type: 'chat_messages', data: { chat_id: chatId, type: 'message', message_id: row.id } },
+            });
+          }
+        } catch (e) { console.error('watch chat push failed', e); }
+      })();
+      try { (globalThis as any).EdgeRuntime.waitUntil(pushTask); } catch { await pushTask; }
       return json({ ok: true, id: row.id });
     }
 

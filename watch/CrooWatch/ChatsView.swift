@@ -37,7 +37,9 @@ final class WatchChatStore: ObservableObject {
                 pairing: pairing, locationId: store.selectedLocationId, ["action": "thread", "chatId": chatId])
             if let raw = obj["messages"] {
                 let data = try JSONSerialization.data(withJSONObject: raw)
-                messages = try JSONDecoder().decode([WatchChatMessage].self, from: data)
+                let fresh = try JSONDecoder().decode([WatchChatMessage].self, from: data)
+                // Keep bubbles still sending (or failed) so they don't vanish between refreshes.
+                messages = fresh + messages.filter { $0.id.hasPrefix("local-") && ($0.pending || $0.failed) }
             }
             canReply = (obj["canReply"] as? Bool) ?? false
             errorText = nil
@@ -52,21 +54,40 @@ final class WatchChatStore: ObservableObject {
         }
     }
 
-    func send(_ store: WatchDataStore, chatId: String, text: String) async {
+    /// Optimistic send: the bubble appears right away, then the server call runs in the background.
+    func send(_ store: WatchDataStore, chatId: String, text: String, retrying localId: String? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let pairing = store.pairing else { return }
-        sending = true
-        defer { sending = false }
+        let id = localId ?? "local-\(UUID().uuidString)"
+        if let localId, let i = messages.firstIndex(where: { $0.id == localId }) {
+            messages[i].failed = false
+            messages[i].pending = true
+        } else {
+            messages.append(WatchChatMessage(id: id, mine: true, sender: "You", text: trimmed, time: "now", pending: true))
+        }
+        errorText = nil
+        #if os(watchOS)
+        WKInterfaceDevice.current().play(.click)
+        #endif
         do {
             _ = try await WatchAPIClient.shared.chatCall(
                 pairing: pairing, locationId: store.selectedLocationId,
                 ["action": "send", "chatId": chatId, "content": trimmed])
+            if let i = messages.firstIndex(where: { $0.id == id }) { messages[i].pending = false }
             #if os(watchOS)
             WKInterfaceDevice.current().play(.success)
             #endif
+            if let i = chats.firstIndex(where: { $0.id == chatId }) {
+                let c = chats[i]
+                chats[i] = WatchChat(id: c.id, title: c.title, initials: c.initials, kind: c.kind, unread: 0,
+                                     preview: "You: \(trimmed)", time: "now", canReply: c.canReply)
+            }
             await loadThread(store, chatId: chatId)
         } catch {
-            errorText = "Didn't send. Try again."
+            if let i = messages.firstIndex(where: { $0.id == id }) {
+                messages[i].pending = false
+                messages[i].failed = true
+            }
             #if os(watchOS)
             WKInterfaceDevice.current().play(.failure)
             #endif
@@ -127,40 +148,58 @@ struct ChatsView: View {
 private struct ChatRow: View {
     let chat: WatchChat
 
+    private static let palette: [Color] = [CrooBrand.teal, CrooBrand.orange, Color(hex: "#7C5CBF"), Color(hex: "#3F8F6B"), Color(hex: "#C2506B")]
+    private var tint: Color {
+        let sum = chat.title.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return ChatRow.palette[sum % ChatRow.palette.count]
+    }
+
     var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(chat.unread > 0 ? CrooBrand.teal : CrooBrand.avatar)
-                .frame(width: 30, height: 30)
-                .overlay(Text(chat.initials)
-                    .font(.system(size: 11, weight: .bold, design: .rounded)))
-            VStack(alignment: .leading, spacing: 1) {
-                HStack {
+        HStack(alignment: .top, spacing: 9) {
+            ZStack {
+                Circle().fill(tint.opacity(chat.unread > 0 ? 1 : 0.55))
+                if chat.kind == "group" {
+                    Image(systemName: "person.2.fill").font(.system(size: 13, weight: .bold))
+                } else {
+                    Text(chat.initials).font(.system(size: 13, weight: .heavy, design: .rounded))
+                }
+            }
+            .frame(width: 34, height: 34)
+            .overlay(Circle().stroke(chat.unread > 0 ? CrooBrand.orange : Color.clear, lineWidth: 2).padding(-3))
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(chat.title)
-                        .font(.system(size: 13, weight: chat.unread > 0 ? .heavy : .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
                         .lineLimit(1)
                     Spacer(minLength: 2)
                     Text(chat.time)
-                        .font(.system(size: 9, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundStyle(chat.unread > 0 ? CrooBrand.orange : Color.white.opacity(0.45))
                 }
-                Text(chat.preview)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(chat.unread > 0 ? Color.white.opacity(0.85) : .secondary)
-                    .lineLimit(1)
-            }
-            if chat.unread > 0 {
-                Text("\(chat.unread)")
-                    .font(.system(size: 10, weight: .heavy, design: .rounded))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(CrooBrand.orange))
+                HStack(alignment: .top, spacing: 4) {
+                    Text(chat.preview.isEmpty ? "No messages yet" : chat.preview)
+                        .font(.system(size: 11, weight: chat.unread > 0 ? .semibold : .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(chat.unread > 0 ? 0.9 : 0.55))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                    if chat.unread > 0 {
+                        Text("\(chat.unread)")
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(CrooBrand.orange))
+                    }
+                }
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(RoundedRectangle(cornerRadius: 17, style: .continuous)
-            .fill(chat.unread > 0 ? CrooBrand.card : CrooBrand.cardDim))
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(chat.unread > 0 ? CrooBrand.card : CrooBrand.cardDim)
+        )
         .foregroundStyle(.white)
     }
 }
@@ -191,10 +230,6 @@ private struct ThreadView: View {
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                             .id("reply")
-                    }
-                    if let err = chatStore.errorText {
-                        Text(err).font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundStyle(CrooBrand.amber)
                     }
                 }
                 .padding(.horizontal, 2)
@@ -234,7 +269,18 @@ private struct ThreadView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(m.mine ? CrooBrand.teal : CrooBrand.card))
+                    .fill(m.failed ? CrooBrand.amber.opacity(0.35) : (m.mine ? CrooBrand.teal : CrooBrand.card)))
+                .opacity(m.pending ? 0.6 : 1)
+            if m.failed {
+                Text("Not sent · tap to retry")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(CrooBrand.amber)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard m.failed else { return }
+            Task { await chatStore.send(store, chatId: chat.id, text: m.text, retrying: m.id) }
         }
         .frame(maxWidth: .infinity, alignment: m.mine ? .trailing : .leading)
     }
@@ -263,8 +309,7 @@ private struct ThreadView: View {
                     .background(Capsule().fill(CrooBrand.orange))
             }
             .buttonStyle(.plain)
-            .disabled(chatStore.sending)
-        }
+                    }
         .foregroundStyle(.white)
         .padding(.top, 4)
     }

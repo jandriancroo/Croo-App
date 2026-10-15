@@ -115,7 +115,7 @@ private struct CubeScreen: View {
             faceCount: max(cube.faces.count, 1),
             isPaused: isPaused
         )
-        .background(accent)
+        .background(accent.ignoresSafeArea())
         .overlay(alignment: .center) {
             // Goal ring traced around the screen edge, only on cubes that show Sales.
             if let f = goalFraction {
@@ -127,7 +127,6 @@ private struct CubeScreen: View {
                     .allowsHitTesting(false)
             }
         }
-        .containerBackground(accent, for: .tabView)
         .contentShape(Rectangle())
         .onTapGesture {
             guard !isPaused, cube.faces.count > 1 else { return }
