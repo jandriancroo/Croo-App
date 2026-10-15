@@ -7,6 +7,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation as useRouterLocation } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 
 // /schedule-templates → /schedule-settings (keeps ?tab). Delete after Nov 7 2026.
 function OldScheduleTemplatesRedirect() {
@@ -190,6 +191,10 @@ const HomeRoute = () => {
         <p className="text-sm font-medium">Reconnecting punch clock…</p>
       </div>
     );
+  }
+  // The iPhone app is for staff, so it opens on sign-in, not the marketing page.
+  if (Capacitor.isNativePlatform()) {
+    return loading ? <PageLoader /> : <Navigate to="/auth" replace />;
   }
   return <Home />;
 };
