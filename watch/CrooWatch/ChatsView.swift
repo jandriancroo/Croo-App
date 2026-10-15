@@ -113,17 +113,17 @@ struct ChatsView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 6) {
-                            HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 0) {
                                 Text("Chats")
                                     .font(.system(size: 16, weight: .heavy, design: .rounded))
                                     .foregroundStyle(CrooBrand.tealBright)
-                                Spacer()
                                 if chatStore.unreadTotal > 0 {
                                     Text("\(chatStore.unreadTotal) unread")
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundStyle(CrooBrand.orange)
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 6)
                             ForEach(chatStore.chats) { chat in
                                 NavigationLink(value: chat) { ChatRow(chat: chat) }
@@ -132,6 +132,7 @@ struct ChatsView: View {
                         }
                         .padding(.bottom, 8)
                     }
+                    .ignoresSafeArea(edges: .top)
                 }
             }
             .navigationDestination(for: WatchChat.self) { chat in

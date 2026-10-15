@@ -50,6 +50,7 @@ struct SalesSummaryView: View {
                     .padding(.horizontal, 2)
                     .padding(.bottom, 8)
                 }
+                .ignoresSafeArea(edges: .top)
             } else {
                 EmptyStateView(
                     title: "No Sales Data",
@@ -60,16 +61,16 @@ struct SalesSummaryView: View {
     }
 
     private var header: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Sales")
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(CrooBrand.orange)
-            Spacer()
             Text(store.currentLocationName)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 6)
     }
 

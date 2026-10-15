@@ -32,11 +32,10 @@ struct ScheduleView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: 0) {
                             Text("Today")
                                 .font(.system(size: 16, weight: .heavy, design: .rounded))
                                 .foregroundStyle(CrooBrand.tealBright)
-                            Spacer()
                             Text("\(clockedInCount) on now")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundStyle(CrooBrand.green)
@@ -52,6 +51,7 @@ struct ScheduleView: View {
                     }
                     .padding(.bottom, 8)
                 }
+                .ignoresSafeArea(edges: .top)
             }
         }
     }
