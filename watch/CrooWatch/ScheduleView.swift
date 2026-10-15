@@ -41,7 +41,7 @@ struct ScheduleView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         header
                         chips
-                        section("On now", shifts: onNow, tint: CrooBrand.green)
+                        section("Now", shifts: onNow, tint: CrooBrand.green)
                         section("Later", shifts: later, tint: Color.white.opacity(0.6))
                         section("Done", shifts: done, tint: Color.white.opacity(0.4))
                     }
@@ -127,11 +127,6 @@ private struct ShiftRow: View {
         }
     }
 
-    private var subtitle: String {
-        if !live.isEmpty { return live }
-        return shift.role
-    }
-
     private var subtitleColor: Color {
         switch status {
         case "active": return CrooBrand.green
@@ -145,58 +140,75 @@ private struct ShiftRow: View {
         return status == "completed" ? CrooBrand.cardDim : CrooBrand.card
     }
 
+    private var rightText: String {
+        if !live.isEmpty { return live }
+        return shift.hoursLabel
+    }
+
+    private var nameWeight: Font.Weight { .heavy }
+
     var body: some View {
-        HStack(spacing: 7) {
-            ZStack(alignment: .bottomTrailing) {
-                Circle()
-                    .fill(CrooBrand.avatar)
-                    .frame(width: 26, height: 26)
-                    .overlay(
-                        Text(shift.resolvedInitials)
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.9))
-                    )
-                if let dot {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 8) {
+                ZStack(alignment: .bottomTrailing) {
                     Circle()
-                        .fill(dot)
-                        .frame(width: 8, height: 8)
-                        .overlay(Circle().stroke(background, lineWidth: 1.5))
-                        .offset(x: 1, y: 1)
+                        .fill(CrooBrand.avatar)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Text(shift.resolvedInitials)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color.white.opacity(0.9))
+                        )
+                    if let dot {
+                        Circle()
+                            .fill(dot)
+                            .frame(width: 9, height: 9)
+                            .overlay(Circle().stroke(background, lineWidth: 1.5))
+                            .offset(x: 1, y: 1)
+                    }
                 }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(shift.isMe ? "You" : shift.name)
+                        .font(.system(size: 14, weight: nameWeight, design: .rounded))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !shift.role.isEmpty {
+                        Text(shift.role)
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
+                Spacer(minLength: 0)
             }
 
-            VStack(alignment: .leading, spacing: 0) {
-                Text(shift.isMe ? "You" : shift.name)
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .lineLimit(1)
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(subtitleColor)
-                        .lineLimit(1)
-                }
-            }
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 1)
 
-            Spacer(minLength: 2)
-
-            VStack(alignment: .trailing, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(shift.time)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                if !live.isEmpty && !shift.role.isEmpty {
-                    Text(shift.role)
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.5))
+                    .minimumScaleFactor(0.75)
+                Spacer(minLength: 2)
+                if !rightText.isEmpty {
+                    Text(rightText)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(live.isEmpty ? Color.white.opacity(0.5) : subtitleColor)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
         .background(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
                 .fill(background)
         )
         .opacity(status == "completed" ? 0.7 : 1)
