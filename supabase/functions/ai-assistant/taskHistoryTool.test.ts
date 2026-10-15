@@ -87,3 +87,59 @@ Deno.test("title fuzzy match and did_you_mean", async () => {
   assertEquals(person.days[0].quick_tasks.length, 1);
   assertEquals(person.days[0].checklists.length, 0);
 });
+
+// ── Step 3: open-task add-on ──
+function fakeAdmin(access: boolean) {
+  const calls: string[] = [];
+  return {
+    calls,
+    rpc(fn: string, _a: any) {
+      calls.push(fn);
+      if (fn === "has_location_access") return Promise.resolve({ data: access, error: null });
+      if (fn === "task_nudge_status") return Promise.resolve({ data: [
+        { task_id: "o1", title: "Wipe patio tables", task_style: null, is_active: true, completed_at: null, expires_at: null, alarm_done_this_interval: false, subtasks_total: 3, subtasks_done: 1 },
+        { task_id: "o2", title: "Restock cups", task_style: null, is_active: true, completed_at: "2026-10-12T20:00:00Z", expires_at: null, alarm_done_this_interval: false, subtasks_total: 0, subtasks_done: 0 },
+        { task_id: "o3", title: "Check Lobby", task_style: "alarm", is_active: true, completed_at: null, expires_at: null, alarm_done_this_interval: false, subtasks_total: 0, subtasks_done: 0 },
+        { task_id: "o4", title: "Old Flyer Hangup", task_style: null, is_active: true, completed_at: null, expires_at: "2026-10-01T00:00:00Z", alarm_done_this_interval: false, subtasks_total: 0, subtasks_done: 0 },
+      ], error: null });
+      return Promise.resolve({ data: null, error: null });
+    },
+  };
+}
+const CO = (admin: any) => ({ ...C, now: new Date("2026-10-12T23:00:00Z"), openTasks: { admin, userId: "me" } });
+
+Deno.test("open task -> not done; completed -> done with who/when; expired hidden", async () => {
+  const r = await runQueryTaskHistory(fakeDb(), { location_id: "L" }, CO(fakeAdmin(true)));
+  const d = r.days[0];
+  assertEquals(d.open_quick_tasks.map((t: any) => [t.title, t.status, t.subtasks_done, t.subtasks_total]),
+    [["Wipe patio tables", "not done", 1, 3], ["Check Lobby", "not done this interval", 0, 0]]);
+  assertEquals(d.quick_tasks, [{ title: "Restock cups", completed_at_local: "1:00 PM", completed_by: "Ben Ito" }]);
+});
+
+Deno.test("title matching covers completed and open together; expired only on explicit match", async () => {
+  const open = await runQueryTaskHistory(fakeDb(), { location_id: "L", kind: "task", title: "patio" }, CO(fakeAdmin(true)));
+  assertEquals(open.days[0].open_quick_tasks.map((t: any) => t.status), ["not done"]);
+  assertEquals(open.days[0].quick_tasks, []);
+  const done = await runQueryTaskHistory(fakeDb(), { location_id: "L", kind: "task", title: "restock cups" }, CO(fakeAdmin(true)));
+  assertEquals(done.days[0].quick_tasks[0].completed_by, "Ben Ito");
+  assertEquals(done.days[0].open_quick_tasks, []);
+  const exp = await runQueryTaskHistory(fakeDb(), { location_id: "L", kind: "task", title: "flyer" }, CO(fakeAdmin(true)));
+  assertEquals(exp.days[0].open_quick_tasks.map((t: any) => t.status), ["expired"]);
+  const miss = await runQueryTaskHistory(fakeDb(), { location_id: "L", kind: "task", title: "patoi tabels" }, CO(fakeAdmin(true)));
+  assertEquals(miss.days[0].open_quick_tasks[0].title, "Wipe patio tables"); // fuzzy hit on open task
+});
+
+Deno.test("no store access -> no add-on, no status call", async () => {
+  const admin = fakeAdmin(false);
+  const r = await runQueryTaskHistory(fakeDb(), { location_id: "L" }, CO(admin));
+  assertEquals("open_quick_tasks" in r.days[0], false);
+  assertEquals(admin.calls, ["has_location_access"]);
+});
+
+Deno.test("past date -> note, no add-on", async () => {
+  const admin = fakeAdmin(true);
+  const r = await runQueryTaskHistory(fakeDb(), { location_id: "L", date: "2026-10-10" }, CO(admin));
+  assertEquals(r.open_status_note, "open/not-done status is only known for today");
+  assertEquals("open_quick_tasks" in r.days[0], false);
+  assertEquals(admin.calls, []);
+});

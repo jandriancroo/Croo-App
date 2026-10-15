@@ -115,8 +115,8 @@ export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryTool
     return { dateStr, cl, qt, ev, lb };
   }));
 
-  const openWanted = (kind === "all" || kind === "task" || kind === "alarm") && !!c.openTasks;
-  const openRes = openWanted && r.dates.includes(c.today)
+  const openKind = kind === "all" || kind === "task" || kind === "alarm";
+  const openRes = openKind && c.openTasks && r.dates.includes(c.today)
     ? await loadOpenQuickTasks(c.openTasks!.admin, c.openTasks!.userId, args.location_id, kind, c.timezone, c.now)
     : null;
 
@@ -195,7 +195,7 @@ export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryTool
   return {
     timezone: c.timezone,
     note: "History lists only COMPLETED work. Never treat missing from History as not done. Say something is not done ONLY when it appears in open_quick_tasks. Otherwise say you don't see it completed yet.",
-    ...(openWanted && r.dates.some((d) => d !== c.today) ? { open_status_note: "open/not-done status is only known for today" } : {}),
+    ...(openKind && r.dates.some((d) => d !== c.today) ? { open_status_note: "open/not-done status is only known for today" } : {}),
     days: result,
   };
 }
