@@ -20,6 +20,6 @@ Deno.test("reads run together, actions run in order after reads, results keep or
 });
 
 Deno.test("classification", () => {
-  for (const n of ["query_sales", "query_my_chats", "fetch_resource_content", "find_chats", "read_chat"]) assertEquals(isReadOnlyTool(n), true);
+  for (const n of ["query_sales", "query_task_history", "query_my_chats", "fetch_resource_content", "find_chats", "read_chat"]) assertEquals(isReadOnlyTool(n), true);
   for (const n of ["find_crew", "find_shifts", "cover_candidates", "propose_action", "propose_message", "propose_punch", "propose_nudge", "propose_announcement", "cancel_pending_action", "mystery"]) assertEquals(isReadOnlyTool(n), false);
 });
