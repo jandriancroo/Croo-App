@@ -30,18 +30,27 @@ struct WatchShift: Codable, Hashable, Identifiable {
     let isMe: Bool
     let status: String?
     let hours: Double?
+    let initials: String?
+    let live: String?
 
     var resolvedStatus: String { status ?? "later" }
+    var resolvedInitials: String {
+        if let initials, !initials.isEmpty { return initials }
+        let parts = name.split(separator: " ").prefix(2)
+        let letters = parts.compactMap { $0.first }.map { String($0).uppercased() }.joined()
+        return letters.isEmpty ? "?" : letters
+    }
     var hoursLabel: String {
         guard let hours, hours > 0 else { return "" }
         return String(format: hours.rounded() == hours ? "%.0fh" : "%.1fh", hours)
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, role, time, isMe, status, hours
+        case id, name, role, time, isMe, status, hours, initials, live
     }
 
-    init(id: String, name: String, role: String, time: String, isMe: Bool, status: String? = nil, hours: Double? = nil) {
+    init(id: String, name: String, role: String, time: String, isMe: Bool, status: String? = nil, hours: Double? = nil,
+         initials: String? = nil, live: String? = nil) {
         self.id = id
         self.name = name
         self.role = role
@@ -49,6 +58,8 @@ struct WatchShift: Codable, Hashable, Identifiable {
         self.isMe = isMe
         self.status = status
         self.hours = hours
+        self.initials = initials
+        self.live = live
     }
 
     init(from decoder: Decoder) throws {
@@ -73,7 +84,41 @@ struct WatchShift: Codable, Hashable, Identifiable {
         } else {
             hours = nil
         }
+        initials = try? c.decode(String.self, forKey: .initials)
+        live = try? c.decode(String.self, forKey: .live)
     }
+}
+
+struct WatchScheduleSummary: Codable, Hashable {
+    let onNow: Int?
+    let later: Int?
+    let totalHours: Double?
+}
+
+/// One period (Today / Week / Month) of the dashboard Sales Summary, preformatted by the server.
+struct WatchSalesPeriod: Codable, Hashable {
+    let label: String?
+    let sales: String?
+    let status: String?
+    let vsLy: String?
+    let vsLyUp: Bool?
+    let lastYear: String?
+    let goal: String?
+    let pace: String?
+    let laborPercent: String?
+    let laborCost: String?
+    let laborHours: String?
+    let pizzas: String?
+    let ticket: String?
+    let guests: String?
+}
+
+struct WatchSalesSummary: Codable, Hashable {
+    let today: WatchSalesPeriod?
+    let week: WatchSalesPeriod?
+    let month: WatchSalesPeriod?
+    let wtd: String?
+    let mtd: String?
 }
 
 struct WatchLocation: Codable, Hashable, Identifiable {
@@ -89,13 +134,16 @@ struct WatchSnapshot: Codable {
     let sales: [WatchMetric]
     let locationId: String?
     let locations: [WatchLocation]?
+    let scheduleSummary: WatchScheduleSummary?
+    let salesSummary: WatchSalesSummary?
 
     enum CodingKeys: String, CodingKey {
-        case updatedAt, locationName, cubes, schedule, shifts, sales, locationId, locations
+        case updatedAt, locationName, cubes, schedule, shifts, sales, locationId, locations, scheduleSummary, salesSummary
     }
 
     init(updatedAt: String, locationName: String, cubes: [WatchCube], schedule: [WatchShift],
-         sales: [WatchMetric], locationId: String? = nil, locations: [WatchLocation]? = nil) {
+         sales: [WatchMetric], locationId: String? = nil, locations: [WatchLocation]? = nil,
+         scheduleSummary: WatchScheduleSummary? = nil, salesSummary: WatchSalesSummary? = nil) {
         self.updatedAt = updatedAt
         self.locationName = locationName
         self.cubes = cubes
@@ -103,6 +151,8 @@ struct WatchSnapshot: Codable {
         self.sales = sales
         self.locationId = locationId
         self.locations = locations
+        self.scheduleSummary = scheduleSummary
+        self.salesSummary = salesSummary
     }
 
     init(from decoder: Decoder) throws {
@@ -120,6 +170,8 @@ struct WatchSnapshot: Codable {
         sales = (try? c.decode([WatchMetric].self, forKey: .sales)) ?? []
         locationId = try? c.decode(String.self, forKey: .locationId)
         locations = try? c.decode([WatchLocation].self, forKey: .locations)
+        scheduleSummary = try? c.decode(WatchScheduleSummary.self, forKey: .scheduleSummary)
+        salesSummary = try? c.decode(WatchSalesSummary.self, forKey: .salesSummary)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -131,6 +183,8 @@ struct WatchSnapshot: Codable {
         try c.encode(sales, forKey: .sales)
         try c.encodeIfPresent(locationId, forKey: .locationId)
         try c.encodeIfPresent(locations, forKey: .locations)
+        try c.encodeIfPresent(scheduleSummary, forKey: .scheduleSummary)
+        try c.encodeIfPresent(salesSummary, forKey: .salesSummary)
     }
 
     static let empty = WatchSnapshot(updatedAt: "", locationName: "", cubes: [], schedule: [], sales: [])
@@ -278,7 +332,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
                 let target = selectedLocationId.isEmpty ? pairing.locationId : selectedLocationId
                 let fresh = try await WatchAPIClient.shared.fetchSnapshot(pairing: pairing, locationId: target)
                 await MainActor.run {
-                    self.merge(fresh)
+                    self.replace(fresh)
                     self.isSwitchingLocation = false
                     self.lastEvent = "loaded from CrooHQ (\(fresh.locationName.isEmpty ? "location" : fresh.locationName))"
                 }
@@ -429,6 +483,9 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func apply(json: String) {
+        // Once paired, the watch reads only its own server snapshot (the same
+        // data on every device). Phone pushes are used only before pairing.
+        guard pairing == nil else { return }
         guard let data = json.data(using: .utf8) else { return }
         do {
             let decoded = try JSONDecoder().decode(WatchSnapshot.self, from: data)
@@ -436,6 +493,18 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         } catch {
             print("[WatchBridge] snapshot decode failed: \(error.localizedDescription)")
         }
+    }
+
+    /// Server snapshot: take it as-is (it is the source of truth for this location).
+    private func replace(_ fresh: WatchSnapshot) {
+        snapshot = fresh
+        if let list = fresh.locations, !list.isEmpty { storeLocations(list) }
+        if let id = fresh.locationId, !id.isEmpty, selectedLocationId.isEmpty { selectedLocationId = id }
+        hasData = true
+        if let out = try? JSONEncoder().encode(fresh), let outJson = String(data: out, encoding: .utf8) {
+            UserDefaults.standard.set(outJson, forKey: cacheKey)
+        }
+        print("[WatchBridge] server snapshot applied — cubes: \(fresh.cubes.count), shifts: \(fresh.schedule.count)")
     }
 
     private func merge(_ decoded: WatchSnapshot) {

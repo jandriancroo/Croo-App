@@ -7,6 +7,7 @@
 //   list     (authed org admin)   → list watch devices for an org
 //   revoke   (authed org admin)   → revoke a watch device
 //   snapshot (watch device token) → read-only cubes + today's schedule + sales
+//   version  (no auth)            → deployed WATCH_SERVICE_VERSION
 //
 // Read-only for all business data. Never mutates cubes, sales, labor or schedules.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -14,6 +15,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DateTime } from "https://esm.sh/luxon@3.4.4";
 import { METRIC_CONFIGS, formatWatchValue, resolveAccentHex } from "./metricConfigs.ts";
 import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMetrics.ts";
+import { clockedInUserIds } from "../_shared/onClock.ts";
+
+// Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
+const WATCH_SERVICE_VERSION = "2026-10-15.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -277,37 +282,77 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
         value: formatWatchValue(resolveMetric(m), METRIC_CONFIGS[m].format),
       }));
 
-  // ---------------- cubes visible to this location (org / brand / location scope)
-  const { data: widgets } = await sb
-    .from('dashboard_widgets')
-    .select('id, title, accent_color, widget_type, config, display_order, authority_scope, location_id, organization_id, brand_id, is_active')
-    .in('widget_type', ['data', 'data-3d'])
-    .order('display_order', { ascending: true });
+  // ---------------- cubes: exactly the pairing user's dashboard for this location
+  // Mirrors fetchDashboardWidgets (src/hooks/useDashboardWidgets.ts) + the
+  // dashboard_widgets SELECT policy + Dashboard's hidden-for-self filter, run
+  // as the user who paired the watch (watch_devices.created_by).
+  const userId: string | null = device.created_by || null;
+  const [{ data: roleData }, { data: userLocRows }, { data: widgets, error: widgetsErr }] = await Promise.all([
+    userId ? sb.rpc('get_user_role', { _user_id: userId }) : Promise.resolve({ data: null }),
+    userId ? sb.rpc('get_user_location_ids', { _user_id: userId }) : Promise.resolve({ data: [] }),
+    sb.from('dashboard_widgets')
+      .select('id, title, accent_color, widget_type, config, display_order, authority_scope, location_id, organization_id, brand_id, is_active, created_by, audience_roles, hidden_for_user_ids')
+      .eq('is_active', true)
+      .in('widget_type', ['data', 'data-3d'])
+      .order('display_order', { ascending: true }),
+  ]);
+  if (widgetsErr) console.error('[watch-device-service] widgets query failed', widgetsErr);
+  const userRole: string | null = typeof roleData === 'string' ? roleData : null;
+  const userLocIds: string[] = (userLocRows || [])
+    .map((r: any) => (typeof r === 'string' ? r : r?.get_user_location_ids || r?.id))
+    .filter(Boolean);
 
-  const visibleWidgets = (widgets || []).filter(w => {
-    if (w.is_active === false) return false;
+  // Orgs the user belongs to, and the brands of those orgs (for org/brand scope).
+  let userOrgIds: string[] = [];
+  let userBrandIds: string[] = [];
+  if (userId) {
+    const [{ data: memberRows }, { data: locOrgRows }] = await Promise.all([
+      sb.from('organization_members').select('organization_id').eq('user_id', userId),
+      userLocIds.length ? sb.from('locations').select('organization_id').in('id', userLocIds) : Promise.resolve({ data: [] }),
+    ]);
+    const locOrgIds = Array.from(new Set((locOrgRows || []).map((r: any) => r.organization_id).filter(Boolean)));
+    // is_org_member = direct membership OR assigned to a location in the org.
+    userOrgIds = Array.from(new Set([...(memberRows || []).map((r: any) => r.organization_id), ...locOrgIds].filter(Boolean)));
+    if (locOrgIds.length) {
+      const { data: orgRows } = await sb.from('organizations').select('brand_id').in('id', locOrgIds);
+      userBrandIds = Array.from(new Set((orgRows || []).map((r: any) => r.brand_id).filter(Boolean)));
+    }
+  }
+  const audienceOk = (w: any) => !Array.isArray(w.audience_roles) || w.audience_roles.length === 0
+    || (userRole !== null && w.audience_roles.includes(userRole));
+
+  const visibleWidgets = (widgets || []).filter((w: any) => {
+    if (!userId) return false;
+    if (Array.isArray(w.hidden_for_user_ids) && w.hidden_for_user_ids.includes(userId)) return false;
     switch (w.authority_scope) {
-      case 'location': return w.location_id === locationId;
-      case 'org': return w.organization_id === location?.organization_id;
-      case 'brand': return w.brand_id === location?.brand_id;
-      case 'app': return true;
+      case 'self': return w.created_by === userId && w.location_id === locationId;
+      case 'location': return w.location_id === locationId && userLocIds.includes(locationId) && audienceOk(w);
+      case 'org': return userOrgIds.includes(w.organization_id) && audienceOk(w);
+      case 'brand': return userBrandIds.includes(w.brand_id) && audienceOk(w);
+      case 'app': return audienceOk(w);
       default: return false;
     }
   });
 
-  const cubes = visibleWidgets.map(w => {
+  const sameTitle = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const cubes = visibleWidgets.map((w: any) => {
     const cfg = w.config || {};
-    const cubeType = cfg.cubeType || w.widget_type;
-    const faceMetrics: string[][] = Array.isArray(cfg.faceMetrics) ? cfg.faceMetrics : [];
-    const faceTitles: string[] = Array.isArray(cfg.faceTitles) ? cfg.faceTitles : [];
-    const title = w.title || cfg.title || 'Cube';
+    // Saved config keys are snake_case (see mapRow in useDashboardWidgets.ts).
+    const faceMetrics: string[][] = Array.isArray(cfg.face_metrics) ? cfg.face_metrics : [];
+    const faceTitles: string[] = Array.isArray(cfg.face_titles) ? cfg.face_titles : [];
+    const numFaces = Number(cfg.num_faces) || faceMetrics.length || 1;
+    const title = String(w.title || '').trim() || 'Cube';
+    const faceTitle = (raw: any) => {
+      const t = String(raw || '').trim();
+      return t && !sameTitle(t, title) ? t : '';
+    };
 
-    const faces = cubeType === 'data-3d' && faceMetrics.length
+    const faces = w.widget_type === 'data-3d' && faceMetrics.length
       ? faceMetrics
-          .slice(0, cfg.numFaces || faceMetrics.length)
-          .map((metrics, i) => ({ title: faceTitles[i] || `Face ${i + 1}`, metrics: toMetrics(metrics) }))
+          .slice(0, numFaces)
+          .map((metrics, i) => ({ title: faceTitle(faceTitles[i]), metrics: toMetrics((metrics || []).slice(0, 5)) }))
           .filter(f => f.metrics.length > 0)
-      : [{ title, metrics: toMetrics(cfg.metrics || []) }].filter(f => f.metrics.length > 0);
+      : [{ title: '', metrics: toMetrics((Array.isArray(cfg.metrics) ? cfg.metrics : []).slice(0, 5)) }].filter(f => f.metrics.length > 0);
 
     return {
       id: w.id,
@@ -315,29 +360,83 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
       accentColor: resolveAccentHex(w.accent_color || cfg.accentColor),
       faces,
     };
-  }).filter(c => c.faces.length > 0);
+  }).filter((c: any) => c.faces.length > 0);
 
-  // ---------------- today's published schedule
-  const { data: shiftRows } = await sb
+  // ---------------- today's published schedule, with live clock status
+  const { data: shiftRows, error: shiftErr } = await sb
     .from('scheduled_shifts')
-    .select('id, user_id, start_time, end_time, is_time_off, schedule:schedules!inner(is_published, location_id), template:shift_templates(name)')
+    .select('id, user_id, start_time, end_time, is_time_off, schedule:schedules!inner(is_published, location_id), template:shift_templates(template_name)')
     .eq('shift_date', today)
     .eq('schedule.location_id', locationId)
     .eq('schedule.is_published', true);
+  if (shiftErr) console.error('[watch-device-service] schedule query failed', shiftErr);
 
-  const shifts = (shiftRows || []).filter((s: any) => !s.is_time_off);
-  const userIds = [...new Set(shifts.map((s: any) => s.user_id).filter(Boolean))];
+  // Schedule visibility: shift managers and up see everyone; team members only themselves.
+  const seesFullSchedule = userRole !== 'team_member';
+  const shifts = (shiftRows || [])
+    .filter((s: any) => !s.is_time_off)
+    .filter((s: any) => seesFullSchedule || s.user_id === userId);
+
+  const userIds = [...new Set(shifts.map((s: any) => s.user_id).filter(Boolean))] as string[];
   const profileMap = new Map<string, any>();
   if (userIds.length) {
     const { data: profiles } = await sb.from('profiles').select('id, full_name, nickname').in('id', userIds);
     (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
   }
 
+  // Who is on the clock: the ONE read (_shared/onClock.ts). Punch times are read
+  // separately for display only.
+  let onClock = new Set<string>();
+  try {
+    onClock = new Set(await clockedInUserIds(sb, locationId));
+  } catch (e) {
+    console.error('[watch-device-service] onClock read failed', e);
+  }
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  type Live = { clockIn?: string; clockOut?: string; breakStart?: string; onBreak?: boolean };
+  const liveByUser = new Map<string, Live>();
+  if (userIds.length) {
+    const { data: source } = await sb.rpc('labor_source_for', { _location_id: locationId });
+    if (source === 'toast') {
+      const { data: ts } = await sb.from('toast_shifts')
+        .select('croo_user_id, in_time, out_time')
+        .eq('location_id', locationId).in('croo_user_id', userIds).gte('in_time', since).order('in_time');
+      for (const r of ts || []) {
+        liveByUser.set(r.croo_user_id, { clockIn: r.in_time || undefined, clockOut: r.out_time || undefined });
+      }
+    } else {
+      const { data: punches } = await sb.from('time_punches')
+        .select('user_id, punch_type, punch_time')
+        .eq('location_id', locationId).in('user_id', userIds).gte('punch_time', since).order('punch_time');
+      const byUser: Record<string, any[]> = {};
+      for (const p of punches || []) (byUser[p.user_id] ||= []).push(p);
+      for (const [uid, ps] of Object.entries(byUser)) {
+        const lastInIdx = ps.map((p) => p.punch_type).lastIndexOf('clock_in');
+        if (lastInIdx < 0) continue;
+        const after = ps.slice(lastInIdx + 1);
+        const out = after.find((p) => p.punch_type === 'clock_out');
+        const last = after[after.length - 1];
+        liveByUser.set(uid, {
+          clockIn: ps[lastInIdx].punch_time,
+          clockOut: out?.punch_time,
+          onBreak: !out && last?.punch_type === 'break_start',
+          breakStart: !out && last?.punch_type === 'break_start' ? last.punch_time : undefined,
+        });
+      }
+    }
+  }
+
   const fmtTime = (t?: string | null) => {
     if (!t) return '';
     const dt = DateTime.fromFormat(String(t).slice(0, 5), 'HH:mm');
-    return dt.isValid ? dt.toFormat('h:mma').replace(':00', '').toLowerCase() : String(t);
+    return dt.isValid ? dt.toFormat('h:mma').replace(':00', '').replace('AM', 'a').replace('PM', 'p') : String(t);
   };
+  const fmtStamp = (iso?: string) => {
+    if (!iso) return '';
+    const dt = DateTime.fromISO(iso).setZone(tz);
+    return dt.isValid ? dt.toFormat('h:mma').replace('AM', 'a').replace('PM', 'p') : '';
+  };
+  const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
 
   const clock = storeNow(tz);
   const nowMinutes = clock.hour * 60 + clock.minute;
@@ -351,32 +450,128 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const schedule = shifts
     .map((s: any) => {
       const p = profileMap.get(s.user_id);
+      const name = s.user_id ? (p?.nickname || p?.full_name || 'Team member') : 'Open Shift';
       const start = toMinutes(s.start_time);
       let end = toMinutes(s.end_time);
-      // Overnight shift: end wraps past midnight.
-      if (start !== null && end !== null && end < start) end += 24 * 60;
-      const hours = start !== null && end !== null
-        ? Math.round(((end - start) / 60) * 100) / 100
-        : 0;
+      if (start !== null && end !== null && end < start) end += 24 * 60; // overnight
+      const hours = start !== null && end !== null ? Math.round(((end - start) / 60) * 100) / 100 : 0;
+      const live = (s.user_id && liveByUser.get(s.user_id)) || {};
+      const isOn = !!s.user_id && onClock.has(s.user_id);
+
       let status = 'later';
-      if (start !== null && end !== null) {
+      let liveLabel = '';
+      if (isOn && live.onBreak) { status = 'break'; liveLabel = `On break · ${fmtStamp(live.breakStart)}`; }
+      else if (isOn) { status = 'active'; liveLabel = live.clockIn ? `In ${fmtStamp(live.clockIn)}` : 'Clocked in'; }
+      else if (live.clockIn && live.clockOut) { status = 'completed'; liveLabel = `Out ${fmtStamp(live.clockOut)}`; }
+      else if (start !== null && end !== null) {
         if (nowMinutes >= end) status = 'completed';
-        else if (nowMinutes >= start) status = 'active';
+        else if (nowMinutes >= start) { status = 'late'; liveLabel = 'Not in yet'; }
       }
+
       return {
         id: s.id,
-        name: (p?.nickname || p?.full_name || 'Open Shift'),
-        role: s.template?.name || '',
+        name,
+        initials: s.user_id ? initialsOf(name) : '—',
+        role: s.template?.template_name || '',
         time: [fmtTime(s.start_time), fmtTime(s.end_time)].filter(Boolean).join(' – '),
         status,
+        live: liveLabel,
         hours,
-        isMe: false,
+        isMe: !!userId && s.user_id === userId,
         _sort: s.start_time || '',
       };
     })
     .sort((a: any, b: any) => String(a._sort).localeCompare(String(b._sort)))
     .map(({ _sort, ...rest }: any) => rest);
 
+  const scheduleSummary = {
+    onNow: schedule.filter((s: any) => s.status === 'active' || s.status === 'break').length,
+    later: schedule.filter((s: any) => s.status === 'later' || s.status === 'late').length,
+    totalHours: Math.round(schedule.reduce((t: number, s: any) => t + (s.hours || 0), 0) * 10) / 10,
+  };
+
+  // ---------------- sales summary, shaped like the dashboard Sales Summary widget
+  const [{ data: cmpData }, { data: totData }] = await Promise.all([
+    sb.rpc('get_sales_comparisons', { _location_id: locationId, _date: today }),
+    sb.rpc('get_sales_ly_totals', { _location_id: locationId, _date: today }),
+  ]);
+  const cmp = Array.isArray(cmpData) ? cmpData[0] : cmpData;
+  const tot = Array.isArray(totData) ? totData[0] : totData;
+
+  // LY "at this point": last year's same business date through the current store hour.
+  let lyThrough = 0;
+  for (const h of (Array.isArray(cmp?.ly_hourly_data) ? cmp.ly_hourly_data : [])) {
+    const hs = String(h?.hour ?? '');
+    const hn = parseInt(hs.includes(':') ? hs.split(':')[0] : hs, 10);
+    if (Number.isFinite(hn) && hn <= clock.hour) lyThrough += Number(h?.sales) || 0;
+  }
+  const lyFullDay = cmp?.ly_net_sales != null ? Number(cmp.ly_net_sales) : undefined;
+  const lyAt = lyThrough > 0 ? {
+    day: lyThrough,
+    week: cmp?.ly_wtd_net != null && lyFullDay !== undefined ? Math.max(0, Number(cmp.ly_wtd_net) - lyFullDay + lyThrough) : undefined,
+    month: cmp?.ly_mtd_net != null && lyFullDay !== undefined ? Math.max(0, Number(cmp.ly_mtd_net) - lyFullDay + lyThrough) : undefined,
+  } : {};
+
+  const money = (v?: number) => (v == null || Number.isNaN(v) ? '—' : `$${Math.round(v).toLocaleString('en-US')}`);
+  const moneyCents = (v?: number) => (v == null || Number.isNaN(v) ? '—' : `$${v.toFixed(2)}`);
+  const count = (v?: number) => (v == null || Number.isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US'));
+  const goalSum = (from: string, to: string) => {
+    const v = inRange(from, to).reduce((t, r) => t + (projectionFor(r) || 0), 0);
+    return v > 0 ? v : undefined;
+  };
+  // Same thresholds as getPaceStatus in SalesSummary.tsx.
+  const paceStatus = (actual?: number, pace?: number, goal?: number) => {
+    if (!actual || actual < 100 || !pace || pace <= 0 || !goal || goal <= 0) return null;
+    const r = (pace / goal) * 100;
+    return r >= 102 ? 'On Fire' : r >= 95 ? 'On Track' : 'Behind';
+  };
+  const vsLy = (salesNow?: number, ly?: number) => (salesNow != null && ly ? (salesNow / ly - 1) * 100 : undefined);
+  const period = (o: {
+    label: string; sales?: number; goal?: number; pace?: number; lastYear?: number; lyAtPoint?: number;
+    labor: { cost?: number; hours?: number; percent?: number }; pizzas?: number; guests?: number; ticket?: number;
+  }) => {
+    const change = vsLy(o.sales, o.lyAtPoint);
+    return {
+      label: o.label,
+      sales: money(o.sales),
+      status: paceStatus(o.sales, o.pace, o.goal),
+      vsLy: change == null ? null : `${change >= 0 ? '+' : ''}${change.toFixed(1)}% vs LY`,
+      vsLyUp: change == null ? null : change >= 0,
+      lastYear: money(o.lastYear),
+      goal: money(o.goal),
+      pace: money(o.pace),
+      laborPercent: o.labor.percent == null ? '—' : `${o.labor.percent.toFixed(1)}%`,
+      laborCost: money(o.labor.cost),
+      laborHours: o.labor.hours == null ? '—' : `${o.labor.hours.toFixed(1)}h`,
+      pizzas: count(o.pizzas),
+      ticket: moneyCents(o.ticket),
+      guests: count(o.guests),
+    };
+  };
+  const todayPace = dayPace != null ? Math.max(dayPace, dailySales || 0) : undefined;
+  const wtdGuests = values.guest_count_wtd;
+  const mtdGuests = values.guest_count_mtd;
+  const salesSummary = {
+    today: period({
+      label: "TODAY'S SALES", sales: dailySales, goal: projectionFor(todayRow), pace: todayPace,
+      lastYear: tot?.ly_day_total != null ? Number(tot.ly_day_total) : lyFullDay, lyAtPoint: lyAt.day,
+      labor: dayLabor, pizzas: values.pizza_count_today, guests: values.guest_count_today, ticket: values.avg_ticket,
+    }),
+    week: period({
+      label: 'WEEK-TO-DATE', sales: wtdSales || undefined, goal: goalSum(weekStart, weekEnd), pace: values.sales_pace_week,
+      lastYear: tot?.ly_week_total != null ? Number(tot.ly_week_total) : lyWeek, lyAtPoint: lyAt.week,
+      labor: weekLabor, pizzas: values.pizza_count_wtd, guests: wtdGuests,
+      ticket: wtdGuests ? (wtdSales || 0) / wtdGuests : undefined,
+    }),
+    month: period({
+      label: 'MONTH-TO-DATE', sales: mtdSales || undefined, goal: goalSum(monthStart, monthEnd), pace: values.sales_pace_month,
+      lastYear: tot?.ly_month_total != null ? Number(tot.ly_month_total) : lyMonth, lyAtPoint: lyAt.month,
+      labor: monthLabor, pizzas: values.pizza_count_mtd, guests: mtdGuests,
+      ticket: mtdGuests ? (mtdSales || 0) / mtdGuests : undefined,
+    }),
+    wtd: money(wtdSales || undefined),
+    mtd: money(mtdSales || undefined),
+  };
 
   const SALES_SUMMARY_METRICS = [
     'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_year_day',
@@ -385,12 +580,15 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   ];
 
   return {
+    version: WATCH_SERVICE_VERSION,
     updatedAt: new Date().toISOString(),
     locationId,
     locationName: location?.name || '',
     cubes,
     schedule,
+    scheduleSummary,
     sales: toMetrics(SALES_SUMMARY_METRICS),
+    salesSummary,
   };
 }
 
@@ -402,6 +600,8 @@ serve(async (req) => {
     const action = body.action || 'snapshot';
     const sb = admin();
 
+    if (action === 'version') return json({ version: WATCH_SERVICE_VERSION });
+
     // -------------------------------------------------- snapshot (device token)
     if (action === 'snapshot') {
       const token = req.headers.get('x-watch-token') || body.token;
@@ -410,7 +610,7 @@ serve(async (req) => {
       const hash = await sha256(String(token));
       const { data: device } = await sb
         .from('watch_devices')
-        .select('id, location_id, label, revoked_at, allowed_location_ids')
+        .select('id, location_id, label, revoked_at, allowed_location_ids, created_by')
         .eq('token_hash', hash)
         .maybeSingle();
 

@@ -25,3 +25,4 @@
 - Manager duplicate punches (2nd clock-out, overlapping break) are blocked only by trigger trg_zz_guard_manager_duplicate_punch (skips kiosk/self/auto); edit screens use src/lib/punchEditGuard.ts. Why: no double-punched shifts.
 - Dashboard daily-task events use todaysScheduleEvents for local-day selection and the same mergeScheduleEvents deduplication as the schedule hook. Why: prevent cross-date events and duplicate template rows without changing schedule screens.
 - SpookifiedEffects is theme/Dashboard-scoped; lightning stays in TheoVoiceOrb. Why: isolate decorations from data and other themes.
+- Apple Watch app (watch/, ios/) is edited and built only on the Mac Studio in Xcode; Lovable never edits watch/ or ios/. Watch data comes only from the watch-device-service snapshot (cubes = the pairing user's own dashboard for that store); the phone only hands over pairing. Why: one source of truth and no merge clashes.

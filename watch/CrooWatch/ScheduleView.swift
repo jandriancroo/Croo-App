@@ -1,12 +1,28 @@
 import SwiftUI
 
-/// Today's published schedule, grouped into NOW / LATER / DONE.
+/// Today's published schedule like the mobile schedule page: who's on now
+/// (clocked in / on break / not in yet), later, and done.
 struct ScheduleView: View {
     @EnvironmentObject var store: WatchDataStore
 
-    private var active: [WatchShift] { store.snapshot.schedule.filter { $0.resolvedStatus == "active" } }
-    private var later: [WatchShift] { store.snapshot.schedule.filter { $0.resolvedStatus == "later" } }
-    private var done: [WatchShift] { store.snapshot.schedule.filter { $0.resolvedStatus == "completed" } }
+    private var shifts: [WatchShift] { store.snapshot.schedule }
+
+    private var onNow: [WatchShift] {
+        let rank: [String: Int] = ["active": 0, "break": 1, "late": 2]
+        return shifts
+            .filter { rank[$0.resolvedStatus] != nil }
+            .sorted { (rank[$0.resolvedStatus] ?? 9) < (rank[$1.resolvedStatus] ?? 9) }
+    }
+    private var later: [WatchShift] { shifts.filter { $0.resolvedStatus == "later" } }
+    private var done: [WatchShift] { shifts.filter { $0.resolvedStatus == "completed" } }
+
+    private var clockedInCount: Int {
+        store.snapshot.scheduleSummary?.onNow
+            ?? shifts.filter { $0.resolvedStatus == "active" || $0.resolvedStatus == "break" }.count
+    }
+    private var totalHours: Double {
+        store.snapshot.scheduleSummary?.totalHours ?? shifts.reduce(0) { $0 + ($1.hours ?? 0) }
+    }
 
     var body: some View {
         Group {
@@ -15,89 +31,174 @@ struct ScheduleView: View {
                     title: "Not Paired",
                     message: "Pair this Watch from CrooHQ on iPhone."
                 )
-            } else if store.snapshot.schedule.isEmpty {
+            } else if shifts.isEmpty {
                 EmptyStateView(
                     title: "No Shifts Today",
                     message: "Today's published schedule will show up here."
                 )
             } else {
                 ScrollView {
-                    VStack(spacing: 8) {
-                        section("Now", shifts: active, tint: .green)
-                        section("Later", shifts: later, tint: .accentColor)
-                        section("Done", shifts: done, tint: .secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        header
+                        chips
+                        section("On now", shifts: onNow, tint: CrooBrand.green)
+                        section("Later", shifts: later, tint: Color.white.opacity(0.6))
+                        section("Done", shifts: done, tint: Color.white.opacity(0.4))
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 2)
                     .padding(.bottom, 8)
                 }
             }
         }
-        .navigationTitle("Today")
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Schedule")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(CrooBrand.tealBright)
+            Spacer()
+            Text(store.currentLocationName)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 6)
+    }
+
+    private var chips: some View {
+        HStack(spacing: 4) {
+            HStack(spacing: 3) {
+                Circle().fill(CrooBrand.green).frame(width: 5, height: 5)
+                Text("\(clockedInCount) on")
+            }
+            .foregroundStyle(CrooBrand.green)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(CrooBrand.green.opacity(0.18)))
+
+            Text("\(later.count) later")
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(CrooBrand.card))
+
+            Text(hoursLabel(totalHours))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(CrooBrand.card))
+        }
+        .font(.system(size: 10, weight: .bold, design: .rounded))
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .padding(.horizontal, 3)
+    }
+
+    private func hoursLabel(_ h: Double) -> String {
+        h.rounded() == h ? String(format: "%.0fh", h) : String(format: "%.1fh", h)
     }
 
     @ViewBuilder
     private func section(_ title: String, shifts: [WatchShift], tint: Color) -> some View {
         if !shifts.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    Text(title.uppercased())
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(tint)
-                    Text("\(shifts.count)")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                ForEach(shifts) { shift in
-                    ShiftRow(shift: shift, tint: tint)
-                }
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .tracking(0.8)
+                .foregroundStyle(tint)
+                .padding(.horizontal, 6)
+                .padding(.top, 4)
+            ForEach(shifts) { shift in
+                ShiftRow(shift: shift)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
 
 private struct ShiftRow: View {
     let shift: WatchShift
-    let tint: Color
+
+    private var status: String { shift.resolvedStatus }
+    private var live: String { shift.live ?? "" }
+
+    private var dot: Color? {
+        switch status {
+        case "active": return CrooBrand.green
+        case "break": return CrooBrand.amber
+        default: return nil
+        }
+    }
+
+    private var subtitle: String {
+        if !live.isEmpty { return live }
+        return shift.role
+    }
+
+    private var subtitleColor: Color {
+        switch status {
+        case "active": return CrooBrand.green
+        case "break": return CrooBrand.amber
+        default: return Color.white.opacity(0.55)
+        }
+    }
+
+    private var background: Color {
+        if shift.isMe { return CrooBrand.tealDeep }
+        return status == "completed" ? CrooBrand.cardDim : CrooBrand.card
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(tint.opacity(shift.resolvedStatus == "completed" ? 0.35 : 0.9))
-                .frame(width: 3)
+        HStack(spacing: 7) {
+            ZStack(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(CrooBrand.avatar)
+                    .frame(width: 26, height: 26)
+                    .overlay(
+                        Text(shift.resolvedInitials)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.9))
+                    )
+                if let dot {
+                    Circle()
+                        .fill(dot)
+                        .frame(width: 8, height: 8)
+                        .overlay(Circle().stroke(background, lineWidth: 1.5))
+                        .offset(x: 1, y: 1)
+                }
+            }
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(shift.name)
-                    .font(.system(size: 13, weight: shift.isMe ? .bold : .semibold))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(shift.isMe ? "You" : shift.name)
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .lineLimit(1)
-                if !shift.role.isEmpty {
-                    Text(shift.role)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(subtitleColor)
                         .lineLimit(1)
                 }
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
 
-            VStack(alignment: .trailing, spacing: 1) {
+            VStack(alignment: .trailing, spacing: 0) {
                 Text(shift.time)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .monospacedDigit()
                     .lineLimit(1)
-                if !shift.hoursLabel.isEmpty {
-                    Text(shift.hoursLabel)
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.tertiary)
+                    .minimumScaleFactor(0.7)
+                if !live.isEmpty && !shift.role.isEmpty {
+                    Text(shift.role)
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.5))
+                        .lineLimit(1)
                 }
             }
         }
-        .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .opacity(shift.resolvedStatus == "completed" ? 0.6 : 1)
+        .padding(.vertical, 7)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(shift.isMe ? 0.16 : 0.08))
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(background)
         )
+        .opacity(status == "completed" ? 0.7 : 1)
     }
 }
