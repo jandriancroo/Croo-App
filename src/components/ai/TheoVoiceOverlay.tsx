@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { pcmBuffer, outputRateFrom } from '@/lib/theoPcm';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 import { TheoVoiceOrb, type TheoVoiceOrbHandle } from './TheoVoiceOrb';
@@ -143,6 +144,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   useEffect(() => { if (open) { setMode(intent); withOpenerRef.current = intent === 'update'; } }, [open, intent]);
   const wsRef = useRef<WebSocket | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
+  // Output PCM rate xAI confirmed for this session (defaults to what we asked for).
+  const outRateRef = useRef(RATE);
   const streamRef = useRef<MediaStream | null>(null);
   const procRef = useRef<ScriptProcessorNode | null>(null);
   const playAtRef = useRef(0);
@@ -341,8 +344,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const playChunk = (f: Float32Array) => {
     const ctx = ctxRef.current;
     if (!ctx || !analyserRef.current) return;
-    const buf = ctx.createBuffer(1, f.length, RATE);
-    buf.getChannelData(0).set(f);
+    // Source rate, not ctx.sampleRate: Web Audio resamples to whatever iOS runs at.
+    const buf = pcmBuffer(ctx, f, outRateRef.current);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(analyserRef.current);
@@ -458,7 +461,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
               ? `${data.instructions}\nThe manager just heard this update read aloud — don't repeat it, just answer what they ask next:\n${heardUpdate}`
               : data.instructions) + earlier,
             turn_detection: { type: 'server_vad', silence_duration_ms: SILENCE_WAIT_MS },
-            audio: { input: { format: { type: 'audio/pcm', rate: RATE } }, output: { format: { type: 'audio/pcm', rate: RATE } } },
+            audio: { input: { format: { type: 'audio/pcm', rate: RATE } }, output: { format: { type: 'audio/pcm', rate: RATE }, speed: 1.2 } },
             tools: [{
               type: 'function',
               name: 'ask_theo',
@@ -477,7 +480,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       ws.onmessage = async (msg) => {
         const ev = JSON.parse(msg.data);
         lastActivityRef.current = Date.now();
-        switch (ev.type) {
+          switch (ev.type) {
+          case 'session.created':
+          case 'session.updated': {
+            const r = outputRateFrom(ev.session);
+            if (r) outRateRef.current = r;
+            console.info('[theo-voice] output rate', outRateRef.current, 'ctx rate', ctxRef.current?.sampleRate);
+            break;
+          }
           case 'response.output_audio.delta':
           case 'response.audio.delta':
             spokeThisResponse = true;
@@ -562,6 +572,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       const ctx = new AudioContext({ sampleRate: RATE });
       void ctx.resume();
       ctxRef.current = ctx;
+      outRateRef.current = RATE;
       playAtRef.current = ctx.currentTime;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
